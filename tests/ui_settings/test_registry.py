@@ -135,9 +135,8 @@ def test_build_ui_settings_registry_rejects_writable_entries_without_preconditio
             ctx=SimpleNamespace(),
             project_config_id=ID("project-1"),
         )
-    assert (
-        "core.invalid_writer writeValue must accept expected_old_value."
-        in str(exc.value)
+    assert "core.invalid_writer writeValue must accept expected_old_value." in str(
+        exc.value
     )
 
 
@@ -477,31 +476,40 @@ async def test_plugin_backend_write_value_validates_old_value_before_write() -> 
         def get_runtime_response(self):
             return self.runtime_response
 
-        def read_backend_ui_setting_value(
+        def compare_and_write_backend_ui_setting_value(
             self,
             *,
             plugin_id: str,
+            setting_id: str,
             read_handler_id: str,
-            project_config_id: ID,
-        ) -> object:
-            assert plugin_id == "plugin-a"
-            assert read_handler_id == "read-enabled"
-            assert project_config_id == ID("project-1")
-            return self.backend_enabled
-
-        def write_backend_ui_setting_value(
-            self,
-            *,
-            plugin_id: str,
             write_handler_id: str,
             project_config_id: ID,
             value: object,
-        ) -> None:
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+            validate_new_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::enabled"
+            assert read_handler_id == "read-enabled"
             assert write_handler_id == "write-enabled"
             assert project_config_id == ID("project-1")
+            if (
+                expected_old_value is not None
+                and expected_old_value != self.backend_enabled
+            ):
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    "mismatch",
+                )
+            old_value = self.backend_enabled
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.backend_write_invocation_count += 1
             self.backend_enabled = value
+            if validate_new_value is not None:
+                validate_new_value(self.backend_enabled)
+            return old_value, self.backend_enabled
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(
@@ -605,7 +613,10 @@ async def test_plugin_write_value_rejects_non_object_root_without_mutation() -> 
     assert exc.value.code == "mutation_failed"
     assert "config root must be an object" in str(exc.value)
     assert plugin_manager.write_invocation_count == 0
-    assert plugin_manager.runtime_response.list.plugins[0].config.currentConfig == "invalid-root"
+    assert (
+        plugin_manager.runtime_response.list.plugins[0].config.currentConfig
+        == "invalid-root"
+    )
 
 
 @pytest.mark.asyncio
@@ -849,31 +860,40 @@ async def test_plugin_backend_write_drift_errors_reference_canonical_setting_id(
         def get_runtime_response(self):
             return self.runtime_response
 
-        def read_backend_ui_setting_value(
+        def compare_and_write_backend_ui_setting_value(
             self,
             *,
             plugin_id: str,
+            setting_id: str,
             read_handler_id: str,
-            project_config_id: ID,
-        ) -> object:
-            assert plugin_id == "plugin-a"
-            assert read_handler_id == "read-enabled"
-            assert project_config_id == ID("project-1")
-            return self.backend_value
-
-        def write_backend_ui_setting_value(
-            self,
-            *,
-            plugin_id: str,
             write_handler_id: str,
             project_config_id: ID,
             value: object,
-        ) -> None:
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+            validate_new_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::public_name"
+            assert read_handler_id == "read-enabled"
             assert write_handler_id == "write-enabled"
             assert project_config_id == ID("project-1")
+            old_value = self.backend_value
+            if expected_old_value is not None and expected_old_value != old_value:
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    (
+                        "UI setting plugin::plugin-a::public_name changed since "
+                        "pre-write validation. Retry with a fresh read before writing."
+                    ),
+                )
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.write_invocation_count += 1
             self.backend_value = value
+            if validate_new_value is not None:
+                validate_new_value(self.backend_value)
+            return old_value, self.backend_value
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(

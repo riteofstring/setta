@@ -369,6 +369,44 @@ async def test_share_sender_prefers_requested_frontend_websocket_for_reveal() ->
 
 
 @pytest.mark.asyncio
+async def test_ui_setting_reveal_socket_selection_ignores_disconnected_frontends() -> (
+    None
+):
+    websocket_manager = WebsocketManager()
+    sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    messages_a: list[Message] = []
+    messages_b: list[Message] = []
+    websocket_a = await _build_websocket(messages_a)
+    websocket_b = await _build_websocket(messages_b)
+    websocket_id_a = await websocket_manager.on_connect(
+        websocket_a,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-a",
+        shareSessionId=None,
+        broadcast_connections=False,
+    )
+    websocket_id_b = await websocket_manager.on_connect(
+        websocket_b,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-b",
+        shareSessionId=None,
+        broadcast_connections=False,
+    )
+    await websocket_b.close()
+    try:
+        listed_ids = sender.list_frontend_websocket_ids_for_ui_setting_reveal()
+        assert listed_ids == [websocket_id_a]
+
+        selected_websocket_id = sender.select_frontend_websocket_for_ui_setting_reveal(
+            preferred_websocket_id=websocket_id_b
+        )
+        assert selected_websocket_id is None
+    finally:
+        await websocket_a.close()
+
+
+@pytest.mark.asyncio
 async def test_share_receiver_emits_realtime_delta() -> None:
     with TemporaryDirectory() as tmpdir:
         websocket_manager = WebsocketManager()

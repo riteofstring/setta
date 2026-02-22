@@ -4150,6 +4150,8 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
                 self._plugin_codegen_output_root(new_name)
             )
+        await self.broadcast_all_project_metadata()
+        self.perform_manual_save()
         return old_name, new_name
 
     @enqueue_method

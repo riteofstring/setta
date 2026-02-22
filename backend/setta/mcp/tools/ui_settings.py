@@ -689,11 +689,13 @@ async def _reveal_settings(
             for step in resolved_runtime_entry.metadata.revealActivationSteps
         ],
     )
+    frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     share_session_id = _resolve_share_session_id(ctx)
+    if not bool(getattr(frontend_sender, "share_mode", False)):
+        share_session_id = None
     preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
     if share_session_id is not None:
         preferred_frontend_websocket_id = None
-    frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     available_frontend_websocket_ids = (
         frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
             share_session_id=share_session_id
@@ -754,14 +756,16 @@ async def _reveal_settings(
                 )
             ],
         )
-    previous_active_ids_for_rollback: list[ID] | None = None
+    rollback_previous_active_ids: list[ID] | None = None
+    rollback_owned_active_ids: list[ID] | None = None
     if section_id_pending_activation is not None:
         refreshed_project_state = manager.get_single_config_state(project_config_id)
         target_active_ids = [section_id_pending_activation]
         if refreshed_project_state.projectConfig.activeIds != target_active_ids:
-            previous_active_ids_for_rollback = list(
+            rollback_previous_active_ids = list(
                 refreshed_project_state.projectConfig.activeIds
             )
+            rollback_owned_active_ids = list(target_active_ids)
         section_error = await _activate_section_for_reveal(
             manager=manager,
             project_config_id=project_config_id,
@@ -784,12 +788,13 @@ async def _reveal_settings(
             )
 
     async def _rollback_pending_section_activation() -> None:
-        if previous_active_ids_for_rollback is None:
+        if rollback_previous_active_ids is None or rollback_owned_active_ids is None:
             return
-        await _set_active_ids_for_reveal(
+        await _rollback_reveal_section_activation_if_owned(
             manager=manager,
             project_config_id=project_config_id,
-            active_ids=previous_active_ids_for_rollback,
+            previous_active_ids=rollback_previous_active_ids,
+            owned_temporary_active_ids=rollback_owned_active_ids,
         )
 
     reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
@@ -1031,6 +1036,24 @@ async def _set_active_ids_for_reveal(
         broadcast_name_validation_errors=False,
         validate_name_rules=False,
     )
+
+
+async def _rollback_reveal_section_activation_if_owned(
+    *,
+    manager,
+    project_config_id: ID,
+    previous_active_ids: list[ID],
+    owned_temporary_active_ids: list[ID],
+) -> bool:
+    refreshed_project_state = manager.get_single_config_state(project_config_id)
+    if refreshed_project_state.projectConfig.activeIds != owned_temporary_active_ids:
+        return False
+    await _set_active_ids_for_reveal(
+        manager=manager,
+        project_config_id=project_config_id,
+        active_ids=previous_active_ids,
+    )
+    return True
 
 
 def _resolve_right_pane_incompatible_tab_error(

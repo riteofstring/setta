@@ -3,6 +3,8 @@ import os
 from collections.abc import Mapping
 from typing import Literal
 
+from starlette.websockets import WebSocketState
+
 from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
@@ -128,6 +130,8 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         websocket_ids: list[str] = []
         for websocket_id, connection_info in self.websocket_manager.sockets.items():
             if connection_info.connectionType is not WebsocketConnectionType.FRONTEND:
+                continue
+            if connection_info.websocket.application_state != WebSocketState.CONNECTED:
                 continue
             if self.share_mode:
                 if resolved_share_session_id is None:

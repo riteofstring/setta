@@ -81,7 +81,10 @@ async def stream_app_definition(
     if not patches.strip():
         raise InvalidToolArgumentsError("patches must be non-empty.")
 
-    ops = parse_patch_lines(patches)
+    try:
+        ops = parse_patch_lines(patches)
+    except ValueError as exc:
+        raise InvalidToolArgumentsError(f"Invalid patches payload: {exc}") from exc
 
     manager = ctx.fastmcp.state.project_manager_switcher.main
     if manager is None:
@@ -99,7 +102,10 @@ async def stream_app_definition(
             )
         initial_spec = baseAppSpec
 
-    app_spec = apply_patch_ops(ops, initial_spec=initial_spec)
+    try:
+        app_spec = apply_patch_ops(ops, initial_spec=initial_spec)
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise InvalidToolArgumentsError(f"Invalid patches payload: {exc}") from exc
     return await manager.set_app_definition(
         SetAppDefinitionRequest(
             appSpec=app_spec,

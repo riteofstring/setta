@@ -56,6 +56,18 @@ class TestReadFileRangeTool:
         with pytest.raises(FileNotFoundError):
             read_file_range(path="missing.txt", workspace_root=self.workspace_root)
 
+    def test_non_utf8_file_raises_invalid_tool_arguments(self) -> None:
+        non_utf8_path = self.workspace_root / "binary.dat"
+        non_utf8_path.write_bytes(b"\xff\xfe\xfa")
+
+        with pytest.raises(
+            InvalidToolArgumentsError, match="File is not UTF-8 encoded"
+        ):
+            read_file_range(
+                path=str(non_utf8_path),
+                workspace_root=self.workspace_root,
+            )
+
     def test_rejects_relative_escape_outside_workspace_root(self) -> None:
         with pytest.raises(InvalidToolArgumentsError, match="within the project root"):
             read_file_range(path="../outside.txt", workspace_root=self.workspace_root)

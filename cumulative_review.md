@@ -389,3 +389,38 @@
 4. UX after: stale writes fail at commit boundary and do not clobber newer updates.
 5. DX before: split precondition/mutation logic across layers made concurrency behavior difficult to reason about.
 6. DX after: one compare-and-set boundary per setting class and one share-routing contract simplify debugging and retry logic.
+
+## 2026-02-25 20:18:42 PST
+
+### Consolidated Findings
+1. Right-pane reveal rollback still lacked ownership checks, so failure-path rollback could overwrite newer user-driven `activeIds`.
+2. Reveal routing ambiguity and target selection still considered stale frontend sockets by presence rather than deliverability (`CONNECTED` state).
+3. IDE-mode routing still accepted caller-provided `shareSessionId` metadata, allowing non-authoritative share-scope influence.
+4. `core.project.name` mutation semantics were still split by entrypoint, so rename side effects (metadata broadcast + persistence) were inconsistent.
+5. MCP caller-contract failures were still leaking as server faults in key paths (`read_file_range` non-UTF8 decode and `stream_app_definition` malformed/invalid patches).
+6. Backend plugin UI-setting compare-and-write still allowed post-write schema-invalid outcomes without transactional failure semantics.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added reveal rollback ownership gating: rollback now executes only when current `activeIds` still match reveal-owned temporary activation state.
+2. Enforced reveal candidate filtering to deliverable frontend sockets (`WebSocketState.CONNECTED`) before ambiguity checks and selection.
+3. Made share-session scope server-authoritative in IDE mode by ignoring caller/meta `shareSessionId` unless deployment/share scope is active.
+4. Unified project rename commit semantics by moving route rename to manager compare-and-set flow and ensuring that flow always broadcasts metadata and persists.
+5. Normalized MCP argument-contract errors:
+   - `read_file_range` now maps decode-time UTF-8 failures to `InvalidToolArgumentsError`.
+   - `stream_app_definition` now maps patch parse/apply validation failures to `InvalidToolArgumentsError`.
+6. Extended backend plugin UI-setting compare-and-write with schema validation callbacks for old/new values and explicit rollback semantics for invalid post-write outcomes, including rollback-failure diagnostics.
+7. Added/updated backend unit+integration coverage and Playwright E2E coverage for reveal concurrency safety, routing authority, argument classification, rename durability, and plugin write rollback semantics.
+
+### UX/DX Before and After
+1. UX before: reveal timeout/failure could jump focus back to stale section selections after user navigation.
+2. UX after: reveal failure paths preserve newer `activeIds` and remain side-effect free with respect to superseding navigation.
+3. UX before: ambiguity errors and reveal targeting could fail intermittently during reconnect/disconnect churn.
+4. UX after: ambiguity and routing decisions reflect live, deliverable frontend sockets only.
+5. UX before: IDE requests carrying `shareSessionId` metadata could influence routing mode unexpectedly.
+6. UX after: IDE routing remains deterministic and server-authoritative unless runtime is truly in deployment/share scope.
+7. UX before: project-name writes via UI-setting path could diverge from route rename visibility/persistence behavior.
+8. UX after: rename behavior is uniform across entrypoints and survives reload/restart consistently.
+9. DX before: caller input mistakes and server/runtime faults were still partially conflated in tools-call status mapping.
+10. DX after: contract failures are consistently classified as `422 InvalidToolArguments`, improving telemetry and triage boundaries.
+11. DX before: backend plugin UI-setting failures could return after committing schema-invalid state with unclear recovery.
+12. DX after: post-write invalid states trigger explicit rollback attempts and explicit error classes for rollback success/failure paths.

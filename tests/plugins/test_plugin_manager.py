@@ -1227,7 +1227,9 @@ def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
     assert update_error.value.code == "PLUGIN_MANAGED_EXTERNALLY"
 
 
-def test_write_lockfile_excludes_package_manager_managed_plugins(tmp_path: Path) -> None:
+def test_write_lockfile_excludes_package_manager_managed_plugins(
+    tmp_path: Path,
+) -> None:
     # Lockfiles should include only Setta-managed lifecycle entries.
     package_name = "setta-fixture-frontend"
     version = "0.1.0"
@@ -3976,7 +3978,9 @@ def test_runtime_response_redacted_config_does_not_load_plugin_state(
     )
 
     def _fail_load_plugins_state() -> Any:
-        raise AssertionError("plugins state should not be loaded for redacted config payloads")
+        raise AssertionError(
+            "plugins state should not be loaded for redacted config payloads"
+        )
 
     monkeypatch.setattr(manager, "_load_plugins_state", _fail_load_plugins_state)
 
@@ -4633,7 +4637,10 @@ def test_list_response_encodes_plugin_frontend_asset_urls(tmp_path: Path) -> Non
     assert len(listed) == 1
     entrypoint_url = listed[0].frontend.entrypointUrl
     assert entrypoint_url is not None
-    assert "/plugins/setta-fixture-frontend-encoded/frontend/dist/entry%20%23main.js" in entrypoint_url
+    assert (
+        "/plugins/setta-fixture-frontend-encoded/frontend/dist/entry%20%23main.js"
+        in entrypoint_url
+    )
     assert "#" not in entrypoint_url
     assert "v=" in entrypoint_url
 
@@ -4746,7 +4753,9 @@ def test_load_plugins_state_uses_cache_and_invalidates_on_file_change(
 
     def _patched_read_text(self: Path, *args, **kwargs) -> str:
         if self == plugins_state_path:
-            raise AssertionError("Expected cached plugins_state load to skip file reads.")
+            raise AssertionError(
+                "Expected cached plugins_state load to skip file reads."
+            )
         return original_read_text(self, *args, **kwargs)
 
     with monkeypatch.context() as scope:
@@ -6313,7 +6322,9 @@ def test_link_plugin_conflict_fails_before_backend_runtime_prepare(
     def _patched_prepare_backend_runtime(**_kwargs):
         nonlocal prepare_calls
         prepare_calls += 1
-        raise AssertionError("backend runtime prepare should not run on target conflicts")
+        raise AssertionError(
+            "backend runtime prepare should not run on target conflicts"
+        )
 
     monkeypatch.setattr(
         manager,
@@ -6367,7 +6378,9 @@ def test_install_plugin_conflict_fails_before_backend_runtime_prepare(
     def _patched_prepare_backend_runtime(**_kwargs):
         nonlocal prepare_calls
         prepare_calls += 1
-        raise AssertionError("backend runtime prepare should not run on target conflicts")
+        raise AssertionError(
+            "backend runtime prepare should not run on target conflicts"
+        )
 
     monkeypatch.setattr(manager, "_candidate_from_pypi", _patched_candidate_from_pypi)
     monkeypatch.setattr(
@@ -6578,7 +6591,9 @@ def test_prepare_backend_runtime_uses_precomputed_dependency_inputs(
     def _fail_build_worker_dependencies() -> list[str]:
         raise AssertionError("worker dependency build should be bypassed")
 
-    monkeypatch.setattr(manager, "_read_backend_dependencies", _fail_read_backend_dependencies)
+    monkeypatch.setattr(
+        manager, "_read_backend_dependencies", _fail_read_backend_dependencies
+    )
     monkeypatch.setattr(
         manager,
         "_build_backend_worker_runtime_dependencies",
@@ -9302,6 +9317,194 @@ def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
     assert observed_new_value is True
 
 
+def test_backend_ui_setting_compare_and_write_rolls_back_when_post_write_validation_fails(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-invalid-new-value-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-invalid-new"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Invalid New Value Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    if value is True:\n"
+        "        _STATE['enabled'] = 'invalid-value'\n"
+        "    else:\n"
+        "        _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registration = manager.get_backend_ui_settings(plugin_id=plugin_id)[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    def _validate_boolean(value: object) -> None:
+        if not isinstance(value, bool):
+            raise ValueError("Expected boolean value.")
+
+    with pytest.raises(PluginManagerError) as post_write_error:
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id=plugin_id,
+            setting_id=f"plugin.{plugin_id}.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+            validate_old_value=_validate_boolean,
+            validate_new_value=_validate_boolean,
+        )
+    assert (
+        post_write_error.value.code
+        == "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_FAILED"
+    )
+    assert "Rollback restored the previous value." in post_write_error.value.message
+
+    rolled_back_value = manager.read_backend_ui_setting_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert rolled_back_value is False
+
+
+def test_backend_ui_setting_compare_and_write_reports_rollback_failure_after_invalid_post_write_value(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-rollback-failure-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-rollback-failure"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Rollback Failure Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    if value is True:\n"
+        "        _STATE['enabled'] = 'invalid-value'\n"
+        "        return {'ok': True}\n"
+        "    if value is False:\n"
+        "        raise RuntimeError('rollback write failed')\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registration = manager.get_backend_ui_settings(plugin_id=plugin_id)[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    def _validate_boolean(value: object) -> None:
+        if not isinstance(value, bool):
+            raise ValueError("Expected boolean value.")
+
+    with pytest.raises(PluginManagerError) as rollback_failure_error:
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id=plugin_id,
+            setting_id=f"plugin.{plugin_id}.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+            validate_old_value=_validate_boolean,
+            validate_new_value=_validate_boolean,
+        )
+    assert (
+        rollback_failure_error.value.code
+        == "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_ROLLBACK_FAILED"
+    )
+    assert "Rollback failed" in rollback_failure_error.value.message
+
+    persisted_value = manager.read_backend_ui_setting_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert persisted_value == "invalid-value"
+
+
 def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserves_keys(
     tmp_path: Path,
 ) -> None:
@@ -9333,13 +9536,15 @@ def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserve
     )
     assert "changed since pre-write validation" in stale_write_error.value.message
 
-    first_old_value, first_new_value = manager.compare_and_write_plugin_config_path_value(
-        plugin_id="setta-fixture-full",
-        setting_id="plugin::setta-fixture-full::enabled",
-        config_path=["enabled"],
-        default_value=False,
-        value=True,
-        expected_old_value=False,
+    first_old_value, first_new_value = (
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=True,
+            expected_old_value=False,
+        )
     )
     assert first_old_value is False
     assert first_new_value is True

@@ -135,8 +135,25 @@ def resolve_share_session_id_from_ctx(ctx: Context) -> str | None:
             )
             if normalized_resolved_share_session_id is not None:
                 return normalized_resolved_share_session_id
+    if not _is_share_scope_enabled(ctx):
+        return None
     meta = resolve_request_meta(ctx)
     return _normalize_non_empty_string(meta.get("shareSessionId"))
+
+
+def _is_share_scope_enabled(ctx: Context) -> bool:
+    fastmcp = getattr(ctx, "fastmcp", None)
+    if fastmcp is None:
+        return False
+    state = getattr(fastmcp, "state", None)
+    if state is None:
+        return False
+    if bool(getattr(state, "deployment_mode", False)):
+        return True
+    frontend_sender = getattr(state, "wmh_frontend_sender", None)
+    if frontend_sender is None:
+        return False
+    return bool(getattr(frontend_sender, "share_mode", False))
 
 
 def resolve_frontend_websocket_id_from_ctx(ctx: Context) -> str | None:

@@ -16,6 +16,7 @@ const PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID =
   "core.project_ai_settings.prompt_templates";
 const PROJECT_AI_EXTERNAL_AGENTS_SETTING_ID =
   "core.project_ai_settings.external_agents";
+const PROJECT_NAME_SETTING_ID = "core.project.name";
 const PYTHON_CODEGEN_SETTING_ID =
   "core.run_instructions.python_codegen_enabled";
 
@@ -46,6 +47,13 @@ type RevealUISettingResult = {
   statuses: Array<{
     status: "revealed" | "failed";
     error: ToolError | null;
+  }>;
+};
+
+type ProjectMetadataResponse = {
+  projectMetadata: Array<{
+    id: string;
+    name: string;
   }>;
 };
 
@@ -107,6 +115,82 @@ async function callMcpTool<TStructured>(
   }
   throw new Error(`Missing structured or JSON text result for ${tool}.`);
 }
+
+test("core project-name UI setting persists metadata after rename", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const initialValueResult = await callMcpTool<GetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "get_ui_setting_value",
+      {
+        settingId: PROJECT_NAME_SETTING_ID,
+      },
+    );
+    expect(initialValueResult.error).toBeNull();
+    if (typeof initialValueResult.value !== "string") {
+      throw new Error(
+        `Expected string value for ${PROJECT_NAME_SETTING_ID}, got: ${JSON.stringify(initialValueResult)}`,
+      );
+    }
+    const renamedProjectName = `${initialValueResult.value}-mcp`;
+
+    const renameResult = await callMcpTool<SetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "set_ui_setting_value",
+      {
+        settingId: PROJECT_NAME_SETTING_ID,
+        value: renamedProjectName,
+      },
+    );
+    expect(renameResult.error).toBeNull();
+    expect(renameResult.newValue).toBe(renamedProjectName);
+
+    const metadataAfterRenameResponse = await page.request.post(
+      `${BACKEND_ORIGIN}/api/loadAllProjectMetadata`,
+      {
+        data: {},
+        timeout: 15000,
+      },
+    );
+    expect(metadataAfterRenameResponse.ok()).toBeTruthy();
+    const metadataAfterRename =
+      (await metadataAfterRenameResponse.json()) as ProjectMetadataResponse;
+    const renamedEntry = metadataAfterRename.projectMetadata.find(
+      (entry) => entry.id === projectContext.projectConfigId,
+    );
+    expect(renamedEntry?.name).toBe(renamedProjectName);
+
+    const renamedProjectUrl = new URL(page.url());
+    renamedProjectUrl.pathname = `/${encodeURIComponent(renamedProjectName)}`;
+    await page.goto(renamedProjectUrl.toString(), {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForSelector(".react-flow__pane");
+
+    const metadataAfterReloadResponse = await page.request.post(
+      `${BACKEND_ORIGIN}/api/loadAllProjectMetadata`,
+      {
+        data: {},
+        timeout: 15000,
+      },
+    );
+    expect(metadataAfterReloadResponse.ok()).toBeTruthy();
+    const metadataAfterReload =
+      (await metadataAfterReloadResponse.json()) as ProjectMetadataResponse;
+    const reloadedEntry = metadataAfterReload.projectMetadata.find(
+      (entry) => entry.id === projectContext.projectConfigId,
+    );
+    expect(reloadedEntry?.name).toBe(renamedProjectName);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
 
 test("core UI-setting tools support search/get/set/reveal and validation errors", async ({
   page,
@@ -408,9 +492,9 @@ test("core reveal_ui_setting fails when requested project does not match active 
     expect(revealResult.statuses[0]?.error?.message).toContain(
       `requested project ${firstProjectContext.projectConfigId} but active project is ${secondProjectContext.projectConfigId}`,
     );
-    await expect(page.locator(".setta-ui-setting-reveal-highlight")).toHaveCount(
-      0,
-    );
+    await expect(
+      page.locator(".setta-ui-setting-reveal-highlight"),
+    ).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, secondProjectContext);
     await cleanupIsolatedProject(page, firstProjectContext);
@@ -432,8 +516,7 @@ test("core UI-setting tools reject explicit projectConfigId mismatches against a
     firstProjectContext = await openIsolatedProject(page);
     secondProjectContext = await openIsolatedProject(page);
 
-    const mismatchMessage =
-      "does not match agentic context projectConfigId";
+    const mismatchMessage = "does not match agentic context projectConfigId";
     const callMismatchedProject = async (projectConfigId: string) =>
       page.request.post(`${BACKEND_ORIGIN}/__setta__/tools/call`, {
         data: {

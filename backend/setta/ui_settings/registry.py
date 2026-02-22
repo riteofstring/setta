@@ -1045,6 +1045,7 @@ def _build_backend_plugin_runtime_entry(
             read_handler_id=registration.readHandlerId,
             write_handler_id=registration.writeHandlerId,
             plugin_manager=plugin_manager,
+            value_schema=value_schema,
         )
     )
     return UISettingRuntimeEntry(
@@ -1188,6 +1189,7 @@ def _build_plugin_backend_write_value(
     read_handler_id: str,
     write_handler_id: str,
     plugin_manager,
+    value_schema: UISettingValueSchema,
 ):
     async def _write_plugin_backend_value(
         ctx: "Context",
@@ -1199,6 +1201,10 @@ def _build_plugin_backend_write_value(
             ctx=ctx,
             plugin_id=plugin_id,
         )
+
+        def _validate_backend_value(observed_value: JSONValue) -> None:
+            validate_ui_setting_value(value_schema, observed_value)
+
         try:
             old_value, new_value = (
                 plugin_manager.compare_and_write_backend_ui_setting_value(
@@ -1209,6 +1215,8 @@ def _build_plugin_backend_write_value(
                     project_config_id=project_config_id,
                     value=value,
                     expected_old_value=expected_old_value,
+                    validate_old_value=_validate_backend_value,
+                    validate_new_value=_validate_backend_value,
                 )
             )
         except PluginManagerError as exc:
@@ -1236,6 +1244,8 @@ def _convert_plugin_manager_error_for_ui_setting(
     if exc.code in {
         "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
         "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_FAILED",
+        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_ROLLBACK_FAILED",
     }:
         return UISettingValidationError(
             "mutation_failed",

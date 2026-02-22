@@ -41,15 +41,20 @@ def read_file_range(
             f"File is not UTF-8 encoded: {file_path}"
         ) from exc
 
-    with handle:
-        for line_number, raw_line in enumerate(handle, start=1):
-            if line_number >= resolved_start and (
-                resolved_end is None or line_number <= resolved_end
-            ):
-                snippet_lines.append(raw_line.rstrip("\r\n"))
-                realized_end_line = line_number
-            if resolved_end is not None and line_number >= resolved_end:
-                break
+    try:
+        with handle:
+            for line_number, raw_line in enumerate(handle, start=1):
+                if line_number >= resolved_start and (
+                    resolved_end is None or line_number <= resolved_end
+                ):
+                    snippet_lines.append(raw_line.rstrip("\r\n"))
+                    realized_end_line = line_number
+                if resolved_end is not None and line_number >= resolved_end:
+                    break
+    except UnicodeDecodeError as exc:
+        raise InvalidToolArgumentsError(
+            f"File is not UTF-8 encoded: {file_path}"
+        ) from exc
 
     base = _workspace_root(workspace_root)
     relative_path = _relative_to_workspace(file_path, base)

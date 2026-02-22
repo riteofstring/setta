@@ -864,6 +864,8 @@ class SettaFastMCP(FastMCP):
         return getattr(request_context, "session", None)
 
     def _resolve_share_session_id(self, ctx: Context) -> str | None:
+        if not self.state.deployment_mode:
+            return None
         meta = ctx.request_context.meta
         if meta is None:
             return None

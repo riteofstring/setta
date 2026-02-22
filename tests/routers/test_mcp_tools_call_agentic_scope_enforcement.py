@@ -73,9 +73,25 @@ class _StrictProjectManagerSwitcher:
         return self._manager
 
 
+class _ShareSessionRecordingProjectManagerSwitcher:
+    def __init__(self, project_config_id: ID, manager: _DummyProjectManager) -> None:
+        self._project_config_id = project_config_id
+        self._manager = manager
+        self.main = manager
+        self.calls: list[tuple[ID, str | None]] = []
+
+    def get(self, project_config_id: ID, *, share_session_id: str | None = None):
+        self.calls.append((project_config_id, share_session_id))
+        if project_config_id != self._project_config_id:
+            raise KeyError(f"Unexpected project config id: {project_config_id}")
+        return self._manager
+
+
 def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID]:
     settings = SettingsState()
-    single = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="tools-call-scope"))
+    single = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="tools-call-scope")
+    )
     chat_section_id = create_top_level_section(
         settings,
         single,
@@ -175,6 +191,7 @@ async def test_tools_call_blocks_when_agentic_context_missing(tmp_path) -> None:
             "dbe": dbe,
             "share_mode": False,
             "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -251,6 +268,7 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
             "dbe": dbe,
             "share_mode": False,
             "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -288,7 +306,9 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
     assert manager.summary_calls == 0
 
     content = payload.get("content") or []
-    assert isinstance(content, list) and content, "Expected text content in tool result."
+    assert isinstance(content, list) and content, (
+        "Expected text content in tool result."
+    )
     summary_text = content[0].get("text")
     assert isinstance(summary_text, str) and summary_text.strip()
     summary = json.loads(summary_text)
@@ -299,7 +319,10 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
     }
     assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
     assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
-    assert str(canonical_to_temporary[blocked_section_id]) not in summary["parentSectionMap"]
+    assert (
+        str(canonical_to_temporary[blocked_section_id])
+        not in summary["parentSectionMap"]
+    )
 
 
 @pytest.mark.asyncio
@@ -345,6 +368,7 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
             "dbe": dbe,
             "share_mode": False,
             "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -382,7 +406,9 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
     assert manager.summary_calls == 0
 
     content = payload.get("content") or []
-    assert isinstance(content, list) and content, "Expected text content in tool result."
+    assert isinstance(content, list) and content, (
+        "Expected text content in tool result."
+    )
     summary_text = content[0].get("text")
     assert isinstance(summary_text, str) and summary_text.strip()
     summary = json.loads(summary_text)
@@ -393,13 +419,101 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
     }
     assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
     assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
-    assert str(canonical_to_temporary[blocked_section_id]) not in summary["parentSectionMap"]
+    assert (
+        str(canonical_to_temporary[blocked_section_id])
+        not in summary["parentSectionMap"]
+    )
 
 
 @pytest.mark.asyncio
-async def test_tools_call_rejects_ui_setting_project_argument_mismatch(tmp_path) -> (
-    None
-):
+async def test_tools_call_ignores_agentic_share_session_id_in_ide_mode(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_chat_id = canonical_to_temporary[ID("chat-1")]
+    tmp_chat_section_id = canonical_to_temporary[chat_section_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _ShareSessionRecordingProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "get_latest_project_state_summary",
+                "arguments": {"projectConfigId": str(tmp_project_id)},
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_chat_id),
+                    "sectionId": str(tmp_chat_section_id),
+                    "allowUnscoped": True,
+                    "shareSessionId": "caller-supplied-share",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert switcher.calls
+    for _, share_session_id in switcher.calls:
+        assert share_session_id is None
+
+
+@pytest.mark.asyncio
+async def test_tools_call_rejects_ui_setting_project_argument_mismatch(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -483,9 +597,9 @@ async def test_tools_call_rejects_ui_setting_project_argument_mismatch(tmp_path)
     payload = response.json()
     assert payload["detail"]["error"] == "InvalidToolArguments"
     assert "projectConfigId argument" in payload["detail"]["message"]
-    assert "does not match agentic context projectConfigId" in payload["detail"][
-        "message"
-    ]
+    assert (
+        "does not match agentic context projectConfigId" in payload["detail"]["message"]
+    )
 
 
 @pytest.mark.asyncio
@@ -624,6 +738,7 @@ async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> No
             "dbe": dbe,
             "share_mode": False,
             "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -639,6 +754,8 @@ async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> No
     state.mcp_server = mcp_server
     app.state.setta = state
     app.include_router(mcp_tools_router)
+    non_utf8_file = tmp_path / "non_utf8.dat"
+    non_utf8_file.write_bytes(b"\xff\xfe\xfa")
 
     agentic_context = {
         "projectConfigId": str(tmp_project_id),
@@ -673,6 +790,28 @@ async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> No
                 "agenticContext": agentic_context,
             },
         )
+        non_utf8_read_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "read_file_range",
+                "arguments": {
+                    "path": str(non_utf8_file),
+                    "workspace_root": str(tmp_path),
+                },
+                "agenticContext": agentic_context,
+            },
+        )
+        malformed_stream_patch_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "stream_app_definition",
+                "arguments": {
+                    "patches": '{"op":"set","path":"/elements/missing/props/title","value":"Hello"}',
+                    "baseAppSpec": {},
+                },
+                "agenticContext": agentic_context,
+            },
+        )
 
     assert blank_query_response.status_code == 422
     blank_payload = blank_query_response.json()
@@ -688,3 +827,15 @@ async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> No
     outside_payload = outside_workspace_response.json()
     assert outside_payload["detail"]["error"] == "InvalidToolArguments"
     assert "within the project root" in outside_payload["detail"]["message"]
+
+    assert non_utf8_read_response.status_code == 422
+    non_utf8_payload = non_utf8_read_response.json()
+    assert non_utf8_payload["detail"]["error"] == "InvalidToolArguments"
+    assert "not UTF-8 encoded" in non_utf8_payload["detail"]["message"]
+
+    assert malformed_stream_patch_response.status_code == 422
+    malformed_stream_patch_payload = malformed_stream_patch_response.json()
+    assert malformed_stream_patch_payload["detail"]["error"] == "InvalidToolArguments"
+    assert (
+        "Invalid patches payload" in malformed_stream_patch_payload["detail"]["message"]
+    )

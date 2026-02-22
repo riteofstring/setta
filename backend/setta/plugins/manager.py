@@ -1206,6 +1206,8 @@ class PluginManager:
         project_config_id: str,
         value: Any,
         expected_old_value: Any | None = None,
+        validate_old_value: Callable[[Any], None] | None = None,
+        validate_new_value: Callable[[Any], None] | None = None,
     ) -> tuple[Any, Any]:
         observed_old_value = self._read_backend_ui_setting_value_unlocked(
             plugin_id=plugin_id,
@@ -1220,6 +1222,8 @@ class PluginManager:
                     "Retry with a fresh read before writing."
                 ),
             )
+        if validate_old_value is not None:
+            validate_old_value(observed_old_value)
         self._invoke_backend_ui_setting_handler(
             plugin_id=plugin_id,
             handler_id=write_handler_id,
@@ -1232,6 +1236,51 @@ class PluginManager:
             read_handler_id=read_handler_id,
             project_config_id=project_config_id,
         )
+        if validate_new_value is not None:
+            try:
+                validate_new_value(observed_new_value)
+            except Exception as exc:
+                try:
+                    self._invoke_backend_ui_setting_handler(
+                        plugin_id=plugin_id,
+                        handler_id=write_handler_id,
+                        operation="write",
+                        project_config_id=project_config_id,
+                        value=observed_old_value,
+                    )
+                    rolled_back_value = self._read_backend_ui_setting_value_unlocked(
+                        plugin_id=plugin_id,
+                        read_handler_id=read_handler_id,
+                        project_config_id=project_config_id,
+                    )
+                except Exception as rollback_exc:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_ROLLBACK_FAILED",
+                        (
+                            "Plugin backend ui setting write produced an invalid "
+                            f"value for {setting_id}: {exc}. Rollback failed: "
+                            f"{rollback_exc}"
+                        ),
+                    ) from rollback_exc
+
+                if rolled_back_value != observed_old_value:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_ROLLBACK_FAILED",
+                        (
+                            "Plugin backend ui setting write produced an invalid "
+                            f"value for {setting_id}: {exc}. Rollback did not "
+                            "restore the previous value."
+                        ),
+                    )
+
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_FAILED",
+                    (
+                        "Plugin backend ui setting write produced an invalid value "
+                        f"for {setting_id}: {exc}. Rollback restored the previous "
+                        "value."
+                    ),
+                ) from exc
         return observed_old_value, observed_new_value
 
     @_mutation_locked

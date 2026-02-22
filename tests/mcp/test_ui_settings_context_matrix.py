@@ -59,13 +59,17 @@ def _build_ctx(
     agentic_context: AgenticContext | None = None,
     share_session_resolver: Callable[[Context], object] | None = None,
     project_manager_switcher: _RecordingProjectManagerSwitcher | None = None,
+    deployment_mode: bool = False,
 ) -> Context:
     switcher = (
         project_manager_switcher
         if project_manager_switcher is not None
         else _RecordingProjectManagerSwitcher()
     )
-    state = SimpleNamespace(project_manager_switcher=switcher)
+    state = SimpleNamespace(
+        project_manager_switcher=switcher,
+        deployment_mode=deployment_mode,
+    )
     fastmcp = SimpleNamespace(state=state)
     if agentic_context is not None:
         fastmcp._resolve_agentic_context = lambda _ctx: agentic_context
@@ -315,9 +319,9 @@ def test_resolve_frontend_websocket_id_ignores_affinity_in_share_scope(
     ("resolver_mode", "meta_share_session_id", "expected_share_session_id"),
     [
         ("resolved", "share-meta", "share-resolved"),
-        ("resolved_empty", "share-meta", "share-meta"),
-        ("raises", "share-meta", "share-meta"),
-        ("missing", "share-meta", "share-meta"),
+        ("resolved_empty", "share-meta", None),
+        ("raises", "share-meta", None),
+        ("missing", "share-meta", None),
         ("missing", "\t", None),
     ],
 )
@@ -326,7 +330,7 @@ def test_resolve_share_session_id_matrix(
     meta_share_session_id: str | None,
     expected_share_session_id: str | None,
 ) -> None:
-    """Share session resolution must use resolver first and fallback to request meta."""
+    """Share session resolution must ignore request-meta fallback outside share mode."""
 
     def _resolved_share(_ctx: Context) -> object:
         return "share-resolved"
@@ -358,6 +362,15 @@ def test_resolve_share_session_id_matrix(
     assert resolve_share_session_id_from_ctx(ctx) == expected_share_session_id
 
 
+def test_resolve_share_session_id_uses_meta_fallback_in_deployment_mode() -> None:
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        deployment_mode=True,
+    )
+
+    assert resolve_share_session_id_from_ctx(ctx) == "share-meta"
+
+
 def test_resolve_project_manager_from_ctx_uses_resolved_share_session_id() -> None:
     """Project-manager lookup must receive the same share-session scope that reveal uses."""
 
@@ -378,13 +391,35 @@ def test_resolve_project_manager_from_ctx_uses_resolved_share_session_id() -> No
     assert switcher.calls == [(ID("project-a"), "share-resolved")]
 
 
-def test_resolve_project_manager_from_ctx_falls_back_to_meta_share_session_id() -> None:
-    """When no resolver is available, share-session scope must come from request meta."""
+def test_resolve_project_manager_from_ctx_ignores_meta_share_session_id_in_ide_mode() -> (
+    None
+):
+    """IDE mode must not treat caller metadata as authoritative share scope."""
 
     switcher = _RecordingProjectManagerSwitcher()
     ctx = _build_ctx(
         request_meta={"shareSessionId": "share-meta"},
         project_manager_switcher=switcher,
+    )
+
+    resolved_manager = resolve_project_manager_from_ctx(
+        ctx=ctx,
+        project_config_id=ID("project-a"),
+    )
+
+    assert resolved_manager["projectIdentifier"] == ID("project-a")
+    assert resolved_manager["shareSessionId"] is None
+    assert switcher.calls == [(ID("project-a"), None)]
+
+
+def test_resolve_project_manager_from_ctx_uses_meta_share_session_id_in_deployment_mode() -> (
+    None
+):
+    switcher = _RecordingProjectManagerSwitcher()
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        project_manager_switcher=switcher,
+        deployment_mode=True,
     )
 
     resolved_manager = resolve_project_manager_from_ctx(
