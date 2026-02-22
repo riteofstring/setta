@@ -24,3 +24,10 @@
 - Decoupled successful launch/open flows from non-critical metadata persistence by making last-used-workspace updates fail-soft for metadata parse and I/O failures.
 - Corrected release automation reliability by replacing PowerShell-incompatible multiline command syntax with argument-array splatting and by selecting repair-break artifacts from fresh post-update launcher status in smoke tests.
 - Added regression coverage across backend pytest, frontend Vitest, and Playwright for the above invariants, including route handoff behavior, setup payload stability, dot-segment validation, fail-soft metadata updates, and release script contract checks.
+
+## 2026-02-25 16:19:19 PST
+
+- Converted launcher-home routing policy from ad hoc frontend checks to backend-enforced contracts by adding an explicit `require_launcher_mode` dependency and applying it to launcher-home endpoints.
+- Removed duplicated launcher `setta_home` fallback logic by introducing shared backend scope resolution (`resolve_launcher_setta_home`) and wiring it through launcher-home plus launcher management/status routes.
+- Simplified launcher-home bootstrap by deleting the redundant `launcherAppMode` probe call and relying on global server-mode routing with direct launcher API initialization.
+- Updated backend and frontend regression coverage to lock the new contracts (launcher-only access, blank `setta_home` defaulting, and launcher-home e2e flows without the mode probe route).

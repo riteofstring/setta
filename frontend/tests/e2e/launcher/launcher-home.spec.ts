@@ -84,14 +84,6 @@ async function installLauncherHomeMocks(page: Page): Promise<{
     });
   });
 
-  await page.route(`${BACKEND_ORIGIN}/api/launcherAppMode`, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ launcherMode: true }),
-    });
-  });
-
   await page.route(
     `${BACKEND_ORIGIN}/api/launcherRecentWorkspaces*`,
     async (route) => {
@@ -469,7 +461,9 @@ test("launcher home rejects dot-segment project names", async ({ page }) => {
   await page.getByTestId("launcher-new-project-name-input").fill("..");
   await page.getByTestId("launcher-create-project-button").click();
 
-  await expect(page.getByText("Project name cannot be '.' or '..'.")).toBeVisible();
+  await expect(
+    page.getByText("Project name cannot be '.' or '..'."),
+  ).toBeVisible();
   expect(mocks.getLastOpenRequest()).toBeNull();
 });
 
@@ -505,7 +499,10 @@ test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
     for (const byte of encoded) {
       binary += String.fromCharCode(byte);
     }
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return btoa(binary)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
   });
   if (!encodedPayload) {
     throw new Error("Failed to encode launcher handoff payload.");
@@ -519,7 +516,9 @@ test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
   expect(capturedLaunchRequests[0].workspaceRoot).toBe(
     "/Users/demo/projects/from-handoff",
   );
-  await expect(page.getByText("Intentional launcher handoff failure.")).toBeVisible();
+  await expect(
+    page.getByText("Intentional launcher handoff failure."),
+  ).toBeVisible();
   expect(page.url()).not.toContain("pl=");
 });
 

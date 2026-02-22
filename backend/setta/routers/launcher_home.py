@@ -20,14 +20,20 @@ from setta.launcher_workspace_store import (
     set_recent_workspace_pinned,
     upsert_recent_workspace,
 )
-from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
+from setta.routers.dependencies import (
+    AppStateFromRequest,
+    require_ide_mode,
+    require_launcher_mode,
+)
+from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
-from setta.utils.paths import get_setta_paths
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaAPIRouter(
+    dependencies=[Depends(require_ide_mode), Depends(require_launcher_mode)]
+)
 _MAX_DIRECTORY_ENTRIES = 500
 
 
@@ -121,7 +127,7 @@ def route_get_launcher_app_mode(state: AppStateFromRequest) -> LauncherAppModeRe
 def route_get_launcher_recent_workspaces(
     setta_home: str | None = None,
 ) -> LauncherRecentWorkspacesResponse:
-    resolved_setta_home = _resolve_launcher_setta_home(setta_home=setta_home)
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=setta_home)
     try:
         workspaces = load_recent_workspaces(setta_home=resolved_setta_home)
     except LauncherWorkspaceStoreError as exc:
@@ -136,7 +142,7 @@ def route_get_launcher_recent_workspaces(
 def route_add_launcher_recent_workspace(
     x: LauncherRecentWorkspaceRequest,
 ) -> LauncherRecentWorkspacesResponse:
-    resolved_setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     allowed_roots = launcher_allowed_roots()
     try:
         workspace_root = resolve_launcher_path_within_allowed_roots(
@@ -161,7 +167,7 @@ def route_add_launcher_recent_workspace(
 def route_remove_launcher_recent_workspace(
     x: LauncherRecentWorkspaceRequest,
 ) -> LauncherRecentWorkspacesResponse:
-    resolved_setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     allowed_roots = launcher_allowed_roots()
     try:
         workspace_root = resolve_launcher_path_within_allowed_roots(
@@ -185,7 +191,7 @@ def route_remove_launcher_recent_workspace(
 def route_pin_launcher_recent_workspace(
     x: PinLauncherRecentWorkspaceRequest,
 ) -> LauncherRecentWorkspacesResponse:
-    resolved_setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     allowed_roots = launcher_allowed_roots()
     try:
         workspace_root = resolve_launcher_path_within_allowed_roots(
@@ -313,7 +319,7 @@ def route_open_launcher_workspace(
     normalized_setta_home = normalize_optional_argument(x.settaHome)
     normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
     normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
-    resolved_setta_home = _resolve_launcher_setta_home(
+    resolved_setta_home = resolve_launcher_setta_home(
         setta_home=normalized_setta_home
     )
 
@@ -473,15 +479,6 @@ def _launcher_recent_workspaces_error(
         ok=False,
         error=LauncherHomeErrorPayload(code=exc.code, message=str(exc)),
     )
-
-
-def _resolve_launcher_setta_home(*, setta_home: str | None) -> Path:
-    if setta_home is None:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    trimmed = setta_home.strip()
-    if not trimmed:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    return Path(trimmed).expanduser().resolve(strict=False)
 
 
 def _contains_dot_segments(*, raw_path: str) -> bool:

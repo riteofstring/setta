@@ -8,7 +8,7 @@ from setta.routers.launcher_home import router as launcher_home_router
 from setta.types.routes import Route
 
 
-def _build_app(*, deployment_mode: bool = False, launcher_mode: bool = False) -> FastAPI:
+def _build_app(*, deployment_mode: bool = False, launcher_mode: bool = True) -> FastAPI:
     app = FastAPI()
     app.state.setta = SimpleNamespace(
         deployment_mode=deployment_mode,
@@ -29,6 +29,18 @@ def test_get_launcher_app_mode_reports_current_state() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["launcherMode"] is True
+
+
+def test_launcher_home_routes_are_blocked_outside_launcher_mode() -> None:
+    app = _build_app(launcher_mode=False)
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_RECENT_WORKSPACES.value}"
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
 
 
 def test_launcher_recent_workspaces_add_pin_remove_roundtrip(
@@ -116,6 +128,43 @@ def test_get_launcher_recent_workspaces_honors_setta_home_query(
     assert payload["workspaces"][0]["workspaceRoot"] == str(
         workspace.resolve(strict=False)
     )
+
+
+def test_get_launcher_recent_workspaces_blank_scope_uses_backend_default_home(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    default_setta_home = (tmp_path / "default-setta-home").resolve(strict=False)
+    workspace = tmp_path / "workspace-default-home"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(tmp_path))
+    monkeypatch.setattr(
+        "setta.routers.launcher_scope.get_setta_paths",
+        lambda: SimpleNamespace(setta_home=default_setta_home),
+    )
+
+    with TestClient(app) as client:
+        add_response = client.post(
+            f"{Route.PREFIX.value}{Route.ADD_LAUNCHER_RECENT_WORKSPACE.value}",
+            json={"workspaceRoot": str(workspace)},
+        )
+        assert add_response.status_code == 200
+
+        get_response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_RECENT_WORKSPACES.value}",
+            params={"setta_home": "   "},
+        )
+
+    assert get_response.status_code == 200
+    payload = get_response.json()
+    assert payload["ok"] is True
+    assert len(payload["workspaces"]) == 1
+    assert payload["workspaces"][0]["workspaceRoot"] == str(
+        workspace.resolve(strict=False)
+    )
+    assert payload["workspaces"][0]["pinned"] is False
 
 
 def test_launcher_directory_listing_rejects_outside_allowed_roots(
@@ -255,7 +304,7 @@ def test_open_launcher_workspace_uses_backend_setta_home_when_scope_is_omitted(
 
     monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
     monkeypatch.setattr(
-        "setta.routers.launcher_home.get_setta_paths",
+        "setta.routers.launcher_scope.get_setta_paths",
         lambda: SimpleNamespace(setta_home=default_setta_home),
     )
 

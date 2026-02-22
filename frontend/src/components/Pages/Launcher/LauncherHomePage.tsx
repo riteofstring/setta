@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_get_launcher_app_mode,
   route_get_launcher_filesystem_roots,
   route_get_launcher_recent_workspaces,
   route_list_launcher_directory,
@@ -93,10 +92,6 @@ type RecentActionInFlight = "refresh" | "pin" | "remove" | "open" | null;
 
 export function LauncherHomePage() {
   const launcherContext = useMemo(resolveLauncherContextFromQueryParam, []);
-  const [launcherModeVerified, setLauncherModeVerified] = useState(false);
-  const [launcherModeError, setLauncherModeError] = useState<string | null>(
-    null,
-  );
 
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     Array<LauncherRecentWorkspacePayload>
@@ -120,23 +115,6 @@ export function LauncherHomePage() {
   const [newProjectName, setNewProjectName] = useState<string>("");
   const [openError, setOpenError] = useState<string | null>(null);
   const [openInFlight, setOpenInFlight] = useState(false);
-
-  async function loadLauncherMode(): Promise<boolean> {
-    const response = await route_get_launcher_app_mode();
-    if (!res200(response) || !response.data) {
-      setLauncherModeError("Failed to verify launcher mode.");
-      setLauncherModeVerified(false);
-      return false;
-    }
-    if (!response.data.launcherMode) {
-      setLauncherModeError("Backend is not running in launcher mode.");
-      setLauncherModeVerified(false);
-      return false;
-    }
-    setLauncherModeVerified(true);
-    setLauncherModeError(null);
-    return true;
-  }
 
   async function loadRecentWorkspaces() {
     const response = await route_get_launcher_recent_workspaces(
@@ -184,11 +162,6 @@ export function LauncherHomePage() {
   }
 
   async function bootstrapLauncherHome() {
-    setLauncherModeError(null);
-    const modeOk = await loadLauncherMode();
-    if (!modeOk) {
-      return;
-    }
     await Promise.all([
       loadRecentWorkspaces(),
       loadFilesystemRoots(),
@@ -346,205 +319,195 @@ export function LauncherHomePage() {
         </button>
       </header>
 
-      {launcherModeError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-          {launcherModeError}
-        </div>
-      )}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_1.3fr]">
+        <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-setta-700 dark:text-setta-200">
+              Recent Workspaces
+            </h2>
+            <span className="text-xs text-setta-500 dark:text-setta-400">
+              {sortedRecentWorkspaces.length}
+            </span>
+          </div>
 
-      {launcherModeVerified && (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_1.3fr]">
-          <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-setta-700 dark:text-setta-200">
-                Recent Workspaces
-              </h2>
-              <span className="text-xs text-setta-500 dark:text-setta-400">
-                {sortedRecentWorkspaces.length}
-              </span>
+          {recentWorkspacesError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
+              {recentWorkspacesError}
             </div>
+          )}
 
-            {recentWorkspacesError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-                {recentWorkspacesError}
-              </div>
-            )}
-
-            <div
-              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
-              data-testid="launcher-recent-list"
-            >
-              {sortedRecentWorkspaces.length === 0 && (
-                <p className="rounded-md border border-dashed border-setta-200 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-400">
-                  No recent workspaces yet.
-                </p>
-              )}
-
-              {sortedRecentWorkspaces.map((entry) => (
-                <article
-                  key={entry.workspaceRoot}
-                  className="rounded-lg border border-setta-200 bg-setta-50/60 px-3 py-2 dark:border-setta-700 dark:bg-setta-900/30"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <button
-                      type="button"
-                      className="truncate text-left text-sm font-medium text-setta-800 hover:text-setta-950 dark:text-setta-100 dark:hover:text-white"
-                      onClick={() => {
-                        setSelectedWorkspacePath(entry.workspaceRoot);
-                      }}
-                    >
-                      {entry.workspaceRoot}
-                    </button>
-                    {entry.pinned && (
-                      <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-                        Pinned
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Last used: {formatRecentTimestamp(entry.lastUsedAt)}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                      disabled={launcherBusy}
-                      onClick={() => {
-                        void openWorkspace(entry.workspaceRoot, false);
-                      }}
-                    >
-                      Open
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                      disabled={launcherBusy}
-                      onClick={() => {
-                        void togglePinWorkspace(entry);
-                      }}
-                    >
-                      {entry.pinned ? "Unpin" : "Pin"}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-red-300 px-2.5 py-1 text-[11px] font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
-                      disabled={launcherBusy}
-                      onClick={() => {
-                        void removeRecentWorkspace(entry);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-setta-700 dark:text-setta-200">
-                Directory Picker
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() => {
-                    if (!parentPath) {
-                      return;
-                    }
-                    void loadDirectory(parentPath);
-                  }}
-                  disabled={launcherBusy || !parentPath}
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() => {
-                    void loadDirectory(currentPath);
-                  }}
-                  disabled={launcherBusy}
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-md border border-setta-200 bg-setta-50/70 px-3 py-2 text-xs text-setta-600 dark:border-setta-700 dark:bg-setta-900/30 dark:text-setta-300">
-              <p>
-                Current path:{" "}
-                <span className="font-semibold">
-                  {currentPath ?? "(roots)"}
-                </span>
+          <div
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
+            data-testid="launcher-recent-list"
+          >
+            {sortedRecentWorkspaces.length === 0 && (
+              <p className="rounded-md border border-dashed border-setta-200 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-400">
+                No recent workspaces yet.
               </p>
-              {filesystemRoots.length > 0 && (
-                <p className="mt-1 break-all text-[11px] text-setta-500 dark:text-setta-400">
-                  Allowed roots: {filesystemRoots.join(" | ")}
-                </p>
-              )}
-            </div>
-
-            {directoryError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-                {directoryError}
-              </div>
             )}
 
-            <div
-              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
-              data-testid="launcher-directory-list"
-            >
-              {directoryEntries.length === 0 && (
-                <p className="rounded-md border border-dashed border-setta-200 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-400">
-                  No directories found for this location.
-                </p>
-              )}
-
-              {directoryEntries.map((entry) => (
-                <div
-                  key={entry.path}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-setta-200 bg-setta-50/60 px-3 py-2 dark:border-setta-700 dark:bg-setta-900/30"
-                >
+            {sortedRecentWorkspaces.map((entry) => (
+              <article
+                key={entry.workspaceRoot}
+                className="rounded-lg border border-setta-200 bg-setta-50/60 px-3 py-2 dark:border-setta-700 dark:bg-setta-900/30"
+              >
+                <div className="flex items-start justify-between gap-2">
                   <button
                     type="button"
-                    className="truncate text-left text-sm text-setta-800 hover:text-setta-950 dark:text-setta-100 dark:hover:text-white"
+                    className="truncate text-left text-sm font-medium text-setta-800 hover:text-setta-950 dark:text-setta-100 dark:hover:text-white"
                     onClick={() => {
-                      setSelectedWorkspacePath(entry.path);
+                      setSelectedWorkspacePath(entry.workspaceRoot);
                     }}
                   >
-                    {entry.name}
+                    {entry.workspaceRoot}
                   </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                      disabled={launcherBusy || !entry.isDirectory}
-                      onClick={() => {
-                        void loadDirectory(entry.path);
-                      }}
-                    >
-                      Browse
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                      disabled={launcherBusy || !entry.isDirectory}
-                      onClick={() => {
-                        void openWorkspace(entry.path, false);
-                      }}
-                    >
-                      Open
-                    </button>
-                  </div>
+                  {entry.pinned && (
+                    <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                      Pinned
+                    </span>
+                  )}
                 </div>
-              ))}
+                <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+                  Last used: {formatRecentTimestamp(entry.lastUsedAt)}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                    disabled={launcherBusy}
+                    onClick={() => {
+                      void openWorkspace(entry.workspaceRoot, false);
+                    }}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                    disabled={launcherBusy}
+                    onClick={() => {
+                      void togglePinWorkspace(entry);
+                    }}
+                  >
+                    {entry.pinned ? "Unpin" : "Pin"}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-red-300 px-2.5 py-1 text-[11px] font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                    disabled={launcherBusy}
+                    onClick={() => {
+                      void removeRecentWorkspace(entry);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-setta-700 dark:text-setta-200">
+              Directory Picker
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                onClick={() => {
+                  if (!parentPath) {
+                    return;
+                  }
+                  void loadDirectory(parentPath);
+                }}
+                disabled={launcherBusy || !parentPath}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                onClick={() => {
+                  void loadDirectory(currentPath);
+                }}
+                disabled={launcherBusy}
+              >
+                Refresh
+              </button>
             </div>
-          </section>
-        </div>
-      )}
+          </div>
+
+          <div className="rounded-md border border-setta-200 bg-setta-50/70 px-3 py-2 text-xs text-setta-600 dark:border-setta-700 dark:bg-setta-900/30 dark:text-setta-300">
+            <p>
+              Current path:{" "}
+              <span className="font-semibold">{currentPath ?? "(roots)"}</span>
+            </p>
+            {filesystemRoots.length > 0 && (
+              <p className="mt-1 break-all text-[11px] text-setta-500 dark:text-setta-400">
+                Allowed roots: {filesystemRoots.join(" | ")}
+              </p>
+            )}
+          </div>
+
+          {directoryError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
+              {directoryError}
+            </div>
+          )}
+
+          <div
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
+            data-testid="launcher-directory-list"
+          >
+            {directoryEntries.length === 0 && (
+              <p className="rounded-md border border-dashed border-setta-200 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-400">
+                No directories found for this location.
+              </p>
+            )}
+
+            {directoryEntries.map((entry) => (
+              <div
+                key={entry.path}
+                className="flex items-center justify-between gap-2 rounded-lg border border-setta-200 bg-setta-50/60 px-3 py-2 dark:border-setta-700 dark:bg-setta-900/30"
+              >
+                <button
+                  type="button"
+                  className="truncate text-left text-sm text-setta-800 hover:text-setta-950 dark:text-setta-100 dark:hover:text-white"
+                  onClick={() => {
+                    setSelectedWorkspacePath(entry.path);
+                  }}
+                >
+                  {entry.name}
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                    disabled={launcherBusy || !entry.isDirectory}
+                    onClick={() => {
+                      void loadDirectory(entry.path);
+                    }}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-setta-300 px-2.5 py-1 text-[11px] font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+                    disabled={launcherBusy || !entry.isDirectory}
+                    onClick={() => {
+                      void openWorkspace(entry.path, false);
+                    }}
+                  >
+                    Open
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       <section className="flex flex-col gap-3 rounded-xl border border-setta-200 bg-white/80 p-3 dark:border-setta-700 dark:bg-setta-900/40">
         <h2 className="text-sm font-semibold text-setta-700 dark:text-setta-200">

@@ -20,6 +20,7 @@ from setta.launcher_setup import (
     update_launcher_installation,
 )
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
+from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.mcp_runtime_status import (
     GetMCPServerRuntimeStatusRequest,
@@ -208,7 +209,7 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
 
 @router.get(Route.GET_LAUNCHER_STATUS, dependencies=[Depends(require_ide_mode)])
 def route_get_launcher_status(setta_home: str | None = None) -> LauncherStatusResponse:
-    resolved_setta_home = _resolve_launcher_setta_home(setta_home=setta_home)
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=setta_home)
     try:
         status = collect_launcher_status(setta_home=resolved_setta_home)
     except LauncherSetupError as exc:
@@ -218,7 +219,7 @@ def route_get_launcher_status(setta_home: str | None = None) -> LauncherStatusRe
 
 @router.post(Route.SETUP_LAUNCHER, dependencies=[Depends(require_ide_mode)])
 def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     provided_fields = x.model_fields_set
     raw_workspace_behavior = (
         x.workspaceBehavior
@@ -259,7 +260,7 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
 def route_repair_launcher(
     x: LauncherRequestBase = Body(default_factory=LauncherRequestBase),
 ) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     try:
         repair_result = repair_launcher_installation(setta_home=setta_home)
     except LauncherSetupError as exc:
@@ -271,7 +272,7 @@ def route_repair_launcher(
 def route_remove_launcher(
     x: LauncherRequestBase = Body(default_factory=LauncherRequestBase),
 ) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     try:
         remove_launcher_installation(setta_home=setta_home)
         status = collect_launcher_status(setta_home=setta_home)
@@ -284,7 +285,7 @@ def route_remove_launcher(
 def route_update_launcher(
     x: UpdateLauncherRequest = Body(default_factory=UpdateLauncherRequest),
 ) -> LauncherUpdateResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
+    setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     try:
         update_result = update_launcher_installation(
             setta_home=setta_home,
@@ -384,15 +385,6 @@ def route_reveal_path_in_os_file_explorer(
             status_code=500,
             detail=f"Failed to reveal path in file explorer: {detail}",
         )
-
-
-def _resolve_launcher_setta_home(*, setta_home: str | None) -> Path:
-    if setta_home is None:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    trimmed = setta_home.strip()
-    if not trimmed:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    return Path(trimmed).expanduser().resolve(strict=False)
 
 
 def _normalize_launcher_workspace_behavior_for_setup(

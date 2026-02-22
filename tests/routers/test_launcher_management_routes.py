@@ -50,6 +50,29 @@ def test_launcher_status_route_honors_setta_home_query(tmp_path: Path) -> None:
     assert payload["settaHome"] == str(scoped_setta_home)
 
 
+def test_launcher_status_route_blank_setta_home_uses_backend_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    default_setta_home = (tmp_path / "default-setta-home").resolve(strict=False)
+    monkeypatch.setattr(
+        "setta.routers.launcher_scope.get_setta_paths",
+        lambda: SimpleNamespace(setta_home=default_setta_home),
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_STATUS.value}",
+            params={"setta_home": "   "},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["settaHome"] == str(default_setta_home)
+
+
 def test_setup_and_remove_launcher_routes_roundtrip() -> None:
     app = _build_app()
 
