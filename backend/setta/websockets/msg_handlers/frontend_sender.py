@@ -47,7 +47,6 @@ from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
-    UISettingRevealContent,
     WebsocketConnectionType,
     WebsocketMsgAgentProfilesUpdated,
     WebsocketMsgAIFollowToolArgumentsUpdate,
@@ -67,7 +66,6 @@ from setta.types.websocket import (
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgTranscriptionProfilesUpdated,
-    WebsocketMsgUISettingReveal,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
@@ -114,60 +112,14 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                 pass
         return logging.getLogger().getEffectiveLevel()
 
-    def _resolve_share_session_id(self, share_session_id: str | None) -> str | None:
-        if share_session_id is not None:
-            return share_session_id
-        return self._share_session_id
-
-    def _list_frontend_websocket_ids(
-        self,
-        *,
-        share_session_id: str | None,
-    ) -> list[str]:
-        resolved_share_session_id = self._resolve_share_session_id(share_session_id)
-        websocket_ids: list[str] = []
-        for websocket_id, connection_info in self.websocket_manager.sockets.items():
-            if connection_info.connectionType is not WebsocketConnectionType.FRONTEND:
-                continue
-            if self.share_mode:
-                if resolved_share_session_id is None:
-                    continue
-                if connection_info.shareSessionId != resolved_share_session_id:
-                    continue
-            websocket_ids.append(websocket_id)
-        websocket_ids.sort()
-        return websocket_ids
-
-    def select_frontend_websocket_for_ui_setting_reveal(
-        self,
-        *,
-        share_session_id: str | None = None,
-        preferred_websocket_id: str | None = None,
-    ) -> str | None:
-        websocket_ids = self._list_frontend_websocket_ids(
-            share_session_id=share_session_id
-        )
-        if preferred_websocket_id is not None:
-            if preferred_websocket_id in websocket_ids:
-                return preferred_websocket_id
-            return None
-        if not websocket_ids:
-            return None
-        return websocket_ids[0]
-
-    def list_frontend_websocket_ids_for_ui_setting_reveal(
-        self,
-        *,
-        share_session_id: str | None = None,
-    ) -> list[str]:
-        return self._list_frontend_websocket_ids(share_session_id=share_session_id)
-
     async def _broadcast_frontend(
         self,
         message,
         share_session_id: str | None,
     ) -> None:
-        resolved_share_session_id = self._resolve_share_session_id(share_session_id)
+        resolved_share_session_id = (
+            share_session_id if share_session_id is not None else self._share_session_id
+        )
         if self.share_mode:
             if resolved_share_session_id is None:
                 return
@@ -540,25 +492,3 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             ),
             share_session_id,
         )
-
-    async def broadcast_ui_setting_reveal(
-        self,
-        content: UISettingRevealContent,
-        *,
-        share_session_id: str | None = None,
-        target_websocket_id: str | None = None,
-    ) -> str | None:
-        resolved_target_websocket_id = target_websocket_id
-        if resolved_target_websocket_id is None:
-            resolved_target_websocket_id = (
-                self.select_frontend_websocket_for_ui_setting_reveal(
-                    share_session_id=share_session_id
-                )
-            )
-        if resolved_target_websocket_id is None:
-            return None
-        await self.websocket_manager.send_message(
-            WebsocketMsgUISettingReveal(content=content),
-            resolved_target_websocket_id,
-        )
-        return resolved_target_websocket_id

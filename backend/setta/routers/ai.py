@@ -14,6 +14,11 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     get_run_sort_key,
 )
+from setta.agentic.context_usage import (
+    ResolvedChatContextUsage,
+    resolve_external_run_context_usage,
+    resolve_internal_run_context_usage,
+)
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
@@ -43,7 +48,7 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
-from setta.types.external_agents import ExternalAgentToolType
+from setta.types.external_agents import ExternalAgentConfig, ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -139,6 +144,35 @@ def _resolve_external_approval_policy_override(
     return None
 
 
+def _resolve_external_sandbox_policy_override(
+    permission_mode: ChatPermissionMode,
+    tool_type: ExternalAgentToolType,
+) -> str | None:
+    if permission_mode == ChatPermissionMode.config_toml_custom:
+        return None
+    if tool_type != ExternalAgentToolType.codex:
+        return None
+    if permission_mode == ChatPermissionMode.minimal:
+        return "workspace-write"
+    if permission_mode == ChatPermissionMode.yolo:
+        return "danger-full-access"
+    return None
+
+
+def _apply_external_reasoning_defaults(
+    *,
+    inputs: dict[str, object],
+    tool_type: ExternalAgentToolType,
+    thinking: bool,
+) -> None:
+    if tool_type != ExternalAgentToolType.codex:
+        return
+    if "effort" not in inputs:
+        inputs["effort"] = "high" if thinking else "low"
+    if "summary" not in inputs:
+        inputs["summary"] = "auto" if thinking else "none"
+
+
 def _get_llm_chat_runs(
     *,
     dbe,
@@ -171,6 +205,97 @@ def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
     if not runs:
         return None
     return max(runs, key=get_run_sort_key)
+
+
+def _normalize_optional_string(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    return normalized
+
+
+def _to_chat_context_usage(
+    usage: ResolvedChatContextUsage | None,
+) -> "ChatContextUsage | None":
+    if usage is None:
+        return None
+    return ChatContextUsage(
+        contextWindowTokens=usage.context_window_tokens,
+        contextUsedTokens=usage.context_used_tokens,
+        estimated=usage.estimated,
+    )
+
+
+def _extract_run_output_metadata(run: AgentRun) -> dict[str, object]:
+    outputs = run.outputs
+    if not isinstance(outputs, dict):
+        return {}
+    metadata = outputs.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}
+    return metadata
+
+
+def _extract_external_tool_type(value: object) -> ExternalAgentToolType | None:
+    normalized = _normalize_optional_string(value)
+    if normalized is None:
+        return None
+    try:
+        return ExternalAgentToolType(normalized)
+    except ValueError:
+        return None
+
+
+def _resolve_external_model_from_config(
+    external_config: ExternalAgentConfig,
+) -> str | None:
+    managed = external_config.settingsManagedBlock
+    if (
+        external_config.toolType == ExternalAgentToolType.codex
+        and managed is not None
+        and managed.codex is not None
+        and managed.codex.model
+    ):
+        return managed.codex.model
+    if (
+        external_config.toolType == ExternalAgentToolType.opencode
+        and managed is not None
+        and managed.opencode is not None
+        and managed.opencode.model
+    ):
+        return managed.opencode.model
+    return external_config.defaultModel
+
+
+def _resolve_external_context_source(
+    run: AgentRun,
+    ctx: RuntimeContextFromRequest,
+) -> tuple[ExternalAgentToolType | None, str | None]:
+    metadata = _extract_run_output_metadata(run)
+    metadata_tool_type = _extract_external_tool_type(metadata.get("toolType"))
+    metadata_model = _normalize_optional_string(metadata.get("model"))
+    engine_config_id = get_run_engine_config_id(run)
+    if not engine_config_id:
+        return metadata_tool_type, metadata_model
+    try:
+        resolved = resolve_engine_config(
+            ctx.state.dbe,
+            ctx.state.agent_runner.config,
+            engine_config_id,
+        )
+    except (KeyError, ValueError):
+        return metadata_tool_type, metadata_model
+    if resolved.engine_config.engineType != EngineType.external_agent:
+        return metadata_tool_type, metadata_model
+    external_config = resolved.external_agent_config
+    if external_config is None:
+        return metadata_tool_type, metadata_model
+    resolved_model = _normalize_optional_string(
+        _resolve_external_model_from_config(external_config)
+    )
+    return external_config.toolType, resolved_model or metadata_model
 
 
 def _ensure_external_chat_id_compatible(
@@ -477,15 +602,6 @@ def _normalize_reference_image_inputs(
     )
 
 
-def _normalize_frontend_websocket_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        return None
-    return normalized
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -494,7 +610,6 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
-    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -561,10 +676,17 @@ class TranscriptionSessionDeltaResponse(BaseModel):
     isFinal: bool
 
 
+class ChatContextUsage(BaseModel):
+    contextWindowTokens: int | None = None
+    contextUsedTokens: int | None = None
+    estimated: bool = False
+
+
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     llmConfig: LLMConfig
+    contextUsage: ChatContextUsage | None = None
 
 
 class GetExternalAgentChatRequest(BaseModel):
@@ -576,6 +698,7 @@ class GetExternalAgentChatResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
+    contextUsage: ChatContextUsage | None = None
 
 
 class StopLLMChatRequest(BaseModel):
@@ -756,9 +879,6 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
-    normalized_frontend_websocket_id = _normalize_frontend_websocket_id(
-        x.frontendWebsocketId
-    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -808,8 +928,6 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
-        if normalized_frontend_websocket_id is not None:
-            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -860,12 +978,23 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
+        _apply_external_reasoning_defaults(
+            inputs=inputs,
+            tool_type=external_config.toolType,
+            thinking=x.thinking,
+        )
         approval_policy_override = _resolve_external_approval_policy_override(
             x.permissionMode,
             external_config.toolType,
         )
         if approval_policy_override is not None:
             inputs["approvalPolicy"] = approval_policy_override
+        sandbox_policy_override = _resolve_external_sandbox_policy_override(
+            x.permissionMode,
+            external_config.toolType,
+        )
+        if sandbox_policy_override is not None:
+            inputs["sandboxPolicy"] = sandbox_policy_override
         inputs["systemPrompt"] = _combine_prompt_sections(
             execution_policy_prompt,
             _REQUIRED_ERROR_CHECK_PROMPT,
@@ -885,8 +1014,6 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
-        if normalized_frontend_websocket_id is not None:
-            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:
@@ -1092,10 +1219,16 @@ async def route_get_llm_chat(
         raise HTTPException(status_code=500, detail="Chat engine is not internal")
     if resolved.llm_config is None:
         raise HTTPException(status_code=500, detail="Chat LLM config not found")
+    context_usage = resolve_internal_run_context_usage(
+        latest_run,
+        model=resolved.llm_config.model,
+        provider=resolved.llm_config.provider,
+    )
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
         llmConfig=resolved.llm_config,
+        contextUsage=_to_chat_context_usage(context_usage),
     )
 
 
@@ -1120,10 +1253,19 @@ async def route_get_external_agent_chat(
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
+    _external_tool_type, external_model = _resolve_external_context_source(
+        latest_run,
+        ctx,
+    )
+    context_usage = resolve_external_run_context_usage(
+        latest_run,
+        model=external_model,
+    )
     return GetExternalAgentChatResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
         toolCallArguments=state.toolCallArguments,
+        contextUsage=_to_chat_context_usage(context_usage),
     )
 
 
