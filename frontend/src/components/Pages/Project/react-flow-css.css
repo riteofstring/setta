@@ -47,5 +47,14 @@ html.dark .react-flow__minimap {
 .react-flow .react-flow__node i[class^="gg-"],
 .react-flow .react-flow__node i[class*=" gg-"],
 .react-flow .react-flow__node svg {
-  display: none !important;
+  opacity: 0 !important;
+}
+
+.react-flow .react-flow__node:hover i[class^="gg-"],
+.react-flow .react-flow__node:hover i[class*=" gg-"],
+.react-flow .react-flow__node:hover svg,
+.react-flow .react-flow__node:focus-within i[class^="gg-"],
+.react-flow .react-flow__node:focus-within i[class*=" gg-"],
+.react-flow .react-flow__node:focus-within svg {
+  opacity: 1 !important;
 }

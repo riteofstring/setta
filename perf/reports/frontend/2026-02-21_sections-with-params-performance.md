@@ -278,3 +278,82 @@ Comparison against previous section (low-zoom icon LOD + pan style downgrade):
 
 Additional artifact:
 - `perf/artifacts/frontend/2026-02-22-settings-all-settings-no-icons-v1.png`
+
+## Follow-up (Empty-Circle Icon Placeholder Experiment, 2026-02-22)
+
+Experiment goal:
+- Replace removed node icons with lightweight empty-circle placeholders (always on; no pan/zoom gating).
+
+Implementation:
+- Updated unconditional node icon style in `frontend/src/components/Pages/Project/react-flow-css.css`:
+  - `i.gg*` and node `svg` elements render as `0.75rem` transparent circles (`border: 1.5px solid currentColor`, `border-radius: 9999px`).
+  - Suppressed css.gg pseudo-element glyph internals (`::before`/`::after`) and nested `svg` child drawing.
+- Updated pan perf guardrail assertions in `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts`:
+  - verifies icon elements are present and styled as placeholders (rather than hidden).
+  - verifies placeholder state remains stable across pan interactions.
+
+Verification rerun:
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+
+CDP same-scenario measurement (`All Settings`, dense transform `translate(659.9px, -77.9px) scale(0.1)`, 160-frame scripted viewport sweep, no throttling):
+- Density/icon snapshot:
+  - `visibleParamRowCount: 636`
+  - icon elements (`i.gg*` + `svg`): `502`
+  - placeholder-styled icon elements: `502`
+- Runs:
+  - Run 1: avg `10.16ms` (`98.41 FPS`), p95 `12.90ms` (`77.52 FPS`)
+  - Run 2: avg `10.16ms` (`98.46 FPS`), p95 `12.80ms` (`78.12 FPS`)
+  - Run 3: avg `10.02ms` (`99.81 FPS`), p95 `12.60ms` (`79.37 FPS`)
+- Aggregate:
+  - avg frame time: `10.11ms` (`98.89 FPS`)
+  - median p95 frame time: `12.80ms` (`78.12 FPS`)
+
+Comparison:
+- vs No-icons experiment:
+  - `8.77ms` -> `10.11ms` (`+1.34ms`, ~`15.3%` slower)
+- vs earlier pre-icon-optimization dense-pan reference (`~14.90ms`):
+  - still faster by about `-4.79ms` (~`32.1%` improvement).
+
+Additional artifact:
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-empty-circle-icons-v1.png`
+
+## Follow-up (Original Icons, Hover-Only Visibility, 2026-02-22)
+
+Experiment goal:
+- Restore original icon rendering, but only show node icons when the section is hovered/focused.
+
+Implementation:
+- Updated icon CSS in `frontend/src/components/Pages/Project/react-flow-css.css`:
+  - default state for node `i.gg*` and node `svg`: `opacity: 0`.
+  - reveal state on `.react-flow__node:hover` and `.react-flow__node:focus-within`: `opacity: 1`.
+  - removed empty-circle placeholder styling/suppression overrides.
+- Updated pan perf guardrail assertions in `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts`:
+  - verifies baseline non-hover icon visibility is zero.
+  - verifies icons become visible for the hovered section.
+  - verifies non-hover hidden state remains after pan.
+
+Verification rerun:
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+
+CDP same-scenario measurement (`All Settings`, dense transform `translate(659.9px, -77.9px) scale(0.1)`, 160-frame scripted viewport sweep, no throttling, no hovered node during sampling):
+- Density/icon snapshot:
+  - `visibleParamRowCount: 636`
+  - icon elements (`i.gg*` + `svg`): `502`
+  - visible icons during baseline non-hover sampling: `0`
+- Runs:
+  - Run 1: avg `9.65ms` (`103.57 FPS`), p95 `12.20ms` (`81.97 FPS`)
+  - Run 2: avg `9.67ms` (`103.41 FPS`), p95 `12.20ms` (`81.97 FPS`)
+  - Run 3: avg `9.44ms` (`105.88 FPS`), p95 `12.00ms` (`83.33 FPS`)
+- Aggregate:
+  - avg frame time: `9.59ms` (`104.28 FPS`)
+  - median p95 frame time: `12.20ms` (`81.97 FPS`)
+
+Comparison:
+- vs No-icons experiment (`8.77ms`): `+0.82ms` (~`9.4%` slower).
+- vs Empty-circle placeholder experiment (`10.11ms`): `-0.52ms` (~`5.1%` faster).
+- vs earlier pre-icon-optimization dense-pan reference (`~14.90ms`): still faster by about `-5.31ms` (~`35.6%` improvement).
+
+Additional artifact:
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-hover-icons-v1.png`

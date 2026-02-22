@@ -64,9 +64,15 @@ test("All Settings pan keeps param DOM stable in dense param layouts", async ({
   expect(baselineMetrics.totalParamRowCount).toBeGreaterThan(500);
   expect(baselineMetrics.visibleParamRowCount).toBeGreaterThan(120);
 
-  const iconDisplayCounts = await readNodeIconDisplayCounts(page);
-  expect(iconDisplayCounts.total).toBeGreaterThan(200);
-  expect(iconDisplayCounts.hidden).toBe(iconDisplayCounts.total);
+  const baselineIconVisibility = await readNodeIconVisibilityCounts(page);
+  expect(baselineIconVisibility.total).toBeGreaterThan(200);
+  expect(baselineIconVisibility.visible).toBe(0);
+
+  await hoverFirstVisibleSection(page);
+  const hoveredIconVisibility = await readHoveredNodeIconVisibilityCounts(page);
+  expect(hoveredIconVisibility.total).toBeGreaterThan(0);
+  expect(hoveredIconVisibility.visible).toBe(hoveredIconVisibility.total);
+  await movePointerOffCanvasNodes(page);
 
   await startPanMutationObserver(page);
   await dragPaneForPan(page);
@@ -88,12 +94,11 @@ test("All Settings pan keeps param DOM stable in dense param layouts", async ({
     baselineMetrics.totalParamRowCount,
   );
 
-  // Icon removal should remain stable through pan interactions.
-  const iconDisplayCountsAfterPan = await readNodeIconDisplayCounts(page);
-  expect(iconDisplayCountsAfterPan.total).toBe(iconDisplayCounts.total);
-  expect(iconDisplayCountsAfterPan.hidden).toBe(
-    iconDisplayCountsAfterPan.total,
-  );
+  // Icon count should remain stable; non-hover default should keep icons hidden.
+  await movePointerOffCanvasNodes(page);
+  const iconVisibilityAfterPan = await readNodeIconVisibilityCounts(page);
+  expect(iconVisibilityAfterPan.total).toBe(baselineIconVisibility.total);
+  expect(iconVisibilityAfterPan.visible).toBe(0);
 });
 
 async function readParamsPerfDebugMetrics(
@@ -110,23 +115,92 @@ async function readParamsPerfDebugMetrics(
   });
 }
 
-async function readNodeIconDisplayCounts(
+async function readNodeIconVisibilityCounts(
   page: Page,
-): Promise<{ total: number; hidden: number }> {
+): Promise<{ total: number; visible: number }> {
   return await page.evaluate(() => {
     const icons = Array.from(
       document.querySelectorAll<HTMLElement>(
         ".react-flow__node i[class^='gg-'], .react-flow__node i[class*=' gg-'], .react-flow__node svg",
       ),
     );
-    let hidden = 0;
+    let visible = 0;
     for (const icon of icons) {
-      if (window.getComputedStyle(icon).display === "none") {
-        hidden += 1;
+      const style = window.getComputedStyle(icon);
+      const isVisible =
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number.parseFloat(style.opacity) > 0.01;
+      if (isVisible) {
+        visible += 1;
       }
     }
-    return { total: icons.length, hidden };
+    return { total: icons.length, visible };
   });
+}
+
+async function readHoveredNodeIconVisibilityCounts(
+  page: Page,
+): Promise<{ total: number; visible: number }> {
+  return await page.evaluate(() => {
+    const hoveredNode = document.querySelector<HTMLElement>(
+      ".react-flow__node:hover",
+    );
+    if (!hoveredNode) {
+      return { total: 0, visible: 0 };
+    }
+    const icons = Array.from(
+      hoveredNode.querySelectorAll<HTMLElement>(
+        "i[class^='gg-'], i[class*=' gg-'], svg",
+      ),
+    );
+    let visible = 0;
+    for (const icon of icons) {
+      const style = window.getComputedStyle(icon);
+      const isVisible =
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number.parseFloat(style.opacity) > 0.01;
+      if (isVisible) {
+        visible += 1;
+      }
+    }
+    return { total: icons.length, visible };
+  });
+}
+
+async function hoverFirstVisibleSection(page: Page): Promise<void> {
+  const target = await page.evaluate(() => {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(".react-flow__node"),
+    );
+    for (const section of sections) {
+      const rect = section.getBoundingClientRect();
+      const visible =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.left < window.innerWidth;
+      if (!visible) {
+        continue;
+      }
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + Math.min(rect.height / 2, 24),
+      };
+    }
+    return null;
+  });
+  if (!target) {
+    throw new Error("Unable to locate a visible section node to hover.");
+  }
+  await page.mouse.move(target.x, target.y);
+}
+
+async function movePointerOffCanvasNodes(page: Page): Promise<void> {
+  await page.mouse.move(4, 4);
 }
 
 async function startPanMutationObserver(page: Page): Promise<void> {
