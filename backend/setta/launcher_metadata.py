@@ -6,8 +6,9 @@ from typing import Literal, cast
 
 LauncherOpenMode = Literal["browser", "chrome-app"]
 LauncherWorkspaceBehavior = Literal["last_used_or_prompt", "always_prompt"]
+LauncherInstallSource = Literal["uv_tool", "installer_managed", "unsupported"]
 
-LAUNCHER_METADATA_SCHEMA_VERSION = 1
+LAUNCHER_METADATA_SCHEMA_VERSION = 2
 LAUNCHER_WORKSPACE_BEHAVIOR: LauncherWorkspaceBehavior = "last_used_or_prompt"
 LAUNCHER_METADATA_FILE_NAME = "launcher-install.json"
 
@@ -21,6 +22,8 @@ class LauncherInstallMetadata:
     schemaVersion: int
     targetCommand: list[str]
     channel: str
+    installSource: LauncherInstallSource
+    artifactOwnershipToken: str
     settaVersion: str
     openMode: LauncherOpenMode
     workspaceBehavior: LauncherWorkspaceBehavior
@@ -32,6 +35,8 @@ class LauncherInstallMetadata:
             "schemaVersion": self.schemaVersion,
             "targetCommand": self.targetCommand,
             "channel": self.channel,
+            "installSource": self.installSource,
+            "artifactOwnershipToken": self.artifactOwnershipToken,
             "settaVersion": self.settaVersion,
             "openMode": self.openMode,
             "workspaceBehavior": self.workspaceBehavior,
@@ -62,6 +67,8 @@ def build_launcher_install_metadata(
     *,
     target_command: list[str],
     channel: str,
+    install_source: LauncherInstallSource,
+    artifact_ownership_token: str,
     setta_version: str,
     open_mode: LauncherOpenMode,
     workspace_behavior: LauncherWorkspaceBehavior = LAUNCHER_WORKSPACE_BEHAVIOR,
@@ -70,6 +77,11 @@ def build_launcher_install_metadata(
 ) -> LauncherInstallMetadata:
     normalized_command = _normalize_target_command(target_command)
     normalized_channel = _normalize_required_string(channel, label="channel")
+    normalized_install_source = _normalize_install_source(install_source)
+    normalized_artifact_ownership_token = _normalize_required_string(
+        artifact_ownership_token,
+        label="artifactOwnershipToken",
+    )
     normalized_version = _normalize_required_string(setta_version, label="settaVersion")
     normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
@@ -79,6 +91,8 @@ def build_launcher_install_metadata(
         schemaVersion=LAUNCHER_METADATA_SCHEMA_VERSION,
         targetCommand=normalized_command,
         channel=normalized_channel,
+        installSource=normalized_install_source,
+        artifactOwnershipToken=normalized_artifact_ownership_token,
         settaVersion=normalized_version,
         openMode=open_mode,
         workspaceBehavior=normalized_workspace_behavior,
@@ -184,6 +198,11 @@ def _parse_launcher_metadata(
 
     target_command = _normalize_target_command(raw_payload.get("targetCommand"))
     channel = _normalize_required_string(raw_payload.get("channel"), label="channel")
+    install_source = _normalize_install_source(raw_payload.get("installSource"))
+    artifact_ownership_token = _normalize_required_string(
+        raw_payload.get("artifactOwnershipToken"),
+        label="artifactOwnershipToken",
+    )
     setta_version = _normalize_required_string(
         raw_payload.get("settaVersion"), label="settaVersion"
     )
@@ -202,6 +221,8 @@ def _parse_launcher_metadata(
         schemaVersion=LAUNCHER_METADATA_SCHEMA_VERSION,
         targetCommand=target_command,
         channel=channel,
+        installSource=install_source,
+        artifactOwnershipToken=artifact_ownership_token,
         settaVersion=setta_version,
         openMode=open_mode,
         workspaceBehavior=workspace_behavior,
@@ -253,6 +274,17 @@ def _normalize_open_mode(raw_value: object) -> LauncherOpenMode:
             "openMode must be either 'browser' or 'chrome-app'."
         )
     return cast("LauncherOpenMode", trimmed)
+
+
+def _normalize_install_source(raw_value: object) -> LauncherInstallSource:
+    if not isinstance(raw_value, str):
+        raise LauncherMetadataError("installSource must be a string.")
+    trimmed = raw_value.strip().lower()
+    if trimmed not in {"uv_tool", "installer_managed", "unsupported"}:
+        raise LauncherMetadataError(
+            "installSource must be one of 'uv_tool', 'installer_managed', or 'unsupported'."
+        )
+    return cast("LauncherInstallSource", trimmed)
 
 
 def _normalize_workspace_behavior(raw_value: object) -> LauncherWorkspaceBehavior:

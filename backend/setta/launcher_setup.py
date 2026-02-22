@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import secrets
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from setta.launcher_artifacts import (
 )
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
+    LauncherInstallSource,
     LauncherInstallMetadata,
     LauncherMetadataError,
     LauncherOpenMode,
@@ -32,12 +34,12 @@ from setta.launcher_metadata import (
 
 LauncherUpdateCapability = Literal["in_app", "installer_managed", "unsupported"]
 
-_IN_APP_UPDATE_CHANNELS = {"manual", "uv-tool", "uv-tool-script"}
 _INSTALLER_MANAGED_CHANNELS = {
     "linux-script",
     "macos-script",
     "windows-script",
 }
+_ARTIFACT_OWNERSHIP_MARKER_BASENAME = ".setta-launcher-owned"
 
 
 class LauncherSetupError(ValueError):
@@ -208,17 +210,25 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
             metadata=None,
         )
 
+    normalized_managed_artifacts = _validate_managed_artifact_registry(
+        managed_artifacts=metadata.managedArtifacts,
+        setta_home=resolved_setta_home,
+        error_code="LauncherMetadata",
+    )
+
     target_error = launcher_target_validation_error(metadata)
     existing_artifacts: list[str] = []
     missing_artifacts: list[str] = []
-    for path_string in metadata.managedArtifacts.values():
+    for path_string in normalized_managed_artifacts.values():
         resolved_path = str(Path(path_string).resolve(strict=False))
         if Path(resolved_path).exists():
             existing_artifacts.append(resolved_path)
         else:
             missing_artifacts.append(resolved_path)
 
-    update_capability, update_guidance = _resolve_update_capability(metadata.channel)
+    update_capability, update_guidance = _resolve_update_capability(
+        metadata.installSource
+    )
 
     return LauncherStatusSnapshot(
         setta_home=resolved_setta_home,
@@ -233,7 +243,7 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
         last_used_workspace=metadata.lastUsedWorkspace,
-        managed_artifacts=dict(metadata.managedArtifacts),
+        managed_artifacts=dict(normalized_managed_artifacts),
         existing_managed_artifacts=existing_artifacts,
         missing_managed_artifacts=missing_artifacts,
         update_capability=update_capability,
@@ -262,11 +272,12 @@ def setup_launcher_installation(
     except LauncherMetadataError as exc:
         raise LauncherSetupError("LauncherMetadata", str(exc)) from exc
 
-    merged_artifacts: dict[str, str | Path] = {}
-    if existing_metadata is not None:
-        merged_artifacts.update(existing_metadata.managedArtifacts)
     if managed_artifacts:
-        merged_artifacts.update(managed_artifacts)
+        raise LauncherSetupError(
+            "BadRequest",
+            "Manual managed artifacts are not supported. "
+            "Setta manages launcher artifacts automatically.",
+        )
 
     resolved_open_mode: LauncherOpenMode
     if open_mode is not None:
@@ -289,37 +300,61 @@ def setup_launcher_installation(
     else:
         resolved_target_command = target_command
 
+    install_source = _derive_install_source(channel)
     normalized_artifact_options: dict[str, str] = {}
     if artifact_options:
         try:
             normalized_artifact_options = normalize_artifact_options(artifact_options)
         except LauncherArtifactError as exc:
             raise LauncherSetupError("BadRequest", str(exc)) from exc
+    _validate_artifact_option_paths(
+        options=normalized_artifact_options,
+        setta_home=resolved_setta_home,
+    )
+
+    merged_artifacts: dict[str, str] = {}
+    ownership_token = (
+        existing_metadata.artifactOwnershipToken
+        if existing_metadata is not None
+        else secrets.token_hex(16)
+    )
+    if existing_metadata is not None:
+        merged_artifacts.update(
+            _validate_managed_artifact_registry(
+                managed_artifacts=existing_metadata.managedArtifacts,
+                setta_home=resolved_setta_home,
+                error_code="LauncherMetadata",
+            )
+        )
 
     if install_artifacts:
-        normalized_existing_artifacts = {
-            name: str(Path(path).expanduser().resolve(strict=False))
-            for name, path in merged_artifacts.items()
-        }
         try:
             installed_artifacts = install_current_platform_artifacts(
                 context=LauncherArtifactContext(
                     target_command=resolved_target_command,
                     channel=channel,
-                    existing_managed_artifacts=normalized_existing_artifacts,
+                    existing_managed_artifacts=merged_artifacts,
                     options=normalized_artifact_options,
                 )
             )
         except LauncherArtifactError as exc:
             raise LauncherSetupError("ArtifactInstallFailed", str(exc)) from exc
-        for key in current_platform_artifact_keys():
-            merged_artifacts.pop(key, None)
-        merged_artifacts.update(installed_artifacts)
+        merged_artifacts = _validate_managed_artifact_registry(
+            managed_artifacts=installed_artifacts,
+            setta_home=resolved_setta_home,
+            error_code="ArtifactInstallFailed",
+        )
+        _write_artifact_ownership_markers(
+            managed_artifacts=merged_artifacts,
+            ownership_token=ownership_token,
+        )
 
     try:
         metadata = build_launcher_install_metadata(
             target_command=resolved_target_command,
             channel=channel,
+            install_source=install_source,
+            artifact_ownership_token=ownership_token,
             setta_version=__version__,
             open_mode=resolved_open_mode,
             workspace_behavior=resolved_workspace_behavior,
@@ -360,7 +395,6 @@ def repair_launcher_installation(
         channel=metadata.channel,
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
-        managed_artifacts=_non_platform_managed_artifacts(metadata.managedArtifacts),
         install_artifacts=True,
         artifact_options=None,
     )
@@ -381,21 +415,41 @@ def remove_launcher_installation(
     removed_paths: list[str] = []
     missing_paths: list[str] = []
     removal_errors: list[str] = []
+    normalized_artifacts: dict[str, str] = {}
     if metadata is not None:
-        for path_string in metadata.managedArtifacts.values():
+        normalized_artifacts = _validate_managed_artifact_registry(
+            managed_artifacts=metadata.managedArtifacts,
+            setta_home=resolved_setta_home,
+            error_code="LauncherMetadata",
+        )
+        for name, path_string in normalized_artifacts.items():
             path = Path(path_string).resolve(strict=False)
             if not path.exists():
                 missing_paths.append(str(path))
+                continue
+            marker_error = _artifact_ownership_marker_error(
+                artifact_name=name,
+                artifact_path=path,
+                ownership_token=metadata.artifactOwnershipToken,
+            )
+            if marker_error is not None:
+                removal_errors.append(marker_error)
                 continue
             try:
                 if path.is_dir() and not path.is_symlink():
                     shutil.rmtree(path)
                 else:
                     path.unlink()
+                    marker_path = _artifact_ownership_marker_path(path)
+                    if marker_path.exists():
+                        marker_path.unlink()
             except OSError as exc:
                 removal_errors.append(f"{path}: {exc}")
                 continue
             removed_paths.append(str(path))
+
+    if removal_errors:
+        raise LauncherSetupError("ArtifactRemovalFailed", "; ".join(removal_errors))
 
     metadata_path = resolve_launcher_metadata_path(setta_home=resolved_setta_home)
     metadata_removed = remove_launcher_install_metadata(setta_home=resolved_setta_home)
@@ -405,9 +459,6 @@ def remove_launcher_installation(
             launcher_dir.rmdir()
         except OSError:
             pass
-
-    if removal_errors:
-        raise LauncherSetupError("ArtifactRemovalFailed", "; ".join(removal_errors))
 
     return LauncherRemoveResult(
         setta_home=resolved_setta_home,
@@ -491,10 +542,6 @@ def update_launcher_installation(
         "--workspace-behavior",
         workspace_behavior_cli,
     ]
-    for name, path in _non_platform_managed_artifacts(
-        metadata.managedArtifacts
-    ).items():
-        setup_cmd.extend(["--managed-artifact", f"{name}={path}"])
 
     setup_result = subprocess.run(
         setup_cmd,
@@ -532,31 +579,224 @@ def update_launcher_installation(
     )
 
 
-def _resolve_update_capability(
-    channel: str | None,
-) -> tuple[LauncherUpdateCapability, str | None]:
-    if channel is None:
-        return (
-            "unsupported",
-            "Launcher channel is unknown. Re-run `setta launcher setup`.",
-        )
+def _derive_install_source(channel: str) -> LauncherInstallSource:
     normalized = channel.strip().lower()
-    if normalized in _IN_APP_UPDATE_CHANNELS:
+    if normalized in {"uv-tool", "uv-tool-script"}:
+        return "uv_tool"
+    if normalized.startswith("pip") or normalized in _INSTALLER_MANAGED_CHANNELS:
+        return "installer_managed"
+    return "unsupported"
+
+
+def _resolve_update_capability(
+    install_source: LauncherInstallSource,
+) -> tuple[LauncherUpdateCapability, str | None]:
+    if install_source == "uv_tool":
         return ("in_app", None)
-    if normalized.startswith("pip"):
+    if install_source == "installer_managed":
         return (
             "installer_managed",
-            "Upgrade Setta in the bound Python environment, then run `setta launcher setup`.",
-        )
-    if normalized in _INSTALLER_MANAGED_CHANNELS:
-        return (
-            "installer_managed",
-            "This launcher is installer-managed. Re-run your platform installer to update.",
+            "This launcher is installer-managed. Upgrade via installer/environment, then run `setta launcher setup`.",
         )
     return (
         "unsupported",
-        "In-app update is unavailable for this launcher channel.",
+        "In-app update is unavailable for this launcher installation source.",
     )
+
+
+def _validate_managed_artifact_registry(
+    *,
+    managed_artifacts: dict[str, str],
+    setta_home: Path,
+    error_code: str,
+) -> dict[str, str]:
+    allowed_keys = current_platform_artifact_keys()
+    normalized: dict[str, str] = {}
+    for name, raw_path in managed_artifacts.items():
+        if name not in allowed_keys:
+            raise LauncherSetupError(
+                error_code,
+                f"Unsupported managed artifact key for this platform: {name}",
+            )
+        resolved_path = Path(raw_path).expanduser().resolve(strict=False)
+        _validate_path_within_trusted_roots(
+            path=resolved_path,
+            setta_home=setta_home,
+            error_code=error_code,
+            allow_root_match=False,
+        )
+        normalized[name] = str(resolved_path)
+    return normalized
+
+
+def _validate_artifact_option_paths(*, options: dict[str, str], setta_home: Path) -> None:
+    for option_key in _artifact_write_path_option_keys():
+        raw_path = options.get(option_key)
+        if raw_path is None:
+            continue
+        allow_root_match = option_key == "applications_dir"
+        resolved_path = Path(raw_path).expanduser().resolve(strict=False)
+        _validate_path_within_trusted_roots(
+            path=resolved_path,
+            setta_home=setta_home,
+            error_code="BadRequest",
+            allow_root_match=allow_root_match,
+        )
+
+
+def _artifact_write_path_option_keys() -> set[str]:
+    if sys.platform == "darwin":
+        return {"app_path"}
+    if os.name == "nt":
+        return {
+            "wrapper_path",
+            "start_menu_shortcut_path",
+            "desktop_shortcut_path",
+        }
+    return {
+        "applications_dir",
+        "wrapper_path",
+        "desktop_shortcut_path",
+    }
+
+
+def _validate_path_within_trusted_roots(
+    *,
+    path: Path,
+    setta_home: Path,
+    error_code: str,
+    allow_root_match: bool,
+) -> None:
+    trusted_roots = _trusted_artifact_roots(setta_home=setta_home)
+    if not any(path == root or path.is_relative_to(root) for root in trusted_roots):
+        raise LauncherSetupError(
+            error_code,
+            f"Launcher artifact path is outside trusted roots: {path}",
+        )
+
+    if allow_root_match:
+        return
+
+    dangerous_paths = {
+        Path(path.anchor).resolve(strict=False),
+        Path.home().resolve(strict=False),
+        setta_home.resolve(strict=False),
+    }
+    dangerous_paths.update(trusted_roots)
+    if path in dangerous_paths:
+        raise LauncherSetupError(
+            error_code,
+            f"Launcher artifact path resolves to a protected root: {path}",
+        )
+
+
+def _trusted_artifact_roots(*, setta_home: Path) -> set[Path]:
+    home = Path.home().resolve(strict=False)
+    roots: set[Path] = {resolve_launcher_dir(setta_home=setta_home)}
+    if sys.platform == "darwin":
+        roots.add((home / "Applications").resolve(strict=False))
+        return roots
+    if os.name == "nt":
+        local_app_data_root = _resolve_windows_env_path(
+            env_var_name="LOCALAPPDATA",
+            fallback=home / "AppData" / "Local",
+        )
+        app_data_root = _resolve_windows_env_path(
+            env_var_name="APPDATA",
+            fallback=home / "AppData" / "Roaming",
+        )
+        user_profile_root = _resolve_windows_env_path(
+            env_var_name="USERPROFILE",
+            fallback=home,
+        )
+        roots.add((local_app_data_root / "Setta").resolve(strict=False))
+        roots.add(
+            (
+                app_data_root
+                / "Microsoft"
+                / "Windows"
+                / "Start Menu"
+                / "Programs"
+            ).resolve(strict=False)
+        )
+        roots.add((user_profile_root / "Desktop").resolve(strict=False))
+        return roots
+    roots.add((home / ".local" / "share" / "applications").resolve(strict=False))
+    roots.add((home / ".local" / "share" / "setta").resolve(strict=False))
+    roots.add((home / "Desktop").resolve(strict=False))
+    return roots
+
+
+def _resolve_windows_env_path(*, env_var_name: str, fallback: Path) -> Path:
+    raw_value = os.environ.get(env_var_name)
+    if raw_value is not None:
+        trimmed_value = raw_value.strip()
+        if trimmed_value:
+            return Path(trimmed_value).expanduser().resolve(strict=False)
+    return fallback.resolve(strict=False)
+
+
+def _write_artifact_ownership_markers(
+    *,
+    managed_artifacts: dict[str, str],
+    ownership_token: str,
+) -> None:
+    for name, path_string in managed_artifacts.items():
+        path = Path(path_string)
+        if not path.exists():
+            raise LauncherSetupError(
+                "ArtifactInstallFailed",
+                f"Managed artifact does not exist after setup: {path}",
+            )
+        marker_path = _artifact_ownership_marker_path(path)
+        marker_payload = _artifact_ownership_marker_contents(
+            artifact_name=name,
+            ownership_token=ownership_token,
+        )
+        try:
+            marker_path.parent.mkdir(parents=True, exist_ok=True)
+            marker_path.write_text(marker_payload, encoding="utf-8")
+        except OSError as exc:
+            raise LauncherSetupError(
+                "ArtifactInstallFailed",
+                f"Failed to write launcher ownership marker for {path}: {exc}",
+            ) from exc
+
+
+def _artifact_ownership_marker_contents(
+    *,
+    artifact_name: str,
+    ownership_token: str,
+) -> str:
+    return f"{artifact_name}:{ownership_token}\n"
+
+
+def _artifact_ownership_marker_path(artifact_path: Path) -> Path:
+    if artifact_path.is_dir() and not artifact_path.is_symlink():
+        return artifact_path / _ARTIFACT_OWNERSHIP_MARKER_BASENAME
+    return artifact_path.parent / f".{artifact_path.name}{_ARTIFACT_OWNERSHIP_MARKER_BASENAME}"
+
+
+def _artifact_ownership_marker_error(
+    *,
+    artifact_name: str,
+    artifact_path: Path,
+    ownership_token: str,
+) -> str | None:
+    marker_path = _artifact_ownership_marker_path(artifact_path)
+    if not marker_path.exists():
+        return f"{artifact_path}: missing launcher ownership marker"
+    try:
+        marker_payload = marker_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return f"{artifact_path}: failed to read launcher ownership marker ({exc})"
+    expected_payload = _artifact_ownership_marker_contents(
+        artifact_name=artifact_name,
+        ownership_token=ownership_token,
+    )
+    if marker_payload != expected_payload:
+        return f"{artifact_path}: launcher ownership marker did not match expected identity"
+    return None
 
 
 def _format_subprocess_error(result: subprocess.CompletedProcess[str]) -> str:
@@ -578,14 +818,3 @@ def _resolve_setta_executable(uv_tool_bin_dir: Path) -> Path | None:
         if candidate.exists() and candidate.is_file():
             return candidate.resolve(strict=False)
     return None
-
-
-def _non_platform_managed_artifacts(
-    managed_artifacts: dict[str, str],
-) -> dict[str, str]:
-    platform_keys = current_platform_artifact_keys()
-    return {
-        name: value
-        for name, value in managed_artifacts.items()
-        if name not in platform_keys
-    }

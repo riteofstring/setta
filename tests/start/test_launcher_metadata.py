@@ -21,6 +21,8 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
     metadata = build_launcher_install_metadata(
         target_command=[str(target_executable), "-m", "setta"],
         channel="uv-tool",
+        install_source="uv_tool",
+        artifact_ownership_token="roundtrip-token",
         setta_version="1.2.3",
         open_mode="browser",
         last_used_workspace=tmp_path / "workspace",
@@ -37,6 +39,8 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
     assert reloaded.schemaVersion == LAUNCHER_METADATA_SCHEMA_VERSION
     assert reloaded.targetCommand == [str(target_executable.resolve(strict=False)), "-m", "setta"]
     assert reloaded.channel == "uv-tool"
+    assert reloaded.installSource == "uv_tool"
+    assert reloaded.artifactOwnershipToken == "roundtrip-token"
     assert reloaded.settaVersion == "1.2.3"
     assert reloaded.openMode == "browser"
     assert reloaded.lastUsedWorkspace == str((tmp_path / "workspace").resolve(strict=False))
@@ -51,6 +55,8 @@ def test_launcher_target_validation_reports_missing_executable(
     metadata = build_launcher_install_metadata(
         target_command=[str(tmp_path / "missing-python"), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="validation-token",
         setta_version="1.2.3",
         open_mode="browser",
     )
@@ -68,6 +74,8 @@ def test_update_launcher_last_used_workspace_if_installed(tmp_path: Path) -> Non
     metadata = build_launcher_install_metadata(
         target_command=[str(target_executable), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="last-used-token",
         setta_version="1.2.3",
         open_mode="browser",
     )
@@ -108,6 +116,8 @@ def test_build_launcher_metadata_rejects_invalid_workspace_behavior(
         build_launcher_install_metadata(
             target_command=[str(target_executable), "-m", "setta"],
             channel="manual",
+            install_source="unsupported",
+            artifact_ownership_token="workspace-behavior-token",
             setta_version="1.2.3",
             open_mode="browser",
             workspace_behavior="unexpected_behavior",

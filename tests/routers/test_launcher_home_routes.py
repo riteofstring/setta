@@ -80,8 +80,42 @@ def test_launcher_recent_workspaces_add_pin_remove_roundtrip(
         )
         assert remove_response.status_code == 200
         remove_payload = remove_response.json()
-        assert remove_payload["ok"] is True
-        assert remove_payload["workspaces"] == []
+    assert remove_payload["ok"] is True
+    assert remove_payload["workspaces"] == []
+
+
+def test_get_launcher_recent_workspaces_honors_setta_home_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    setta_home = tmp_path / "setta-home-alt"
+    workspace = tmp_path / "workspace-b"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(tmp_path))
+
+    with TestClient(app) as client:
+        add_response = client.post(
+            f"{Route.PREFIX.value}{Route.ADD_LAUNCHER_RECENT_WORKSPACE.value}",
+            json={
+                "settaHome": str(setta_home),
+                "workspaceRoot": str(workspace),
+            },
+        )
+        assert add_response.status_code == 200
+
+        get_response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_RECENT_WORKSPACES.value}",
+            params={"setta_home": str(setta_home)},
+        )
+
+    assert get_response.status_code == 200
+    payload = get_response.json()
+    assert payload["ok"] is True
+    assert payload["workspaces"][0]["workspaceRoot"] == str(
+        workspace.resolve(strict=False)
+    )
 
 
 def test_launcher_directory_listing_rejects_outside_allowed_roots(

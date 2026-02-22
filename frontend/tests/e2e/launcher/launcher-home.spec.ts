@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const FRONTEND_BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const BACKEND_ORIGIN = process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const FRONTEND_BASE_URL =
+  process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const HOME_URL = new URL("/home", FRONTEND_BASE_URL).toString();
 
 type OpenWorkspaceRequest = {
@@ -11,6 +13,7 @@ type OpenWorkspaceRequest = {
 
 async function installLauncherHomeMocks(page: Page): Promise<{
   getLastOpenRequest: () => OpenWorkspaceRequest | null;
+  getLastRecentWorkspacesRequestUrl: () => string | null;
 }> {
   let recentWorkspaces = [
     {
@@ -26,6 +29,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   ];
 
   let lastOpenRequest: OpenWorkspaceRequest | null = null;
+  let lastRecentWorkspacesRequestUrl: string | null = null;
 
   await page.route(`${BACKEND_ORIGIN}/api/serverMode`, async (route) => {
     await route.fulfill({
@@ -35,20 +39,18 @@ async function installLauncherHomeMocks(page: Page): Promise<{
     });
   });
 
-  await page.route(
-    `${BACKEND_ORIGIN}/api/launcherAppMode`,
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ launcherMode: true }),
-      });
-    },
-  );
+  await page.route(`${BACKEND_ORIGIN}/api/launcherAppMode`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ launcherMode: true }),
+    });
+  });
 
   await page.route(
     `${BACKEND_ORIGIN}/api/launcherRecentWorkspaces*`,
     async (route) => {
+      lastRecentWorkspacesRequestUrl = route.request().url();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -106,76 +108,79 @@ async function installLauncherHomeMocks(page: Page): Promise<{
     },
   );
 
-  await page.route(`${BACKEND_ORIGIN}/api/listLauncherDirectory`, async (route) => {
-    const payload = route.request().postDataJSON() as { path: string | null };
-    const currentPath = payload.path;
+  await page.route(
+    `${BACKEND_ORIGIN}/api/listLauncherDirectory`,
+    async (route) => {
+      const payload = route.request().postDataJSON() as { path: string | null };
+      const currentPath = payload.path;
 
-    if (!currentPath) {
+      if (!currentPath) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            currentPath: null,
+            parentPath: null,
+            entries: [
+              {
+                name: "/Users/demo",
+                path: "/Users/demo",
+                isDirectory: true,
+                isSymlink: false,
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      if (currentPath === "/Users/demo") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            currentPath: "/Users/demo",
+            parentPath: "/Users",
+            entries: [
+              {
+                name: "projects",
+                path: "/Users/demo/projects",
+                isDirectory: true,
+                isSymlink: false,
+              },
+              {
+                name: "sandbox",
+                path: "/Users/demo/sandbox",
+                isDirectory: true,
+                isSymlink: false,
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
-          currentPath: null,
-          parentPath: null,
+          currentPath,
+          parentPath: "/Users/demo",
           entries: [
             {
-              name: "/Users/demo",
-              path: "/Users/demo",
+              name: "alpha",
+              path: `${currentPath}/alpha`,
               isDirectory: true,
               isSymlink: false,
             },
           ],
         }),
       });
-      return;
-    }
-
-    if (currentPath === "/Users/demo") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          ok: true,
-          currentPath: "/Users/demo",
-          parentPath: "/Users",
-          entries: [
-            {
-              name: "projects",
-              path: "/Users/demo/projects",
-              isDirectory: true,
-              isSymlink: false,
-            },
-            {
-              name: "sandbox",
-              path: "/Users/demo/sandbox",
-              isDirectory: true,
-              isSymlink: false,
-            },
-          ],
-        }),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        currentPath,
-        parentPath: "/Users/demo",
-        entries: [
-          {
-            name: "alpha",
-            path: `${currentPath}/alpha`,
-            isDirectory: true,
-            isSymlink: false,
-          },
-        ],
-      }),
-    });
-  });
+    },
+  );
 
   await page.route(
     `${BACKEND_ORIGIN}/api/openLauncherWorkspace`,
@@ -214,6 +219,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
 
   return {
     getLastOpenRequest: () => lastOpenRequest,
+    getLastRecentWorkspacesRequestUrl: () => lastRecentWorkspacesRequestUrl,
   };
 }
 
@@ -241,7 +247,9 @@ test("launcher home opens a selected directory workspace", async ({ page }) => {
   });
 });
 
-test("launcher home creates and opens a new project folder", async ({ page }) => {
+test("launcher home creates and opens a new project folder", async ({
+  page,
+}) => {
   const mocks = await installLauncherHomeMocks(page);
 
   await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
@@ -260,4 +268,25 @@ test("launcher home creates and opens a new project folder", async ({ page }) =>
     workspaceRoot: "/Users/demo/fresh-app",
     createIfMissing: true,
   });
+});
+
+test("launcher home forwards setta_home query to recent-workspaces request", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(`${HOME_URL}?setta_home=%2Ftmp%2Flauncher-home`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.getByText("Launcher Home")).toBeVisible();
+
+  await expect
+    .poll(() => mocks.getLastRecentWorkspacesRequestUrl(), {
+      message:
+        "Expected launcher recent-workspaces request URL to be captured.",
+    })
+    .not.toBeNull();
+  expect(mocks.getLastRecentWorkspacesRequestUrl()).toContain(
+    "setta_home=%2Ftmp%2Flauncher-home",
+  );
 });

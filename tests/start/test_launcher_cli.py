@@ -101,6 +101,8 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
     metadata = build_launcher_install_metadata(
         target_command=[str(target_executable), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="last-used-token",
         setta_version="1.2.3",
         open_mode="chrome-app",
         last_used_workspace=last_used_workspace,
@@ -152,6 +154,8 @@ def test_launcher_json_honors_always_prompt_workspace_behavior(
     metadata = build_launcher_install_metadata(
         target_command=[str(target_executable), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="always-prompt-token",
         setta_version="1.2.3",
         open_mode="browser",
         workspace_behavior="always_prompt",
@@ -200,6 +204,8 @@ def test_launcher_json_reports_missing_bound_target(
     metadata = build_launcher_install_metadata(
         target_command=[str(tmp_path / "missing-python"), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="missing-target-token",
         setta_version="1.2.3",
         open_mode="browser",
     )
@@ -281,9 +287,8 @@ def test_open_url_with_launcher_mode_falls_back_to_browser(monkeypatch) -> None:
     assert opened_urls == ["http://127.0.0.1:61234/__setta__/bootstrap#token=tok"]
 
 
-def test_launcher_setup_status_and_remove_roundtrip(tmp_path: Path) -> None:
+def test_launcher_setup_status_and_remove_roundtrip() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    artifact_path = tmp_path / "Applications" / "Setta.app"
 
     runner = CliRunner()
     setup_result = runner.invoke(
@@ -299,8 +304,6 @@ def test_launcher_setup_status_and_remove_roundtrip(tmp_path: Path) -> None:
             "--workspace-behavior",
             "always-prompt",
             "--no-install-artifacts",
-            "--managed-artifact",
-            f"macosApp={artifact_path}",
         ],
     )
 
@@ -321,14 +324,33 @@ def test_launcher_setup_status_and_remove_roundtrip(tmp_path: Path) -> None:
     assert status_payload["channel"] == "uv-tool"
     assert status_payload["updateCapability"] == "in_app"
 
-    artifact_path.mkdir(parents=True, exist_ok=True)
     remove_result = runner.invoke(cli, ["launcher", "remove", "--json"])
     assert remove_result.exit_code == 0, remove_result.output
     remove_payload = json.loads(remove_result.output)
     assert remove_payload["ok"] is True
     assert remove_payload["metadataRemoved"] is True
-    assert str(artifact_path.resolve(strict=False)) in remove_payload["removedPaths"]
+    assert remove_payload["removedPaths"] == []
     assert not resolve_launcher_metadata_path(setta_home=setta_home).exists()
+
+
+def test_launcher_setup_rejects_managed_artifact_override(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "launcher",
+            "setup",
+            "--json",
+            "--no-install-artifacts",
+            "--managed-artifact",
+            f"manual={tmp_path / 'artifact'}",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "BadRequest"
 
 
 def test_launcher_update_reports_not_installed() -> None:
@@ -346,6 +368,8 @@ def test_launcher_repair_rebinds_missing_target(tmp_path: Path) -> None:
     metadata = build_launcher_install_metadata(
         target_command=[str(tmp_path / "missing-python"), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="repair-cli-token",
         setta_version="1.2.3",
         open_mode="browser",
     )

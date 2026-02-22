@@ -153,6 +153,23 @@ class SessionRegistry:
             if Path(session.workspacePathCanonical).resolve() == canonical_workspace
         ]
 
+    def find_sessions_by_workspace_and_mode(
+        self,
+        workspace_path: Path | str,
+        server_mode: Literal["ide", "launcher"],
+        prune_stale: bool = True,
+        track_suspicious: bool = False,
+    ) -> list[SessionMetadata]:
+        return [
+            session
+            for session in self.find_sessions_by_workspace(
+                workspace_path=workspace_path,
+                prune_stale=prune_stale,
+                track_suspicious=track_suspicious,
+            )
+            if session.serverMode == server_mode
+        ]
+
     def delete_session(self, session_id: str) -> None:
         session_dir = self._session_dir(session_id)
         if not session_dir.exists():

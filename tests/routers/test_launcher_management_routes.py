@@ -34,9 +34,8 @@ def test_launcher_status_route_reports_not_installed() -> None:
     assert payload["updateCapability"] == "unsupported"
 
 
-def test_setup_and_remove_launcher_routes_roundtrip(tmp_path: Path) -> None:
+def test_setup_and_remove_launcher_routes_roundtrip() -> None:
     app = _build_app()
-    artifact_path = (tmp_path / "Applications" / "Setta.app").resolve(strict=False)
 
     with TestClient(app) as client:
         setup_response = client.post(
@@ -46,7 +45,6 @@ def test_setup_and_remove_launcher_routes_roundtrip(tmp_path: Path) -> None:
                 "openMode": "chrome-app",
                 "workspaceBehavior": "always-prompt",
                 "installArtifacts": False,
-                "managedArtifacts": {"macosApp": str(artifact_path)},
             },
         )
 
@@ -58,12 +56,33 @@ def test_setup_and_remove_launcher_routes_roundtrip(tmp_path: Path) -> None:
         assert setup_payload["workspaceBehavior"] == "always_prompt"
         assert setup_payload["updateCapability"] == "in_app"
 
-        artifact_path.mkdir(parents=True, exist_ok=True)
         remove_response = client.post(f"{Route.PREFIX.value}{Route.REMOVE_LAUNCHER.value}")
         assert remove_response.status_code == 200
         remove_payload = remove_response.json()
         assert remove_payload["ok"] is True
         assert remove_payload["installed"] is False
+
+
+def test_setup_launcher_route_rejects_manual_managed_artifacts(
+    tmp_path: Path,
+) -> None:
+    app = _build_app()
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}",
+            json={
+                "channel": "manual",
+                "openMode": "browser",
+                "installArtifacts": False,
+                "managedArtifacts": {"manual": str(tmp_path / "artifact")},
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "BadRequest"
 
 
 def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
@@ -73,6 +92,8 @@ def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
     metadata = build_launcher_install_metadata(
         target_command=[str(missing_target), "-m", "setta"],
         channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="route-repair-token",
         setta_version="1.2.3",
         open_mode="browser",
     )
@@ -99,6 +120,8 @@ def test_update_launcher_route_reports_installer_managed_channel(
     metadata = build_launcher_install_metadata(
         target_command=[str(target), "-m", "setta"],
         channel="macos-script",
+        install_source="installer_managed",
+        artifact_ownership_token="route-update-token",
         setta_version="1.2.3",
         open_mode="browser",
     )

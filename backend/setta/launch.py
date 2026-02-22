@@ -139,11 +139,10 @@ def launch_workspace_session(
             raise LaunchError(code, message)
 
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
-    sessions = [
-        session
-        for session in registry.find_sessions_by_workspace(paths.workspace_root)
-        if session.serverMode == server_mode
-    ]
+    sessions = registry.find_sessions_by_workspace_and_mode(
+        paths.workspace_root,
+        server_mode=server_mode,
+    )
     if sessions:
         sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
         for session in sessions:
@@ -173,6 +172,7 @@ def launch_workspace_session(
     session = _wait_for_session(
         registry,
         paths.workspace_root,
+        server_mode,
         process.process,
         process.log_path,
         timeout_seconds=timeout_seconds,
@@ -295,6 +295,7 @@ def _start_setta_process(
 def _wait_for_session(
     registry: SessionRegistry,
     workspace_root: Path,
+    server_mode: Literal["ide", "launcher"],
     process: subprocess.Popen[str],
     log_path: Path,
     *,
@@ -303,7 +304,10 @@ def _wait_for_session(
 ) -> SessionMetadata:
     deadline = time.monotonic() + timeout_seconds
     while True:
-        sessions = registry.find_sessions_by_workspace(workspace_root)
+        sessions = registry.find_sessions_by_workspace_and_mode(
+            workspace_root,
+            server_mode=server_mode,
+        )
         if sessions:
             # A Setta session registers itself before uvicorn starts listening, so
             # ensure the backend port is reachable before returning a bootstrap URL.

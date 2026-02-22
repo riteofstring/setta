@@ -95,6 +95,29 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("serializes launcher recent-workspaces query params", async () => {
+    // The launcher recent-workspaces endpoint accepts `setta_home` as a query param.
+    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
+      setta_home: "/tmp/setta-home",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}?setta_home=%2Ftmp%2Fsetta-home`,
+    );
+  });
+
+  it("omits null query params during URL construction", async () => {
+    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
+      setta_home: null,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}`,
+    );
+  });
+
   it("keeps streamAppSpec on backend origin", async () => {
     await post(RouteEnum.STREAM_APP_SPEC, { prompt: "Generate app" });
     expect(fetchMock).toHaveBeenCalledTimes(1);

@@ -21,7 +21,10 @@ export function normalizeNewProjectName(rawValue: string): string {
   return rawValue.trim().replace(/[\\/]+/g, "");
 }
 
-export function joinLauncherPath(parentPath: string, childName: string): string {
+export function joinLauncherPath(
+  parentPath: string,
+  childName: string,
+): string {
   const normalizedParent = parentPath.trim();
   const normalizedChild = normalizeNewProjectName(childName);
   if (!normalizedParent) {
@@ -64,14 +67,23 @@ function resolveBootstrapUrl(bootstrapUrlFragment: string): string {
   );
 }
 
-type RecentActionInFlight =
-  | "refresh"
-  | "pin"
-  | "remove"
-  | "open"
-  | null;
+function resolveLauncherSettaHomeQueryParam(): string | null {
+  const searchParams = new URL(window.location.href).searchParams;
+  const rawSettaHome = searchParams.get("setta_home");
+  if (rawSettaHome === null) {
+    return null;
+  }
+  const normalizedSettaHome = rawSettaHome.trim();
+  if (!normalizedSettaHome) {
+    return null;
+  }
+  return normalizedSettaHome;
+}
+
+type RecentActionInFlight = "refresh" | "pin" | "remove" | "open" | null;
 
 export function LauncherHomePage() {
+  const launcherSettaHome = useMemo(resolveLauncherSettaHomeQueryParam, []);
   const [launcherModeVerified, setLauncherModeVerified] = useState(false);
   const [launcherModeError, setLauncherModeError] = useState<string | null>(
     null,
@@ -94,7 +106,8 @@ export function LauncherHomePage() {
   >([]);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
 
-  const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string>("");
+  const [selectedWorkspacePath, setSelectedWorkspacePath] =
+    useState<string>("");
   const [newProjectName, setNewProjectName] = useState<string>("");
   const [openError, setOpenError] = useState<string | null>(null);
   const [openInFlight, setOpenInFlight] = useState(false);
@@ -117,7 +130,8 @@ export function LauncherHomePage() {
   }
 
   async function loadRecentWorkspaces() {
-    const response = await route_get_launcher_recent_workspaces(null);
+    const response =
+      await route_get_launcher_recent_workspaces(launcherSettaHome);
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;
@@ -185,7 +199,10 @@ export function LauncherHomePage() {
     });
   }, [recentWorkspaces]);
 
-  async function openWorkspace(workspaceRoot: string, createIfMissing: boolean) {
+  async function openWorkspace(
+    workspaceRoot: string,
+    createIfMissing: boolean,
+  ) {
     if (!workspaceRoot.trim()) {
       setOpenError("Select a workspace path first.");
       return;
@@ -222,7 +239,9 @@ export function LauncherHomePage() {
       return;
     }
 
-    window.location.assign(resolveBootstrapUrl(response.data.bootstrapUrlFragment));
+    window.location.assign(
+      resolveBootstrapUrl(response.data.bootstrapUrlFragment),
+    );
   }
 
   async function togglePinWorkspace(entry: LauncherRecentWorkspacePayload) {
@@ -439,7 +458,10 @@ export function LauncherHomePage() {
 
             <div className="rounded-md border border-setta-200 bg-setta-50/70 px-3 py-2 text-xs text-setta-600 dark:border-setta-700 dark:bg-setta-900/30 dark:text-setta-300">
               <p>
-                Current path: <span className="font-semibold">{currentPath ?? "(roots)"}</span>
+                Current path:{" "}
+                <span className="font-semibold">
+                  {currentPath ?? "(roots)"}
+                </span>
               </p>
               {filesystemRoots.length > 0 && (
                 <p className="mt-1 break-all text-[11px] text-setta-500 dark:text-setta-400">
@@ -563,15 +585,22 @@ export function LauncherHomePage() {
               spellCheck={false}
             />
             <p className="text-xs text-setta-500 dark:text-setta-400">
-              Creates <span className="font-semibold">{currentPath ?? "<pick a directory>"}</span>/{" "}
-              {normalizeNewProjectName(newProjectName) || "<project-name>"}
+              Creates{" "}
+              <span className="font-semibold">
+                {currentPath ?? "<pick a directory>"}
+              </span>
+              / {normalizeNewProjectName(newProjectName) || "<project-name>"}
             </p>
           </div>
           <button
             type="button"
             data-testid="launcher-create-project-button"
             className="rounded-full border border-setta-300 px-5 py-2 text-sm font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-            disabled={launcherBusy || !currentPath || !normalizeNewProjectName(newProjectName)}
+            disabled={
+              launcherBusy ||
+              !currentPath ||
+              !normalizeNewProjectName(newProjectName)
+            }
             onClick={() => {
               void handleCreateProject();
             }}
