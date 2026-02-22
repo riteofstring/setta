@@ -1122,14 +1122,19 @@ class PluginManager:
     ) -> list[PluginRegisteredUISetting]:
         if plugin_id is not None:
             registrations = self._backend_ui_settings.get(plugin_id, [])
-            return [registration.model_copy(deep=True) for registration in registrations]
+            return [
+                registration.model_copy(deep=True) for registration in registrations
+            ]
         output: list[PluginRegisteredUISetting] = []
         for registrations in self._backend_ui_settings.values():
             output.extend(
                 registration.model_copy(deep=True) for registration in registrations
             )
         output.sort(
-            key=lambda registration: (registration.pluginId, registration.localSettingId)
+            key=lambda registration: (
+                registration.pluginId,
+                registration.localSettingId,
+            )
         )
         return output
 

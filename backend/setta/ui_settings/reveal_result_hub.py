@@ -27,7 +27,9 @@ class UISettingRevealResultMessage(BaseModel, extra="forbid"):
 
 class UISettingRevealResultHub:
     def __init__(self) -> None:
-        self._waiters_by_request_id: dict[str, asyncio.Future[UISettingRevealResultContent]] = {}
+        self._waiters_by_request_id: dict[
+            str, asyncio.Future[UISettingRevealResultContent]
+        ] = {}
 
     def register_request(self, request_id: str) -> None:
         if request_id in self._waiters_by_request_id:

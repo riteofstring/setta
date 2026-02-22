@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 import pytest
 
 from setta.agentic.external_agent_defaults import (
@@ -21,6 +22,7 @@ from setta.routers.agentic import (
     CreateAgentProfileRequest,
     CreateExternalAgentConfigRequest,
     CreatePromptTemplateRequest,
+    CreateTranscriptionProfileRequest,
     DeleteAgentProfileRequest,
     DeleteExternalAgentConfigRequest,
     DeletePromptTemplateRequest,
@@ -33,9 +35,11 @@ from setta.routers.agentic import (
     UpdateAgentProfileRequest,
     UpdateExternalAgentConfigRequest,
     UpdatePromptTemplateRequest,
+    UpdateTranscriptionProfileRequest,
     route_create_agent_profile,
     route_create_external_agent_config,
     route_create_prompt_template,
+    route_create_transcription_profile,
     route_delete_agent_profile,
     route_delete_external_agent_config,
     route_delete_prompt_template,
@@ -47,17 +51,20 @@ from setta.routers.agentic import (
     route_get_external_agent_configs,
     route_get_prompt_template,
     route_get_prompt_templates,
+    route_get_transcription_profiles,
     route_start_agent_run,
     route_stop_agent_run,
     route_update_agent_profile,
     route_update_external_agent_config,
     route_update_prompt_template,
+    route_update_transcription_profile,
 )
 from setta.agentic.store import save_engine_configs
 from setta.types.agentic import (
     AgentRunStatus,
     EngineConfig,
     EngineType,
+    TranscriptionTransportMode,
 )
 from setta.types.external_agents import (
     ExternalAgentEnvVarStatus,
@@ -134,7 +141,7 @@ class TestAgenticRoutes:
                             api_key_env="OPENAI_API_KEY",
                             mcpServerIds=[],
                         )
-                },
+                    },
                     mcpServers={},
                 )
             )
@@ -217,6 +224,188 @@ class TestAgenticRoutes:
                 )
                 profiles = await route_get_agent_profiles(ctx)
                 assert profiles == []
+
+    async def test_transcription_profile_routes_validate_llm_config_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            mcp_client = MultiMCPClient({}, disabled=True)
+            agent_runner = AgentRunner(dbe, mcp_client, frontend_sender)
+            agent_runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "openai-file-transcribe": LLMConfig(
+                            id="openai-file-transcribe",
+                            model="whisper-1",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                        "openai-realtime-transcribe": LLMConfig(
+                            id="openai-realtime-transcribe",
+                            model="gpt-4o-mini-transcribe",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                        "anthropic-transcribe": LLMConfig(
+                            id="anthropic-transcribe",
+                            model="claude-3-5-sonnet-latest",
+                            provider="anthropic",
+                            api_key_env="ANTHROPIC_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                agent_runner=agent_runner,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as create_exc:
+                    await route_create_transcription_profile(
+                        CreateTranscriptionProfileRequest(
+                            name="Invalid profile",
+                            transcriptionLlmConfigId="missing-transcribe",
+                            transportMode=TranscriptionTransportMode.file,
+                            chunkMs=1200,
+                            language=None,
+                        ),
+                        ctx,
+                    )
+                assert create_exc.value.status_code == 400
+                assert (
+                    create_exc.value.detail
+                    == "Transcription profile references unknown transcription LLM config 'missing-transcribe'."
+                )
+
+                created = await route_create_transcription_profile(
+                    CreateTranscriptionProfileRequest(
+                        name="Valid profile",
+                        transcriptionLlmConfigId="openai-file-transcribe",
+                        transportMode=TranscriptionTransportMode.file,
+                        chunkMs=1200,
+                        language=None,
+                    ),
+                    ctx,
+                )
+                assert created.supportsRealtimeTranscription is False
+
+                with pytest.raises(HTTPException) as update_exc:
+                    await route_update_transcription_profile(
+                        UpdateTranscriptionProfileRequest(
+                            profile=created.model_copy(
+                                update={
+                                    "transcriptionLlmConfigId": "missing-transcribe"
+                                }
+                            )
+                        ),
+                        ctx,
+                    )
+                assert update_exc.value.status_code == 400
+                assert (
+                    update_exc.value.detail
+                    == "Transcription profile references unknown transcription LLM config 'missing-transcribe'."
+                )
+
+                with pytest.raises(HTTPException) as realtime_create_exc:
+                    await route_create_transcription_profile(
+                        CreateTranscriptionProfileRequest(
+                            name="Invalid realtime profile",
+                            transcriptionLlmConfigId="anthropic-transcribe",
+                            transportMode=TranscriptionTransportMode.realtime,
+                            chunkMs=1200,
+                            language=None,
+                        ),
+                        ctx,
+                    )
+                assert realtime_create_exc.value.status_code == 400
+                assert (
+                    realtime_create_exc.value.detail
+                    == "Realtime transcription is unavailable for this provider/model."
+                )
+
+                with pytest.raises(HTTPException) as realtime_openai_file_exc:
+                    await route_create_transcription_profile(
+                        CreateTranscriptionProfileRequest(
+                            name="Invalid openai realtime profile",
+                            transcriptionLlmConfigId="openai-file-transcribe",
+                            transportMode=TranscriptionTransportMode.realtime,
+                            chunkMs=1200,
+                            language=None,
+                        ),
+                        ctx,
+                    )
+                assert realtime_openai_file_exc.value.status_code == 400
+                assert (
+                    realtime_openai_file_exc.value.detail
+                    == "Realtime transcription is unavailable for this provider/model."
+                )
+
+                with pytest.raises(HTTPException) as realtime_update_exc:
+                    await route_update_transcription_profile(
+                        UpdateTranscriptionProfileRequest(
+                            profile=created.model_copy(
+                                update={
+                                    "transcriptionLlmConfigId": "anthropic-transcribe",
+                                    "transportMode": TranscriptionTransportMode.realtime,
+                                }
+                            )
+                        ),
+                        ctx,
+                    )
+                assert realtime_update_exc.value.status_code == 400
+                assert (
+                    realtime_update_exc.value.detail
+                    == "Realtime transcription is unavailable for this provider/model."
+                )
+
+                realtime_created = await route_create_transcription_profile(
+                    CreateTranscriptionProfileRequest(
+                        name="Realtime profile",
+                        transcriptionLlmConfigId="openai-realtime-transcribe",
+                        transportMode=TranscriptionTransportMode.realtime,
+                        chunkMs=1200,
+                        language=None,
+                    ),
+                    ctx,
+                )
+                assert realtime_created.supportsRealtimeTranscription is True
+
+                fetched_profiles = await route_get_transcription_profiles(ctx)
+                fetched_by_id = {profile.id: profile for profile in fetched_profiles}
+                assert fetched_by_id[created.id].supportsRealtimeTranscription is False
+                assert (
+                    fetched_by_id[realtime_created.id].supportsRealtimeTranscription
+                    is True
+                )
+
+    async def test_create_transcription_profile_request_validates_chunk_ms_bounds(
+        self,
+    ) -> None:
+        with pytest.raises(ValidationError):
+            CreateTranscriptionProfileRequest(
+                name="Too small chunk",
+                transcriptionLlmConfigId="openai-file-transcribe",
+                transportMode=TranscriptionTransportMode.auto,
+                chunkMs=199,
+                language=None,
+            )
+        with pytest.raises(ValidationError):
+            CreateTranscriptionProfileRequest(
+                name="Too large chunk",
+                transcriptionLlmConfigId="openai-file-transcribe",
+                transportMode=TranscriptionTransportMode.auto,
+                chunkMs=10_001,
+                language=None,
+            )
 
     async def test_prompt_template_crud(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -528,10 +717,7 @@ class TestAgenticRoutes:
                     ctx,
                 )
 
-            assert (
-                created.settingsMode
-                == ExternalAgentSettingsMode.managed_local
-            )
+            assert created.settingsMode == ExternalAgentSettingsMode.managed_local
             assert created.settingsAllowSettaEdits
 
             settings_path = Path(tmpdir) / ".claude" / "settings.local.json"
@@ -582,12 +768,11 @@ class TestAgenticRoutes:
             mcp_servers = payload.get("mcp_servers")
             assert isinstance(mcp_servers, dict)
             if isinstance(mcp_servers, dict):
-                assert (
-                    mcp_servers.get("setta", {}).get("url")
-                    == f"{C.BACKEND}/mcp"
-                )
+                assert mcp_servers.get("setta", {}).get("url") == f"{C.BACKEND}/mcp"
 
-    async def test_external_agent_config_initializes_opencode_settings_file(self) -> None:
+    async def test_external_agent_config_initializes_opencode_settings_file(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
             setta_root.mkdir(parents=True, exist_ok=True)

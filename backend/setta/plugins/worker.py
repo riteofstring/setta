@@ -545,10 +545,7 @@ class _WorkerState:
         if not isinstance(setting, dict):
             raise WorkerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting registration "
-                    "must be an object."
-                ),
+                (f"Plugin {self.plugin_id} ui setting registration must be an object."),
             )
         allowed_keys = {
             "id",
@@ -657,10 +654,7 @@ class _WorkerState:
         if not isinstance(raw_value_schema, dict):
             raise WorkerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    f"Plugin {self.plugin_id} ui setting valueSchema must be "
-                    "an object."
-                ),
+                (f"Plugin {self.plugin_id} ui setting valueSchema must be an object."),
             )
         value_schema_payload = _ensure_json_serializable(
             raw_value_schema,
@@ -1532,10 +1526,7 @@ class _WorkerState:
             if handler is None:
                 raise WorkerError(
                     "PLUGIN_BACKEND_REGISTER_FAILED",
-                    (
-                        "Plugin ui setting read handler not found: "
-                        f"{handler_id}"
-                    ),
+                    (f"Plugin ui setting read handler not found: {handler_id}"),
                 )
             try:
                 result = handler(project_config_id=project_config_id)
@@ -1576,10 +1567,7 @@ class _WorkerState:
         if handler is None:
             raise WorkerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting write handler not found: "
-                    f"{handler_id}"
-                ),
+                (f"Plugin ui setting write handler not found: {handler_id}"),
             )
         value = params.get("value")
         try:

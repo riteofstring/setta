@@ -126,6 +126,15 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - For "set/change/update this setting", call `set_ui_setting_value`.
 - If multiple settings match and intent is ambiguous, ask a short disambiguation question before mutating.
 
+## Completion Reporting Contract
+- Before sending any user-visible response, call `report_completion_status`.
+- Always provide:
+  - `completionIntent` (`true` when claiming task completion; otherwise `false`)
+  - `requiresVerification` (`true` when error checks are required)
+  - `checkResults` entries with `checkName`, `required`, `status` (`passed` | `failed` | `not_run`), and optional `details`/`source`.
+- If verification is required and checks were not run, report `status: "not_run"` for the required checks.
+- For informational or clarifying responses, set `completionIntent` to `false`.
+
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.
 - No guessed IDs or paths; always use IDs returned by tools.

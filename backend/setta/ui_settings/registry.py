@@ -12,8 +12,8 @@ from setta.plugins.errors import PluginManagerError
 from setta.plugins.models import PluginRegisteredUISetting
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
-    SetProjectConfigCodegenTargetsRequest,
     SetAppDefinitionRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetShowParamDisplayNamesRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -458,7 +458,11 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
             metadata=UISettingEntry(
                 settingId="core.run_instructions.python_codegen_enabled",
                 title="Python Codegen Enabled",
-                synonyms=["python codegen", "codegen toggle", "run instructions python"],
+                synonyms=[
+                    "python codegen",
+                    "codegen toggle",
+                    "run instructions python",
+                ],
                 description="Enable or disable the Python codegen target for this project.",
                 location=UISettingLocation(
                     side="left",
@@ -910,9 +914,7 @@ def _convert_plugin_manager_error_for_ui_setting(
         )
     return UISettingValidationError(
         "mutation_failed",
-        (
-            f"Plugin {plugin_id} ui setting {operation} failed: {exc.message}"
-        ),
+        (f"Plugin {plugin_id} ui setting {operation} failed: {exc.message}"),
     )
 
 

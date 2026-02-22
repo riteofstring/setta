@@ -22,15 +22,15 @@ from setta.ui_settings.models import (
     UISettingToolError,
     UISettingValueSchema,
 )
-from setta.ui_settings.reveal_result_hub import (
-    UISettingRevealResultContent,
-    UISettingRevealResultStatus,
-)
 from setta.ui_settings.registry import (
     UISettingValidationError,
     build_ui_settings_registry,
     parse_plugin_setting_id,
     validate_ui_setting_value,
+)
+from setta.ui_settings.reveal_result_hub import (
+    UISettingRevealResultContent,
+    UISettingRevealResultStatus,
 )
 
 UISettingSourceFilterLiteral = Literal["core", "plugin", "all"]
@@ -620,7 +620,9 @@ async def _reveal_settings(
             RevealUISettingStatus(
                 settingId=setting_id,
                 status="failed",
-                error=_build_ui_setting_error_from_frontend_reveal_status(frontend_status),
+                error=_build_ui_setting_error_from_frontend_reveal_status(
+                    frontend_status
+                ),
             )
         ],
     )
@@ -776,7 +778,8 @@ def _build_ui_setting_error_from_frontend_reveal_status(
         code=resolved_code,
         message=(
             status.errorMessage
-            if isinstance(status.errorMessage, str) and status.errorMessage.strip() != ""
+            if isinstance(status.errorMessage, str)
+            and status.errorMessage.strip() != ""
             else f"Frontend reveal failed for {status.settingId}."
         ),
     )
