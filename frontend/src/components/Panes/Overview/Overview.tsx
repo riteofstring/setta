@@ -40,7 +40,6 @@ import {
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
-import { getPaneMinimumWidth } from "../paneLayout";
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
@@ -280,7 +279,7 @@ export function Overview() {
         onResizeStop={onOverviewResizeStop}
         vis={vis}
         width={width}
-        minimumWidth={getPaneMinimumWidth(PaneNameEnum.overview)}
+        minimumWidth={250}
         {...(isFileBrowserTab ? { paddingClassName: "pt-2.5 pb-0" } : {})}
       >
         {vis && (

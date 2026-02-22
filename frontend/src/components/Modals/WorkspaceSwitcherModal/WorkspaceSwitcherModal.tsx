@@ -1,7 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_get_setta_home_info } from "utils/generatedEndpoints";
@@ -61,21 +63,10 @@ export function WorkspaceSwitcherModal() {
 
     async function hydrateLauncherSettaHomeInfo() {
       const response = await route_get_setta_home_info();
-      if (!isMounted || !res200(response)) {
+      if (!isMounted || !res200(response) || !response.data) {
         return;
       }
-      const data: unknown = response.data;
-      if (!data || typeof data !== "object") {
-        return;
-      }
-      const record = data as Record<string, unknown>;
-      if (
-        typeof record.settaHome !== "string" ||
-        typeof record.globalSettaFilesBase !== "string"
-      ) {
-        return;
-      }
-      setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
+      setLauncherSettaHomeInfo(response.data);
     }
 
     void hydrateLauncherSettaHomeInfo();
@@ -90,11 +81,12 @@ export function WorkspaceSwitcherModal() {
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
-  const globalBaseLabel =
-    trimmedSshTarget.length > 0
-      ? "remote Setta home"
-      : launcherSettaHomeInfo?.globalSettaFilesBase ??
-        "<global_setta_files_base>";
+  let globalBaseLabel = "<global_setta_files_base>";
+  if (trimmedSshTarget.length > 0) {
+    globalBaseLabel = "remote Setta home";
+  } else if (launcherSettaHomeInfo?.globalSettaFilesBase) {
+    globalBaseLabel = launcherSettaHomeInfo.globalSettaFilesBase;
+  }
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -301,6 +293,8 @@ export function WorkspaceSwitcherModal() {
                 : null}
             </p>
           </div>
+
+          <DesktopLauncherSettingsSection />
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
