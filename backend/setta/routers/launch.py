@@ -168,7 +168,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             setta_home=result.paths.setta_home,
             workspace_root=result.paths.workspace_root,
         )
-    except LauncherMetadataError:
+    except (LauncherMetadataError, OSError):
         # Workspace launches should continue even if launcher metadata is malformed.
         pass
 

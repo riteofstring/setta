@@ -426,8 +426,17 @@ class TestLaunchRoutes:
         assert captured["setta_home"] == setta_home
         assert captured["workspace_root"] == workspace_root
 
+    @pytest.mark.parametrize(
+        "raised_error",
+        [
+            LauncherMetadataError("invalid launcher metadata"),
+            OSError("disk full"),
+        ],
+    )
     def test_launch_local_ignores_launcher_metadata_update_errors(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        raised_error: Exception,
     ) -> None:
         workspace_root = Path("/tmp/workspace").resolve(strict=False)
         setta_home = Path("/tmp/.setta").resolve(strict=False)
@@ -459,9 +468,7 @@ class TestLaunchRoutes:
         monkeypatch.setattr("setta.routers.launch.launch_workspace_session", lambda **_k: result)
         monkeypatch.setattr(
             "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
-            lambda **_kwargs: (_ for _ in ()).throw(
-                LauncherMetadataError("invalid launcher metadata")
-            ),
+            lambda **_kwargs: (_ for _ in ()).throw(raised_error),
         )
         monkeypatch.setattr("setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
         monkeypatch.setattr(

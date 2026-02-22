@@ -156,14 +156,20 @@ def update_launcher_last_used_workspace_if_installed(
     setta_home: Path,
     workspace_root: str | Path,
 ) -> bool:
-    metadata = load_launcher_install_metadata(setta_home=setta_home)
+    try:
+        metadata = load_launcher_install_metadata(setta_home=setta_home)
+    except LauncherMetadataError:
+        return False
     if metadata is None:
         return False
-    next_metadata = replace(
-        metadata,
-        lastUsedWorkspace=_normalize_optional_workspace(workspace_root),
-    )
-    write_launcher_install_metadata(setta_home=setta_home, metadata=next_metadata)
+    try:
+        next_metadata = replace(
+            metadata,
+            lastUsedWorkspace=_normalize_optional_workspace(workspace_root),
+        )
+        write_launcher_install_metadata(setta_home=setta_home, metadata=next_metadata)
+    except (LauncherMetadataError, OSError):
+        return False
     return True
 
 

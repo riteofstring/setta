@@ -101,6 +101,44 @@ def test_setup_launcher_route_rejects_manual_managed_artifacts(
     assert payload["error"]["code"] == "BadRequest"
 
 
+def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
+    tmp_path: Path,
+) -> None:
+    app = _build_app()
+    setta_home = (tmp_path / "scoped-setta-home").resolve(strict=False)
+    target = tmp_path / "python"
+    target.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target.chmod(0o755)
+
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="uv-tool",
+        install_source="uv_tool",
+        artifact_ownership_token="route-setup-preserve-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        workspace_behavior="always_prompt",
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}",
+            json={
+                "settaHome": str(setta_home),
+                "installArtifacts": False,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["channel"] == "uv-tool"
+    assert payload["openMode"] == "browser"
+    assert payload["workspaceBehavior"] == "always_prompt"
+    assert payload["updateCapability"] == "in_app"
+
+
 def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
     app = _build_app()
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)

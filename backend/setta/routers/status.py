@@ -219,18 +219,35 @@ def route_get_launcher_status(setta_home: str | None = None) -> LauncherStatusRe
 @router.post(Route.SETUP_LAUNCHER, dependencies=[Depends(require_ide_mode)])
 def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
     setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
-    workspace_behavior = _normalize_launcher_workspace_behavior_for_setup(
+    provided_fields = x.model_fields_set
+    raw_workspace_behavior = (
         x.workspaceBehavior
+        if "workspaceBehavior" in provided_fields
+        else None
+    )
+    workspace_behavior = _normalize_launcher_workspace_behavior_for_setup(
+        raw_workspace_behavior
+    )
+    channel = x.channel if "channel" in provided_fields else None
+    open_mode = x.openMode if "openMode" in provided_fields else None
+    install_artifacts = (
+        x.installArtifacts if "installArtifacts" in provided_fields else True
+    )
+    artifact_options = (
+        x.artifactOptions if "artifactOptions" in provided_fields else None
+    )
+    managed_artifacts = (
+        x.managedArtifacts if "managedArtifacts" in provided_fields else None
     )
     try:
         setup_launcher_installation(
             setta_home=setta_home,
-            channel=x.channel,
-            open_mode=x.openMode,
+            channel=channel,
+            open_mode=open_mode,
             workspace_behavior=workspace_behavior,
-            install_artifacts=x.installArtifacts,
-            artifact_options=x.artifactOptions,
-            managed_artifacts=x.managedArtifacts,
+            install_artifacts=install_artifacts,
+            artifact_options=artifact_options,
+            managed_artifacts=managed_artifacts,
         )
         status = collect_launcher_status(setta_home=setta_home)
     except LauncherSetupError as exc:

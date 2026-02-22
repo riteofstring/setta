@@ -191,8 +191,11 @@ print("[launcher-smoke] relaunch flow OK")
 PY
 "${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all >/dev/null 2>&1 || true
 
+echo "[launcher-smoke] Refreshing launcher status after update..."
+post_update_status_json="$("${setta_bin}" --setta-home "${setta_home}" launcher status --json)"
+
 echo "[launcher-smoke] Deliberately breaking a managed artifact..."
-artifact_to_break="$(python3 - "${status_json}" <<'PY'
+artifact_to_break="$(python3 - "${post_update_status_json}" <<'PY'
 import json
 import pathlib
 import sys
@@ -210,6 +213,10 @@ for value in managed.values():
 raise SystemExit("no managed artifact path found to break")
 PY
 )"
+if [[ ! -e "${artifact_to_break}" ]]; then
+  echo "Selected managed artifact does not exist after update: ${artifact_to_break}" >&2
+  exit 1
+fi
 if [[ -d "${artifact_to_break}" ]]; then
   rm -rf "${artifact_to_break}"
 else

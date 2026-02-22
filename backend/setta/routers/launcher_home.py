@@ -313,6 +313,21 @@ def route_open_launcher_workspace(
     normalized_setta_home = normalize_optional_argument(x.settaHome)
     normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
     normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
+    resolved_setta_home = _resolve_launcher_setta_home(
+        setta_home=normalized_setta_home
+    )
+
+    if x.createIfMissing and _contains_dot_segments(raw_path=x.workspaceRoot):
+        return LauncherOpenWorkspaceResponse(
+            ok=False,
+            error=LauncherHomeErrorPayload(
+                code="BadRequest",
+                message=(
+                    "Workspace path must not contain '.' or '..' segments when "
+                    "creating a new project."
+                ),
+            ),
+        )
 
     allowed_roots = launcher_allowed_roots()
     try:
@@ -366,7 +381,7 @@ def route_open_launcher_workspace(
         result = launch_workspace_session(
             workspace_root=workspace_root,
             profile=normalized_profile,
-            setta_home=normalized_setta_home,
+            setta_home=str(resolved_setta_home),
             setta_files_root=normalized_setta_files_root,
             setta_files_location=normalized_setta_files_location,
             runtime_root=normalized_runtime_root,
@@ -390,7 +405,7 @@ def route_open_launcher_workspace(
             setta_home=result.paths.setta_home,
             workspace_root=result.paths.workspace_root,
         )
-    except LauncherMetadataError:
+    except (LauncherMetadataError, OSError):
         pass
 
     try:
@@ -467,6 +482,14 @@ def _resolve_launcher_setta_home(*, setta_home: str | None) -> Path:
     if not trimmed:
         return get_setta_paths().setta_home.resolve(strict=False)
     return Path(trimmed).expanduser().resolve(strict=False)
+
+
+def _contains_dot_segments(*, raw_path: str) -> bool:
+    normalized = raw_path.replace("\\", "/")
+    for segment in normalized.split("/"):
+        if segment in {".", ".."}:
+            return True
+    return False
 
 
 def _is_within_roots(*, path: Path, roots: list[Path]) -> bool:

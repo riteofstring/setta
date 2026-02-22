@@ -159,6 +159,91 @@ def test_setup_launcher_installation_validates_planned_paths_before_install(
     assert install_called is False
 
 
+def test_setup_launcher_installation_rejects_duplicate_planned_artifact_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    duplicate_path = (
+        resolve_launcher_dir(setta_home=setta_home) / "artifacts" / "shared-entry"
+    ).resolve(strict=False)
+    install_called = False
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {
+            "artifactA": duplicate_path,
+            "artifactB": duplicate_path,
+        }
+
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        nonlocal install_called
+        assert context is not None
+        install_called = True
+        return {}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel="manual",
+            open_mode="browser",
+            workspace_behavior=None,
+            install_artifacts=True,
+        )
+
+    assert excinfo.value.code == "BadRequest"
+    assert "artifactA, artifactB" in str(excinfo.value)
+    assert install_called is False
+
+
+def test_setup_launcher_installation_wraps_same_file_install_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    planned_path = (
+        resolve_launcher_dir(setta_home=setta_home)
+        / "artifacts"
+        / "single-artifact"
+    ).resolve(strict=False)
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {"artifactA": planned_path}
+
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        assert context is not None
+        raise shutil.SameFileError("source", "destination")
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel="manual",
+            open_mode="browser",
+            workspace_behavior=None,
+            install_artifacts=True,
+        )
+
+    assert excinfo.value.code == "ArtifactInstallFailed"
+    assert "source" in str(excinfo.value)
+
+
 def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
 

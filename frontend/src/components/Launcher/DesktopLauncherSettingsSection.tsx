@@ -50,10 +50,40 @@ function buildLauncherRequestBase(
   return { settaHome };
 }
 
-function buildSetupLauncherRequest(
+function normalizeSetupWorkspaceBehavior(
+  workspaceBehavior: LauncherStatusResponse["workspaceBehavior"],
+): "last-used-or-prompt" | "always-prompt" | undefined {
+  if (workspaceBehavior === "always_prompt") {
+    return "always-prompt";
+  }
+  if (workspaceBehavior === "last_used_or_prompt") {
+    return "last-used-or-prompt";
+  }
+  return undefined;
+}
+
+export function buildSetupLauncherRequest(
   settaHome: string | null,
+  launcherStatus: LauncherStatusResponse | null,
 ): SetupLauncherRequestInput {
-  return { settaHome };
+  const request: SetupLauncherRequestInput = { settaHome };
+  if (!launcherStatus || launcherStatus.installed !== true) {
+    return request;
+  }
+
+  if (launcherStatus.channel) {
+    request.channel = launcherStatus.channel;
+  }
+  if (launcherStatus.openMode) {
+    request.openMode = launcherStatus.openMode;
+  }
+  const workspaceBehavior = normalizeSetupWorkspaceBehavior(
+    launcherStatus.workspaceBehavior,
+  );
+  if (workspaceBehavior) {
+    request.workspaceBehavior = workspaceBehavior;
+  }
+  return request;
 }
 
 function buildUpdateLauncherRequest(
@@ -252,7 +282,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionMessage(null);
     setUpdateStage("idle");
     const response = await route_setup_launcher(
-      buildSetupLauncherRequest(settaHome),
+      buildSetupLauncherRequest(settaHome, launcherStatus),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {

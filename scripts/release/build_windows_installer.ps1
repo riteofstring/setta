@@ -100,34 +100,47 @@ setta launcher remove --json @Args
     </ComponentGroup>
   </Fragment>
 </Wix>
-"@ | Set-Content -LiteralPath $wxsPath -Encoding UTF8
+  "@ | Set-Content -LiteralPath $wxsPath -Encoding UTF8
 
   $wixobjPath = Join-Path $tempRoot "installer.wixobj"
-  & $candle.Source \
-    -nologo \
-    "-dSourceDir=$sourceDir" \
-    "-dProductVersion=$Version" \
-    -out $wixobjPath \
-    $wxsPath
+  $candleArgs = @(
+    "-nologo"
+    "-dSourceDir=$sourceDir"
+    "-dProductVersion=$Version"
+    "-out"
+    "$wixobjPath"
+    "$wxsPath"
+  )
+  & $candle.Source @candleArgs
 
   $msiPath = Join-Path $outputPath ("SettaDesktop-$Version.msi")
-  & $light.Source \
-    -nologo \
-    -out $msiPath \
-    $wixobjPath
+  $lightArgs = @(
+    "-nologo"
+    "-out"
+    "$msiPath"
+    "$wixobjPath"
+  )
+  & $light.Source @lightArgs
 
   if (
     $env:SETTA_WINDOWS_SIGNTOOL_PATH -and
     $env:SETTA_WINDOWS_PFX_PATH -and
     $env:SETTA_WINDOWS_PFX_PASSWORD
   ) {
-    & $env:SETTA_WINDOWS_SIGNTOOL_PATH sign \
-      /f $env:SETTA_WINDOWS_PFX_PATH \
-      /p $env:SETTA_WINDOWS_PFX_PASSWORD \
-      /fd sha256 \
-      /tr http://timestamp.digicert.com \
-      /td sha256 \
-      $msiPath
+    $signArgs = @(
+      "/f"
+      "$env:SETTA_WINDOWS_PFX_PATH"
+      "/p"
+      "$env:SETTA_WINDOWS_PFX_PASSWORD"
+      "/fd"
+      "sha256"
+      "/tr"
+      "http://timestamp.digicert.com"
+      "/td"
+      "sha256"
+      "$msiPath"
+    )
+    & $env:SETTA_WINDOWS_SIGNTOOL_PATH sign @signArgs
   }
 
   $hashPath = "$msiPath.sha256"

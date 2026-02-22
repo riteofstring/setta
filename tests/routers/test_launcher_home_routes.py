@@ -240,3 +240,169 @@ def test_open_launcher_workspace_returns_bootstrap_fragment(
         strict=False
     )
     assert workspace.exists()
+
+
+def test_open_launcher_workspace_uses_backend_setta_home_when_scope_is_omitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    workspace = allowed / "workspace"
+    default_setta_home = (tmp_path / "runtime-setta-home").resolve(strict=False)
+    allowed.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.get_setta_paths",
+        lambda: SimpleNamespace(setta_home=default_setta_home),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_launch_workspace_session(**kwargs):
+        captured.update(kwargs)
+        resolved_workspace = Path(str(kwargs["workspace_root"])).resolve(strict=False)
+        session = SimpleNamespace(id="session-1", host="127.0.0.1", port=61234)
+        paths = SimpleNamespace(
+            workspace_root=resolved_workspace,
+            setta_files_location="local",
+            setta_files_root=(resolved_workspace / "setta_files").resolve(strict=False),
+            runtime_root=(resolved_workspace / "setta_files" / "runtime").resolve(
+                strict=False
+            ),
+            setta_home=default_setta_home,
+            profile_name=None,
+        )
+        registry = SimpleNamespace(load_secret=lambda _session: b"secret")
+        return SimpleNamespace(
+            session=session,
+            paths=paths,
+            registry=registry,
+            started_new=True,
+        )
+
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.launch_workspace_session",
+        fake_launch_workspace_session,
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.BOOTSTRAP_TOKEN_MANAGER.mint",
+        lambda *_a, **_k: "tok",
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.build_bootstrap_urls",
+        lambda host, port, token: (
+            f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+            f"http://{host}:{port}/__setta__/bootstrap",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(workspace),
+                "createIfMissing": False,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert captured["setta_home"] == str(default_setta_home)
+
+
+def test_open_launcher_workspace_rejects_dot_segments_for_create(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    allowed.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(allowed / ".." / "escape"),
+                "createIfMissing": True,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "BadRequest"
+    assert "must not contain '.' or '..' segments" in payload["error"]["message"]
+
+
+def test_open_launcher_workspace_ignores_metadata_update_os_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    setta_home = tmp_path / "setta-home"
+    workspace = allowed / "workspace"
+    allowed.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+
+    def fake_launch_workspace_session(**kwargs):
+        resolved_workspace = Path(str(kwargs["workspace_root"])).resolve(strict=False)
+        session = SimpleNamespace(id="session-1", host="127.0.0.1", port=61234)
+        paths = SimpleNamespace(
+            workspace_root=resolved_workspace,
+            setta_files_location="local",
+            setta_files_root=(resolved_workspace / "setta_files").resolve(strict=False),
+            runtime_root=(resolved_workspace / "setta_files" / "runtime").resolve(
+                strict=False
+            ),
+            setta_home=setta_home.resolve(strict=False),
+            profile_name=None,
+        )
+        registry = SimpleNamespace(load_secret=lambda _session: b"secret")
+        return SimpleNamespace(
+            session=session,
+            paths=paths,
+            registry=registry,
+            started_new=True,
+        )
+
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.launch_workspace_session",
+        fake_launch_workspace_session,
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.update_launcher_last_used_workspace_if_installed",
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.BOOTSTRAP_TOKEN_MANAGER.mint",
+        lambda *_a, **_k: "tok",
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.build_bootstrap_urls",
+        lambda host, port, token: (
+            f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+            f"http://{host}:{port}/__setta__/bootstrap",
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(workspace),
+                "createIfMissing": False,
+                "settaHome": str(setta_home),
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True

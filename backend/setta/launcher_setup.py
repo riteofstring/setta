@@ -256,7 +256,7 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
 def setup_launcher_installation(
     *,
     setta_home: Path,
-    channel: str,
+    channel: str | None,
     open_mode: LauncherOpenMode | None,
     workspace_behavior: LauncherWorkspaceBehavior | None,
     managed_artifacts: dict[str, str | Path] | None = None,
@@ -280,6 +280,16 @@ def setup_launcher_installation(
             "Setta manages launcher artifacts automatically.",
         )
 
+    resolved_channel: str
+    if channel is not None:
+        resolved_channel = channel.strip()
+        if not resolved_channel:
+            raise LauncherSetupError("BadRequest", "channel must be non-empty.")
+    elif existing_metadata is not None:
+        resolved_channel = existing_metadata.channel
+    else:
+        resolved_channel = "manual"
+
     resolved_open_mode: LauncherOpenMode
     if open_mode is not None:
         resolved_open_mode = open_mode
@@ -301,7 +311,7 @@ def setup_launcher_installation(
     else:
         resolved_target_command = target_command
 
-    install_source = _derive_install_source(channel)
+    install_source = _derive_install_source(resolved_channel)
     normalized_artifact_options: dict[str, str] = {}
     if artifact_options:
         try:
@@ -331,7 +341,7 @@ def setup_launcher_installation(
     if install_artifacts:
         artifact_context = LauncherArtifactContext(
             target_command=resolved_target_command,
-            channel=channel,
+            channel=resolved_channel,
             existing_managed_artifacts=merged_artifacts,
             options=normalized_artifact_options,
         )
@@ -349,7 +359,7 @@ def setup_launcher_installation(
             installed_artifacts = install_current_platform_artifacts(
                 context=artifact_context
             )
-        except LauncherArtifactError as exc:
+        except (LauncherArtifactError, OSError, shutil.Error) as exc:
             raise LauncherSetupError("ArtifactInstallFailed", str(exc)) from exc
         merged_artifacts = _validate_managed_artifact_registry(
             managed_artifacts=installed_artifacts,
@@ -364,7 +374,7 @@ def setup_launcher_installation(
     try:
         metadata = build_launcher_install_metadata(
             target_command=resolved_target_command,
-            channel=channel,
+            channel=resolved_channel,
             install_source=install_source,
             artifact_ownership_token=ownership_token,
             setta_version=__version__,
@@ -638,6 +648,10 @@ def _validate_managed_artifact_registry(
             allow_root_match=False,
         )
         normalized[name] = str(resolved_path)
+    _validate_unique_artifact_paths(
+        artifact_paths=normalized,
+        error_code=error_code,
+    )
     return normalized
 
 
@@ -663,13 +677,54 @@ def _validate_planned_artifact_paths(
     artifact_paths: dict[str, Path],
     setta_home: Path,
 ) -> None:
-    for path in artifact_paths.values():
+    normalized_paths = {
+        key: path.resolve(strict=False) for key, path in artifact_paths.items()
+    }
+    _validate_unique_artifact_paths(
+        artifact_paths=normalized_paths,
+        error_code="BadRequest",
+    )
+    for path in normalized_paths.values():
         _validate_path_within_trusted_roots(
-            path=path.resolve(strict=False),
+            path=path,
             setta_home=setta_home,
             error_code="BadRequest",
             allow_root_match=False,
         )
+
+
+def _validate_unique_artifact_paths(
+    *,
+    artifact_paths: dict[str, str] | dict[str, Path],
+    error_code: str,
+) -> None:
+    path_to_keys: dict[Path, list[str]] = {}
+    for key, raw_path in artifact_paths.items():
+        if isinstance(raw_path, Path):
+            resolved_path = raw_path.resolve(strict=False)
+        else:
+            resolved_path = Path(raw_path).expanduser().resolve(strict=False)
+        if resolved_path not in path_to_keys:
+            path_to_keys[resolved_path] = []
+        path_to_keys[resolved_path].append(key)
+
+    collisions = {
+        path: keys
+        for path, keys in path_to_keys.items()
+        if len(keys) > 1
+    }
+    if not collisions:
+        return
+
+    conflict_details = "; ".join(
+        f"{path}: {', '.join(sorted(keys))}"
+        for path, keys in sorted(collisions.items(), key=lambda item: str(item[0]))
+    )
+    raise LauncherSetupError(
+        error_code,
+        "Launcher artifact paths must be unique per artifact key. "
+        f"Conflicts: {conflict_details}",
+    )
 
 
 def _artifact_write_path_option_keys() -> set[str]:

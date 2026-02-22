@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { joinLauncherPath, normalizeNewProjectName } from "./LauncherHomePage";
+import {
+  isReservedProjectName,
+  joinLauncherPath,
+  normalizeNewProjectName,
+} from "./LauncherHomePage";
 
 describe("LauncherHomePage path helpers", () => {
   it("normalizes a new project name", () => {
     expect(normalizeNewProjectName(" my/new\\project ")).toBe("mynewproject");
+  });
+
+  it("rejects dot-segment project names", () => {
+    expect(isReservedProjectName(".")).toBe(true);
+    expect(isReservedProjectName("..")).toBe(true);
+    expect(isReservedProjectName("my-app")).toBe(false);
   });
 
   it("joins POSIX parent paths", () => {

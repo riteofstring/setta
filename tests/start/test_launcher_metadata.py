@@ -91,6 +91,51 @@ def test_update_launcher_last_used_workspace_if_installed(tmp_path: Path) -> Non
     assert reloaded.lastUsedWorkspace == str((tmp_path / "workspace-a").resolve(strict=False))
 
 
+def test_update_launcher_last_used_workspace_if_installed_is_fail_soft_on_write_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    setta_home = tmp_path / ".setta"
+    target_executable = tmp_path / "python"
+    target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target_executable.chmod(0o755)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target_executable), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="last-used-fail-soft-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    monkeypatch.setattr(
+        "setta.launcher_metadata.write_launcher_install_metadata",
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("read-only filesystem")),
+    )
+
+    updated = update_launcher_last_used_workspace_if_installed(
+        setta_home=setta_home,
+        workspace_root=tmp_path / "workspace-a",
+    )
+    assert updated is False
+
+
+def test_update_launcher_last_used_workspace_if_installed_is_fail_soft_on_bad_metadata(
+    tmp_path: Path,
+) -> None:
+    setta_home = tmp_path / ".setta"
+    metadata_path = resolve_launcher_metadata_path(setta_home=setta_home)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text("[]", encoding="utf-8")
+
+    updated = update_launcher_last_used_workspace_if_installed(
+        setta_home=setta_home,
+        workspace_root=tmp_path / "workspace-a",
+    )
+    assert updated is False
+
+
 def test_load_launcher_metadata_rejects_non_object_payload(tmp_path: Path) -> None:
     setta_home = tmp_path / ".setta"
     metadata_path = resolve_launcher_metadata_path(setta_home=setta_home)

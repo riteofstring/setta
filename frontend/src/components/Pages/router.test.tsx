@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveModeElementForServerMode } from "./modeRouteResolver";
+import { modeSupportsWorkspaceLaunch } from "./workspaceLaunchModePolicy";
 
 describe("resolveModeElementForServerMode", () => {
   const modeRoutes = {
@@ -32,5 +33,13 @@ describe("resolveModeElementForServerMode", () => {
       "ide-route",
     );
     expect(resolveModeElementForServerMode(null, modeRoutes)).toBe("ide-route");
+  });
+
+  it("keeps workspace-launch handoff enabled in launcher mode", () => {
+    // Handoff route support is explicit per mode to avoid launcher regressions.
+    expect(modeSupportsWorkspaceLaunch("ide")).toBe(true);
+    expect(modeSupportsWorkspaceLaunch("launcher")).toBe(true);
+    expect(modeSupportsWorkspaceLaunch("share")).toBe(false);
+    expect(modeSupportsWorkspaceLaunch("app")).toBe(false);
   });
 });

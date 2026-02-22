@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createLauncherStatusResponse } from "utils/generatedTypes";
 
 import {
+  buildSetupLauncherRequest,
   deriveLauncherControlsState,
   resolveInstallerInstructionsForUserAgent,
   resolveUpdateProgressLabel,
@@ -96,5 +97,35 @@ describe("DesktopLauncherSettingsSection helpers", () => {
     expect(mac[0]).toContain("macOS installer");
     expect(windows[0]).toContain("Windows installer");
     expect(linux[0]).toContain("Linux package");
+  });
+
+  it("builds setup payload from existing launcher status", () => {
+    const status = createLauncherStatusResponse({
+      ok: true,
+      installed: true,
+      channel: "uv-tool",
+      openMode: "browser",
+      workspaceBehavior: "always_prompt",
+    });
+
+    const payload = buildSetupLauncherRequest("/tmp/setta-home", status);
+
+    expect(payload).toMatchObject({
+      settaHome: "/tmp/setta-home",
+      channel: "uv-tool",
+      openMode: "browser",
+      workspaceBehavior: "always-prompt",
+    });
+  });
+
+  it("omits setup defaults when launcher is not installed", () => {
+    const status = createLauncherStatusResponse({
+      ok: true,
+      installed: false,
+      updateCapability: "unsupported",
+    });
+
+    const payload = buildSetupLauncherRequest("/tmp/setta-home", status);
+    expect(payload).toEqual({ settaHome: "/tmp/setta-home" });
   });
 });

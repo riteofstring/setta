@@ -254,6 +254,47 @@ def test_launcher_json_reports_internal_error_for_unexpected_failures(
     assert payload["error"]["message"] == "Unexpected launcher failure. Check logs for details."
 
 
+def test_launcher_json_ignores_metadata_persistence_os_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    def fake_launch_workspace_session(**kwargs):
+        workspace = kwargs["workspace_root"]
+        return _fake_launch_result(
+            workspace_root=workspace,
+            setta_home=setta_home,
+        )
+
+    monkeypatch.setattr("setta.start.launch_workspace_session", fake_launch_workspace_session)
+    monkeypatch.setattr("setta.start.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+    monkeypatch.setattr(
+        "setta.start.build_bootstrap_urls",
+        lambda host, port, token: (
+            f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+            f"http://{host}:{port}/__setta__/bootstrap",
+        ),
+    )
+    monkeypatch.setattr(
+        "setta.start.update_launcher_last_used_workspace_if_installed",
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["launcher", "--json", "--workspace", str(workspace_root)],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["workspaceRoot"] == str(workspace_root.resolve(strict=False))
+
+
 def test_launcher_legacy_install_and_uninstall_commands_are_removed() -> None:
     runner = CliRunner()
     install_result = runner.invoke(cli, ["launcher", "install", "--json"])

@@ -30,6 +30,7 @@ import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
+import { modeSupportsWorkspaceLaunch } from "./workspaceLaunchModePolicy";
 import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
@@ -345,16 +346,29 @@ const catchAllRoute = {
   ),
 };
 
+const workspaceLaunchBlockedRouteElement = (
+  <Navigate to={HOME_ROUTER_PATH} replace />
+);
+
+function resolveWorkspaceLaunchRouteElement(
+  mode: "ide" | "share" | "app" | "launcher",
+) {
+  if (modeSupportsWorkspaceLaunch(mode)) {
+    return ideWorkspaceLaunchRouteElement;
+  }
+  return workspaceLaunchBlockedRouteElement;
+}
+
+const workspaceLaunchRouteElements: ModeRouteElements = {
+  ide: resolveWorkspaceLaunchRouteElement("ide"),
+  share: resolveWorkspaceLaunchRouteElement("share"),
+  app: resolveWorkspaceLaunchRouteElement("app"),
+  launcher: resolveWorkspaceLaunchRouteElement("launcher"),
+};
+
 const workspaceLaunchRoute = {
   path: WORKSPACE_LAUNCH_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideWorkspaceLaunchRouteElement}
-      share={<Navigate to={HOME_ROUTER_PATH} replace />}
-      app={<Navigate to={HOME_ROUTER_PATH} replace />}
-      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
-    />
-  ),
+  element: <ModeWrapper {...workspaceLaunchRouteElements} />,
 };
 
 export const router = createBrowserRouter([

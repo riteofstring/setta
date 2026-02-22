@@ -1950,7 +1950,7 @@ def _run_launcher_command(
                 setta_home=result.paths.setta_home,
                 workspace_root=result.paths.workspace_root,
             )
-        except LauncherMetadataError as exc:
+        except (LauncherMetadataError, OSError) as exc:
             logging.getLogger(__name__).warning(
                 "Failed to persist launcher last-used workspace: %s", exc
             )

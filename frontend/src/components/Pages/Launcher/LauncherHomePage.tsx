@@ -21,6 +21,11 @@ export function normalizeNewProjectName(rawValue: string): string {
   return rawValue.trim().replace(/[\\/]+/g, "");
 }
 
+export function isReservedProjectName(rawValue: string): boolean {
+  const normalized = normalizeNewProjectName(rawValue);
+  return normalized === "." || normalized === "..";
+}
+
 export function joinLauncherPath(
   parentPath: string,
   childName: string,
@@ -299,6 +304,10 @@ export function LauncherHomePage() {
     const normalizedProjectName = normalizeNewProjectName(newProjectName);
     if (!normalizedProjectName) {
       setOpenError("Enter a new project name.");
+      return;
+    }
+    if (isReservedProjectName(newProjectName)) {
+      setOpenError("Project name cannot be '.' or '..'.");
       return;
     }
 

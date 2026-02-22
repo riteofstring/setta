@@ -27,6 +27,12 @@ type LauncherRequestBase = {
   settaHome: string | null;
 };
 
+type LauncherSetupRequest = LauncherRequestBase & {
+  channel?: string | null;
+  openMode?: "browser" | "chrome-app" | null;
+  workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
+};
+
 type LauncherUpdateRequest = LauncherRequestBase & {
   packageSpec: string | null;
 };
@@ -36,7 +42,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   getLastPinRequest: () => PinWorkspaceRequest | null;
   getLastRemoveRecentRequest: () => RemoveWorkspaceRequest | null;
   getLastLauncherStatusRequestUrl: () => string | null;
-  getLastSetupRequest: () => LauncherRequestBase | null;
+  getLastSetupRequest: () => LauncherSetupRequest | null;
   getLastRepairRequest: () => LauncherRequestBase | null;
   getLastRemoveLauncherRequest: () => LauncherRequestBase | null;
   getLastUpdateRequest: () => LauncherUpdateRequest | null;
@@ -59,7 +65,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   let lastPinRequest: PinWorkspaceRequest | null = null;
   let lastRemoveRecentRequest: RemoveWorkspaceRequest | null = null;
   let lastLauncherStatusRequestUrl: string | null = null;
-  let lastSetupRequest: LauncherRequestBase | null = null;
+  let lastSetupRequest: LauncherSetupRequest | null = null;
   let lastRepairRequest: LauncherRequestBase | null = null;
   let lastRemoveLauncherRequest: LauncherRequestBase | null = null;
   let lastUpdateRequest: LauncherUpdateRequest | null = null;
@@ -273,15 +279,48 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   await page.route(`${BACKEND_ORIGIN}/api/setupLauncher`, async (route) => {
     const payload = route.request().postDataJSON() as {
       settaHome?: string | null;
+      channel?: string | null;
+      openMode?: "browser" | "chrome-app" | null;
+      workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
     };
-    lastSetupRequest = {
+    const nextRequest: LauncherSetupRequest = {
       settaHome: payload.settaHome ?? null,
     };
+    if (Object.hasOwn(payload, "channel")) {
+      nextRequest.channel = payload.channel ?? null;
+    }
+    if (Object.hasOwn(payload, "openMode")) {
+      nextRequest.openMode = payload.openMode ?? null;
+    }
+    if (Object.hasOwn(payload, "workspaceBehavior")) {
+      nextRequest.workspaceBehavior = payload.workspaceBehavior ?? null;
+    }
+    lastSetupRequest = nextRequest;
+
+    const resolvedChannel =
+      payload.channel ??
+      (typeof launcherStatusPayload.channel === "string"
+        ? launcherStatusPayload.channel
+        : "uv-tool");
+    const resolvedOpenMode =
+      payload.openMode ??
+      (launcherStatusPayload.openMode === "browser" ||
+      launcherStatusPayload.openMode === "chrome-app"
+        ? launcherStatusPayload.openMode
+        : "chrome-app");
+    const resolvedWorkspaceBehavior =
+      payload.workspaceBehavior === "always-prompt"
+        ? "always_prompt"
+        : "last_used_or_prompt";
+
     launcherStatusPayload = {
       ok: true,
       installed: true,
       updateCapability: "in_app",
       settaHome: payload.settaHome ?? null,
+      channel: resolvedChannel,
+      openMode: resolvedOpenMode,
+      workspaceBehavior: resolvedWorkspaceBehavior,
       fromVersion: "1.0.0",
       toVersion: "1.0.0",
     };
@@ -416,6 +455,74 @@ test("launcher home creates and opens a new project folder", async ({
   });
 });
 
+test("launcher home rejects dot-segment project names", async ({ page }) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Launcher Home")).toBeVisible();
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+  await page.getByTestId("launcher-new-project-name-input").fill("..");
+  await page.getByTestId("launcher-create-project-button").click();
+
+  await expect(page.getByText("Project name cannot be '.' or '..'.")).toBeVisible();
+  expect(mocks.getLastOpenRequest()).toBeNull();
+});
+
+test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
+  await installLauncherHomeMocks(page);
+
+  const capturedLaunchRequests: Array<Record<string, unknown>> = [];
+  await page.route(`${BACKEND_ORIGIN}/api/launch`, async (route, request) => {
+    const body = request.postDataJSON();
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      capturedLaunchRequests.push(body as Record<string, unknown>);
+    } else {
+      capturedLaunchRequests.push({});
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: { message: "Intentional launcher handoff failure." },
+      }),
+    });
+  });
+
+  const encodedPayload = await page.evaluate(() => {
+    const pending = {
+      request: { workspaceRoot: "/Users/demo/projects/from-handoff" },
+      returnUrl: window.location.href,
+      requestedAt: Date.now(),
+    };
+    const encoded = new TextEncoder().encode(JSON.stringify(pending));
+    let binary = "";
+    for (const byte of encoded) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  });
+  if (!encodedPayload) {
+    throw new Error("Failed to encode launcher handoff payload.");
+  }
+
+  await page.goto(
+    `${new URL("/launching", FRONTEND_BASE_URL).toString()}#pl=${encodedPayload}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect.poll(() => capturedLaunchRequests.length).toBe(1);
+  expect(capturedLaunchRequests[0].workspaceRoot).toBe(
+    "/Users/demo/projects/from-handoff",
+  );
+  await expect(page.getByText("Intentional launcher handoff failure.")).toBeVisible();
+  expect(page.url()).not.toContain("pl=");
+});
+
 test("launcher home forwards setta_home query to recent-workspaces request", async ({
   page,
 }) => {
@@ -520,5 +627,33 @@ test("launcher home propagates scoped setta_home through launcher actions", asyn
     workspaceRoot: "/Users/demo/projects/beta",
     createIfMissing: false,
     settaHome: scopedSettaHome,
+  });
+});
+
+test("launcher setup rerun reuses existing launcher identity fields", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  const launcherSettingsSection = page.getByTestId(
+    "desktop-launcher-settings-section",
+  );
+
+  await launcherSettingsSection
+    .getByRole("button", { name: "Setup Desktop App" })
+    .click();
+  await expect(
+    launcherSettingsSection.getByRole("button", { name: "Re-run Setup" }),
+  ).toBeVisible();
+  await launcherSettingsSection
+    .getByRole("button", { name: "Re-run Setup" })
+    .click();
+
+  expect(mocks.getLastSetupRequest()).toEqual({
+    settaHome: null,
+    channel: "uv-tool",
+    openMode: "chrome-app",
+    workspaceBehavior: "last-used-or-prompt",
   });
 });
