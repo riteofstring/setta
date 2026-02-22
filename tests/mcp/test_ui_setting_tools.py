@@ -78,6 +78,7 @@ class _RecordingFrontendSender:
         self.resolved_target_websocket_ids: list[str] = []
         self.skip_reveal_result_resolution = False
         self.override_reveal_statuses: list[UISettingRevealResultStatus] | None = None
+        self.override_reveal_project_config_id: ID | None = None
 
     def select_frontend_websocket_for_ui_setting_reveal(
         self,
@@ -143,7 +144,11 @@ class _RecordingFrontendSender:
                 )
         self.reveal_result_hub.resolve(
             UISettingRevealResultContent(
-                projectConfigId=content.projectConfigId,
+                projectConfigId=(
+                    self.override_reveal_project_config_id
+                    if self.override_reveal_project_config_id is not None
+                    else content.projectConfigId
+                ),
                 requestId=content.requestId,
                 statuses=statuses,
             ),
@@ -262,6 +267,8 @@ class _ShareScopedDefaultProjectManagerSwitcher:
         self.calls.append((project_identifier, share_session_id))
         if share_session_id != self._required_share_session_id:
             raise KeyError("Missing share session id")
+        if project_identifier == ID("__share_session_default_project__"):
+            return self._share_manager
         expected_project_id = (
             self._share_manager.project_state_backend.defaultProjectConfigId
         )
@@ -711,8 +718,9 @@ async def test_activate_section_for_reveal_uses_manager_atomic_mutation_api() ->
             *,
             project_config_id: ID,
             active_ids: list[ID],
-        ) -> None:
+        ) -> str:
             recorded_calls.append((project_config_id, active_ids))
+            return "reveal-lease-1"
 
     project_config_id = ID("project-1")
     section_id = ID("section-1")
@@ -722,46 +730,56 @@ async def test_activate_section_for_reveal_uses_manager_atomic_mutation_api() ->
     )
 
     # Section activation must delegate to the manager-owned serialized mutation API.
-    error = await ui_settings_tools_module._activate_section_for_reveal(
+    (
+        error,
+        reveal_activation_lease_id,
+    ) = await ui_settings_tools_module._activate_section_for_reveal(
         manager=_FakeManager(),
         project_config_id=project_config_id,
         project_state=project_state,
         section_id_to_activate=section_id,
     )
     assert error is None
+    assert reveal_activation_lease_id == "reveal-lease-1"
     assert recorded_calls == [(project_config_id, [section_id])]
 
 
 @pytest.mark.asyncio
 async def test_reveal_rollback_uses_manager_atomic_conditional_mutation_api() -> None:
-    recorded_calls: list[tuple[ID, list[ID], list[ID]]] = []
+    recorded_calls: list[tuple[ID, str, list[ID]]] = []
 
     class _FakeManager:
         async def rollback_active_ids_for_ui_setting_reveal(
             self,
             *,
             project_config_id: ID,
-            expected_active_ids: list[ID],
+            reveal_activation_lease_id: str,
             rollback_active_ids: list[ID],
         ) -> bool:
             recorded_calls.append(
-                (project_config_id, expected_active_ids, rollback_active_ids)
+                (
+                    project_config_id,
+                    reveal_activation_lease_id,
+                    rollback_active_ids,
+                )
             )
             return True
 
     project_config_id = ID("project-1")
     previous_active_ids = [ID("section-old")]
-    owned_temporary_active_ids = [ID("section-temp")]
+    reveal_activation_lease_id = "reveal-lease-1"
 
-    rolled_back = await ui_settings_tools_module._rollback_reveal_section_activation_if_owned(
-        manager=_FakeManager(),
-        project_config_id=project_config_id,
-        previous_active_ids=previous_active_ids,
-        owned_temporary_active_ids=owned_temporary_active_ids,
+    rolled_back = (
+        await ui_settings_tools_module._rollback_reveal_section_activation_if_owned(
+            manager=_FakeManager(),
+            project_config_id=project_config_id,
+            previous_active_ids=previous_active_ids,
+            reveal_activation_lease_id=reveal_activation_lease_id,
+        )
     )
     assert rolled_back is True
     assert recorded_calls == [
-        (project_config_id, owned_temporary_active_ids, previous_active_ids)
+        (project_config_id, reveal_activation_lease_id, previous_active_ids)
     ]
 
 
@@ -2010,9 +2028,13 @@ async def test_ui_setting_tools_share_scope_without_project_id_uses_share_defaul
         )
         assert result.error is None
         assert isinstance(result.value, bool)
-        assert switcher.get_for_session_calls == [required_share_session_id]
+        assert switcher.get_for_session_calls == []
         assert switcher.calls
         assert switcher.calls[0] == (
+            ID("__share_session_default_project__"),
+            required_share_session_id,
+        )
+        assert switcher.calls[1] == (
             share_default_project_id,
             required_share_session_id,
         )
@@ -2764,6 +2786,110 @@ async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_timeout_does_not_rollback_after_user_aba_navigation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.skip_reveal_result_resolution = True
+        monkeypatch.setattr(
+            ui_settings_tools_module,
+            "_resolve_frontend_reveal_timeout_seconds",
+            lambda _duration_ms: 0.05,
+        )
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        first_section_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        second_section_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        first_section_id = first_section_result.sectionId
+        second_section_id = second_section_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-a",
+            },
+        )
+
+        reveal_task = asyncio.create_task(
+            reveal_ui_setting(
+                settingId="core.project.show_param_display_names",
+                sectionIdToActivate=first_section_id,
+                durationMs=250,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+        )
+
+        activation_observed = False
+        for _ in range(40):
+            active_ids = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.activeIds
+            if active_ids == [first_section_id]:
+                activation_observed = True
+                break
+            await asyncio.sleep(0.005)
+        assert activation_observed
+
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[second_section_id],
+            )
+        )
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[first_section_id],
+            )
+        )
+
+        result = await reveal_task
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert "Timed out waiting for frontend reveal confirmation" in (
+            result.statuses[0].error.message
+        )
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == [first_section_id]
+
+
+@pytest.mark.asyncio
 async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_status_is_missing() -> (
     None
 ):
@@ -2821,10 +2947,55 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_sta
         assert result.emittedRevealCount == 0
         assert result.statuses[0].status == "failed"
         assert result.statuses[0].error is not None
-        assert "did not include status" in result.statuses[0].error.message
+        assert "Timed out waiting for frontend reveal confirmation" in (
+            result.statuses[0].error.message
+        )
         updated_state = manager.get_single_config_state(project_config_id)
         assert updated_state.projectConfig.activeIds == []
         assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.override_reveal_project_config_id = ID("project-mismatch")
+        monkeypatch.setattr(
+            ui_settings_tools_module,
+            "_resolve_frontend_reveal_timeout_seconds",
+            lambda _duration_ms: 0.01,
+        )
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-a",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            durationMs=250,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert "Timed out waiting for frontend reveal confirmation" in (
+            result.statuses[0].error.message
+        )
 
 
 @pytest.mark.asyncio

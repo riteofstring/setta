@@ -93,14 +93,13 @@ def _resolve_share_scoped_default_project_config_id(
     share_session_id: str,
 ) -> ID:
     project_manager_switcher = ctx.fastmcp.state.project_manager_switcher
-    get_for_session = getattr(project_manager_switcher, "get_for_session", None)
-    if callable(get_for_session):
-        manager = get_for_session(share_session_id)
-    else:
+    try:
         manager = project_manager_switcher.get(
             ID("__share_session_default_project__"),
             share_session_id=share_session_id,
         )
+    except ValueError as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
     default_project_config_id = manager.project_state_backend.defaultProjectConfigId
     if default_project_config_id is None:
         raise KeyError(

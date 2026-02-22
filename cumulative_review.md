@@ -453,3 +453,30 @@
 8. UX after: both sides consume one compatibility source with parity tests.
 9. DX before: websocket identity handling required custom parsing paths and increased contract drift risk.
 10. DX after: typed union-based identity handling improves maintainability, type safety, and debugging clarity.
+
+## 2026-02-25 22:42:38 PST
+
+### Consolidated Findings
+1. Frontend reveal processing still had race windows across websocket generation rollover and project-context changes, and ACK dispatch was not generation-bound.
+2. Frontend reveal payload validation duplicated generated schema contracts with literal guards, increasing drift risk.
+3. Backend reveal ACK acceptance remained permissive on envelope fields (project + setting set), and rollback ownership still relied on value equality (`activeIds`) with ABA exposure.
+4. Share-scoped default project resolution still bypassed the switcher contract path in helper logic.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Introduced generation-scoped reveal queue handling in frontend websocket receive flow, with generation-aware ACK sending and stale-generation drop behavior.
+2. Switched frontend reveal payload validation to generated `UISettingRevealContentSchema.safeParse` and removed duplicated manual reveal-target literals.
+3. Added reveal execution-context checks in frontend reveal pipeline so project/generation mismatches fail deterministically before further mutations/ACK.
+4. Extended backend reveal result hub waiter envelope binding (`expected_websocket_id`, `expected_project_config_id`, `expected_setting_ids`) and fail-closed resolution.
+5. Added manager-issued reveal activation leases and lease-gated rollback semantics to eliminate ABA ownership overwrite risks.
+6. Updated share default project resolution to always use `project_manager_switcher.get(..., share_session_id=...)`, mapping share-scope `ValueError` to `InvalidToolArgumentsError`.
+7. Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for reveal queueing, stale generation behavior, envelope validation, and ABA rollback protection.
+
+### UX/DX Before and After
+1. UX before: reveals could visually execute but timeout or ACK incorrectly after websocket rollover/project switch races.
+2. UX after: stale reveal executions are canceled/fail deterministically with no stale-generation ACK emission.
+3. UX before: backend could accept envelope-mismatched ACKs and report false reveal success.
+4. UX after: reveal success is accepted only for exact websocket/project/setting envelope matches.
+5. UX before: failed right-pane reveals could rollback to stale `activeIds` under ABA user navigation.
+6. UX after: rollback applies only to the owning reveal lease and does not clobber newer user navigation.
+7. DX before: reveal contract behavior required tracing split validation paths and weak ownership semantics.
+8. DX after: schema-driven validation, explicit execution context, and lease/envelope contracts make failures reproducible and debuggable.

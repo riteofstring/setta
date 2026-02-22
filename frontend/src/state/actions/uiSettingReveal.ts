@@ -54,8 +54,16 @@ type PluginRevealHandlerOutcome =
   | { status: "retryable_failure"; message: string }
   | { status: "terminal_failure"; message: string };
 
+export type UISettingRevealExecutionContext = {
+  requestId: string;
+  requestedProjectConfigId: string;
+  socketGeneration: number;
+  isSocketGenerationActive: () => boolean;
+};
+
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
+  executionContext: UISettingRevealExecutionContext | null = null,
 ): Promise<Array<UISettingRevealResultStatus>> {
   const requestedProjectConfigId = content.projectConfigId.trim();
   const activeProjectConfigId = useProjectState
@@ -68,10 +76,29 @@ export async function receiveUISettingReveal(
       activeProjectConfigId,
     });
   }
+  const initialExecutionMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (initialExecutionMismatch !== null) {
+    return buildExecutionContextMismatchStatuses({
+      reveals: content.reveals,
+      errorMessage: initialExecutionMismatch.message,
+    });
+  }
   const durationMs = normalizeDurationMs(content.durationMs);
   const deadlineMs = Date.now() + durationMs;
   const statuses: Array<UISettingRevealResultStatus> = [];
   for (const revealTarget of content.reveals) {
+    const revealExecutionMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (revealExecutionMismatch !== null) {
+      return [
+        ...statuses,
+        ...buildExecutionContextMismatchStatuses({
+          reveals: content.reveals.slice(statuses.length),
+          errorMessage: revealExecutionMismatch.message,
+        }),
+      ];
+    }
     const remainingMs = deadlineMs - Date.now();
     if (remainingMs <= 0) {
       statuses.push(buildRevealDeadlineExceededStatus(revealTarget.settingId));
@@ -82,6 +109,7 @@ export async function receiveUISettingReveal(
         target: revealTarget,
         durationMs: remainingMs,
         fallbackProjectConfigId: content.projectConfigId,
+        executionContext,
       }),
     );
   }
@@ -92,11 +120,20 @@ async function revealSingleSetting({
   target,
   durationMs,
   fallbackProjectConfigId,
+  executionContext,
 }: {
   target: UISettingRevealTarget;
   durationMs: number;
   fallbackProjectConfigId: string;
+  executionContext: UISettingRevealExecutionContext | null;
 }): Promise<UISettingRevealResultStatus> {
+  const startMismatch = resolveRevealExecutionMismatch(executionContext);
+  if (startMismatch !== null) {
+    return buildExecutionContextMismatchStatus(
+      target.settingId,
+      startMismatch.message,
+    );
+  }
   const deadlineMs = Date.now() + durationMs;
   const opened = openPaneForRevealTarget(target);
   if (!opened.ok) {
@@ -106,6 +143,14 @@ async function revealSingleSetting({
       errorCode: "mutation_failed",
       errorMessage: opened.errorMessage,
     };
+  }
+  const preActivationMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (preActivationMismatch !== null) {
+    return buildExecutionContextMismatchStatus(
+      target.settingId,
+      preActivationMismatch.message,
+    );
   }
   applyRevealActivationSteps({
     target,
@@ -117,7 +162,16 @@ async function revealSingleSetting({
     const pluginRevealResult = await revealWithPluginHandler(
       target,
       deadlineMs,
+      executionContext,
     );
+    const postPluginRevealMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (postPluginRevealMismatch !== null) {
+      return buildExecutionContextMismatchStatus(
+        target.settingId,
+        postPluginRevealMismatch.message,
+      );
+    }
     if (pluginRevealResult.ok) {
       return {
         settingId: target.settingId,
@@ -155,7 +209,16 @@ async function revealSingleSetting({
     side: target.side,
     anchorId: target.anchorId,
     deadlineMs,
+    executionContext,
   });
+  const postAnchorLookupMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (postAnchorLookupMismatch !== null) {
+    return buildExecutionContextMismatchStatus(
+      target.settingId,
+      postAnchorLookupMismatch.message,
+    );
+  }
   if (!anchorElement) {
     return {
       settingId: target.settingId,
@@ -233,6 +296,7 @@ function openPaneForRevealTarget(
 async function revealWithPluginHandler(
   target: UISettingRevealTarget,
   deadlineMs: number,
+  executionContext: UISettingRevealExecutionContext | null,
 ): Promise<PluginRevealResult> {
   if (!target.pluginId || !target.pluginRevealKey) {
     return {
@@ -242,6 +306,14 @@ async function revealWithPluginHandler(
   }
   let latestErrorMessage: string | null = null;
   while (Date.now() <= deadlineMs) {
+    const revealExecutionMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (revealExecutionMismatch !== null) {
+      return {
+        ok: false,
+        errorMessage: revealExecutionMismatch.message,
+      };
+    }
     const remainingMs = deadlineMs - Date.now();
     if (remainingMs <= 0) {
       break;
@@ -264,6 +336,14 @@ async function revealWithPluginHandler(
       if (handlerResult.status === "terminal_failure") {
         break;
       }
+    }
+    const postIterationMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (postIterationMismatch !== null) {
+      return {
+        ok: false,
+        errorMessage: postIterationMismatch.message,
+      };
     }
     if (Date.now() >= deadlineMs) {
       break;
@@ -405,12 +485,19 @@ async function waitForAnchorElement({
   side,
   anchorId,
   deadlineMs,
+  executionContext,
 }: {
   side: "left" | "right";
   anchorId: string;
   deadlineMs: number;
+  executionContext: UISettingRevealExecutionContext | null;
 }): Promise<HTMLElement | null> {
   while (Date.now() <= deadlineMs) {
+    const revealExecutionMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (revealExecutionMismatch !== null) {
+      return null;
+    }
     const paneRoot = getPaneRoot(side);
     if (paneRoot) {
       const anchor = findSettingAnchor(paneRoot, anchorId);
@@ -443,6 +530,57 @@ function buildProjectContextMismatchStatuses({
       "UI setting reveal project mismatch: requested project " +
       `${requestedProjectConfigId} but active project is ${activeProjectConfigId}.`,
   }));
+}
+
+function buildExecutionContextMismatchStatuses({
+  reveals,
+  errorMessage,
+}: {
+  reveals: Array<UISettingRevealTarget>;
+  errorMessage: string;
+}): Array<UISettingRevealResultStatus> {
+  return reveals.map((target) =>
+    buildExecutionContextMismatchStatus(target.settingId, errorMessage),
+  );
+}
+
+function buildExecutionContextMismatchStatus(
+  settingId: string,
+  errorMessage: string,
+): UISettingRevealResultStatus {
+  return {
+    settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  };
+}
+
+function resolveRevealExecutionMismatch(
+  executionContext: UISettingRevealExecutionContext | null,
+): { message: string } | null {
+  if (executionContext === null) {
+    return null;
+  }
+  if (!executionContext.isSocketGenerationActive()) {
+    return {
+      message:
+        "UI setting reveal execution context mismatch: websocket generation changed " +
+        `before request ${executionContext.requestId} completed.`,
+    };
+  }
+  const activeProjectConfigId = useProjectState
+    .getState()
+    .projectConfig.id.trim();
+  if (activeProjectConfigId !== executionContext.requestedProjectConfigId) {
+    return {
+      message:
+        "UI setting reveal execution context mismatch: requested project " +
+        `${executionContext.requestedProjectConfigId} but active project is ` +
+        `${activeProjectConfigId}.`,
+    };
+  }
+  return null;
 }
 
 function buildRevealDeadlineExceededStatus(

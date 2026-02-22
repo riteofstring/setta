@@ -14,13 +14,15 @@ def _build_reveal_result_content(
     *,
     request_id: str,
     status: Literal["revealed", "failed"],
+    project_config_id: ID = ID("project-1"),
+    setting_id: str = "core.watch_code.enabled",
 ) -> UISettingRevealResultContent:
     return UISettingRevealResultContent(
-        projectConfigId=ID("project-1"),
+        projectConfigId=project_config_id,
         requestId=request_id,
         statuses=[
             UISettingRevealResultStatus(
-                settingId="core.watch_code.enabled",
+                settingId=setting_id,
                 status=status,
                 errorCode=None,
                 errorMessage=None,
@@ -98,3 +100,67 @@ async def test_reveal_result_hub_cancel_request_drops_waiter() -> None:
 
     with pytest.raises(KeyError):
         await hub.wait_for_result(request_id="request-3", timeout_seconds=0.2)
+
+
+@pytest.mark.asyncio
+async def test_reveal_result_hub_requires_expected_project_config_id() -> None:
+    hub = UISettingRevealResultHub()
+    hub.register_request(
+        "request-4",
+        expected_project_config_id=ID("project-expected"),
+    )
+
+    ignored = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-4",
+            status="revealed",
+            project_config_id=ID("project-other"),
+        ),
+        from_websocket_id="frontend-a",
+    )
+    assert ignored is False
+
+    resolved = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-4",
+            status="revealed",
+            project_config_id=ID("project-expected"),
+        ),
+        from_websocket_id="frontend-a",
+    )
+    assert resolved is True
+    result = await hub.wait_for_result(request_id="request-4", timeout_seconds=0.2)
+    assert result is not None
+    assert result.projectConfigId == ID("project-expected")
+
+
+@pytest.mark.asyncio
+async def test_reveal_result_hub_requires_exact_expected_setting_ids() -> None:
+    hub = UISettingRevealResultHub()
+    hub.register_request(
+        "request-5",
+        expected_setting_ids={"setting-a"},
+    )
+
+    ignored = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-5",
+            status="revealed",
+            setting_id="setting-b",
+        ),
+        from_websocket_id="frontend-a",
+    )
+    assert ignored is False
+
+    resolved = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-5",
+            status="revealed",
+            setting_id="setting-a",
+        ),
+        from_websocket_id="frontend-a",
+    )
+    assert resolved is True
+    result = await hub.wait_for_result(request_id="request-5", timeout_seconds=0.2)
+    assert result is not None
+    assert result.statuses[0].settingId == "setting-a"

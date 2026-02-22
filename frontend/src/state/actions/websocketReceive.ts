@@ -48,6 +48,7 @@ import {
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
   UISettingRevealContent,
+  UISettingRevealContentSchema,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -96,7 +97,10 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
-import { receiveUISettingReveal } from "./uiSettingReveal";
+import {
+  receiveUISettingReveal,
+  type UISettingRevealExecutionContext,
+} from "./uiSettingReveal";
 
 let wss: WebSocket | null = null;
 let wasOpen = false;
@@ -128,12 +132,38 @@ let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
+type UISettingRevealResultStatusPayload = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+type PendingUISettingRevealMessage = {
+  content: unknown;
+  socketGeneration: number;
+};
+const pendingUISettingRevealMessages: PendingUISettingRevealMessage[] = [];
+let uiSettingRevealQueueWorkerRunning = false;
 
 function beginWebsocketGeneration(): number {
+  const previousGeneration = activeWebsocketGeneration;
   activeWebsocketGeneration += 1;
+  if (previousGeneration > 0) {
+    cancelPendingUISettingRevealMessages(previousGeneration);
+  }
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
   return activeWebsocketGeneration;
+}
+
+function cancelPendingUISettingRevealMessages(socketGeneration: number): void {
+  for (let i = pendingUISettingRevealMessages.length - 1; i >= 0; i -= 1) {
+    if (
+      pendingUISettingRevealMessages[i]?.socketGeneration === socketGeneration
+    ) {
+      pendingUISettingRevealMessages.splice(i, 1);
+    }
+  }
 }
 
 export const openWebSocket = _.debounce(
@@ -545,7 +575,10 @@ function receiveMessage(message: string, socketGeneration: number) {
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
-      void handleUISettingRevealMessage(m.content);
+      enqueueUISettingRevealMessage({
+        content: m.content,
+        socketGeneration,
+      });
       return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
@@ -562,20 +595,51 @@ function receiveMessage(message: string, socketGeneration: number) {
   }
 }
 
-async function handleUISettingRevealMessage(content: unknown): Promise<void> {
+function enqueueUISettingRevealMessage(
+  message: PendingUISettingRevealMessage,
+): void {
+  pendingUISettingRevealMessages.push(message);
+  if (uiSettingRevealQueueWorkerRunning) {
+    return;
+  }
+  uiSettingRevealQueueWorkerRunning = true;
+  void processPendingUISettingRevealMessages();
+}
+
+async function processPendingUISettingRevealMessages(): Promise<void> {
+  try {
+    while (pendingUISettingRevealMessages.length > 0) {
+      const nextMessage = pendingUISettingRevealMessages.shift();
+      if (nextMessage === undefined) {
+        continue;
+      }
+      await handleUISettingRevealMessage(
+        nextMessage.content,
+        nextMessage.socketGeneration,
+      );
+    }
+  } finally {
+    uiSettingRevealQueueWorkerRunning = false;
+    if (pendingUISettingRevealMessages.length > 0) {
+      uiSettingRevealQueueWorkerRunning = true;
+      void processPendingUISettingRevealMessages();
+    }
+  }
+}
+
+async function handleUISettingRevealMessage(
+  content: unknown,
+  socketGeneration: number,
+): Promise<void> {
   const fallbackProjectConfigId = getCurrProjectConfigId();
   const projectConfigId = resolveRevealProjectConfigId(
     content,
     fallbackProjectConfigId,
   );
   const requestId = resolveRevealRequestId(content);
-  let statuses: Array<{
-    settingId: string;
-    status: "revealed" | "failed";
-    errorCode: string | null;
-    errorMessage: string | null;
-  }> = [];
-  if (!isValidUISettingRevealContent(content)) {
+  let statuses: UISettingRevealResultStatusPayload[] = [];
+  const parsedRevealContent = UISettingRevealContentSchema.safeParse(content);
+  if (!parsedRevealContent.success) {
     statuses = buildMalformedRevealStatuses(
       content,
       "Invalid UISettingReveal payload.",
@@ -584,11 +648,23 @@ async function handleUISettingRevealMessage(content: unknown): Promise<void> {
       projectConfigId,
       requestId,
       statuses,
+      socketGeneration,
     });
     return;
   }
+  const revealContent: UISettingRevealContent = parsedRevealContent.data;
+  const revealExecutionContext: UISettingRevealExecutionContext = {
+    requestId: revealContent.requestId,
+    requestedProjectConfigId: revealContent.projectConfigId.trim(),
+    socketGeneration,
+    isSocketGenerationActive: () =>
+      isSocketGenerationCurrent(socketGeneration) && wssReady(wss),
+  };
   try {
-    const revealStatuses = await receiveUISettingReveal(content);
+    const revealStatuses = await receiveUISettingReveal(
+      revealContent,
+      revealExecutionContext,
+    );
     statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
   } catch (error) {
     const rawMessage =
@@ -596,17 +672,25 @@ async function handleUISettingRevealMessage(content: unknown): Promise<void> {
         ? error.message
         : String(error);
     const normalizedMessage = `Failed to process UI setting reveal: ${rawMessage}`;
-    statuses = content.reveals.map((target) => ({
+    statuses = revealContent.reveals.map((target) => ({
       settingId: target.settingId,
       status: "failed",
       errorCode: "mutation_failed",
       errorMessage: normalizedMessage,
     }));
   }
+  const ackContextMismatchStatuses = resolveAckContextMismatchStatuses({
+    content: revealContent,
+    executionContext: revealExecutionContext,
+  });
+  if (ackContextMismatchStatuses !== null) {
+    statuses = ackContextMismatchStatuses;
+  }
   sendUISettingRevealResult({
-    projectConfigId: content.projectConfigId,
-    requestId: content.requestId,
+    projectConfigId: revealContent.projectConfigId,
+    requestId: revealContent.requestId,
     statuses,
+    socketGeneration,
   });
 }
 
@@ -614,15 +698,12 @@ function sendUISettingRevealResult({
   projectConfigId,
   requestId,
   statuses,
+  socketGeneration,
 }: {
   projectConfigId: string;
   requestId: string;
-  statuses: Array<{
-    settingId: string;
-    status: "revealed" | "failed";
-    errorCode: string | null;
-    errorMessage: string | null;
-  }>;
+  statuses: UISettingRevealResultStatusPayload[];
+  socketGeneration: number;
 }): void {
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
     id: null,
@@ -633,7 +714,7 @@ function sendUISettingRevealResult({
       statuses,
     },
   };
-  sendMessage(revealResultMessage);
+  sendMessageForGeneration(revealResultMessage, socketGeneration);
 }
 
 function resolveRevealProjectConfigId(
@@ -674,12 +755,7 @@ function resolveRevealRequestId(content: unknown): string {
 function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
-): Array<{
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode: string | null;
-  errorMessage: string | null;
-}> {
+): UISettingRevealResultStatusPayload[] {
   const settingIds = extractRevealSettingIds(content);
   return settingIds.map((settingId) => ({
     settingId,
@@ -712,99 +788,42 @@ function extractRevealSettingIds(content: unknown): string[] {
   return ids;
 }
 
-function isValidUISettingRevealContent(
-  content: unknown,
-): content is UISettingRevealContent {
-  if (!isRecord(content)) {
-    return false;
+function resolveAckContextMismatchStatuses({
+  content,
+  executionContext,
+}: {
+  content: UISettingRevealContent;
+  executionContext: UISettingRevealExecutionContext;
+}): UISettingRevealResultStatusPayload[] | null {
+  if (!executionContext.isSocketGenerationActive()) {
+    return buildExecutionContextMismatchStatuses(
+      content.reveals,
+      "UI setting reveal execution context mismatch: websocket generation changed " +
+        `before request ${executionContext.requestId} completed.`,
+    );
   }
-  if (
-    typeof content.projectConfigId !== "string" ||
-    content.projectConfigId.trim() === ""
-  ) {
-    return false;
+  const activeProjectConfigId = getCurrProjectConfigId().trim();
+  const requestedProjectConfigId = executionContext.requestedProjectConfigId;
+  if (activeProjectConfigId === requestedProjectConfigId) {
+    return null;
   }
-  if (
-    typeof content.requestId !== "string" ||
-    content.requestId.trim() === ""
-  ) {
-    return false;
-  }
-  if (content.chatId !== null && typeof content.chatId !== "string") {
-    return false;
-  }
-  if (!Number.isFinite(content.durationMs)) {
-    return false;
-  }
-  if (!Array.isArray(content.reveals)) {
-    return false;
-  }
-  return content.reveals.every((reveal) =>
-    isValidUISettingRevealTarget(reveal),
+  return buildExecutionContextMismatchStatuses(
+    content.reveals,
+    "UI setting reveal execution context mismatch: requested project " +
+      `${requestedProjectConfigId} but active project is ${activeProjectConfigId}.`,
   );
 }
 
-function isValidUISettingRevealTarget(reveal: unknown): boolean {
-  if (!isRecord(reveal)) {
-    return false;
-  }
-  if (typeof reveal.settingId !== "string" || reveal.settingId.trim() === "") {
-    return false;
-  }
-  if (reveal.side !== "left" && reveal.side !== "right") {
-    return false;
-  }
-  if (
-    reveal.overviewTabKey !== null &&
-    typeof reveal.overviewTabKey !== "string"
-  ) {
-    return false;
-  }
-  if (
-    reveal.uiEditorTabName !== null &&
-    typeof reveal.uiEditorTabName !== "string"
-  ) {
-    return false;
-  }
-  if (reveal.pluginId !== null && typeof reveal.pluginId !== "string") {
-    return false;
-  }
-  if (reveal.paneId !== null && typeof reveal.paneId !== "string") {
-    return false;
-  }
-  if (
-    reveal.strategy !== "dom_anchor" &&
-    reveal.strategy !== "plugin_handler"
-  ) {
-    return false;
-  }
-  if (reveal.anchorId !== null && typeof reveal.anchorId !== "string") {
-    return false;
-  }
-  if (
-    reveal.pluginRevealKey !== null &&
-    typeof reveal.pluginRevealKey !== "string"
-  ) {
-    return false;
-  }
-  if (!Array.isArray(reveal.revealActivationSteps)) {
-    return false;
-  }
-  for (const step of reveal.revealActivationSteps) {
-    if (!isRecord(step)) {
-      return false;
-    }
-    if (
-      step.type !== "project_ai_settings_accordion_item" &&
-      step.type !== "run_instructions_accordion_item"
-    ) {
-      return false;
-    }
-    if (typeof step.itemValue !== "string") {
-      return false;
-    }
-  }
-  return true;
+function buildExecutionContextMismatchStatuses(
+  reveals: Array<UISettingRevealContent["reveals"][number]>,
+  errorMessage: string,
+): UISettingRevealResultStatusPayload[] {
+  return reveals.map((target) => ({
+    settingId: target.settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -972,6 +991,20 @@ function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
+}
+
+function sendMessageForGeneration(
+  message: WebsocketMsg,
+  socketGeneration: number,
+): void {
+  if (!isSocketGenerationCurrent(socketGeneration)) {
+    return;
+  }
+  sendMessage(message);
+}
+
+function isSocketGenerationCurrent(socketGeneration: number): boolean {
+  return activeWebsocketGeneration === socketGeneration;
 }
 
 function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {

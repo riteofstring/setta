@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 
+from setta.types.id import ID
 from setta.types.websocket import (
     UISettingRevealResultContent,
     WebsocketMsgUISettingRevealResult,
@@ -14,6 +15,8 @@ from setta.types.websocket import (
 class _RevealResultWaiter:
     future: asyncio.Future[UISettingRevealResultContent]
     expected_websocket_id: str | None
+    expected_project_config_id: ID | None
+    expected_setting_ids: frozenset[str] | None
 
 
 class UISettingRevealResultHub:
@@ -21,7 +24,12 @@ class UISettingRevealResultHub:
         self._waiters_by_request_id: dict[str, _RevealResultWaiter] = {}
 
     def register_request(
-        self, request_id: str, *, expected_websocket_id: str | None = None
+        self,
+        request_id: str,
+        *,
+        expected_websocket_id: str | None = None,
+        expected_project_config_id: ID | None = None,
+        expected_setting_ids: set[str] | None = None,
     ) -> None:
         if request_id in self._waiters_by_request_id:
             raise KeyError(f"Duplicate reveal request id: {request_id}")
@@ -29,6 +37,12 @@ class UISettingRevealResultHub:
         self._waiters_by_request_id[request_id] = _RevealResultWaiter(
             future=loop.create_future(),
             expected_websocket_id=expected_websocket_id,
+            expected_project_config_id=expected_project_config_id,
+            expected_setting_ids=(
+                frozenset(expected_setting_ids)
+                if expected_setting_ids is not None
+                else None
+            ),
         )
 
     def cancel_request(self, request_id: str) -> bool:
@@ -76,6 +90,19 @@ class UISettingRevealResultHub:
             and expected_websocket_id != from_websocket_id
         ):
             return False
+        expected_project_config_id = waiter_record.expected_project_config_id
+        if (
+            expected_project_config_id is not None
+            and content.projectConfigId != expected_project_config_id
+        ):
+            return False
+        expected_setting_ids = waiter_record.expected_setting_ids
+        if expected_setting_ids is not None:
+            actual_setting_ids = {status.settingId for status in content.statuses}
+            if len(content.statuses) != len(expected_setting_ids):
+                return False
+            if actual_setting_ids != expected_setting_ids:
+                return False
         waiter.set_result(content)
         return True
 

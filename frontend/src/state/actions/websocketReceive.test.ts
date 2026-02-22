@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
   route_get_auth_refresh_status: vi.fn(),
+  route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
 }));
@@ -88,6 +89,76 @@ class MockWebSocket {
   }
 }
 
+function buildUISettingRevealMessage({
+  id,
+  requestId,
+  settingId,
+  revealActivationSteps = [],
+}: {
+  id: string;
+  requestId: string;
+  settingId: string;
+  revealActivationSteps?: Array<{ type: string; itemValue: string }>;
+}) {
+  return {
+    id,
+    messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+    content: {
+      projectConfigId: "project-1",
+      chatId: null,
+      requestId,
+      durationMs: 1500,
+      reveals: [
+        {
+          settingId,
+          side: "left",
+          overviewTabKey: "WatchCode",
+          uiEditorTabName: null,
+          pluginId: null,
+          paneId: null,
+          strategy: "dom_anchor",
+          anchorId: settingId,
+          pluginRevealKey: null,
+          revealActivationSteps,
+        },
+      ],
+    },
+  };
+}
+
+function findRevealResultPayload(
+  socket: MockWebSocket,
+  requestId: string,
+): { requestId?: string; statuses?: unknown } | undefined {
+  const parsedPayloads = socket.send.mock.calls
+    .map((call) => call[0])
+    .filter((payload): payload is string => typeof payload === "string")
+    .map((payload) => {
+      try {
+        return JSON.parse(payload) as {
+          messageType?: string;
+          content?: { requestId?: string; statuses?: unknown };
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter(
+      (
+        payload,
+      ): payload is {
+        messageType?: string;
+        content?: { requestId?: string; statuses?: unknown };
+      } => payload !== null,
+    );
+  const matchingPayload = parsedPayloads.find(
+    (payload) =>
+      payload.messageType === "UISettingRevealResult" &&
+      payload.content?.requestId === requestId,
+  );
+  return matchingPayload?.content;
+}
+
 describe("openWebSocket", () => {
   beforeEach(async () => {
     resetProjectStores();
@@ -99,9 +170,17 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
+    const { route_get_listener_coverage } = await import(
+      "utils/generatedEndpoints"
+    );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_listener_coverage).mockResolvedValue({
+      status: 404,
+      data: null,
       hasResponse: true,
     });
   });
@@ -566,6 +645,9 @@ describe("openWebSocket", () => {
   });
 
   it("routes UISettingReveal websocket messages to the reveal action", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-1";
+    });
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
@@ -640,6 +722,11 @@ describe("openWebSocket", () => {
           }),
         ],
       }),
+      expect.objectContaining({
+        requestId: "request-1",
+        requestedProjectConfigId: "project-1",
+        socketGeneration: expect.any(Number),
+      }),
     );
     const revealResultPayload = socket.send.mock.calls
       .map((call) => call[0])
@@ -670,7 +757,197 @@ describe("openWebSocket", () => {
     ]);
   });
 
+  it("processes UISettingReveal messages sequentially within one websocket generation", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-1";
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { receiveUISettingReveal } = await import(
+      "state/actions/uiSettingReveal"
+    );
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    let resolveFirstReveal:
+      | ((
+          value: Array<{
+            settingId: string;
+            status: "revealed" | "failed";
+            errorCode: string | null;
+            errorMessage: string | null;
+          }>,
+        ) => void)
+      | null = null;
+    const firstRevealPromise = new Promise<
+      Array<{
+        settingId: string;
+        status: "revealed" | "failed";
+        errorCode: string | null;
+        errorMessage: string | null;
+      }>
+    >((resolve) => {
+      resolveFirstReveal = resolve;
+    });
+    vi.mocked(receiveUISettingReveal)
+      .mockImplementationOnce(() => firstRevealPromise)
+      .mockResolvedValueOnce([
+        {
+          settingId: "core.project.name",
+          status: "revealed",
+          errorCode: null,
+          errorMessage: null,
+        },
+      ]);
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify(
+        buildUISettingRevealMessage({
+          id: "msg-queue-1",
+          requestId: "request-queue-1",
+          settingId: "core.watch_code.enabled",
+        }),
+      ),
+    });
+    await socket.emit("message", {
+      data: JSON.stringify(
+        buildUISettingRevealMessage({
+          id: "msg-queue-2",
+          requestId: "request-queue-2",
+          settingId: "core.project.name",
+        }),
+      ),
+    });
+    await Promise.resolve();
+
+    expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
+
+    if (resolveFirstReveal === null) {
+      throw new Error("Missing first reveal resolver.");
+    }
+    resolveFirstReveal([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+
+    expect(receiveUISettingReveal).toHaveBeenCalledTimes(2);
+    const firstAck = findRevealResultPayload(socket, "request-queue-1");
+    const secondAck = findRevealResultPayload(socket, "request-queue-2");
+    expect(firstAck?.statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+    expect(secondAck?.statuses).toEqual([
+      {
+        settingId: "core.project.name",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+  });
+
+  it("does not send UISettingReveal ACKs after websocket generation rollover", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { receiveUISettingReveal } = await import(
+      "state/actions/uiSettingReveal"
+    );
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    let resolveReveal:
+      | ((
+          value: Array<{
+            settingId: string;
+            status: "revealed" | "failed";
+            errorCode: string | null;
+            errorMessage: string | null;
+          }>,
+        ) => void)
+      | null = null;
+    const revealPromise = new Promise<
+      Array<{
+        settingId: string;
+        status: "revealed" | "failed";
+        errorCode: string | null;
+        errorMessage: string | null;
+      }>
+    >((resolve) => {
+      resolveReveal = resolve;
+    });
+    vi.mocked(receiveUISettingReveal).mockImplementation(() => revealPromise);
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const originalSocket = MockWebSocket.instances[0];
+    await originalSocket.emit("open");
+    await originalSocket.emit("message", {
+      data: JSON.stringify(
+        buildUISettingRevealMessage({
+          id: "msg-rollover-1",
+          requestId: "request-rollover-1",
+          settingId: "core.watch_code.enabled",
+        }),
+      ),
+    });
+    await Promise.resolve();
+
+    openWebSocket("/project", "share-session-replacement");
+    vi.advanceTimersByTime(1000);
+    const replacementSocket = MockWebSocket.instances[1];
+    await replacementSocket.emit("open");
+
+    if (resolveReveal === null) {
+      throw new Error("Missing reveal resolver.");
+    }
+    resolveReveal([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      findRevealResultPayload(originalSocket, "request-rollover-1"),
+    ).toBeUndefined();
+    expect(
+      findRevealResultPayload(replacementSocket, "request-rollover-1"),
+    ).toBeUndefined();
+  });
+
   it("sends structured reveal failure statuses when reveal handling throws", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-1";
+    });
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"

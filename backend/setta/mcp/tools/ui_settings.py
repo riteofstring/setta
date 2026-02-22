@@ -721,7 +721,7 @@ async def _reveal_settings(
             ],
         )
     rollback_previous_active_ids: list[ID] | None = None
-    rollback_owned_active_ids: list[ID] | None = None
+    rollback_activation_lease_id: str | None = None
     if section_id_pending_activation is not None:
         refreshed_project_state = manager.get_single_config_state(project_config_id)
         target_active_ids = [section_id_pending_activation]
@@ -729,8 +729,10 @@ async def _reveal_settings(
             rollback_previous_active_ids = list(
                 refreshed_project_state.projectConfig.activeIds
             )
-            rollback_owned_active_ids = list(target_active_ids)
-        section_error = await _activate_section_for_reveal(
+        (
+            section_error,
+            rollback_activation_lease_id,
+        ) = await _activate_section_for_reveal(
             manager=manager,
             project_config_id=project_config_id,
             project_state=refreshed_project_state,
@@ -752,19 +754,21 @@ async def _reveal_settings(
             )
 
     async def _rollback_pending_section_activation() -> None:
-        if rollback_previous_active_ids is None or rollback_owned_active_ids is None:
+        if rollback_previous_active_ids is None or rollback_activation_lease_id is None:
             return
         await _rollback_reveal_section_activation_if_owned(
             manager=manager,
             project_config_id=project_config_id,
             previous_active_ids=rollback_previous_active_ids,
-            owned_temporary_active_ids=rollback_owned_active_ids,
+            reveal_activation_lease_id=rollback_activation_lease_id,
         )
 
     reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
     reveal_result_hub.register_request(
         request_id,
         expected_websocket_id=target_websocket_id,
+        expected_project_config_id=project_config_id,
+        expected_setting_ids={target.settingId},
     )
     delivered_websocket_id = await frontend_sender.broadcast_ui_setting_reveal(
         UISettingRevealContent(
@@ -827,6 +831,30 @@ async def _reveal_settings(
                             "Timed out waiting for frontend reveal confirmation "
                             f"for {setting_id}."
                         ),
+                    ),
+                )
+            ],
+        )
+
+    envelope_error = _validate_frontend_reveal_result_envelope(
+        frontend_reveal_result=frontend_reveal_result,
+        expected_project_config_id=project_config_id,
+        expected_setting_ids={target.settingId},
+    )
+    if envelope_error is not None:
+        await _rollback_pending_section_activation()
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=envelope_error,
                     ),
                 )
             ],
@@ -962,23 +990,26 @@ async def _activate_section_for_reveal(
     project_config_id: ID,
     project_state,
     section_id_to_activate: ID,
-) -> UISettingToolError | None:
+) -> tuple[UISettingToolError | None, str | None]:
     if section_id_to_activate not in project_state.sections:
-        return UISettingToolError(
-            code="mutation_failed",
-            message=f"Unknown section id: {section_id_to_activate}",
+        return (
+            UISettingToolError(
+                code="mutation_failed",
+                message=f"Unknown section id: {section_id_to_activate}",
+            ),
+            None,
         )
 
     target_active_ids = [section_id_to_activate]
     if project_state.projectConfig.activeIds == target_active_ids:
-        return None
+        return None, None
 
-    await _set_active_ids_for_reveal(
+    reveal_activation_lease_id = await _set_active_ids_for_reveal(
         manager=manager,
         project_config_id=project_config_id,
         active_ids=target_active_ids,
     )
-    return None
+    return None, reveal_activation_lease_id
 
 
 async def _set_active_ids_for_reveal(
@@ -986,8 +1017,8 @@ async def _set_active_ids_for_reveal(
     manager,
     project_config_id: ID,
     active_ids: list[ID],
-) -> None:
-    await manager.set_active_ids_for_ui_setting_reveal(
+) -> str:
+    return await manager.set_active_ids_for_ui_setting_reveal(
         project_config_id=project_config_id,
         active_ids=active_ids,
     )
@@ -998,11 +1029,11 @@ async def _rollback_reveal_section_activation_if_owned(
     manager,
     project_config_id: ID,
     previous_active_ids: list[ID],
-    owned_temporary_active_ids: list[ID],
+    reveal_activation_lease_id: str,
 ) -> bool:
     return await manager.rollback_active_ids_for_ui_setting_reveal(
         project_config_id=project_config_id,
-        expected_active_ids=owned_temporary_active_ids,
+        reveal_activation_lease_id=reveal_activation_lease_id,
         rollback_active_ids=previous_active_ids,
     )
 
@@ -1074,6 +1105,37 @@ def _find_frontend_reveal_status(
     for status in frontend_reveal_result.statuses:
         if status.settingId == setting_id:
             return status
+    return None
+
+
+def _validate_frontend_reveal_result_envelope(
+    *,
+    frontend_reveal_result: UISettingRevealResultContent,
+    expected_project_config_id: ID,
+    expected_setting_ids: set[str],
+) -> str | None:
+    if frontend_reveal_result.projectConfigId != expected_project_config_id:
+        return (
+            "Frontend reveal response project mismatch: expected "
+            f"{expected_project_config_id} but received "
+            f"{frontend_reveal_result.projectConfigId}."
+        )
+    actual_setting_ids = {
+        status.settingId for status in frontend_reveal_result.statuses
+    }
+    if len(frontend_reveal_result.statuses) != len(expected_setting_ids):
+        return (
+            "Frontend reveal response status envelope mismatch: expected "
+            f"{len(expected_setting_ids)} status entry but received "
+            f"{len(frontend_reveal_result.statuses)}."
+        )
+    if actual_setting_ids != expected_setting_ids:
+        expected_ids_text = ", ".join(sorted(expected_setting_ids))
+        actual_ids_text = ", ".join(sorted(actual_setting_ids))
+        return (
+            "Frontend reveal response setting id mismatch: expected "
+            f"[{expected_ids_text}] but received [{actual_ids_text}]."
+        )
     return None
 
 

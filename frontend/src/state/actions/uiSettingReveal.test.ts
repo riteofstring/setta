@@ -484,6 +484,80 @@ describe("receiveUISettingReveal", () => {
     expect(docRef.document.querySelector).not.toHaveBeenCalled();
   });
 
+  it("fails before mutation when reveal execution context socket generation is stale", async () => {
+    const statuses = await receiveUISettingReveal(createRevealContent({}), {
+      requestId: "request-stale-generation",
+      requestedProjectConfigId: "project-1",
+      socketGeneration: 1,
+      isSocketGenerationActive: () => false,
+    });
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-stale-generation completed.",
+      },
+    ]);
+    expect(useLocalStorage.getState().overviewVis).toBe(false);
+  });
+
+  it("fails when project switches during async anchor lookup", async () => {
+    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const startMs = Date.now();
+    const paneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          Date.now() - startMs >= 300
+        ) {
+          return anchor;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+    window.setTimeout(() => {
+      useProjectState.setState((state) => {
+        state.projectConfig.id = "project-switched";
+      });
+    }, 120);
+
+    const statusesPromise = receiveUISettingReveal(createRevealContent({}), {
+      requestId: "request-project-switch",
+      requestedProjectConfigId: "project-1",
+      socketGeneration: 1,
+      isSocketGenerationActive: () => true,
+    });
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: requested project project-1 but active project is project-switched.",
+      },
+    ]);
+    expect(anchor.scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it("fails fast when right-pane tab is unsupported for the active section type", async () => {
     setActiveSectionType(SectionTypeEnum.Code);
 

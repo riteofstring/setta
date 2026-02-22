@@ -6,6 +6,7 @@ from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 
 from setta.agentic.agentic_scope import AgenticContext
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.ui_settings_context import (
     resolve_frontend_websocket_id_from_ctx,
     resolve_project_config_id_from_ctx,
@@ -22,6 +23,7 @@ class _RecordingProjectManagerSwitcher:
         *,
         default_project_config_id: str = "default-project",
         share_default_project_config_id: str | None = "share-default-project",
+        raise_value_error_for_share_default: bool = False,
     ) -> None:
         self.main = SimpleNamespace(
             project_state_backend=SimpleNamespace(
@@ -29,6 +31,7 @@ class _RecordingProjectManagerSwitcher:
             )
         )
         self._share_default_project_config_id = share_default_project_config_id
+        self._raise_value_error_for_share_default = raise_value_error_for_share_default
         self.calls: list[tuple[ID, str | None]] = []
         self.get_for_session_calls: list[str] = []
 
@@ -37,8 +40,18 @@ class _RecordingProjectManagerSwitcher:
         project_identifier: ID,
         *,
         share_session_id: str | None = None,
-    ) -> dict[str, object]:
+    ):
         self.calls.append((project_identifier, share_session_id))
+        if share_session_id is not None and project_identifier == ID(
+            "__share_session_default_project__"
+        ):
+            if self._raise_value_error_for_share_default:
+                raise ValueError("Share scope is unavailable in this mode.")
+            return SimpleNamespace(
+                project_state_backend=SimpleNamespace(
+                    defaultProjectConfigId=self._share_default_project_config_id
+                )
+            )
         return {
             "projectIdentifier": project_identifier,
             "shareSessionId": share_session_id,
@@ -451,8 +464,10 @@ def test_resolve_project_config_id_uses_share_session_default_when_project_is_om
     )
 
     assert resolved_project_config_id == ID("share-default")
-    assert switcher.get_for_session_calls == ["share-resolved"]
-    assert switcher.calls == []
+    assert switcher.get_for_session_calls == []
+    assert switcher.calls == [
+        (ID("__share_session_default_project__"), "share-resolved")
+    ]
 
 
 def test_resolve_project_config_id_share_scope_without_default_project_fails_fast() -> (
@@ -471,6 +486,33 @@ def test_resolve_project_config_id_share_scope_without_default_project_fails_fas
     with pytest.raises(
         KeyError,
         match="No default project config id is available for share session",
+    ):
+        resolve_project_config_id_from_ctx(
+            ctx=ctx,
+            project_config_id=None,
+        )
+    assert switcher.calls == [
+        (ID("__share_session_default_project__"), "share-resolved")
+    ]
+
+
+def test_resolve_project_config_id_share_scope_value_error_maps_to_invalid_arguments() -> (
+    None
+):
+    switcher = _RecordingProjectManagerSwitcher(
+        default_project_config_id="main-default",
+        share_default_project_config_id="share-default",
+        raise_value_error_for_share_default=True,
+    )
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        share_session_resolver=lambda _ctx: "share-resolved",
+        project_manager_switcher=switcher,
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="Share scope is unavailable in this mode.",
     ):
         resolve_project_config_id_from_ctx(
             ctx=ctx,

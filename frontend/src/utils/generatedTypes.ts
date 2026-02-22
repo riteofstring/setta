@@ -7034,7 +7034,7 @@ const UISettingRevealTargetSchema = z.object({
 
 export type UISettingRevealTarget = z.infer<typeof UISettingRevealTargetSchema>;
 
-const UISettingRevealContentSchema = z.object({
+export const UISettingRevealContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: z.union([IDSchema, z.null()]).default(null),
   reveals: z.array(UISettingRevealTargetSchema),
