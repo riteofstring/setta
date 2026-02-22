@@ -40,12 +40,14 @@ import {
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
+  UISettingRevealContent,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
+  WebsocketMsgUISettingRevealResult,
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
@@ -87,6 +89,7 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
+import { receiveUISettingReveal } from "./uiSettingReveal";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -470,6 +473,9 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+      void handleUISettingRevealMessage(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
@@ -483,6 +489,43 @@ function receiveMessage(message: string) {
     default:
       return m satisfies never;
   }
+}
+
+async function handleUISettingRevealMessage(
+  content: UISettingRevealContent,
+): Promise<void> {
+  let statuses: Array<{
+    settingId: string;
+    status: "revealed" | "failed";
+    errorCode: string | null;
+    errorMessage: string | null;
+  }> = [];
+  try {
+    const revealStatuses = await receiveUISettingReveal(content);
+    statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
+  } catch (error) {
+    const rawMessage =
+      error instanceof Error && error.message.trim() !== ""
+        ? error.message
+        : String(error);
+    const normalizedMessage = `Failed to process UI setting reveal: ${rawMessage}`;
+    statuses = content.reveals.map((target) => ({
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: normalizedMessage,
+    }));
+  }
+  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
+    content: {
+      projectConfigId: content.projectConfigId,
+      requestId: content.requestId,
+      statuses,
+    },
+  };
+  sendMessage(revealResultMessage);
 }
 
 function sendCurrentAddress(currentAddress: string) {

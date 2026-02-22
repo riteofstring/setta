@@ -1213,7 +1213,10 @@ export function RunInstructions() {
                   Enable generated code sections for this project.
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-1">
+              <div
+                className="ml-auto flex items-center gap-1"
+                data-setting-anchor="core.run_instructions.python_codegen_enabled"
+              >
                 <span className={TOGGLE_LABEL_CLASSES}>Python</span>
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
