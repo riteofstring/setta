@@ -8,6 +8,7 @@ from setta.llm.transcription_sessions import (
     OpenAIRealtimeTranscriptionEngine,
     TranscriptDeltaResult,
     TranscriptionAudioLimitExceededError,
+    UnsupportedTranscriptionModelError,
     TranscriptionSessionManager,
     _is_realtime_fallback_error,
 )
@@ -189,6 +190,39 @@ async def test_prune_expired_sessions_closes_expired_engines(
 
     assert session_id not in manager._sessions
     assert file_engine.close_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_start_session_raises_typed_unsupported_model_error_for_realtime() -> (
+    None
+):
+    manager = TranscriptionSessionManager()
+    llm_config = LLMConfig(
+        id="anthropic-transcribe",
+        model="claude-3-7-sonnet-latest",
+        provider="anthropic",
+        api_key_env="ANTHROPIC_API_KEY",
+        mcpServerIds=[],
+    )
+    profile = TranscriptionProfile(
+        id="profile-1",
+        name="Realtime Anthropic",
+        transcriptionLlmConfigId="anthropic-transcribe",
+        transportMode=TranscriptionTransportMode.realtime,
+        chunkMs=1200,
+        language=None,
+    )
+
+    with pytest.raises(UnsupportedTranscriptionModelError):
+        await manager.start_session(
+            scope_id="scope-1",
+            resolved_profile=SimpleNamespace(profile=profile, llm_config=llm_config),
+            config=AllLLMConfigs(
+                configs={"anthropic-transcribe": llm_config}, mcpServers={}
+            ),
+            api_keys={"ANTHROPIC_API_KEY": "test-key"},
+            language_override=None,
+        )
 
 
 @pytest.mark.asyncio

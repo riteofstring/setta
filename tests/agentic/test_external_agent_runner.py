@@ -85,7 +85,6 @@ from setta.types.section_impls import SectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
-    AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -306,10 +305,7 @@ class TestExternalAgentRunnerContext:
                 runner,
                 config,
                 engine_config_id=engine_config_id,
-                inputs={
-                    "sectionId": str(chat_section_id),
-                    "frontendWebsocketId": "frontend-codex",
-                },
+                inputs={"sectionId": str(chat_section_id)},
             )
 
             assert "## Agentic Context" in context.system_prompt
@@ -335,9 +331,6 @@ class TestExternalAgentRunnerContext:
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
                 chat_section_id
-            )
-            assert headers.get(AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER) == (
-                "frontend-codex"
             )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:
@@ -946,6 +939,54 @@ class TestExternalAgentRunner:
                 / "config.toml"
             )
             assert settings_paths.get("codex") == str(expected_codex_path)
+
+    def test_run_outputs_store_runtime_model_override_in_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-4o-mini",
+            )
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-runtime-model",
+                    "projectConfigId": "config-runtime-model",
+                    "engineConfigId": "engine-runtime-model",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "model": "gpt-5-codex",
+                },
+                run_id=ID("chat-runtime-model"),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                run,
+                MessageStartEvent(
+                    message=AssistantChatMessage(
+                        id="m-runtime-model",
+                        content=[],
+                    )
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                run,
+                MessageFinalizedEvent(
+                    message=AssistantChatMessage(
+                        id="m-runtime-model",
+                        content=[MessageTextContent(text="Done")],
+                    )
+                ),
+            )
+
+            runner._persist_outputs_from_state(run, config, state)
+
+            assert run.outputs is not None
+            metadata = run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            assert metadata.get("model") == "gpt-5-codex"
 
     def test_run_outputs_prefer_session_settings_paths_when_present(self) -> None:
         with TemporaryDirectory() as tmpdir:

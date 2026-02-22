@@ -24,7 +24,6 @@ export function WatchCodeToggleButton() {
 
   return (
     <button
-      data-setting-anchor="core.watch_code.enabled"
       aria-label={actionLabel}
       aria-pressed={enabled}
       title={actionLabel}

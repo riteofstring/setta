@@ -62,7 +62,6 @@ from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
-    AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -94,6 +93,7 @@ AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
 # intentionally small because missing context otherwise represents a fail-open risk.
 MCP_UNSCOPED_TOOL_NAMES: set[str] = {
     "getInstalledPythonPackages",
+    "get_mcp_server_runtime_status",
     "getProjectConfigNamesAndIds",
     "get_setta_docs",
     "list_mcp_tools",
@@ -782,14 +782,6 @@ class SettaFastMCP(FastMCP):
                 return None
             return self.temporary_to_canonical.get(value, value)
 
-        def _parse_frontend_websocket_id(value: Any) -> str | None:
-            if not isinstance(value, str):
-                return None
-            normalized = value.strip()
-            if normalized == "":
-                return None
-            return normalized
-
         meta = ctx.request_context.meta
         if meta is not None:
             payload = meta.model_dump()
@@ -798,9 +790,6 @@ class SettaFastMCP(FastMCP):
                 project_config_id = _canonicalize(project_config_id)
                 chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
                 section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
-                frontend_websocket_id = _parse_frontend_websocket_id(
-                    payload.get("frontendWebsocketId")
-                )
                 allow_unscoped = False
                 raw_allow_unscoped = payload.get("allowUnscoped")
                 if raw_allow_unscoped is not None:
@@ -811,7 +800,6 @@ class SettaFastMCP(FastMCP):
                     project_config_id=project_config_id,
                     chat_id=chat_id,
                     section_id=section_id,
-                    frontend_websocket_id=frontend_websocket_id,
                     allow_unscoped=allow_unscoped,
                 )
         request = ctx.request_context.request
@@ -827,9 +815,6 @@ class SettaFastMCP(FastMCP):
                 )
                 section_id = _canonicalize(
                     _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
-                )
-                frontend_websocket_id = _parse_frontend_websocket_id(
-                    headers.get(AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER)
                 )
                 allow_unscoped = False
                 raw_allow_unscoped = headers.get(AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER)
@@ -847,7 +832,6 @@ class SettaFastMCP(FastMCP):
                     project_config_id=project_config_id,
                     chat_id=chat_id,
                     section_id=section_id,
-                    frontend_websocket_id=frontend_websocket_id,
                     allow_unscoped=allow_unscoped,
                 )
         session = self._resolve_agentic_session(ctx)
@@ -864,8 +848,6 @@ class SettaFastMCP(FastMCP):
         return getattr(request_context, "session", None)
 
     def _resolve_share_session_id(self, ctx: Context) -> str | None:
-        if not self.state.deployment_mode:
-            return None
         meta = ctx.request_context.meta
         if meta is None:
             return None
