@@ -757,7 +757,7 @@ describe("openWebSocket", () => {
     ]);
   });
 
-  it("processes UISettingReveal messages sequentially within one websocket generation", async () => {
+  it("processes UISettingReveal messages concurrently within one websocket generation", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-1";
     });
@@ -828,8 +828,9 @@ describe("openWebSocket", () => {
       ),
     });
     await Promise.resolve();
+    await Promise.resolve();
 
-    expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
+    expect(receiveUISettingReveal).toHaveBeenCalledTimes(2);
 
     if (resolveFirstReveal === null) {
       throw new Error("Missing first reveal resolver.");
@@ -846,7 +847,6 @@ describe("openWebSocket", () => {
       await Promise.resolve();
     }
 
-    expect(receiveUISettingReveal).toHaveBeenCalledTimes(2);
     const firstAck = findRevealResultPayload(socket, "request-queue-1");
     const secondAck = findRevealResultPayload(socket, "request-queue-2");
     expect(firstAck?.statuses).toEqual([

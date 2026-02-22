@@ -655,21 +655,25 @@ async def _reveal_settings(
     )
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     share_session_id = _resolve_share_session_id(ctx)
-    if not bool(getattr(frontend_sender, "share_mode", False)):
-        share_session_id = None
     preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
-    if share_session_id is not None:
-        preferred_frontend_websocket_id = None
     available_frontend_websocket_ids = (
         frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
             share_session_id=share_session_id
         )
     )
     if (
-        share_session_id is None
-        and preferred_frontend_websocket_id is None
+        preferred_frontend_websocket_id is None
         and len(available_frontend_websocket_ids) > 1
     ):
+        ambiguity_message = (
+            "Reveal routing is ambiguous because multiple frontends are connected "
+            "and no origin frontend affinity is available."
+        )
+        if share_session_id is None:
+            ambiguity_message = (
+                "Reveal routing is ambiguous because multiple frontends are connected "
+                "and no frontendWebsocketId was provided."
+            )
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -681,10 +685,7 @@ async def _reveal_settings(
                     status="failed",
                     error=UISettingToolError(
                         code="mutation_failed",
-                        message=(
-                            "Reveal routing is ambiguous because multiple frontends "
-                            "are connected and no frontendWebsocketId was provided."
-                        ),
+                        message=ambiguity_message,
                     ),
                 )
             ],

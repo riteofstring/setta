@@ -165,6 +165,8 @@ describe("receiveUISettingReveal", () => {
       overviewVis: false,
       overviewTab: "Overview",
       uiEditorVis: false,
+      runInstructionsAccordionOpenValuesByProjectConfigId: {},
+      projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     });
     const windowRef = globalThis as unknown as {
       window: typeof globalThis & {
@@ -504,6 +506,82 @@ describe("receiveUISettingReveal", () => {
     expect(useLocalStorage.getState().overviewVis).toBe(false);
   });
 
+  it("rolls back pane mutations when execution context flips after pane open", async () => {
+    const statuses = await receiveUISettingReveal(createRevealContent({}), {
+      requestId: "request-pane-mutation-rollback",
+      requestedProjectConfigId: "project-1",
+      socketGeneration: 1,
+      isSocketGenerationActive: (() => {
+        let checks = 0;
+        return () => {
+          checks += 1;
+          return checks < 5;
+        };
+      })(),
+    });
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-pane-mutation-rollback completed.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(false);
+    expect(state.overviewTab).toBe("Overview");
+  });
+
+  it("rolls back activation-step mutations when execution context flips after activation", async () => {
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.run_instructions.python_codegen_enabled",
+            overviewTabKey: "RunInstructions",
+            anchorId: "core.run_instructions.python_codegen_enabled",
+            revealActivationSteps: [
+              {
+                type: "run_instructions_accordion_item",
+                itemValue: "run-instructions-codegen-targets",
+              },
+            ],
+          }),
+        ],
+      }),
+      {
+        requestId: "request-activation-rollback",
+        requestedProjectConfigId: "project-1",
+        socketGeneration: 1,
+        isSocketGenerationActive: (() => {
+          let checks = 0;
+          return () => {
+            checks += 1;
+            return checks < 6;
+          };
+        })(),
+      },
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.run_instructions.python_codegen_enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-activation-rollback completed.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(false);
+    expect(state.overviewTab).toBe("Overview");
+    expect(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
+    ).toBeUndefined();
+  });
+
   it("fails when project switches during async anchor lookup", async () => {
     const anchor = createFakeAnchor("core.watch_code.enabled");
     const startMs = Date.now();
@@ -556,6 +634,9 @@ describe("receiveUISettingReveal", () => {
       },
     ]);
     expect(anchor.scrollIntoView).not.toHaveBeenCalled();
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(false);
+    expect(state.overviewTab).toBe("Overview");
   });
 
   it("fails fast when right-pane tab is unsupported for the active section type", async () => {

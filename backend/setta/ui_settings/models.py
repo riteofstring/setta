@@ -64,6 +64,10 @@ class UISettingValueSchema(BaseModel, extra="forbid"):
     maximum: float | None = None
     minLength: int | None = None
     maxLength: int | None = None
+    items: "UISettingValueSchema | None" = None
+    properties: "dict[str, UISettingValueSchema] | None" = None
+    requiredProperties: list[str] | None = None
+    additionalProperties: bool | None = None
 
 
 class UISettingEntry(BaseModel, extra="forbid"):
@@ -105,3 +109,6 @@ class UISettingRuntimeEntry:
         ]
         | None
     ) = None
+
+
+UISettingValueSchema.model_rebuild()

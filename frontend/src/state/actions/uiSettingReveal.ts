@@ -54,12 +54,39 @@ type PluginRevealHandlerOutcome =
   | { status: "retryable_failure"; message: string }
   | { status: "terminal_failure"; message: string };
 
+type LocalStorageState = ReturnType<typeof useLocalStorage.getState>;
+type RevealLocalStorageSnapshot = {
+  overviewVis: LocalStorageState["overviewVis"];
+  overviewTab: LocalStorageState["overviewTab"];
+  uiEditorVis: LocalStorageState["uiEditorVis"];
+  uiEditorTab: LocalStorageState["uiEditorTab"];
+  runInstructionsAccordionOpenValuesByProjectConfigId: LocalStorageState["runInstructionsAccordionOpenValuesByProjectConfigId"];
+  projectAiSettingsAccordionOpenValuesByProjectConfigId: LocalStorageState["projectAiSettingsAccordionOpenValuesByProjectConfigId"];
+};
+type RevealMutationLease = {
+  leaseId: number;
+  snapshot: RevealLocalStorageSnapshot;
+};
+type RevealMutationResult =
+  | {
+      ok: true;
+      lease: RevealMutationLease;
+    }
+  | {
+      ok: false;
+      status: UISettingRevealResultStatus;
+    };
+
 export type UISettingRevealExecutionContext = {
   requestId: string;
   requestedProjectConfigId: string;
   socketGeneration: number;
   isSocketGenerationActive: () => boolean;
 };
+
+let revealMutationLock: Promise<void> = Promise.resolve();
+let revealMutationSequence = 0;
+let latestRevealMutationLeaseId = 0;
 
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
@@ -134,28 +161,16 @@ async function revealSingleSetting({
       startMismatch.message,
     );
   }
-  const deadlineMs = Date.now() + durationMs;
-  const opened = openPaneForRevealTarget(target);
-  if (!opened.ok) {
-    return {
-      settingId: target.settingId,
-      status: "failed",
-      errorCode: "mutation_failed",
-      errorMessage: opened.errorMessage,
-    };
-  }
-  const preActivationMismatch =
-    resolveRevealExecutionMismatch(executionContext);
-  if (preActivationMismatch !== null) {
-    return buildExecutionContextMismatchStatus(
-      target.settingId,
-      preActivationMismatch.message,
-    );
-  }
-  applyRevealActivationSteps({
+  const mutationResult = await applyRevealMutationsWithLease({
     target,
     fallbackProjectConfigId,
+    executionContext,
   });
+  if (!mutationResult.ok) {
+    return mutationResult.status;
+  }
+  const mutationLease = mutationResult.lease;
+  const deadlineMs = Date.now() + durationMs;
 
   let pluginRevealErrorMessage: string | null = null;
   if (target.strategy === "plugin_handler") {
@@ -167,6 +182,7 @@ async function revealSingleSetting({
     const postPluginRevealMismatch =
       resolveRevealExecutionMismatch(executionContext);
     if (postPluginRevealMismatch !== null) {
+      await rollbackRevealMutationLease(mutationLease);
       return buildExecutionContextMismatchStatus(
         target.settingId,
         postPluginRevealMismatch.message,
@@ -214,6 +230,7 @@ async function revealSingleSetting({
   const postAnchorLookupMismatch =
     resolveRevealExecutionMismatch(executionContext);
   if (postAnchorLookupMismatch !== null) {
+    await rollbackRevealMutationLease(mutationLease);
     return buildExecutionContextMismatchStatus(
       target.settingId,
       postAnchorLookupMismatch.message,
@@ -237,6 +254,161 @@ async function revealSingleSetting({
     errorCode: null,
     errorMessage: null,
   };
+}
+
+async function applyRevealMutationsWithLease({
+  target,
+  fallbackProjectConfigId,
+  executionContext,
+}: {
+  target: UISettingRevealTarget;
+  fallbackProjectConfigId: string;
+  executionContext: UISettingRevealExecutionContext | null;
+}): Promise<RevealMutationResult> {
+  return runWithRevealMutationLock(async () => {
+    const startMismatch = resolveRevealExecutionMismatch(executionContext);
+    if (startMismatch !== null) {
+      return {
+        ok: false,
+        status: buildExecutionContextMismatchStatus(
+          target.settingId,
+          startMismatch.message,
+        ),
+      };
+    }
+    const snapshot = captureRevealLocalStorageSnapshot();
+    const opened = openPaneForRevealTarget(target);
+    if (!opened.ok) {
+      return {
+        ok: false,
+        status: {
+          settingId: target.settingId,
+          status: "failed",
+          errorCode: "mutation_failed",
+          errorMessage: opened.errorMessage,
+        },
+      };
+    }
+    const postPaneMismatch = resolveRevealExecutionMismatch(executionContext);
+    if (postPaneMismatch !== null) {
+      restoreRevealLocalStorageSnapshot(snapshot);
+      return {
+        ok: false,
+        status: buildExecutionContextMismatchStatus(
+          target.settingId,
+          postPaneMismatch.message,
+        ),
+      };
+    }
+    applyRevealActivationSteps({
+      target,
+      fallbackProjectConfigId,
+    });
+    const postActivationMismatch =
+      resolveRevealExecutionMismatch(executionContext);
+    if (postActivationMismatch !== null) {
+      restoreRevealLocalStorageSnapshot(snapshot);
+      return {
+        ok: false,
+        status: buildExecutionContextMismatchStatus(
+          target.settingId,
+          postActivationMismatch.message,
+        ),
+      };
+    }
+    return {
+      ok: true,
+      lease: registerRevealMutationLease(snapshot),
+    };
+  });
+}
+
+async function rollbackRevealMutationLease(
+  mutationLease: RevealMutationLease,
+): Promise<void> {
+  await runWithRevealMutationLock(() => {
+    if (latestRevealMutationLeaseId !== mutationLease.leaseId) {
+      return;
+    }
+    restoreRevealLocalStorageSnapshot(mutationLease.snapshot);
+    revealMutationSequence += 1;
+    latestRevealMutationLeaseId = revealMutationSequence;
+  });
+}
+
+function registerRevealMutationLease(
+  snapshot: RevealLocalStorageSnapshot,
+): RevealMutationLease {
+  revealMutationSequence += 1;
+  const lease = {
+    leaseId: revealMutationSequence,
+    snapshot,
+  };
+  latestRevealMutationLeaseId = lease.leaseId;
+  return lease;
+}
+
+function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
+  const state = useLocalStorage.getState();
+  return {
+    overviewVis: state.overviewVis,
+    overviewTab: state.overviewTab,
+    uiEditorVis: state.uiEditorVis,
+    uiEditorTab: { ...state.uiEditorTab },
+    runInstructionsAccordionOpenValuesByProjectConfigId: cloneStringArrayRecord(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId,
+    ),
+    projectAiSettingsAccordionOpenValuesByProjectConfigId:
+      cloneStringArrayRecord(
+        state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      ),
+  };
+}
+
+function restoreRevealLocalStorageSnapshot(
+  snapshot: RevealLocalStorageSnapshot,
+): void {
+  useLocalStorage.setState({
+    overviewVis: snapshot.overviewVis,
+    overviewTab: snapshot.overviewTab,
+    uiEditorVis: snapshot.uiEditorVis,
+    uiEditorTab: { ...snapshot.uiEditorTab },
+    runInstructionsAccordionOpenValuesByProjectConfigId: cloneStringArrayRecord(
+      snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
+    ),
+    projectAiSettingsAccordionOpenValuesByProjectConfigId:
+      cloneStringArrayRecord(
+        snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      ),
+  });
+}
+
+function cloneStringArrayRecord(
+  value: Record<string, Array<string>>,
+): Record<string, Array<string>> {
+  const cloned: Record<string, Array<string>> = {};
+  for (const [recordKey, recordValue] of Object.entries(value)) {
+    cloned[recordKey] = [...recordValue];
+  }
+  return cloned;
+}
+
+async function runWithRevealMutationLock<T>(
+  operation: () => Promise<T> | T,
+): Promise<T> {
+  const previousLock = revealMutationLock;
+  let releaseCurrentLock: (() => void) | null = null;
+  revealMutationLock = new Promise<void>((resolve) => {
+    releaseCurrentLock = resolve;
+  });
+  await previousLock;
+  try {
+    return await operation();
+  } finally {
+    if (releaseCurrentLock !== null) {
+      releaseCurrentLock();
+    }
+  }
 }
 
 function openPaneForRevealTarget(

@@ -305,81 +305,168 @@ def validate_ui_setting_value(
     schema: UISettingValueSchema,
     value: JSONValue,
 ) -> JSONValue:
+    return _validate_ui_setting_value_at_path(
+        schema=schema,
+        value=value,
+        json_path="$",
+    )
+
+
+def _validate_ui_setting_value_at_path(
+    *,
+    schema: UISettingValueSchema,
+    value: JSONValue,
+    json_path: str,
+) -> JSONValue:
     expected_type = schema.type
+    normalized: JSONValue
     if expected_type == "boolean":
         if not isinstance(value, bool):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected a boolean value.",
+                f"Expected a boolean value at {json_path}.",
             )
-        normalized: JSONValue = value
+        normalized = value
     elif expected_type == "string":
         if not isinstance(value, str):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected a string value.",
+                f"Expected a string value at {json_path}.",
             )
         if schema.minLength is not None and len(value) < schema.minLength:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"String value must be at least {schema.minLength} characters.",
+                (
+                    f"String value at {json_path} must be at least "
+                    f"{schema.minLength} characters."
+                ),
             )
         if schema.maxLength is not None and len(value) > schema.maxLength:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"String value must be at most {schema.maxLength} characters.",
+                (
+                    f"String value at {json_path} must be at most "
+                    f"{schema.maxLength} characters."
+                ),
             )
         normalized = value
     elif expected_type == "number":
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected a numeric value.",
+                f"Expected a numeric value at {json_path}.",
             )
         normalized_float = float(value)
         if schema.minimum is not None and normalized_float < schema.minimum:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"Value must be greater than or equal to {schema.minimum}.",
+                (
+                    f"Value at {json_path} must be greater than or equal to "
+                    f"{schema.minimum}."
+                ),
             )
         if schema.maximum is not None and normalized_float > schema.maximum:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"Value must be less than or equal to {schema.maximum}.",
+                (
+                    f"Value at {json_path} must be less than or equal to "
+                    f"{schema.maximum}."
+                ),
             )
         normalized = normalized_float
     elif expected_type == "integer":
         if not isinstance(value, int) or isinstance(value, bool):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected an integer value.",
+                f"Expected an integer value at {json_path}.",
             )
         normalized_int = int(value)
         if schema.minimum is not None and normalized_int < schema.minimum:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"Value must be greater than or equal to {schema.minimum}.",
+                (
+                    f"Value at {json_path} must be greater than or equal to "
+                    f"{schema.minimum}."
+                ),
             )
         if schema.maximum is not None and normalized_int > schema.maximum:
             raise UISettingValidationError(
                 "invalid_value_range_or_enum",
-                f"Value must be less than or equal to {schema.maximum}.",
+                (
+                    f"Value at {json_path} must be less than or equal to "
+                    f"{schema.maximum}."
+                ),
             )
         normalized = normalized_int
     elif expected_type == "array":
         if not isinstance(value, list):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected an array value.",
+                f"Expected an array value at {json_path}.",
             )
-        normalized = value
+        normalized_items: list[JSONValue] = []
+        if schema.items is None:
+            normalized_items = list(value)
+        else:
+            for index, item in enumerate(value):
+                normalized_items.append(
+                    _validate_ui_setting_value_at_path(
+                        schema=schema.items,
+                        value=item,
+                        json_path=f"{json_path}[{index}]",
+                    )
+                )
+        normalized = normalized_items
     elif expected_type == "object":
         if not isinstance(value, dict):
             raise UISettingValidationError(
                 "invalid_value_type",
-                "Expected an object value.",
+                f"Expected an object value at {json_path}.",
             )
-        normalized = value
+        normalized_object: dict[str, JSONValue] = {}
+        for key, object_value in value.items():
+            if not isinstance(key, str):
+                raise UISettingValidationError(
+                    "invalid_value_type",
+                    f"Expected object keys to be strings at {json_path}.",
+                )
+            normalized_object[key] = object_value
+        required_properties = schema.requiredProperties or []
+        for required_property in required_properties:
+            if required_property in normalized_object:
+                continue
+            raise UISettingValidationError(
+                "invalid_value_type",
+                (
+                    f"Object value at {json_path} is missing required property "
+                    f"{required_property}."
+                ),
+            )
+        properties = schema.properties or {}
+        for property_name, property_schema in properties.items():
+            if property_name not in normalized_object:
+                continue
+            normalized_object[property_name] = _validate_ui_setting_value_at_path(
+                schema=property_schema,
+                value=normalized_object[property_name],
+                json_path=f"{json_path}.{property_name}",
+            )
+        if schema.additionalProperties is False:
+            unsupported_properties = sorted(
+                property_name
+                for property_name in normalized_object
+                if property_name not in properties
+            )
+            if unsupported_properties:
+                unsupported_text = ", ".join(unsupported_properties)
+                raise UISettingValidationError(
+                    "invalid_value_type",
+                    (
+                        f"Object value at {json_path} contains unsupported "
+                        f"properties: {unsupported_text}."
+                    ),
+                )
+        normalized = normalized_object
     else:
         raise UISettingValidationError(
             "invalid_value_type",
@@ -389,7 +476,7 @@ def validate_ui_setting_value(
     if schema.enumValues is not None and normalized not in schema.enumValues:
         raise UISettingValidationError(
             "invalid_value_range_or_enum",
-            "Value is not in the allowed enum set.",
+            f"Value at {json_path} is not in the allowed enum set.",
         )
     return normalized
 
@@ -428,6 +515,25 @@ def _score_setting_entry(
             if token in synonym:
                 score += 18
     return score
+
+
+_WATCH_CODE_FOLDER_ITEM_VALUE_SCHEMA = UISettingValueSchema(
+    type="object",
+    properties={
+        "path": UISettingValueSchema(type="string"),
+        "recursive": UISettingValueSchema(type="boolean"),
+    },
+    requiredProperties=["path"],
+    additionalProperties=False,
+)
+_WATCH_CODE_FOLDERS_VALUE_SCHEMA = UISettingValueSchema(
+    type="array",
+    items=_WATCH_CODE_FOLDER_ITEM_VALUE_SCHEMA,
+)
+_WATCH_CODE_FILES_VALUE_SCHEMA = UISettingValueSchema(
+    type="array",
+    items=UISettingValueSchema(type="string"),
+)
 
 
 def _build_core_entries() -> list[UISettingRuntimeEntry]:
@@ -469,7 +575,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 ),
                 source="core",
                 mutability="writable",
-                valueSchema=UISettingValueSchema(type="array"),
+                valueSchema=_WATCH_CODE_FOLDERS_VALUE_SCHEMA,
             ),
             readValue=_read_watch_code_folders,
             writeValue=_write_watch_code_folders,
@@ -490,7 +596,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 ),
                 source="core",
                 mutability="writable",
-                valueSchema=UISettingValueSchema(type="array"),
+                valueSchema=_WATCH_CODE_FILES_VALUE_SCHEMA,
             ),
             readValue=_read_watch_code_files,
             writeValue=_write_watch_code_files,
@@ -806,18 +912,11 @@ def _build_plugin_entries(
         ] = {}
         schema_json = plugin.config.schemaJson
         if isinstance(schema_json, dict):
-            try:
-                definitions = _parse_plugin_ui_setting_definitions(
-                    schema_json=schema_json,
-                    plugin_id=plugin.pluginId,
-                )
-            except Exception as exc:
-                _record_plugin_ui_setting_error(
-                    plugin_errors_by_plugin_id,
-                    plugin_id=plugin.pluginId,
-                    message=str(exc),
-                )
-                definitions = []
+            definitions = _parse_plugin_ui_setting_definitions(
+                schema_json=schema_json,
+                plugin_id=plugin.pluginId,
+                plugin_errors_by_plugin_id=plugin_errors_by_plugin_id,
+            )
             for definition in definitions:
                 _append_plugin_ui_setting_contribution(
                     contributions_by_local_setting_id,
@@ -1327,110 +1426,152 @@ def _parse_plugin_ui_setting_definitions(
     *,
     schema_json: dict[str, Any],
     plugin_id: str,
+    plugin_errors_by_plugin_id: PluginUISettingErrorsByPluginId,
 ) -> list[_PluginUISettingDefinition]:
     if PLUGIN_UI_SETTINGS_SCHEMA_KEY not in schema_json:
         return []
     raw_definitions = schema_json[PLUGIN_UI_SETTINGS_SCHEMA_KEY]
     if not isinstance(raw_definitions, list):
-        raise ValueError(
-            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY} must be a list."
+        _record_plugin_ui_setting_error(
+            plugin_errors_by_plugin_id,
+            plugin_id=plugin_id,
+            message=f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY} must be a list.",
         )
+        return []
 
     definitions: list[_PluginUISettingDefinition] = []
     for index, raw_definition in enumerate(raw_definitions):
-        if not isinstance(raw_definition, dict):
-            raise ValueError(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] must be an object."
-            )
-        local_setting_id = _require_non_empty_string(
-            raw_definition.get("settingId"),
-            context=(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
-                "settingId must be a non-empty string."
-            ),
+        local_setting_id_for_error = _try_resolve_plugin_local_setting_id_for_error(
+            raw_definition=raw_definition
         )
-        if "::" in local_setting_id:
-            raise ValueError(
-                f"Plugin {plugin_id} settingId {local_setting_id} must not contain '::'."
-            )
-        title = _require_non_empty_string(
-            raw_definition.get("title"),
-            context=(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
-                "title must be a non-empty string."
-            ),
-        )
-        description = _require_non_empty_string(
-            raw_definition.get("description"),
-            context=(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
-                "description must be a non-empty string."
-            ),
-        )
-        pane_id = _require_non_empty_string(
-            raw_definition.get("paneId"),
-            context=(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
-                "paneId must be a non-empty string."
-            ),
-        )
-        reveal_key = _require_non_empty_string(
-            raw_definition.get("revealKey"),
-            context=(
-                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
-                "revealKey must be a non-empty string."
-            ),
-        )
-        config_path = _normalize_plugin_config_path(
-            raw_definition.get("configPath"),
-            plugin_id=plugin_id,
-            index=index,
-        )
-        mutability = _normalize_plugin_mutability(
-            raw_definition.get("mutability"),
-            plugin_id=plugin_id,
-            index=index,
-        )
-        synonyms = _normalize_plugin_synonyms(
-            raw_definition.get("synonyms"),
-            plugin_id=plugin_id,
-            index=index,
-        )
-        value_schema = _resolve_plugin_value_schema(
-            schema_json=schema_json,
-            raw_value_schema=raw_definition.get("valueSchema"),
-            config_path=config_path,
-            plugin_id=plugin_id,
-            local_setting_id=local_setting_id,
-        )
-        if "defaultValue" not in raw_definition:
-            raise ValueError(
-                (
-                    f"Plugin {plugin_id} setting {local_setting_id} must define "
-                    "defaultValue."
+        try:
+            definitions.append(
+                _parse_plugin_ui_setting_definition(
+                    schema_json=schema_json,
+                    plugin_id=plugin_id,
+                    index=index,
+                    raw_definition=raw_definition,
                 )
             )
-        default_value = _validate_plugin_default_value(
-            plugin_id=plugin_id,
-            local_setting_id=local_setting_id,
-            value_schema=value_schema,
-            value=raw_definition.get("defaultValue"),
-        )
-        definitions.append(
-            _PluginUISettingDefinition(
-                localSettingId=local_setting_id,
-                title=title,
-                description=description,
-                synonyms=synonyms,
-                paneId=pane_id,
-                revealKey=reveal_key,
-                configPath=config_path,
-                mutability=mutability,
-                valueSchema=value_schema,
-                defaultValue=default_value,
+        except Exception as exc:
+            _record_plugin_ui_setting_error(
+                plugin_errors_by_plugin_id,
+                plugin_id=plugin_id,
+                message=str(exc),
+                local_setting_id=local_setting_id_for_error,
             )
-        )
     return definitions
+
+
+def _parse_plugin_ui_setting_definition(
+    *,
+    schema_json: dict[str, Any],
+    plugin_id: str,
+    index: int,
+    raw_definition: Any,
+) -> _PluginUISettingDefinition:
+    if not isinstance(raw_definition, dict):
+        raise ValueError(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] must be an object."
+        )
+    local_setting_id = _require_non_empty_string(
+        raw_definition.get("settingId"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "settingId must be a non-empty string."
+        ),
+    )
+    if "::" in local_setting_id:
+        raise ValueError(
+            f"Plugin {plugin_id} settingId {local_setting_id} must not contain '::'."
+        )
+    title = _require_non_empty_string(
+        raw_definition.get("title"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "title must be a non-empty string."
+        ),
+    )
+    description = _require_non_empty_string(
+        raw_definition.get("description"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "description must be a non-empty string."
+        ),
+    )
+    pane_id = _require_non_empty_string(
+        raw_definition.get("paneId"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "paneId must be a non-empty string."
+        ),
+    )
+    reveal_key = _require_non_empty_string(
+        raw_definition.get("revealKey"),
+        context=(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+            "revealKey must be a non-empty string."
+        ),
+    )
+    config_path = _normalize_plugin_config_path(
+        raw_definition.get("configPath"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    mutability = _normalize_plugin_mutability(
+        raw_definition.get("mutability"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    synonyms = _normalize_plugin_synonyms(
+        raw_definition.get("synonyms"),
+        plugin_id=plugin_id,
+        index=index,
+    )
+    value_schema = _resolve_plugin_value_schema(
+        schema_json=schema_json,
+        raw_value_schema=raw_definition.get("valueSchema"),
+        config_path=config_path,
+        plugin_id=plugin_id,
+        local_setting_id=local_setting_id,
+    )
+    if "defaultValue" not in raw_definition:
+        raise ValueError(
+            (f"Plugin {plugin_id} setting {local_setting_id} must define defaultValue.")
+        )
+    default_value = _validate_plugin_default_value(
+        plugin_id=plugin_id,
+        local_setting_id=local_setting_id,
+        value_schema=value_schema,
+        value=raw_definition.get("defaultValue"),
+    )
+    return _PluginUISettingDefinition(
+        localSettingId=local_setting_id,
+        title=title,
+        description=description,
+        synonyms=synonyms,
+        paneId=pane_id,
+        revealKey=reveal_key,
+        configPath=config_path,
+        mutability=mutability,
+        valueSchema=value_schema,
+        defaultValue=default_value,
+    )
+
+
+def _try_resolve_plugin_local_setting_id_for_error(
+    *,
+    raw_definition: Any,
+) -> str | None:
+    if not isinstance(raw_definition, dict):
+        return None
+    raw_setting_id = raw_definition.get("settingId")
+    if not isinstance(raw_setting_id, str):
+        return None
+    local_setting_id = raw_setting_id.strip()
+    if local_setting_id == "" or "::" in local_setting_id:
+        return None
+    return local_setting_id
 
 
 def _require_non_empty_string(value: Any, *, context: str) -> str:
@@ -1556,6 +1697,13 @@ def _infer_plugin_value_schema_from_config_schema(
     )
     if schema_node is None:
         return None
+    return _infer_ui_setting_value_schema_from_schema_node(schema_node=schema_node)
+
+
+def _infer_ui_setting_value_schema_from_schema_node(
+    *,
+    schema_node: dict[str, Any],
+) -> UISettingValueSchema | None:
     raw_type: Any = schema_node.get("type")
     if isinstance(raw_type, list):
         non_null_types = [item for item in raw_type if item != "null"]
@@ -1571,6 +1719,43 @@ def _infer_plugin_value_schema_from_config_schema(
     maximum = _as_float(schema_node.get("maximum"))
     min_length = _as_int(schema_node.get("minLength"))
     max_length = _as_int(schema_node.get("maxLength"))
+    items_schema: UISettingValueSchema | None = None
+    if raw_type == "array":
+        raw_items = schema_node.get("items")
+        if isinstance(raw_items, dict):
+            items_schema = _infer_ui_setting_value_schema_from_schema_node(
+                schema_node=raw_items
+            )
+    properties_schema: dict[str, UISettingValueSchema] | None = None
+    required_properties: list[str] | None = None
+    additional_properties: bool | None = None
+    if raw_type == "object":
+        raw_properties = schema_node.get("properties")
+        if isinstance(raw_properties, dict):
+            parsed_properties: dict[str, UISettingValueSchema] = {}
+            for property_name, raw_property_schema in raw_properties.items():
+                if not isinstance(property_name, str):
+                    continue
+                if not isinstance(raw_property_schema, dict):
+                    continue
+                parsed_property_schema = (
+                    _infer_ui_setting_value_schema_from_schema_node(
+                        schema_node=raw_property_schema
+                    )
+                )
+                if parsed_property_schema is None:
+                    continue
+                parsed_properties[property_name] = parsed_property_schema
+            properties_schema = parsed_properties
+        raw_required = schema_node.get("required")
+        if isinstance(raw_required, list):
+            required_list = [
+                item for item in raw_required if isinstance(item, str) and item != ""
+            ]
+            required_properties = required_list
+        raw_additional_properties = schema_node.get("additionalProperties")
+        if isinstance(raw_additional_properties, bool):
+            additional_properties = raw_additional_properties
     return UISettingValueSchema(
         type=raw_type,
         enumValues=enum_values,
@@ -1578,6 +1763,10 @@ def _infer_plugin_value_schema_from_config_schema(
         maximum=maximum,
         minLength=min_length,
         maxLength=max_length,
+        items=items_schema,
+        properties=properties_schema,
+        requiredProperties=required_properties,
+        additionalProperties=additional_properties,
     )
 
 
@@ -1835,9 +2024,18 @@ async def _write_watch_code_folders(
     value: JSONValue,
     expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
-    if not isinstance(value, list):
+    normalized_value = validate_ui_setting_value(
+        _WATCH_CODE_FOLDERS_VALUE_SCHEMA, value
+    )
+    if not isinstance(normalized_value, list):
         raise UISettingValidationError("invalid_value_type", "Expected an array value.")
-    folders = [WatchCodeFolder.model_validate(entry) for entry in value]
+    try:
+        folders = [WatchCodeFolder.model_validate(entry) for entry in normalized_value]
+    except Exception as exc:
+        raise UISettingValidationError(
+            "invalid_value_type",
+            f"Invalid watch-code folder entry: {exc}",
+        ) from exc
     manager = _get_project_manager(ctx, project_config_id)
     try:
         old_value, new_value = await manager.compare_and_set_watch_code_folders(
@@ -1855,7 +2053,7 @@ async def _write_watch_code_folders(
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
-        normalizedValue=new_value,
+        normalizedValue=normalized_value,
         changed=old_value != new_value,
     )
 
@@ -1866,9 +2064,14 @@ async def _write_watch_code_files(
     value: JSONValue,
     expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
-    if not isinstance(value, list) or any(
-        not isinstance(entry, str) for entry in value
-    ):
+    normalized_value = validate_ui_setting_value(_WATCH_CODE_FILES_VALUE_SCHEMA, value)
+    if not isinstance(normalized_value, list):
+        raise UISettingValidationError(
+            "invalid_value_type",
+            "Expected an array of strings.",
+        )
+    normalized_files = [entry for entry in normalized_value if isinstance(entry, str)]
+    if len(normalized_files) != len(normalized_value):
         raise UISettingValidationError(
             "invalid_value_type",
             "Expected an array of strings.",
@@ -1879,7 +2082,7 @@ async def _write_watch_code_files(
             SetWatchCodeInputsRequest(
                 projectConfigId=project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=list(value),
+                watchCodeFiles=normalized_files,
             ),
             expected_old_value=(
                 expected_old_value if isinstance(expected_old_value, list) else None
@@ -1890,7 +2093,7 @@ async def _write_watch_code_files(
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
-        normalizedValue=new_value,
+        normalizedValue=normalized_files,
         changed=old_value != new_value,
     )
 

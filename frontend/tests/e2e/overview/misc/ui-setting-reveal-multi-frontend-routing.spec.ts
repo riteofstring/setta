@@ -303,23 +303,55 @@ test("reveal_ui_setting accepts share-scoped calls that include frontend affinit
     expect(revealResult.statuses[0]?.status).toBe("revealed");
 
     await expect
-      .poll(async () => {
-        const firstCount = await revealHighlightsOne.count();
-        const secondCount = await revealHighlightsTwo.count();
-        return firstCount + secondCount;
-      })
+      .poll(async () => revealHighlightsOne.count())
       .toBeGreaterThan(0);
+    await expect.poll(async () => revealHighlightsTwo.count()).toBe(0);
 
     await expect
-      .poll(
-        async () => {
-          const firstCount = await revealHighlightsOne.count();
-          const secondCount = await revealHighlightsTwo.count();
-          return firstCount + secondCount;
-        },
-        { timeout: 5000 },
-      )
+      .poll(async () => revealHighlightsOne.count(), { timeout: 5000 })
       .toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await secondPage.close();
+  }
+});
+
+test("share-scoped reveal_ui_setting fails when origin affinity is missing", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  await installFrontendIdentityCapture(page);
+  const projectContext = await openIsolatedProject(page);
+  const pageOneUrl = page.url();
+  await waitForFrontendIdentity(page);
+
+  const secondPage = await page.context().newPage();
+  await setOverviewTab(secondPage, "Overview");
+  await installFrontendIdentityCapture(secondPage);
+  await secondPage.goto(pageOneUrl, { waitUntil: "domcontentloaded" });
+  await waitForFrontendIdentity(secondPage);
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1200,
+      },
+      "   ",
+      "share-session-e2e",
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "multiple frontends are connected",
+    );
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "frontendWebsocketId",
+    );
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
     await secondPage.close();

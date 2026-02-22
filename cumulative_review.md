@@ -480,3 +480,28 @@
 6. UX after: rollback applies only to the owning reveal lease and does not clobber newer user navigation.
 7. DX before: reveal contract behavior required tracing split validation paths and weak ownership semantics.
 8. DX after: schema-driven validation, explicit execution context, and lease/envelope contracts make failures reproducible and debuggable.
+
+## 2026-02-25 23:29:15 PST
+
+### Consolidated Findings
+1. Share-scoped reveal routing still had context-precedence drift, including ambiguity behavior that depended on transport internals instead of canonical resolved scope + origin affinity.
+2. Plugin UI-setting schema parsing and value-schema validation still had fail-stop/coarse-contract gaps, causing valid sibling settings to disappear and structured input mistakes to surface as generic mutation failures.
+3. Frontend reveal processing still serialized unrelated requests globally and allowed stale execution-context races to mutate pane/tab/accordion state before failure.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Made share-scope reveal routing context-authoritative: agentic frontend affinity is honored in share scope, request-meta frontend affinity is ignored there, ambiguity handling is explicit by scope, and share/non-share nullification branches were removed.
+2. Refactored plugin schema contribution parsing to per-entry isolation with per-setting error indexing so invalid entries are isolated while healthy entries remain discoverable/usable.
+3. Extended `UISettingValueSchema` to support recursive structured constraints (`items`, `properties`, `requiredProperties`, `additionalProperties`) and routed watch-code structured writes through canonical typed validation paths.
+4. Removed global frontend reveal FIFO request serialization; reveal messages now execute concurrently per request while mutation-critical sections are lock-scoped.
+5. Added frontend reveal mutation snapshot/lease rollback semantics so generation/project mismatch failures are side-effect free for local storage pane/tab/accordion mutations.
+6. Added/updated backend pytest, frontend Vitest, and Playwright E2E coverage for share routing affinity/ambiguity, plugin mixed-validity schema behavior, structured validation contracts, concurrent reveal handling, and stale-context rollback.
+
+### UX/DX Before and After
+1. UX before: share-session reveal targeting could become ambiguous or misrouted under multi-frontend conditions despite valid context.
+2. UX after: reveal targeting is deterministic from canonical context or fails fast with explicit ambiguity diagnostics.
+3. UX before: one malformed plugin schema entry could hide healthy plugin settings, and structured input mistakes could return opaque `mutation_failed` errors.
+4. UX after: malformed settings are isolated, healthy siblings stay available, and structured input mistakes return actionable typed validation errors.
+5. UX before: concurrent reveal traffic could block unrelated requests and stale requests could still shift visible pane/tab/accordion UI state.
+6. UX after: reveal requests are independently processed and stale-context failures do not leave residual UI state drift.
+7. DX before: reveal behavior depended on split context/transport checks and plugin/schema debugging required plugin-level inference.
+8. DX after: context precedence, schema contracts, and reveal rollback behavior are explicit, typed, and covered by targeted backend/frontend/e2e tests.

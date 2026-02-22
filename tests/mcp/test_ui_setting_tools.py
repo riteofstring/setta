@@ -456,6 +456,91 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
 
 
 @pytest.mark.asyncio
+async def test_set_ui_setting_value_watch_code_folders_invalid_item_shape_is_typed_and_side_effect_free() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        initial_result = await get_ui_setting_value(
+            settingId="core.watch_code.folders",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert initial_result.error is None
+        assert isinstance(initial_result.value, list)
+
+        invalid_result = await set_ui_setting_value(
+            settingId="core.watch_code.folders",
+            value=[
+                {
+                    "path": "./backend",
+                    "recursive": "not-a-boolean",
+                }
+            ],
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert invalid_result.error is not None
+        assert invalid_result.error.code == "invalid_value_type"
+        assert invalid_result.error.code != "mutation_failed"
+
+        unchanged_result = await get_ui_setting_value(
+            settingId="core.watch_code.folders",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unchanged_result.error is None
+        assert unchanged_result.value == initial_result.value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_watch_code_folders_rejects_unknown_properties() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.watch_code.folders",
+            value=[
+                {
+                    "path": "./backend",
+                    "recursive": True,
+                    "extra": "not-allowed",
+                }
+            ],
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "invalid_value_type"
+        assert "unsupported properties" in result.error.message
+
+
+@pytest.mark.asyncio
 async def test_set_ui_setting_value_rejects_writer_old_value_drift(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2076,6 +2161,13 @@ async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_we
                 "frontendWebsocketId": "frontend-b",
             },
             resolved_share_session_id=required_share_session_id,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-share-origin"),
+                section_id=None,
+                frontend_websocket_id="frontend-a",
+                allow_unscoped=True,
+            ),
         )
 
         result = await reveal_ui_setting(
@@ -2127,6 +2219,13 @@ async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_
                 "frontendWebsocketId": "frontend-b",
             },
             resolved_share_session_id=required_share_session_id,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-share-origin-after-set"),
+                section_id=None,
+                frontend_websocket_id="frontend-a",
+                allow_unscoped=True,
+            ),
         )
         current_value_result = await get_ui_setting_value(
             settingId="core.watch_code.enabled",
@@ -2330,6 +2429,48 @@ async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_ori
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
         assert "multiple frontends are connected" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_when_share_scope_has_multiple_frontends_without_origin() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": "share-session-ambiguous",
+                "frontendWebsocketId": "frontend-b",
+            },
+            resolved_share_session_id="share-session-ambiguous",
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "multiple frontends are connected" in result.statuses[0].error.message
+        assert "origin frontend affinity" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
 
 
@@ -4528,7 +4669,19 @@ async def test_plugin_schema_ui_setting_errors_do_not_break_core_settings(
             projectConfigId=project_config_id,
             ctx=ctx,
         )
-        assert plugin_results.results == []
+        plugin_result_ids = [entry.settingId for entry in plugin_results.results]
+        assert plugin_setting_id not in plugin_result_ids
+        assert f"plugin::{plugin_id}::label" in plugin_result_ids
+        healthy_plugin_results = search_ui_settings(
+            query="full label",
+            sourceFilter="plugin",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        healthy_result_ids = [
+            entry.settingId for entry in healthy_plugin_results.results
+        ]
+        assert f"plugin::{plugin_id}::label" in healthy_result_ids
 
         get_result = await get_ui_setting_value(
             settingId=plugin_setting_id,
@@ -4538,6 +4691,92 @@ async def test_plugin_schema_ui_setting_errors_do_not_break_core_settings(
         assert get_result.error is not None
         assert get_result.error.code == "plugin_unavailable"
         assert "defaultValue is invalid" in get_result.error.message
+
+
+@pytest.mark.asyncio
+async def test_plugin_schema_tracks_multiple_invalid_entries_per_setting_id(
+    tmp_path: Path,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        schema_path = plugin_root / "content" / "config" / "schema.json"
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        raw_entries = schema_payload.get("x-setta-ui-settings")
+        if not isinstance(raw_entries, list):
+            raise ValueError(
+                "Fixture plugin schema is missing x-setta-ui-settings list."
+            )
+        if len(raw_entries) < 2:
+            raise ValueError("Fixture plugin schema is missing required entries.")
+        first_entry = dict(raw_entries[0])
+        first_entry["defaultValue"] = "not-a-boolean-default"
+        second_entry = dict(raw_entries[1])
+        second_entry["settingId"] = "invalid_label"
+        second_entry["defaultValue"] = False
+        third_entry = dict(raw_entries[1])
+        third_entry["settingId"] = "label_copy"
+        third_entry["synonyms"] = ["label copy"]
+        third_entry["defaultValue"] = "unset"
+        schema_payload["x-setta-ui-settings"] = [
+            first_entry,
+            second_entry,
+            third_entry,
+        ]
+        schema_path.write_text(
+            json.dumps(schema_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        first_invalid_setting_id = f"plugin::{plugin_id}::enabled"
+        second_invalid_setting_id = f"plugin::{plugin_id}::invalid_label"
+        healthy_setting_id = f"plugin::{plugin_id}::label_copy"
+
+        first_invalid_result = await get_ui_setting_value(
+            settingId=first_invalid_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert first_invalid_result.error is not None
+        assert first_invalid_result.error.code == "plugin_unavailable"
+
+        second_invalid_result = await get_ui_setting_value(
+            settingId=second_invalid_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert second_invalid_result.error is not None
+        assert second_invalid_result.error.code == "plugin_unavailable"
+
+        healthy_result = await get_ui_setting_value(
+            settingId=healthy_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert healthy_result.error is None
+        assert healthy_result.value == "unset"
 
 
 @pytest.mark.asyncio
@@ -5113,7 +5352,9 @@ async def test_search_ui_settings_skips_plugins_with_duplicate_setting_ids(
             projectConfigId=project_config_id,
             ctx=ctx,
         )
-        assert plugin_results.results == []
+        plugin_result_ids = [entry.settingId for entry in plugin_results.results]
+        assert plugin_setting_id not in plugin_result_ids
+        assert f"plugin::{plugin_id}::label" in plugin_result_ids
 
         get_result = await get_ui_setting_value(
             settingId=plugin_setting_id,

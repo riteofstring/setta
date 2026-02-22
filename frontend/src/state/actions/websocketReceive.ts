@@ -142,28 +142,12 @@ type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
 };
-const pendingUISettingRevealMessages: PendingUISettingRevealMessage[] = [];
-let uiSettingRevealQueueWorkerRunning = false;
 
 function beginWebsocketGeneration(): number {
-  const previousGeneration = activeWebsocketGeneration;
   activeWebsocketGeneration += 1;
-  if (previousGeneration > 0) {
-    cancelPendingUISettingRevealMessages(previousGeneration);
-  }
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
   return activeWebsocketGeneration;
-}
-
-function cancelPendingUISettingRevealMessages(socketGeneration: number): void {
-  for (let i = pendingUISettingRevealMessages.length - 1; i >= 0; i -= 1) {
-    if (
-      pendingUISettingRevealMessages[i]?.socketGeneration === socketGeneration
-    ) {
-      pendingUISettingRevealMessages.splice(i, 1);
-    }
-  }
 }
 
 export const openWebSocket = _.debounce(
@@ -598,33 +582,7 @@ function receiveMessage(message: string, socketGeneration: number) {
 function enqueueUISettingRevealMessage(
   message: PendingUISettingRevealMessage,
 ): void {
-  pendingUISettingRevealMessages.push(message);
-  if (uiSettingRevealQueueWorkerRunning) {
-    return;
-  }
-  uiSettingRevealQueueWorkerRunning = true;
-  void processPendingUISettingRevealMessages();
-}
-
-async function processPendingUISettingRevealMessages(): Promise<void> {
-  try {
-    while (pendingUISettingRevealMessages.length > 0) {
-      const nextMessage = pendingUISettingRevealMessages.shift();
-      if (nextMessage === undefined) {
-        continue;
-      }
-      await handleUISettingRevealMessage(
-        nextMessage.content,
-        nextMessage.socketGeneration,
-      );
-    }
-  } finally {
-    uiSettingRevealQueueWorkerRunning = false;
-    if (pendingUISettingRevealMessages.length > 0) {
-      uiSettingRevealQueueWorkerRunning = true;
-      void processPendingUISettingRevealMessages();
-    }
-  }
+  void handleUISettingRevealMessage(message.content, message.socketGeneration);
 }
 
 async function handleUISettingRevealMessage(

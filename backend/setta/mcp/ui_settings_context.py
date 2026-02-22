@@ -156,8 +156,6 @@ def _is_share_scope_enabled(ctx: Context) -> bool:
 
 
 def resolve_frontend_websocket_id_from_ctx(ctx: Context) -> str | None:
-    if resolve_share_session_id_from_ctx(ctx) is not None:
-        return None
     agentic_context = _resolve_agentic_context(ctx)
     if agentic_context is not None:
         normalized_frontend_websocket_id = _normalize_non_empty_string(
@@ -165,6 +163,8 @@ def resolve_frontend_websocket_id_from_ctx(ctx: Context) -> str | None:
         )
         if normalized_frontend_websocket_id is not None:
             return normalized_frontend_websocket_id
+    if resolve_share_session_id_from_ctx(ctx) is not None:
+        return None
     meta = resolve_request_meta(ctx)
     return _normalize_non_empty_string(meta.get("frontendWebsocketId"))
 

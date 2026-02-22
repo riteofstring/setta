@@ -299,18 +299,23 @@ def test_resolve_frontend_websocket_id_matrix(
 
 
 @pytest.mark.parametrize(
-    ("agentic_frontend_websocket_id", "meta_frontend_websocket_id"),
+    (
+        "agentic_frontend_websocket_id",
+        "meta_frontend_websocket_id",
+        "expected_frontend_websocket_id",
+    ),
     [
-        ("frontend-agentic", "frontend-meta"),
-        ("   ", "frontend-meta"),
-        (None, "frontend-meta"),
+        ("frontend-agentic", "frontend-meta", "frontend-agentic"),
+        ("   ", "frontend-meta", None),
+        (None, "frontend-meta", None),
     ],
 )
-def test_resolve_frontend_websocket_id_ignores_affinity_in_share_scope(
+def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope(
     agentic_frontend_websocket_id: str | None,
     meta_frontend_websocket_id: str | None,
+    expected_frontend_websocket_id: str | None,
 ) -> None:
-    """Share-scoped reveal routing must ignore caller-provided frontend affinity."""
+    """Share-scoped reveal routing must ignore request-meta affinity but honor agentic context."""
 
     request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
     if meta_frontend_websocket_id is not None:
@@ -325,7 +330,9 @@ def test_resolve_frontend_websocket_id_ignores_affinity_in_share_scope(
         share_session_resolver=lambda _ctx: "share-resolved",
     )
 
-    assert resolve_frontend_websocket_id_from_ctx(ctx) is None
+    assert (
+        resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
+    )
 
 
 @pytest.mark.parametrize(
