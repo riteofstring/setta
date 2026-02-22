@@ -8,6 +8,7 @@ import {
 } from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
+  CLOSED_PANE_WIDTH,
   OverviewTabKey,
   OverviewTabNameEnum,
   PaneName,
@@ -15,7 +16,6 @@ import {
   UIEditorTabName,
 } from "utils/constants";
 import { SectionType } from "utils/generatedTypes";
-import { togglePaneVisibility } from "./paneLayout";
 
 type TabButtonComponentType<T> = {
   id?: string;
@@ -79,13 +79,17 @@ function visToggle(
   paneName: PaneName,
   onResizeStop: ((x: number) => void) | null = null,
 ) {
-  const { previous, next } = togglePaneVisibility(paneName);
+  const vis = useLocalStorage.getState()[`${paneName}Vis`];
+  const width = useLocalStorage.getState()[`${paneName}Width`];
+  const newVis = !vis;
+  useLocalStorage.setState({
+    [`${paneName}Vis`]: newVis,
+    [`${paneName}TrueWidth`]: newVis ? width : CLOSED_PANE_WIDTH,
+  });
+  console.log("useLocalStorage.getState()", useLocalStorage.getState());
   if (onResizeStop) {
-    const widthDiff =
-      paneName === PaneNameEnum.overview
-        ? next.overviewTrueWidth - previous.overviewTrueWidth
-        : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-    onResizeStop(widthDiff);
+    const widthDiff = width - CLOSED_PANE_WIDTH;
+    onResizeStop(newVis ? widthDiff : -widthDiff);
   }
 }
 

@@ -17,6 +17,14 @@ describe("plugin overview tab key helpers", () => {
     });
   });
 
+  it("keeps encodeURIComponent-safe punctuation unescaped in tab keys", () => {
+    const tabKey = buildPluginPaneOverviewTabName(
+      "plugin!~*'() /",
+      "pane!~*'() :?",
+    );
+    expect(tabKey).toBe("PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F");
+  });
+
   it("returns null for non-plugin tab keys and malformed values", () => {
     expect(parsePluginPaneOverviewTabName("Overview")).toBeNull();
     expect(parsePluginPaneOverviewTabName("PluginPane:only-plugin")).toBeNull();
