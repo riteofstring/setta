@@ -1613,36 +1613,6 @@ export async function route_get_setta_home_info(): Promise<
   return await get("/settaHomeInfo");
 }
 
-export async function route_get_launcher_status(): Promise<
-  ResponseDataAndStatus<gt.LauncherStatusResponse>
-> {
-  return await get("/launcherStatus");
-}
-
-export async function route_setup_launcher(
-  x: gt.SetupLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/setupLauncher", x);
-}
-
-export async function route_repair_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/repairLauncher", x);
-}
-
-export async function route_remove_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/removeLauncher", x);
-}
-
-export async function route_update_launcher(
-  x: gt.UpdateLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
-  return await post("/updateLauncher", x);
-}
-
 export async function route_get_mcp_server_runtime_status(
   x: gt.GetMCPServerRuntimeStatusRequestInput,
 ): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {

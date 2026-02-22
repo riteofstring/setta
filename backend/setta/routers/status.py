@@ -4,21 +4,10 @@ import subprocess
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
 
-from fastapi import Body, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import Depends, HTTPException
+from pydantic import BaseModel
 
-from setta.launcher_metadata import LauncherOpenMode, LauncherWorkspaceBehavior
-from setta.launcher_setup import (
-    LauncherSetupError,
-    LauncherStatusSnapshot,
-    collect_launcher_status,
-    remove_launcher_installation,
-    repair_launcher_installation,
-    setup_launcher_installation,
-    update_launcher_installation,
-)
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.mcp_runtime_status import (
@@ -50,56 +39,6 @@ class SettaHomeInfoResponse(BaseModel):
 
 class RevealPathInOsFileExplorerRequest(BaseModel):
     path: str
-
-
-class LauncherOperationErrorPayload(BaseModel):
-    code: str
-    message: str
-
-
-class LauncherStatusResponse(BaseModel):
-    ok: bool
-    installed: bool | None = None
-    settaHome: str | None = None
-    launcherDir: str | None = None
-    metadataPath: str | None = None
-    targetCommand: list[str] | None = None
-    targetValid: bool | None = None
-    targetError: str | None = None
-    channel: str | None = None
-    settaVersion: str | None = None
-    openMode: LauncherOpenMode | None = None
-    workspaceBehavior: LauncherWorkspaceBehavior | None = None
-    lastUsedWorkspace: str | None = None
-    managedArtifacts: dict[str, str] = Field(default_factory=dict)
-    existingManagedArtifacts: list[str] = Field(default_factory=list)
-    missingManagedArtifacts: list[str] = Field(default_factory=list)
-    updateCapability: Literal["in_app", "installer_managed", "unsupported"] | None = (
-        None
-    )
-    updateGuidance: str | None = None
-    error: LauncherOperationErrorPayload | None = None
-
-
-class LauncherUpdateResponse(LauncherStatusResponse):
-    packageSpec: str | None = None
-    fromVersion: str | None = None
-    toVersion: str | None = None
-
-
-class LauncherRequestBase(BaseModel):
-    settaHome: str | None = None
-
-
-class SetupLauncherRequest(LauncherRequestBase):
-    channel: str = "manual"
-    openMode: LauncherOpenMode = "browser"
-    workspaceBehavior: Literal["last-used-or-prompt", "always-prompt"] | None = None
-    managedArtifacts: dict[str, str] = Field(default_factory=dict)
-
-
-class UpdateLauncherRequest(LauncherRequestBase):
-    packageSpec: str = "setta"
 
 
 def _build_reveal_path_command(path: Path) -> list[str]:
@@ -202,85 +141,6 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
     )
 
 
-@router.get(Route.GET_LAUNCHER_STATUS, dependencies=[Depends(require_ide_mode)])
-def route_get_launcher_status() -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=None)
-    try:
-        status = collect_launcher_status(setta_home=setta_home)
-    except LauncherSetupError as exc:
-        return _launcher_error_response(exc)
-    return _launcher_status_response(status)
-
-
-@router.post(Route.SETUP_LAUNCHER, dependencies=[Depends(require_ide_mode)])
-def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
-    workspace_behavior = _normalize_launcher_workspace_behavior_for_setup(
-        x.workspaceBehavior
-    )
-    try:
-        setup_launcher_installation(
-            setta_home=setta_home,
-            channel=x.channel,
-            open_mode=x.openMode,
-            workspace_behavior=workspace_behavior,
-            managed_artifacts=x.managedArtifacts,
-        )
-        status = collect_launcher_status(setta_home=setta_home)
-    except LauncherSetupError as exc:
-        return _launcher_error_response(exc)
-    return _launcher_status_response(status)
-
-
-@router.post(Route.REPAIR_LAUNCHER, dependencies=[Depends(require_ide_mode)])
-def route_repair_launcher(
-    x: LauncherRequestBase = Body(default_factory=LauncherRequestBase),
-) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
-    try:
-        repair_result = repair_launcher_installation(setta_home=setta_home)
-    except LauncherSetupError as exc:
-        return _launcher_error_response(exc)
-    return _launcher_status_response(repair_result.status)
-
-
-@router.post(Route.REMOVE_LAUNCHER, dependencies=[Depends(require_ide_mode)])
-def route_remove_launcher(
-    x: LauncherRequestBase = Body(default_factory=LauncherRequestBase),
-) -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
-    try:
-        remove_launcher_installation(setta_home=setta_home)
-        status = collect_launcher_status(setta_home=setta_home)
-    except LauncherSetupError as exc:
-        return _launcher_error_response(exc)
-    return _launcher_status_response(status)
-
-
-@router.post(Route.UPDATE_LAUNCHER, dependencies=[Depends(require_ide_mode)])
-def route_update_launcher(
-    x: UpdateLauncherRequest = Body(default_factory=UpdateLauncherRequest),
-) -> LauncherUpdateResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=x.settaHome)
-    try:
-        update_result = update_launcher_installation(
-            setta_home=setta_home,
-            package_spec=x.packageSpec,
-        )
-    except LauncherSetupError as exc:
-        return LauncherUpdateResponse(
-            ok=False,
-            error=LauncherOperationErrorPayload(code=exc.code, message=str(exc)),
-        )
-    status_payload = _launcher_status_response(update_result.status)
-    return LauncherUpdateResponse(
-        **status_payload.model_dump(mode="python"),
-        packageSpec=update_result.package_spec,
-        fromVersion=update_result.from_version,
-        toVersion=update_result.to_version,
-    )
-
-
 @router.post(
     Route.GET_MCP_SERVER_RUNTIME_STATUS,
     dependencies=[Depends(require_ide_mode)],
@@ -361,34 +221,3 @@ def route_reveal_path_in_os_file_explorer(
             status_code=500,
             detail=f"Failed to reveal path in file explorer: {detail}",
         )
-
-
-def _resolve_launcher_setta_home(*, setta_home: str | None) -> Path:
-    if setta_home is None:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    trimmed = setta_home.strip()
-    if not trimmed:
-        return get_setta_paths().setta_home.resolve(strict=False)
-    return Path(trimmed).expanduser().resolve(strict=False)
-
-
-def _normalize_launcher_workspace_behavior_for_setup(
-    raw_behavior: Literal["last-used-or-prompt", "always-prompt"] | None,
-) -> LauncherWorkspaceBehavior | None:
-    if raw_behavior is None:
-        return None
-    if raw_behavior == "always-prompt":
-        return "always_prompt"
-    return "last_used_or_prompt"
-
-
-def _launcher_error_response(exc: LauncherSetupError) -> LauncherStatusResponse:
-    return LauncherStatusResponse(
-        ok=False,
-        error=LauncherOperationErrorPayload(code=exc.code, message=str(exc)),
-    )
-
-
-def _launcher_status_response(status: LauncherStatusSnapshot) -> LauncherStatusResponse:
-    payload = status.to_payload()
-    return LauncherStatusResponse(**payload)
