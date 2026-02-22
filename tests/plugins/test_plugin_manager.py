@@ -9110,6 +9110,371 @@ def test_backend_registration_failure_rolls_back_partial_runtime_side_effects(
     assert all(tool.__name__ != "setta_partial_tool" for tool in SETTA_MCP_TOOLS)
 
 
+def test_backend_ui_setting_registration_and_handler_invocation(
+    tmp_path: Path,
+) -> None:
+    # Backend workers should register plugin ui settings and support read/write handler calls.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": "setta-fixture-backend-ui-setting",
+                "name": "Backend UI Setting Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+
+    registrations = manager.get_backend_ui_settings(
+        plugin_id="setta-fixture-backend-ui-setting"
+    )
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.localSettingId == "backend_enabled"
+    assert registration.mutability == "writable"
+    assert registration.readHandlerId == "backend_enabled"
+    assert registration.writeHandlerId == "backend_enabled"
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    initial_value = manager.read_backend_ui_setting_value(
+        plugin_id="setta-fixture-backend-ui-setting",
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert initial_value is False
+
+    manager.write_backend_ui_setting_value(
+        plugin_id="setta-fixture-backend-ui-setting",
+        write_handler_id=write_handler_id,
+        project_config_id="project-1",
+        value=True,
+    )
+    updated_value = manager.read_backend_ui_setting_value(
+        plugin_id="setta-fixture-backend-ui-setting",
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert updated_value is True
+
+
+def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
+    tmp_path: Path,
+) -> None:
+    # Compare-and-write must reject stale expected values before mutation.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-cas-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": "setta-fixture-backend-ui-setting-cas",
+                "name": "Backend UI Setting CAS Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registrations = manager.get_backend_ui_settings(
+        plugin_id="setta-fixture-backend-ui-setting-cas"
+    )
+    assert len(registrations) == 1
+    registration = registrations[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    with pytest.raises(PluginManagerError) as stale_write_error:
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting-cas",
+            setting_id="plugin.setta-fixture-backend-ui-setting-cas.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=True,
+        )
+    assert (
+        stale_write_error.value.code
+        == "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH"
+    )
+    assert "changed since pre-write validation" in stale_write_error.value.message
+
+    unchanged_value = manager.read_backend_ui_setting_value(
+        plugin_id="setta-fixture-backend-ui-setting-cas",
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert unchanged_value is False
+
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting-cas",
+            setting_id="plugin.setta-fixture-backend-ui-setting-cas.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+        )
+    )
+    assert observed_old_value is False
+    assert observed_new_value is True
+
+
+def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserves_keys(
+    tmp_path: Path,
+) -> None:
+    # Schema-backed compare-and-write should reject stale expected values and avoid key loss.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": False, "label": "unset"},
+    )
+
+    with pytest.raises(PluginManagerError) as stale_write_error:
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=True,
+            expected_old_value=True,
+        )
+    assert (
+        stale_write_error.value.code
+        == "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH"
+    )
+    assert "changed since pre-write validation" in stale_write_error.value.message
+
+    first_old_value, first_new_value = manager.compare_and_write_plugin_config_path_value(
+        plugin_id="setta-fixture-full",
+        setting_id="plugin::setta-fixture-full::enabled",
+        config_path=["enabled"],
+        default_value=False,
+        value=True,
+        expected_old_value=False,
+    )
+    assert first_old_value is False
+    assert first_new_value is True
+
+    second_old_value, second_new_value = (
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::label",
+            config_path=["label"],
+            default_value="",
+            value="updated",
+            expected_old_value="unset",
+        )
+    )
+    assert second_old_value == "unset"
+    assert second_new_value == "updated"
+
+    plugin_entry = next(
+        plugin
+        for plugin in manager.get_runtime_response().list.plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert plugin_entry.config.currentConfig["enabled"] is True
+    assert plugin_entry.config.currentConfig["label"] == "updated"
+
+
+def test_plugin_config_path_compare_and_write_rejects_non_object_root_without_rewrite(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": False, "label": "unset"},
+    )
+    plugins_state = manager._load_plugins_state()
+    config_key = manager._plugin_config_key(
+        plugin_id="setta-fixture-full",
+        scope=PluginScope.workspace,
+    )
+    plugins_state.pluginConfigById[config_key] = "invalid-root"
+    manager._save_plugins_state(plugins_state)
+
+    with pytest.raises(PluginManagerError) as invalid_root_error:
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=True,
+            expected_old_value=False,
+        )
+    assert invalid_root_error.value.code == "PLUGIN_CONFIG_INVALID"
+    assert "non-object node at <root>" in invalid_root_error.value.message
+
+    reloaded_plugins_state = manager._load_plugins_state()
+    assert reloaded_plugins_state.pluginConfigById[config_key] == "invalid-root"
+
+
+def test_backend_ui_setting_registration_rejects_invalid_value_schema(
+    tmp_path: Path,
+) -> None:
+    # Invalid backend UI setting schemas should fail registration immediately.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-invalid-schema"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-invalid-schema"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Invalid Schema Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return False\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    return {'ok': True, 'value': value}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'totally_invalid'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == plugin_id
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert status_entry.state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+        and "valueSchema is invalid" in error.message
+        for error in status_entry.errors
+    )
+    assert manager.get_backend_ui_settings(plugin_id=plugin_id) == []
+
+
 def test_stderr_pipe_reader_keeps_bounded_tail(tmp_path: Path) -> None:
     # Stderr reader buffering should keep only a bounded tail of lines.
     manager = _make_manager(tmp_path)

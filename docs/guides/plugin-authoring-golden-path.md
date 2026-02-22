@@ -17,6 +17,8 @@ This generates:
 ## 2. Implement plugin logic
 
 - Backend: edit `backend/entrypoint.py` and expose `register(plugin)`.
+  - Optional: register plugin-owned UI settings from backend with
+    `plugin.register_ui_setting(...)` when you need runtime read/write handlers.
 - Frontend: edit `frontend/dist/index.js` and export:
   - `apiVersion`
   - `register(host)`

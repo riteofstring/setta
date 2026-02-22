@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   type CSSProperties,
   ChangeEvent,
@@ -13,22 +12,18 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { BiSolidBrain } from "react-icons/bi";
-import { FiCpu, FiTerminal } from "react-icons/fi";
-import { IoMdKey } from "react-icons/io";
 import {
   IoAdd,
   IoAttach,
+  IoChevronDown,
   IoClose,
   IoFolderOpen,
   IoMic,
   IoSend,
   IoStop,
 } from "react-icons/io5";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { formatBytes } from "utils/attachments";
-import { ChatFileAttachment } from "utils/generatedTypes";
-import { isProviderTranscriptionUnsupportedModelError } from "utils/transcriptionErrors";
+import { ChatDictationMode, ChatFileAttachment } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -42,10 +37,7 @@ import {
   type SpeechRecognitionLike,
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
-  isDictationAvailable,
-  isNoSpeechDictationError,
   mapDictationError,
-  pickProviderRecorderMimeType,
 } from "./dictation";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
@@ -63,16 +55,83 @@ const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "top",
   "bottom",
 ] as const;
-const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: 0,
-  activeSubagents: 0,
+const PROVIDER_DEFAULT_CHUNK_MS = 1200;
+const PROVIDER_TARGET_SAMPLE_RATE_HZ = 24_000;
+const PROVIDER_CHANNELS = 1;
+const PROVIDER_FILE_BATCH_MS = 1000;
+const PROVIDER_FILE_BATCH_SAMPLES = Math.max(
+  1,
+  Math.floor((PROVIDER_FILE_BATCH_MS * PROVIDER_TARGET_SAMPLE_RATE_HZ) / 1000),
+);
+
+type ProviderTranscriptionSessionStart = {
+  sessionId: string;
+  resolvedTransportMode: "file" | "realtime";
+  chunkMs: number;
 };
 
-function normalizeNonNegativeCount(value: number | null | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 0;
+function resampleFloat32ToMonoPcm16(
+  input: Float32Array,
+  inputSampleRateHz: number,
+  targetSampleRateHz: number,
+): Int16Array {
+  if (input.length === 0) {
+    return new Int16Array(0);
   }
-  return Math.max(0, Math.floor(value));
+  if (inputSampleRateHz === targetSampleRateHz) {
+    const pcm = new Int16Array(input.length);
+    for (let index = 0; index < input.length; index += 1) {
+      const sample = Math.max(-1, Math.min(1, input[index]));
+      pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+    return pcm;
+  }
+  const ratio = inputSampleRateHz / targetSampleRateHz;
+  const outputLength = Math.max(1, Math.floor(input.length / ratio));
+  const pcm = new Int16Array(outputLength);
+  for (let index = 0; index < outputLength; index += 1) {
+    const sourceIndex = Math.min(input.length - 1, Math.floor(index * ratio));
+    const sample = Math.max(-1, Math.min(1, input[sourceIndex]));
+    pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return pcm;
+}
+
+function int16ToArrayBuffer(samples: Int16Array): ArrayBuffer {
+  const view = new Uint8Array(
+    samples.buffer,
+    samples.byteOffset,
+    samples.byteLength,
+  );
+  return view.slice().buffer;
+}
+
+function dequeueInt16Samples(
+  pendingChunks: Int16Array[],
+  sampleCount: number,
+): Int16Array {
+  if (sampleCount <= 0) {
+    return new Int16Array(0);
+  }
+  const output = new Int16Array(sampleCount);
+  let outputOffset = 0;
+  while (outputOffset < sampleCount && pendingChunks.length > 0) {
+    const currentChunk = pendingChunks[0];
+    if (!currentChunk) {
+      break;
+    }
+    const remaining = sampleCount - outputOffset;
+    if (currentChunk.length <= remaining) {
+      output.set(currentChunk, outputOffset);
+      outputOffset += currentChunk.length;
+      pendingChunks.shift();
+      continue;
+    }
+    output.set(currentChunk.subarray(0, remaining), outputOffset);
+    pendingChunks[0] = currentChunk.subarray(remaining);
+    outputOffset += remaining;
+  }
+  return output;
 }
 
 export function areSlashSuggestionsPortalStylesEqual(
@@ -94,8 +153,6 @@ export function areSlashSuggestionsPortalStylesEqual(
 }
 
 type ChatExecutionControls = {
-  thinkingEnabled?: boolean;
-  onThinkingEnabledChange?: (next: boolean) => void;
   permissionMode: ChatPermissionModeValue;
   searchEnabled?: boolean;
   onPermissionModeChange: (next: ChatPermissionModeValue) => void;
@@ -103,15 +160,11 @@ type ChatExecutionControls = {
 };
 
 type ChatExecutionControlVisibility = {
-  thinking?: boolean;
   permissionMode?: boolean;
   search?: boolean;
 };
 
-type ChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: number;
-  activeSubagents: number;
-};
+type DictationStartPath = "provider" | "browser" | "unavailable";
 
 export type ChatSlashCommand = {
   command: string;
@@ -127,139 +180,70 @@ export type ChatSlashCommandResult =
       keepInput?: boolean;
     };
 
-function formatCompactTokenCount(value: number): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    const digits = millions >= 10 ? 0 : 1;
-    return `${millions.toFixed(digits).replace(/\.0$/u, "")}m`;
+export function resolveDictationStartPath({
+  dictationMode,
+  canProviderDictate,
+  canBrowserDictate,
+}: {
+  dictationMode: ChatDictationMode;
+  canProviderDictate: boolean;
+  canBrowserDictate: boolean;
+}): DictationStartPath {
+  if (dictationMode === "provider") {
+    return canProviderDictate ? "provider" : "unavailable";
   }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    const digits = thousands >= 10 ? 0 : 1;
-    return `${thousands.toFixed(digits).replace(/\.0$/u, "")}k`;
+  if (dictationMode === "browser") {
+    return canBrowserDictate ? "browser" : "unavailable";
   }
-  return `${value}`;
+  if (canProviderDictate) {
+    return "provider";
+  }
+  if (canBrowserDictate) {
+    return "browser";
+  }
+  return "unavailable";
 }
 
-type StopEscapeKeyEventLike = {
-  key: string;
-  shiftKey: boolean;
-  altKey: boolean;
-  metaKey: boolean;
-  ctrlKey: boolean;
-};
+export function resolveDictationUnavailableFeedback({
+  dictationMode,
+  providerUnavailableMessage,
+}: {
+  dictationMode: ChatDictationMode;
+  providerUnavailableMessage: string;
+}): string {
+  if (dictationMode === "provider") {
+    return providerUnavailableMessage;
+  }
+  return "Dictation is not available.";
+}
 
-export function isStopEscapeKey(event: StopEscapeKeyEventLike): boolean {
+function isMicrophonePermissionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const normalizedName = error.name.toLowerCase();
+  const normalizedMessage = error.message.toLowerCase();
+  if (
+    normalizedName.includes("notallowed") ||
+    normalizedName.includes("permissiondenied")
+  ) {
+    return true;
+  }
   return (
-    event.key === "Escape" &&
-    !event.shiftKey &&
-    !event.altKey &&
-    !event.metaKey &&
-    !event.ctrlKey
+    normalizedMessage.includes("permission denied") ||
+    normalizedMessage.includes("permission") ||
+    normalizedMessage.includes("microphone access was denied")
   );
 }
 
-type RestoreClearedDraftKeyEventLike = {
-  key: string;
-  shiftKey: boolean;
-  altKey: boolean;
-  metaKey: boolean;
-  ctrlKey: boolean;
-};
-
-export function isRestoreClearedDraftKey(
-  event: RestoreClearedDraftKeyEventLike,
-): boolean {
-  const normalizedKey = event.key.toLowerCase();
-  if (normalizedKey !== "z") {
-    return false;
+function resolveProviderStartFailureFeedback(error: unknown): string {
+  if (isMicrophonePermissionError(error)) {
+    return "Microphone access was denied.";
   }
-  if (event.shiftKey || event.altKey) {
-    return false;
+  if (error instanceof Error && error.message.trim()) {
+    return `Provider dictation failed to start: ${error.message.trim()}`;
   }
-  return (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey);
-}
-
-export function resolveEscapeComposerAction({
-  waitingForResponse,
-  onStopAvailable,
-  stopRequestedForCurrentResponse,
-  hasComposerDraft,
-}: {
-  waitingForResponse: boolean;
-  onStopAvailable: boolean;
-  stopRequestedForCurrentResponse: boolean;
-  hasComposerDraft: boolean;
-}): "stop" | "clear" | "none" {
-  if (
-    waitingForResponse &&
-    onStopAvailable &&
-    !stopRequestedForCurrentResponse
-  ) {
-    return "stop";
-  }
-  if (hasComposerDraft) {
-    return "clear";
-  }
-  return "none";
-}
-
-type QueuedChatDraft = {
-  id: string;
-  message: string;
-  attachments: ChatFileAttachment[];
-  queuedAtMs: number;
-};
-
-export function enqueueQueuedDraft(
-  queue: QueuedChatDraft[],
-  draft: QueuedChatDraft,
-  prioritize: boolean,
-): QueuedChatDraft[] {
-  return prioritize ? [draft, ...queue] : [...queue, draft];
-}
-
-export function cycleQueuedDraftSelection(
-  queue: QueuedChatDraft[],
-  selectedId: string | null,
-  direction: "next" | "prev",
-): string | null {
-  if (queue.length === 0) {
-    return null;
-  }
-  const currentIndex = queue.findIndex((item) => item.id === selectedId);
-  if (currentIndex < 0) {
-    return queue[0]?.id ?? null;
-  }
-  if (direction === "next") {
-    const nextIndex = (currentIndex + 1) % queue.length;
-    return queue[nextIndex]?.id ?? null;
-  }
-  const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-  return queue[prevIndex]?.id ?? null;
-}
-
-export function cycleSubmittedMessageHistorySelection(
-  history: string[],
-  selectedIndex: number | null,
-  direction: "next" | "prev",
-): number | null {
-  if (history.length === 0) {
-    return null;
-  }
-  if (
-    selectedIndex === null ||
-    selectedIndex < 0 ||
-    selectedIndex >= history.length
-  ) {
-    return 0;
-  }
-  if (direction === "next") {
-    const nextIndex = (selectedIndex + 1) % history.length;
-    return nextIndex;
-  }
-  const prevIndex = (selectedIndex - 1 + history.length) % history.length;
-  return prevIndex;
+  return "Provider dictation failed to start.";
 }
 
 type ChatInputProps = {
@@ -281,21 +265,20 @@ type ChatInputProps = {
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
-  dictationMode?: "auto" | "browser" | "provider";
-  onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
+  dictationMode?: ChatDictationMode;
+  onProviderTranscriptionSessionStart?: () => Promise<ProviderTranscriptionSessionStart | null>;
+  onProviderTranscriptionSessionAppend?: (
+    sessionId: string,
+    audioPcm16: ArrayBuffer,
+    sampleRateHz: number,
+    channels: number,
+  ) => Promise<string | null>;
+  onProviderTranscriptionSessionStop?: (
+    sessionId: string,
+  ) => Promise<string | null>;
+  onProviderTranscriptionSessionCancel?: (sessionId: string) => Promise<void>;
   dictationEnabledByProvider?: boolean;
-  providerDictationLikelySupported?: boolean;
-  contextWindowTokens?: number | null;
-  contextUsedTokens?: number | null;
-  contextUsageIsEstimated?: boolean;
-  contextUsageUnavailable?: boolean;
-  submittedMessageHistory?: string[];
-  runtimeActivityCounts?: ChatRuntimeActivityCounts;
-};
-
-type EscClearedComposerDraft = {
-  message: string;
-  attachments: ChatFileAttachment[];
+  providerDictationUnavailableMessage?: string;
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -316,15 +299,12 @@ export const ChatInput = memo(function ChatInput({
   onSlashCommand,
   slashSuggestionsPlacement = "auto",
   dictationMode = "auto",
-  onProviderDictationTranscribe,
+  onProviderTranscriptionSessionStart,
+  onProviderTranscriptionSessionAppend,
+  onProviderTranscriptionSessionStop,
+  onProviderTranscriptionSessionCancel,
   dictationEnabledByProvider = true,
-  providerDictationLikelySupported = true,
-  contextWindowTokens = null,
-  contextUsedTokens = null,
-  contextUsageIsEstimated = false,
-  contextUsageUnavailable = false,
-  submittedMessageHistory = [],
-  runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+  providerDictationUnavailableMessage,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -338,51 +318,32 @@ export const ChatInput = memo(function ChatInput({
   const [dictationFeedback, setDictationFeedback] = useState<string | null>(
     null,
   );
-  const [contextBadgeMode, setContextBadgeMode] = useState<
-    "percentage" | "tokens"
-  >("percentage");
-  const [queuedDrafts, setQueuedDrafts] = useState<QueuedChatDraft[]>([]);
-  const [queuedDispatchEpoch, setQueuedDispatchEpoch] = useState(0);
-  const [selectedQueuedDraftId, setSelectedQueuedDraftId] = useState<
-    string | null
-  >(null);
-  const [selectedSubmittedMessageIndex, setSelectedSubmittedMessageIndex] =
-    useState<number | null>(null);
-  const submittedHistoryDraftBeforeSelectionRef = useRef<string | null>(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const providerRecorderRef = useRef<MediaRecorder | null>(null);
+  const providerAudioContextRef = useRef<AudioContext | null>(null);
+  const providerSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const providerProcessorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const providerStreamRef = useRef<MediaStream | null>(null);
-  const providerChunksRef = useRef<Array<BlobPart>>([]);
+  const providerPcmPendingChunksRef = useRef<Int16Array[]>([]);
+  const providerPcmPendingSamplesRef = useRef(0);
+  const providerPcmQueueRef = useRef<ArrayBuffer[]>([]);
+  const providerTranscriptionInFlightRef = useRef(false);
+  const providerStartInFlightRef = useRef(false);
+  const providerStartAttemptRef = useRef(0);
+  const providerStopRequestedRef = useRef(false);
+  const providerHasTranscriptRef = useRef(false);
+  const providerBackendSessionIdRef = useRef<string | null>(null);
+  const providerChunkSamplesRef = useRef(PROVIDER_FILE_BATCH_SAMPLES);
+  const providerSessionRef = useRef(0);
   const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
-  const queuedDraftIdRef = useRef(0);
-  const queuedDispatchInFlightRef = useRef(false);
-  const blockedQueuedDraftIdRef = useRef<string | null>(null);
-  const stopRequestedForCurrentResponseRef = useRef(false);
-  const escClearedComposerDraftRef = useRef<EscClearedComposerDraft | null>(
-    null,
-  );
-  const componentMountedRef = useRef(true);
   const isDisabled = disabled;
 
   useEffect(() => {
     inputValueRef.current = inputValue;
   }, [inputValue]);
-
-  useEffect(() => {
-    return () => {
-      componentMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!waitingForResponse) {
-      stopRequestedForCurrentResponseRef.current = false;
-    }
-  }, [waitingForResponse]);
 
   const {
     attachments,
@@ -391,7 +352,6 @@ export const ChatInput = memo(function ChatInput({
     attachmentInputDisabled,
     attachmentWarning,
     clearAttachments,
-    replaceAttachments,
     fileInputRef,
     handleClearAttachments,
     handleDragEnter,
@@ -423,270 +383,15 @@ export const ChatInput = memo(function ChatInput({
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
-      escClearedComposerDraftRef.current = null;
-      if (selectedSubmittedMessageIndex !== null) {
-        setSelectedSubmittedMessageIndex(null);
-        submittedHistoryDraftBeforeSelectionRef.current = null;
-      }
       setInputValue(event.target.value);
       setSlashFeedback(null);
     },
-    [selectedSubmittedMessageIndex, setInputValue],
+    [setInputValue],
   );
 
   const clearInput = useCallback(() => {
-    setSelectedSubmittedMessageIndex(null);
-    submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue("");
   }, [setInputValue]);
-
-  const submittedMessageHistoryEntries = useMemo(() => {
-    const seen = new Set<string>();
-    const entries: string[] = [];
-    for (const submittedMessage of submittedMessageHistory) {
-      const trimmed = submittedMessage.trim();
-      if (!trimmed) {
-        continue;
-      }
-      if (seen.has(trimmed)) {
-        continue;
-      }
-      seen.add(trimmed);
-      entries.push(trimmed);
-    }
-    return entries;
-  }, [submittedMessageHistory]);
-
-  const getNextQueuedDraftId = useCallback(() => {
-    queuedDraftIdRef.current += 1;
-    return `queued-draft-${queuedDraftIdRef.current}`;
-  }, []);
-
-  const enqueueDraft = useCallback(
-    ({
-      message,
-      draftAttachments,
-      prioritize,
-      interruptCurrentRun,
-      feedback,
-    }: {
-      message: string;
-      draftAttachments: ChatFileAttachment[];
-      prioritize: boolean;
-      interruptCurrentRun: boolean;
-      feedback: string;
-    }): boolean => {
-      const trimmed = message.trim();
-      if (trimmed.length === 0 && draftAttachments.length === 0) {
-        return false;
-      }
-      const nextDraft: QueuedChatDraft = {
-        id: getNextQueuedDraftId(),
-        message,
-        attachments: draftAttachments.map((attachment) => ({ ...attachment })),
-        queuedAtMs: Date.now(),
-      };
-      blockedQueuedDraftIdRef.current = null;
-      escClearedComposerDraftRef.current = null;
-      setQueuedDrafts((current) =>
-        enqueueQueuedDraft(current, nextDraft, prioritize),
-      );
-      setSelectedQueuedDraftId(nextDraft.id);
-      setSlashFeedback(feedback);
-      clearInput();
-      clearAttachments();
-      if (interruptCurrentRun && onStop) {
-        stopRequestedForCurrentResponseRef.current = true;
-        void onStop();
-      }
-      return true;
-    },
-    [clearAttachments, clearInput, getNextQueuedDraftId, onStop],
-  );
-
-  const restoreQueuedDraftToComposer = useCallback(
-    (draftId: string) => {
-      const draft = queuedDrafts.find((item) => item.id === draftId);
-      if (!draft) {
-        return;
-      }
-      blockedQueuedDraftIdRef.current = null;
-      escClearedComposerDraftRef.current = null;
-      setQueuedDrafts((current) =>
-        current.filter((item) => item.id !== draftId),
-      );
-      setSelectedQueuedDraftId(null);
-      setInputValue(draft.message);
-      replaceAttachments(
-        draft.attachments.map((attachment) => ({ ...attachment })),
-      );
-      setSlashFeedback("Editing queued message.");
-      requestAnimationFrame(() => {
-        const node = textareaRef.current;
-        if (!node) {
-          return;
-        }
-        node.focus();
-        const end = draft.message.length;
-        node.setSelectionRange(end, end);
-      });
-    },
-    [queuedDrafts, replaceAttachments, setInputValue],
-  );
-
-  useEffect(() => {
-    if (queuedDrafts.length === 0) {
-      if (selectedQueuedDraftId !== null) {
-        setSelectedQueuedDraftId(null);
-      }
-      return;
-    }
-    if (!selectedQueuedDraftId) {
-      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
-      return;
-    }
-    const hasSelection = queuedDrafts.some(
-      (item) => item.id === selectedQueuedDraftId,
-    );
-    if (!hasSelection) {
-      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
-    }
-  }, [queuedDrafts, selectedQueuedDraftId]);
-
-  useEffect(() => {
-    if (selectedSubmittedMessageIndex === null) {
-      return;
-    }
-    if (
-      submittedMessageHistoryEntries.length === 0 ||
-      selectedSubmittedMessageIndex >= submittedMessageHistoryEntries.length
-    ) {
-      setSelectedSubmittedMessageIndex(null);
-      submittedHistoryDraftBeforeSelectionRef.current = null;
-    }
-  }, [selectedSubmittedMessageIndex, submittedMessageHistoryEntries.length]);
-
-  const restoreDraftFromSubmittedHistorySelection = useCallback(() => {
-    const draftToRestore =
-      submittedHistoryDraftBeforeSelectionRef.current ?? "";
-    submittedHistoryDraftBeforeSelectionRef.current = null;
-    escClearedComposerDraftRef.current = null;
-    setSelectedSubmittedMessageIndex(null);
-    setInputValue(draftToRestore);
-    setSlashFeedback(null);
-    requestAnimationFrame(() => {
-      const node = textareaRef.current;
-      if (!node) {
-        return;
-      }
-      const end = draftToRestore.length;
-      node.focus();
-      node.setSelectionRange(end, end);
-    });
-  }, [setInputValue]);
-
-  const clearComposerByEscape = useCallback((): boolean => {
-    const currentMessage = inputValueRef.current;
-    const nextAttachments = attachments.map((attachment) => ({
-      ...attachment,
-    }));
-    const hasComposerDraft =
-      currentMessage.trim().length > 0 || nextAttachments.length > 0;
-    if (!hasComposerDraft) {
-      return false;
-    }
-    escClearedComposerDraftRef.current = {
-      message: currentMessage,
-      attachments: nextAttachments,
-    };
-    clearInput();
-    clearAttachments();
-    setSlashFeedback(null);
-    return true;
-  }, [attachments, clearAttachments, clearInput]);
-
-  const restoreEscClearedComposerDraft = useCallback((): boolean => {
-    const draft = escClearedComposerDraftRef.current;
-    if (!draft) {
-      return false;
-    }
-    escClearedComposerDraftRef.current = null;
-    setSelectedSubmittedMessageIndex(null);
-    submittedHistoryDraftBeforeSelectionRef.current = null;
-    setInputValue(draft.message);
-    replaceAttachments(
-      draft.attachments.map((attachment) => ({ ...attachment })),
-    );
-    setSlashFeedback("Restored cleared draft.");
-    requestAnimationFrame(() => {
-      const node = textareaRef.current;
-      if (!node) {
-        return;
-      }
-      const end = draft.message.length;
-      node.focus();
-      node.setSelectionRange(end, end);
-    });
-    return true;
-  }, [replaceAttachments, setInputValue]);
-
-  const nextQueuedDraft = queuedDrafts[0] ?? null;
-
-  useEffect(() => {
-    if (!nextQueuedDraft) {
-      return;
-    }
-    if (waitingForResponse || isSubmitDisabled) {
-      return;
-    }
-    if (queuedDispatchInFlightRef.current) {
-      return;
-    }
-    if (blockedQueuedDraftIdRef.current === nextQueuedDraft.id) {
-      return;
-    }
-    const draftToSend = nextQueuedDraft;
-    queuedDispatchInFlightRef.current = true;
-    blockedQueuedDraftIdRef.current = null;
-    setQueuedDrafts((current) =>
-      current.filter((item) => item.id !== draftToSend.id),
-    );
-    setSelectedQueuedDraftId((current) =>
-      current === draftToSend.id ? null : current,
-    );
-    void (async () => {
-      let result = false;
-      try {
-        result =
-          (await onSubmit(draftToSend.message, draftToSend.attachments)) ===
-          true;
-      } catch {
-        result = false;
-      }
-      if (!componentMountedRef.current) {
-        queuedDispatchInFlightRef.current = false;
-        return;
-      }
-      queuedDispatchInFlightRef.current = false;
-      if (result) {
-        setQueuedDispatchEpoch((current) => current + 1);
-        return;
-      }
-      blockedQueuedDraftIdRef.current = draftToSend.id;
-      setQueuedDrafts((current) =>
-        enqueueQueuedDraft(current, draftToSend, true),
-      );
-      setSelectedQueuedDraftId(draftToSend.id);
-      setSlashFeedback("Queued message failed. Edit it and retry.");
-      setQueuedDispatchEpoch((current) => current + 1);
-    })();
-  }, [
-    isSubmitDisabled,
-    nextQueuedDraft,
-    onSubmit,
-    queuedDispatchEpoch,
-    waitingForResponse,
-  ]);
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
@@ -718,7 +423,6 @@ export const ChatInput = memo(function ChatInput({
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
       if (!slashResult?.keepInput) {
-        escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
       }
@@ -733,16 +437,6 @@ export const ChatInput = memo(function ChatInput({
       submittedAttachments: ChatFileAttachment[],
     ): Promise<void> => {
       if (waitingForResponse) {
-        const queued = enqueueDraft({
-          message: submittedValue,
-          draftAttachments: submittedAttachments,
-          prioritize: true,
-          interruptCurrentRun: true,
-          feedback: "Queued and stopping current response...",
-        });
-        if (queued) {
-          return;
-        }
         if (onStop) {
           await onStop();
         }
@@ -760,7 +454,6 @@ export const ChatInput = memo(function ChatInput({
       }
       const result = await onSubmit(submittedValue, submittedAttachments);
       if (result === true) {
-        escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
       }
@@ -768,7 +461,6 @@ export const ChatInput = memo(function ChatInput({
     [
       clearAttachments,
       clearInput,
-      enqueueDraft,
       isSubmitDisabled,
       onStop,
       onSubmit,
@@ -783,33 +475,6 @@ export const ChatInput = memo(function ChatInput({
       await submitMessage(inputValue, attachments);
     },
     [attachments, inputValue, submitMessage],
-  );
-
-  const handleFormKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLFormElement>) => {
-      if (!isStopEscapeKey(event) || event.defaultPrevented) {
-        return;
-      }
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest("textarea")) {
-        return;
-      }
-      const escapeAction = resolveEscapeComposerAction({
-        waitingForResponse,
-        onStopAvailable: Boolean(onStop),
-        stopRequestedForCurrentResponse:
-          stopRequestedForCurrentResponseRef.current,
-        hasComposerDraft: false,
-      });
-      if (escapeAction !== "stop" || !onStop) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      stopRequestedForCurrentResponseRef.current = true;
-      void onStop();
-    },
-    [onStop, waitingForResponse],
   );
 
   const slashSuggestions = useMemo(
@@ -1026,149 +691,12 @@ export const ChatInput = memo(function ChatInput({
         }
       }
 
-      if (isStopEscapeKey(event)) {
-        const hasComposerDraft =
-          inputValue.trim().length > 0 || attachments.length > 0;
-        const escapeAction = resolveEscapeComposerAction({
-          waitingForResponse,
-          onStopAvailable: Boolean(onStop),
-          stopRequestedForCurrentResponse:
-            stopRequestedForCurrentResponseRef.current,
-          hasComposerDraft,
-        });
-        if (escapeAction === "stop" && onStop) {
-          event.preventDefault();
-          event.stopPropagation();
-          stopRequestedForCurrentResponseRef.current = true;
-          void onStop();
-          return;
-        }
-        if (escapeAction === "clear") {
-          event.preventDefault();
-          event.stopPropagation();
-          clearComposerByEscape();
-          return;
-        }
-      }
-
       if (
-        isRestoreClearedDraftKey(event) &&
-        !shouldShowSlashSuggestions &&
-        inputValue.trim().length === 0 &&
-        attachments.length === 0
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        waitingForResponse ||
+        isSubmitDisabled
       ) {
-        if (!restoreEscClearedComposerDraft()) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-
-      const hasComposerDraft =
-        inputValue.trim().length > 0 || attachments.length > 0;
-
-      if (
-        event.key === "Tab" &&
-        !event.shiftKey &&
-        !shouldShowSlashSuggestions &&
-        hasComposerDraft
-      ) {
-        event.preventDefault();
-        enqueueDraft({
-          message: inputValue,
-          draftAttachments: attachments,
-          prioritize: false,
-          interruptCurrentRun: false,
-          feedback: "",
-        });
-        return;
-      }
-
-      if (
-        !hasComposerDraft &&
-        queuedDrafts.length > 0 &&
-        !shouldShowSlashSuggestions
-      ) {
-        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-          event.preventDefault();
-          setSelectedQueuedDraftId((current) =>
-            cycleQueuedDraftSelection(
-              queuedDrafts,
-              current,
-              event.key === "ArrowUp" ? "prev" : "next",
-            ),
-          );
-          return;
-        }
-        if (event.key === "Enter" && !event.shiftKey && selectedQueuedDraftId) {
-          event.preventDefault();
-          restoreQueuedDraftToComposer(selectedQueuedDraftId);
-          return;
-        }
-      }
-
-      const canCycleSubmittedMessageHistory =
-        !shouldShowSlashSuggestions &&
-        queuedDrafts.length === 0 &&
-        attachments.length === 0 &&
-        submittedMessageHistoryEntries.length > 0 &&
-        (selectedSubmittedMessageIndex !== null || !hasComposerDraft);
-
-      if (
-        selectedSubmittedMessageIndex !== null &&
-        !waitingForResponse &&
-        event.key === "Escape" &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        !event.ctrlKey
-      ) {
-        event.preventDefault();
-        restoreDraftFromSubmittedHistorySelection();
-        return;
-      }
-
-      if (
-        canCycleSubmittedMessageHistory &&
-        (event.key === "ArrowUp" || event.key === "ArrowDown")
-      ) {
-        event.preventDefault();
-        if (event.key === "ArrowDown" && selectedSubmittedMessageIndex === 0) {
-          restoreDraftFromSubmittedHistorySelection();
-          return;
-        }
-        if (selectedSubmittedMessageIndex === null) {
-          submittedHistoryDraftBeforeSelectionRef.current = inputValue;
-        }
-        const nextSelectedIndex = cycleSubmittedMessageHistorySelection(
-          submittedMessageHistoryEntries,
-          selectedSubmittedMessageIndex,
-          event.key === "ArrowUp" ? "next" : "prev",
-        );
-        if (nextSelectedIndex === null) {
-          return;
-        }
-        const nextMessage = submittedMessageHistoryEntries[nextSelectedIndex];
-        if (typeof nextMessage !== "string") {
-          return;
-        }
-        setSelectedSubmittedMessageIndex(nextSelectedIndex);
-        setInputValue(nextMessage);
-        setSlashFeedback(null);
-        requestAnimationFrame(() => {
-          const node = textareaRef.current;
-          if (!node) {
-            return;
-          }
-          const end = nextMessage.length;
-          node.focus();
-          node.setSelectionRange(end, end);
-        });
-        return;
-      }
-
-      if (event.key !== "Enter" || event.shiftKey || isSubmitDisabled) {
         return;
       }
       event.preventDefault();
@@ -1181,23 +709,11 @@ export const ChatInput = memo(function ChatInput({
     [
       activeSlashIndex,
       applySlashSuggestion,
-      attachments,
-      clearComposerByEscape,
-      enqueueDraft,
       inputValue,
       isSubmitDisabled,
-      onStop,
-      queuedDrafts,
-      restoreEscClearedComposerDraft,
-      restoreQueuedDraftToComposer,
-      restoreDraftFromSubmittedHistorySelection,
-      selectedSubmittedMessageIndex,
-      selectedQueuedDraftId,
-      setInputValue,
       shouldShowSlashSuggestions,
       slashSuggestions,
       slashSuggestions.length,
-      submittedMessageHistoryEntries,
       waitingForResponse,
     ],
   );
@@ -1232,262 +748,41 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(dictationSupported);
-  const mediaRecorderSupported =
+  const canBrowserDictate = dictationSupported;
+  const providerCaptureSupported =
     typeof window !== "undefined" &&
-    typeof window.MediaRecorder !== "undefined" &&
+    typeof window.AudioContext !== "undefined" &&
     typeof navigator !== "undefined" &&
     Boolean(navigator.mediaDevices?.getUserMedia);
   const canProviderDictate = Boolean(
     dictationEnabledByProvider &&
-      onProviderDictationTranscribe &&
-      mediaRecorderSupported,
+      onProviderTranscriptionSessionStart &&
+      onProviderTranscriptionSessionAppend &&
+      onProviderTranscriptionSessionStop &&
+      onProviderTranscriptionSessionCancel &&
+      providerCaptureSupported,
   );
-  const canAutoUseProviderDictation =
-    canProviderDictate && providerDictationLikelySupported;
-  const canDictate =
+  const resolvedProviderUnavailableMessage =
+    providerDictationUnavailableMessage?.trim() ||
+    "Provider dictation is not available.";
+  const dictationStartPath = resolveDictationStartPath({
+    dictationMode,
+    canProviderDictate,
+    canBrowserDictate,
+  });
+  const canDictate = !isDisabled && dictationStartPath !== "unavailable";
+  const showDictationButton =
     !isDisabled &&
-    (() => {
-      if (dictationMode === "provider") {
-        return canProviderDictate;
-      }
-      if (dictationMode === "browser") {
-        return canBrowserDictate;
-      }
-      return canAutoUseProviderDictation || canBrowserDictate;
-    })();
+    (dictationStartPath !== "unavailable" || dictationMode === "provider");
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
-  );
-  const showThinkingControl = Boolean(
-    executionControls &&
-      executionControlVisibility.thinking !== false &&
-      typeof executionControls.onThinkingEnabledChange === "function",
   );
   const showSearchControl = Boolean(
     executionControls &&
       executionControlVisibility.search !== false &&
       typeof executionControls.onSearchEnabledChange === "function",
   );
-  const showExecutionControls =
-    showThinkingControl || showPermissionControl || showSearchControl;
-  const permissionModeIconClassName = useMemo(() => {
-    if (!executionControls) {
-      return "text-setta-600 dark:text-setta-300";
-    }
-    if (executionControls.permissionMode === "yolo") {
-      return "text-orange-500 dark:text-orange-400";
-    }
-    if (executionControls.permissionMode === "config_toml_custom") {
-      return "text-amber-500 dark:text-amber-300";
-    }
-    return "text-setta-600 dark:text-setta-300";
-  }, [executionControls?.permissionMode]);
-  const thinkingIconClassName = useMemo(() => {
-    if (!executionControls?.thinkingEnabled) {
-      return "text-setta-600 dark:text-setta-300";
-    }
-    return "text-blue-600 dark:text-blue-400";
-  }, [executionControls?.thinkingEnabled]);
-  const normalizedContextWindowTokens = useMemo(() => {
-    if (
-      typeof contextWindowTokens !== "number" ||
-      !Number.isFinite(contextWindowTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextWindowTokens));
-  }, [contextWindowTokens]);
-  const normalizedContextUsedTokens = useMemo(() => {
-    if (
-      typeof contextUsedTokens !== "number" ||
-      !Number.isFinite(contextUsedTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextUsedTokens));
-  }, [contextUsedTokens]);
-  const remainingContextTokens = useMemo(() => {
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextUsedTokens === null
-    ) {
-      return null;
-    }
-    return Math.max(
-      0,
-      normalizedContextWindowTokens - normalizedContextUsedTokens,
-    );
-  }, [normalizedContextUsedTokens, normalizedContextWindowTokens]);
-  const remainingContextPercentage = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextWindowTokens <= 0
-    ) {
-      return 0;
-    }
-    const rawPercentage = Math.round(
-      (remainingContextTokens / normalizedContextWindowTokens) * 100,
-    );
-    return Math.max(0, Math.min(100, rawPercentage));
-  }, [normalizedContextWindowTokens, remainingContextTokens]);
-  const contextRemainingValue = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    if (contextBadgeMode === "tokens") {
-      return `~${formatCompactTokenCount(remainingContextTokens)}`;
-    }
-    if (remainingContextPercentage === null) {
-      return null;
-    }
-    return `${remainingContextPercentage}%`;
-  }, [contextBadgeMode, remainingContextPercentage, remainingContextTokens]);
-  const contextLabelPrefixFull = contextUsageIsEstimated
-    ? "est. context left"
-    : "context left";
-  const contextLabelPrefixCompact = contextUsageIsEstimated
-    ? "est. context"
-    : "context";
-  const showContextUnavailableBadge =
-    contextRemainingValue === null && contextUsageUnavailable;
-  const activeBackgroundTerminals = useMemo(
-    () =>
-      normalizeNonNegativeCount(
-        runtimeActivityCounts.activeBackgroundTerminals,
-      ),
-    [runtimeActivityCounts.activeBackgroundTerminals],
-  );
-  const activeSubagents = useMemo(
-    () => normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
-    [runtimeActivityCounts.activeSubagents],
-  );
-  const showRuntimeActivityCounters =
-    canDictate || activeBackgroundTerminals > 0 || activeSubagents > 0;
-  const showContextBadge =
-    contextRemainingValue !== null || showContextUnavailableBadge;
-  const shouldShowComposerMetaRow =
-    showExecutionControls || showContextBadge || showRuntimeActivityCounters;
-  const attachmentTooltipHandlers = useMemo(
-    () =>
-      getFloatingBoxHandlers({
-        title: "Attachments",
-        content: attachmentInputDisabled
-          ? "Attachments are currently unavailable."
-          : "Add files from your device or project.",
-      }),
-    [attachmentInputDisabled],
-  );
-  const submitTooltipHandlers = useMemo(() => {
-    if (waitingForResponse) {
-      return getFloatingBoxHandlers({
-        title: "Stop response",
-        content: "Interrupt the active response.",
-      });
-    }
-    if (isSubmitDisabled) {
-      return getFloatingBoxHandlers({
-        title: "Send",
-        content: "Enter a message to send.",
-      });
-    }
-    return getFloatingBoxHandlers({
-      title: "Send",
-      content: "Submit this message.",
-    });
-  }, [isSubmitDisabled, waitingForResponse]);
-  const thinkingTooltipHandlers = useMemo(() => {
-    if (!showThinkingControl || !executionControls) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Thinking",
-      content: executionControls.thinkingEnabled
-        ? "Reasoning is enabled for new messages."
-        : "Reasoning is disabled for new messages.",
-    });
-  }, [executionControls, showThinkingControl]);
-  const permissionTooltipHandlers = useMemo(() => {
-    if (!executionControls || !showPermissionControl) {
-      return null;
-    }
-    const modeLabel = executionControls.permissionMode.replaceAll("_", " ");
-    return getFloatingBoxHandlers({
-      title: "Permissions",
-      content: `Current mode: ${modeLabel}`,
-    });
-  }, [executionControls, showPermissionControl]);
-  const dictationTooltipHandlers = useMemo(() => {
-    if (!canDictate) {
-      return null;
-    }
-    const label =
-      dictationState === "listening"
-        ? "Stop Mic"
-        : dictationState === "transcribing"
-          ? "Transcribing"
-          : "Mic";
-    return getFloatingBoxHandlers({
-      title: "Dictation",
-      content: label,
-    });
-  }, [canDictate, dictationState]);
-  const backgroundTerminalTooltipHandlers = useMemo(() => {
-    if (!showRuntimeActivityCounters) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Background terminals",
-      content: `${activeBackgroundTerminals} active`,
-    });
-  }, [activeBackgroundTerminals, showRuntimeActivityCounters]);
-  const subagentTooltipHandlers = useMemo(() => {
-    if (!showRuntimeActivityCounters) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Subagents",
-      content: `${activeSubagents} active`,
-    });
-  }, [activeSubagents, showRuntimeActivityCounters]);
-  const contextTooltipHandlers = useMemo(() => {
-    if (!showContextBadge) {
-      return null;
-    }
-    if (showContextUnavailableBadge) {
-      return getFloatingBoxHandlers({
-        title: "Context unavailable",
-        content:
-          "Context usage telemetry is unavailable for this chat run.",
-      });
-    }
-    return getFloatingBoxHandlers({
-      title: "Context",
-      content:
-        contextBadgeMode === "tokens"
-          ? "Click to show remaining context percentage."
-          : "Click to show remaining context tokens.",
-    });
-  }, [contextBadgeMode, showContextBadge, showContextUnavailableBadge]);
-  const searchTooltipHandlers = useMemo(() => {
-    if (!showSearchControl || !executionControls) {
-      return null;
-    }
-    return getFloatingBoxHandlers({
-      title: "Search",
-      content: executionControls.searchEnabled
-        ? "Search is enabled for new messages."
-        : "Search is disabled for new messages.",
-    });
-  }, [executionControls, showSearchControl]);
-  const handleContextBadgeToggle = useCallback(() => {
-    setContextBadgeMode((current) =>
-      current === "percentage" ? "tokens" : "percentage",
-    );
-  }, []);
+  const showExecutionControls = showPermissionControl || showSearchControl;
   const slashSuggestionsPositionClass =
     resolvedSlashPlacement === "below"
       ? "top-[calc(100%+4px)]"
@@ -1498,13 +793,18 @@ export const ChatInput = memo(function ChatInput({
     typeof document !== "undefined" &&
     Boolean(document.body);
 
-  const cleanupProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.onstop = null;
-      recorder.stop();
+  const teardownProviderAudioCapture = useCallback(() => {
+    const processor = providerProcessorNodeRef.current;
+    if (processor) {
+      processor.onaudioprocess = null;
+      processor.disconnect();
     }
-    providerRecorderRef.current = null;
+    providerProcessorNodeRef.current = null;
+    const sourceNode = providerSourceNodeRef.current;
+    if (sourceNode) {
+      sourceNode.disconnect();
+    }
+    providerSourceNodeRef.current = null;
     const stream = providerStreamRef.current;
     if (stream) {
       for (const track of stream.getTracks()) {
@@ -1512,45 +812,46 @@ export const ChatInput = memo(function ChatInput({
       }
     }
     providerStreamRef.current = null;
-    providerChunksRef.current = [];
+    const audioContext = providerAudioContextRef.current;
+    if (audioContext) {
+      void audioContext.close();
+    }
+    providerAudioContextRef.current = null;
+  }, []);
+
+  const resetProviderCaptureSession = useCallback(() => {
+    providerStartAttemptRef.current += 1;
+    providerPcmPendingChunksRef.current = [];
+    providerPcmPendingSamplesRef.current = 0;
+    providerPcmQueueRef.current = [];
+    providerTranscriptionInFlightRef.current = false;
+    providerStopRequestedRef.current = false;
+    providerHasTranscriptRef.current = false;
+    providerBackendSessionIdRef.current = null;
+    providerChunkSamplesRef.current = PROVIDER_FILE_BATCH_SAMPLES;
+    providerSessionRef.current += 1;
     dictationSourceRef.current = null;
   }, []);
 
-  const stopProviderCapture = useCallback(() => {
-    const recorder = providerRecorderRef.current;
-    if (!recorder) {
-      return;
-    }
-    if (recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    providerRecorderRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("transcribing");
-    setDictationFeedback("Transcribing...");
-  }, []);
-
-  const stopBrowserDictation = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
-    }
-    recognition.stop();
-    recognitionRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, []);
-
-  const stopActiveDictationImmediately = useCallback(() => {
-    if (dictationSourceRef.current === "provider") {
-      cleanupProviderCapture();
-    } else {
-      stopBrowserDictation();
-    }
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, [cleanupProviderCapture, stopBrowserDictation]);
+  const cleanupProviderCapture = useCallback(
+    (cancelBackendSession: boolean) => {
+      const backendSessionId = providerBackendSessionIdRef.current;
+      teardownProviderAudioCapture();
+      resetProviderCaptureSession();
+      if (
+        cancelBackendSession &&
+        backendSessionId &&
+        onProviderTranscriptionSessionCancel
+      ) {
+        void onProviderTranscriptionSessionCancel(backendSessionId);
+      }
+    },
+    [
+      onProviderTranscriptionSessionCancel,
+      resetProviderCaptureSession,
+      teardownProviderAudioCapture,
+    ],
+  );
 
   const insertTranscript = useCallback(
     (transcript: string) => {
@@ -1570,6 +871,182 @@ export const ChatInput = memo(function ChatInput({
     },
     [setInputValue],
   );
+
+  const maybeFinalizeProviderSession = useCallback(
+    (sessionId: number) => {
+      if (providerSessionRef.current !== sessionId) {
+        return;
+      }
+      if (!providerStopRequestedRef.current) {
+        return;
+      }
+      if (providerTranscriptionInFlightRef.current) {
+        return;
+      }
+      if (providerPcmQueueRef.current.length > 0) {
+        return;
+      }
+      void (async () => {
+        let stopTranscript: string | null = null;
+        const backendSessionId = providerBackendSessionIdRef.current;
+        try {
+          if (backendSessionId && onProviderTranscriptionSessionStop) {
+            stopTranscript =
+              await onProviderTranscriptionSessionStop(backendSessionId);
+          }
+        } catch (error) {
+          if (providerSessionRef.current !== sessionId) {
+            return;
+          }
+          cleanupProviderCapture(true);
+          setDictationState("error");
+          setDictationFeedback(
+            error instanceof Error && error.message
+              ? error.message
+              : "Provider transcription failed.",
+          );
+          return;
+        }
+        if (providerSessionRef.current !== sessionId) {
+          return;
+        }
+        const normalizedStopTranscript = (stopTranscript ?? "").trim();
+        if (normalizedStopTranscript) {
+          providerHasTranscriptRef.current = true;
+          insertTranscript(stopTranscript ?? "");
+        }
+        const hasTranscript = providerHasTranscriptRef.current;
+        cleanupProviderCapture(false);
+        if (hasTranscript) {
+          setDictationState("idle");
+          setDictationFeedback(null);
+          return;
+        }
+        setDictationState("error");
+        setDictationFeedback("No speech was detected.");
+      })();
+    },
+    [
+      cleanupProviderCapture,
+      insertTranscript,
+      onProviderTranscriptionSessionStop,
+    ],
+  );
+
+  const flushProviderPcmQueue = useCallback(
+    (sessionId: number) => {
+      if (providerSessionRef.current !== sessionId) {
+        return;
+      }
+      if (providerTranscriptionInFlightRef.current) {
+        return;
+      }
+      const backendSessionId = providerBackendSessionIdRef.current;
+      if (!backendSessionId || !onProviderTranscriptionSessionAppend) {
+        maybeFinalizeProviderSession(sessionId);
+        return;
+      }
+      const nextChunk = providerPcmQueueRef.current.shift();
+      if (!nextChunk) {
+        maybeFinalizeProviderSession(sessionId);
+        return;
+      }
+      providerTranscriptionInFlightRef.current = true;
+      void (async () => {
+        try {
+          const transcript = await onProviderTranscriptionSessionAppend(
+            backendSessionId,
+            nextChunk,
+            PROVIDER_TARGET_SAMPLE_RATE_HZ,
+            PROVIDER_CHANNELS,
+          );
+          if (providerSessionRef.current !== sessionId) {
+            return;
+          }
+          const normalized = (transcript ?? "").trim();
+          if (normalized) {
+            providerHasTranscriptRef.current = true;
+            insertTranscript(transcript ?? "");
+          }
+          if (!providerStopRequestedRef.current) {
+            setDictationFeedback("Listening...");
+          }
+        } catch (error) {
+          if (providerSessionRef.current !== sessionId) {
+            return;
+          }
+          cleanupProviderCapture(true);
+          setDictationState("error");
+          setDictationFeedback(
+            error instanceof Error && error.message
+              ? error.message
+              : "Provider transcription failed.",
+          );
+          return;
+        } finally {
+          if (providerSessionRef.current !== sessionId) {
+            return;
+          }
+          providerTranscriptionInFlightRef.current = false;
+          flushProviderPcmQueue(sessionId);
+        }
+      })();
+    },
+    [
+      cleanupProviderCapture,
+      insertTranscript,
+      maybeFinalizeProviderSession,
+      onProviderTranscriptionSessionAppend,
+      onProviderTranscriptionSessionStop,
+      onProviderTranscriptionSessionCancel,
+    ],
+  );
+
+  const stopProviderCapture = useCallback(() => {
+    const sessionId = providerSessionRef.current;
+    if (sessionId <= 0) {
+      return;
+    }
+    providerStopRequestedRef.current = true;
+    dictationSourceRef.current = null;
+    if (providerPcmPendingSamplesRef.current > 0) {
+      const pendingSamples = dequeueInt16Samples(
+        providerPcmPendingChunksRef.current,
+        providerPcmPendingSamplesRef.current,
+      );
+      providerPcmPendingSamplesRef.current = 0;
+      providerPcmQueueRef.current.push(int16ToArrayBuffer(pendingSamples));
+    }
+    teardownProviderAudioCapture();
+    setDictationState("transcribing");
+    setDictationFeedback("Transcribing...");
+    flushProviderPcmQueue(sessionId);
+  }, [flushProviderPcmQueue, teardownProviderAudioCapture]);
+
+  const stopBrowserDictation = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      return;
+    }
+    recognition.stop();
+    recognitionRef.current = null;
+    dictationSourceRef.current = null;
+    setDictationState("idle");
+    setDictationFeedback(null);
+  }, []);
+
+  const stopActiveDictationImmediately = useCallback(() => {
+    if (
+      dictationSourceRef.current === "provider" ||
+      providerStartInFlightRef.current
+    ) {
+      cleanupProviderCapture(true);
+    } else {
+      stopBrowserDictation();
+    }
+    setDictationState("idle");
+    setDictationFeedback(null);
+  }, [cleanupProviderCapture, stopBrowserDictation]);
 
   const startBrowserDictation = useCallback(() => {
     if (!canBrowserDictate) {
@@ -1608,14 +1085,8 @@ export const ChatInput = memo(function ChatInput({
       setDictationFeedback(null);
     };
     recognition.onerror = (event) => {
-      if (isNoSpeechDictationError(event.error)) {
-        setDictationState("idle");
-        setDictationFeedback(null);
-        addTemporaryNotification("No speech was detected.");
-      } else {
-        setDictationState("error");
-        setDictationFeedback(mapDictationError(event.error));
-      }
+      setDictationState("error");
+      setDictationFeedback(mapDictationError(event.error));
       recognitionRef.current = null;
       dictationSourceRef.current = null;
     };
@@ -1651,174 +1122,200 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [canBrowserDictate, insertTranscript]);
 
-  const maybeFallbackToBrowserDictation = useCallback(
-    (allowFallback: boolean): boolean => {
-      if (!allowFallback || !canBrowserDictate) {
-        return false;
-      }
-      startBrowserDictation();
-      return true;
-    },
-    [canBrowserDictate, startBrowserDictation],
-  );
+  const maybeFallbackToBrowserDictation = useCallback((): boolean => {
+    if (dictationMode !== "auto" || !canBrowserDictate) {
+      return false;
+    }
+    startBrowserDictation();
+    return true;
+  }, [canBrowserDictate, dictationMode, startBrowserDictation]);
 
-  const startProviderDictation = useCallback(
-    async (allowBrowserFallback: boolean) => {
-      if (!canProviderDictate || !onProviderDictationTranscribe) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+  const startProviderDictation = useCallback(async () => {
+    if (providerStartInFlightRef.current) {
+      return;
+    }
+    if (
+      !canProviderDictate ||
+      !onProviderTranscriptionSessionStart ||
+      !onProviderTranscriptionSessionAppend ||
+      !onProviderTranscriptionSessionStop ||
+      !onProviderTranscriptionSessionCancel
+    ) {
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
+      setDictationState("error");
+      setDictationFeedback(resolvedProviderUnavailableMessage);
+      return;
+    }
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof window === "undefined" ||
+      typeof window.AudioContext === "undefined"
+    ) {
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
+      setDictationState("error");
+      setDictationFeedback(resolvedProviderUnavailableMessage);
+      return;
+    }
+    providerStartInFlightRef.current = true;
+    setDictationState("starting");
+    setDictationFeedback("Starting...");
+    cleanupProviderCapture(false);
+    const startAttemptId = providerStartAttemptRef.current + 1;
+    providerStartAttemptRef.current = startAttemptId;
+    let backendSessionId: string | null = null;
+    try {
+      const startedSession = await onProviderTranscriptionSessionStart();
+      if (!startedSession || !startedSession.sessionId) {
+        if (maybeFallbackToBrowserDictation()) {
           return;
         }
         setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
+        setDictationFeedback(resolvedProviderUnavailableMessage);
         return;
       }
-      if (
-        typeof navigator === "undefined" ||
-        !navigator.mediaDevices?.getUserMedia ||
-        typeof MediaRecorder === "undefined"
-      ) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+      backendSessionId = startedSession.sessionId;
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
+      providerStreamRef.current = stream;
+      const sessionId = providerSessionRef.current + 1;
+      providerSessionRef.current = sessionId;
+      providerBackendSessionIdRef.current = backendSessionId;
+      const chunkMs =
+        startedSession.resolvedTransportMode === "realtime"
+          ? Math.max(200, startedSession.chunkMs || PROVIDER_DEFAULT_CHUNK_MS)
+          : PROVIDER_FILE_BATCH_MS;
+      providerChunkSamplesRef.current = Math.max(
+        1,
+        Math.floor((chunkMs * PROVIDER_TARGET_SAMPLE_RATE_HZ) / 1000),
+      );
+      providerPcmPendingChunksRef.current = [];
+      providerPcmPendingSamplesRef.current = 0;
+      providerPcmQueueRef.current = [];
+      providerTranscriptionInFlightRef.current = false;
+      providerStopRequestedRef.current = false;
+      providerHasTranscriptRef.current = false;
+      dictationSourceRef.current = "provider";
+      const audioContext = new window.AudioContext();
+      providerAudioContextRef.current = audioContext;
+      await audioContext.resume();
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        await audioContext.close();
+        providerStreamRef.current = null;
+        providerAudioContextRef.current = null;
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
+      const sourceNode = audioContext.createMediaStreamSource(stream);
+      providerSourceNodeRef.current = sourceNode;
+      const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+      providerProcessorNodeRef.current = processorNode;
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      sourceNode.connect(processorNode);
+      processorNode.connect(silentGain);
+      silentGain.connect(audioContext.destination);
+      processorNode.onaudioprocess = (event) => {
+        if (providerSessionRef.current !== sessionId) {
           return;
         }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        providerStreamRef.current = stream;
-        const mimeType = pickProviderRecorderMimeType(
-          MediaRecorder.isTypeSupported?.bind(MediaRecorder),
+        if (providerStopRequestedRef.current) {
+          return;
+        }
+        const channelData = event.inputBuffer.getChannelData(0);
+        if (!channelData || channelData.length === 0) {
+          return;
+        }
+        const pcmChunk = resampleFloat32ToMonoPcm16(
+          channelData,
+          audioContext.sampleRate,
+          PROVIDER_TARGET_SAMPLE_RATE_HZ,
         );
-        let recorder: MediaRecorder;
-        try {
-          recorder = mimeType
-            ? new MediaRecorder(stream, { mimeType })
-            : new MediaRecorder(stream);
-        } catch {
-          cleanupProviderCapture();
-          if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Provider dictation is not available.");
+        if (pcmChunk.length === 0) {
           return;
         }
-        providerRecorderRef.current = recorder;
-        providerChunksRef.current = [];
-        dictationSourceRef.current = "provider";
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            providerChunksRef.current.push(event.data);
-          }
-        };
-        recorder.onerror = () => {
-          cleanupProviderCapture();
-          setDictationState("error");
-          setDictationFeedback("Microphone input failed.");
-        };
-        recorder.onstop = () => {
-          providerRecorderRef.current = null;
-          dictationSourceRef.current = null;
-          const streamRef = providerStreamRef.current;
-          if (streamRef) {
-            for (const track of streamRef.getTracks()) {
-              track.stop();
-            }
-          }
-          providerStreamRef.current = null;
-          const chunks = providerChunksRef.current;
-          providerChunksRef.current = [];
-          let blobType = recorder.mimeType || mimeType || "audio/webm";
-          for (const chunk of chunks) {
-            if (chunk instanceof Blob && chunk.type) {
-              blobType = chunk.type;
-              break;
-            }
-          }
-          const blob = new Blob(chunks, { type: blobType });
-          if (blob.size === 0) {
-            setDictationState("idle");
-            setDictationFeedback(null);
-            addTemporaryNotification("No speech was detected.");
-            return;
-          }
-          setDictationState("transcribing");
-          setDictationFeedback("Transcribing...");
-          void (async () => {
-            try {
-              const transcript = await onProviderDictationTranscribe(blob);
-              const normalized = (transcript ?? "").trim();
-              if (!normalized) {
-                setDictationState("error");
-                setDictationFeedback("Provider transcription failed.");
-                return;
-              }
-              insertTranscript(`${normalized} `);
-              setDictationState("idle");
-              setDictationFeedback(null);
-            } catch (error) {
-              if (
-                isProviderTranscriptionUnsupportedModelError(error) &&
-                maybeFallbackToBrowserDictation(allowBrowserFallback)
-              ) {
-                return;
-              }
-              setDictationState("error");
-              setDictationFeedback(
-                error instanceof Error && error.message
-                  ? error.message
-                  : "Provider transcription failed.",
-              );
-            }
-          })();
-        };
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-        recorder.start();
-      } catch {
-        cleanupProviderCapture();
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
-          return;
+        providerPcmPendingChunksRef.current.push(pcmChunk);
+        providerPcmPendingSamplesRef.current += pcmChunk.length;
+        const chunkSamples = providerChunkSamplesRef.current;
+        let enqueued = false;
+        while (providerPcmPendingSamplesRef.current >= chunkSamples) {
+          const nextSamples = dequeueInt16Samples(
+            providerPcmPendingChunksRef.current,
+            chunkSamples,
+          );
+          providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
+          providerPcmPendingSamplesRef.current -= chunkSamples;
+          enqueued = true;
         }
-        setDictationState("error");
-        setDictationFeedback("Microphone access was denied.");
+        if (enqueued) {
+          flushProviderPcmQueue(sessionId);
+        }
+      };
+      setDictationState("listening");
+      setDictationFeedback("Listening...");
+    } catch (error) {
+      if (backendSessionId) {
+        await onProviderTranscriptionSessionCancel(backendSessionId);
       }
-    },
-    [
-      canProviderDictate,
-      cleanupProviderCapture,
-      insertTranscript,
-      maybeFallbackToBrowserDictation,
-      onProviderDictationTranscribe,
-    ],
-  );
+      cleanupProviderCapture(false);
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
+      setDictationState("error");
+      setDictationFeedback(resolveProviderStartFailureFeedback(error));
+    } finally {
+      providerStartInFlightRef.current = false;
+    }
+  }, [
+    canProviderDictate,
+    cleanupProviderCapture,
+    flushProviderPcmQueue,
+    maybeFallbackToBrowserDictation,
+    onProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionCancel,
+    onProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionStop,
+    resolvedProviderUnavailableMessage,
+  ]);
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
       setDictationState("error");
-      setDictationFeedback("Dictation is not available.");
+      setDictationFeedback(
+        resolveDictationUnavailableFeedback({
+          dictationMode,
+          providerUnavailableMessage: resolvedProviderUnavailableMessage,
+        }),
+      );
       return;
     }
-    if (dictationMode === "provider") {
-      void startProviderDictation(false);
-      return;
-    }
-    if (dictationMode === "browser") {
-      startBrowserDictation();
-      return;
-    }
-    if (canAutoUseProviderDictation) {
-      void startProviderDictation(true);
+    if (dictationStartPath === "provider") {
+      void startProviderDictation();
       return;
     }
     startBrowserDictation();
   }, [
     canDictate,
-    canAutoUseProviderDictation,
     dictationMode,
+    dictationStartPath,
+    resolvedProviderUnavailableMessage,
     startBrowserDictation,
     startProviderDictation,
   ]);
@@ -1827,12 +1324,15 @@ export const ChatInput = memo(function ChatInput({
     return () => {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
-      cleanupProviderCapture();
+      cleanupProviderCapture(true);
     };
   }, [cleanupProviderCapture]);
 
   useEffect(() => {
-    if (!isDisabled || dictationState !== "listening") {
+    if (
+      !isDisabled ||
+      (dictationState !== "listening" && dictationState !== "starting")
+    ) {
       return;
     }
     stopActiveDictationImmediately();
@@ -1850,7 +1350,7 @@ export const ChatInput = memo(function ChatInput({
       stopBrowserDictation();
       return;
     }
-    if (dictationState === "transcribing") {
+    if (dictationState === "transcribing" || dictationState === "starting") {
       return;
     }
     startDictation();
@@ -1888,107 +1388,16 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      onKeyDown={handleFormKeyDown}
-      className="flex justify-center"
-    >
+    <form onSubmit={handleSubmit} className="flex justify-center">
       <div className="flex w-full gap-1">
         <div
-          className="flex min-w-0 flex-1 flex-col @container"
+          className="flex min-w-0 flex-1 flex-col"
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {queuedDrafts.length > 0 ? (
-            <div
-              className="mb-1 flex flex-col gap-1"
-              data-chat-queued-draft-stack="true"
-            >
-              {queuedDrafts.map((draft, index) => {
-                const isSelected = draft.id === selectedQueuedDraftId;
-                const previewText = draft.message.trim();
-                const attachmentCount = draft.attachments.length;
-                const attachmentLabel =
-                  attachmentCount === 1
-                    ? "1 attachment"
-                    : `${attachmentCount} attachments`;
-                const queuedDraftTooltipHandlers = getFloatingBoxHandlers({
-                  title: "Queued draft",
-                  content:
-                    previewText.length > 0
-                      ? previewText
-                      : "Queued attachment message",
-                });
-                return (
-                  <button
-                    key={draft.id}
-                    type="button"
-                    className={`grid w-full grid-cols-[1.75rem_minmax(0,1fr)] overflow-hidden rounded-md border text-left transition-colors ${
-                      isSelected
-                        ? "border-blue-400/90 bg-blue-200 text-setta-950 dark:border-blue-700/80 dark:bg-blue-950 dark:text-white"
-                        : "border-blue-300/75 bg-blue-100/85 text-setta-900 hover:border-blue-400/80 hover:bg-blue-200/80 dark:border-blue-800/70 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:border-blue-700 dark:hover:bg-blue-900/80"
-                    }`}
-                    data-chat-queued-draft="true"
-                    data-selected={isSelected ? "true" : "false"}
-                    onClick={() => setSelectedQueuedDraftId(draft.id)}
-                    onDoubleClick={() => restoreQueuedDraftToComposer(draft.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        restoreQueuedDraftToComposer(draft.id);
-                        return;
-                      }
-                      if (
-                        event.key === "ArrowUp" ||
-                        event.key === "ArrowDown"
-                      ) {
-                        event.preventDefault();
-                        setSelectedQueuedDraftId((current) =>
-                          cycleQueuedDraftSelection(
-                            queuedDrafts,
-                            current,
-                            event.key === "ArrowUp" ? "prev" : "next",
-                          ),
-                        );
-                      }
-                    }}
-                    {...queuedDraftTooltipHandlers}
-                  >
-                    <div
-                      className={`flex h-full items-center justify-center text-[10px] font-semibold ${
-                        isSelected
-                          ? "bg-blue-300/75 text-blue-900 dark:bg-blue-900/80 dark:text-blue-100"
-                          : "bg-blue-200/75 text-blue-900 dark:bg-blue-900/65 dark:text-blue-200"
-                      }`}
-                      data-chat-queued-draft-rail="true"
-                    >
-                      <span className="inline-flex h-4 min-w-4 items-center justify-center">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="min-w-0 px-2 py-1">
-                      <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
-                        <span>Queued</span>
-                        {attachmentCount > 0 ? (
-                          <span className="truncate opacity-80">
-                            {attachmentLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 truncate text-[11px] font-medium">
-                        {previewText.length > 0
-                          ? previewText
-                          : "(Attachment message)"}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          <div className="group relative my-1 w-full">
+          <div className="relative my-1 w-full">
             <input
               ref={fileInputRef}
               type="file"
@@ -2008,7 +1417,6 @@ export const ChatInput = memo(function ChatInput({
                       : "cursor-pointer"
                   }`}
                   disabled={attachmentInputDisabled}
-                  {...attachmentTooltipHandlers}
                 >
                   <IoAdd />
                 </button>
@@ -2055,10 +1463,8 @@ export const ChatInput = memo(function ChatInput({
             />
             <button
               type="submit"
-              aria-label={waitingForResponse ? "Stop response" : "Send message"}
               disabled={isSubmitDisabled}
               className={`absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${buttonClassName} disabled:opacity-40`}
-              {...submitTooltipHandlers}
             >
               {buttonIcon}
             </button>
@@ -2104,229 +1510,134 @@ export const ChatInput = memo(function ChatInput({
               </span>
             ) : null}
           </div>
-          {shouldShowComposerMetaRow ? (
-            <div className="mb-0.5 flex items-center justify-between gap-2 [&_button]:cursor-pointer">
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {showThinkingControl && executionControls ? (
-                  <button
-                    type="button"
-                    aria-label="Thinking"
-                    aria-pressed={Boolean(executionControls.thinkingEnabled)}
-                    disabled={isDisabled}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    onClick={() =>
-                      executionControls.onThinkingEnabledChange?.(
-                        !Boolean(executionControls.thinkingEnabled),
-                      )
-                    }
-                    {...(thinkingTooltipHandlers ?? {})}
-                  >
-                    <BiSolidBrain size={12} className={thinkingIconClassName} />
-                  </button>
-                ) : null}
-                {executionControls &&
-                executionControlVisibility.permissionMode !== false ? (
-                  <DropdownMenu.Root modal={false}>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        disabled={isDisabled}
-                        aria-label={`${executionControls.permissionMode} permissions`}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                        {...(permissionTooltipHandlers ?? {})}
-                      >
-                        <IoMdKey
-                          size={12}
-                          className={permissionModeIconClassName}
-                        />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        align="start"
-                        sideOffset={6}
-                        className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
-                      >
-                        {[
-                          { value: "minimal", label: "minimal" },
-                          { value: "yolo", label: "yolo" },
-                          {
-                            value: "config_toml_custom",
-                            label: "config.toml custom",
-                          },
-                        ].map((mode) => (
-                          <DropdownMenu.Item
-                            key={mode.value}
-                            className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${
-                              executionControls.permissionMode === mode.value
-                                ? "bg-blue-600 text-white"
-                                : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-800"
-                            }`}
-                            onSelect={() =>
-                              executionControls.onPermissionModeChange(
-                                mode.value as ChatPermissionModeValue,
-                              )
-                            }
-                          >
-                            {mode.label}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                ) : null}
-                {canDictate ? (
-                  <button
-                    type="button"
-                    aria-label={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
-                    aria-pressed={dictationState === "listening"}
-                    disabled={isDisabled || dictationState === "transcribing"}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-colors ${
-                      dictationState === "listening"
-                        ? "bg-blue-600 text-white"
-                        : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={handleDictationToggle}
-                    {...(dictationTooltipHandlers ?? {})}
-                  >
-                    <IoMic
-                      size={11}
-                      className={
-                        dictationState === "listening"
-                          ? "animate-pulse"
-                          : undefined
-                      }
-                    />
-                  </button>
-                ) : null}
-                {showRuntimeActivityCounters ? (
-                  <div className="inline-flex items-center gap-1">
-                    <span
-                      data-chat-runtime-active-background-terminals="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
-                      {...(backgroundTerminalTooltipHandlers ?? {})}
+          {showExecutionControls || canDictate ? (
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
+              {executionControls &&
+              executionControlVisibility.permissionMode !== false ? (
+                <DropdownMenu.Root modal={false}>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
                     >
-                      <FiTerminal size={10} />
-                      <span className="font-mono leading-none">
-                        {activeBackgroundTerminals}
-                      </span>
-                    </span>
-                    <span
-                      data-chat-runtime-active-subagents="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
-                      {...(subagentTooltipHandlers ?? {})}
+                      {executionControls.permissionMode.replaceAll("_", " ")}
+                      <IoChevronDown />
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="start"
+                      sideOffset={6}
+                      className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
                     >
-                      <FiCpu size={10} />
-                      <span className="font-mono leading-none">
-                        {activeSubagents}
-                      </span>
-                    </span>
-                  </div>
-                ) : null}
-                {executionControls &&
-                executionControlVisibility.search !== false &&
-                typeof executionControls.onSearchEnabledChange ===
-                  "function" ? (
-                  <button
-                    type="button"
-                    aria-pressed={Boolean(executionControls.searchEnabled)}
-                    disabled={isDisabled}
-                    className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      executionControls.searchEnabled
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={() =>
-                      executionControls.onSearchEnabledChange?.(
-                        !Boolean(executionControls.searchEnabled),
-                      )
-                    }
-                    {...(searchTooltipHandlers ?? {})}
-                  >
-                    Search
-                  </button>
-                ) : null}
-              </div>
-              {contextRemainingValue ? (
+                      {[
+                        { value: "minimal", label: "minimal" },
+                        { value: "yolo", label: "yolo" },
+                        {
+                          value: "config_toml_custom",
+                          label: "config.toml custom",
+                        },
+                      ].map((mode) => (
+                        <DropdownMenu.Item
+                          key={mode.value}
+                          className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${
+                            executionControls.permissionMode === mode.value
+                              ? "bg-blue-600 text-white"
+                              : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-800"
+                          }`}
+                          onSelect={() =>
+                            executionControls.onPermissionModeChange(
+                              mode.value as ChatPermissionModeValue,
+                            )
+                          }
+                        >
+                          {mode.label}
+                        </DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              ) : null}
+              {executionControls &&
+              executionControlVisibility.search !== false &&
+              typeof executionControls.onSearchEnabledChange === "function" ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-600 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-300"
-                  aria-label={`${contextLabelPrefixFull} ${contextRemainingValue}`}
-                  onClick={handleContextBadgeToggle}
-                  {...(contextTooltipHandlers ?? {})}
+                  aria-pressed={Boolean(executionControls.searchEnabled)}
+                  disabled={isDisabled}
+                  className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                    executionControls.searchEnabled
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={() =>
+                    executionControls.onSearchEnabledChange?.(
+                      !Boolean(executionControls.searchEnabled),
+                    )
+                  }
                 >
-                  <span className="hidden @[30rem]:inline" aria-hidden="true">
-                    {contextLabelPrefixFull}
-                  </span>
-                  <span className="@[30rem]:hidden" aria-hidden="true">
-                    {contextLabelPrefixCompact}
-                  </span>
-                  <span className="ml-1" aria-hidden="true">
-                    {contextRemainingValue}
-                  </span>
+                  Search
                 </button>
-              ) : showContextUnavailableBadge ? (
-                <span
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-600 dark:text-amber-300"
-                  aria-label="context unavailable"
-                  {...(contextTooltipHandlers ?? {})}
+              ) : null}
+              {showDictationButton ? (
+                <button
+                  type="button"
+                  disabled={
+                    isDisabled ||
+                    dictationState === "transcribing" ||
+                    dictationState === "starting"
+                  }
+                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                    dictationState === "listening"
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={handleDictationToggle}
                 >
-                  context unavailable
-                </span>
+                  <IoMic size={12} />
+                  {dictationState === "listening"
+                    ? "Stop Mic"
+                    : dictationState === "transcribing"
+                      ? "Transcribing"
+                      : dictationState === "starting"
+                        ? "Starting"
+                        : "Mic"}
+                </button>
               ) : null}
             </div>
           ) : null}
           {attachments.length > 0 ? (
-            <div className="mb-0.5 flex flex-wrap gap-1.5 [&_button]:cursor-pointer">
-              {attachments.map((attachment) => {
-                const removeAttachmentTooltipHandlers = getFloatingBoxHandlers({
-                  title: "Remove attachment",
-                  content: attachment.name,
-                });
-                return (
-                  <div
-                    key={attachment.id}
-                    className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
-                  >
-                    <span className="max-w-[200px] truncate">
-                      {attachment.name}
+            <div className="mb-0.5 flex flex-wrap gap-1.5">
+              {attachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
+                >
+                  <span className="max-w-[200px] truncate">
+                    {attachment.name}
+                  </span>
+                  {attachment.size !== null && attachment.size !== undefined ? (
+                    <span className="text-[10px] text-setta-400">
+                      {formatBytes(attachment.size)}
                     </span>
-                    {attachment.size !== null &&
-                    attachment.size !== undefined ? (
-                      <span className="text-[10px] text-setta-400">
-                        {formatBytes(attachment.size)}
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
-                      onClick={() => handleRemoveAttachment(attachment)}
-                      disabled={attachmentActionsDisabled}
-                      {...removeAttachmentTooltipHandlers}
-                    >
-                      <IoClose />
-                    </button>
-                  </div>
-                );
-              })}
+                  ) : null}
+                  <button
+                    type="button"
+                    className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
+                    onClick={() => handleRemoveAttachment(attachment)}
+                    disabled={attachmentActionsDisabled}
+                  >
+                    <IoClose />
+                  </button>
+                </div>
+              ))}
               {attachments.length > 1 ? (
                 <button
                   type="button"
                   className="rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 hover:border-setta-400 hover:text-setta-600 dark:border-setta-800 dark:text-setta-500 dark:hover:text-setta-200"
                   onClick={handleClearAttachments}
                   disabled={attachmentActionsDisabled}
-                  {...getFloatingBoxHandlers({
-                    title: "Clear attachments",
-                    content: "Remove all attachments from this draft.",
-                  })}
                 >
                   Clear all
                 </button>
