@@ -1,6 +1,11 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -40,7 +45,7 @@ export function TextInputCodeMirror({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
 
-  function localOnBlur() {
+  const localOnBlur = useCallback(() => {
     // hack to prevent codemirror from
     // blocking other inputs on blur
     // https://github.com/uiwjs/react-codemirror/issues/677
@@ -49,31 +54,34 @@ export function TextInputCodeMirror({
       setRealIsInitialized(false);
     }, 0);
     onBlur?.();
-  }
+  }, [onBlur]);
 
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
-  function localOnMouseDownCapture(event) {
-    if (isDisabled) {
+  const localOnMouseDownCapture = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (isDisabled) {
+        onMouseDown?.(event);
+        return;
+      }
+      if (event.button === 0) {
+        setActivationEvent(event);
+        applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      }
       onMouseDown?.(event);
-      return;
-    }
-    if (event.button === 0) {
-      setActivationEvent(event);
-      applyActiveSectionChange({ interaction: "input-focus", sectionId });
-    }
-    onMouseDown?.(event);
-  }
+    },
+    [isDisabled, onMouseDown, sectionId],
+  );
 
   // focused via tab key
-  function onFocus() {
+  const onFocus = useCallback(() => {
     if (isDisabled) {
       return;
     }
     if (!activationEvent) {
       setActivationEvent("tab");
     }
-  }
+  }, [activationEvent, isDisabled]);
 
   return (
     <>
@@ -167,25 +175,42 @@ function CoreCodeMirror({
     [sectionId, paramInfoId, shouldAutocomplete, completionsFn],
   );
 
-  const extensions = getExtensions({
-    parent: tooltipParent,
-    language,
-    completionsFn: resolvedCompletionsFn,
-    singleLine,
-    wrapLines,
-    tabToAutocomplete: true,
-    keyComboActions,
-    onTab,
-    onEscape,
-  });
+  const extensions = useMemo(
+    () =>
+      getExtensions({
+        parent: tooltipParent,
+        language,
+        completionsFn: resolvedCompletionsFn,
+        singleLine,
+        wrapLines,
+        tabToAutocomplete: true,
+        keyComboActions,
+        onTab,
+        onEscape,
+      }),
+    [
+      keyComboActions,
+      language,
+      onEscape,
+      onTab,
+      resolvedCompletionsFn,
+      singleLine,
+      tooltipParent,
+      wrapLines,
+    ],
+  );
 
-  const onCreateEditor = getOnCreateEditor({
-    initialEvent,
-    setRealIsInitialized,
-    divId,
-    value,
-    defaultVal,
-  });
+  const onCreateEditor = useMemo(
+    () =>
+      getOnCreateEditor({
+        initialEvent,
+        setRealIsInitialized,
+        divId,
+        value,
+        defaultVal,
+      }),
+    [defaultVal, divId, initialEvent, setRealIsInitialized, value],
+  );
 
   return (
     <CodeMirror

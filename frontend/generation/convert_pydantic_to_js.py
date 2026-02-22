@@ -590,7 +590,7 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
             elif field_info.default_factory is dict:
                 zod_schema = f"{zod_schema}.default({{}})"
             elif field_info.default_factory is list:
-                zod_schema = f"{zod_schema}.default([])"
+                zod_schema = f"{zod_schema}.default(() => [])"
             elif field_info.default_factory is set:
                 zod_schema = f"{zod_schema}.default(new Set())"
             elif (
@@ -680,7 +680,7 @@ def dataclass_to_zod(model: type, processed_types: set):
             elif default_factory is dict:
                 zod_schema = f"{zod_schema}.default({{}})"
             elif default_factory is list:
-                zod_schema = f"{zod_schema}.default([])"
+                zod_schema = f"{zod_schema}.default(() => [])"
             elif default_factory is set:
                 zod_schema = f"{zod_schema}.default(new Set())"
             else:

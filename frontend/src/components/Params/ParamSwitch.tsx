@@ -41,6 +41,7 @@ type ParamSwitchProps = {
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
+  filteredRequiredParamIds: ReadonlySet<string> | null;
   hasSectionStyleTheme: boolean;
 };
 
@@ -126,7 +127,12 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+  const {
+    sectionId,
+    paramInfoId,
+    filteredRequiredParamIds,
+    hasSectionStyleTheme,
+  } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -260,6 +266,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
+      filteredRequiredParamIds={filteredRequiredParamIds}
     >
       {isKwarg ? (
         <ParamNameInput

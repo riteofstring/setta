@@ -30,6 +30,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatDictationMode,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -48,6 +49,7 @@ import {
   SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
+  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -672,11 +674,6 @@ export type ChatDetails = {
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
   llmConfig: LLMConfig | null;
-  contextUsage: {
-    contextWindowTokens: number | null;
-    contextUsedTokens: number | null;
-    estimated: boolean;
-  } | null;
 };
 
 export type ChatBranchInfo = {
@@ -692,14 +689,9 @@ type ZustandAIStore = {
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
-  projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
-  interruptedAssistantMessageIdsByChatId: Record<
-    string,
-    Record<string, true>
-  >;
-  viewThreads: boolean;
+  viewHistory: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -726,8 +718,13 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
+  transcriptionProfiles: Array<TranscriptionProfile>;
+  transcriptionProfilesInitialLoadComplete: boolean;
+  transcriptionProfilesLoadError: string | null;
+  transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
+  projectChatDictationMode: ChatDictationMode;
+  projectChatTranscriptionProfileId: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -740,11 +737,9 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,
-        projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
-        interruptedAssistantMessageIdsByChatId: {},
-        viewThreads: false,
+        viewHistory: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -771,32 +766,21 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
+        transcriptionProfiles: [],
+        transcriptionProfilesInitialLoadComplete: false,
+        transcriptionProfilesLoadError: null,
+        transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
         projectChatDictationMode: "auto",
+        projectChatTranscriptionProfileId: null,
       }),
       {
         name: "setta_ai_data",
-        merge: (persistedState, currentState) => {
-          const persisted =
-            (persistedState as Partial<
-              ZustandAIStore & { viewHistory?: boolean }
-            > | null) ?? {};
-          const merged = {
-            ...currentState,
-            ...persisted,
-          };
-          if (
-            persisted.viewThreads === undefined &&
-            typeof persisted.viewHistory === "boolean"
-          ) {
-            merged.viewThreads = persisted.viewHistory;
-          }
-          return merged;
-        },
         partialize: (state) => ({
-          viewThreads: state.viewThreads,
+          viewHistory: state.viewHistory,
           projectChatDictationMode: state.projectChatDictationMode,
-          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
+          projectChatTranscriptionProfileId:
+            state.projectChatTranscriptionProfileId,
         }),
         storage: getPersistStorage(),
       },
@@ -827,7 +811,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "all",
+        mode: "off",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -904,8 +888,10 @@ type ZustandLocalStorage = {
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -935,19 +921,6 @@ type ZustandLocalStorage = {
     string,
     Array<string>
   >;
-  viewedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
-  projectChatThreadGroupsByProjectConfigId: Record<
-    string,
-    Array<{
-      id: string;
-      name: string;
-      collapsed: boolean;
-    }>
-  >;
-  projectChatThreadAssignmentsByProjectConfigId: Record<
-    string,
-    Record<string, string>
-  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -964,8 +937,10 @@ export const useLocalStorage = createWithEqualityFn(
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: 320,
+      homeSelectedProjectPaneVis: true,
+      homeSelectedProjectPaneWidth: 320,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -989,9 +964,6 @@ export const useLocalStorage = createWithEqualityFn(
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
-      viewedProjectChatThreadIdsByProjectConfigId: {},
-      projectChatThreadGroupsByProjectConfigId: {},
-      projectChatThreadAssignmentsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -1002,6 +974,11 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
+        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
+        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
+        delete (merged as Record<string, unknown>).homeWorkspacePaneTrueWidth;
+        delete (merged as Record<string, unknown>)
+          .homeSelectedProjectPaneTrueWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -1018,37 +995,20 @@ export const useLocalStorage = createWithEqualityFn(
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
         }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
+        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
+          merged.homeWorkspacePaneVis = true;
         }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
+        if (typeof merged.homeWorkspacePaneWidth !== "number") {
+          merged.homeWorkspacePaneWidth = 320;
+        }
+        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
+          merged.homeSelectedProjectPaneVis = true;
+        }
+        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
+          merged.homeSelectedProjectPaneWidth = 320;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
-        }
-        if (
-          !merged.viewedProjectChatThreadIdsByProjectConfigId ||
-          typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.viewedProjectChatThreadIdsByProjectConfigId)
-        ) {
-          merged.viewedProjectChatThreadIdsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadGroupsByProjectConfigId ||
-          typeof merged.projectChatThreadGroupsByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatThreadGroupsByProjectConfigId)
-        ) {
-          merged.projectChatThreadGroupsByProjectConfigId = {};
-        }
-        if (
-          !merged.projectChatThreadAssignmentsByProjectConfigId ||
-          typeof merged.projectChatThreadAssignmentsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
-        ) {
-          merged.projectChatThreadAssignmentsByProjectConfigId = {};
         }
 
         return merged;
