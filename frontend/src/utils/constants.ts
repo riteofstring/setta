@@ -117,7 +117,10 @@ export const UIEditorTabNamePrettified = {
   [UIEditorTabNameEnum.SectionVariantsConfig]: "Version",
 } as const satisfies Record<UIEditorTabName, string>;
 
-function buildRequiredUIEditorTabs(): Record<SectionType, readonly UIEditorTabName[]> {
+function buildRequiredUIEditorTabs(): Record<
+  SectionType,
+  readonly UIEditorTabName[]
+> {
   const sectionTypeValues = Object.values(SectionTypeEnum) as SectionType[];
   const uiEditorTabValues = new Set<string>(Object.values(UIEditorTabNameEnum));
   const requiredTabsBySectionType: Partial<
@@ -125,7 +128,8 @@ function buildRequiredUIEditorTabs(): Record<SectionType, readonly UIEditorTabNa
   > = {};
 
   for (const sectionType of sectionTypeValues) {
-    const rawRequiredTabs = requiredUIEditorTabsBySectionTypePayload[sectionType];
+    const rawRequiredTabs =
+      requiredUIEditorTabsBySectionTypePayload[sectionType];
     if (!Array.isArray(rawRequiredTabs)) {
       throw new Error(
         `Missing required UI editor tabs compatibility entry for section type ${sectionType}.`,
@@ -133,7 +137,10 @@ function buildRequiredUIEditorTabs(): Record<SectionType, readonly UIEditorTabNa
     }
     const requiredTabs: UIEditorTabName[] = [];
     for (const rawTabName of rawRequiredTabs) {
-      if (typeof rawTabName !== "string" || !uiEditorTabValues.has(rawTabName)) {
+      if (
+        typeof rawTabName !== "string" ||
+        !uiEditorTabValues.has(rawTabName)
+      ) {
         throw new Error(
           `Invalid UI editor tab compatibility entry for ${sectionType}: ${String(rawTabName)}`,
         );
@@ -143,7 +150,10 @@ function buildRequiredUIEditorTabs(): Record<SectionType, readonly UIEditorTabNa
     requiredTabsBySectionType[sectionType] = requiredTabs;
   }
 
-  return requiredTabsBySectionType as Record<SectionType, readonly UIEditorTabName[]>;
+  return requiredTabsBySectionType as Record<
+    SectionType,
+    readonly UIEditorTabName[]
+  >;
 }
 
 export const REQUIRED_UI_EDITOR_TABS = buildRequiredUIEditorTabs();

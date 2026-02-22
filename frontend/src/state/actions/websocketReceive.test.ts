@@ -307,11 +307,11 @@ describe("openWebSocket", () => {
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
-        data: JSON.stringify({
-          id: "msg-affinity-identity",
-          messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-          content: { websocketId: "frontend-handshake" },
-        }),
+      data: JSON.stringify({
+        id: "msg-affinity-identity",
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        content: { websocketId: "frontend-handshake" },
+      }),
     });
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
 
@@ -345,11 +345,11 @@ describe("openWebSocket", () => {
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
     await firstSocket.emit("message", {
-        data: JSON.stringify({
-          id: "msg-first-identity",
-          messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-          content: { websocketId: "frontend-first" },
-        }),
+      data: JSON.stringify({
+        id: "msg-first-identity",
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        content: { websocketId: "frontend-first" },
+      }),
     });
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
 
@@ -361,11 +361,11 @@ describe("openWebSocket", () => {
     expect(getFrontendWebsocketAffinityId()).toBeNull();
 
     await firstSocket.emit("message", {
-        data: JSON.stringify({
-          id: "msg-stale-identity",
-          messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-          content: { websocketId: "frontend-stale" },
-        }),
+      data: JSON.stringify({
+        id: "msg-stale-identity",
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        content: { websocketId: "frontend-stale" },
+      }),
     });
     expect(getFrontendWebsocketAffinityId()).toBeNull();
 
@@ -394,11 +394,11 @@ describe("openWebSocket", () => {
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
     await firstSocket.emit("message", {
-        data: JSON.stringify({
-          id: "msg-first-identity",
-          messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-          content: { websocketId: "frontend-first" },
-        }),
+      data: JSON.stringify({
+        id: "msg-first-identity",
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        content: { websocketId: "frontend-first" },
+      }),
     });
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
 
