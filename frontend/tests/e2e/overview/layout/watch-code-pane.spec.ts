@@ -24,15 +24,6 @@ test("watch code pane has right padding and visible toggle button", async ({
     name: /Enable Watch Code|Disable Watch Code/,
   });
   await expect(toggleButton).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.watch_code.enabled"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.watch_code.folders"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.watch_code.files"]'),
-  ).toBeVisible();
 
   const [paneBox, buttonBox] = await Promise.all([
     paneRoot.boundingBox(),

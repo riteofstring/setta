@@ -21,7 +21,6 @@ def set_agentic_context(
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
-    frontendWebsocketId: str | None = None,
     allowUnscoped: bool = False,
     ctx: Context,
 ) -> dict[str, Any]:
@@ -32,7 +31,6 @@ def set_agentic_context(
         projectConfigId: Active project config id.
         chatId: Chat id for the agent run.
         sectionId: Chat section id (required unless allowUnscoped=true).
-        frontendWebsocketId: Frontend websocket id for reveal routing affinity.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
     """
     if sectionId is None and not allowUnscoped:
@@ -45,12 +43,6 @@ def set_agentic_context(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
-            frontend_websocket_id=(
-                frontendWebsocketId.strip()
-                if isinstance(frontendWebsocketId, str)
-                and frontendWebsocketId.strip() != ""
-                else None
-            ),
             allow_unscoped=allowUnscoped,
         ),
     )

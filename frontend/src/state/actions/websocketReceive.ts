@@ -8,12 +8,6 @@ import {
   addTemporaryNotification,
 } from "state/actions/notifications";
 import {
-  buildFrontendAffinityCurrentAddress,
-  clearFrontendWebsocketAffinity,
-  setFrontendWebsocketAffinityId,
-  updateFrontendWebsocketAffinity,
-} from "state/actions/frontendWebsocketAffinity";
-import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
   setWebsocketConnections,
@@ -46,14 +40,12 @@ import {
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
-  UISettingRevealContent,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
-  WebsocketMsgUISettingRevealResult,
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
@@ -95,9 +87,8 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
-import { receiveUISettingReveal } from "./uiSettingReveal";
 
-let wss: WebSocket | null = null;
+let wss: WebSocket | null;
 let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
@@ -110,7 +101,6 @@ const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
-const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
@@ -148,14 +138,6 @@ export const openWebSocket = _.debounce(
         )}`
       : `${C_ADDRESSES.WEBSOCKET}${route}`;
     if (
-      wssReady(wss) &&
-      currentRoute === route &&
-      currentShareSessionId === shareSessionId
-    ) {
-      sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
-      return;
-    }
-    if (
       wss &&
       (currentRoute !== route || currentShareSessionId !== shareSessionId)
     ) {
@@ -168,7 +150,7 @@ export const openWebSocket = _.debounce(
       currentShareSessionId = shareSessionId;
       currentRoute = route;
       wss.addEventListener("open", async () => {
-        sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
+        sendCurrentAddress(pathname);
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
           createWebsocketConnectionInfo({
@@ -232,7 +214,6 @@ export const openWebSocket = _.debounce(
         ) {
           wasOpen = false;
           clearAllWebsocketConnections();
-          clearFrontendWebsocketAffinity();
           if (!shareSessionIdForSocket) {
             return;
           }
@@ -243,7 +224,6 @@ export const openWebSocket = _.debounce(
           authLost = true;
           wasOpen = false;
           clearAllWebsocketConnections();
-          clearFrontendWebsocketAffinity();
           addTemporaryNotification(
             `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
@@ -255,7 +235,6 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
         }
         clearAllWebsocketConnections();
-        clearFrontendWebsocketAffinity();
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -329,7 +308,7 @@ function startShareHeartbeat() {
     if (!currentAddress) {
       return;
     }
-    sendCurrentAddress(buildFrontendAffinityCurrentAddress(currentAddress));
+    sendCurrentAddress(currentAddress);
   }, SHARE_HEARTBEAT_INTERVAL_MS);
 }
 
@@ -451,23 +430,10 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string) {
-  const parsedMessage: unknown = JSON.parse(message);
-  if (isFrontendIdentityMessage(parsedMessage)) {
-    setFrontendWebsocketAffinityId(parsedMessage.content.websocketId);
-    return;
-  }
-  const m: FrontendWebsocketMsgUnion = parsedMessage as FrontendWebsocketMsgUnion;
+  const m: FrontendWebsocketMsgUnion = JSON.parse(message);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
-      setWebsocketConnections(m.content);
-      updateFrontendWebsocketAffinity({
-        connections: m.content,
-        currentAddress: lastPathname
-          ? buildFrontendAffinityCurrentAddress(lastPathname)
-          : null,
-        shareSessionId: currentShareSessionId,
-      });
-      return;
+      return setWebsocketConnections(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
@@ -504,9 +470,6 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
-      void handleUISettingRevealMessage(m.content);
-      return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
@@ -520,280 +483,6 @@ function receiveMessage(message: string) {
     default:
       return m satisfies never;
   }
-}
-
-type FrontendIdentityMessage = {
-  messageType: typeof FRONTEND_IDENTITY_MESSAGE_TYPE;
-  content: {
-    websocketId: string;
-  };
-};
-
-function isFrontendIdentityMessage(
-  message: unknown,
-): message is FrontendIdentityMessage {
-  if (!isRecord(message)) {
-    return false;
-  }
-  if (message.messageType !== FRONTEND_IDENTITY_MESSAGE_TYPE) {
-    return false;
-  }
-  if (!isRecord(message.content)) {
-    return false;
-  }
-  return (
-    typeof message.content.websocketId === "string" &&
-    message.content.websocketId.trim() !== ""
-  );
-}
-
-async function handleUISettingRevealMessage(content: unknown): Promise<void> {
-  const fallbackProjectConfigId = getCurrProjectConfigId();
-  const projectConfigId = resolveRevealProjectConfigId(
-    content,
-    fallbackProjectConfigId,
-  );
-  const requestId = resolveRevealRequestId(content);
-  let statuses: Array<{
-    settingId: string;
-    status: "revealed" | "failed";
-    errorCode: string | null;
-    errorMessage: string | null;
-  }> = [];
-  if (!isValidUISettingRevealContent(content)) {
-    statuses = buildMalformedRevealStatuses(
-      content,
-      "Invalid UISettingReveal payload.",
-    );
-    sendUISettingRevealResult({
-      projectConfigId,
-      requestId,
-      statuses,
-    });
-    return;
-  }
-  try {
-    const revealStatuses = await receiveUISettingReveal(content);
-    statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
-  } catch (error) {
-    const rawMessage =
-      error instanceof Error && error.message.trim() !== ""
-        ? error.message
-        : String(error);
-    const normalizedMessage = `Failed to process UI setting reveal: ${rawMessage}`;
-    statuses = content.reveals.map((target) => ({
-      settingId: target.settingId,
-      status: "failed",
-      errorCode: "mutation_failed",
-      errorMessage: normalizedMessage,
-    }));
-  }
-  sendUISettingRevealResult({
-    projectConfigId: content.projectConfigId,
-    requestId: content.requestId,
-    statuses,
-  });
-}
-
-function sendUISettingRevealResult({
-  projectConfigId,
-  requestId,
-  statuses,
-}: {
-  projectConfigId: string;
-  requestId: string;
-  statuses: Array<{
-    settingId: string;
-    status: "revealed" | "failed";
-    errorCode: string | null;
-    errorMessage: string | null;
-  }>;
-}): void {
-  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
-    content: {
-      projectConfigId,
-      requestId,
-      statuses,
-    },
-  };
-  sendMessage(revealResultMessage);
-}
-
-function resolveRevealProjectConfigId(
-  content: unknown,
-  fallbackProjectConfigId: string,
-): string {
-  const fallbackNormalizedId =
-    typeof fallbackProjectConfigId === "string" &&
-    fallbackProjectConfigId.trim() !== ""
-      ? fallbackProjectConfigId
-      : NULL_PROJECT_CONFIG_ID;
-  if (!isRecord(content)) {
-    return fallbackNormalizedId;
-  }
-  const candidateProjectConfigId = content.projectConfigId;
-  if (
-    typeof candidateProjectConfigId === "string" &&
-    candidateProjectConfigId.trim() !== ""
-  ) {
-    return candidateProjectConfigId;
-  }
-  return fallbackNormalizedId;
-}
-
-function resolveRevealRequestId(content: unknown): string {
-  if (isRecord(content)) {
-    const candidateRequestId = content.requestId;
-    if (
-      typeof candidateRequestId === "string" &&
-      candidateRequestId.trim() !== ""
-    ) {
-      return candidateRequestId;
-    }
-  }
-  return createNewId();
-}
-
-function buildMalformedRevealStatuses(
-  content: unknown,
-  errorMessage: string,
-): Array<{
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode: string | null;
-  errorMessage: string | null;
-}> {
-  const settingIds = extractRevealSettingIds(content);
-  return settingIds.map((settingId) => ({
-    settingId,
-    status: "failed",
-    errorCode: "mutation_failed",
-    errorMessage,
-  }));
-}
-
-function extractRevealSettingIds(content: unknown): string[] {
-  if (!isRecord(content)) {
-    return [];
-  }
-  if (!Array.isArray(content.reveals)) {
-    return [];
-  }
-  const ids: string[] = [];
-  for (const reveal of content.reveals) {
-    if (!isRecord(reveal)) {
-      continue;
-    }
-    if (
-      typeof reveal.settingId !== "string" ||
-      reveal.settingId.trim() === ""
-    ) {
-      continue;
-    }
-    ids.push(reveal.settingId);
-  }
-  return ids;
-}
-
-function isValidUISettingRevealContent(
-  content: unknown,
-): content is UISettingRevealContent {
-  if (!isRecord(content)) {
-    return false;
-  }
-  if (
-    typeof content.projectConfigId !== "string" ||
-    content.projectConfigId.trim() === ""
-  ) {
-    return false;
-  }
-  if (
-    typeof content.requestId !== "string" ||
-    content.requestId.trim() === ""
-  ) {
-    return false;
-  }
-  if (content.chatId !== null && typeof content.chatId !== "string") {
-    return false;
-  }
-  if (!Number.isFinite(content.durationMs)) {
-    return false;
-  }
-  if (!Array.isArray(content.reveals)) {
-    return false;
-  }
-  return content.reveals.every((reveal) =>
-    isValidUISettingRevealTarget(reveal),
-  );
-}
-
-function isValidUISettingRevealTarget(reveal: unknown): boolean {
-  if (!isRecord(reveal)) {
-    return false;
-  }
-  if (typeof reveal.settingId !== "string" || reveal.settingId.trim() === "") {
-    return false;
-  }
-  if (reveal.side !== "left" && reveal.side !== "right") {
-    return false;
-  }
-  if (
-    reveal.overviewTabKey !== null &&
-    typeof reveal.overviewTabKey !== "string"
-  ) {
-    return false;
-  }
-  if (
-    reveal.uiEditorTabName !== null &&
-    typeof reveal.uiEditorTabName !== "string"
-  ) {
-    return false;
-  }
-  if (reveal.pluginId !== null && typeof reveal.pluginId !== "string") {
-    return false;
-  }
-  if (reveal.paneId !== null && typeof reveal.paneId !== "string") {
-    return false;
-  }
-  if (
-    reveal.strategy !== "dom_anchor" &&
-    reveal.strategy !== "plugin_handler"
-  ) {
-    return false;
-  }
-  if (reveal.anchorId !== null && typeof reveal.anchorId !== "string") {
-    return false;
-  }
-  if (
-    reveal.pluginRevealKey !== null &&
-    typeof reveal.pluginRevealKey !== "string"
-  ) {
-    return false;
-  }
-  if (!Array.isArray(reveal.revealActivationSteps)) {
-    return false;
-  }
-  for (const step of reveal.revealActivationSteps) {
-    if (!isRecord(step)) {
-      return false;
-    }
-    if (
-      step.type !== "project_ai_settings_accordion_item" &&
-      step.type !== "run_instructions_accordion_item"
-    ) {
-      return false;
-    }
-    if (typeof step.itemValue !== "string") {
-      return false;
-    }
-  }
-  return true;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function sendCurrentAddress(currentAddress: string) {

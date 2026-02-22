@@ -66,5 +66,5 @@ class DotEnvWatcher:
 
         self.agent_runner.update_api_keys(env_vars)
         await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.agent_runner.api_keys
+            self.agent_runner.raw_env_vars
         )

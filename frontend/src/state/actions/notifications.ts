@@ -57,18 +57,67 @@ export function addNotificationFromWebsocketMsg(
   addNotification(notification);
 }
 
-export const addTemporaryNotification = (
-  message: string,
-  type: SettaNotificationType = SettaNotificationTypeEnum.info,
-) => {
-  const notification = createSettaNotification({
-    projectConfigId: getCurrProjectConfigId(),
+function createClientNotification({
+  projectConfigId,
+  message,
+  type,
+  temporary,
+}: {
+  projectConfigId: string;
+  message: string;
+  type: SettaNotificationType;
+  temporary: boolean;
+}): SettaNotification {
+  return createSettaNotification({
+    projectConfigId,
     timestamp: new Date().toISOString(),
     type,
     message,
     read_status: false,
-    temporary: true,
+    temporary,
     metadata: {},
+  });
+}
+
+export const addTemporaryNotification = (
+  message: string,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
+) => {
+  const projectConfigId = getCurrProjectConfigId();
+  const notification = createClientNotification({
+    projectConfigId,
+    message,
+    type,
+    temporary: true,
+  });
+
+  addNotification(notification);
+  return notification.id;
+};
+
+export const addPersistentNotification = (
+  message: string,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
+) => {
+  const projectConfigId = getCurrProjectConfigId();
+  const existing = useNotifications
+    .getState()
+    .notifications.find(
+      (notification) =>
+        !notification.temporary &&
+        notification.projectConfigId === projectConfigId &&
+        notification.message === message &&
+        notification.type === type,
+    );
+  if (existing) {
+    return existing.id;
+  }
+
+  const notification = createClientNotification({
+    projectConfigId,
+    message,
+    type,
+    temporary: false,
   });
 
   addNotification(notification);
