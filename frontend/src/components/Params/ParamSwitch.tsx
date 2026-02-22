@@ -41,7 +41,6 @@ type ParamSwitchProps = {
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
-  filteredRequiredParamIds: ReadonlySet<string> | null;
   hasSectionStyleTheme: boolean;
 };
 
@@ -127,12 +126,7 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const {
-    sectionId,
-    paramInfoId,
-    filteredRequiredParamIds,
-    hasSectionStyleTheme,
-  } = props;
+  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -237,16 +231,16 @@ function RealParamSwitch(props: ParamSwitchProps) {
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
   const bg = paramIsSelected
-    ? `rounded-sm ${selectedBgClassName}`
-    : "rounded-sm";
+    ? `transition-colors rounded-sm ${selectedBgClassName}`
+    : "transition-colors rounded-sm";
 
   let border = "";
   if (hasError) {
-    border = "bg-red-200 dark:bg-red-900";
+    border = "bg-red-200 dark:bg-red-800/30";
   } else if (isFocusedSearchResult) {
-    border = "outline outline-2 outline-green-500 dark:outline-green-500";
+    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
   } else if (isSearchResult) {
-    border = "outline outline-2 outline-blue-500 dark:outline-cyan-300";
+    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
   return (
@@ -266,7 +260,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
-      filteredRequiredParamIds={filteredRequiredParamIds}
     >
       {isKwarg ? (
         <ParamNameInput

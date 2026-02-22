@@ -87,7 +87,7 @@ type PluginCodegenRegistration = {
 const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
 const TOGGLE_THUMB_CLASSES =
-  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-transform data-[state='checked']:translate-x-4 flex";
+  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 const TOGGLE_LABEL_CLASSES = "text-[10px] text-setta-500 dark:text-setta-400";
 const PANEL_CARD_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 p-2 text-xs dark:bg-setta-900/40";
@@ -1213,7 +1213,10 @@ export function RunInstructions() {
                   Enable generated code sections for this project.
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-1">
+              <div
+                className="ml-auto flex items-center gap-1"
+                data-setting-anchor="core.run_instructions.python_codegen_enabled"
+              >
                 <span className={TOGGLE_LABEL_CLASSES}>Python</span>
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}

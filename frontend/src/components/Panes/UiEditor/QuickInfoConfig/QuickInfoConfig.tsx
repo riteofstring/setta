@@ -51,7 +51,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
   const toggleRootClasses =
     "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
   const toggleThumbClasses =
-    "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-transform data-[state='checked']:translate-x-4 flex";
+    "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
   function onToggleDisplayNames(checked: boolean) {
     if (!canEditLayout) {
@@ -72,7 +72,10 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-      <aside className="mb-2 flex items-center justify-between">
+      <aside
+        className="mb-2 flex items-center justify-between"
+        data-setting-anchor="core.project.show_param_display_names"
+      >
         <p className="text-xs text-setta-500">Show display names</p>
         <Switch.Root
           className={toggleRootClasses}

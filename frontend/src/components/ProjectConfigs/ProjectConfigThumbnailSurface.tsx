@@ -8,19 +8,15 @@ export function ProjectConfigThumbnailSurface({
   className = "",
   overlay,
   previewContainerProps,
-  scalePreview = true,
 }: {
   previewImgColor: string;
   topLevelSections: ProjectConfig["topLevelSections"];
   className?: string;
   overlay?: ReactNode;
   previewContainerProps?: HTMLAttributes<HTMLDivElement>;
-  scalePreview?: boolean;
 }) {
-  const previewScaleClassName = scalePreview ? "[&>*]:scale-150" : "";
   const previewContainerClassName = [
-    "col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply",
-    previewScaleClassName,
+    "col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150",
     previewContainerProps?.className ?? "",
   ]
     .join(" ")

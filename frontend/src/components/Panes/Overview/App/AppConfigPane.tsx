@@ -67,7 +67,7 @@ const DEFAULT_THEME_MODE: AppThemeMode = "auto";
 const STREAMING_TOGGLE_ROOT_CLASSES =
   "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
 const STREAMING_TOGGLE_THUMB_CLASSES =
-  "block h-2.5 w-2.5 rounded-full transition-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
+  "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -1537,7 +1537,10 @@ export function AppConfigPane() {
       )}
 
       <div className="grid gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.catalog_id"
+        >
           Catalog ID
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1545,7 +1548,10 @@ export function AppConfigPane() {
             onChange={(event) => setCatalogId(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.spec_version"
+        >
           Spec version
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1553,7 +1559,10 @@ export function AppConfigPane() {
             onChange={(event) => setSpecVersion(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.theme_mode"
+        >
           Theme mode
           <select
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1571,7 +1580,10 @@ export function AppConfigPane() {
             republish.
           </span>
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.spec_path"
+        >
           Spec path
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"

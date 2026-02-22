@@ -26,7 +26,7 @@ export function SwitchInput({
     rootThemeClassName ??
     "bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
   const thumbBaseClassName =
-    "block h-2.5 w-2.5 rounded-full transition-transform data-[state='checked']:translate-x-4";
+    "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4";
   const thumbResolvedThemeClassName =
     thumbThemeClassName ?? "bg-white dark:bg-setta-800";
   return (

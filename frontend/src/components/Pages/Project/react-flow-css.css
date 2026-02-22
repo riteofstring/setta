@@ -43,18 +43,3 @@ html.dark .react-flow__minimap {
   pointer-events: auto;
   overflow: visible;
 }
-
-.react-flow .react-flow__node i[class^="gg-"],
-.react-flow .react-flow__node i[class*=" gg-"],
-.react-flow .react-flow__node svg {
-  opacity: 0 !important;
-}
-
-.react-flow .react-flow__node:hover i[class^="gg-"],
-.react-flow .react-flow__node:hover i[class*=" gg-"],
-.react-flow .react-flow__node:hover svg,
-.react-flow .react-flow__node:focus-within i[class^="gg-"],
-.react-flow .react-flow__node:focus-within i[class*=" gg-"],
-.react-flow .react-flow__node:focus-within svg {
-  opacity: 1 !important;
-}

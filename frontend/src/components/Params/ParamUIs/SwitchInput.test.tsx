@@ -11,8 +11,6 @@ describe("SwitchInput theme overrides", () => {
     expect(markup).toContain("bg-setta-400");
     expect(markup).toContain("data-[state=&#x27;checked&#x27;]:bg-blue-500");
     expect(markup).toContain("bg-white");
-    expect(markup).toContain("transition-transform");
-    expect(markup).not.toContain("will-change-transform");
   });
 
   it("uses override theme classes and does not include defaults", () => {

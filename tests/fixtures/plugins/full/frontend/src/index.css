@@ -1,3 +1,7 @@
 [data-setta-plugin-root="setta-fixture-full"] {
   --fixture-full-color: #1d4ed8;
 }
+
+[data-setta-plugin-root="setta-fixture-full"] .setta-fixture-full-reveal {
+  outline: 2px solid var(--fixture-full-color);
+}

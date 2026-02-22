@@ -5,6 +5,10 @@ import { route_set_llm_api_keys } from "utils/generatedEndpoints";
 import { AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
+function buildLLMApiKeySettingId(apiKeyEnv: string): string {
+  return `core.project_ai.llm_api_keys.${apiKeyEnv}`;
+}
+
 type IsolatedInputProps = {
   apiKeyName: string;
 };
@@ -66,6 +70,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
         apiKeyEntries.map((entry) => (
           <div
             key={entry.envKey}
+            data-setting-anchor={buildLLMApiKeySettingId(entry.envKey)}
             className="mr-0.5 flex flex-col gap-2 rounded-lg p-3 text-xs transition-colors hover:bg-white/50 hover:dark:bg-setta-800/50"
           >
             <p className="text-base font-bold">{entry.envKey}</p>
