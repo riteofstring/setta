@@ -12,7 +12,7 @@ Options:
   --package SPEC      Package spec passed to uv tool install (default: setta)
   --channel NAME      Launcher setup channel (default: uv-tool-script)
   --open-mode MODE    Launcher open mode: browser | chrome-app
-                      Default: browser
+                      Default: chrome-app
   --setta-home PATH   Optional Setta home override forwarded to launcher setup
   -h, --help          Show this help message.
 EOF
@@ -20,7 +20,7 @@ EOF
 
 package_spec="setta"
 channel="uv-tool-script"
-open_mode="browser"
+open_mode="chrome-app"
 setta_home=""
 
 while [[ $# -gt 0 ]]; do

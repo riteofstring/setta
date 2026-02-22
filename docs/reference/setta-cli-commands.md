@@ -441,10 +441,11 @@ Workspace resolution order:
 
 Run options:
 - `--workspace PATH` chooses the workspace.
-- `--open-mode {browser,chrome-app}` overrides launcher open mode.
+- `--open-mode {browser,chrome-app}` overrides launcher open mode (default: `chrome-app`).
 - `--no-open` skips auto-open.
 - `--timeout SECONDS` launch timeout (default: `30`).
 - `--json` emits machine-readable payload and never auto-opens.
+- `chrome-app` falls back to browser mode automatically when app-mode launch is unavailable.
 
 Success JSON includes:
 - `ok`, `bootstrapUrl`, `workspaceRoot`, `sessionId`
@@ -467,7 +468,7 @@ This is primarily installer-facing (scripts/package-manager hooks).
 
 Options:
 - `--channel NAME` install channel label (default: `manual`)
-- `--open-mode {browser,chrome-app}` default launcher mode
+- `--open-mode {browser,chrome-app}` default launcher mode (default: `chrome-app`)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--managed-artifact NAME=PATH` records artifact paths to remove during uninstall
 - `--json` emits machine-readable payload

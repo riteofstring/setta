@@ -7,7 +7,7 @@ param(
   [string]$DesktopShortcutPath = "",
   [string]$Channel = "windows-script",
   [ValidateSet("browser", "chrome-app")]
-  [string]$OpenMode = "browser",
+  [string]$OpenMode = "chrome-app",
   [switch]$DesktopShortcut
 )
 

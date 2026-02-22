@@ -19,7 +19,7 @@ Options:
   --app-name NAME            Desktop entry Name value (default: Setta)
   --icon-path PATH           Optional icon path written to desktop entry
   --channel NAME             Launcher setup channel (default: linux-script)
-  --open-mode MODE           Launcher open mode: browser | chrome-app (default: browser)
+  --open-mode MODE           Launcher open mode: browser | chrome-app (default: chrome-app)
   -h, --help                 Show this help message.
 USAGE
 }
@@ -62,7 +62,7 @@ desktop_shortcut_path=""
 app_name="Setta"
 icon_path=""
 channel="linux-script"
-open_mode="browser"
+open_mode="chrome-app"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

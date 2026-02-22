@@ -57,6 +57,20 @@ def test_setup_launcher_installation_merges_managed_artifacts(tmp_path: Path) ->
     }
 
 
+def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel="manual",
+        open_mode=None,
+        workspace_behavior=None,
+        install_artifacts=False,
+    )
+
+    assert setup_result.metadata.openMode == "chrome-app"
+
+
 def test_repair_launcher_installation_rebinds_missing_target(tmp_path: Path) -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     missing_target = tmp_path / "missing-python"

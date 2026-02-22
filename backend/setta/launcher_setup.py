@@ -274,7 +274,7 @@ def setup_launcher_installation(
     elif existing_metadata is not None:
         resolved_open_mode = existing_metadata.openMode
     else:
-        resolved_open_mode = "browser"
+        resolved_open_mode = "chrome-app"
 
     resolved_workspace_behavior: LauncherWorkspaceBehavior
     if workspace_behavior is not None:

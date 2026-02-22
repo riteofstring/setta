@@ -78,6 +78,7 @@ def test_launcher_json_uses_home_fallback_workspace_and_requests_switcher(
     payload = json.loads(result.output)
     assert payload["ok"] is True
     assert payload["openWorkspaceSwitcher"] is True
+    assert payload["openMode"] == "chrome-app"
     assert payload["bootstrapUrl"].endswith("#token=tok&osw=1")
 
     expected_workspace = Path.home().resolve(strict=False)

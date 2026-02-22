@@ -21,10 +21,10 @@ This guide is for end users who want Setta Desktop without cloning this reposito
 
 ## Optional Launcher Mode
 
-- Browser mode (default):
+- Chrome app mode (default):
   - `setta launcher`
-- Chrome app mode:
-  - `setta launcher setup --open-mode chrome-app`
+- Browser mode:
+  - `setta launcher setup --open-mode browser`
   - `setta launcher`
 
 ## Remove Desktop Launcher

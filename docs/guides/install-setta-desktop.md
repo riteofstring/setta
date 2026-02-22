@@ -23,6 +23,7 @@ The bootstrap chain is:
 2. Run `uv tool install --upgrade setta`.
 3. Resolve the explicit `setta` executable path.
 4. Run `setta launcher setup`.
+5. Default launcher mode is `chrome-app` (with automatic browser fallback when unavailable).
 
 ## Quickstarts
 
@@ -37,7 +38,7 @@ The bootstrap chain is:
 | Missing launcher target | Desktop app opens an error saying Setta cannot start | Run `setta launcher repair`, then retry launch |
 | Stale shortcut/app bundle | Launcher opens an old path or wrong environment | Run `setta launcher setup` again |
 | Permission errors | Installer script cannot write app/shortcut files | Re-run with proper permissions for your user paths |
-| Browser opens instead of app mode | Chrome-app mode was requested but browser opens | Install Chrome, or use `--open-mode browser` |
+| Browser opens instead of app mode | Launcher is configured for Chrome app mode but browser still opens | Install Chrome, or use `--open-mode browser` |
 | Launcher metadata missing | `setta launcher status` shows `installed=false` | Run the bootstrap installer again |
 
 ## Native Installer Notes

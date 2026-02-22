@@ -3,7 +3,7 @@ param(
   [string]$Package = "setta",
   [string]$Channel = "uv-tool-script",
   [ValidateSet("browser", "chrome-app")]
-  [string]$OpenMode = "browser",
+  [string]$OpenMode = "chrome-app",
   [string]$SettaHome = ""
 )
 

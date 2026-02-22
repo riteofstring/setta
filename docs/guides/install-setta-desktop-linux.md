@@ -14,14 +14,14 @@ This guide is for end users who want Setta Desktop without cloning this reposito
 ## Optional Desktop Shortcut Setup
 
 If your distro needs explicit launcher setup, run:
-- `setta launcher setup --channel linux-script --open-mode browser`
+- `setta launcher setup --channel linux-script --open-mode chrome-app`
 
 ## Optional Launcher Mode
 
-- Browser mode (default):
+- Chrome app mode (default):
   - `setta launcher`
-- Chrome app mode:
-  - `setta launcher setup --open-mode chrome-app`
+- Browser mode:
+  - `setta launcher setup --open-mode browser`
   - `setta launcher`
 
 ## Remove Desktop Launcher

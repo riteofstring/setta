@@ -14,7 +14,7 @@ Options:
   --app-path PATH    App bundle destination (default: ~/Applications/Setta.app)
   --icon-path PATH   Optional .icns icon copied into Setta.app resources
   --channel NAME     Launcher setup channel (default: macos-script)
-  --open-mode MODE   Launcher open mode: browser | chrome-app (default: browser)
+  --open-mode MODE   Launcher open mode: browser | chrome-app (default: chrome-app)
   -h, --help         Show this help message.
 USAGE
 }
@@ -43,7 +43,7 @@ setta_home=""
 app_path="${HOME}/Applications/Setta.app"
 icon_path=""
 channel="macos-script"
-open_mode="browser"
+open_mode="chrome-app"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

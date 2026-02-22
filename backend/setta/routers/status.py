@@ -93,7 +93,7 @@ class LauncherRequestBase(BaseModel):
 
 class SetupLauncherRequest(LauncherRequestBase):
     channel: str = "manual"
-    openMode: LauncherOpenMode = "browser"
+    openMode: LauncherOpenMode = "chrome-app"
     workspaceBehavior: Literal["last-used-or-prompt", "always-prompt"] | None = None
     installArtifacts: bool = True
     artifactOptions: dict[str, str] = Field(default_factory=dict)
