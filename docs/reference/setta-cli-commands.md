@@ -38,6 +38,7 @@ another host.
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
 | `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
+| `setta launcher` | yes | no | Desktop-launch entrypoint with installer metadata + workspace picker fallback. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -404,6 +405,118 @@ Error payload:
   "error": { "code": "InvalidWorkspace", "message": "..." }
 }
 ```
+
+## `setta launcher`
+
+Desktop-launch entrypoint for OS launchers (`Setta.app`, desktop shortcuts).
+It can run directly (`setta launcher`) or manage launcher metadata via
+subcommands (`setta launcher setup|status|repair|remove|update`).
+
+Desktop distribution defaults:
+- Recommended global install path: `uv tool install setta`
+- Upgrade path: `uv tool upgrade setta`
+- Uninstall path: `uv tool uninstall setta`
+- Convenience installer entrypoints:
+  - macOS/Linux shell: `./scripts/install_desktop_launcher.sh`
+  - Windows PowerShell: `./scripts/install_desktop_launcher.ps1`
+- OS launcher artifact scripts:
+  - macOS app bundle: `./scripts/install_macos_launcher.sh` / `./scripts/uninstall_macos_launcher.sh`
+  - Windows shortcuts: `./scripts/install_windows_launcher.ps1` / `./scripts/uninstall_windows_launcher.ps1`
+  - Linux desktop entry: `./scripts/install_linux_launcher.sh` / `./scripts/uninstall_linux_launcher.sh`
+- macOS icon support: `./scripts/install_macos_launcher.sh --icon-path /path/to/Setta.icns`
+
+Advanced `pip install` path remains supported.
+When binding launcher metadata from a specific virtual environment, invoke
+that environment's `setta` executable explicitly (for example
+`/path/to/venv/bin/setta launcher setup --channel pip-venv`).
+
+### `setta launcher` (run)
+
+Starts or reuses a Setta session and optionally opens it.
+
+Workspace resolution order:
+- Explicit `--workspace`
+- Saved launcher `lastUsedWorkspace`
+- Fallback launcher runtime context at the user's home directory (and requests workspace switcher UI)
+
+Run options:
+- `--workspace PATH` chooses the workspace.
+- `--open-mode {browser,chrome-app}` overrides launcher open mode (default: `chrome-app`).
+- `--no-open` skips auto-open.
+- `--timeout SECONDS` launch timeout (default: `30`).
+- `--json` emits machine-readable payload and never auto-opens.
+- `chrome-app` falls back to browser mode automatically when app-mode launch is unavailable.
+
+Success JSON includes:
+- `ok`, `bootstrapUrl`, `workspaceRoot`, `sessionId`
+- `startedNew`, `reusedSession`
+- `openMode`, `workspaceBehavior`, `openWorkspaceSwitcher`
+
+Error JSON includes:
+- `ok: false`
+- `error.code` and `error.message`
+
+Exit codes:
+- `0` success
+- `2` user-fixable/configuration errors
+- `1` unexpected/internal errors
+
+### `setta launcher setup`
+
+Writes launcher metadata under `<setta_home>/launcher/launcher-install.json`.
+This is primarily installer-facing (scripts/package-manager hooks).
+
+Options:
+- `--channel NAME` install channel label (default: `manual`)
+- `--open-mode {browser,chrome-app}` default launcher mode (default: `chrome-app`)
+- `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
+- `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
+- `--no-install-artifacts` updates launcher metadata only, without writing platform artifacts
+- `--json` emits machine-readable payload
+
+The metadata stores:
+- schema version
+- explicit launcher target command
+- channel + Setta version
+- open mode + workspace behavior
+- last used workspace
+- canonical artifact options
+- managed artifact paths
+
+### `setta launcher status`
+
+Reports launcher metadata and health:
+- installation state
+- target command validity
+- managed artifacts present/missing
+- update capability (`in_app`, `installer_managed`, `unsupported`)
+
+Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher repair`
+
+Rebinds launcher metadata to the current Setta target and preserves launcher
+preferences (`openMode`, `workspaceBehavior`, `lastUsedWorkspace`).
+
+Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher remove`
+
+Removes launcher metadata and managed artifacts registered in the metadata file.
+
+Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher update`
+
+Performs an in-app Setta upgrade for supported channels (`uv`-managed installs),
+then re-runs launcher setup against the upgraded executable.
+
+Options:
+- `--package SPEC` package spec passed to `uv tool install --upgrade` (default: `setta`)
+- `--json` emits machine-readable payload
 
 ## `setta tools`
 

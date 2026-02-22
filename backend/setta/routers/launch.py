@@ -1,17 +1,26 @@
 import os
 from typing import Literal
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from pydantic import BaseModel
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.launch import LaunchError, launch_workspace_session
+from setta.launcher_metadata import (
+    LauncherMetadataError,
+    update_launcher_last_used_workspace_if_installed,
+)
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.env_vars import PROFILE_ENV
+from setta.utils.launcher_origin_handoff import (
+    append_launcher_origin_handoff_to_bootstrap_url,
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths
 
@@ -63,7 +72,15 @@ class LaunchResponse(BaseModel):
 
 
 @router.post(Route.LAUNCH)
-def route_launch(x: LaunchRequest) -> LaunchResponse:
+def route_launch(
+    x: LaunchRequest,
+    request: Request = None,  # type: ignore[assignment]
+) -> LaunchResponse:
+    request_origin: str | None = None
+    if request is not None:
+        request_origin = normalize_launcher_origin(
+            f"{request.url.scheme}://{request.url.netloc}"
+        )
     try:
         normalized_profile = normalize_optional_argument(x.profile)
         normalized_setta_home = normalize_optional_argument(x.settaHome)
@@ -97,11 +114,25 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ssh_args=x.sshArgs,
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
+                launcher_origin=request_origin,
             )
+            remote_bootstrap_url = remote.bootstrap_url_fragment
+            if remote.launcher_origin and remote.launcher_origin_proof:
+                normalized_remote_origin = normalize_launcher_origin(
+                    remote.launcher_origin
+                )
+                if normalized_remote_origin is not None:
+                    remote_bootstrap_url = (
+                        append_launcher_origin_handoff_to_bootstrap_url(
+                            bootstrap_url_fragment=remote_bootstrap_url,
+                            launcher_origin=normalized_remote_origin,
+                            proof=remote.launcher_origin_proof,
+                        )
+                    )
             resolved_workspace_root = remote.session.workspace_path_canonical
             return LaunchResponse(
                 ok=True,
-                bootstrapUrlFragment=remote.bootstrap_url_fragment,
+                bootstrapUrlFragment=remote_bootstrap_url,
                 workspaceRoot=resolved_workspace_root,
                 settaFilesLocation=remote.setta_files_location,
                 settaFilesRoot=remote.setta_files_root,
@@ -159,11 +190,31 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
 
+    try:
+        update_launcher_last_used_workspace_if_installed(
+            setta_home=result.paths.setta_home,
+            workspace_root=result.paths.workspace_root,
+        )
+    except (LauncherMetadataError, OSError):
+        # Workspace launches should continue even if launcher metadata is malformed.
+        pass
+
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
     bootstrap_url_fragment, _ = build_bootstrap_urls(
         result.session.host, result.session.port, token
     )
+    if request_origin is not None:
+        launcher_origin_proof = mint_launcher_origin_handoff_proof(
+            session_id=result.session.id,
+            launcher_origin=request_origin,
+            secret=secret,
+        )
+        bootstrap_url_fragment = append_launcher_origin_handoff_to_bootstrap_url(
+            bootstrap_url_fragment=bootstrap_url_fragment,
+            launcher_origin=request_origin,
+            proof=launcher_origin_proof,
+        )
     session_info = LaunchSessionInfo(
         id=result.session.id,
         workspacePath=result.session.workspacePath,
