@@ -115,8 +115,6 @@ class C:
     SHARE_DEPLOYMENT_ROOT: Path | None = None
     APP_MODE = False
     APP_DEPLOYMENT_ROOT: Path | None = None
-    _raw_server_mode = (os.environ.get("SETTA_SERVER_MODE") or "").strip().lower()
-    LAUNCHER_MODE = _raw_server_mode == "launcher"
 
     _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
     AUTH_COOKIE_NAME = normalize_cookie_name(
@@ -135,7 +133,6 @@ class C:
     AUTH_COOKIE_SAMESITE = "lax"
     AUTH_COOKIE_SECURE = False
     BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
-    LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5
     SESSION_SECRET_BYTES = 32
 
     # WebSocket message types

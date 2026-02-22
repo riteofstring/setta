@@ -12,10 +12,7 @@ const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
 const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
-const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
-const PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
-const PENDING_LAUNCH_REQUESTED_AT_HASH_KEY = "pla";
-const LEGACY_PENDING_LAUNCH_HASH_KEY = "pl";
+const PENDING_LAUNCH_HASH_KEY = "pl";
 
 function parsePendingWorkspaceLaunch(
   candidate: unknown,
@@ -44,99 +41,23 @@ function parsePendingWorkspaceLaunch(
   };
 }
 
-function encodeReturnUrlForHash(returnUrl: string): string | null {
+export function encodePendingWorkspaceLaunchForUrlHash(
+  pending: PendingWorkspaceLaunch,
+): string | null {
   if (typeof window === "undefined") {
     return null;
   }
   try {
+    const json = JSON.stringify(pending);
     const encoder = new TextEncoder();
-    return encodeBase64Url(encoder.encode(returnUrl));
+    return encodeBase64Url(encoder.encode(json));
   } catch (error) {
-    console.warn("Failed to encode workspace launch return URL", error);
+    console.warn(
+      "Failed to encode pending workspace launch for URL hash",
+      error,
+    );
     return null;
   }
-}
-
-function decodeReturnUrlFromHash(raw: string | null): string | null {
-  if (!raw) {
-    return null;
-  }
-  try {
-    const bytes = decodeBase64Url(raw);
-    const decoded = new TextDecoder().decode(bytes).trim();
-    if (!decoded) {
-      return null;
-    }
-    return decoded;
-  } catch (error) {
-    console.warn("Failed to decode workspace launch return URL", error);
-    return null;
-  }
-}
-
-function parseRequestedAt(raw: string | null): number {
-  if (!raw) {
-    return Date.now();
-  }
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    return Date.now();
-  }
-  return parsed;
-}
-
-function cleanPendingWorkspaceLaunchParams(params: URLSearchParams): void {
-  params.delete(PENDING_LAUNCH_INTENT_HASH_KEY);
-  params.delete(PENDING_LAUNCH_RETURN_URL_HASH_KEY);
-  params.delete(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY);
-  params.delete(LEGACY_PENDING_LAUNCH_HASH_KEY);
-}
-
-function replaceCurrentUrlHash(params: URLSearchParams): void {
-  try {
-    const url = new URL(window.location.href);
-    url.hash = params.toString();
-    const nextUrl = url.toString();
-    try {
-      window.history.replaceState(window.history.state, "", nextUrl);
-      return;
-    } catch {
-      // Some browsers/extensions can leave a non-cloneable state in history.state.
-    }
-    try {
-      window.history.replaceState(null, "", nextUrl);
-      return;
-    } catch (error) {
-      console.warn("Failed to clean pending workspace launch URL hash", error);
-      try {
-        window.location.replace(nextUrl);
-      } catch {
-        // ignore
-      }
-    }
-  } catch (error) {
-    console.warn("Failed to clean pending workspace launch URL hash", error);
-  }
-}
-
-export function buildWorkspaceLaunchIntentHash({
-  launchIntentToken,
-  returnUrl,
-  requestedAt,
-}: {
-  launchIntentToken: string;
-  returnUrl: string;
-  requestedAt: number;
-}): string | null {
-  const encodedReturnUrl = encodeReturnUrlForHash(returnUrl);
-  if (!encodedReturnUrl) {
-    return null;
-  }
-  const params = new URLSearchParams();
-  params.set(PENDING_LAUNCH_INTENT_HASH_KEY, launchIntentToken);
-  params.set(PENDING_LAUNCH_RETURN_URL_HASH_KEY, encodedReturnUrl);
-  params.set(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY, String(requestedAt));
-  return params.toString();
 }
 
 function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | null {
@@ -151,35 +72,50 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
       return null;
     }
     const params = new URLSearchParams(hash);
-    const launchIntentToken = params
-      .get(PENDING_LAUNCH_INTENT_HASH_KEY)
-      ?.trim();
-    const hasLegacyPayload = params.has(LEGACY_PENDING_LAUNCH_HASH_KEY);
-    if (!launchIntentToken) {
-      if (hasLegacyPayload) {
-        cleanPendingWorkspaceLaunchParams(params);
-        replaceCurrentUrlHash(params);
-      }
+    const encoded = params.get(PENDING_LAUNCH_HASH_KEY);
+    if (!encoded) {
       return null;
     }
-
-    const pending: PendingWorkspaceLaunch = {
-      request: {
-        launchIntentToken,
-      } as LaunchRequestInput,
-      returnUrl:
-        decodeReturnUrlFromHash(
-          params.get(PENDING_LAUNCH_RETURN_URL_HASH_KEY),
-        ) ?? window.location.href,
-      requestedAt: parseRequestedAt(
-        params.get(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY),
-      ),
-    };
-    cleanPendingWorkspaceLaunchParams(params);
-    replaceCurrentUrlHash(params);
+    const bytes = decodeBase64Url(encoded);
+    const decoded = new TextDecoder().decode(bytes);
+    const pending = parsePendingWorkspaceLaunch(JSON.parse(decoded));
+    params.delete(PENDING_LAUNCH_HASH_KEY);
+    try {
+      const url = new URL(window.location.href);
+      url.hash = params.toString();
+      const nextUrl = url.toString();
+      try {
+        window.history.replaceState(window.history.state, "", nextUrl);
+        return pending;
+      } catch {
+        // Some browsers/extensions can leave a non-cloneable state in history.state.
+        // Falling back to null is better than leaving the handoff URL behind.
+      }
+      try {
+        window.history.replaceState(null, "", nextUrl);
+      } catch (error) {
+        console.warn(
+          "Failed to clean pending workspace launch from URL hash",
+          error,
+        );
+        try {
+          window.location.replace(nextUrl);
+        } catch {
+          // ignore
+        }
+      }
+    } catch (error) {
+      console.warn(
+        "Failed to clean pending workspace launch from URL hash",
+        error,
+      );
+    }
     return pending;
   } catch (error) {
-    console.warn("Failed to read pending workspace launch URL hash", error);
+    console.warn(
+      "Failed to decode pending workspace launch from URL hash",
+      error,
+    );
     return null;
   }
 }

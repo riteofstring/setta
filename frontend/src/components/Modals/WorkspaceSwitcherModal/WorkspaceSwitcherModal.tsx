@@ -1,17 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
-  route_create_workspace_launch_intent,
-  route_get_setta_home_info,
-} from "utils/generatedEndpoints";
-import {
-  type CreateWorkspaceLaunchIntentRequestInput,
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
@@ -26,7 +20,7 @@ import {
   type WorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
-  buildWorkspaceLaunchIntentHash,
+  encodePendingWorkspaceLaunchForUrlHash,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
@@ -67,10 +61,21 @@ export function WorkspaceSwitcherModal() {
 
     async function hydrateLauncherSettaHomeInfo() {
       const response = await route_get_setta_home_info();
-      if (!isMounted || !res200(response) || !response.data) {
+      if (!isMounted || !res200(response)) {
         return;
       }
-      setLauncherSettaHomeInfo(response.data);
+      const data: unknown = response.data;
+      if (!data || typeof data !== "object") {
+        return;
+      }
+      const record = data as Record<string, unknown>;
+      if (
+        typeof record.settaHome !== "string" ||
+        typeof record.globalSettaFilesBase !== "string"
+      ) {
+        return;
+      }
+      setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
     }
 
     void hydrateLauncherSettaHomeInfo();
@@ -85,12 +90,11 @@ export function WorkspaceSwitcherModal() {
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
-  let globalBaseLabel = "<global_setta_files_base>";
-  if (trimmedSshTarget.length > 0) {
-    globalBaseLabel = "remote Setta home";
-  } else if (launcherSettaHomeInfo?.globalSettaFilesBase) {
-    globalBaseLabel = launcherSettaHomeInfo.globalSettaFilesBase;
-  }
+  const globalBaseLabel =
+    trimmedSshTarget.length > 0
+      ? "remote Setta home"
+      : launcherSettaHomeInfo?.globalSettaFilesBase ??
+        "<global_setta_files_base>";
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -154,40 +158,21 @@ export function WorkspaceSwitcherModal() {
       typeof window !== "undefined" &&
       C_ADDRESSES.LAUNCHER_ORIGIN !== window.location.origin
     ) {
-      const launchIntentRequest: CreateWorkspaceLaunchIntentRequestInput = {
-        launchRequest: request,
-        returnUrl: pendingLaunch.returnUrl,
-      };
-      const launchIntentResponse =
-        await route_create_workspace_launch_intent(launchIntentRequest);
-      if (
-        !res200(launchIntentResponse) ||
-        !launchIntentResponse.data ||
-        !launchIntentResponse.data.ok ||
-        !launchIntentResponse.data.launchIntentToken
-      ) {
+      const encoded = encodePendingWorkspaceLaunchForUrlHash(pendingLaunch);
+      if (!encoded) {
         setIsLaunching(false);
-        setError(
-          launchIntentResponse.data?.error?.message ??
-            "Failed to create launch intent.",
-        );
-        return;
-      }
-      const hash = buildWorkspaceLaunchIntentHash({
-        launchIntentToken: launchIntentResponse.data.launchIntentToken,
-        returnUrl: pendingLaunch.returnUrl,
-        requestedAt: launchIntentResponse.data.requestedAt ?? Date.now(),
-      });
-      if (!hash) {
-        setIsLaunching(false);
-        setError("Failed to encode launch intent.");
+        setError("Failed to encode launch request.");
         return;
       }
       const url = new URL(
         WORKSPACE_LAUNCH_ROUTER_PATH,
         C_ADDRESSES.LAUNCHER_ORIGIN,
       );
-      url.hash = hash;
+      const params = new URLSearchParams(
+        url.hash.startsWith("#") ? url.hash.slice(1) : url.hash,
+      );
+      params.set("pl", encoded);
+      url.hash = params.toString();
       closeModal();
       window.location.assign(url.toString());
       return;
@@ -316,8 +301,6 @@ export function WorkspaceSwitcherModal() {
                 : null}
             </p>
           </div>
-
-          <DesktopLauncherSettingsSection />
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">

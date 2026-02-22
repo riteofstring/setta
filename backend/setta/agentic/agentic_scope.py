@@ -22,6 +22,7 @@ class AgenticContext:
     project_config_id: ID
     chat_id: ID | None
     section_id: ID | None
+    frontend_websocket_id: str | None = None
     allow_unscoped: bool = False
 
 
