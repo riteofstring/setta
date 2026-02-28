@@ -1,20 +1,12 @@
 import {
-  buildChatSlashCommands,
-  type ChatSlashCommandDefinition,
-} from "components/Chat/chatComposerControls";
-import {
-  buildLLMConfigGroups,
-  pickDefaultConfigId,
-} from "components/Chat/llmConfigUtils";
-import {
-  EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
-  type APIKeys,
-  type AllLLMConfigs,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
-  type EngineConfig,
-  type ExternalAgentPreflightStatus,
+  type EngineType,
+  type ExternalAgentToolType,
+  type MCPServerRuntimeState,
+  type MCPServerRuntimeStatus,
+  EngineTypeEnum,
+  ExternalAgentToolTypeEnum,
 } from "utils/generatedTypes";
 
 export function filterSkills(
@@ -35,7 +27,7 @@ export function filterSkills(
   });
 }
 
-type SkillActivityState = "active" | "inactive" | "unknown";
+type SkillActivityState = "active" | "inactive";
 
 type SkillStatus = {
   isApplicable: boolean;
@@ -64,8 +56,8 @@ const OPENCODE_APPLICABLE_ROOT_IDS = [
 
 type SkillStatusContext = {
   skills: AppGenSkillEntry[];
-  engineType: EngineConfig["engineType"] | null;
-  externalAgentToolType: string | null;
+  engineType: EngineType | null;
+  externalAgentToolType: ExternalAgentToolType | null;
   messages: BaseChatMessageUnion[] | null;
 };
 
@@ -81,8 +73,8 @@ function getApplicableRootIds({
   engineType,
   externalAgentToolType,
 }: {
-  engineType: EngineConfig["engineType"] | null;
-  externalAgentToolType: string | null;
+  engineType: EngineType | null;
+  externalAgentToolType: ExternalAgentToolType | null;
 }): string[] {
   if (engineType !== EngineTypeEnum.external_agent) {
     return [];
@@ -103,8 +95,8 @@ function getEngineLabel({
   engineType,
   externalAgentToolType,
 }: {
-  engineType: EngineConfig["engineType"] | null;
-  externalAgentToolType: string | null;
+  engineType: EngineType | null;
+  externalAgentToolType: ExternalAgentToolType | null;
 }): string {
   if (engineType === EngineTypeEnum.setta_llm) {
     return "Setta LLM";
@@ -122,6 +114,10 @@ function getEngineLabel({
     return "external agent";
   }
   return "selected engine";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function getArgumentsRecord(
@@ -148,10 +144,137 @@ function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
-type SkillActivityCollection = {
-  activeByName: Map<string, string>;
-  hasStructuredMetadata: boolean;
-};
+const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
+  "activate",
+  "apply",
+  "call",
+  "execute",
+  "invoke",
+  "load",
+  "run",
+  "try",
+  "use",
+  "using",
+  "with",
+]);
+
+const CODEX_SKILL_LIST_CONNECTOR_WORDS = new Set<string>([
+  "and",
+  "or",
+  "plus",
+  "then",
+  "with",
+]);
+
+function isLikelyCodexSkillTokenContext(prefix: string): boolean {
+  const normalizedPrefix = prefix.replace(
+    /\$[A-Za-z0-9][A-Za-z0-9._/-]*/g,
+    " ",
+  );
+  const trimmedPrefix = normalizedPrefix.trimEnd();
+  if (!trimmedPrefix) {
+    return true;
+  }
+  if (/^[>*\-+0-9.)\s:;,\[\]{}!?'"`]+$/.test(trimmedPrefix)) {
+    return true;
+  }
+  const trailingWordMatch = trimmedPrefix
+    .toLowerCase()
+    .match(/([a-z]+)[^a-z]*$/);
+  if (!trailingWordMatch) {
+    return false;
+  }
+  const trailingWord = trailingWordMatch[1];
+  if (!trailingWord) {
+    return false;
+  }
+  return CODEX_SKILL_CONTEXT_VERBS.has(trailingWord);
+}
+
+function isLikelyCodexSkillListContinuation(segment: string): boolean {
+  const normalizedSegment = segment.trim().toLowerCase();
+  if (!normalizedSegment) {
+    return true;
+  }
+  const words = normalizedSegment.match(/[a-z]+/g) ?? [];
+  for (const word of words) {
+    if (!CODEX_SKILL_LIST_CONNECTOR_WORDS.has(word)) {
+      return false;
+    }
+  }
+  const nonWordCharacters = normalizedSegment.replace(/[a-z]+/g, "");
+  return /^[,/:()\[\]{}\-\s]*$/.test(nonWordCharacters);
+}
+
+function extractSkillTokensFromText(value: string): string[] {
+  const tokens: string[] = [];
+  const lines = value.split(/\r?\n/);
+  let inFencedCodeBlock = false;
+  for (const rawLine of lines) {
+    const trimmedLine = rawLine.trimStart();
+    if (trimmedLine.startsWith("```")) {
+      inFencedCodeBlock = !inFencedCodeBlock;
+      continue;
+    }
+    if (inFencedCodeBlock) {
+      continue;
+    }
+    const line = rawLine.replace(/`[^`\n]*`/g, " ");
+    const matches = Array.from(
+      line.matchAll(/(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g),
+    );
+    let lastAcceptedTokenEndIndex: number | null = null;
+    for (const match of matches) {
+      const token = match[2];
+      const tokenPrefix = match[1];
+      const matchIndex = match.index;
+      if (!token || tokenPrefix === undefined || matchIndex === undefined) {
+        continue;
+      }
+      const tokenStartIndex = matchIndex + tokenPrefix.length;
+      const tokenEndIndex = tokenStartIndex + token.length + 1;
+      const prefix = line.slice(0, tokenStartIndex);
+      const hasPerTokenActivationContext =
+        isLikelyCodexSkillTokenContext(prefix);
+      let hasListContinuationContext = false;
+      if (lastAcceptedTokenEndIndex !== null) {
+        const continuationSegment = line.slice(
+          lastAcceptedTokenEndIndex,
+          tokenStartIndex,
+        );
+        hasListContinuationContext =
+          isLikelyCodexSkillListContinuation(continuationSegment);
+      }
+      if (!hasPerTokenActivationContext && !hasListContinuationContext) {
+        continue;
+      }
+      const normalizedToken = token.replace(/[.,:;!?]+$/g, "");
+      if (!normalizedToken) {
+        continue;
+      }
+      tokens.push(normalizedToken);
+      lastAcceptedTokenEndIndex = tokenEndIndex;
+    }
+  }
+  return tokens;
+}
+
+function getMessageTextBlocks(message: BaseChatMessageUnion): string[] {
+  const blocks: string[] = [];
+  for (const block of message.content) {
+    if (!isRecord(block)) {
+      continue;
+    }
+    if (block.type !== "text") {
+      continue;
+    }
+    if (typeof block.text !== "string" || !block.text.trim()) {
+      continue;
+    }
+    blocks.push(block.text);
+  }
+  return blocks;
+}
 
 function stripMcpToolNamespace(toolName: string): string {
   if (!toolName.startsWith("mcp__")) {
@@ -230,31 +353,40 @@ function collectActiveSkillNames({
   externalAgentToolType,
   messages,
 }: {
-  engineType: EngineConfig["engineType"] | null;
-  externalAgentToolType: string | null;
+  engineType: EngineType | null;
+  externalAgentToolType: ExternalAgentToolType | null;
   messages: BaseChatMessageUnion[] | null;
-}): SkillActivityCollection {
+}): Map<string, string> {
   const activeByName = new Map<string, string>();
-  let hasStructuredMetadata = false;
   if (!messages || messages.length === 0) {
-    return { activeByName, hasStructuredMetadata };
+    return activeByName;
   }
   if (engineType !== EngineTypeEnum.external_agent) {
-    return { activeByName, hasStructuredMetadata };
+    return activeByName;
   }
   if (
     externalAgentToolType !== ExternalAgentToolTypeEnum.codex &&
     externalAgentToolType !== ExternalAgentToolTypeEnum.opencode
   ) {
-    return { activeByName, hasStructuredMetadata };
+    return activeByName;
   }
-  const activitySource =
-    externalAgentToolType === ExternalAgentToolTypeEnum.codex
-      ? "codex_skill_tool"
-      : "opencode_skill_tool";
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+    for (const message of messages) {
+      if (message.role !== "user") {
+        continue;
+      }
+      const textBlocks = getMessageTextBlocks(message);
+      for (const text of textBlocks) {
+        const tokens = extractSkillTokensFromText(text);
+        for (const token of tokens) {
+          activeByName.set(normalizeSkillToken(token), "codex_skill_token");
+        }
+      }
+    }
+    return activeByName;
+  }
   for (const message of messages) {
     if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
-      hasStructuredMetadata = true;
       for (const toolCall of message.tool_calls) {
         const skillName = extractSkillNameFromInvocation({
           toolName: toolCall.function.name,
@@ -263,14 +395,13 @@ function collectActiveSkillNames({
         if (!skillName) {
           continue;
         }
-        activeByName.set(normalizeSkillToken(skillName), activitySource);
+        activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
       }
       continue;
     }
     if (message.role !== "tool") {
       continue;
     }
-    hasStructuredMetadata = true;
     const skillName = extractSkillNameFromInvocation({
       toolName: message.tool_name,
       toolArguments: message.arguments,
@@ -278,9 +409,9 @@ function collectActiveSkillNames({
     if (!skillName) {
       continue;
     }
-    activeByName.set(normalizeSkillToken(skillName), activitySource);
+    activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
   }
-  return { activeByName, hasStructuredMetadata };
+  return activeByName;
 }
 
 function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
@@ -422,16 +553,11 @@ export function buildSkillStatusBySkillId({
     engineType,
     externalAgentToolType,
   });
-  const requiresStructuredMetadata =
-    engineType === EngineTypeEnum.external_agent &&
-    (externalAgentToolType === ExternalAgentToolTypeEnum.codex ||
-      externalAgentToolType === ExternalAgentToolTypeEnum.opencode);
-  const { activeByName: activeSkillNames, hasStructuredMetadata } =
-    collectActiveSkillNames({
-      engineType,
-      externalAgentToolType,
-      messages,
-    });
+  const activeSkillNames = collectActiveSkillNames({
+    engineType,
+    externalAgentToolType,
+    messages,
+  });
   const activeSkillSourcesBySkillId = mapActiveSkillNamesToSkillIds({
     skills,
     activeSkillNames,
@@ -441,11 +567,10 @@ export function buildSkillStatusBySkillId({
     const rootId = getSkillRootId(skill.skillId);
     const isApplicable = applicableRootIdSet.has(rootId);
     const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
-    const activityState: SkillActivityState = activeSource
-      ? "active"
-      : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
-        ? "unknown"
-        : "inactive";
+    let activityState: SkillActivityState = "inactive";
+    if (activeSource) {
+      activityState = "active";
+    }
     statusesBySkillId[skill.skillId] = {
       isApplicable,
       applicabilityReason: isApplicable
@@ -497,369 +622,157 @@ export function groupSkillsByRootPath(
 
 type McpServerListEntry = {
   serverId: string;
-  source: string;
   transport: string;
   endpoint: string;
-};
-
-type McpServerStatusColor = "green" | "yellow" | "red";
-
-type McpServerStatus = {
-  color: McpServerStatusColor;
-  quickInfo: string;
-};
-
-type McpRuntimeServerState =
-  | "connected"
-  | "connecting"
-  | "retrying"
-  | "error"
-  | "disabled"
-  | "unknown";
-
-export type McpRuntimeServerStatus = {
-  state: McpRuntimeServerState;
-  quickInfo: string;
-  registeredToolCount: number;
-  issue: string | null;
+  state: MCPServerRuntimeState;
+  lastError: string | null;
   missingEnvVar: string | null;
-};
-
-type SlashCommandsByEngine = {
-  engineId: string;
-  engineName: string;
-  engineType: EngineConfig["engineType"];
-  commands: ChatSlashCommandDefinition[];
+  toolCount: number;
 };
 
 type McpServersByConfigPath = {
   configPath: string | null;
   configLabel: string;
+  sourceLabel: string;
   servers: McpServerListEntry[];
 };
-
-export const SETTA_MCP_RUNTIME_SOURCE = "setta_mcp";
-
-function buildRuntimeStatusMapKey(source: string, serverId: string): string {
-  return `${source}:${serverId}`;
-}
-
-function resolveMcpServerEndpoint(
-  config: AllLLMConfigs["mcpServers"][string],
-): string {
-  if (typeof config.url === "string" && config.url.length > 0) {
-    return config.url;
-  }
-  if (typeof config.command === "string" && config.command.length > 0) {
-    return config.command;
-  }
-  return "(no endpoint)";
-}
 
 function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
   if (!settaFilesLocation) {
     return "Active setta_files";
   }
-  if (settaFilesLocation === "custom") {
-    return "Active custom setta_files root";
-  }
   return `Active ${settaFilesLocation} setta_files`;
 }
 
+function mcpStatusPriority(state: MCPServerRuntimeState): number {
+  if (state === "error") {
+    return 0;
+  }
+  if (state === "retrying") {
+    return 1;
+  }
+  if (state === "connecting") {
+    return 2;
+  }
+  if (state === "connected") {
+    return 3;
+  }
+  if (state === "unknown") {
+    return 4;
+  }
+  return 5;
+}
+
+function toMcpListEntry(server: MCPServerRuntimeStatus): McpServerListEntry {
+  return {
+    serverId: server.serverId,
+    transport: server.transport,
+    endpoint: server.endpoint,
+    state: server.state,
+    lastError: server.lastError,
+    missingEnvVar: server.missingEnvVar,
+    toolCount: server.toolCount,
+  };
+}
+
 export function groupMcpServersByConfigPath({
-  mcpServers,
+  mcpRuntimeStatuses,
+  externalMcpRuntimeStatuses,
   mcpConfigPath,
   settaFilesLocation,
-  externalRuntimeServers = [],
 }: {
-  mcpServers: AllLLMConfigs["mcpServers"] | undefined;
+  mcpRuntimeStatuses: MCPServerRuntimeStatus[];
+  externalMcpRuntimeStatuses: MCPServerRuntimeStatus[];
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
-  externalRuntimeServers?: Array<McpServerListEntry>;
 }): McpServersByConfigPath[] {
   const groups: McpServersByConfigPath[] = [];
-  if (mcpServers) {
-    const serverEntries = Object.entries(mcpServers)
-      .map(([serverId, config]) => {
-        return {
-          serverId,
-          source: SETTA_MCP_RUNTIME_SOURCE,
-          transport: config.transport,
-          endpoint: resolveMcpServerEndpoint(config),
-        };
-      })
-      .sort((a, b) => a.serverId.localeCompare(b.serverId));
-    if (serverEntries.length > 0) {
-      groups.push({
-        configPath: mcpConfigPath,
-        configLabel: resolveMcpConfigLabel(settaFilesLocation),
-        servers: serverEntries,
-      });
-    }
+  const sortedSettaServers = [...mcpRuntimeStatuses]
+    .map(toMcpListEntry)
+    .sort((a, b) => {
+      const priorityDiff =
+        mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+      return a.serverId.localeCompare(b.serverId);
+    });
+  if (sortedSettaServers.length > 0) {
+    groups.push({
+      configPath: mcpConfigPath,
+      configLabel: resolveMcpConfigLabel(settaFilesLocation),
+      sourceLabel: "Setta MCP",
+      servers: sortedSettaServers,
+    });
   }
-  if (externalRuntimeServers.length > 0) {
+  const sortedExternalServers = [...externalMcpRuntimeStatuses]
+    .map(toMcpListEntry)
+    .sort((a, b) => {
+      const priorityDiff =
+        mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+      return a.serverId.localeCompare(b.serverId);
+    });
+  if (sortedExternalServers.length > 0) {
     groups.push({
       configPath: null,
       configLabel: "Active external runtime",
-      servers: [...externalRuntimeServers].sort((a, b) =>
-        a.serverId.localeCompare(b.serverId),
-      ),
+      sourceLabel: "External Runtime",
+      servers: sortedExternalServers,
     });
   }
   return groups;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+type McpStatusSummary = {
+  total: number;
+  connected: number;
+  connecting: number;
+  retrying: number;
+  error: number;
+  disabled: number;
+  unknown: number;
+};
 
-function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
-  if (typeof value !== "string") {
-    return "unknown";
-  }
-  switch (value) {
-    case "connected":
-    case "connecting":
-    case "retrying":
-    case "error":
-    case "disabled":
-    case "unknown":
-      return value;
-    default:
-      return "unknown";
-  }
-}
-
-function normalizeRuntimeServerQuickInfo({
-  state,
-  quickInfo,
-  issue,
-  missingEnvVar,
-  registeredToolCount,
-}: {
-  state: McpRuntimeServerState;
-  quickInfo: string | null;
-  issue: string | null;
-  missingEnvVar: string | null;
-  registeredToolCount: number;
-}): string {
-  if (quickInfo) {
-    return quickInfo;
-  }
-  const details: string[] = [];
-  if (missingEnvVar) {
-    details.push(`missing env var ${missingEnvVar}`);
-  }
-  if (issue) {
-    details.push(issue);
-  }
-  details.push(
-    `${registeredToolCount} tool${registeredToolCount === 1 ? "" : "s"}`,
-  );
-  const detailSuffix = details.join(" | ");
-  if (state === "connected") {
-    return `Connected: ${detailSuffix}`;
-  }
-  if (state === "connecting") {
-    return `Connecting: ${detailSuffix}`;
-  }
-  if (state === "retrying") {
-    return `Retrying: ${detailSuffix}`;
-  }
-  if (state === "error") {
-    return `Error: ${detailSuffix}`;
-  }
-  if (state === "disabled") {
-    return `Disabled: ${detailSuffix}`;
-  }
-  return `Unknown: ${detailSuffix}`;
-}
-
-export function toRuntimeStatusByServerId(
-  runtimeStatuses: Array<{
-    serverId: string;
-    source: string;
-    state: unknown;
-    lastError?: string | null;
-    missingEnvVar?: string | null;
-    toolCount?: number;
-  }>,
-): Record<string, McpRuntimeServerStatus> {
-  const statuses: Record<string, McpRuntimeServerStatus> = {};
-  for (const runtimeStatus of runtimeStatuses) {
-    const serverId = runtimeStatus.serverId.trim();
-    const source = runtimeStatus.source.trim();
-    if (!serverId) {
-      continue;
-    }
-    if (!source) {
-      continue;
-    }
-    const state = normalizeRuntimeServerState(runtimeStatus.state);
-    const issue = runtimeStatus.lastError?.trim() || null;
-    const missingEnvVar = runtimeStatus.missingEnvVar?.trim() || null;
-    const registeredToolCount =
-      typeof runtimeStatus.toolCount === "number" &&
-      Number.isFinite(runtimeStatus.toolCount) &&
-      runtimeStatus.toolCount >= 0
-        ? runtimeStatus.toolCount
-        : 0;
-    statuses[buildRuntimeStatusMapKey(source, serverId)] = {
-      state,
-      quickInfo: normalizeRuntimeServerQuickInfo({
-        state,
-        quickInfo: null,
-        issue,
-        missingEnvVar,
-        registeredToolCount,
-      }),
-      registeredToolCount,
-      issue,
-      missingEnvVar,
-    };
-  }
-  return statuses;
-}
-
-export function resolveMcpServerStatus({
-  serverId,
-  source,
-  endpoint,
-  runtimeStatusByServerId,
-  runtimeStatusLoading,
-  runtimeStatusError,
-}: {
-  serverId: string;
-  source: string;
-  endpoint: string;
-  runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
-  runtimeStatusLoading: boolean;
-  runtimeStatusError: string | null;
-}): McpServerStatus {
-  if (endpoint === "(no endpoint)") {
-    return {
-      color: "red",
-      quickInfo:
-        "Unavailable: missing command/url in MCP server config for this entry.",
-    };
-  }
-  if (runtimeStatusLoading) {
-    return {
-      color: "yellow",
-      quickInfo: "Checking runtime MCP registration status...",
-    };
-  }
-  if (runtimeStatusError) {
-    return {
-      color: "yellow",
-      quickInfo: `Status unknown: ${runtimeStatusError}`,
-    };
-  }
-  if (!runtimeStatusByServerId) {
-    return {
-      color: "yellow",
-      quickInfo: "Status unknown: MCP runtime status data is not available.",
-    };
-  }
-  const runtimeStatus =
-    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)];
-  if (!runtimeStatus) {
-    return {
-      color: "yellow",
-      quickInfo:
-        "Status unknown: server is configured but not reported by MCP runtime status.",
-    };
-  }
-  if (runtimeStatus.state === "connected") {
-    return {
-      color: "green",
-      quickInfo: runtimeStatus.quickInfo,
-    };
-  }
-  if (
-    runtimeStatus.state === "connecting" ||
-    runtimeStatus.state === "retrying" ||
-    runtimeStatus.state === "disabled" ||
-    runtimeStatus.state === "unknown"
-  ) {
-    return {
-      color: "yellow",
-      quickInfo: runtimeStatus.quickInfo,
-    };
-  }
-  return {
-    color: "red",
-    quickInfo: runtimeStatus.quickInfo,
+export function buildMcpStatusSummary(
+  groups: McpServersByConfigPath[],
+): McpStatusSummary {
+  const summary: McpStatusSummary = {
+    total: 0,
+    connected: 0,
+    connecting: 0,
+    retrying: 0,
+    error: 0,
+    disabled: 0,
+    unknown: 0,
   };
-}
-
-function resolveEngineDisplayName(config: EngineConfig): string {
-  const explicitName = config.name.trim();
-  if (explicitName) {
-    return explicitName;
-  }
-  if (config.engineType === EngineTypeEnum.external_agent) {
-    return "External Agent";
-  }
-  return "Setta LLM";
-}
-
-export function buildSlashCommandsByEngine({
-  engineConfigs,
-  allLLMConfigs,
-  apiKeys,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
-  apiKeys: APIKeys;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): SlashCommandsByEngine[] {
-  const availableConfigIds = new Set<string>();
-  const availableConfigGroups = buildLLMConfigGroups(allLLMConfigs, apiKeys);
-  for (const group of availableConfigGroups) {
-    for (const item of group.items) {
-      availableConfigIds.add(item.id);
+  for (const group of groups) {
+    for (const server of group.servers) {
+      summary.total += 1;
+      if (server.state === "connected") {
+        summary.connected += 1;
+        continue;
+      }
+      if (server.state === "connecting") {
+        summary.connecting += 1;
+        continue;
+      }
+      if (server.state === "retrying") {
+        summary.retrying += 1;
+        continue;
+      }
+      if (server.state === "error") {
+        summary.error += 1;
+        continue;
+      }
+      if (server.state === "disabled") {
+        summary.disabled += 1;
+        continue;
+      }
+      summary.unknown += 1;
     }
   }
-  const defaultConfigId = pickDefaultConfigId(allLLMConfigs);
-  return engineConfigs.map((engineConfig) => {
-    const isExternalEngine =
-      engineConfig.engineType === EngineTypeEnum.external_agent;
-    const hasLLMConfig = !isExternalEngine
-      ? Boolean(
-          (engineConfig.settaLlmConfigId ?? defaultConfigId) &&
-            availableConfigIds.has(
-              engineConfig.settaLlmConfigId ?? defaultConfigId ?? "",
-            ),
-        )
-      : false;
-    const externalEngineStatus =
-      isExternalEngine && externalAgentHealthInitialLoadComplete
-        ? externalAgentHealth.find(
-            (status) => status.configId === engineConfig.externalAgentConfigId,
-          ) ?? null
-        : null;
-    const externalEngineAvailable = isExternalEngine
-      ? Boolean(
-          externalEngineStatus?.available && externalEngineStatus.supported,
-        )
-      : false;
-    const permissionsEnabled = isExternalEngine
-      ? externalEngineAvailable
-      : hasLLMConfig;
-    const searchEnabled = !isExternalEngine && hasLLMConfig;
-    return {
-      engineId: engineConfig.id,
-      engineName: resolveEngineDisplayName(engineConfig),
-      engineType: engineConfig.engineType,
-      commands: buildChatSlashCommands({
-        model: true,
-        permissions: permissionsEnabled,
-        search: searchEnabled,
-      }),
-    };
-  });
+  return summary;
 }

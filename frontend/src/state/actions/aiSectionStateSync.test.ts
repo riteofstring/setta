@@ -337,63 +337,6 @@ describe("chat history sync to section state", () => {
     });
   });
 
-  it("replaces section messages with backend hydrate payload when stream is inactive", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          {
-            id: "msg-remote-only",
-            role: ChatRoleEnum.assistant,
-            content: [{ type: "text", text: "Backend canonical message" }],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        waitingForResponse: false,
-        toolCallArguments: {},
-      },
-    });
-    route_set_chat_section_state.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    useProjectState.setState((state) => {
-      const impl = state.sectionImpls[implId];
-      if (!impl || impl.type !== SectionTypeEnum.Chat) {
-        return;
-      }
-      impl.messages = [
-        {
-          id: "msg-local-only",
-          role: ChatRoleEnum.user,
-          content: [createMessageTextContent({ text: "Local speculative" })],
-          attachments: [],
-        },
-      ];
-    });
-
-    await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
-    const impl = getCurrEffectiveSectionImplOfType(
-      useProjectState.getState(),
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    expect(impl.messages.map((message) => message.id)).toEqual([
-      "msg-remote-only",
-    ]);
-  });
-
   it("replaces tool call arguments when not streaming", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")

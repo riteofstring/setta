@@ -4,7 +4,7 @@ import io
 import time
 import wave
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -31,34 +31,6 @@ class TranscriptionAudioLimitExceededError(ValueError):
         super().__init__(
             "File-mode transcription session exceeded buffered audio size limit."
         )
-
-
-type TranscriptionSessionErrorCode = Literal["invalid_request", "unsupported_model"]
-
-
-class TranscriptionSessionError(ValueError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        error_code: TranscriptionSessionErrorCode = "invalid_request",
-    ) -> None:
-        self.error_code = error_code
-        super().__init__(message)
-
-
-class UnsupportedTranscriptionModelError(TranscriptionSessionError):
-    def __init__(self) -> None:
-        super().__init__(
-            "Realtime transcription is unavailable for this provider/model.",
-            error_code="unsupported_model",
-        )
-
-
-class TranscriptionSessionNotFoundError(KeyError):
-    def __init__(self, session_id: ID) -> None:
-        self.session_id = session_id
-        super().__init__(f"Transcription session {session_id} not found")
 
 
 class BaseTranscriptionEngine:
@@ -95,11 +67,11 @@ def _resolve_api_key(api_keys: dict[str, str], api_key_env: str | None) -> str |
     if api_key_env is None:
         return None
     api_key = api_keys.get(api_key_env)
-    if api_key is None or api_key.strip() == "":
+    if not api_key:
         raise KeyError(
             f"Missing API key for '{api_key_env}'. Configure it in LLM API Keys."
         )
-    return api_key.strip()
+    return api_key
 
 
 class FileTranscriptionEngine(BaseTranscriptionEngine):
@@ -392,7 +364,9 @@ class TranscriptionSessionManager:
             transport_mode == TranscriptionTransportMode.realtime
             and not supports_realtime
         ):
-            raise UnsupportedTranscriptionModelError()
+            raise ValueError(
+                "Realtime transcription is unavailable for this provider/model."
+            )
 
         resolved_transport_mode = "file"
         engine: BaseTranscriptionEngine
@@ -515,9 +489,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise TranscriptionSessionNotFoundError(session_id)
+                raise KeyError(f"Transcription session {session_id} not found")
             if session.scope_id != scope_id:
-                raise TranscriptionSessionNotFoundError(session_id)
+                raise KeyError(f"Transcription session {session_id} not found")
             session.last_activity_monotonic = now
             session.in_flight_operations += 1
             return session
@@ -551,9 +525,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise TranscriptionSessionNotFoundError(session_id)
+                raise KeyError(f"Transcription session {session_id} not found")
             if session.scope_id != scope_id:
-                raise TranscriptionSessionNotFoundError(session_id)
+                raise KeyError(f"Transcription session {session_id} not found")
             return self._sessions.pop(session_id)
 
     async def _close_expired_sessions(self, now: float) -> None:
