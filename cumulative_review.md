@@ -916,3 +916,31 @@
 - `source activate.sh && pytest -q tests/llm/test_config.py -k "validate_codex_mcp_servers_payload_rejects_camel_case_root_key or load_llm_config_rejects_camel_case_mcp_root_key"`: `2 passed`.
 - `source activate.sh && ruff check backend/setta/mcp/codex_config.py backend/setta/agentic/external_agent_settings.py tests/agentic/test_external_agent_settings.py tests/llm/test_config.py`: passed.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts -g "project ai does not warn on ambiguous local provenance before authority is ready"`: `1 passed`.
+
+## 2026-02-28 11:05:23 PST
+
+### Consolidated Findings
+- Project chat provider dictation was still being gated off for external-agent engines even when a valid transcription profile was selected and provider dictation was available.
+- Temporary transcription/debug logging had been added broadly across frontend chat/dictation/transcription code and needed to be removed before commit.
+- `pnpm -C frontend gcf` uses a `/dev/fd` tee redirection path that is blocked in this sandbox; equivalent `generate/full-cleanup/format` steps were run directly.
+
+### Implemented Fixes
+- Kept the external-agent provider dictation behavior fix in `ProjectChatCore` and removed the external-engine provider-transcribe gate.
+- Removed all added debug logging from:
+  - `frontend/src/components/Chat/ChatInput.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`
+  - `frontend/src/state/actions/ai.ts`
+- Retained/extended regression coverage:
+  - unit coverage for provider dictation enablement policy in project chat execution settings tests,
+  - Playwright coverage proving provider transcription still runs in external-engine project chat provider mode.
+- Executed the `gcf` workflow equivalently via:
+  - `source ./activate.sh`
+  - `pnpm -C frontend generate`
+  - `pnpm -C frontend full-cleanup`
+  - `pnpm -C frontend f`
+
+### Verification
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts`: passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-dictation-fallback.spec.ts --grep "project chat external engine still uses provider transcription in provider mode"`: passed.
+- Equivalent `gcf` workflow commands completed successfully (`exit 0`).

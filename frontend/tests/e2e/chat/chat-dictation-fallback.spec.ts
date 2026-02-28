@@ -14,10 +14,12 @@ async function setProjectChatMicrophoneSource(
   sourceLabel: string,
 ): Promise<void> {
   const overviewPane = page.locator("#OverviewPane");
-  await overviewPane
-    .getByRole("button", { name: "Project AI Settings" })
-    .click();
   const micSourceInput = page.getByPlaceholder("Microphone source");
+  if (!(await micSourceInput.isVisible())) {
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
+  }
   await expect(micSourceInput).toBeVisible();
   await micSourceInput.fill(sourceLabel);
   await micSourceInput.press("Enter");
@@ -37,6 +39,42 @@ async function setProjectChatMicrophoneSource(
   await expect(micSourceInput).toHaveValue(
     new RegExp(`^${escapedSourceLabel}`),
   );
+}
+
+async function setProjectChatEngine(page: Page, engineLabel: string) {
+  const overviewPane = page.locator("#OverviewPane");
+  const engineInput = page.getByPlaceholder("Select an engine");
+  if (!(await engineInput.isVisible())) {
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
+  }
+  await expect(engineInput).toBeVisible();
+  await engineInput.fill(engineLabel);
+  await engineInput.press("Enter");
+  const escapedEngineLabel = engineLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(engineInput).toHaveValue(new RegExp(escapedEngineLabel));
+}
+
+async function setProjectChatTranscriptionProfile(
+  page: Page,
+  profileLabel: string,
+) {
+  const overviewPane = page.locator("#OverviewPane");
+  const profileInput = page.getByPlaceholder("Select a transcription profile");
+  if (!(await profileInput.isVisible())) {
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
+  }
+  await expect(profileInput).toBeVisible();
+  await profileInput.fill(profileLabel);
+  await profileInput.press("Enter");
+  const escapedProfileLabel = profileLabel.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&",
+  );
+  await expect(profileInput).toHaveValue(new RegExp(escapedProfileLabel));
 }
 
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({
@@ -128,6 +166,274 @@ test("project chat falls back to browser dictation when provider capture fails i
     ).toHaveCount(0);
   } finally {
     await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat external engine still uses provider transcription in provider mode", async ({
+  page,
+}) => {
+  // Provide deterministic media primitives so provider dictation can capture and transcribe.
+  await page.addInitScript(() => {
+    class MockAudioBuffer {
+      numberOfChannels = 1;
+      length = 2400;
+      sampleRate = 24000;
+
+      getChannelData(_channel: number) {
+        return new Float32Array(this.length).fill(0.25);
+      }
+    }
+
+    class MockAudioContext {
+      decodeAudioData(_buffer: ArrayBuffer) {
+        return Promise.resolve(new MockAudioBuffer());
+      }
+
+      close() {
+        return Promise.resolve();
+      }
+    }
+
+    class MockMediaRecorder {
+      static isTypeSupported(_mimeType: string) {
+        return true;
+      }
+
+      mimeType = "audio/webm";
+      state: "inactive" | "recording" = "inactive";
+      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+
+      constructor(_stream: MediaStream, _options?: { mimeType?: string }) {}
+
+      start() {
+        this.state = "recording";
+      }
+
+      stop() {
+        this.state = "inactive";
+        if (this.ondataavailable) {
+          this.ondataavailable({
+            data: new Blob([new Uint8Array([1, 2, 3, 4])], {
+              type: "audio/webm",
+            }),
+          });
+        }
+        if (this.onstop) {
+          this.onstop();
+        }
+      }
+    }
+
+    Object.defineProperty(window, "AudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "MediaRecorder", {
+      value: MockMediaRecorder,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [{ stop: () => {} }],
+          }),
+      },
+      configurable: true,
+    });
+  });
+
+  let startSessionPayloads: Array<Record<string, unknown>> = [];
+  let appendCount = 0;
+  let stopCount = 0;
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-setta",
+          name: "Setta LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "openai-whisper-1",
+          externalAgentConfigId: null,
+          defaults: { thinking: true },
+        },
+        {
+          id: "engine-codex",
+          name: "Codex (app-server)",
+          engineType: "external_agent",
+          settaLlmConfigId: null,
+          externalAgentConfigId: "external-codex",
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          configId: "external-codex",
+          name: "Codex (app-server)",
+          toolType: "codex",
+          runMode: "app_server",
+          supported: true,
+          available: true,
+          issues: [],
+          nodePath: null,
+          nodeVersion: null,
+          sdkVersion: null,
+          cliVersion: "0.0.0",
+          baseUrl: null,
+          workingDir: null,
+          envVars: { present: [], missing: [] },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getTranscriptionProfiles", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "transcription-openai-whisper-1",
+          name: "OpenAI Whisper 1",
+          transcriptionLlmConfigId: "openai-whisper-1",
+          transportMode: "file",
+          chunkMs: 1200,
+          supportsRealtimeTranscription: false,
+          language: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "openai-whisper-1": {
+            id: "openai-whisper-1",
+            model: "gpt-4o-mini-transcribe",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "openai-whisper-1",
+        codexMcpImportedAt: null,
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        apiKeys: { OPENAI_API_KEY: "test-openai-key" },
+        revision: 1,
+      }),
+    });
+  });
+  await page.route("**/api/startTranscriptionSession", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    startSessionPayloads.push(payload);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sessionId: "session-external-engine",
+        resolvedTransportMode: "file",
+        chunkMs: 1200,
+      }),
+    });
+  });
+  await page.route("**/api/appendTranscriptionAudio", async (route) => {
+    appendCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        appendText: "",
+        fullText: "",
+        isFinal: false,
+      }),
+    });
+  });
+  await page.route("**/api/stopTranscriptionSession", async (route) => {
+    stopCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        appendText: "",
+        fullText: "external provider transcript",
+        isFinal: true,
+      }),
+    });
+  });
+  await page.route("**/api/cancelTranscriptionSession", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    await setProjectChatEngine(page, "Codex");
+    await setProjectChatTranscriptionProfile(page, "OpenAI Whisper 1");
+    await setProjectChatMicrophoneSource(page, "Always provider");
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+    await expect(
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
+    ).toBeVisible();
+    await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
+
+    await expect.poll(() => startSessionPayloads.length).toBe(1);
+    await expect.poll(() => appendCount).toBeGreaterThan(0);
+    await expect.poll(() => stopCount).toBe(1);
+    expect(startSessionPayloads[0]?.transcriptionProfileId).toBe(
+      "transcription-openai-whisper-1",
+    );
+    await expect(overviewPane.locator("textarea").first()).toHaveValue(
+      /external provider transcript/,
+    );
+    await expect(
+      overviewPane.getByText("Provider dictation is not available."),
+    ).toHaveCount(0);
+  } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
 });

@@ -1,15 +1,15 @@
 import { resetProjectStores } from "state/utils";
 import {
+  route_get_agent_runs,
+  route_get_llm_chat,
+  route_get_llm_response,
+} from "utils/generatedEndpoints";
+import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createMessageTextContent,
   createUserChatMessage,
 } from "utils/generatedTypes";
-import {
-  route_get_agent_runs,
-  route_get_llm_chat,
-  route_get_llm_response,
-} from "utils/generatedEndpoints";
 import {
   afterAll,
   afterEach,
@@ -465,9 +465,9 @@ describe("submitMessage", () => {
       .poll(() =>
         useAIStore
           .getState()
-          .chatDetails[chatId]?.messages.some(
-            (message) => message.role === "user",
-          ),
+          .chatDetails[
+            chatId
+          ]?.messages.some((message) => message.role === "user"),
       )
       .toBe(true);
     const optimisticState = useAIStore.getState();
@@ -546,9 +546,11 @@ describe("submitMessage", () => {
     await expect
       .poll(() => {
         return (
-          useAIStore.getState().pendingChatDetails?.messages.some(
-            (message) => message.role === "user",
-          ) ?? false
+          useAIStore
+            .getState()
+            .pendingChatDetails?.messages.some(
+              (message) => message.role === "user",
+            ) ?? false
         );
       })
       .toBe(true);
@@ -567,9 +569,10 @@ describe("submitMessage", () => {
     });
 
     const stateDuringRace = useAIStore.getState();
-    const pendingUserMessage = stateDuringRace.pendingChatDetails?.messages.find(
-      (message) => message.role === "user",
-    );
+    const pendingUserMessage =
+      stateDuringRace.pendingChatDetails?.messages.find(
+        (message) => message.role === "user",
+      );
     const pendingUserText =
       pendingUserMessage?.content
         .filter((part) => part.type === "text")
@@ -587,7 +590,9 @@ describe("submitMessage", () => {
             .trim(),
         ) ?? [];
     expect(stateDuringRace.activeChatId).toBeUndefined();
-    expect(pendingUserText).toBe("Can you run a bunch of read only bash commands?");
+    expect(pendingUserText).toBe(
+      "Can you run a bunch of read only bash commands?",
+    );
     expect(existingChatUserTexts).not.toContain(pendingUserText);
 
     releaseSubmit.resolve?.();

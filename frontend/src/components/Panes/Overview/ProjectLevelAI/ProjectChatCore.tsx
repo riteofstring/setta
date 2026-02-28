@@ -436,6 +436,20 @@ export function resolveProjectChatRuntimeActivityCounts({
   };
 }
 
+export function resolveProjectChatProviderDictationTranscribeEnabled({
+  providerDictationAvailable,
+  isExternalEngine,
+}: {
+  providerDictationAvailable: boolean;
+  isExternalEngine: boolean;
+}): boolean {
+  // Provider dictation should remain available regardless of engine type.
+  if (isExternalEngine) {
+    return providerDictationAvailable;
+  }
+  return providerDictationAvailable;
+}
+
 function useWorkspaceRootIdentity(
   enabled: boolean,
   projectConfigId: string,
@@ -1674,12 +1688,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
-      if (isExternalEngine || !transcriptionProfileId) {
+      if (!transcriptionProfileId) {
         throw new Error("Provider dictation is not configured.");
       }
       return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },
-    [isExternalEngine, transcriptionProfileId],
+    [transcriptionProfileId],
   );
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const showConversationSearchEmptyState =
@@ -1763,7 +1777,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           onProviderDictationTranscribe={
-            isExternalEngine || !providerDictationAvailable
+            !resolveProjectChatProviderDictationTranscribeEnabled({
+              providerDictationAvailable,
+              isExternalEngine,
+            })
               ? undefined
               : handleProviderDictationTranscribe
           }

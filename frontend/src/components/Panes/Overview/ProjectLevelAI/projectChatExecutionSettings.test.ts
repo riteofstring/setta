@@ -20,6 +20,7 @@ import {
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
   resolveProjectChatHydrationRetryDelayMs,
+  resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
@@ -79,6 +80,34 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
   it("backs off polling once the root is stable", () => {
     expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
     expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
+  });
+});
+
+describe("resolveProjectChatProviderDictationTranscribeEnabled", () => {
+  it("keeps provider dictation enabled for external engines when provider support is available", () => {
+    // External-agent chats should still be able to use provider transcription.
+    expect(
+      resolveProjectChatProviderDictationTranscribeEnabled({
+        providerDictationAvailable: true,
+        isExternalEngine: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("disables provider dictation when provider support is unavailable", () => {
+    // Missing provider readiness should disable provider dictation regardless of engine.
+    expect(
+      resolveProjectChatProviderDictationTranscribeEnabled({
+        providerDictationAvailable: false,
+        isExternalEngine: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveProjectChatProviderDictationTranscribeEnabled({
+        providerDictationAvailable: false,
+        isExternalEngine: false,
+      }),
+    ).toBe(false);
   });
 });
 

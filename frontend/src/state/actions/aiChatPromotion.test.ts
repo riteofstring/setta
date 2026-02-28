@@ -206,7 +206,7 @@ describe("ai pending chat promotion", () => {
         "existing-chat": {
           ...getDefaultChatDetails(),
           toolCallArguments: {
-            "tool-call-1": "{\n  \"path\": \"/tmp\"\n}",
+            "tool-call-1": '{\n  "path": "/tmp"\n}',
           },
         },
       },
