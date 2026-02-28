@@ -1367,6 +1367,14 @@ class TestExternalAgentRunner:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
             runner = _build_runner(dbe)
             profile = AgentProfile(
                 name="Claude",
@@ -1862,6 +1870,14 @@ args = ["mcp"]
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-1")
             profile = AgentProfile(
@@ -1989,6 +2005,14 @@ args = ["mcp"]
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-1")
             profile = AgentProfile(
@@ -2434,6 +2458,14 @@ class TestExternalAgentRunnerQuestion:
     async def test_message_finalized_blocks_user_visible_text_without_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
             project_config = _write_project_state(dbe)
             runner = _build_runner(dbe)
             config = ExternalAgentConfig(

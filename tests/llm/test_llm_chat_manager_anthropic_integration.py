@@ -20,6 +20,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests import apply_warning_filters
+from tests.utils.integration_env import seed_env_from_repo_dot_env
 from tests.utils.mcp_runner_fixture import build_runner_with_local_mcp_session
 
 
@@ -112,6 +113,7 @@ class TestLLMChatManagerAnthropicIntegration:
         logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
     def _require_anthropic_key(self) -> str:
+        seed_env_from_repo_dot_env(("ANTHROPIC_API_KEY",))
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             pytest.skip("ANTHROPIC_API_KEY not set")

@@ -10,6 +10,7 @@ from setta.sessions import SessionRegistry
 from setta.start import backups
 from setta.types.settings_state import SettingsBackend
 from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 
 
 def _patch_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
@@ -113,7 +114,7 @@ def test_backups_restore_refuses_when_session_running_unless_forced(
     )
     registry = SessionRegistry(sessions_root=C.RUNTIME_SESSIONS_FOLDER)
     session = registry.create_session(
-        workspace_path=Path.cwd(),
+        workspace_path=get_setta_paths().workspace_root,
         host="127.0.0.1",
         port=61234,
         pid=process.pid,

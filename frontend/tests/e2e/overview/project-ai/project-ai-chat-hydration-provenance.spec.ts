@@ -1019,6 +1019,18 @@ test("project ai waits for authoritative engine config metadata before hydrating
     activeChatId: selectedChatId,
   });
   await ensureAppReady(page);
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
   const projectContext = await openIsolatedProject(page);
 
   await page.route("**/api/getEngineConfigs", async (route) => {
@@ -1128,19 +1140,6 @@ test("project ai waits for authoritative engine config metadata before hydrating
       }),
     });
   });
-  await page.route("**/api/getExternalAgentChat", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        messages: [],
-        waitingForResponse: false,
-        toolCallArguments: {},
-        contextUsage: null,
-      }),
-    });
-  });
-
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");

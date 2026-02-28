@@ -17,6 +17,7 @@ def _build_session(*, secret_path: Path, started_at: datetime) -> SessionMetadat
         id="session-1",
         workspacePath=str(secret_path.parent),
         workspacePathCanonical=str(secret_path.parent),
+        serverMode="ide",
         host="127.0.0.1",
         port=8000,
         pid=os.getpid(),

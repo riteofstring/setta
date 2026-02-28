@@ -21,6 +21,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests import apply_warning_filters
+from tests.utils.integration_env import seed_env_from_repo_dot_env
 from tests.utils.mcp_runner_fixture import build_runner_with_local_mcp_session
 
 pytestmark = pytest.mark.asyncio
@@ -113,6 +114,7 @@ class TestLLMChatManagerOpenAIIntegration:
         logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
     def _require_openai_key(self) -> str:
+        seed_env_from_repo_dot_env(("OPENAI_API_KEY",))
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             pytest.skip("OPENAI_API_KEY not set")

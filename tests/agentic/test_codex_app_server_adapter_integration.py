@@ -32,6 +32,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
+from tests.utils.integration_env import seed_env_from_repo_dot_env
 from tests.utils.integration_flags import (
     EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
     external_agent_integration_tests_enabled,
@@ -49,6 +50,7 @@ pytestmark = [
 
 class TestCodexAppServerAdapterIntegration:
     def _require_codex_cli(self) -> str:
+        seed_env_from_repo_dot_env(("OPENAI_API_KEY",))
         if not os.environ.get("OPENAI_API_KEY"):
             pytest.skip("OPENAI_API_KEY not set")
         codex_path = shutil.which("codex")

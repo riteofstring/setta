@@ -1,11 +1,11 @@
 import os
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.launcher_setup import resolve_launcher_target_command
 from setta.launcher_metadata import (
     build_launcher_install_metadata,
     write_launcher_install_metadata,
@@ -275,9 +275,7 @@ def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
     payload = response.json()
     assert payload["ok"] is True
     assert payload["targetValid"] is True
-    assert payload["targetCommand"][0] == str(
-        Path(sys.executable).resolve(strict=False)
-    )
+    assert payload["targetCommand"][0] == resolve_launcher_target_command()[0]
 
 
 def test_update_launcher_route_reports_installer_managed_channel(
