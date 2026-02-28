@@ -674,14 +674,18 @@ def _load_commit_decorations_from_refs(
     *,
     commit_hashes: set[str],
     head_branch: str | None,
-) -> dict[str, list[str]]:
+) -> dict[str, list[str]] | None:
     if not commit_hashes:
         return {}
 
+    points_at_filters = [
+        f"--points-at={commit_hash}" for commit_hash in sorted(commit_hashes)
+    ]
     result = run_git(
         [
             "for-each-ref",
             "--format=%(objectname)%00%(*objectname)%00%(refname)%00%(symref)%00",
+            *points_at_filters,
             "refs/heads",
             "refs/remotes",
             "refs/tags",
@@ -691,8 +695,8 @@ def _load_commit_decorations_from_refs(
         max_stdout_bytes=_MAX_LOG_BYTES,
         max_stderr_bytes=200_000,
     )
-    if result.timed_out or result.returncode != 0:
-        return {}
+    if result.timed_out or result.returncode != 0 or result.stdout_truncated:
+        return None
 
     decorations_by_hash: dict[str, list[str]] = {}
     for line in result.stdout.splitlines():
@@ -1111,23 +1115,28 @@ def route_get_git_log(
         for decoration in commit.decorations
     )
     if has_unexpanded_decorate_atoms:
+        sanitized_decorations_by_hash: dict[str, list[str]] = {
+            commit.hash: [
+                decoration
+                for decoration in commit.decorations
+                if not _is_unexpanded_decorate_atom(decoration) and decoration != ")"
+            ]
+            for commit in commits
+        }
         commit_hashes = {commit.hash for commit in commits}
         fallback_decorations_by_hash = _load_commit_decorations_from_refs(
             repo_root,
             commit_hashes=commit_hashes,
             head_branch=head_branch,
         )
-        if fallback_decorations_by_hash:
-            for commit in commits:
-                commit.decorations = fallback_decorations_by_hash.get(commit.hash, [])
-        else:
-            for commit in commits:
-                commit.decorations = [
-                    decoration
-                    for decoration in commit.decorations
-                    if not _is_unexpanded_decorate_atom(decoration)
-                    and decoration != ")"
-                ]
+        for commit in commits:
+            if (
+                fallback_decorations_by_hash is not None
+                and commit.hash in fallback_decorations_by_hash
+            ):
+                commit.decorations = fallback_decorations_by_hash[commit.hash]
+                continue
+            commit.decorations = sanitized_decorations_by_hash.get(commit.hash, [])
 
     is_capped = False
     at_cap_boundary = offset + len(commits) >= _MAX_LOG_COUNT

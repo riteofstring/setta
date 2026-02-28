@@ -213,6 +213,109 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
 });
 
+test("project ai chat keeps MCP runtime statuses distinct across matching server ids", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::placeholder",
+        content: "# Placeholder",
+      }),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          "shared-server": {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["shared-server"],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+        activeSettaFilesLocation: "local",
+        servers: [
+          {
+            serverId: "shared-server",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 4,
+          },
+        ],
+        externalServers: [
+          {
+            serverId: "shared-server",
+            source: "external_runtime",
+            transport: "sse",
+            endpoint: "https://external.example.dev/mcp",
+            state: "error",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 1,
+            lastError: "authorization failed",
+            missingEnvVar: null,
+            toolCount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsMcpViewer(page);
+
+  const serverRows = page.getByTestId("skills-mcp-server-id");
+  await expect(serverRows).toHaveCount(2);
+  await expect(page.getByText("Active external runtime")).toBeVisible();
+  const quickInfos = await serverRows.evaluateAll((nodes) => {
+    return nodes.map((node) => {
+      const statusDot = node.previousElementSibling as HTMLElement | null;
+      return statusDot?.getAttribute("aria-label") ?? "";
+    });
+  });
+  expect(quickInfos).toContain("Connected: 4 tools");
+  expect(quickInfos).toContain(
+    "Error: authorization failed | 0 tools",
+  );
+});
+
 test("skills/mcp view keeps inline threads visible when threads are open", async ({
   page,
 }) => {
@@ -413,6 +516,34 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
         globalSettaFilesBase: "/home/test/.setta/files",
         activeSettaFilesLocation: "local",
         llmConfigPath: "/workspace/setta_files/llm_config.json",
+      }),
+    });
+  });
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+        activeSettaFilesLocation: "local",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 1,
+          },
+        ],
+        externalServers: [],
       }),
     });
   });
@@ -985,18 +1116,32 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
     });
   });
 
-  await page.route("**/api/settaHomeInfo", async (route) => {
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
     await route.fulfill({
-      status: 500,
+      status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "Unavailable" }),
+      body: JSON.stringify({
+        llmConfigPath: "",
+        activeSettaFilesLocation: "local",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 1,
+          },
+        ],
+        externalServers: [],
+      }),
     });
-  });
-  allowExpectedApiError(page, {
-    path: "/api/settaHomeInfo",
-    statuses: [500],
-    method: "GET",
-    count: 3,
   });
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -1018,7 +1163,9 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
 
   await expect(page.getByText("Unavailable")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Reveal path for Active setta_files/i }),
+    page.getByRole("button", {
+      name: /Reveal path for Active .*setta_files/i,
+    }),
   ).toBeDisabled();
 
   const skillMarkdownToggle = page.getByRole("button", {

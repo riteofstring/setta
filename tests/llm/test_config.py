@@ -915,6 +915,113 @@ encoding_error_handler = "surrogateescape"
                 "encoding_error_handler" in message for message in warning_messages
             )
 
+    def test_load_llm_config_rejects_conflicting_http_header_aliases(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.valid-http]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.invalid-conflicting-headers]
+transport = "streamable_http"
+url = "http://127.0.0.1:5000/mcp"
+
+[mcp_servers.invalid-conflicting-headers.http_headers]
+Authorization = "Bearer new-token"
+
+[mcp_servers.invalid-conflicting-headers.headers]
+Authorization = "Bearer old-token"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "valid-http" in loaded.mcpServers
+            assert "invalid-conflicting-headers" not in loaded.mcpServers
+            assert any(
+                "cannot define conflicting 'http_headers' and 'headers' values"
+                in message
+                for message in warning_messages
+            )
+
+    def test_load_llm_config_accepts_equal_http_header_aliases(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.alias-equal]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.alias-equal.http_headers]
+Authorization = "Bearer same-token"
+
+[mcp_servers.alias-equal.headers]
+Authorization = "Bearer same-token"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "alias-equal" in loaded.mcpServers
+            alias_equal = loaded.mcpServers["alias-equal"]
+            assert alias_equal.http_headers == {"Authorization": "Bearer same-token"}
+
     def test_load_llm_config_rejects_conflicting_snake_and_camel_mcp_tables(
         self,
         monkeypatch: pytest.MonkeyPatch,

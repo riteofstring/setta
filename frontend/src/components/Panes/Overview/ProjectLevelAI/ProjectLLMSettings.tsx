@@ -3,9 +3,9 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useState } from "react";
 import { HiChevronDown } from "react-icons/hi2";
 import { MdAdd } from "react-icons/md";
+import { mutateAndSaveLLMApiKeys } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { route_set_llm_api_keys } from "utils/generatedEndpoints";
 import { APIKeys, AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
@@ -28,18 +28,15 @@ const IsolatedInput = ({ apiKeyName, inputId }: IsolatedInputProps) => {
 
   const onSetValue = (v: string) => {
     const normalizedValue = normalizeApiKeyMutationValue(v);
-    const currentApiKeys = useAIStore.getState().apiKeys;
-    if (normalizedValue.length === 0) {
+    void mutateAndSaveLLMApiKeys((currentApiKeys) => {
       const nextApiKeys = { ...currentApiKeys };
-      delete nextApiKeys[apiKeyName];
-      useAIStore.setState({ apiKeys: nextApiKeys });
-      void route_set_llm_api_keys({ apiKeys: nextApiKeys });
-      return;
-    }
-    const nextApiKeys = { ...currentApiKeys };
-    nextApiKeys[apiKeyName] = normalizedValue;
-    useAIStore.setState({ apiKeys: nextApiKeys });
-    void route_set_llm_api_keys({ apiKeys: nextApiKeys });
+      if (normalizedValue.length === 0) {
+        delete nextApiKeys[apiKeyName];
+        return nextApiKeys;
+      }
+      nextApiKeys[apiKeyName] = normalizedValue;
+      return nextApiKeys;
+    });
   };
 
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
@@ -69,9 +66,10 @@ type ProjectLLMSettingsProps = {
 
 export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   useHydrateLLMState();
-  const { allLLMConfigs, apiKeys } = useAIStore((state) => ({
+  const { allLLMConfigs, apiKeys, apiKeysLoadError } = useAIStore((state) => ({
     allLLMConfigs: state.allLLMConfigs,
     apiKeys: state.apiKeys,
+    apiKeysLoadError: state.apiKeysLoadError,
   }));
   const [newApiKeyName, setNewApiKeyName] = useState("OPENAI_API_KEY");
   const [newApiKeyValue, setNewApiKeyValue] = useState("");
@@ -80,11 +78,6 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   const wrapperClassName = className
     ? `setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400 ${className}`
     : "setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400";
-
-  const persistApiKeys = (nextApiKeys: APIKeys) => {
-    useAIStore.setState({ apiKeys: nextApiKeys });
-    void route_set_llm_api_keys({ apiKeys: nextApiKeys });
-  };
 
   const handleAddApiKey = () => {
     const envKey = newApiKeyName.trim();
@@ -103,17 +96,21 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
       setNewApiKeyError("Value is required.");
       return;
     }
-    const nextApiKeys = { ...apiKeys, [envKey]: normalizedValue };
-    persistApiKeys(nextApiKeys);
+    void mutateAndSaveLLMApiKeys((currentApiKeys: APIKeys) => ({
+      ...currentApiKeys,
+      [envKey]: normalizedValue,
+    }));
     setNewApiKeyName("OPENAI_API_KEY");
     setNewApiKeyValue("");
     setNewApiKeyError(null);
   };
 
   const handleClearApiKey = (envKey: string) => {
-    const nextApiKeys = { ...apiKeys };
-    delete nextApiKeys[envKey];
-    persistApiKeys(nextApiKeys);
+    void mutateAndSaveLLMApiKeys((currentApiKeys: APIKeys) => {
+      const nextApiKeys = { ...currentApiKeys };
+      delete nextApiKeys[envKey];
+      return nextApiKeys;
+    });
   };
 
   return (
@@ -122,6 +119,11 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
           Add API Key
         </p>
+        {apiKeysLoadError ? (
+          <p className="text-[11px] text-red-600 dark:text-red-400">
+            {apiKeysLoadError}
+          </p>
+        ) : null}
         <div className="grid gap-2 @container @[30rem]:grid-cols-[1fr,1fr,auto]">
           <div className="flex flex-col gap-1">
             <label

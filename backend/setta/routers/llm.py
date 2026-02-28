@@ -2,8 +2,10 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.llm.api_keys import (
-    read_managed_api_keys,
-    write_managed_api_keys,
+    MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+    MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+    read_managed_api_keys_with_status,
+    write_managed_api_keys_with_expected_revision,
 )
 from setta.llm.config import save_llm_config
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -18,6 +20,18 @@ router = SettaAPIRouter()
 
 class UpdateAPIKeysRequest(BaseModel):
     apiKeys: APIKeys = Field(default_factory=dict)
+    expectedRevision: int = Field(ge=0)
+
+
+class ManagedAPIKeysResponse(BaseModel):
+    apiKeys: APIKeys = Field(default_factory=dict)
+    revision: int = Field(ge=0)
+
+
+class ManagedAPIKeysErrorResponse(BaseModel):
+    errorCode: str
+    message: str
+    revision: int = Field(ge=0)
 
 
 @router.get(Route.LLM_CONFIG)
@@ -43,28 +57,64 @@ async def route_set_llm_config(
 @router.get(Route.LLM_API_KEYS)
 async def route_get_llm_api_keys(
     ctx: RuntimeContextFromRequest,
-) -> APIKeys:
+) -> ManagedAPIKeysResponse:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
-    return read_managed_api_keys(ctx.state.dbe)
+    read_result = read_managed_api_keys_with_status(ctx.state.dbe)
+    if read_result.corrupt:
+        error_payload = ManagedAPIKeysErrorResponse(
+            errorCode=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+            message=read_result.error or "Managed API key store is corrupt.",
+            revision=0,
+        )
+        raise HTTPException(
+            status_code=409, detail=error_payload.model_dump(mode="json")
+        )
+    return ManagedAPIKeysResponse(
+        apiKeys=read_result.api_keys,
+        revision=read_result.revision,
+    )
 
 
 @router.post(Route.LLM_API_KEYS)
 async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
     ctx: RuntimeContextFromRequest,
-) -> APIKeys:
+) -> ManagedAPIKeysResponse:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating LLM API keys.")
-    try:
-        updated = write_managed_api_keys(ctx.state.dbe, payload.apiKeys)
-        await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
-            "Saved LLM API keys",
-            severity=SettaBackendLogEventSeverity.info,
+    write_attempt = write_managed_api_keys_with_expected_revision(
+        ctx.state.dbe,
+        payload.apiKeys,
+        expected_revision=payload.expectedRevision,
+    )
+    if write_attempt.status == "corrupt_store":
+        error_payload = ManagedAPIKeysErrorResponse(
+            errorCode=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+            message=write_attempt.error or "Managed API key store is corrupt.",
+            revision=0,
         )
-        ctx.state.agent_runner.update_api_keys(updated)
-        return updated
-    except Exception as exc:
         raise HTTPException(
-            status_code=500, detail="Failed to save LLM API keys"
-        ) from exc
+            status_code=409, detail=error_payload.model_dump(mode="json")
+        )
+    if write_attempt.status == "revision_conflict":
+        error_payload = ManagedAPIKeysErrorResponse(
+            errorCode=MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+            message=write_attempt.error or "Managed API key store revision conflict.",
+            revision=write_attempt.revision,
+        )
+        raise HTTPException(
+            status_code=409, detail=error_payload.model_dump(mode="json")
+        )
+    if write_attempt.status != "success":
+        raise HTTPException(status_code=500, detail="Failed to save LLM API keys")
+    updated_payload = ManagedAPIKeysResponse(
+        apiKeys=write_attempt.api_keys,
+        revision=write_attempt.revision,
+    )
+    await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
+        "Saved LLM API keys",
+        severity=SettaBackendLogEventSeverity.info,
+    )
+    ctx.state.agent_runner.update_api_keys(write_attempt.api_keys)
+    return updated_payload

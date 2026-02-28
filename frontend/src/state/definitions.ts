@@ -690,6 +690,7 @@ export type ChatBranchInfo = {
 
 type ZustandAIStore = {
   apiKeys: APIKeys;
+  apiKeysRevision: number;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
@@ -743,6 +744,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       () => ({
         // State
         apiKeys: {},
+        apiKeysRevision: 0,
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,

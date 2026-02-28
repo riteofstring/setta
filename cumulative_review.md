@@ -215,3 +215,37 @@
 - Frontend targeted Vitest: `20 passed` (`src/state/actions/aiStopProjectChat.test.ts`).
 - Playwright targeted regression: `1 passed` (`frontend/tests/e2e/chat/chat-stop-reconciliation.spec.ts`).
 - CDP visual verification: stop-response reconciliation confirmed in Project AI chat with backend response `{ alreadyStopped: false, stoppedMessageId: null }`.
+
+## 2026-02-26 00:20:10 PST
+
+### Consolidated Findings
+- Managed API-key writes were full-snapshot and non-linearizable across concurrent editors, with inconsistent corruption behavior across route/watcher/runtime paths.
+- MCP runtime health identity collapsed on `serverId` only, allowing Setta and external statuses to overwrite each other when IDs matched.
+- Codex MCP header aliases (`headers` vs `http_headers`) accepted conflicting values with silent precedence.
+- Context telemetry coercion accepted/truncated non-integer values into plausible token counts.
+- Git decoration fallback could replace valid decorations with partial data when fallback ref scans were truncated.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Introduced strict revisioned managed-key store contract (`{ revision, apiKeys }`) with CAS writes (`expectedRevision`) and typed `409` errors for revision conflict/corruption.
+- Unified managed-key runtime sync into one fail-closed path for watchers: corruption now applies empty runtime keys and broadcasts empty snapshots deterministically.
+- Updated frontend API-key persistence to serialized mutation queue with `409` conflict refresh/retry and explicit corruption handling.
+- Promoted MCP runtime status identity to `(source, serverId)` throughout runtime map creation and status resolution/rendering.
+- Added hard conflict rejection for Codex MCP `headers`/`http_headers` alias mismatches; equal aliases canonicalize cleanly.
+- Tightened backend/frontend context telemetry parsing to accept only finite non-negative integers.
+- Hardened git decoration fallback to avoid partial-overwrite regressions under truncated fallback output.
+- Regenerated endpoint/type bindings and updated frontend callers/tests to the new managed-key contract.
+
+### UX/DX Before -> After
+- API-key saves: out-of-order writes could silently drop unrelated keys -> stale saves now fail explicitly (`409`) and frontend retries from authoritative snapshot.
+- Corruption handling: route/watcher/runtime could diverge -> one fail-closed behavior across all consumers with actionable typed errors.
+- MCP diagnostics: duplicate IDs across sources could show wrong status chips -> each source/server pair now resolves independently.
+- Config debugging: conflicting header aliases were silently accepted -> conflicts fail fast with deterministic remediation.
+- Context trust: malformed telemetry could look valid (e.g., coerced to `0`) -> invalid telemetry is unavailable instead of fabricated.
+- Git refs display: decorations could disappear intermittently on large refs -> fallback preserves existing decorations unless complete valid fallback data is available.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest: `120 passed` (`tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`, `tests/llm/test_config.py`, `tests/agentic/test_context_usage.py`, `tests/routers/test_git_routes.py`, `tests/routers/test_share_policy_routes.py`).
+- Frontend targeted Vitest: `31 passed` (`aiSaveLLMApiKeys`, `aiResourceLoadGuards`, `contextTelemetry`, `projectChatSkillsMcpViewerUtils`, `llmConfigUtils`).
+- Playwright targeted e2e: `31 passed` (project-ai settings/MCP viewer + related app-config/misc specs).
+- CDP visual verification: Project AI settings and Skills/MCP viewer exercised; runtime crash path in `buildLLMConfigGroups` no longer reproduces.

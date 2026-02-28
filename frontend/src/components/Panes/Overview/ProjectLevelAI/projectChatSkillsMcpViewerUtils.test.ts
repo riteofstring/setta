@@ -13,6 +13,7 @@ import {
   groupSkillsByRootPath,
   parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
+  SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -128,6 +129,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       externalRuntimeServers: [
         {
           serverId: "codex-remote",
+          source: "external_agent",
           transport: "sse",
           endpoint: "http://127.0.0.1:9999/mcp",
         },
@@ -228,9 +230,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "figma-desktop": {
+        "setta_mcp:figma-desktop": {
           state: "connected",
           quickInfo: "Available: connected with 8 tools.",
           registeredToolCount: 8,
@@ -249,9 +252,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime error servers as unavailable", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: {
-        pencil: {
+        "setta_mcp:pencil": {
           state: "error",
           quickInfo: "Unavailable: command not found",
           registeredToolCount: 0,
@@ -270,9 +274,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime connecting servers as yellow", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "figma-desktop": {
+        "setta_mcp:figma-desktop": {
           state: "connecting",
           quickInfo: "Connecting...",
           registeredToolCount: 0,
@@ -291,6 +296,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime lookup failures as unknown status", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: null,
       runtimeStatusLoading: false,
@@ -304,6 +310,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks per-server runtime mapping gaps as unknown", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {},
       runtimeStatusLoading: false,
@@ -318,6 +325,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "figma-desktop",
+        source: "setta_mcp",
         state: "connected",
         lastError: null,
         missingEnvVar: null,
@@ -325,6 +333,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
       {
         serverId: "broken-server",
+        source: "setta_mcp",
         state: "error",
         lastError: "command not found",
         missingEnvVar: "OPENAI_API_KEY",
@@ -333,14 +342,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ]);
 
     expect(runtimeStatuses).toEqual({
-      "figma-desktop": {
+      "setta_mcp:figma-desktop": {
         state: "connected",
         quickInfo: "Connected: 8 tools",
         registeredToolCount: 8,
         issue: null,
         missingEnvVar: null,
       },
-      "broken-server": {
+      "setta_mcp:broken-server": {
         state: "error",
         quickInfo:
           "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
@@ -349,6 +358,48 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         missingEnvVar: "OPENAI_API_KEY",
       },
     });
+  });
+
+  it("keeps statuses distinct when server ids collide across sources", () => {
+    const runtimeStatuses = toRuntimeStatusByServerId([
+      {
+        serverId: "setta",
+        source: "setta_mcp",
+        state: "connected",
+        lastError: null,
+        missingEnvVar: null,
+        toolCount: 4,
+      },
+      {
+        serverId: "setta",
+        source: "external_agent",
+        state: "error",
+        lastError: "auth failed",
+        missingEnvVar: null,
+        toolCount: 0,
+      },
+    ]);
+
+    const settaSourceStatus = resolveMcpServerStatus({
+      serverId: "setta",
+      source: "setta_mcp",
+      endpoint: "http://127.0.0.1:8000/mcp",
+      runtimeStatusByServerId: runtimeStatuses,
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+    const externalSourceStatus = resolveMcpServerStatus({
+      serverId: "setta",
+      source: "external_agent",
+      endpoint: "https://api.example.dev/mcp",
+      runtimeStatusByServerId: runtimeStatuses,
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+
+    expect(settaSourceStatus.color).toBe("green");
+    expect(externalSourceStatus.color).toBe("red");
+    expect(externalSourceStatus.quickInfo).toContain("auth failed");
   });
 
   it("builds slash commands by engine using setta/external availability", () => {

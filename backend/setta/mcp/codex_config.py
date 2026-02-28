@@ -272,17 +272,48 @@ def _parse_http_headers(
     server_id: str,
 ) -> dict[str, str] | None:
     raw_http_headers = raw_entry.get("http_headers")
-    if raw_http_headers is None:
-        raw_http_headers = raw_entry.get("headers")
+    raw_headers_alias = raw_entry.get("headers")
+    has_http_headers = "http_headers" in raw_entry
+    has_headers_alias = "headers" in raw_entry
+    normalized_http_headers = _parse_http_headers_alias_payload(
+        raw_http_headers,
+        server_id=server_id,
+        field_name="http_headers",
+    )
+    normalized_headers_alias = _parse_http_headers_alias_payload(
+        raw_headers_alias,
+        server_id=server_id,
+        field_name="headers",
+    )
+    if not has_http_headers and not has_headers_alias:
+        return None
+    if has_http_headers and has_headers_alias:
+        if normalized_http_headers != normalized_headers_alias:
+            raise ValueError(
+                f"server '{server_id}' cannot define conflicting "
+                "'http_headers' and 'headers' values"
+            )
+        return normalized_http_headers
+    if has_http_headers:
+        return normalized_http_headers
+    return normalized_headers_alias
+
+
+def _parse_http_headers_alias_payload(
+    raw_http_headers: Any,
+    *,
+    server_id: str,
+    field_name: str,
+) -> dict[str, str] | None:
     if raw_http_headers is None:
         return None
     if not isinstance(raw_http_headers, dict):
-        raise ValueError(f"server '{server_id}' http_headers must be an object")
+        raise ValueError(f"server '{server_id}' {field_name} must be an object")
     normalized_headers: dict[str, str] = {}
     for header_name, header_value in raw_http_headers.items():
         if not isinstance(header_name, str) or not isinstance(header_value, str):
             raise ValueError(
-                f"server '{server_id}' http_headers values must be string key/value pairs"
+                f"server '{server_id}' {field_name} values must be string key/value pairs"
             )
         normalized_name = header_name.strip()
         if not normalized_name:

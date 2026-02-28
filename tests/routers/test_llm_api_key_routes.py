@@ -2,12 +2,17 @@ from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import pytest
 import pytest_asyncio
 
 from setta.lsp.managers import stop_file_watcher, stop_lsps
-from setta.llm.api_keys import llm_api_keys_path, read_managed_api_keys
+from setta.llm.api_keys import (
+    MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+    MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+    llm_api_keys_path,
+    read_managed_api_keys,
+)
 from setta.routers.llm import (
     UpdateAPIKeysRequest,
     route_get_llm_api_keys,
@@ -86,15 +91,23 @@ async def test_llm_api_keys_routes_return_unreferenced_keys(
     # Arbitrary keys should persist and round-trip through the managed key store
     # even when no configured provider references them.
     with runtime_context(state_env) as runtime_ctx:
+        initial_keys = await route_get_llm_api_keys(runtime_ctx)
         response = await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"UNSCOPED_CUSTOM_KEY": "custom-secret"}),
+            UpdateAPIKeysRequest(
+                apiKeys={"UNSCOPED_CUSTOM_KEY": "custom-secret"},
+                expectedRevision=initial_keys.revision,
+            ),
             runtime_ctx,
         )
         keys_from_get = await route_get_llm_api_keys(runtime_ctx)
 
-    assert response["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
-    assert keys_from_get["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
-    assert read_managed_api_keys(state_env.dbe)["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
+    assert response.apiKeys["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
+    assert response.revision == 1
+    assert keys_from_get.apiKeys["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
+    assert keys_from_get.revision == 1
+    assert (
+        read_managed_api_keys(state_env.dbe)["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
+    )
 
     # Runtime provider execution still uses the filtered key map.
     assert state_env.agent_runner.api_keys == {}
@@ -106,18 +119,26 @@ async def test_llm_api_keys_routes_remove_key_on_empty_value(
 ) -> None:
     # Sending an empty value deletes that key from persisted env storage.
     with runtime_context(state_env) as runtime_ctx:
-        await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"UNSCOPED_CUSTOM_KEY": "custom-secret"}),
+        first_write = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={"UNSCOPED_CUSTOM_KEY": "custom-secret"},
+                expectedRevision=0,
+            ),
             runtime_ctx,
         )
         response = await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"UNSCOPED_CUSTOM_KEY": ""}),
+            UpdateAPIKeysRequest(
+                apiKeys={"UNSCOPED_CUSTOM_KEY": ""},
+                expectedRevision=first_write.revision,
+            ),
             runtime_ctx,
         )
         keys_from_get = await route_get_llm_api_keys(runtime_ctx)
 
-    assert "UNSCOPED_CUSTOM_KEY" not in response
-    assert "UNSCOPED_CUSTOM_KEY" not in keys_from_get
+    assert "UNSCOPED_CUSTOM_KEY" not in response.apiKeys
+    assert response.revision == 2
+    assert "UNSCOPED_CUSTOM_KEY" not in keys_from_get.apiKeys
+    assert keys_from_get.revision == 2
 
 
 @pytest.mark.asyncio
@@ -132,14 +153,18 @@ async def test_llm_api_keys_routes_do_not_expose_unrelated_dotenv_entries(
     )
     state_env.dbe.reload_dot_env()
     with runtime_context(state_env) as runtime_ctx:
+        initial_keys = await route_get_llm_api_keys(runtime_ctx)
         await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"OPENAI_API_KEY": "managed-secret"}),
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "managed-secret"},
+                expectedRevision=initial_keys.revision,
+            ),
             runtime_ctx,
         )
         keys_from_get = await route_get_llm_api_keys(runtime_ctx)
 
-    assert keys_from_get == {"OPENAI_API_KEY": "managed-secret"}
-    assert "UNRELATED_SECRET" not in keys_from_get
+    assert keys_from_get.apiKeys == {"OPENAI_API_KEY": "managed-secret"}
+    assert "UNRELATED_SECRET" not in keys_from_get.apiKeys
     assert state_env.dbe.read_dot_env()["UNRELATED_SECRET"] == "do-not-expose"
 
 
@@ -169,14 +194,17 @@ async def test_llm_api_keys_route_can_repair_corrupt_store_payload(
                 apiKeys={
                     " OPENAI_API_KEY ": "  repaired-secret  ",
                     "EMPTY_KEY": "   ",
-                }
+                },
+                expectedRevision=0,
             ),
             runtime_ctx,
         )
         keys_from_get = await route_get_llm_api_keys(runtime_ctx)
 
-    assert response == {"OPENAI_API_KEY": "repaired-secret"}
-    assert keys_from_get == {"OPENAI_API_KEY": "repaired-secret"}
+    assert response.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert response.revision == 1
+    assert keys_from_get.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert keys_from_get.revision == 1
     assert read_managed_api_keys(state_env.dbe) == {"OPENAI_API_KEY": "repaired-secret"}
 
 
@@ -191,14 +219,78 @@ async def test_llm_api_keys_route_can_repair_malformed_json_store_payload(
 
     with runtime_context(state_env) as runtime_ctx:
         response = await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"OPENAI_API_KEY": "repaired-secret"}),
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "repaired-secret"},
+                expectedRevision=0,
+            ),
             runtime_ctx,
         )
         keys_from_get = await route_get_llm_api_keys(runtime_ctx)
 
-    assert response == {"OPENAI_API_KEY": "repaired-secret"}
-    assert keys_from_get == {"OPENAI_API_KEY": "repaired-secret"}
+    assert response.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert response.revision == 1
+    assert keys_from_get.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert keys_from_get.revision == 1
     assert read_managed_api_keys(state_env.dbe) == {"OPENAI_API_KEY": "repaired-secret"}
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_route_rejects_stale_revision_with_409(
+    state_env: SettaFastAPIState,
+) -> None:
+    with runtime_context(state_env) as runtime_ctx:
+        first_write = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "initial-secret"},
+                expectedRevision=0,
+            ),
+            runtime_ctx,
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await route_set_llm_api_keys(
+                UpdateAPIKeysRequest(
+                    apiKeys={
+                        "OPENAI_API_KEY": "initial-secret",
+                        "ANTHROPIC_API_KEY": "stale-write",
+                    },
+                    expectedRevision=0,
+                ),
+                runtime_ctx,
+            )
+        keys_from_get = await route_get_llm_api_keys(runtime_ctx)
+
+    assert first_write.revision == 1
+    assert exc_info.value.status_code == 409
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected revision-conflict detail payload.")
+    assert (
+        exc_info.value.detail.get("errorCode")
+        == MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE
+    )
+    assert exc_info.value.detail.get("revision") == 1
+    assert keys_from_get.apiKeys == {"OPENAI_API_KEY": "initial-secret"}
+    assert keys_from_get.revision == 1
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_get_route_returns_typed_corruption_error(
+    state_env: SettaFastAPIState,
+) -> None:
+    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
+    managed_keys_path.write_text('{"OPENAI_API_KEY":"broken"', encoding="utf-8")
+
+    with runtime_context(state_env) as runtime_ctx:
+        with pytest.raises(HTTPException) as exc_info:
+            await route_get_llm_api_keys(runtime_ctx)
+
+    assert exc_info.value.status_code == 409
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected typed corruption detail payload.")
+    assert exc_info.value.detail.get("errorCode") == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    assert exc_info.value.detail.get("revision") == 0
 
 
 @pytest.mark.asyncio
@@ -213,8 +305,12 @@ async def test_llm_api_key_watcher_uses_managed_store_not_dotenv(
     )
     state_env.dbe.reload_dot_env()
     with runtime_context(state_env) as runtime_ctx:
+        initial_keys = await route_get_llm_api_keys(runtime_ctx)
         await route_set_llm_api_keys(
-            UpdateAPIKeysRequest(apiKeys={"OPENAI_API_KEY": "managed-secret"}),
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "managed-secret"},
+                expectedRevision=initial_keys.revision,
+            ),
             runtime_ctx,
         )
 
@@ -225,31 +321,31 @@ async def test_llm_api_key_watcher_uses_managed_store_not_dotenv(
 
 
 @pytest.mark.asyncio
-async def test_llm_api_key_watcher_keeps_existing_keys_when_managed_store_is_invalid(
+async def test_llm_api_key_watcher_clears_runtime_keys_when_managed_store_is_invalid(
     state_env: SettaFastAPIState,
 ) -> None:
-    # Invalid managed payloads should not clear in-memory keys via fail-open coercion.
+    # Invalid managed payloads should fail closed so stale runtime keys are removed.
     state_env.agent_runner.update_api_keys({"OPENAI_API_KEY": "existing-secret"})
     state_env.dbe.write_json(llm_api_keys_path(state_env.dbe), [])
 
     await state_env.llm_api_key_watcher._reload_from_disk()
 
-    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "existing-secret"}
+    assert state_env.agent_runner.raw_env_vars == {}
 
 
 @pytest.mark.asyncio
-async def test_llm_api_key_watcher_keeps_existing_keys_when_managed_store_is_malformed_json(
+async def test_llm_api_key_watcher_clears_runtime_keys_when_managed_store_is_malformed_json(
     state_env: SettaFastAPIState,
 ) -> None:
     state_env.agent_runner.update_api_keys({"OPENAI_API_KEY": "existing-secret"})
     managed_keys_path = llm_api_keys_path(state_env.dbe)
     managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
-    # Malformed JSON should follow the same "keep existing" fallback path.
+    # Malformed JSON should clear runtime API keys and surface corruption details.
     managed_keys_path.write_text('{"OPENAI_API_KEY":"broken"', encoding="utf-8")
 
     await state_env.llm_api_key_watcher._reload_from_disk()
 
-    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "existing-secret"}
+    assert state_env.agent_runner.raw_env_vars == {}
 
 
 @pytest.mark.asyncio
@@ -261,7 +357,7 @@ async def test_llm_config_watcher_does_not_fail_when_managed_store_is_invalid(
 
     await state_env.llm_config_watcher._reload_config()
 
-    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "existing-secret"}
+    assert state_env.agent_runner.raw_env_vars == {}
 
 
 @pytest.mark.asyncio
@@ -276,4 +372,4 @@ async def test_llm_config_watcher_does_not_fail_when_managed_store_is_malformed_
 
     await state_env.llm_config_watcher._reload_config()
 
-    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "existing-secret"}
+    assert state_env.agent_runner.raw_env_vars == {}

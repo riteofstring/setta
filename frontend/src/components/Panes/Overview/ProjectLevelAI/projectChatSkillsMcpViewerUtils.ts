@@ -622,6 +622,7 @@ export function groupSkillsByRootPath(
 
 type McpServerListEntry = {
   serverId: string;
+  source: string;
   transport: string;
   endpoint: string;
 };
@@ -662,6 +663,12 @@ type McpServersByConfigPath = {
   servers: McpServerListEntry[];
 };
 
+export const SETTA_MCP_RUNTIME_SOURCE = "setta_mcp";
+
+function buildRuntimeStatusMapKey(source: string, serverId: string): string {
+  return `${source}:${serverId}`;
+}
+
 function resolveMcpServerEndpoint(
   config: AllLLMConfigs["mcpServers"][string],
 ): string {
@@ -701,6 +708,7 @@ export function groupMcpServersByConfigPath({
       .map(([serverId, config]) => {
         return {
           serverId,
+          source: SETTA_MCP_RUNTIME_SOURCE,
           transport: config.transport,
           endpoint: resolveMcpServerEndpoint(config),
         };
@@ -918,6 +926,7 @@ export function parseMcpServerRuntimeStatuses(
 export function toRuntimeStatusByServerId(
   runtimeStatuses: Array<{
     serverId: string;
+    source: string;
     state: unknown;
     lastError?: string | null;
     missingEnvVar?: string | null;
@@ -927,7 +936,11 @@ export function toRuntimeStatusByServerId(
   const statuses: Record<string, McpRuntimeServerStatus> = {};
   for (const runtimeStatus of runtimeStatuses) {
     const serverId = runtimeStatus.serverId.trim();
+    const source = runtimeStatus.source.trim();
     if (!serverId) {
+      continue;
+    }
+    if (!source) {
       continue;
     }
     const state = normalizeRuntimeServerState(runtimeStatus.state);
@@ -939,7 +952,7 @@ export function toRuntimeStatusByServerId(
       runtimeStatus.toolCount >= 0
         ? runtimeStatus.toolCount
         : 0;
-    statuses[serverId] = {
+    statuses[buildRuntimeStatusMapKey(source, serverId)] = {
       state,
       quickInfo: normalizeRuntimeServerQuickInfo({
         state,
@@ -958,12 +971,14 @@ export function toRuntimeStatusByServerId(
 
 export function resolveMcpServerStatus({
   serverId,
+  source,
   endpoint,
   runtimeStatusByServerId,
   runtimeStatusLoading,
   runtimeStatusError,
 }: {
   serverId: string;
+  source: string;
   endpoint: string;
   runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   runtimeStatusLoading: boolean;
@@ -994,7 +1009,8 @@ export function resolveMcpServerStatus({
       quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
-  const runtimeStatus = runtimeStatusByServerId[serverId];
+  const runtimeStatus =
+    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)];
   if (!runtimeStatus) {
     return {
       color: "yellow",

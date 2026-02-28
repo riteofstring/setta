@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
-from setta.llm.api_keys import llm_api_keys_path, read_managed_api_keys
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.llm.api_key_runtime_sync import sync_managed_api_keys_to_runtime
+from setta.llm.api_keys import llm_api_keys_path
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.paths import normalize_state_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -48,21 +48,14 @@ class LLMApiKeyWatcher:
         )
 
     async def _reload_from_disk(self) -> None:
-        try:
-            api_keys = read_managed_api_keys(self.dbe)
-        except Exception as exc:  # pragma: no cover - defensive log
-            await (
-                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="llm-api-keys-reload",
-                    message="Failed to reload API keys; keeping previous values",
-                    severity=SettaBackendLogEventSeverity.error,
-                    handled=True,
-                    logger=logger,
-                    context={"api_keys_path": str(llm_api_keys_path(self.dbe))},
-                )
-            )
-            return
-
-        self.agent_runner.update_api_keys(api_keys)
-        await self.websocket_msg_handler.broadcast_llm_api_keys_update(api_keys)
+        await sync_managed_api_keys_to_runtime(
+            dbe=self.dbe,
+            agent_runner=self.agent_runner,
+            websocket_msg_handler=self.websocket_msg_handler,
+            logger=logger,
+            log_label="llm-api-keys-reload",
+            corruption_message=(
+                "Failed to parse llm_api_keys.json; applying empty API keys snapshot"
+            ),
+            context={"api_keys_path": str(llm_api_keys_path(self.dbe))},
+        )

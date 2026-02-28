@@ -23,7 +23,10 @@ export function normalizeContextTokenCount(
   if (!Number.isFinite(value)) {
     return null;
   }
-  return Math.max(0, Math.floor(value));
+  if (!Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
 }
 
 export function resolveAuthoritativeContextTelemetry(

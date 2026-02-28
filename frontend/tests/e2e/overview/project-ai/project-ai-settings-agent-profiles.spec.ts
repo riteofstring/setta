@@ -47,8 +47,10 @@ test.describe.serial("project ai settings accordion layout", () => {
           if (!res.ok()) {
             return null;
           }
-          const payload = (await res.json()) as Record<string, string>;
-          return payload[customKey] ?? null;
+          const payload = (await res.json()) as {
+            apiKeys?: Record<string, string>;
+          };
+          return payload.apiKeys?.[customKey] ?? null;
         })
         .toBe(customValue);
 
@@ -56,6 +58,128 @@ test.describe.serial("project ai settings accordion layout", () => {
       await expect(
         page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("llm api key save retries on revision conflict and preserves concurrent keys", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    const customKey = "E2E_RETRY_CUSTOM_KEY";
+    const customValue = "retry-custom-secret";
+    const concurrentKey = "E2E_CONCURRENT_KEY";
+    const concurrentValue = "concurrent-secret";
+    const postPayloads: Array<{
+      apiKeys: Record<string, string>;
+      expectedRevision: number;
+    }> = [];
+    let firstPost = true;
+    let persistedSnapshot: {
+      apiKeys: Record<string, string>;
+      revision: number;
+    } = {
+      apiKeys: {},
+      revision: 0,
+    };
+    allowExpectedApiError(page, {
+      path: "/api/llm/apiKeys",
+      statuses: [409],
+    });
+    await page.route("**/api/llm/apiKeys", async (route) => {
+      const method = route.request().method();
+      if (method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(persistedSnapshot),
+        });
+        return;
+      }
+      if (method !== "POST") {
+        await route.continue();
+        return;
+      }
+      const payload = route.request().postDataJSON() as {
+        apiKeys: Record<string, string>;
+        expectedRevision: number;
+      };
+      postPayloads.push(payload);
+      if (firstPost) {
+        firstPost = false;
+        persistedSnapshot = {
+          apiKeys: {
+            [concurrentKey]: concurrentValue,
+          },
+          revision: 1,
+        };
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              errorCode: "managed_api_keys_revision_conflict",
+              message: "revision mismatch",
+              revision: 1,
+            },
+          }),
+        });
+        return;
+      }
+      persistedSnapshot = {
+        apiKeys: payload.apiKeys,
+        revision: persistedSnapshot.revision + 1,
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(persistedSnapshot),
+      });
+    });
+
+    try {
+      const llmKeysTrigger = page.getByTestId(
+        "project-ai-settings-accordion-llm-api-keys",
+      );
+      if ((await llmKeysTrigger.getAttribute("aria-expanded")) !== "true") {
+        await llmKeysTrigger.click();
+      }
+
+      await page
+        .getByTestId("project-llm-settings-new-api-key-name")
+        .fill(customKey);
+      await page
+        .locator("#project-llm-settings-new-api-key-value")
+        .fill(customValue);
+      await page.getByTestId("project-llm-settings-add-api-key").click();
+
+      await expect
+        .poll(() => postPayloads.length)
+        .toBeGreaterThanOrEqual(2);
+      await expect(
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+      ).toContainText(customKey);
+      await expect(
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+      ).toContainText(concurrentKey);
+      const relevantPayloads = postPayloads.filter((payload) => {
+        return payload.apiKeys[customKey] === customValue;
+      });
+      expect(relevantPayloads.length).toBeGreaterThanOrEqual(2);
+      expect(relevantPayloads[0]).toMatchObject({
+        apiKeys: {
+          [customKey]: customValue,
+        },
+      });
+      expect(relevantPayloads[1]).toMatchObject({
+        apiKeys: {
+          [concurrentKey]: concurrentValue,
+          [customKey]: customValue,
+        },
+        expectedRevision: 1,
+      });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

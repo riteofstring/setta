@@ -64,6 +64,7 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
+  route_set_llm_api_keys,
   route_set_llm_config,
   route_start_transcription_session,
   route_stop_external_agent_run,
@@ -141,8 +142,14 @@ const scopeViolationToastTimeouts = new Map<
 >();
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
+let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
 let agentRunsLoadPromise: Promise<void> | null = null;
 const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
+const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
+  "managed_api_keys_revision_conflict";
+const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
+
+type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -574,12 +581,19 @@ export async function loadLLMApiKeys() {
   llmApiKeysLoadPromise = (async () => {
     const res = await route_get_llm_api_keys();
     if (res200(res)) {
-      receiveLLMApiKeysUpdate(res.data);
+      receiveLLMApiKeysSnapshotUpdate(res.data);
       return;
     }
+    const detail = getErrorDetail(res.data);
+    const revision = extractApiKeysRevisionFromErrorPayload(res.data);
     useAIStore.setState({
+      apiKeys:
+        getErrorCode(res.data) === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+          ? {}
+          : useAIStore.getState().apiKeys,
+      apiKeysRevision: revision ?? useAIStore.getState().apiKeysRevision,
       apiKeysInitialLoadComplete: true,
-      apiKeysLoadError: "Failed to load LLM API keys",
+      apiKeysLoadError: detail ?? "Failed to load LLM API keys",
     });
   })();
   try {
@@ -597,12 +611,134 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
-export function receiveLLMApiKeysUpdate(payload: APIKeys) {
+function receiveLLMApiKeysSnapshotUpdate(payload: {
+  apiKeys: APIKeys;
+  revision: number;
+}) {
   useAIStore.setState({
-    apiKeys: payload,
+    apiKeys: payload.apiKeys,
+    apiKeysRevision: payload.revision,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: null,
   });
+}
+
+export function receiveLLMApiKeysUpdate(payload: APIKeys) {
+  useAIStore.setState((state) => ({
+    apiKeys: payload,
+    apiKeysRevision: state.apiKeysRevision,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: null,
+  }));
+}
+
+function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const revision = value.revision;
+  if (
+    typeof revision === "number" &&
+    Number.isInteger(revision) &&
+    revision >= 0
+  ) {
+    return revision;
+  }
+  return extractApiKeysRevisionFromErrorPayload(value.detail);
+}
+
+async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
+  const res = await route_get_llm_api_keys();
+  if (res200(res)) {
+    receiveLLMApiKeysSnapshotUpdate(res.data);
+    return true;
+  }
+  const detail = getErrorDetail(res.data);
+  const revision = extractApiKeysRevisionFromErrorPayload(res.data);
+  useAIStore.setState((state) => ({
+    apiKeys:
+      getErrorCode(res.data) === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+        ? {}
+        : state.apiKeys,
+    apiKeysRevision: revision ?? state.apiKeysRevision,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: detail ?? "Failed to load LLM API keys",
+  }));
+  return false;
+}
+
+async function persistLLMApiKeysMutation(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
+    const state = useAIStore.getState();
+    const nextApiKeys = mutation(state.apiKeys);
+    const res = await route_set_llm_api_keys({
+      apiKeys: nextApiKeys,
+      expectedRevision: state.apiKeysRevision,
+    });
+    if (res200(res)) {
+      receiveLLMApiKeysSnapshotUpdate(res.data);
+      return true;
+    }
+    const errorCode = getErrorCode(res.data);
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE
+    ) {
+      const refreshed = await refreshLLMApiKeysSnapshotFromServer();
+      if (!refreshed) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    ) {
+      const revision = extractApiKeysRevisionFromErrorPayload(res.data);
+      if (revision === null) {
+        useAIStore.setState({
+          apiKeysInitialLoadComplete: true,
+          apiKeysLoadError:
+            getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
+        });
+        return false;
+      }
+      useAIStore.setState({
+        apiKeys: {},
+        apiKeysRevision: revision,
+        apiKeysInitialLoadComplete: true,
+        apiKeysLoadError:
+          getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
+      });
+      continue;
+    }
+    useAIStore.setState({
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        getErrorDetail(res.data) ?? "Failed to save LLM API keys",
+    });
+    return false;
+  }
+  useAIStore.setState({
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: "Failed to save LLM API keys after retrying conflicts.",
+  });
+  return false;
+}
+
+export async function mutateAndSaveLLMApiKeys(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  let didPersist = false;
+  const runMutation = async () => {
+    didPersist = await persistLLMApiKeysMutation(mutation);
+  };
+  llmApiKeysSaveQueue = llmApiKeysSaveQueue.then(runMutation, runMutation);
+  await llmApiKeysSaveQueue;
+  return didPersist;
 }
 
 export async function loadAgentProfiles(force: boolean = false) {

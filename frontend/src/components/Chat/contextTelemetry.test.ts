@@ -5,14 +5,16 @@ import {
 } from "./contextTelemetry";
 
 describe("normalizeContextTokenCount", () => {
-  it("normalizes finite numbers to non-negative integers", () => {
-    expect(normalizeContextTokenCount(10.9)).toBe(10);
-    expect(normalizeContextTokenCount(-5)).toBe(0);
+  it("accepts non-negative integers", () => {
+    expect(normalizeContextTokenCount(10)).toBe(10);
+    expect(normalizeContextTokenCount(0)).toBe(0);
   });
 
-  it("returns null for invalid values", () => {
+  it("returns null for invalid or non-integer values", () => {
     expect(normalizeContextTokenCount(null)).toBeNull();
     expect(normalizeContextTokenCount(undefined)).toBeNull();
+    expect(normalizeContextTokenCount(10.9)).toBeNull();
+    expect(normalizeContextTokenCount(-5)).toBeNull();
     expect(normalizeContextTokenCount(Number.NaN)).toBeNull();
     expect(normalizeContextTokenCount(Number.POSITIVE_INFINITY)).toBeNull();
   });

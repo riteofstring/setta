@@ -9014,8 +9014,18 @@ const LaunchResponseSchema = z.object({
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
 
+const ManagedAPIKeysResponseSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()).default({}),
+  revision: z.int(),
+});
+
+export type ManagedAPIKeysResponse = z.infer<
+  typeof ManagedAPIKeysResponseSchema
+>;
+
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
+  expectedRevision: z.int(),
 });
 
 export type UpdateAPIKeysRequestInput = z.input<

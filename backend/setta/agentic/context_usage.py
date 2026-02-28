@@ -41,6 +41,8 @@ def _extract_non_negative_int(value: Any) -> int | None:
     if isinstance(value, float):
         if not math.isfinite(value):
             return None
+        if not value.is_integer():
+            return None
         parsed = int(value)
         return parsed if parsed >= 0 else None
     if isinstance(value, str):

@@ -500,6 +500,7 @@ export function ProjectChatSkillsMcpViewer({
   const [externalRuntimeServers, setExternalRuntimeServers] = useState<
     Array<{
       serverId: string;
+      source: string;
       transport: string;
       endpoint: string;
     }>
@@ -672,6 +673,7 @@ export function ProjectChatSkillsMcpViewer({
       setExternalRuntimeServers(
         externalStatuses.map((status) => ({
           serverId: status.serverId,
+          source: status.source,
           transport: status.transport,
           endpoint: status.endpoint,
         })),
@@ -986,6 +988,7 @@ export function ProjectChatSkillsMcpViewer({
                           const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
                           const status = resolveMcpServerStatus({
                             serverId: server.serverId,
+                            source: server.source,
                             endpoint: server.endpoint,
                             runtimeStatusByServerId: mcpRuntimeStatusByServerId,
                             runtimeStatusLoading: mcpRuntimeStatusLoading,

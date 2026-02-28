@@ -45,7 +45,9 @@ def test_external_context_usage_uses_persisted_context_window_when_present() -> 
     assert usage.estimated is False
 
 
-def test_context_usage_does_not_infer_context_window_from_runtime_model_metadata() -> None:
+def test_context_usage_does_not_infer_context_window_from_runtime_model_metadata() -> (
+    None
+):
     # Historical usage must be derived only from persisted run payloads, not live model lookups.
     run = _build_run_with_usage({"promptTokens": 11, "completionTokens": 2})
 
@@ -75,7 +77,9 @@ def test_context_usage_ignores_non_finite_usage_scalars() -> None:
     assert usage.estimated is True
 
 
-def test_external_context_usage_returns_none_when_only_non_finite_values_present() -> None:
+def test_external_context_usage_returns_none_when_only_non_finite_values_present() -> (
+    None
+):
     # If all usage values are non-finite, context telemetry should be unavailable.
     run = _build_run_with_usage(
         {
@@ -88,3 +92,22 @@ def test_external_context_usage_returns_none_when_only_non_finite_values_present
     usage = resolve_external_run_context_usage(run)
 
     assert usage is None
+
+
+def test_context_usage_rejects_non_integer_numeric_values() -> None:
+    # Fractional/negative-fractional values must be treated as unavailable.
+    run = _build_run_with_usage(
+        {
+            "promptTokens": -0.5,
+            "inputTokens": "1.9",
+            "completionTokens": 1.9,
+            "contextWindowTokens": "4096",
+        }
+    )
+
+    usage = resolve_internal_run_context_usage(run)
+
+    assert usage is not None
+    assert usage.context_used_tokens is None
+    assert usage.context_window_tokens == 4096
+    assert usage.estimated is False
