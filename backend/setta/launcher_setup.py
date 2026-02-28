@@ -171,8 +171,11 @@ class LauncherUpdateResult:
 
 
 def resolve_launcher_target_command(*, executable: Path | None = None) -> list[str]:
-    resolved_executable = executable or Path(sys.executable).resolve(strict=False)
-    return [str(resolved_executable), "-m", "setta"]
+    resolved_executable = executable or Path(sys.executable)
+    expanded_executable = resolved_executable.expanduser()
+    if not expanded_executable.is_absolute():
+        expanded_executable = Path(os.path.abspath(str(expanded_executable)))
+    return [str(expanded_executable), "-m", "setta"]
 
 
 def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:

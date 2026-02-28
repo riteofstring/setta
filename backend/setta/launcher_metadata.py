@@ -318,7 +318,7 @@ def _normalize_target_command(raw_value: object) -> list[str]:
                 raise LauncherMetadataError(
                     "targetCommand[0] must be an absolute executable path."
                 )
-            normalized.append(str(executable.resolve(strict=False)))
+            normalized.append(str(executable))
             continue
         normalized.append(trimmed)
     return normalized

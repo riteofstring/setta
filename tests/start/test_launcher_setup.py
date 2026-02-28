@@ -18,6 +18,7 @@ from setta.launcher_setup import (
     LauncherSetupError,
     collect_launcher_status,
     remove_launcher_installation,
+    resolve_launcher_target_command,
     repair_launcher_installation,
     setup_launcher_installation,
     update_launcher_installation,
@@ -68,6 +69,21 @@ def test_collect_launcher_status_reports_not_installed() -> None:
     assert status.installed is False
     assert status.update_capability == "unsupported"
     assert status.update_guidance is not None
+
+
+def test_resolve_launcher_target_command_keeps_unresolved_executable_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_executable = "/tmp/setta-tests/venv/bin/python"
+    monkeypatch.setattr(sys, "executable", expected_executable)
+
+    def fail_resolve(_self: Path, _strict: bool = False) -> Path:
+        raise AssertionError("resolve() should not be used for launcher target command.")
+
+    monkeypatch.setattr(Path, "resolve", fail_resolve)
+
+    target_command = resolve_launcher_target_command()
+    assert target_command == [expected_executable, "-m", "setta"]
 
 
 def test_collect_launcher_status_rejects_metadata_scope_mismatch(
@@ -646,7 +662,7 @@ def test_repair_launcher_installation_rebinds_missing_target(
     repair_result = repair_launcher_installation(setta_home=setta_home)
 
     assert repair_result.setup.metadata.targetCommand[0] == str(
-        Path(sys.executable).resolve(strict=False)
+        Path(sys.executable).expanduser()
     )
     assert repair_result.status.target_valid is True
     assert repair_result.status.target_error is None

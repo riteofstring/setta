@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
@@ -711,13 +712,17 @@ def _open_url_in_chrome_app(url: str) -> bool:
     chrome_flag = f"--app={url}"
     if sys.platform == "darwin":
         for app_name in ("Google Chrome", "Chromium"):
-            result = subprocess.run(
-                ["open", "-a", app_name, "--args", chrome_flag],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            if result.returncode == 0:
+            if _launch_macos_chrome_app(
+                app_name=app_name,
+                chrome_flag=chrome_flag,
+                force_new_instance=False,
+            ):
+                return True
+            if _launch_macos_chrome_app(
+                app_name=app_name,
+                chrome_flag=chrome_flag,
+                force_new_instance=True,
+            ):
                 return True
         return False
 
@@ -778,6 +783,47 @@ def _open_url_in_chrome_app(url: str) -> bool:
         except OSError:
             continue
         return True
+    return False
+
+
+def _launch_macos_chrome_app(
+    *, app_name: str, chrome_flag: str, force_new_instance: bool
+) -> bool:
+    open_cmd = ["open"]
+    if force_new_instance:
+        open_cmd.append("-n")
+    open_cmd.extend(["-a", app_name, "--args", chrome_flag])
+    result = subprocess.run(
+        open_cmd,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        return False
+    for _ in range(10):
+        if _is_macos_chrome_app_visible(chrome_flag=chrome_flag):
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def _is_macos_chrome_app_visible(*, chrome_flag: str) -> bool:
+    result = subprocess.run(
+        ["ps", "ax", "-o", "command="],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False
+    for line in result.stdout.splitlines():
+        if chrome_flag not in line:
+            continue
+        if "Google Chrome.app/Contents/MacOS/Google Chrome" in line:
+            return True
+        if "Chromium.app/Contents/MacOS/Chromium" in line:
+            return True
     return False
 
 

@@ -257,3 +257,11 @@
 - Added/updated unit and integration coverage for route-kind and endpoint-origin behavior (`router.test.tsx`, `serverModeBoundaryPolicy.test.ts`, `endpointUtils.test.ts`) including blocked-mode launch endpoint routing.
 - Added Playwright coverage in `app-mode-routing.spec.ts` to assert app mode blocks direct `/launching` navigation by redirecting to `/home`.
 - Ran requested cleanup workflow: `source activate.sh && cd frontend && pnpm gcf`.
+
+## 2026-02-27 17:32:31 PST
+
+- Fixed launcher target binding semantics by preserving the invoked interpreter path for `targetCommand[0]` (no symlink dereference), so launcher metadata can stay pinned to venv Python paths.
+- Hardened macOS `chrome-app` open mode: launcher now verifies an actual Chrome/Chromium `--app=...` process appears, retries with `open -n` when the first launch is a no-op, and falls back to browser mode when app-mode visibility cannot be confirmed.
+- Added/updated launcher CLI tests for the new macOS retry/visibility logic and for non-resolved interpreter binding behavior.
+- Verified targeted backend launcher suites and lint: `pytest tests/start/test_launcher_cli.py tests/start/test_launcher_setup.py tests/start/test_launcher_metadata.py` and `ruff check` on modified files.
+- Ran requested cleanup workflow: attempted root `pnpm gcf` (no root importer manifest), then completed `pnpm -C frontend gcf`.

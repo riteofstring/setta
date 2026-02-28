@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -334,6 +335,82 @@ def test_open_url_with_launcher_mode_falls_back_to_browser(monkeypatch) -> None:
     assert opened_urls == ["http://127.0.0.1:61234/__setta__/bootstrap#token=tok"]
 
 
+def test_open_url_in_chrome_app_macos_retries_with_new_instance(monkeypatch) -> None:
+    import setta.start as start_module
+    from setta.start import _open_url_in_chrome_app
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(start_module.time, "sleep", lambda _seconds: None)
+
+    ps_calls = 0
+    open_calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs):
+        nonlocal ps_calls
+        assert kwargs.get("check") is False
+        if cmd[:3] == ["ps", "ax", "-o"]:
+            ps_calls += 1
+            if ps_calls >= 11:
+                return subprocess.CompletedProcess(
+                    cmd,
+                    0,
+                    stdout=(
+                        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
+                        "--app=https://example.com\n"
+                    ),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[0] == "open":
+            open_calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    monkeypatch.setattr("setta.start.subprocess.run", fake_run)
+
+    opened = _open_url_in_chrome_app("https://example.com")
+
+    assert opened is True
+    assert open_calls[0] == [
+        "open",
+        "-a",
+        "Google Chrome",
+        "--args",
+        "--app=https://example.com",
+    ]
+    assert open_calls[1] == [
+        "open",
+        "-n",
+        "-a",
+        "Google Chrome",
+        "--args",
+        "--app=https://example.com",
+    ]
+
+
+def test_open_url_in_chrome_app_macos_returns_false_when_not_visible(
+    monkeypatch,
+) -> None:
+    import setta.start as start_module
+    from setta.start import _open_url_in_chrome_app
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(start_module.time, "sleep", lambda _seconds: None)
+
+    def fake_run(cmd: list[str], **kwargs):
+        assert kwargs.get("check") is False
+        if cmd[:3] == ["ps", "ax", "-o"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[0] == "open":
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    monkeypatch.setattr("setta.start.subprocess.run", fake_run)
+
+    opened = _open_url_in_chrome_app("https://example.com")
+    assert opened is False
+
+
 def test_launcher_setup_status_and_remove_roundtrip() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
 
@@ -474,4 +551,4 @@ def test_launcher_repair_rebinds_missing_target(tmp_path: Path) -> None:
     status = payload["status"]
     assert status["ok"] is True
     assert status["targetValid"] is True
-    assert status["targetCommand"][0] == str(Path(sys.executable).resolve(strict=False))
+    assert status["targetCommand"][0] == str(Path(sys.executable).expanduser())
