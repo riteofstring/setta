@@ -42,12 +42,7 @@ def _build_share_deployment_root(
     project_config_name: str,
     deployment_version: str = "v1",
 ) -> Path:
-    root = (
-        Path(tmpdir)
-        / "deployments"
-        / project_config_name
-        / deployment_version
-    )
+    root = Path(tmpdir) / "deployments" / project_config_name / deployment_version
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -141,6 +136,14 @@ def test_require_full_ide_runtime_rejects_launcher_state() -> None:
     assert exc.value.detail == "Launcher mode does not allow this endpoint."
 
 
+def test_require_ide_mode_rejects_launcher_state() -> None:
+    state = SimpleNamespace(deployment_mode=False, launcher_mode=True)
+    with pytest.raises(HTTPException) as exc:
+        require_ide_mode(state)
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Launcher mode does not allow this endpoint."
+
+
 @pytest.mark.asyncio
 async def test_share_mode_blocks_prompt_template_mutations() -> None:
     with TemporaryDirectory() as tmpdir:
@@ -167,8 +170,7 @@ async def test_share_mode_blocks_prompt_template_mutations() -> None:
                 )
         assert exc.value.status_code == 403
         assert (
-            exc.value.detail
-            == "Share mode does not allow creating prompt templates."
+            exc.value.detail == "Share mode does not allow creating prompt templates."
         )
 
         template = PromptTemplate(
@@ -184,8 +186,7 @@ async def test_share_mode_blocks_prompt_template_mutations() -> None:
                 )
         assert exc.value.status_code == 403
         assert (
-            exc.value.detail
-            == "Share mode does not allow updating prompt templates."
+            exc.value.detail == "Share mode does not allow updating prompt templates."
         )
 
         with pytest.raises(HTTPException) as exc:
@@ -196,8 +197,7 @@ async def test_share_mode_blocks_prompt_template_mutations() -> None:
                 )
         assert exc.value.status_code == 403
         assert (
-            exc.value.detail
-            == "Share mode does not allow deleting prompt templates."
+            exc.value.detail == "Share mode does not allow deleting prompt templates."
         )
 
 

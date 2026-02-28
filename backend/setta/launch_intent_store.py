@@ -13,6 +13,8 @@ from setta.utils.process_file_lock import (
 )
 
 _LOCK_TIMEOUT_SECONDS = 5.0
+_DEFAULT_MAX_INTENTS_PER_SESSION = 64
+_DEFAULT_MAX_TOTAL_INTENTS = 2048
 
 
 @dataclass(frozen=True)
@@ -35,8 +37,22 @@ class WorkspaceLaunchIntentStoreStateError(WorkspaceLaunchIntentStoreError):
     pass
 
 
+class WorkspaceLaunchIntentStoreCapacityError(WorkspaceLaunchIntentStoreError):
+    pass
+
+
 class WorkspaceLaunchIntentStore:
-    def __init__(self, storage_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        storage_path: Path | None = None,
+        *,
+        max_intents_per_session: int = _DEFAULT_MAX_INTENTS_PER_SESSION,
+        max_total_intents: int = _DEFAULT_MAX_TOTAL_INTENTS,
+    ) -> None:
+        if max_intents_per_session < 1:
+            raise ValueError("max_intents_per_session must be >= 1.")
+        if max_total_intents < max_intents_per_session:
+            raise ValueError("max_total_intents must be >= max_intents_per_session.")
         self._lock = Lock()
         self._storage_path = (
             storage_path or C.RUNTIME_FOLDER / "workspace_launch_intents.json"
@@ -44,6 +60,8 @@ class WorkspaceLaunchIntentStore:
         self._lock_path = self._storage_path.with_name(
             f"{self._storage_path.name}.lock"
         )
+        self._max_intents_per_session = max_intents_per_session
+        self._max_total_intents = max_total_intents
 
     def create(
         self,
@@ -59,6 +77,11 @@ class WorkspaceLaunchIntentStore:
         with self._lock, self._store_lock():
             store = self._read_store_locked()
             self._prune_locked(store=store, now=now)
+            self._enforce_capacity_locked(
+                store=store,
+                token_hash=token_hash,
+                session_id=session_id,
+            )
             store[token_hash] = StoredWorkspaceLaunchIntent(
                 session_id=session_id,
                 launch_request_payload=launch_request_payload,
@@ -230,3 +253,26 @@ class WorkspaceLaunchIntentStore:
         for token in expired_tokens:
             store.pop(token, None)
         return True
+
+    def _enforce_capacity_locked(
+        self,
+        *,
+        store: dict[str, StoredWorkspaceLaunchIntent],
+        token_hash: str,
+        session_id: str,
+    ) -> None:
+        if token_hash in store:
+            return
+        session_intent_count = sum(
+            1
+            for stored_intent in store.values()
+            if stored_intent.session_id == session_id
+        )
+        if session_intent_count >= self._max_intents_per_session:
+            raise WorkspaceLaunchIntentStoreCapacityError(
+                "Launch intent session capacity exceeded."
+            )
+        if len(store) >= self._max_total_intents:
+            raise WorkspaceLaunchIntentStoreCapacityError(
+                "Launch intent global capacity exceeded."
+            )

@@ -8,12 +8,14 @@ from setta.routers.app_spec_streaming import router as app_spec_streaming_router
 from setta.routers.agentic import router as agentic_router
 from setta.routers.artifact import router as artifact_router
 from setta.routers.attachments import router as attachments_router
+from setta.routers.git import router as git_router
 from setta.routers.llm import router as llm_router
 from setta.routers.listener import router as listener_router
 from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
 from setta.routers.runs import router as runs_router
+from setta.routers.sections import router as sections_router
 from setta.routers.terminals import terminals_http_router
 from setta.types.routes import Route
 
@@ -261,6 +263,35 @@ def test_run_detached_is_blocked_in_launcher_mode() -> None:
             f"{Route.PREFIX.value}{Route.RUN_DETACHED.value}",
             json={"projectConfigId": "project-1"},
         )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_create_file_is_blocked_in_launcher_mode() -> None:
+    # Sections mutations must fail before any runtime context work in launcher mode.
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state()
+    app.include_router(sections_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.CREATE_FILE.value}",
+            json={"filepath": "src/main.py"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_get_git_status_is_blocked_in_launcher_mode() -> None:
+    # Git endpoints should remain inaccessible in launcher mode.
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state()
+    app.include_router(git_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(f"{Route.PREFIX.value}{Route.GET_GIT_STATUS.value}")
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Launcher mode does not allow this endpoint."

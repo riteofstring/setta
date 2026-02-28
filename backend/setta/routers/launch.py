@@ -1,15 +1,20 @@
 import time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
-from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER, LAUNCH_INTENT_TOKEN_MANAGER
+from setta.auth.manager import (
+    AUTH_COOKIE_MANAGER,
+    BOOTSTRAP_TOKEN_MANAGER,
+    LAUNCH_INTENT_TOKEN_MANAGER,
+)
 from setta.auth.session import load_current_session_secret
 from setta.launch import LaunchError, launch_workspace_session
 from setta.launch_intent_store import (
     WorkspaceLaunchIntentStore,
+    WorkspaceLaunchIntentStoreCapacityError,
     WorkspaceLaunchIntentStoreStateError,
     WorkspaceLaunchIntentStoreUnavailableError,
 )
@@ -17,10 +22,15 @@ from setta.launcher_metadata import (
     LauncherMetadataError,
     update_launcher_last_used_workspace_if_installed,
 )
-from setta.routers.dependencies import require_ide_mode
+from setta.routers.dependencies import require_not_deployment_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStoreError,
+    is_trusted_frontend_origin,
+    trust_frontend_origin,
+)
 from setta.types.routes import Route
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
 from setta.utils.launcher_origin_handoff import (
@@ -31,7 +41,10 @@ from setta.utils.launcher_origin_handoff import (
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths_without_profile_env
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+if TYPE_CHECKING:
+    from setta.sessions.registry import SessionMetadata
+
+router = SettaAPIRouter(dependencies=[Depends(require_not_deployment_mode)])
 
 
 class LaunchRequest(BaseModel):
@@ -131,6 +144,7 @@ def route_create_workspace_launch_intent(
         return_url = _validate_and_normalize_return_url(
             return_url=x.returnUrl,
             request=request,
+            session_id=session_metadata.id,
         )
     except ValueError as exc:
         return CreateWorkspaceLaunchIntentResponse(
@@ -155,6 +169,14 @@ def route_create_workspace_launch_intent(
                 message=str(exc),
             ),
         )
+    except WorkspaceLaunchIntentStoreCapacityError as exc:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(
+                code="LaunchIntentStoreCapacityExceeded",
+                message=str(exc),
+            ),
+        )
     except WorkspaceLaunchIntentStoreStateError as exc:
         return CreateWorkspaceLaunchIntentResponse(
             ok=False,
@@ -174,6 +196,7 @@ def route_launch(
 ) -> LaunchResponse:
     request_origin = _resolve_request_origin(request)
     return_url = _build_safe_launch_return_url(request_origin=request_origin)
+    launcher_session_info = load_current_session_secret()
     if x.launchIntentToken is not None:
         if _launch_request_has_inline_overrides(x):
             return LaunchResponse(
@@ -186,8 +209,7 @@ def route_launch(
                     ),
                 ),
             )
-        session_info = load_current_session_secret()
-        if session_info is None:
+        if launcher_session_info is None:
             return LaunchResponse(
                 ok=False,
                 returnUrl=return_url,
@@ -195,7 +217,7 @@ def route_launch(
                     code="Unauthorized", message="Missing session."
                 ),
             )
-        session_metadata, secret = session_info
+        session_metadata, secret = launcher_session_info
         try:
             x, return_url = _consume_workspace_launch_intent(
                 token=x.launchIntentToken,
@@ -262,6 +284,11 @@ def route_launch(
                     proof=remote.launcher_origin_proof,
                 )
             resolved_workspace_root = remote.session.workspace_path_canonical
+            _trust_launched_workspace_origin_for_launcher_session(
+                request_origin=request_origin,
+                bootstrap_url_fragment=remote_bootstrap_url,
+                launcher_session_info=launcher_session_info,
+            )
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote_bootstrap_url,
@@ -317,6 +344,15 @@ def route_launch(
             returnUrl=return_url,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
+    except TrustedFrontendOriginStoreError as exc:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(
+                code="TrustedFrontendOriginStoreUnavailable",
+                message=str(exc),
+            ),
+        )
 
     try:
         update_launcher_last_used_workspace_if_installed(
@@ -342,6 +378,21 @@ def route_launch(
             bootstrap_url_fragment=bootstrap_url_fragment,
             launcher_origin=request_origin,
             proof=launcher_origin_proof,
+        )
+    try:
+        _trust_launched_workspace_origin_for_launcher_session(
+            request_origin=request_origin,
+            bootstrap_url_fragment=bootstrap_url_fragment,
+            launcher_session_info=launcher_session_info,
+        )
+    except TrustedFrontendOriginStoreError as exc:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(
+                code="TrustedFrontendOriginStoreUnavailable",
+                message=str(exc),
+            ),
         )
     session_info = LaunchSessionInfo(
         id=result.session.id,
@@ -428,6 +479,7 @@ def _validate_and_normalize_return_url(
     *,
     return_url: str,
     request: Request | None,
+    session_id: str | None,
 ) -> str:
     trimmed_return_url = return_url.strip()
     if not trimmed_return_url:
@@ -446,12 +498,9 @@ def _validate_and_normalize_return_url(
 
     request_origin = _resolve_request_origin(request)
     if request_origin is not None:
-        allowed_origins = {request_origin}
-        if request is not None:
-            origin_header = normalize_launcher_origin(request.headers.get("origin"))
-            if origin_header is not None:
-                allowed_origins.add(origin_header)
-        if normalized_origin not in allowed_origins:
+        if normalized_origin != request_origin and not is_trusted_frontend_origin(
+            normalized_origin, session_id=session_id
+        ):
             raise ValueError("returnUrl origin is not allowed.")
 
     normalized_origin_parts = urlsplit(normalized_origin)
@@ -464,4 +513,36 @@ def _validate_and_normalize_return_url(
             parsed.query,
             parsed.fragment,
         )
+    )
+
+
+def _resolve_bootstrap_origin(bootstrap_url_fragment: str) -> str | None:
+    parsed = urlsplit(bootstrap_url_fragment)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return normalize_launcher_origin(f"{parsed.scheme}://{parsed.netloc}")
+
+
+def _trust_launched_workspace_origin_for_launcher_session(
+    *,
+    request_origin: str | None,
+    bootstrap_url_fragment: str,
+    launcher_session_info: tuple["SessionMetadata", bytes] | None,
+) -> None:
+    if request_origin is None:
+        return
+    if launcher_session_info is None:
+        return
+    launched_workspace_origin = _resolve_bootstrap_origin(bootstrap_url_fragment)
+    if launched_workspace_origin is None:
+        return
+    if launched_workspace_origin == request_origin:
+        return
+    session_metadata, session_secret = launcher_session_info
+    auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, session_secret)
+    auth_cookie_payload = AUTH_COOKIE_MANAGER.validate(auth_cookie, session_secret)
+    trust_frontend_origin(
+        launched_workspace_origin,
+        session_id=session_metadata.id,
+        exp=auth_cookie_payload.exp,
     )

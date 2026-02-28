@@ -9041,6 +9041,8 @@ const LauncherHomeErrorPayloadSchema = z.object({
 
 const LauncherListDirectoryRequestSchema = z.object({
   path: z.union([z.string(), z.null()]).default(null),
+  cursor: z.union([z.string(), z.null()]).default(null),
+  pageSize: z.union([z.int(), z.null()]).default(null),
 });
 
 export type LauncherListDirectoryRequestInput = z.input<
@@ -9052,6 +9054,8 @@ const LauncherListDirectoryResponseSchema = z.object({
   currentPath: z.union([z.string(), z.null()]).default(null),
   parentPath: z.union([z.string(), z.null()]).default(null),
   entries: z.array(LauncherDirectoryEntryPayloadSchema).default(() => []),
+  nextCursor: z.union([z.string(), z.null()]).default(null),
+  hasMore: z.boolean().default(false),
   error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
 });
 

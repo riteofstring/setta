@@ -5,6 +5,7 @@ import pytest
 
 from setta.launch_intent_store import (
     WorkspaceLaunchIntentStore,
+    WorkspaceLaunchIntentStoreCapacityError,
     WorkspaceLaunchIntentStoreUnavailableError,
 )
 
@@ -149,10 +150,157 @@ def test_launch_intent_store_maps_lock_parent_failures_to_unavailable_error(
         store.clear()
 
 
+def test_launch_intent_store_read_failures_keep_store_error_domain(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "launch_intents.json"
+    store_path.mkdir(parents=True, exist_ok=True)
+    store = WorkspaceLaunchIntentStore(storage_path=store_path)
+
+    with pytest.raises(
+        WorkspaceLaunchIntentStoreUnavailableError,
+        match="Failed reading launch-intent store",
+    ) as excinfo:
+        store.contains("token-1")
+
+    # Read failures must not be rewritten into lock-acquisition wording.
+    assert "Failed acquiring launch-intent store lock" not in str(excinfo.value)
+
+
+def test_launch_intent_store_enforces_per_session_capacity(tmp_path: Path) -> None:
+    store = WorkspaceLaunchIntentStore(
+        storage_path=tmp_path / "launch_intents.json",
+        max_intents_per_session=2,
+        max_total_intents=10,
+    )
+    store.create(
+        token="token-1",
+        session_id="session-1",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=120,
+        now=100,
+    )
+    store.create(
+        token="token-2",
+        session_id="session-1",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=121,
+        now=101,
+    )
+
+    with pytest.raises(
+        WorkspaceLaunchIntentStoreCapacityError,
+        match="session capacity exceeded",
+    ):
+        store.create(
+            token="token-3",
+            session_id="session-1",
+            launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+            return_url="http://localhost/home",
+            exp=122,
+            now=102,
+        )
+
+
+def test_launch_intent_store_capacity_recovers_after_prune(tmp_path: Path) -> None:
+    store = WorkspaceLaunchIntentStore(
+        storage_path=tmp_path / "launch_intents.json",
+        max_intents_per_session=1,
+        max_total_intents=4,
+    )
+    store.create(
+        token="expired-token",
+        session_id="session-1",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=100,
+        now=99,
+    )
+
+    with pytest.raises(
+        WorkspaceLaunchIntentStoreCapacityError,
+        match="session capacity exceeded",
+    ):
+        # Without pruning, the expired record still occupies session capacity.
+        store.create(
+            token="fresh-token-before-prune",
+            session_id="session-1",
+            launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+            return_url="http://localhost/home",
+            exp=130,
+            now=99,
+        )
+
+    store.prune(now=101)
+
+    store.create(
+        token="fresh-token-after-prune",
+        session_id="session-1",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=131,
+        now=101,
+    )
+    assert store.contains("fresh-token-after-prune")
+
+
+def test_launch_intent_store_enforces_global_capacity_with_session_isolation(
+    tmp_path: Path,
+) -> None:
+    store = WorkspaceLaunchIntentStore(
+        storage_path=tmp_path / "launch_intents.json",
+        max_intents_per_session=2,
+        max_total_intents=3,
+    )
+    store.create(
+        token="session-a-1",
+        session_id="session-a",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=200,
+        now=100,
+    )
+    store.create(
+        token="session-a-2",
+        session_id="session-a",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=201,
+        now=101,
+    )
+    store.create(
+        token="session-b-1",
+        session_id="session-b",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=202,
+        now=102,
+    )
+
+    with pytest.raises(
+        WorkspaceLaunchIntentStoreCapacityError,
+        match="global capacity exceeded",
+    ):
+        store.create(
+            token="session-c-1",
+            session_id="session-c",
+            launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+            return_url="http://localhost/home",
+            exp=203,
+            now=103,
+        )
+
+
 def test_launch_intent_store_threaded_create_prune_no_runtime_errors(
     tmp_path: Path,
 ) -> None:
-    store = _build_store(tmp_path)
+    store = WorkspaceLaunchIntentStore(
+        storage_path=tmp_path / "launch_intents.json",
+        max_intents_per_session=2000,
+        max_total_intents=4000,
+    )
 
     def create_worker(worker_id: int) -> None:
         for idx in range(120):

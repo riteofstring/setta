@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -22,8 +23,8 @@ from setta.launcher_workspace_store import (
 )
 from setta.routers.dependencies import (
     AppStateFromRequest,
-    require_ide_mode,
     require_launcher_mode,
+    require_not_deployment_mode,
 )
 from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -38,9 +39,11 @@ from setta.utils.launcher_origin_handoff import (
 from setta.utils.network import build_bootstrap_urls
 
 router = SettaAPIRouter(
-    dependencies=[Depends(require_ide_mode), Depends(require_launcher_mode)]
+    dependencies=[Depends(require_not_deployment_mode), Depends(require_launcher_mode)]
 )
 _MAX_DIRECTORY_ENTRIES = 500
+_MAX_DIRECTORY_SCAN_ENTRIES = 5000
+_MAX_DIRECTORY_CURSOR_OFFSET = 5000
 
 
 class LauncherHomeErrorPayload(BaseModel):
@@ -90,6 +93,8 @@ class LauncherDirectoryEntryPayload(BaseModel):
 
 class LauncherListDirectoryRequest(BaseModel):
     path: str | None = None
+    cursor: str | None = None
+    pageSize: int | None = None
 
 
 class LauncherListDirectoryResponse(BaseModel):
@@ -97,6 +102,8 @@ class LauncherListDirectoryResponse(BaseModel):
     currentPath: str | None = None
     parentPath: str | None = None
     entries: list[LauncherDirectoryEntryPayload] = Field(default_factory=list)
+    nextCursor: str | None = None
+    hasMore: bool = False
     error: LauncherHomeErrorPayload | None = None
 
 
@@ -249,6 +256,17 @@ def route_list_launcher_directory(
             currentPath=None,
             parentPath=None,
             entries=root_entries,
+            hasMore=False,
+            nextCursor=None,
+        )
+
+    try:
+        page_size = _normalize_directory_page_size(x.pageSize)
+        cursor_offset = _normalize_directory_cursor(x.cursor)
+    except ValueError as exc:
+        return LauncherListDirectoryResponse(
+            ok=False,
+            error=LauncherHomeErrorPayload(code="BadRequest", message=str(exc)),
         )
 
     try:
@@ -272,9 +290,27 @@ def route_list_launcher_directory(
             ),
         )
 
-    entries: list[LauncherDirectoryEntryPayload] = []
+    candidate_entries: list[LauncherDirectoryEntryPayload] = []
+    has_more = False
+    scan_budget_reached = False
     try:
-        children = list(directory.iterdir())
+        with os.scandir(directory) as children:
+            for scanned_count, child in enumerate(children, start=1):
+                if scanned_count > _MAX_DIRECTORY_SCAN_ENTRIES:
+                    scan_budget_reached = True
+                    break
+                child_path = Path(child.path)
+                resolved_child = child_path.resolve(strict=False)
+                if not _is_within_roots(path=resolved_child, roots=allowed_roots):
+                    continue
+                candidate_entries.append(
+                    LauncherDirectoryEntryPayload(
+                        name=child.name,
+                        path=str(resolved_child),
+                        isDirectory=resolved_child.is_dir(),
+                        isSymlink=child.is_symlink(),
+                    )
+                )
     except OSError as exc:
         return LauncherListDirectoryResponse(
             ok=False,
@@ -283,28 +319,22 @@ def route_list_launcher_directory(
                 message=f"Failed to read directory {directory}: {exc}",
             ),
         )
-
-    children.sort(
-        key=lambda path: (
-            not path.is_dir(),
-            path.name.lower(),
+    candidate_entries.sort(
+        key=lambda entry: (
+            not entry.isDirectory,
+            entry.name.lower(),
         )
     )
-
-    for child in children:
-        resolved_child = child.resolve(strict=False)
-        if not _is_within_roots(path=resolved_child, roots=allowed_roots):
-            continue
-        entries.append(
-            LauncherDirectoryEntryPayload(
-                name=child.name,
-                path=str(resolved_child),
-                isDirectory=child.is_dir(),
-                isSymlink=child.is_symlink(),
-            )
-        )
-        if len(entries) >= _MAX_DIRECTORY_ENTRIES:
-            break
+    page_start = cursor_offset
+    page_end = cursor_offset + page_size
+    visible_entries = candidate_entries[page_start:page_end]
+    if scan_budget_reached:
+        has_more = True
+    elif len(candidate_entries) > page_end:
+        has_more = True
+    next_cursor: str | None = None
+    if has_more and visible_entries:
+        next_cursor = str(cursor_offset + len(visible_entries))
 
     parent_path: str | None = None
     parent = directory.parent.resolve(strict=False)
@@ -315,8 +345,36 @@ def route_list_launcher_directory(
         ok=True,
         currentPath=str(directory),
         parentPath=parent_path,
-        entries=entries,
+        entries=visible_entries,
+        hasMore=has_more,
+        nextCursor=next_cursor,
     )
+
+
+def _normalize_directory_page_size(raw_page_size: int | None) -> int:
+    if raw_page_size is None:
+        return _MAX_DIRECTORY_ENTRIES
+    if raw_page_size < 1:
+        raise ValueError("pageSize must be at least 1.")
+    if raw_page_size > _MAX_DIRECTORY_ENTRIES:
+        raise ValueError(f"pageSize must be <= {_MAX_DIRECTORY_ENTRIES}.")
+    return raw_page_size
+
+
+def _normalize_directory_cursor(raw_cursor: str | None) -> int:
+    if raw_cursor is None:
+        return 0
+    trimmed = raw_cursor.strip()
+    if not trimmed:
+        return 0
+    if not trimmed.isdigit():
+        raise ValueError("cursor must be a non-negative integer.")
+    cursor_offset = int(trimmed)
+    if cursor_offset > _MAX_DIRECTORY_CURSOR_OFFSET:
+        raise ValueError(
+            f"cursor offset exceeds maximum supported value ({_MAX_DIRECTORY_CURSOR_OFFSET})."
+        )
+    return cursor_offset
 
 
 @router.post(Route.OPEN_LAUNCHER_WORKSPACE)

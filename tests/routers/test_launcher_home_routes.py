@@ -336,6 +336,75 @@ def test_launcher_directory_listing_cap_counts_only_valid_entries(
     assert [entry["name"] for entry in payload["entries"]] == ["b-valid"]
 
 
+def test_launcher_directory_listing_supports_cursor_pagination(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    listed_dir = allowed / "listed"
+    allowed.mkdir(parents=True, exist_ok=True)
+    listed_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("alpha", "beta", "gamma", "delta"):
+        (listed_dir / name).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+
+    with TestClient(app) as client:
+        first = client.post(
+            f"{Route.PREFIX.value}{Route.LIST_LAUNCHER_DIRECTORY.value}",
+            json={"path": str(listed_dir), "pageSize": 2},
+        )
+        assert first.status_code == 200
+        first_payload = first.json()
+        assert first_payload["ok"] is True
+        assert first_payload["hasMore"] is True
+        assert first_payload["nextCursor"] is not None
+        assert len(first_payload["entries"]) == 2
+        first_names = {entry["name"] for entry in first_payload["entries"]}
+
+        second = client.post(
+            f"{Route.PREFIX.value}{Route.LIST_LAUNCHER_DIRECTORY.value}",
+            json={
+                "path": str(listed_dir),
+                "pageSize": 2,
+                "cursor": first_payload["nextCursor"],
+            },
+        )
+        assert second.status_code == 200
+        second_payload = second.json()
+        assert second_payload["ok"] is True
+        assert len(second_payload["entries"]) == 2
+        second_names = {entry["name"] for entry in second_payload["entries"]}
+
+    assert first_names.isdisjoint(second_names)
+    assert first_names | second_names == {"alpha", "beta", "gamma", "delta"}
+
+
+def test_launcher_directory_listing_rejects_invalid_cursor(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    listed_dir = allowed / "listed"
+    allowed.mkdir(parents=True, exist_ok=True)
+    listed_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.LIST_LAUNCHER_DIRECTORY.value}",
+            json={"path": str(listed_dir), "cursor": "-1"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    # Cursor parsing should fail closed instead of silently accepting malformed values.
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "BadRequest"
+
+
 def test_open_launcher_workspace_rejects_symlink_escape(
     tmp_path: Path,
     monkeypatch,

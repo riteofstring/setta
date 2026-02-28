@@ -141,3 +141,14 @@
 - Hardened macOS install/uninstall wrappers with a shared strict JSON contract validator (structural parse + required-field checks), replacing regex-only `"ok": true` acceptance.
 - Added and updated regression coverage across unit/store/route/script levels for lock-parent failure mapping, launch-intent and bootstrap unavailable-error contracts, launcher-directory cap-after-filter behavior, and malformed/missing-field macOS wrapper payload rejection.
 - Ran `pnpm gcf` in `frontend/` and validated targeted backend suites (`97 passed`) plus Ruff/shell syntax checks on touched files.
+
+## 2026-02-26 11:49:01 PST
+
+- Hardened launcher-mode runtime policy to fail closed by making `require_ide_mode` reject launcher mode and migrating `sections`/`git` routers to explicit non-launcher guards, while keeping launcher-safe routes (`/launch`, bootstrap, launcher-home) on deployment-only guards.
+- Fixed cross-origin launcher handoff trust asymmetry by persisting reciprocal trust from launcher session to launched workspace origin during successful `/launch` flows (local and SSH), using auth-cookie-aligned expiry.
+- Tightened launch-intent return URL validation by removing caller-controlled `Origin` header allowlisting and accepting cross-origin `returnUrl` only when request origin matches or session-scoped trusted-origin policy allows it.
+- Added launch-intent store capacity invariants (per-session and global caps) with typed `WorkspaceLaunchIntentStoreCapacityError` mapping to launch-route `LaunchIntentStoreCapacityExceeded` responses.
+- Corrected process-file lock error taxonomy by restricting typed lock remapping to lock lifecycle failures and preserving in-body I/O exceptions unchanged.
+- Reworked launcher directory listing to bounded paginated behavior with `cursor`/`pageSize` and `hasMore`/`nextCursor`, using `os.scandir` with explicit scan budget to cap server work.
+- Expanded regression coverage with updated backend unit/integration tests plus Playwright launch-handoff trust verification (`bootstrap-launcher-origin`), and ran targeted suites successfully.
+- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).

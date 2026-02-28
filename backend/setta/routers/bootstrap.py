@@ -10,7 +10,7 @@ from setta.auth.headers import extract_bearer_token_value
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
-from setta.routers.dependencies import require_ide_mode
+from setta.routers.dependencies import require_not_deployment_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
@@ -24,7 +24,7 @@ from setta.utils.launcher_origin_handoff import (
 )
 from setta.utils.network import format_host_for_url
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaAPIRouter(dependencies=[Depends(require_not_deployment_mode)])
 
 BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 

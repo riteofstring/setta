@@ -70,6 +70,11 @@ class RuntimeContext:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=message,
             )
+        if self.state.launcher_mode:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Launcher mode does not allow this endpoint.",
+            )
 
     def get_project_manager(self, project_config_id: "ID"):
         if self.state.deployment_mode:

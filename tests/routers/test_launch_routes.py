@@ -12,9 +12,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta import trusted_frontend_origins as trusted_frontend_origins_module
 from setta.launch import LaunchError
 from setta.launch_intent_store import (
     WorkspaceLaunchIntentStore,
+    WorkspaceLaunchIntentStoreCapacityError,
     WorkspaceLaunchIntentStoreStateError,
     WorkspaceLaunchIntentStoreUnavailableError,
 )
@@ -35,6 +37,10 @@ from setta.ssh_common import RemoteSessionSummary
 from setta.ssh_connect import RemoteConnectResult
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStore,
+    trust_frontend_origin,
+)
 from setta.types.routes import Route
 from setta.utils.paths import (
     build_files_root_from_base,
@@ -374,6 +380,31 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "LaunchIntentStoreInvalid"
 
+    def test_create_launch_intent_returns_typed_capacity_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._store_workspace_launch_intent",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                WorkspaceLaunchIntentStoreCapacityError("capacity exceeded")
+            ),
+        )
+
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(workspaceRoot="/tmp/workspace"),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreCapacityExceeded"
+
     def test_launch_intent_returns_typed_store_unavailable_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -457,13 +488,61 @@ class TestLaunchRoutes:
         assert payload["error"]["code"] == "BadRequest"
         assert "origin is not allowed" in payload["error"]["message"]
 
-    def test_create_launch_intent_allows_origin_header_return_url(
+    def test_create_launch_intent_rejects_forged_origin_header_return_url(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _WORKSPACE_LAUNCH_INTENT_STORE.clear()
         monkeypatch.setattr(
             "setta.routers.launch.load_current_session_secret",
             lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app, base_url="http://launcher.example") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                headers={"origin": "http://backend.example"},
+                json={
+                    "launchRequest": {"workspaceRoot": "/tmp/workspace"},
+                    "returnUrl": "http://backend.example/home",
+                },
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        # Caller-controlled Origin headers must not expand the return-url allowlist.
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "BadRequest"
+        assert "origin is not allowed" in payload["error"]["message"]
+
+    def test_create_launch_intent_allows_session_trusted_return_url_origin(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        store = TrustedFrontendOriginStore(
+            storage_path=tmp_path / "trusted_frontend_origins.json"
+        )
+        monkeypatch.setattr(
+            trusted_frontend_origins_module,
+            "_TRUSTED_FRONTEND_ORIGIN_STORE",
+            store,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        trust_frontend_origin(
+            "http://backend.example",
+            session_id="session-1",
+            exp=9999999999,
+            now=100,
         )
         app = FastAPI()
         app.state.setta = SimpleNamespace(
@@ -1358,7 +1437,10 @@ class TestLaunchRoutes:
         with TestClient(app, base_url="http://launcher.example:7999") as client:
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={"workspaceRoot": "/requested/workspace", "sshTarget": "user@host"},
+                json={
+                    "workspaceRoot": "/requested/workspace",
+                    "sshTarget": "user@host",
+                },
             )
 
         response.raise_for_status()
@@ -1411,7 +1493,10 @@ class TestLaunchRoutes:
         with TestClient(app, base_url="http://launcher.example:7999") as client:
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={"workspaceRoot": "/requested/workspace", "sshTarget": "user@host"},
+                json={
+                    "workspaceRoot": "/requested/workspace",
+                    "sshTarget": "user@host",
+                },
             )
 
         response.raise_for_status()
@@ -1992,3 +2077,106 @@ class TestLaunchRoutes:
         assert hash_params.get("lo") == ["http://launcher.example:7999"]
         assert len(hash_params.get("lop", [""])) == 1
         assert hash_params["lop"][0]
+
+    def test_launch_route_trusts_launched_workspace_origin_for_launcher_session(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        trusted_origin_store = TrustedFrontendOriginStore(
+            storage_path=tmp_path / "trusted_frontend_origins.json"
+        )
+        monkeypatch.setattr(
+            trusted_frontend_origins_module,
+            "_TRUSTED_FRONTEND_ORIGIN_STORE",
+            trusted_origin_store,
+        )
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        def fake_launch_workspace_session(**_kwargs):
+            session = SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime.now(timezone.utc),
+            )
+            paths = SimpleNamespace(
+                workspace_root=workspace_root.resolve(strict=False),
+                setta_files_location="local",
+                setta_files_root=(workspace_root / "setta_files").resolve(strict=False),
+                runtime_root=(workspace_root / "setta_files" / "runtime").resolve(
+                    strict=False
+                ),
+                setta_home=Path(os.environ["SETTA_HOME"]).resolve(strict=False),
+                profile_name=None,
+            )
+            registry = SimpleNamespace(load_secret=lambda _session: b"secret")
+            return SimpleNamespace(
+                session=session,
+                paths=paths,
+                registry=registry,
+                started_new=True,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="launcher-session"), b"launcher-secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint",
+            lambda *_a, **_k: "tok",
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+
+        with TestClient(app, base_url="http://launcher.example:7999") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.LAUNCH.value}",
+                json={"workspaceRoot": str(workspace_root)},
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is True
+        # The launcher session should trust the launched workspace origin for follow-up calls.
+        assert (
+            trusted_origin_store.is_trusted(
+                session_id="launcher-session",
+                origin="http://127.0.0.1:61234",
+                now=0,
+            )
+            is True
+        )
+        assert (
+            trusted_origin_store.is_trusted(
+                session_id="launcher-session",
+                origin="http://127.0.0.1:61235",
+                now=0,
+            )
+            is False
+        )

@@ -6,6 +6,7 @@ from setta.routers.app_spec_streaming import router as app_spec_streaming_router
 from setta.routers.agentic import router as agentic_router
 from setta.routers.artifact import router as artifact_router
 from setta.routers.attachments import router as attachments_router
+from setta.routers.git import router as git_router
 from setta.routers.dependencies import (
     require_full_ide_runtime,
     require_ide_mode,
@@ -18,6 +19,7 @@ from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
 from setta.routers.projects import router as projects_router
 from setta.routers.runs import router as runs_router
+from setta.routers.sections import router as sections_router
 from setta.routers.terminals import terminals_http_router
 from setta.types.routes import Route
 
@@ -73,6 +75,8 @@ def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
         Route.DELETE_TERMINALS.value,
         Route.GET_LATEST_PROJECT_STATE.value,
         Route.RUN_DETACHED.value,
+        Route.CREATE_FILE.value,
+        Route.GET_GIT_STATUS.value,
     ],
 )
 def test_non_launcher_routes_use_non_launcher_guard(route_path: str) -> None:
@@ -84,6 +88,8 @@ def test_non_launcher_routes_use_non_launcher_guard(route_path: str) -> None:
             terminals_http_router,
             project_manager_router,
             runs_router,
+            sections_router,
+            git_router,
         ],
     )
     dependency_calls = {dependency.dependency for dependency in route.dependencies}

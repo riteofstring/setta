@@ -427,7 +427,9 @@ test("bootstrap trusted launcher origin enables dynamic CORS launch-intent calls
     expect(afterTrust.responseOk).toBe(true);
     expect(afterTrust.hasToken).toBe(true);
     secondaryOriginServer = await startOriginTestServer();
-    await page.goto(secondaryOriginServer.origin, { waitUntil: "domcontentloaded" });
+    await page.goto(secondaryOriginServer.origin, {
+      waitUntil: "domcontentloaded",
+    });
 
     const otherOriginAfterTrust = await page.evaluate(
       async ({ backendOrigin, returnUrl, workspaceRootValue }) => {
@@ -461,5 +463,142 @@ test("bootstrap trusted launcher origin enables dynamic CORS launch-intent calls
     if (secondaryOriginServer !== null) {
       await secondaryOriginServer.close();
     }
+  }
+});
+
+test("launch handoff trusts launched workspace origin for dynamic CORS launch-intent calls", async ({
+  page,
+}) => {
+  await clearLauncherOrigin(page);
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT ?? "/tmp/workspace";
+  const launchWorkspaceRoot = path.join(
+    workspaceRoot,
+    `launch-trust-${Date.now()}`,
+  );
+  fs.mkdirSync(launchWorkspaceRoot, { recursive: true });
+  const secondaryOriginServer = await startOriginTestServer();
+
+  try {
+    const authToken = mintBootstrapToken(BACKEND_ORIGIN);
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${encodeURIComponent(authToken)}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    const launchResult = await page.evaluate(
+      async ({ backendOrigin, launchWorkspaceRootValue }) => {
+        const response = await fetch(`${backendOrigin}/api/launch`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ workspaceRoot: launchWorkspaceRootValue }),
+        });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          bootstrapUrlFragment?: string;
+          error?: { message?: string };
+        };
+        return {
+          status: response.status,
+          ok: payload.ok === true,
+          bootstrapUrlFragment:
+            typeof payload.bootstrapUrlFragment === "string"
+              ? payload.bootstrapUrlFragment
+              : null,
+          error: payload.error?.message ?? null,
+        };
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        launchWorkspaceRootValue: launchWorkspaceRoot,
+      },
+    );
+    expect(launchResult.status).toBe(200);
+    expect(launchResult.ok).toBe(true);
+    expect(launchResult.bootstrapUrlFragment).not.toBeNull();
+    if (launchResult.bootstrapUrlFragment === null) {
+      throw new Error(
+        `Launch failed: ${launchResult.error ?? "missing bootstrap"}`,
+      );
+    }
+    const launchedOrigin = new URL(launchResult.bootstrapUrlFragment).origin;
+    expect(launchedOrigin).not.toBe(BACKEND_ORIGIN);
+    await page.goto(launchedOrigin, { waitUntil: "domcontentloaded" });
+
+    const afterLaunchTrust = await page.evaluate(
+      async ({ backendOrigin, returnUrl, launchWorkspaceRootValue }) => {
+        try {
+          const response = await fetch(
+            `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                launchRequest: { workspaceRoot: launchWorkspaceRootValue },
+                returnUrl,
+              }),
+            },
+          );
+          const payload = (await response.json()) as {
+            ok?: boolean;
+            launchIntentToken?: string | null;
+          };
+          return {
+            ok: true,
+            status: response.status,
+            responseOk: payload.ok === true,
+            hasToken: typeof payload.launchIntentToken === "string",
+          };
+        } catch (error) {
+          return { ok: false, message: String(error) };
+        }
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        returnUrl: `${launchedOrigin}/home`,
+        launchWorkspaceRootValue: launchWorkspaceRoot,
+      },
+    );
+    expect(afterLaunchTrust.ok).toBe(true);
+    expect(afterLaunchTrust.status).toBe(200);
+    expect(afterLaunchTrust.responseOk).toBe(true);
+    expect(afterLaunchTrust.hasToken).toBe(true);
+
+    await page.goto(secondaryOriginServer.origin, {
+      waitUntil: "domcontentloaded",
+    });
+    const untrustedOriginResult = await page.evaluate(
+      async ({ backendOrigin, returnUrl, launchWorkspaceRootValue }) => {
+        try {
+          const response = await fetch(
+            `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                launchRequest: { workspaceRoot: launchWorkspaceRootValue },
+                returnUrl,
+              }),
+            },
+          );
+          return { ok: true, status: response.status };
+        } catch (error) {
+          return { ok: false, message: String(error) };
+        }
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        returnUrl: `${secondaryOriginServer.origin}/home`,
+        launchWorkspaceRootValue: launchWorkspaceRoot,
+      },
+    );
+    expect(untrustedOriginResult.ok).toBe(false);
+  } finally {
+    await secondaryOriginServer.close();
   }
 });

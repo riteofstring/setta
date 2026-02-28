@@ -61,6 +61,17 @@ def maybe_get_share_session_id_from_request(request: Request) -> str | None:
 def require_ide_mode(
     state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
+    require_not_deployment_mode(state)
+    if getattr(state, "launcher_mode", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Launcher mode does not allow this endpoint.",
+        )
+
+
+def require_not_deployment_mode(
+    state: SettaFastAPIState = Depends(get_app_state_from_request),
+) -> None:
     if state.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -72,11 +83,6 @@ def require_full_ide_runtime(
     state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
     require_ide_mode(state)
-    if getattr(state, "launcher_mode", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Launcher mode does not allow this endpoint.",
-        )
 
 
 def require_not_launcher_mode(
