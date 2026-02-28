@@ -152,6 +152,38 @@ function setActiveSectionType(sectionType: SectionType): void {
   });
 }
 
+function configureCodeSections({
+  projectConfigId,
+  sectionIds,
+  activeIds,
+}: {
+  projectConfigId: string;
+  sectionIds: Array<string>;
+  activeIds: Array<string>;
+}): void {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = projectConfigId;
+    for (const sectionId of sectionIds) {
+      const variantId = `variant-${sectionId}`;
+      const implId = `impl-${sectionId}`;
+      state.projectConfig.sectionVariantMap[sectionId] = variantId;
+      state.sectionVariants[variantId] = createVariant({
+        id: variantId,
+        impl: implId,
+        nonPresetImpls: [implId],
+        name: `variant-${sectionId}`,
+      });
+      state.sectionImpls[implId] = createCodeSectionImpl(
+        createUserDefaultCodeSectionImpl(),
+        {
+          id: implId,
+        },
+      );
+    }
+    state.projectConfig.activeIds = [...activeIds];
+  });
+}
+
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
     ({ receiveUISettingReveal } = await import("./uiSettingReveal"));
@@ -259,6 +291,103 @@ describe("receiveUISettingReveal", () => {
       errorMessage:
         "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
     });
+  });
+
+  it("applies request-scoped activeSectionId for right-pane reveal", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: ["section-initial"],
+    });
+    const rightAnchorId = "core.code.section_variants";
+    const rightAnchor = createFakeAnchor(rightAnchorId);
+    const rightPaneRoot = createFakePaneRoot(rightAnchor, rightAnchorId);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+          return rightPaneRoot;
+        }
+        return null;
+      }),
+    };
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: rightAnchorId,
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: rightAnchorId,
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: rightAnchorId,
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-target",
+    ]);
+  });
+
+  it("rolls back request-scoped activeSectionId on execution-context mismatch", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: ["section-initial"],
+    });
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: "core.code.section_variants",
+          }),
+        ],
+      }),
+      {
+        requestId: "request-active-section-rollback",
+        requestedProjectConfigId: "project-1",
+        socketGeneration: 1,
+        isSocketGenerationActive: (() => {
+          let checks = 0;
+          return () => {
+            checks += 1;
+            return checks < 2;
+          };
+        })(),
+      },
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-active-section-rollback completed.",
+      },
+    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-initial",
+    ]);
   });
 
   it("limits anchor lookup to the active pane root", async () => {

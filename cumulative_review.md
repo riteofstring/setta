@@ -650,3 +650,21 @@
 6. UX after: websocket-origin contract violations fail immediately with explicit mismatch diagnostics.
 7. DX before: plugin write handlers could mutate state but still fail due to irrelevant return serialization constraints.
 8. DX after: write success/failure aligns with mutation/readback invariants and a minimal write ACK contract.
+
+## 2026-02-27 08:41:13 PST
+
+### Consolidated Findings
+1. Root-level `pnpm gcf` is not directly runnable in this repo because the root has no `package.json` importer.
+2. The wrapper path `./gcf.sh` reached `frontend/scripts/gcf.sh`, but sandbox restrictions blocked its `/dev/fd` tee redirection.
+3. Top-level `review*.md` files were not present at the time of cleanup.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Ran `source activate.sh && cd frontend && pnpm generate && pnpm full-cleanup && pnpm f` to execute the exact `gcf` workflow steps without the blocked `/dev/fd` redirection.
+2. Appended this timestamped `cumulative_review.md` entry to record the finalized run state.
+3. Executed root cleanup for `review*.md` targets.
+
+### UX/DX Before and After
+1. UX before: cleanup synchronization depended on a wrapper path that can fail in restricted environments due to shell redirection mechanics.
+2. UX after: generation/cleanup/format steps are completed and synchronized for the current workspace state.
+3. DX before: this run state was not yet recorded in cumulative review history.
+4. DX after: the run outcomes and constraints are explicitly documented in `cumulative_review.md`.

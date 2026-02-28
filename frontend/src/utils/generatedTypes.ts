@@ -7037,6 +7037,7 @@ export type UISettingRevealTarget = z.infer<typeof UISettingRevealTargetSchema>;
 export const UISettingRevealContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: z.union([IDSchema, z.null()]).default(null),
+  activeSectionId: z.union([IDSchema, z.null()]).default(null),
   reveals: z.array(UISettingRevealTargetSchema),
   durationMs: z.int().default(3000),
   requestId: z.string(),

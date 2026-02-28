@@ -14,13 +14,9 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tool_setup import setta_tool
 from setta.mcp.ui_settings_context import (
-    FrontendWebsocketAffinityResolution,
-    resolve_chat_id_from_ctx,
-    resolve_frontend_websocket_affinity_from_ctx,
     resolve_project_config_id_from_ctx,
     resolve_project_manager_from_ctx,
     resolve_section_id_from_ctx,
-    resolve_share_session_id_from_ctx,
 )
 from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -30,7 +26,7 @@ from setta.types.websocket import (
     UISettingRevealActivationStep as WebsocketUISettingRevealActivationStep,
 )
 from setta.types.websocket import (
-    UISettingRevealContent,
+    UISettingRevealResultStatus,
     UISettingRevealTarget,
 )
 from setta.ui_settings.models import (
@@ -49,12 +45,7 @@ from setta.ui_settings.registry import (
     resolve_plugin_runtime_availability,
     validate_ui_setting_value,
 )
-from setta.ui_settings.reveal_result_hub import (
-    RevealResultContractMismatchError,
-    RevealResultTransportDisconnectedError,
-    UISettingRevealResultContent,
-    UISettingRevealResultStatus,
-)
+from setta.ui_settings.reveal_coordinator import UISettingRevealCoordinator
 from setta.ui_settings.section_ui_editor_tab_compatibility import (
     REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE,
 )
@@ -439,20 +430,6 @@ def _resolve_project_config_id(
     )
 
 
-def _resolve_chat_id(ctx: Context) -> ID | None:
-    return resolve_chat_id_from_ctx(ctx)
-
-
-def _resolve_share_session_id(ctx: Context) -> str | None:
-    return resolve_share_session_id_from_ctx(ctx)
-
-
-def _resolve_frontend_websocket_affinity(
-    ctx: Context,
-) -> FrontendWebsocketAffinityResolution:
-    return resolve_frontend_websocket_affinity_from_ctx(ctx)
-
-
 def _resolve_section_id_for_reveal(
     *,
     ctx: Context,
@@ -608,16 +585,16 @@ async def _reveal_settings(
                 ],
             )
 
-    section_id_pending_activation: ID | None = None
+    requested_active_section_id: ID | None = None
     if location.side == "right" and location.requiresSectionSelection:
-        active_section_id: ID | None = None
+        active_section_id_for_reveal: ID | None = None
         if section_id_to_activate is not None:
-            active_section_id = section_id_to_activate
-            section_id_pending_activation = section_id_to_activate
+            active_section_id_for_reveal = section_id_to_activate
+            requested_active_section_id = section_id_to_activate
         elif project_state.projectConfig.activeIds:
-            active_section_id = project_state.projectConfig.activeIds[0]
+            active_section_id_for_reveal = project_state.projectConfig.activeIds[0]
 
-        if active_section_id is None:
+        if active_section_id_for_reveal is None:
             return RevealUISettingResult(
                 requestId=request_id,
                 projectConfigId=project_config_id,
@@ -639,7 +616,7 @@ async def _reveal_settings(
             )
         incompatible_tab_error = _resolve_right_pane_incompatible_tab_error(
             project_state=project_state,
-            section_id=active_section_id,
+            section_id=active_section_id_for_reveal,
             ui_editor_tab_name=location.uiEditorTabName,
         )
         if incompatible_tab_error is not None:
@@ -672,11 +649,18 @@ async def _reveal_settings(
             for step in resolved_runtime_entry.metadata.revealActivationSteps
         ],
     )
-    frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
-    share_session_id = _resolve_share_session_id(ctx)
-    frontend_affinity_resolution = _resolve_frontend_websocket_affinity(ctx)
-    preferred_frontend_websocket_id = frontend_affinity_resolution.frontend_websocket_id
-    if frontend_affinity_resolution.error_message is not None:
+    reveal_coordinator = UISettingRevealCoordinator(
+        ctx=ctx,
+        project_config_id=project_config_id,
+        timeout_seconds_resolver=_resolve_frontend_reveal_timeout_seconds,
+    )
+    dispatch_result = await reveal_coordinator.dispatch_and_wait_for_single_target(
+        request_id=request_id,
+        bounded_duration_ms=bounded_duration_ms,
+        target=target,
+        active_section_id=requested_active_section_id,
+    )
+    if dispatch_result.error_message is not None:
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -688,269 +672,14 @@ async def _reveal_settings(
                     status="failed",
                     error=UISettingToolError(
                         code="mutation_failed",
-                        message=frontend_affinity_resolution.error_message,
-                    ),
-                )
-            ],
-        )
-    available_frontend_websocket_ids = (
-        frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
-            share_session_id=share_session_id
-        )
-    )
-    if (
-        preferred_frontend_websocket_id is None
-        and len(available_frontend_websocket_ids) > 1
-    ):
-        ambiguity_message = (
-            "Reveal routing is ambiguous because multiple frontends are connected "
-            "and no origin frontend affinity is available."
-        )
-        if share_session_id is None:
-            ambiguity_message = (
-                "Reveal routing is ambiguous because multiple frontends are connected "
-                "and no frontendAffinityToken was provided."
-            )
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=ambiguity_message,
-                    ),
-                )
-            ],
-        )
-    target_websocket_id = (
-        frontend_sender.select_frontend_websocket_for_ui_setting_reveal(
-            share_session_id=share_session_id,
-            preferred_websocket_id=preferred_frontend_websocket_id,
-        )
-    )
-    if target_websocket_id is None:
-        no_frontend_message = (
-            "No connected frontend is available for UI setting reveal."
-        )
-        if preferred_frontend_websocket_id is not None:
-            no_frontend_message = (
-                "Requested frontend affinity token is unavailable for UI setting "
-                f"reveal: {preferred_frontend_websocket_id}"
-            )
-        elif share_session_id is not None:
-            no_frontend_message = (
-                "No connected frontend is available for UI setting reveal in the "
-                "requested share session."
-            )
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=no_frontend_message,
-                    ),
-                )
-            ],
-        )
-    rollback_previous_active_ids: list[ID] | None = None
-    rollback_activation_lease_id: str | None = None
-    if section_id_pending_activation is not None:
-        refreshed_project_state = manager.get_single_config_state(project_config_id)
-        target_active_ids = [section_id_pending_activation]
-        if refreshed_project_state.projectConfig.activeIds != target_active_ids:
-            rollback_previous_active_ids = list(
-                refreshed_project_state.projectConfig.activeIds
-            )
-        (
-            section_error,
-            rollback_activation_lease_id,
-        ) = await _activate_section_for_reveal(
-            manager=manager,
-            project_config_id=project_config_id,
-            project_state=refreshed_project_state,
-            section_id_to_activate=section_id_pending_activation,
-        )
-        if section_error is not None:
-            return RevealUISettingResult(
-                requestId=request_id,
-                projectConfigId=project_config_id,
-                durationMs=bounded_duration_ms,
-                emittedRevealCount=0,
-                statuses=[
-                    RevealUISettingStatus(
-                        settingId=setting_id,
-                        status="failed",
-                        error=section_error,
-                    )
-                ],
-            )
-
-    async def _rollback_pending_section_activation() -> None:
-        if rollback_previous_active_ids is None or rollback_activation_lease_id is None:
-            return
-        await _rollback_reveal_section_activation_if_owned(
-            manager=manager,
-            project_config_id=project_config_id,
-            previous_active_ids=rollback_previous_active_ids,
-            reveal_activation_lease_id=rollback_activation_lease_id,
-        )
-
-    reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
-    reveal_result_hub.register_request(
-        request_id,
-        expected_websocket_id=target_websocket_id,
-        expected_project_config_id=project_config_id,
-        expected_setting_ids={target.settingId},
-    )
-    delivered_websocket_id = await frontend_sender.broadcast_ui_setting_reveal(
-        UISettingRevealContent(
-            projectConfigId=project_config_id,
-            chatId=_resolve_chat_id(ctx),
-            reveals=[target],
-            durationMs=bounded_duration_ms,
-            requestId=request_id,
-        ),
-        share_session_id=share_session_id,
-        target_websocket_id=target_websocket_id,
-    )
-    if delivered_websocket_id is None:
-        reveal_result_hub.cancel_request(request_id)
-        await _rollback_pending_section_activation()
-        dispatch_failure_message = (
-            "Selected frontend websocket became unavailable before reveal dispatch: "
-            f"{target_websocket_id}"
-        )
-        if preferred_frontend_websocket_id is not None:
-            dispatch_failure_message = (
-                "Requested frontend affinity token became unavailable before reveal "
-                f"dispatch: {preferred_frontend_websocket_id}"
-            )
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=dispatch_failure_message,
+                        message=dispatch_result.error_message,
                     ),
                 )
             ],
         )
 
-    try:
-        frontend_reveal_result = await reveal_result_hub.wait_for_result(
-            request_id=request_id,
-            timeout_seconds=_resolve_frontend_reveal_timeout_seconds(
-                bounded_duration_ms
-            ),
-        )
-    except RevealResultContractMismatchError as exc:
-        await _rollback_pending_section_activation()
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=str(exc),
-                    ),
-                )
-            ],
-        )
-    except RevealResultTransportDisconnectedError as exc:
-        await _rollback_pending_section_activation()
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=(
-                            "Selected frontend websocket disconnected before reveal "
-                            f"confirmation: {exc.websocket_id}"
-                        ),
-                    ),
-                )
-            ],
-        )
-    if frontend_reveal_result is None:
-        await _rollback_pending_section_activation()
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=(
-                            "Timed out waiting for frontend reveal confirmation "
-                            f"for {setting_id}."
-                        ),
-                    ),
-                )
-            ],
-        )
-
-    envelope_error = _validate_frontend_reveal_result_envelope(
-        frontend_reveal_result=frontend_reveal_result,
-        expected_project_config_id=project_config_id,
-        expected_setting_ids={target.settingId},
-    )
-    if envelope_error is not None:
-        await _rollback_pending_section_activation()
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=envelope_error,
-                    ),
-                )
-            ],
-        )
-
-    frontend_status = _find_frontend_reveal_status(
-        frontend_reveal_result=frontend_reveal_result,
-        setting_id=setting_id,
-    )
+    frontend_status = dispatch_result.frontend_status
     if frontend_status is None:
-        await _rollback_pending_section_activation()
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -963,8 +692,8 @@ async def _reveal_settings(
                     error=UISettingToolError(
                         code="mutation_failed",
                         message=(
-                            "Frontend reveal response did not include status for "
-                            f"{setting_id}."
+                            "Frontend reveal response was missing status payload "
+                            f"for {setting_id}."
                         ),
                     ),
                 )
@@ -986,7 +715,6 @@ async def _reveal_settings(
             ],
         )
 
-    await _rollback_pending_section_activation()
     return RevealUISettingResult(
         requestId=request_id,
         projectConfigId=project_config_id,
@@ -1069,57 +797,6 @@ def _resolve_plugin_runtime_support_error(
     return None
 
 
-async def _activate_section_for_reveal(
-    *,
-    manager,
-    project_config_id: ID,
-    project_state,
-    section_id_to_activate: ID,
-) -> tuple[UISettingToolError | None, str | None]:
-    if section_id_to_activate not in project_state.sections:
-        return (
-            UISettingToolError(
-                code="mutation_failed",
-                message=f"Unknown section id: {section_id_to_activate}",
-            ),
-            None,
-        )
-
-    target_active_ids = [section_id_to_activate]
-    reveal_activation_lease_id = await _set_active_ids_for_reveal(
-        manager=manager,
-        project_config_id=project_config_id,
-        active_ids=target_active_ids,
-    )
-    return None, reveal_activation_lease_id
-
-
-async def _set_active_ids_for_reveal(
-    *,
-    manager,
-    project_config_id: ID,
-    active_ids: list[ID],
-) -> str:
-    return await manager.set_active_ids_for_ui_setting_reveal(
-        project_config_id=project_config_id,
-        active_ids=active_ids,
-    )
-
-
-async def _rollback_reveal_section_activation_if_owned(
-    *,
-    manager,
-    project_config_id: ID,
-    previous_active_ids: list[ID],
-    reveal_activation_lease_id: str,
-) -> bool:
-    return await manager.rollback_active_ids_for_ui_setting_reveal(
-        project_config_id=project_config_id,
-        reveal_activation_lease_id=reveal_activation_lease_id,
-        rollback_active_ids=previous_active_ids,
-    )
-
-
 def _resolve_right_pane_incompatible_tab_error(
     *,
     project_state,
@@ -1177,48 +854,6 @@ def _resolve_frontend_reveal_timeout_seconds(duration_ms: int) -> float:
     if timeout_seconds > 12.0:
         return 12.0
     return timeout_seconds
-
-
-def _find_frontend_reveal_status(
-    *,
-    frontend_reveal_result: UISettingRevealResultContent,
-    setting_id: str,
-) -> UISettingRevealResultStatus | None:
-    for status in frontend_reveal_result.statuses:
-        if status.settingId == setting_id:
-            return status
-    return None
-
-
-def _validate_frontend_reveal_result_envelope(
-    *,
-    frontend_reveal_result: UISettingRevealResultContent,
-    expected_project_config_id: ID,
-    expected_setting_ids: set[str],
-) -> str | None:
-    if frontend_reveal_result.projectConfigId != expected_project_config_id:
-        return (
-            "Frontend reveal response project mismatch: expected "
-            f"{expected_project_config_id} but received "
-            f"{frontend_reveal_result.projectConfigId}."
-        )
-    actual_setting_ids = {
-        status.settingId for status in frontend_reveal_result.statuses
-    }
-    if len(frontend_reveal_result.statuses) != len(expected_setting_ids):
-        return (
-            "Frontend reveal response status envelope mismatch: expected "
-            f"{len(expected_setting_ids)} status entry but received "
-            f"{len(frontend_reveal_result.statuses)}."
-        )
-    if actual_setting_ids != expected_setting_ids:
-        expected_ids_text = ", ".join(sorted(expected_setting_ids))
-        actual_ids_text = ", ".join(sorted(actual_setting_ids))
-        return (
-            "Frontend reveal response setting id mismatch: expected "
-            f"[{expected_ids_text}] but received [{actual_ids_text}]."
-        )
-    return None
 
 
 def _build_ui_setting_error_from_frontend_reveal_status(

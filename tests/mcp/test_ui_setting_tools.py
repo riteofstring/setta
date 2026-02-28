@@ -828,78 +828,82 @@ async def test_ui_setting_tools_normalize_setting_id_whitespace() -> None:
 
 
 @pytest.mark.asyncio
-async def test_activate_section_for_reveal_uses_manager_atomic_mutation_api() -> None:
-    recorded_calls: list[tuple[ID, list[ID]]] = []
-
-    class _FakeManager:
-        async def set_active_ids_for_ui_setting_reveal(
-            self,
-            *,
-            project_config_id: ID,
-            active_ids: list[ID],
-        ) -> str:
-            recorded_calls.append((project_config_id, active_ids))
-            return "reveal-lease-1"
-
-    project_config_id = ID("project-1")
-    section_id = ID("section-1")
-    project_state = SimpleNamespace(
-        sections={section_id: object()},
-        projectConfig=SimpleNamespace(activeIds=[]),
-    )
-
-    # Section activation must delegate to the manager-owned serialized mutation API.
-    (
-        error,
-        reveal_activation_lease_id,
-    ) = await ui_settings_tools_module._activate_section_for_reveal(
-        manager=_FakeManager(),
-        project_config_id=project_config_id,
-        project_state=project_state,
-        section_id_to_activate=section_id,
-    )
-    assert error is None
-    assert reveal_activation_lease_id == "reveal-lease-1"
-    assert recorded_calls == [(project_config_id, [section_id])]
-
-
-@pytest.mark.asyncio
-async def test_reveal_rollback_uses_manager_atomic_conditional_mutation_api() -> None:
-    recorded_calls: list[tuple[ID, str, list[ID]]] = []
-
-    class _FakeManager:
-        async def rollback_active_ids_for_ui_setting_reveal(
-            self,
-            *,
-            project_config_id: ID,
-            reveal_activation_lease_id: str,
-            rollback_active_ids: list[ID],
-        ) -> bool:
-            recorded_calls.append(
-                (
-                    project_config_id,
-                    reveal_activation_lease_id,
-                    rollback_active_ids,
-                )
+async def test_reveal_right_pane_does_not_use_backend_active_ids_reveal_helpers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
             )
-            return True
-
-    project_config_id = ID("project-1")
-    previous_active_ids = [ID("section-old")]
-    reveal_activation_lease_id = "reveal-lease-1"
-
-    rolled_back = (
-        await ui_settings_tools_module._rollback_reveal_section_activation_if_owned(
-            manager=_FakeManager(),
-            project_config_id=project_config_id,
-            previous_active_ids=previous_active_ids,
-            reveal_activation_lease_id=reveal_activation_lease_id,
         )
-    )
-    assert rolled_back is True
-    assert recorded_calls == [
-        (project_config_id, reveal_activation_lease_id, previous_active_ids)
-    ]
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+
+        async def _fail_set_active_ids_for_ui_setting_reveal(
+            *,
+            project_config_id: ID,  # noqa: ARG001
+            active_ids: list[ID],  # noqa: ARG001
+        ) -> str:
+            raise AssertionError(
+                "set_active_ids_for_ui_setting_reveal should not be called"
+            )
+
+        async def _fail_rollback_active_ids_for_ui_setting_reveal(
+            *,
+            project_config_id: ID,  # noqa: ARG001
+            reveal_activation_lease_id: str,  # noqa: ARG001
+            rollback_active_ids: list[ID],  # noqa: ARG001
+        ) -> bool:
+            raise AssertionError(
+                "rollback_active_ids_for_ui_setting_reveal should not be called"
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "set_active_ids_for_ui_setting_reveal",
+            _fail_set_active_ids_for_ui_setting_reveal,
+        )
+        monkeypatch.setattr(
+            manager,
+            "rollback_active_ids_for_ui_setting_reveal",
+            _fail_rollback_active_ids_for_ui_setting_reveal,
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.reveal_messages
+        reveal_content, _ = frontend_sender.reveal_messages[0]
+        assert reveal_content.activeSectionId == section_id
 
 
 @pytest.mark.asyncio
@@ -1658,13 +1662,14 @@ async def test_reveal_right_pane_setting_activates_section_from_argument() -> No
         )
 
         updated_state = manager.get_single_config_state(project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
+        assert updated_state.projectConfig.activeIds == []
         assert frontend_sender.reveal_messages
         reveal_content, _ = frontend_sender.reveal_messages[0]
         assert (
             reveal_content.reveals[0].settingId
             == "core.project.show_param_display_names"
         )
+        assert reveal_content.activeSectionId == section_id
 
 
 @pytest.mark.asyncio
@@ -1737,7 +1742,10 @@ async def test_reveal_right_pane_prefers_explicit_section_over_agentic_and_reque
         assert result.emittedRevealCount == 1
         assert result.statuses[0].status == "revealed"
         updated_state = manager.get_single_config_state(project_config_id)
-        assert updated_state.projectConfig.activeIds == [explicit_section_id]
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages
+        reveal_content, _ = frontend_sender.reveal_messages[0]
+        assert reveal_content.activeSectionId == explicit_section_id
 
 
 @pytest.mark.asyncio
@@ -1916,13 +1924,14 @@ async def test_set_ui_setting_value_reveal_after_set_uses_request_meta_section_i
         assert set_result.reveal.statuses[0].status == "revealed"
 
         updated_state = manager.get_single_config_state(project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
+        assert updated_state.projectConfig.activeIds == []
         assert frontend_sender.reveal_messages
         reveal_content, _ = frontend_sender.reveal_messages[0]
         assert (
             reveal_content.reveals[0].settingId
             == "core.project.show_param_display_names"
         )
+        assert reveal_content.activeSectionId == section_id
 
 
 @pytest.mark.asyncio
@@ -2108,7 +2117,10 @@ async def test_reveal_right_pane_uses_model_request_meta_project_config_id() -> 
         assert result.statuses[0].status == "revealed"
 
         updated_state = manager.get_single_config_state(target_project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages
+        reveal_content, _ = frontend_sender.reveal_messages[0]
+        assert reveal_content.activeSectionId == section_id
 
 
 @pytest.mark.asyncio
@@ -2182,7 +2194,10 @@ async def test_reveal_right_pane_uses_agentic_context_project_and_section() -> N
         assert result.statuses[0].status == "revealed"
 
         updated_state = manager.get_single_config_state(target_project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages
+        reveal_content, _ = frontend_sender.reveal_messages[0]
+        assert reveal_content.activeSectionId == section_id
 
 
 @pytest.mark.asyncio
@@ -3499,16 +3514,17 @@ async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection
             )
         )
 
-        activation_observed = False
+        dispatch_observed = False
         for _ in range(40):
-            active_ids = manager.get_single_config_state(
-                project_config_id
-            ).projectConfig.activeIds
-            if active_ids == [first_section_id]:
-                activation_observed = True
+            if frontend_sender.reveal_messages:
+                dispatch_observed = True
                 break
             await asyncio.sleep(0.005)
-        assert activation_observed
+        assert dispatch_observed
+        current_state_before_manual_selection = manager.get_single_config_state(
+            project_config_id
+        )
+        assert current_state_before_manual_selection.projectConfig.activeIds == []
 
         await manager.set_active_ids(
             SetActiveIdsRequest(
@@ -3585,16 +3601,17 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_newer_same_targ
             )
         )
 
-        activation_observed = False
+        dispatch_observed = False
         for _ in range(40):
-            active_ids = manager.get_single_config_state(
-                project_config_id
-            ).projectConfig.activeIds
-            if active_ids == [section_id]:
-                activation_observed = True
+            if frontend_sender.reveal_messages:
+                dispatch_observed = True
                 break
             await asyncio.sleep(0.005)
-        assert activation_observed
+        assert dispatch_observed
+        current_state_before_second_reveal = manager.get_single_config_state(
+            project_config_id
+        )
+        assert current_state_before_second_reveal.projectConfig.activeIds == []
 
         # The newer reveal to the same target should supersede rollback ownership.
         frontend_sender.skip_reveal_result_resolution = False
@@ -3616,7 +3633,7 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_newer_same_targ
             first_reveal_result.statuses[0].error.message
         )
         updated_state = manager.get_single_config_state(project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
+        assert updated_state.projectConfig.activeIds == []
 
 
 @pytest.mark.asyncio
@@ -3688,16 +3705,17 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_user_aba_naviga
             )
         )
 
-        activation_observed = False
+        dispatch_observed = False
         for _ in range(40):
-            active_ids = manager.get_single_config_state(
-                project_config_id
-            ).projectConfig.activeIds
-            if active_ids == [first_section_id]:
-                activation_observed = True
+            if frontend_sender.reveal_messages:
+                dispatch_observed = True
                 break
             await asyncio.sleep(0.005)
-        assert activation_observed
+        assert dispatch_observed
+        current_state_before_manual_navigation = manager.get_single_config_state(
+            project_config_id
+        )
+        assert current_state_before_manual_navigation.projectConfig.activeIds == []
 
         await manager.set_active_ids(
             SetActiveIdsRequest(
@@ -3789,7 +3807,6 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_sta
 
 @pytest.mark.asyncio
 async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatches(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with (
         real_project_manager() as project_fixture,
@@ -3799,11 +3816,6 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
         frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.override_reveal_project_config_id = ID("project-mismatch")
-        monkeypatch.setattr(
-            ui_settings_tools_module,
-            "_resolve_frontend_reveal_timeout_seconds",
-            lambda _duration_ms: 5.0,
-        )
         manager = project_fixture.manager
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
         ctx = _build_ctx(
@@ -3833,7 +3845,6 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
 
 @pytest.mark.asyncio
 async def test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismatches(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with (
         real_project_manager() as project_fixture,
@@ -3846,11 +3857,6 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismat
         ]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.override_reveal_from_websocket_id = "frontend-b"
-        monkeypatch.setattr(
-            ui_settings_tools_module,
-            "_resolve_frontend_reveal_timeout_seconds",
-            lambda _duration_ms: 5.0,
-        )
         manager = project_fixture.manager
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
         ctx = _build_ctx(

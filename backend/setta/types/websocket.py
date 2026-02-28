@@ -337,6 +337,7 @@ class UISettingRevealTarget(BaseModel):
 class UISettingRevealContent(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
+    activeSectionId: ID | None = None
     reveals: list[UISettingRevealTarget]
     durationMs: int = 3000
     requestId: str

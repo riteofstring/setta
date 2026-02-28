@@ -63,6 +63,10 @@ type RevealLocalStorageSnapshot = {
   runInstructionsAccordionOpenValuesByProjectConfigId: LocalStorageState["runInstructionsAccordionOpenValuesByProjectConfigId"];
   projectAiSettingsAccordionOpenValuesByProjectConfigId: LocalStorageState["projectAiSettingsAccordionOpenValuesByProjectConfigId"];
 };
+type RevealProjectStateSnapshot = {
+  projectConfigId: string;
+  activeIds: Array<string>;
+};
 type RevealMutationDiff = {
   touchedOverviewVis: boolean;
   touchedOverviewTab: boolean;
@@ -70,11 +74,14 @@ type RevealMutationDiff = {
   touchedUiEditorTabSectionTypes: Set<string>;
   touchedRunInstructionsProjectConfigIds: Set<string>;
   touchedProjectAiProjectConfigIds: Set<string>;
+  touchedProjectStateActiveIdsProjectConfigIds: Set<string>;
 };
 type RevealMutationLease = {
   leaseId: number;
-  snapshot: RevealLocalStorageSnapshot;
-  postMutationSnapshot: RevealLocalStorageSnapshot;
+  localStorageSnapshot: RevealLocalStorageSnapshot;
+  postMutationLocalStorageSnapshot: RevealLocalStorageSnapshot;
+  projectStateSnapshot: RevealProjectStateSnapshot;
+  postMutationProjectStateSnapshot: RevealProjectStateSnapshot;
   mutationDiff: RevealMutationDiff;
 };
 type RevealMutationResult =
@@ -105,6 +112,10 @@ const revealMutationOwnerByRunInstructionsProjectConfigId = new Map<
   number
 >();
 const revealMutationOwnerByProjectAiProjectConfigId = new Map<string, number>();
+const revealMutationOwnerByProjectStateActiveIdsProjectConfigId = new Map<
+  string,
+  number
+>();
 
 function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
@@ -114,13 +125,30 @@ function createEmptyRevealMutationDiff(): RevealMutationDiff {
     touchedUiEditorTabSectionTypes: new Set<string>(),
     touchedRunInstructionsProjectConfigIds: new Set<string>(),
     touchedProjectAiProjectConfigIds: new Set<string>(),
+    touchedProjectStateActiveIdsProjectConfigIds: new Set<string>(),
   };
+}
+
+function resolveRequestedActiveSectionId(
+  requestedActiveSectionId: string | null | undefined,
+): string | null {
+  if (typeof requestedActiveSectionId !== "string") {
+    return null;
+  }
+  const normalizedRequestedActiveSectionId = requestedActiveSectionId.trim();
+  if (normalizedRequestedActiveSectionId === "") {
+    return null;
+  }
+  return normalizedRequestedActiveSectionId;
 }
 
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
   executionContext: UISettingRevealExecutionContext | null = null,
 ): Promise<Array<UISettingRevealResultStatus>> {
+  const requestedActiveSectionId = resolveRequestedActiveSectionId(
+    content.activeSectionId,
+  );
   const requestedProjectConfigId = content.projectConfigId.trim();
   const activeProjectConfigId = useProjectState
     .getState()
@@ -165,6 +193,7 @@ export async function receiveUISettingReveal(
         target: revealTarget,
         durationMs: remainingMs,
         fallbackProjectConfigId: content.projectConfigId,
+        requestedActiveSectionId,
         executionContext,
       }),
     );
@@ -176,11 +205,13 @@ async function revealSingleSetting({
   target,
   durationMs,
   fallbackProjectConfigId,
+  requestedActiveSectionId,
   executionContext,
 }: {
   target: UISettingRevealTarget;
   durationMs: number;
   fallbackProjectConfigId: string;
+  requestedActiveSectionId: string | null;
   executionContext: UISettingRevealExecutionContext | null;
 }): Promise<UISettingRevealResultStatus> {
   const startMismatch = resolveRevealExecutionMismatch(executionContext);
@@ -193,6 +224,7 @@ async function revealSingleSetting({
   const mutationResult = await applyRevealMutationsWithLease({
     target,
     fallbackProjectConfigId,
+    requestedActiveSectionId,
     executionContext,
   });
   if (!mutationResult.ok) {
@@ -292,10 +324,12 @@ async function revealSingleSetting({
 async function applyRevealMutationsWithLease({
   target,
   fallbackProjectConfigId,
+  requestedActiveSectionId,
   executionContext,
 }: {
   target: UISettingRevealTarget;
   fallbackProjectConfigId: string;
+  requestedActiveSectionId: string | null;
   executionContext: UISettingRevealExecutionContext | null;
 }): Promise<RevealMutationResult> {
   return runWithRevealMutationLock(async () => {
@@ -309,8 +343,26 @@ async function applyRevealMutationsWithLease({
         ),
       };
     }
-    const snapshot = captureRevealLocalStorageSnapshot();
+    const localStorageSnapshot = captureRevealLocalStorageSnapshot();
+    const projectStateSnapshot = captureRevealProjectStateSnapshot();
     const mutationDiff = createEmptyRevealMutationDiff();
+    const requestedSectionActivationResult =
+      applyRequestedActiveSectionForReveal({
+        requestedActiveSectionId,
+        fallbackProjectConfigId,
+        mutationDiff,
+      });
+    if (!requestedSectionActivationResult.ok) {
+      return {
+        ok: false,
+        status: {
+          settingId: target.settingId,
+          status: "failed",
+          errorCode: "mutation_failed",
+          errorMessage: requestedSectionActivationResult.errorMessage,
+        },
+      };
+    }
     const opened = openPaneForRevealTarget(target, mutationDiff);
     if (!opened.ok) {
       return {
@@ -325,10 +377,15 @@ async function applyRevealMutationsWithLease({
     }
     const postPaneMismatch = resolveRevealExecutionMismatch(executionContext);
     if (postPaneMismatch !== null) {
-      const postMutationSnapshot = captureRevealLocalStorageSnapshot();
-      restoreRevealLocalStorageSnapshotIfOwned({
-        snapshot,
-        postMutationSnapshot,
+      const postMutationLocalStorageSnapshot =
+        captureRevealLocalStorageSnapshot();
+      const postMutationProjectStateSnapshot =
+        captureRevealProjectStateSnapshot();
+      restoreRevealMutationSnapshotsIfOwned({
+        localStorageSnapshot,
+        postMutationLocalStorageSnapshot,
+        projectStateSnapshot,
+        postMutationProjectStateSnapshot,
         mutationDiff,
       });
       return {
@@ -347,10 +404,15 @@ async function applyRevealMutationsWithLease({
     const postActivationMismatch =
       resolveRevealExecutionMismatch(executionContext);
     if (postActivationMismatch !== null) {
-      const postMutationSnapshot = captureRevealLocalStorageSnapshot();
-      restoreRevealLocalStorageSnapshotIfOwned({
-        snapshot,
-        postMutationSnapshot,
+      const postMutationLocalStorageSnapshot =
+        captureRevealLocalStorageSnapshot();
+      const postMutationProjectStateSnapshot =
+        captureRevealProjectStateSnapshot();
+      restoreRevealMutationSnapshotsIfOwned({
+        localStorageSnapshot,
+        postMutationLocalStorageSnapshot,
+        projectStateSnapshot,
+        postMutationProjectStateSnapshot,
         mutationDiff,
       });
       return {
@@ -361,12 +423,17 @@ async function applyRevealMutationsWithLease({
         ),
       };
     }
-    const postMutationSnapshot = captureRevealLocalStorageSnapshot();
+    const postMutationLocalStorageSnapshot =
+      captureRevealLocalStorageSnapshot();
+    const postMutationProjectStateSnapshot =
+      captureRevealProjectStateSnapshot();
     return {
       ok: true,
       lease: registerRevealMutationLease(
-        snapshot,
-        postMutationSnapshot,
+        localStorageSnapshot,
+        postMutationLocalStorageSnapshot,
+        projectStateSnapshot,
+        postMutationProjectStateSnapshot,
         mutationDiff,
       ),
     };
@@ -377,7 +444,7 @@ async function rollbackRevealMutationLease(
   mutationLease: RevealMutationLease,
 ): Promise<void> {
   await runWithRevealMutationLock(() => {
-    restoreRevealLocalStorageSnapshotIfOwned(mutationLease);
+    restoreRevealMutationSnapshotsIfOwned(mutationLease);
   });
 }
 
@@ -390,15 +457,19 @@ async function finalizeRevealMutationLease(
 }
 
 function registerRevealMutationLease(
-  snapshot: RevealLocalStorageSnapshot,
-  postMutationSnapshot: RevealLocalStorageSnapshot,
+  localStorageSnapshot: RevealLocalStorageSnapshot,
+  postMutationLocalStorageSnapshot: RevealLocalStorageSnapshot,
+  projectStateSnapshot: RevealProjectStateSnapshot,
+  postMutationProjectStateSnapshot: RevealProjectStateSnapshot,
   mutationDiff: RevealMutationDiff,
 ): RevealMutationLease {
   revealMutationSequence += 1;
   const lease = {
     leaseId: revealMutationSequence,
-    snapshot,
-    postMutationSnapshot,
+    localStorageSnapshot,
+    postMutationLocalStorageSnapshot,
+    projectStateSnapshot,
+    postMutationProjectStateSnapshot,
     mutationDiff,
   };
   recordRevealMutationOwnership(lease);
@@ -419,6 +490,14 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
       cloneStringArrayRecord(
         state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
       ),
+  };
+}
+
+function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot {
+  const state = useProjectState.getState();
+  return {
+    projectConfigId: state.projectConfig.id,
+    activeIds: [...state.projectConfig.activeIds],
   };
 }
 
@@ -446,6 +525,12 @@ function recordRevealMutationOwnership({
   }
   for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
     revealMutationOwnerByProjectAiProjectConfigId.set(projectConfigId, leaseId);
+  }
+  for (const projectConfigId of mutationDiff.touchedProjectStateActiveIdsProjectConfigIds) {
+    revealMutationOwnerByProjectStateActiveIdsProjectConfigId.set(
+      projectConfigId,
+      leaseId,
+    );
   }
 }
 
@@ -498,6 +583,47 @@ function clearRevealMutationOwnershipForLease({
     }
     revealMutationOwnerByProjectAiProjectConfigId.delete(projectConfigId);
   }
+  for (const projectConfigId of mutationDiff.touchedProjectStateActiveIdsProjectConfigIds) {
+    if (
+      revealMutationOwnerByProjectStateActiveIdsProjectConfigId.get(
+        projectConfigId,
+      ) !== leaseId
+    ) {
+      continue;
+    }
+    revealMutationOwnerByProjectStateActiveIdsProjectConfigId.delete(
+      projectConfigId,
+    );
+  }
+}
+
+function restoreRevealMutationSnapshotsIfOwned({
+  localStorageSnapshot,
+  postMutationLocalStorageSnapshot,
+  projectStateSnapshot,
+  postMutationProjectStateSnapshot,
+  mutationDiff,
+  leaseId,
+}: {
+  localStorageSnapshot: RevealLocalStorageSnapshot;
+  postMutationLocalStorageSnapshot: RevealLocalStorageSnapshot;
+  projectStateSnapshot: RevealProjectStateSnapshot;
+  postMutationProjectStateSnapshot: RevealProjectStateSnapshot;
+  mutationDiff: RevealMutationDiff;
+  leaseId?: number;
+}): void {
+  restoreRevealLocalStorageSnapshotIfOwned({
+    snapshot: localStorageSnapshot,
+    postMutationSnapshot: postMutationLocalStorageSnapshot,
+    mutationDiff,
+    leaseId,
+  });
+  restoreRevealProjectStateSnapshotIfOwned({
+    snapshot: projectStateSnapshot,
+    postMutationSnapshot: postMutationProjectStateSnapshot,
+    mutationDiff,
+    leaseId,
+  });
 }
 
 function restoreRevealLocalStorageSnapshotIfOwned({
@@ -636,6 +762,52 @@ function restoreRevealLocalStorageSnapshotIfOwned({
   });
 }
 
+function restoreRevealProjectStateSnapshotIfOwned({
+  snapshot,
+  postMutationSnapshot,
+  mutationDiff,
+  leaseId,
+}: {
+  snapshot: RevealProjectStateSnapshot;
+  postMutationSnapshot: RevealProjectStateSnapshot;
+  mutationDiff: RevealMutationDiff;
+  leaseId?: number;
+}): void {
+  useProjectState.setState((state) => {
+    const projectConfigId = state.projectConfig.id;
+    if (
+      !mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.has(
+        projectConfigId,
+      )
+    ) {
+      return state;
+    }
+    if (
+      !isRevealMutationOwnerMatch(
+        revealMutationOwnerByProjectStateActiveIdsProjectConfigId.get(
+          projectConfigId,
+        ),
+        leaseId,
+      )
+    ) {
+      return state;
+    }
+    if (projectConfigId !== postMutationSnapshot.projectConfigId) {
+      return state;
+    }
+    if (
+      !areStringArraysEqual(
+        state.projectConfig.activeIds,
+        postMutationSnapshot.activeIds,
+      )
+    ) {
+      return state;
+    }
+    state.projectConfig.activeIds = [...snapshot.activeIds];
+    return state;
+  });
+}
+
 function isRevealMutationOwnerMatch(
   ownerLeaseId: number | undefined | null,
   leaseId: number | undefined,
@@ -707,6 +879,46 @@ async function runWithRevealMutationLock<T>(
       releaseCurrentLock();
     }
   }
+}
+
+function applyRequestedActiveSectionForReveal({
+  requestedActiveSectionId,
+  fallbackProjectConfigId,
+  mutationDiff,
+}: {
+  requestedActiveSectionId: string | null;
+  fallbackProjectConfigId: string;
+  mutationDiff: RevealMutationDiff;
+}): OpenPaneResult {
+  if (requestedActiveSectionId === null) {
+    return { ok: true };
+  }
+  const projectConfigId = resolveProjectConfigIdForActivation(
+    fallbackProjectConfigId,
+  );
+  const projectState = useProjectState.getState();
+  if (projectState.projectConfig.id !== projectConfigId) {
+    return {
+      ok: false,
+      errorMessage:
+        "UI setting reveal execution context mismatch: requested project " +
+        `${projectConfigId} but active project is ${projectState.projectConfig.id}.`,
+    };
+  }
+  if (
+    areStringArraysEqual(projectState.projectConfig.activeIds, [
+      requestedActiveSectionId,
+    ])
+  ) {
+    return { ok: true };
+  }
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = [requestedActiveSectionId];
+  });
+  mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.add(
+    projectConfigId,
+  );
+  return { ok: true };
 }
 
 function openPaneForRevealTarget(
