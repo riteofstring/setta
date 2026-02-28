@@ -1284,6 +1284,21 @@ command = "beta"
                 for message in warning_messages
             )
 
+    def test_validate_codex_mcp_servers_payload_rejects_camel_case_root_key(
+        self,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="'mcpServers' is not supported. Use 'mcp_servers'.",
+        ):
+            codex_config_module.validate_codex_mcp_servers_payload(
+                {
+                    "mcpServers": {
+                        "alpha": {"command": "alpha"},
+                    }
+                }
+            )
+
 
 class TestLLMConfigExampleSeeding:
     def test_seed_llm_config_example_file_writes_default_payload(self) -> None:

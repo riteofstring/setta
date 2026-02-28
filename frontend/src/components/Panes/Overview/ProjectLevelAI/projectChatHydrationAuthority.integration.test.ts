@@ -202,4 +202,21 @@ describe("project chat hydration authority integration", () => {
       blockedErrorCode: "chat_provenance_missing",
     });
   });
+
+  it("keeps ambiguous provenance unresolved while run metadata is non-authoritative", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-ambiguous-non-authoritative",
+      selectedScopedChatProvenance: { status: "ambiguous" },
+      chatProvenanceAuthoritative: false,
+      engineConfigById: resolvedEngineConfigById,
+      engineConfigsAuthoritative: true,
+      engineType: EngineTypeEnum.external_agent,
+    });
+
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
+  });
 });

@@ -732,6 +732,272 @@ test("project ai waits for authoritative provenance before hydrating a selected 
   }
 });
 
+test("project ai does not warn on ambiguous local provenance before authority is ready", async ({
+  page,
+}) => {
+  const selectedChatId = "pw-selected-ambiguous-local-provenance";
+  let llmHydrateCalls = 0;
+  let externalHydrateCalls = 0;
+  let releaseAgentRuns: (() => void) | null = null;
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  await seedAIStore(page, {
+    activeChatId: selectedChatId,
+    agentRunsAuthorityState: "loading",
+    agentRunsInitialLoadComplete: false,
+    agentRunsLoadError: null,
+    agentRuns: [
+      {
+        id: "run-ambiguous-local-llm",
+        profileId: null,
+        status: "completed",
+        startedAt: "2026-05-20T00:00:00Z",
+        finishedAt: "2026-05-20T00:00:02Z",
+        events: [],
+        inputs: {
+          runType: "llm_chat",
+          projectConfigId: projectContext.projectConfigId,
+          chatId: selectedChatId,
+          engineConfigId: "engine-llm-ambiguous",
+          messages: [
+            {
+              id: "ambiguous-user-llm",
+              role: "user",
+              content: [{ type: "text", text: "Resume ambiguous thread (LLM)" }],
+              attachments: [],
+            },
+          ],
+        },
+        outputs: {
+          name: "Ambiguous local provenance thread",
+          nameSource: "llm",
+        },
+        toolCalls: [],
+        cost: null,
+      },
+      {
+        id: "run-ambiguous-local-external",
+        profileId: null,
+        status: "completed",
+        startedAt: "2026-05-20T00:00:00Z",
+        finishedAt: "2026-05-20T00:00:02Z",
+        events: [],
+        inputs: {
+          runType: "external_agent",
+          projectConfigId: projectContext.projectConfigId,
+          chatId: selectedChatId,
+          engineConfigId: "engine-external-ambiguous",
+          messages: [
+            {
+              id: "ambiguous-user-external",
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Resume ambiguous thread (External)",
+                },
+              ],
+              attachments: [],
+            },
+          ],
+        },
+        outputs: {
+          name: "Ambiguous local provenance thread",
+          nameSource: "llm",
+        },
+        toolCalls: [],
+        cost: null,
+      },
+    ],
+  });
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-llm-ambiguous",
+          name: "Ambiguous LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+        {
+          id: "engine-external-ambiguous",
+          name: "Ambiguous External",
+          engineType: "external_agent",
+          settaLlmConfigId: null,
+          externalAgentConfigId: "external-ambiguous",
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    if (releaseAgentRuns === null) {
+      await new Promise<void>((resolve) => {
+        releaseAgentRuns = resolve;
+      });
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-ambiguous-authoritative-llm",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-05-20T00:00:00Z",
+          finishedAt: "2026-05-20T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: selectedChatId,
+            engineConfigId: "engine-llm-ambiguous",
+            messages: [
+              {
+                id: "ambiguous-authoritative-user-llm",
+                role: "user",
+                content: [{ type: "text", text: "Authoritative ambiguous (LLM)" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Ambiguous local provenance thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: "run-ambiguous-authoritative-external",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-05-20T00:00:00Z",
+          finishedAt: "2026-05-20T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: selectedChatId,
+            engineConfigId: "engine-external-ambiguous",
+            messages: [
+              {
+                id: "ambiguous-authoritative-user-external",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Authoritative ambiguous (External)",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Ambiguous local provenance thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      externalHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+
+    await page.waitForTimeout(600);
+    expect(llmHydrateCalls).toBe(0);
+    expect(externalHydrateCalls).toBe(0);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+
+    if (!releaseAgentRuns) {
+      throw new Error("Expected delayed getAgentRuns request to initialize.");
+    }
+    releaseAgentRuns();
+
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("missing provenance metadata");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai waits for authoritative engine config metadata before hydrating a selected thread", async ({
   page,
 }) => {

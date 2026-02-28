@@ -10,9 +10,9 @@ from typing import Any
 from setta.agentic.external_tool_allowlist import ExternalToolAllowlist
 from setta.database.db_objs import DBE
 from setta.mcp.codex_config import (
-    canonicalize_codex_mcp_servers_payload,
     load_codex_mcp_server_payloads_from_config,
     resolve_raw_codex_mcp_servers,
+    validate_codex_mcp_servers_payload,
 )
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
@@ -150,7 +150,7 @@ def build_codex_settings_file(
         payload = _load_toml(base_path)
     allow_runtime_payload_mutation = _allow_managed_settings_update(config, base_path)
     allow_canonical_persistence = _allow_canonical_settings_persistence(config)
-    canonicalize_codex_mcp_servers_payload(payload)
+    validate_codex_mcp_servers_payload(payload)
     _bootstrap_codex_mcp_servers_from_user_config(payload, config)
     if output_dir is not None and allow_canonical_persistence:
         settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -495,7 +495,7 @@ def _bootstrap_codex_mcp_servers_from_user_config(
     if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
         return False
     if _get_codex_mcp_imported_at(payload):
-        canonicalize_codex_mcp_servers_payload(payload)
+        validate_codex_mcp_servers_payload(payload)
         return False
     existing_servers = _resolve_bootstrap_codex_mcp_servers(payload)
     if not _has_non_setta_mcp_server(existing_servers):

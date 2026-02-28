@@ -882,3 +882,37 @@
 
 ### Verification
 - `pnpm -C frontend gcf`: completed (`exit 0`).
+
+## 2026-02-28 09:17:46 PST
+
+### Consolidated Findings
+- Selected-thread hydration compatibility treated ambiguous provenance as immediately blocking even when run provenance authority was still loading, which could surface premature warning banners.
+- Codex MCP payload helper exposed a dead boolean contract (`always false`) while call sites used it only for validation side effects.
+- Top-level review docs (`review1.md`, `review2.md`, `review3.md`) were temporary inputs and should be removed from repo root after consolidation.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated `resolveProjectChatThreadBlockedErrorCodeForSelectedChat` to authority-gate both `missing` and `ambiguous` provenance states:
+  - return `unknown` while `chatProvenanceAuthoritative` is `false`,
+  - emit `chat_provenance_missing` warning only after provenance authority is ready.
+- Added frontend regression coverage:
+  - Vitest unit coverage for ambiguous + non-authoritative compatibility behavior,
+  - hydration authority integration coverage for ambiguous + non-authoritative state,
+  - Playwright e2e scenario ensuring no blocked banner is shown before authoritative runs load, with warning rendered after authority becomes ready.
+- Replaced inert Codex MCP helper contract with explicit validation API:
+  - renamed `canonicalize_codex_mcp_servers_payload` to `validate_codex_mcp_servers_payload`,
+  - switched return type to `None` and kept deterministic fail-closed shape validation.
+- Updated backend call sites and tests to enforce validation-only semantics and deterministic camel-case root rejection.
+- Executed `pnpm -C frontend gcf` successfully in this workspace.
+
+### UX/DX Before -> After
+- Selected-thread hydration warning timing: ambiguous local provenance could warn before authority -> warning is deferred until authoritative provenance is available.
+- Hydration UX during authority loading: transient false-warning state -> stable `unknown` state with no premature blocked banner.
+- Codex helper semantics: misleading boolean contract -> explicit validation-only API with clearer intent and lower maintenance drift.
+
+### Verification
+- `pnpm -C frontend gcf`: completed (`exit 0`).
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`: `43 passed`.
+- `source activate.sh && pytest -q tests/agentic/test_external_agent_settings.py -k "validate_codex_mcp_servers_payload_is_validation_only or rejects_camel_case_mcp_root_key"`: `2 passed`.
+- `source activate.sh && pytest -q tests/llm/test_config.py -k "validate_codex_mcp_servers_payload_rejects_camel_case_root_key or load_llm_config_rejects_camel_case_mcp_root_key"`: `2 passed`.
+- `source activate.sh && ruff check backend/setta/mcp/codex_config.py backend/setta/agentic/external_agent_settings.py tests/agentic/test_external_agent_settings.py tests/llm/test_config.py`: passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts -g "project ai does not warn on ambiguous local provenance before authority is ready"`: `1 passed`.

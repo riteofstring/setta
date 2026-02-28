@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import tomllib
@@ -436,6 +437,22 @@ url = "http://localhost:1234"
             assert isinstance(dotted_server, dict)
             if isinstance(dotted_server, dict):
                 assert dotted_server.get("url") == "http://localhost:1234"
+
+    def test_validate_codex_mcp_servers_payload_is_validation_only(self) -> None:
+        payload: dict[str, object] = {
+            "mcp_servers": {
+                "figma-desktop": {
+                    "command": "figma",
+                    "args": ["mcp"],
+                }
+            }
+        }
+        snapshot = deepcopy(payload)
+
+        result = codex_config_module.validate_codex_mcp_servers_payload(payload)
+
+        assert result is None
+        assert payload == snapshot
 
     def test_build_codex_settings_file_rejects_camel_case_mcp_root_key(
         self,

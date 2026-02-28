@@ -79,19 +79,16 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   if (!resolvedChatId) {
     return { status: "compatible" };
   }
-  if (selectedScopedChatProvenance.status === "missing") {
+  if (
+    selectedScopedChatProvenance.status === "missing" ||
+    selectedScopedChatProvenance.status === "ambiguous"
+  ) {
     if (selectedChatWaitingForResponse) {
       return { status: "unknown" };
     }
     if (!chatProvenanceAuthoritative) {
       return { status: "unknown" };
     }
-    return {
-      status: "warning",
-      errorCode: "chat_provenance_missing",
-    };
-  }
-  if (selectedScopedChatProvenance.status === "ambiguous") {
     return {
       status: "warning",
       errorCode: "chat_provenance_missing",

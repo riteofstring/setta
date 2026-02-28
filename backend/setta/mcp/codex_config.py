@@ -64,11 +64,10 @@ def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
     return snake_case_servers
 
 
-def canonicalize_codex_mcp_servers_payload(payload: dict[str, Any]) -> bool:
+def validate_codex_mcp_servers_payload(payload: dict[str, Any]) -> None:
     if "mcp_servers" not in payload and "mcpServers" not in payload:
-        return False
+        return
     resolve_raw_codex_mcp_servers(payload)
-    return False
 
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:

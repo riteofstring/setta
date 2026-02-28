@@ -433,6 +433,17 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "unknown" });
   });
 
+  it("returns unknown when selected chat provenance is ambiguous from a non-authoritative run snapshot", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      selectedScopedChatProvenance: { status: "ambiguous" },
+      chatProvenanceAuthoritative: false,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+    });
+    expect(result).toEqual({ status: "unknown" });
+  });
+
   it("returns unknown while selected chat is actively waiting for a response and provenance is still missing", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
