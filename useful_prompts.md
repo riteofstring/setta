@@ -1,6 +1,48 @@
 Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Any unnecessary backward compatibility shims? Is there any reason I shouldn't merge the current branch into the main branch? Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
 
-Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base) using git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Take into account fixes already made in cumulative_review.md and do not re-raise resolved issues unless this branch regresses them. Prioritize root-cause and invariant-level analysis over symptom-level comments: cluster related findings under shared root causes, and state the violated invariant for each cluster. For each finding, provide succinct concrete evidence, severity, merge risk, and a principled fix that removes the issue class (single source of truth, fail-fast invariants, no backward-compatibility shim). Also include the UX/DX before and after the principled fix, and list regression tests that should be added/updated to prevent the same issue class from recurring.
+Review this branch for merge into `main`.
+ 
+    Scope
+    - Analyze only branch-introduced changes vs merge base:
+      - `git diff --name-status main...HEAD`
+      - `git diff $(git merge-base main HEAD)..HEAD`
+    - Consider `cumulative_review.md` and do not re-raise resolved issues unless this branch regresses them.
+ 
+    Decision stability / cumulative review policy
+    - Treat `cumulative_review.md` as source of truth for resolved decisions.
+    - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
+    - Reopen only for regression with concrete evidence in this branch.
+    - If reopened, cite prior decision + what changed + evidence.
+    
+    Priorities (in order)
+    1. Correctness bugs and invariant violations.
+    2. Dead/unused code introduced or left behind (files, functions, branches, imports, types, flags, endpoints).
+    3. Backward-compatibility shims or dual-path logic (not allowed).
+    4. Design quality: reject band-aids; prefer principled root-cause fixes.
+ 
+    Method
+    - Cluster findings by shared root cause.
+    - For each cluster, name the violated invariant.
+    - Focus on root-cause and issue-class elimination, not symptom-level comments.
+    - Do not propose backward-compatibility shims. Prefer single source of truth + fail-fast invariants.
+    - If no issues exist in a priority category, explicitly say so.
+ 
+    For each finding, provide
+    - Severity: `critical|high|medium|low`
+    - Merge risk: `blocker|major|minor`
+    - Concrete evidence: file + line references and brief snippet/description
+    - Violated invariant
+    - Principled fix that removes the whole issue class (no BC shim)
+    - UX/DX before vs after fix
+    - Regression tests to add/update (unit/integration/e2e) with exact assertions
+ 
+    Output format
+    1. Merge recommendation + top risks
+    2. Findings by root-cause cluster (highest severity first)
+    3. Dead code inventory
+    4. Backward-compatibility shim inventory (must remove)
+    5. Regression test plan
+
 
 Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
 
