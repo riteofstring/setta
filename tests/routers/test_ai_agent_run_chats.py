@@ -683,7 +683,7 @@ class TestAgentRunChatRoutes:
             assert captured_inputs.get("frontendWebsocketId") == "frontend-managed"
             assert "skillsEnabled" not in captured_inputs
 
-    async def test_get_llm_response_share_scope_omits_frontend_websocket_id_for_managed_runner(
+    async def test_get_llm_response_share_scope_preserves_frontend_websocket_id_for_managed_runner(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -728,7 +728,46 @@ class TestAgentRunChatRoutes:
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
-            assert "frontendWebsocketId" not in captured_inputs
+            assert captured_inputs.get("frontendWebsocketId") == "frontend-managed"
+
+    async def test_get_llm_response_rejects_whitespace_only_frontend_websocket_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            with runtime_context(state) as ctx:
+                # Ingress should fail fast on malformed affinity values.
+                with pytest.raises(HTTPException) as exc_info:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[
+                                    MessageTextContent(text="Create a new project.")
+                                ],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-policy"),
+                            allowUnscoped=True,
+                            frontendWebsocketId="   ",
+                            permissionMode=ChatPermissionMode.yolo,
+                            searchEnabled=False,
+                        ),
+                        ctx,
+                    )
+            assert exc_info.value.status_code == 400
+            assert "frontendWebsocketId" in str(exc_info.value.detail)
 
     async def test_get_llm_response_includes_execution_policy_for_external_runner(
         self,
@@ -847,7 +886,7 @@ class TestAgentRunChatRoutes:
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
 
-    async def test_get_llm_response_share_scope_omits_frontend_websocket_id_for_external_runner(
+    async def test_get_llm_response_share_scope_preserves_frontend_websocket_id_for_external_runner(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -937,7 +976,7 @@ class TestAgentRunChatRoutes:
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
-            assert "frontendWebsocketId" not in captured_inputs
+            assert captured_inputs.get("frontendWebsocketId") == "frontend-external"
 
     async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
         self,

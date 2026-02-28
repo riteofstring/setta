@@ -367,7 +367,7 @@ class TestManagedActionExecutor:
                 }
             ]
 
-    async def test_setta_tool_meta_omits_frontend_websocket_id_in_share_scope(
+    async def test_setta_tool_meta_preserves_frontend_websocket_id_in_share_scope(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -443,6 +443,7 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
+                    "frontendWebsocketId": "frontend-1",
                     "shareSessionId": "share-session-1",
                 }
             ]

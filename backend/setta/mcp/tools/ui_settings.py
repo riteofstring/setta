@@ -1002,9 +1002,6 @@ async def _activate_section_for_reveal(
         )
 
     target_active_ids = [section_id_to_activate]
-    if project_state.projectConfig.activeIds == target_active_ids:
-        return None, None
-
     reveal_activation_lease_id = await _set_active_ids_for_reveal(
         manager=manager,
         project_config_id=project_config_id,

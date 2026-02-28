@@ -30,6 +30,18 @@ def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:
     return ChatHistory(AgentRunChatStore(ctx.state.dbe))
 
 
+def _normalize_frontend_websocket_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized == "":
+        raise HTTPException(
+            status_code=400,
+            detail="frontendWebsocketId must be a non-empty string when provided.",
+        )
+    return normalized
+
+
 def _resolve_engine_llm_config(
     ctx: RuntimeContextFromRequest,
     engine_config_id: ID | None,
@@ -146,9 +158,7 @@ async def route_run_mcp_tools(
     if project_config_id is None:
         raise KeyError(f"Chat {x.chatId} missing project config id")
     server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
-    frontend_websocket_id = x.frontendWebsocketId
-    if ctx.share_session_id is not None:
-        frontend_websocket_id = None
+    frontend_websocket_id = _normalize_frontend_websocket_id(x.frontendWebsocketId)
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),

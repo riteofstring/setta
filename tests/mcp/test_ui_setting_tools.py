@@ -30,6 +30,11 @@ from setta.plugins.manager import PluginManager
 from setta.plugins.models import PluginRuntimeState, PluginScope
 from setta.types.app_definition import AppDefinition
 from setta.types.id import ID
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
+)
 from setta.types.section_impls import SectionType
 from setta.ui_settings.reveal_result_hub import (
     UISettingRevealResultContent,
@@ -1117,6 +1122,66 @@ async def test_python_codegen_enabled_setting_round_trip() -> None:
         )
         assert revert_result.error is None
         assert revert_result.newValue == original_value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_python_codegen_enabled_same_value_is_noop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        project_state = manager.get_single_config_state(project_config_id)
+        project_state.projectConfig.codegenTargets = [
+            ProjectCodegenPythonTarget(genCodePrefix="# keep python target first"),
+            ProjectCodegenPluginTarget(language="plugin.codegen.target"),
+        ]
+
+        update_calls = 0
+        history_len_before = len(manager.history._history)
+        original_update = manager.update_and_broadcast_project_state
+
+        async def _record_update(*args, **kwargs) -> None:
+            nonlocal update_calls
+            update_calls += 1
+            await original_update(*args, **kwargs)
+
+        monkeypatch.setattr(
+            manager, "update_and_broadcast_project_state", _record_update
+        )
+
+        # Writing the already-enabled value must not reorder targets or trigger persistence work.
+        set_result = await set_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert set_result.error is None
+        assert set_result.changed is False
+        assert set_result.newValue is True
+        assert len(manager.history._history) == history_len_before
+        assert update_calls == 0
+        updated_targets = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.codegenTargets
+        assert isinstance(updated_targets[0], ProjectCodegenPythonTarget)
+        assert isinstance(updated_targets[1], ProjectCodegenPluginTarget)
+        assert [target.language for target in updated_targets] == [
+            ProjectCodegenLanguage.python,
+            "plugin.codegen.target",
+        ]
 
 
 @pytest.mark.asyncio
@@ -2924,6 +2989,97 @@ async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection
         )
         updated_state = manager.get_single_config_state(project_config_id)
         assert updated_state.projectConfig.activeIds == [second_section_id]
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_timeout_does_not_rollback_after_newer_same_target_reveal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.skip_reveal_result_resolution = True
+        monkeypatch.setattr(
+            ui_settings_tools_module,
+            "_resolve_frontend_reveal_timeout_seconds",
+            lambda _duration_ms: 0.05,
+        )
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-a",
+            },
+        )
+
+        first_reveal_task = asyncio.create_task(
+            reveal_ui_setting(
+                settingId="core.project.show_param_display_names",
+                sectionIdToActivate=section_id,
+                durationMs=250,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+        )
+
+        activation_observed = False
+        for _ in range(40):
+            active_ids = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.activeIds
+            if active_ids == [section_id]:
+                activation_observed = True
+                break
+            await asyncio.sleep(0.005)
+        assert activation_observed
+
+        # The newer reveal to the same target should supersede rollback ownership.
+        frontend_sender.skip_reveal_result_resolution = False
+        second_reveal_result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            durationMs=250,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert second_reveal_result.emittedRevealCount == 1
+        assert second_reveal_result.statuses[0].status == "revealed"
+
+        first_reveal_result = await first_reveal_task
+        assert first_reveal_result.emittedRevealCount == 0
+        assert first_reveal_result.statuses[0].status == "failed"
+        assert first_reveal_result.statuses[0].error is not None
+        assert "Timed out waiting for frontend reveal confirmation" in (
+            first_reveal_result.statuses[0].error.message
+        )
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == [section_id]
 
 
 @pytest.mark.asyncio

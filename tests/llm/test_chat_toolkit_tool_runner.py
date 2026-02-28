@@ -125,7 +125,7 @@ class TestToolRunner:
             }
         ]
 
-    async def test_runner_omits_frontend_websocket_id_meta_for_share_scoped_setta_tools(
+    async def test_runner_preserves_frontend_websocket_id_meta_for_share_scoped_setta_tools(
         self,
     ) -> None:
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "alpha_tool")
@@ -177,5 +177,6 @@ class TestToolRunner:
                 "projectConfigId": "project-1",
                 "chatId": "chat-1",
                 "sectionId": "section-1",
+                "frontendWebsocketId": "frontend-1",
             }
         ]

@@ -2367,9 +2367,9 @@ class BaseProjectManager(ABC):
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
         )
-        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        existing_targets = list(project_state.projectConfig.codegenTargets)
         python_target: ProjectCodegenPythonTarget | None = None
-        for target in project_state.projectConfig.codegenTargets:
+        for target in existing_targets:
             if target.language == ProjectCodegenLanguage.python:
                 if not isinstance(target, ProjectCodegenPythonTarget):
                     raise ValueError(
@@ -2382,17 +2382,22 @@ class BaseProjectManager(ABC):
                     "Project config has invalid plugin codegen target type: "
                     f"{target.language}."
                 )
-            plugin_targets.append(target)
+        if old_value == enabled:
+            return old_value, old_value
         next_targets: list[ProjectCodegenTarget]
         if enabled:
             next_targets = [
-                *plugin_targets,
+                *existing_targets,
                 python_target
                 if python_target is not None
                 else ProjectCodegenPythonTarget(),
             ]
         else:
-            next_targets = list(plugin_targets)
+            next_targets = [
+                target
+                for target in existing_targets
+                if target.language != ProjectCodegenLanguage.python
+            ]
         self.add_new_history_entry()
         self._apply_project_config_codegen_targets(
             project_state=project_state,
@@ -4320,9 +4325,14 @@ class BaseProjectManager(ABC):
         project_config_id: ID,
         active_ids: list[ID],
     ) -> str:
-        self.project_state_backend.projectConfigs[
+        current_active_ids = self.project_state_backend.projectConfigs[
             project_config_id
-        ].activeIds = active_ids
+        ].activeIds
+        active_ids_changed = current_active_ids != active_ids
+        if active_ids_changed:
+            self.project_state_backend.projectConfigs[
+                project_config_id
+            ].activeIds = active_ids
         mutation_version = self._record_ui_setting_reveal_active_ids_mutation(
             project_config_id=project_config_id,
             invalidate_existing_leases=True,
@@ -4332,11 +4342,12 @@ class BaseProjectManager(ABC):
             project_config_id,
             mutation_version,
         )
-        project_state = self.get_single_config_state(project_config_id)
-        await self._update_and_broadcast_project_state_no_name_validation(
-            project_state,
-            updateFileWatcher=False,
-        )
+        if active_ids_changed:
+            project_state = self.get_single_config_state(project_config_id)
+            await self._update_and_broadcast_project_state_no_name_validation(
+                project_state,
+                updateFileWatcher=False,
+            )
         return reveal_activation_lease_id
 
     @enqueue_method

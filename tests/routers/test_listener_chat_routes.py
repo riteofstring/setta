@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
+from fastapi import HTTPException
 import pytest
 
 import setta.routers.listener as listener_module
@@ -191,7 +192,7 @@ async def test_run_mcp_tools_forwards_frontend_websocket_id_to_tool_runner(
 
 
 @pytest.mark.asyncio
-async def test_run_mcp_tools_share_scope_drops_frontend_websocket_id_for_tool_runner(
+async def test_run_mcp_tools_share_scope_preserves_frontend_websocket_id_for_tool_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with TemporaryDirectory() as tmpdir:
@@ -281,4 +282,64 @@ async def test_run_mcp_tools_share_scope_drops_frontend_websocket_id_for_tool_ru
         assert captured["project_config_id"] == project_config_id
         assert captured["section_id"] == section_id
         assert captured["share_session_id"] == "share-session-1"
-        assert captured["frontend_websocket_id"] is None
+        assert captured["frontend_websocket_id"] == "frontend-1"
+
+
+@pytest.mark.asyncio
+async def test_run_mcp_tools_rejects_whitespace_only_frontend_websocket_id() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir))
+        websocket_manager = WebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+        llm_configs = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(id="primary", model="gpt-test"),
+            },
+            mcpServers={},
+        )
+        engine_config = EngineConfig(
+            name="Primary LLM",
+            engineType=EngineType.setta_llm,
+            settaLlmConfigId="primary",
+        )
+        save_engine_configs(dbe, [engine_config])
+        state = _ListenerRouteState(
+            dbe=dbe,
+            agent_runner=_RunnerStub(config=llm_configs),
+            wmh_frontend_sender=frontend_sender,
+            mcp_client=object(),
+        )
+        section_id = ID("section-1")
+        chat_id = ID("chat-1")
+        project_config_id = ID("project-1")
+        fake_history = SimpleNamespace(
+            get=lambda candidate_chat_id: (
+                SimpleNamespace(
+                    projectConfigId=project_config_id,
+                    llmConfig=LLMConfig(id="primary", model="gpt-test"),
+                )
+                if candidate_chat_id == chat_id
+                else None
+            )
+        )
+
+        with runtime_context(state) as ctx:
+            with pytest.MonkeyPatch.context() as monkeypatch:
+                monkeypatch.setattr(
+                    listener_module,
+                    "_chat_history",
+                    lambda _ctx: fake_history,
+                )
+                # Ingress should fail fast on malformed affinity values.
+                with pytest.raises(HTTPException) as exc_info:
+                    await route_run_mcp_tools(
+                        RunMcpToolsRequest(
+                            chatId=chat_id,
+                            sectionId=section_id,
+                            frontendWebsocketId="   ",
+                            toolCalls=[],
+                        ),
+                        ctx,
+                    )
+        assert exc_info.value.status_code == 400
+        assert "frontendWebsocketId" in str(exc_info.value.detail)

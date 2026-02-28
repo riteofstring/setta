@@ -505,3 +505,28 @@
 6. UX after: reveal requests are independently processed and stale-context failures do not leave residual UI state drift.
 7. DX before: reveal behavior depended on split context/transport checks and plugin/schema debugging required plugin-level inference.
 8. DX after: context precedence, schema contracts, and reveal rollback behavior are explicit, typed, and covered by targeted backend/frontend/e2e tests.
+
+## 2026-02-26 00:04:34 PST
+
+### Consolidated Findings
+1. Share-scope frontend affinity was being stripped at ingress/tool-meta boundaries, causing reveal routing ambiguity in multi-frontend sessions even when canonical agentic affinity existed.
+2. Right-pane reveal lease ownership was not superseded for newer reveals targeting the same `activeIds`, allowing stale timeout rollbacks to clobber successful newer reveals.
+3. `core.run_instructions.python_codegen_enabled` compare-and-set could report unchanged while still mutating persisted state/history on same-value writes.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Preserved canonical `frontendWebsocketId` propagation across AI/listener ingress and toolkit/managed-action tool meta for share scope, while keeping request-meta share precedence rules in context resolution.
+2. Added fail-fast ingress validation for malformed `frontendWebsocketId` values (whitespace-only rejected as `400`).
+3. Updated manager-owned reveal activation leasing so every reveal request acquires/supersedes lease ownership, even when target `activeIds` already match.
+4. Kept reveal no-op activations side-effect free for persisted state by skipping broadcast when `activeIds` do not change.
+5. Made `compare_and_set_python_codegen_enabled` truly idempotent for same-value writes with early return before history/save/broadcast mutation.
+6. Added/updated backend unit and integration coverage for share-affinity propagation, malformed-affinity validation, reveal lease supersession, and codegen CAS no-op behavior.
+
+### UX/DX Before and After
+1. UX before: share-mode reveals could fail as ambiguous despite valid origin affinity.
+2. UX after: reveal routing keeps canonical origin affinity across share-scope execution paths.
+3. UX before: stale timed-out reveal requests could roll focus back after a newer successful reveal to the same section.
+4. UX after: newer reveals supersede stale rollback ownership, preventing focus jump-back regressions.
+5. UX before: setting the already-enabled Python codegen value could still create hidden ordering/history churn.
+6. UX after: same-value writes are true no-ops with no persisted side effects.
+7. DX before: concurrency behavior depended on mode-specific affinity stripping and mutation-dependent lease ownership.
+8. DX after: one canonical affinity contract and deterministic lease ownership semantics reduce race debugging overhead.

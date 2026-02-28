@@ -482,7 +482,10 @@ def _normalize_frontend_websocket_id(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     if normalized == "":
-        return None
+        raise HTTPException(
+            status_code=400,
+            detail="frontendWebsocketId must be a non-empty string when provided.",
+        )
     return normalized
 
 
@@ -759,8 +762,6 @@ async def route_get_llm_response(
     normalized_frontend_websocket_id = _normalize_frontend_websocket_id(
         x.frontendWebsocketId
     )
-    if ctx.share_session_id is not None:
-        normalized_frontend_websocket_id = None
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
