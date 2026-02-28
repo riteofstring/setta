@@ -10,6 +10,7 @@ from pathlib import Path
 
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.db_objs import DBE
+from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -40,12 +41,18 @@ _DEFAULT_CLI_TIMEOUT_SECONDS = 5.0
 class _PreflightCacheEntry:
     status: ExternalAgentPreflightStatus
     config_fingerprint: str
-    env_fingerprint: tuple[tuple[str, ...], tuple[str, ...]]
+    env_fingerprint: tuple[tuple[str, ...], tuple[str, ...], str | None]
     plugin_adapter_fingerprint: str | None
     created_at: float
 
 
 _PREFLIGHT_CACHE: dict[str, _PreflightCacheEntry] = {}
+
+
+@dataclass(frozen=True)
+class _EnvStatusResult:
+    status: ExternalAgentEnvVarStatus
+    corruption_issue: str | None = None
 
 
 def _prune_preflight_cache(*, now: float) -> None:
@@ -80,17 +87,18 @@ def build_external_agent_preflight_status(
 ) -> ExternalAgentPreflightStatus:
     plugin_adapter_by_id = _build_plugin_adapter_map(plugin_external_agent_adapters)
     plugin_adapter = _resolve_plugin_adapter(config, plugin_adapter_by_id)
-    env_status = _build_env_status(
+    env_status_result = _build_env_status(
         dbe,
         _build_effective_env_var_whitelist(config, plugin_adapter),
     )
+    env_status = env_status_result.status
     plugin_adapter_fingerprint = _build_plugin_adapter_fingerprint(
         config,
         plugin_adapter,
     )
     cached = _load_cached_preflight(
         config,
-        env_status,
+        env_status_result,
         plugin_adapter_fingerprint=plugin_adapter_fingerprint,
     )
     if cached is not None:
@@ -115,6 +123,8 @@ def build_external_agent_preflight_status(
             )
         if plugin_adapter_resolution_issue is not None:
             issues.append(plugin_adapter_resolution_issue)
+    if env_status_result.corruption_issue is not None:
+        issues.append(env_status_result.corruption_issue)
     if env_status.missing:
         issues.append(f"Missing env vars: {', '.join(env_status.missing)}")
 
@@ -198,7 +208,7 @@ def build_external_agent_preflight_status(
     )
     _store_preflight_cache(
         config,
-        env_status,
+        env_status_result,
         status,
         plugin_adapter_fingerprint=plugin_adapter_fingerprint,
     )
@@ -270,18 +280,35 @@ def _build_plugin_adapter_fingerprint(
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def _build_env_status(dbe: DBE, whitelist: list[str]) -> ExternalAgentEnvVarStatus:
+def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
     normalized = [name.strip() for name in whitelist if name.strip()]
     if not normalized:
-        return ExternalAgentEnvVarStatus()
+        return _EnvStatusResult(status=ExternalAgentEnvVarStatus())
     dot_env = dbe.read_dot_env()
+    managed_api_keys_result = read_managed_api_keys_with_status(dbe)
+    managed_api_keys = managed_api_keys_result.api_keys
     present = sorted(
-        name for name in normalized if name in os.environ or name in dot_env
+        name
+        for name in normalized
+        if name in os.environ or name in dot_env or name in managed_api_keys
     )
     missing = sorted(
-        name for name in normalized if name not in os.environ and name not in dot_env
+        name
+        for name in normalized
+        if name not in os.environ
+        and name not in dot_env
+        and name not in managed_api_keys
     )
-    return ExternalAgentEnvVarStatus(present=present, missing=missing)
+    corruption_issue: str | None = None
+    if managed_api_keys_result.corrupt:
+        corruption_issue = (
+            "Managed LLM API key store is corrupt; "
+            "open LLM settings and save API keys to repair."
+        )
+    return _EnvStatusResult(
+        status=ExternalAgentEnvVarStatus(present=present, missing=missing),
+        corruption_issue=corruption_issue,
+    )
 
 
 def _check_node(command_path: str | None) -> tuple[str | None, str | None, str | None]:
@@ -454,14 +481,19 @@ def _build_config_fingerprint(config: ExternalAgentConfig) -> str:
 
 
 def _build_env_fingerprint(
-    env_status: ExternalAgentEnvVarStatus,
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    return (tuple(env_status.present), tuple(env_status.missing))
+    env_status_result: _EnvStatusResult,
+) -> tuple[tuple[str, ...], tuple[str, ...], str | None]:
+    env_status = env_status_result.status
+    return (
+        tuple(env_status.present),
+        tuple(env_status.missing),
+        env_status_result.corruption_issue,
+    )
 
 
 def _load_cached_preflight(
     config: ExternalAgentConfig,
-    env_status: ExternalAgentEnvVarStatus,
+    env_status_result: _EnvStatusResult,
     *,
     plugin_adapter_fingerprint: str | None,
 ) -> ExternalAgentPreflightStatus | None:
@@ -475,7 +507,7 @@ def _load_cached_preflight(
         return None
     if entry.config_fingerprint != _build_config_fingerprint(config):
         return None
-    if entry.env_fingerprint != _build_env_fingerprint(env_status):
+    if entry.env_fingerprint != _build_env_fingerprint(env_status_result):
         return None
     if entry.plugin_adapter_fingerprint != plugin_adapter_fingerprint:
         return None
@@ -484,7 +516,7 @@ def _load_cached_preflight(
 
 def _store_preflight_cache(
     config: ExternalAgentConfig,
-    env_status: ExternalAgentEnvVarStatus,
+    env_status_result: _EnvStatusResult,
     status: ExternalAgentPreflightStatus,
     *,
     plugin_adapter_fingerprint: str | None,
@@ -494,7 +526,7 @@ def _store_preflight_cache(
     _PREFLIGHT_CACHE[cache_key] = _PreflightCacheEntry(
         status=status,
         config_fingerprint=_build_config_fingerprint(config),
-        env_fingerprint=_build_env_fingerprint(env_status),
+        env_fingerprint=_build_env_fingerprint(env_status_result),
         plugin_adapter_fingerprint=plugin_adapter_fingerprint,
         created_at=now,
     )

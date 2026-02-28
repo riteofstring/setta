@@ -4,7 +4,7 @@ import io
 import time
 import wave
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from openai import AsyncOpenAI
 
@@ -31,6 +31,34 @@ class TranscriptionAudioLimitExceededError(ValueError):
         super().__init__(
             "File-mode transcription session exceeded buffered audio size limit."
         )
+
+
+type TranscriptionSessionErrorCode = Literal["invalid_request", "unsupported_model"]
+
+
+class TranscriptionSessionError(ValueError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: TranscriptionSessionErrorCode = "invalid_request",
+    ) -> None:
+        self.error_code = error_code
+        super().__init__(message)
+
+
+class UnsupportedTranscriptionModelError(TranscriptionSessionError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Realtime transcription is unavailable for this provider/model.",
+            error_code="unsupported_model",
+        )
+
+
+class TranscriptionSessionNotFoundError(KeyError):
+    def __init__(self, session_id: ID) -> None:
+        self.session_id = session_id
+        super().__init__(f"Transcription session {session_id} not found")
 
 
 class BaseTranscriptionEngine:
@@ -364,9 +392,7 @@ class TranscriptionSessionManager:
             transport_mode == TranscriptionTransportMode.realtime
             and not supports_realtime
         ):
-            raise ValueError(
-                "Realtime transcription is unavailable for this provider/model."
-            )
+            raise UnsupportedTranscriptionModelError()
 
         resolved_transport_mode = "file"
         engine: BaseTranscriptionEngine
@@ -489,9 +515,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             if session.scope_id != scope_id:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             session.last_activity_monotonic = now
             session.in_flight_operations += 1
             return session
@@ -525,9 +551,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             if session.scope_id != scope_id:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             return self._sessions.pop(session_id)
 
     async def _close_expired_sessions(self, now: float) -> None:
