@@ -190,3 +190,62 @@ test("project chat keeps selected Setta LLM engine and shows missing-key warning
   await page.waitForTimeout(300);
   await expect(engineInput).toHaveValue("Setta LLM (Claude Sonnet 4.5)");
 });
+
+test("project chat keeps threads open when switching engines", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-setta",
+          name: "Setta LLM (Claude Sonnet 4.5)",
+          engineType: "setta_llm",
+          settaLlmConfigId: null,
+          externalAgentConfigId: null,
+          defaults: { thinking: true },
+        },
+        {
+          id: "engine-codex",
+          name: "Codex (app-server)",
+          engineType: "external_agent",
+          settaLlmConfigId: null,
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await ensureAppReady(page);
+
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  if (
+    (await threadsPanel.count()) === 0 ||
+    !(await threadsPanel.first().isVisible())
+  ) {
+    await overviewPane.getByRole("button", { name: "View Threads" }).click();
+  }
+  await expect(threadsPanel.first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  const engineInput = page.getByPlaceholder("Select an engine");
+  await expect(engineInput).toBeVisible();
+  await engineInput.fill("Codex");
+  await engineInput.press("Enter");
+  await expect(engineInput).toHaveValue("Codex (app-server)");
+
+  await expect(threadsPanel.first()).toBeVisible();
+});

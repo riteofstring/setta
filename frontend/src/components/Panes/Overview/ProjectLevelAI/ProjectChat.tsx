@@ -843,7 +843,6 @@ export function ProjectChat() {
       setDraftThreadState({ phase: "none" });
       setDraftThreadTargetGroupId(null);
       setSelectedThreadGroupId(null);
-      useAIStore.setState({ viewThreads: false });
       setViewSkillsMcpViewer(false);
     },
     [selectedEngineId, setChatId, setSelectedEngineId],
