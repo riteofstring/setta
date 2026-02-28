@@ -701,3 +701,26 @@
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and support group drag reorder"`: `1 passed`.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts --grep "guardrails completion toggle persists"`: `1 passed`.
 - `gcf` workflow completed from frontend package context with no command failures.
+
+## 2026-02-27 19:03:55 PST
+
+### Consolidated Findings
+- Project AI thread history was filtered by selected engine context, which hid external-agent threads when Setta LLM was selected (and vice versa).
+- Thread agent badges only labeled external-agent providers; Setta LLM threads had no badge even when badge visibility was enabled.
+- Root-level `review*.md` cleanup target currently had no matching files in this worktree.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Removed run-type compatibility filtering from the Project AI thread list so all project threads are shown regardless of selected engine.
+- Added Setta LLM badge resolution in thread history (`setta` label), with an `llm_chat` fallback when engine metadata is unavailable.
+- Updated Playwright coverage to assert mixed-engine thread visibility and verify `setta` badge rendering for LLM thread rows.
+- Ran `pnpm -C frontend gcf` and confirmed the workflow completed successfully.
+- Executed top-level review-doc cleanup command for `review*.md` (no matching files present).
+
+### UX/DX Before -> After
+- Thread visibility: selected-engine scoped list -> unified project thread list across engines.
+- Thread badges: external-only labels -> external labels plus Setta LLM badge labeling.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts`: `27 passed`.
+- `SETTA_E2E_TEST_TIMEOUT_SECONDS=300 ./scripts/run-playwright-e2e.sh tests/e2e/chat/chat-composer-controls.spec.ts --grep "project chat thread list includes mixed-engine history entries"`: `1 passed`.

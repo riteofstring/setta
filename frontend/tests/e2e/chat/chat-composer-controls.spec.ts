@@ -884,7 +884,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("project chat resume ignores incompatible engine history entries", async ({
+  test("project chat thread list includes mixed-engine history entries", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -963,32 +963,6 @@ test.describe.serial("chat composer controls", () => {
         ]),
       });
     });
-    await page.route("**/api/getLLMChat", async (route) => {
-      const request = route.request().postDataJSON() as
-        | { chatId?: string }
-        | undefined;
-      const requestedChatId = request?.chatId;
-      const replyText =
-        requestedChatId === matchingChatId
-          ? "Resumed matching chat"
-          : "Resumed mismatched chat";
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          messages: [
-            {
-              id: "msg-resume",
-              role: "assistant",
-              content: [{ type: "text", text: replyText }],
-            },
-          ],
-          waitingForResponse: false,
-          llmConfig: null,
-        }),
-      });
-    });
-
     try {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
@@ -998,15 +972,27 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
 
-      const existingThreadsPanel = overviewPane.getByTestId(
-        "project-chat-threads-panel",
-      );
-      if (
-        (await existingThreadsPanel.count()) > 0 &&
-        (await existingThreadsPanel.first().isVisible())
-      ) {
-        await overviewPane.getByRole("button", { name: "View Threads" }).click();
-      }
+      const closeThreadsIfOpen = async () => {
+        const returnToChatButton = overviewPane
+          .getByRole("button", { name: /^Return to chat$/ })
+          .first();
+        if (await returnToChatButton.isVisible()) {
+          await returnToChatButton.click();
+          return;
+        }
+        const existingThreadsPanel = overviewPane.getByTestId(
+          "project-chat-threads-panel",
+        );
+        if (
+          (await existingThreadsPanel.count()) > 0 &&
+          (await existingThreadsPanel.first().isVisible())
+        ) {
+          await overviewPane
+            .getByRole("button", { name: "View Threads" })
+            .click();
+        }
+      };
+      await closeThreadsIfOpen();
 
       await overviewPane.getByRole("button", { name: "View Threads" }).click();
       await expect(
@@ -1014,19 +1000,14 @@ test.describe.serial("chat composer controls", () => {
       ).toBeVisible();
       await expect(
         overviewPane.getByText("mismatch history entry"),
-      ).toHaveCount(0);
-
-      await overviewPane.getByRole("button", { name: "View Threads" }).click();
-      const input = overviewPane.getByPlaceholder("Type a message...");
-      await input.fill("/resume");
-      await input.press("Enter");
-
-      await expect(
-        overviewPane.getByText("Resumed matching chat"),
       ).toBeVisible();
+      const matchingThreadEntry = overviewPane
+        .getByTestId("project-chat-thread-entry")
+        .filter({ hasText: "matching history entry" })
+        .first();
       await expect(
-        overviewPane.getByText("Resumed mismatched chat"),
-      ).toHaveCount(0);
+        matchingThreadEntry.getByTestId("project-chat-thread-agent-badge"),
+      ).toHaveText(/setta/i);
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

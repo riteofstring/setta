@@ -42,7 +42,6 @@ import { getRunInputString } from "state/actions/agentRunUtils";
 import { loadAgentRuns } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
@@ -223,23 +222,12 @@ export function ProjectChatHistory({
     markProjectChatThreadViewed(projectConfigId, chatId);
   }, [chatId, projectConfigId]);
 
-  const compatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId: null,
-    };
-  }, [runType]);
-
   const historyEntries = useMemo(() => {
     return buildChatHistoryEntries(agentRuns, {
       projectConfigId,
       unscopedOnly: true,
-      compatibility,
     });
-  }, [agentRuns, compatibility, projectConfigId]);
+  }, [agentRuns, projectConfigId]);
   const displayEntries = useMemo(() => {
     if (!draftThread || !draftThread.chatId) {
       return historyEntries;
@@ -2352,12 +2340,16 @@ function resolveThreadAgentBadgeLabel({
   engineConfigById: Map<string, EngineConfig>;
   externalAgentConfigById: Map<string, ExternalAgentConfig>;
 }): string | null {
+  const llmFallbackBadge = entry.runType === "llm_chat" ? "setta" : null;
   if (!entry.engineConfigId) {
-    return null;
+    return llmFallbackBadge;
   }
   const engineConfig = engineConfigById.get(entry.engineConfigId);
   if (!engineConfig) {
-    return null;
+    return llmFallbackBadge;
+  }
+  if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
+    return "setta";
   }
   if (engineConfig.engineType === EngineTypeEnum.external_agent) {
     if (!engineConfig.externalAgentConfigId) {
