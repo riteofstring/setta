@@ -147,6 +147,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: null,
       chatProvenanceByChatId: new Map(),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
     });
@@ -157,6 +158,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       chatProvenanceByChatId: new Map(),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
     });
@@ -178,6 +180,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
     });
@@ -185,6 +188,17 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       status: "blocked",
       errorCode: "chat_provenance_missing",
     });
+  });
+
+  it("returns unknown when selected chat provenance is missing from a non-authoritative run snapshot", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map(),
+      chatProvenanceAuthoritative: false,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+    });
+    expect(result).toEqual({ status: "unknown" });
   });
 
   it("returns unknown when local engine cache is not authoritative", () => {
@@ -199,6 +213,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: false,
     });
@@ -217,6 +232,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map([
         [
           "engine-external",
@@ -249,6 +265,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      chatProvenanceAuthoritative: true,
       engineConfigById: new Map([
         [
           "engine-llm",

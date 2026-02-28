@@ -688,13 +688,20 @@ export type ChatBranchInfo = {
   branchCreatedAt: number | null;
 };
 
+export type ChatRunProvenance = {
+  runType: "llm_chat" | "external_agent" | "scriptable_chat";
+  engineConfigId: string | null;
+};
+
 type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysRevision: number;
+  apiKeysAuthoritative: boolean;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
   projectChatSelectedEngineId: string | null;
+  chatProvenanceByChatId: Record<string, ChatRunProvenance>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
@@ -745,10 +752,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         // State
         apiKeys: {},
         apiKeysRevision: 0,
+        apiKeysAuthoritative: false,
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,
         projectChatSelectedEngineId: null,
+        chatProvenanceByChatId: {},
         chatDetails: {},
         pendingChatDetails: null,
         interruptedAssistantMessageIdsByChatId: {},

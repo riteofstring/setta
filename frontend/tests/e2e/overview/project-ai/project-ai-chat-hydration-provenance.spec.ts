@@ -640,7 +640,12 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
     await route.fulfill({
       status: 404,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "Chat not found" }),
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
     });
   });
 
@@ -648,7 +653,12 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
     await route.fulfill({
       status: 404,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "Chat not found" }),
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
     });
   });
 
@@ -857,9 +867,6 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
     overviewWidth: 1100,
     overviewTrueWidth: 1100,
   });
-  await seedAIStore(page, {
-    activeChatId: staleChatId,
-  });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
 
@@ -910,6 +917,110 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
     await expect(overviewPane.locator('button[type="submit"]').first()).toBeDisabled();
     await page.waitForTimeout(400);
     expect(llmHydrateCalls).toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai keeps stale selected chat ids unblocked while agent runs are non-authoritative", async ({
+  page,
+}) => {
+  const staleChatId = "pw-stale-selected-chat-non-authoritative";
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "agent run load failed" }),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === staleChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-hydrated-stale",
+            role: "assistant",
+            content: [{ type: "text", text: "Hydrated stale selected chat." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await seedAIStore(page, {
+      activeChatId: staleChatId,
+    });
+    allowExpectedApiError(page, {
+      path: "/api/getAgentRuns",
+      statuses: [500],
+      count: 4,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await expect(
+      overviewPane.getByText("Hydrated stale selected chat.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

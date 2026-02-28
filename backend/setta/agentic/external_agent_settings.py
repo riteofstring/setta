@@ -168,6 +168,7 @@ def build_codex_settings_file(
         _apply_codex_reasoning_settings(payload)
     _apply_codex_system_prompt(payload, system_prompt)
     _apply_codex_trusted_project(payload, project_root)
+    _assert_codex_project_keys_round_trip(payload)
     output_path.write_text(_dump_toml(payload), encoding="utf-8")
     return output_root
 
@@ -365,7 +366,7 @@ def _apply_codex_trusted_project(
     if not isinstance(projects, dict):
         projects = {}
     projects = _normalize_codex_project_keys(projects)
-    project_key = _quote_codex_project_key(str(project_root))
+    project_key = str(project_root)
     entry = projects.get(project_key)
     if not isinstance(entry, dict):
         entry = {}
@@ -380,17 +381,8 @@ def _normalize_codex_project_keys(
     normalized: dict[str, Any] = {}
     for key, value in projects.items():
         key_str = str(key)
-        normalized[_quote_codex_project_key(key_str)] = value
+        normalized[key_str] = value
     return normalized
-
-
-def _quote_codex_project_key(key: str) -> str:
-    stripped = key.strip()
-    if stripped.startswith('"') and stripped.endswith('"'):
-        return stripped
-    if "/" in stripped or "\\" in stripped:
-        return f'"{stripped}"'
-    return stripped
 
 
 def _apply_opencode_managed_settings(
@@ -620,6 +612,25 @@ def _dump_toml(payload: dict[str, Any]) -> str:
     if not lines:
         return ""
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _assert_codex_project_keys_round_trip(payload: dict[str, Any]) -> None:
+    projects = payload.get("projects")
+    if not isinstance(projects, dict):
+        return
+    serialized = _dump_toml(payload)
+    parsed = tomllib.loads(serialized) if serialized.strip() else {}
+    parsed_projects = parsed.get("projects")
+    if not isinstance(parsed_projects, dict):
+        raise ValueError("Codex projects table failed TOML round-trip validation.")
+    expected_keys = {str(key) for key in projects.keys()}
+    parsed_keys = {str(key) for key in parsed_projects.keys()}
+    if parsed_keys != expected_keys:
+        raise ValueError(
+            "Codex projects keys failed TOML round-trip validation."
+            f" expected={sorted(expected_keys)}"
+            f" parsed={sorted(parsed_keys)}"
+        )
 
 
 def _emit_toml_table(lines: list[str], path: list[str], table: dict[str, Any]) -> None:

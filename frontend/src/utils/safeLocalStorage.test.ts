@@ -95,4 +95,85 @@ describe("getSafeLocalStorageAdapter", () => {
     expect(() => adapter.removeItem("beta")).not.toThrow();
     expect(adapter.getItem("beta")).toBeNull();
   });
+
+  it("preserves read-after-write when setItem fails but getItem still works", async () => {
+    const storage = buildMemoryStorage();
+    const mixedStorage: StorageMock = {
+      getItem: storage.getItem,
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+      removeItem: storage.removeItem,
+    };
+    setGlobalLocalStorage(mixedStorage);
+
+    const { getSafeLocalStorageAdapter } = await import("./safeLocalStorage");
+    const adapter = getSafeLocalStorageAdapter("partial-write-failure");
+
+    adapter.setItem("gamma", "3");
+    expect(adapter.getItem("gamma")).toBe("3");
+    expect(storage.getItem("gamma")).toBeNull();
+  });
+
+  it("preserves read-after-remove when removeItem fails but getItem still works", async () => {
+    const storage = buildMemoryStorage();
+    storage.setItem("delta", "4");
+    const mixedStorage: StorageMock = {
+      getItem: storage.getItem,
+      setItem: storage.setItem,
+      removeItem: (key) => {
+        if (key !== "delta") {
+          storage.removeItem(key);
+          return;
+        }
+        throw new Error("remove blocked");
+      },
+    };
+    setGlobalLocalStorage(mixedStorage);
+
+    const { getSafeLocalStorageAdapter } = await import("./safeLocalStorage");
+    const adapter = getSafeLocalStorageAdapter("partial-remove-failure");
+
+    expect(adapter.getItem("delta")).toBe("4");
+    adapter.removeItem("delta");
+    expect(adapter.getItem("delta")).toBeNull();
+    expect(storage.getItem("delta")).toBe("4");
+  });
+
+  it("maintains overlay ordering across mixed storage success and failure", async () => {
+    const storage = buildMemoryStorage();
+    const failingKeys = new Set<string>(["epsilon"]);
+    const mixedStorage: StorageMock = {
+      getItem: storage.getItem,
+      setItem: (key, value) => {
+        if (failingKeys.has(key)) {
+          throw new Error("write blocked");
+        }
+        storage.setItem(key, value);
+      },
+      removeItem: (key) => {
+        if (failingKeys.has(key)) {
+          throw new Error("remove blocked");
+        }
+        storage.removeItem(key);
+      },
+    };
+    setGlobalLocalStorage(mixedStorage);
+
+    const { getSafeLocalStorageAdapter } = await import("./safeLocalStorage");
+    const adapter = getSafeLocalStorageAdapter("mixed-sequence");
+
+    adapter.setItem("epsilon", "first");
+    expect(adapter.getItem("epsilon")).toBe("first");
+
+    failingKeys.delete("epsilon");
+    adapter.setItem("epsilon", "second");
+    expect(adapter.getItem("epsilon")).toBe("second");
+    expect(storage.getItem("epsilon")).toBe("second");
+
+    failingKeys.add("epsilon");
+    adapter.removeItem("epsilon");
+    expect(adapter.getItem("epsilon")).toBeNull();
+    expect(storage.getItem("epsilon")).toBe("second");
+  });
 });

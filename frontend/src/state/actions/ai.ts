@@ -24,6 +24,7 @@ import {
 } from "state/appSpecPatchStreaming";
 import {
   ChatDetails,
+  ChatRunProvenance,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
@@ -134,6 +135,7 @@ import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
+import { buildChatProvenanceByChatId } from "./chatHistory";
 import { mergeChatMessages } from "./chatMergeUtils";
 
 const scopeViolationToastTimeouts = new Map<
@@ -175,6 +177,49 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
+
+function buildChatProvenanceRecordFromRuns(
+  runs: Array<AgentRun>,
+): Record<string, ChatRunProvenance> {
+  const provenanceByChatId = buildChatProvenanceByChatId(runs);
+  const next: Record<string, ChatRunProvenance> = {};
+  for (const [chatId, provenance] of provenanceByChatId.entries()) {
+    next[chatId] = provenance;
+  }
+  return next;
+}
+
+function upsertChatProvenanceForChat(
+  chatId: string,
+  provenance: ChatRunProvenance,
+): void {
+  const resolvedChatId = chatId.trim();
+  if (!resolvedChatId) {
+    return;
+  }
+  useAIStore.setState((state) => ({
+    chatProvenanceByChatId: {
+      ...state.chatProvenanceByChatId,
+      [resolvedChatId]: provenance,
+    },
+  }));
+}
+
+function syncChatProvenanceAfterSubmit({
+  chatId,
+  engineConfigId,
+  isExternalEngine,
+}: {
+  chatId: string;
+  engineConfigId: string;
+  isExternalEngine: boolean;
+}): void {
+  upsertChatProvenanceForChat(chatId, {
+    runType: isExternalEngine ? "external_agent" : "llm_chat",
+    engineConfigId,
+  });
+  void loadAgentRuns();
+}
 
 function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -595,15 +640,16 @@ export async function loadLLMApiKeys() {
     }
     const detail = getErrorDetail(res.data);
     const revision = extractApiKeysRevisionFromErrorPayload(res.data);
-    useAIStore.setState({
-      apiKeys:
-        getErrorCode(res.data) === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
-          ? {}
-          : useAIStore.getState().apiKeys,
-      apiKeysRevision: revision ?? useAIStore.getState().apiKeysRevision,
+    const errorCode = getErrorCode(res.data);
+    const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+    const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+    useAIStore.setState((state) => ({
+      apiKeys: isCorrupt || isUnavailable ? {} : state.apiKeys,
+      apiKeysRevision: revision ?? state.apiKeysRevision,
+      apiKeysAuthoritative: isCorrupt,
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: detail ?? "Failed to load LLM API keys",
-    });
+    }));
   })();
   try {
     await llmApiKeysLoadPromise;
@@ -638,6 +684,7 @@ export function receiveLLMApiKeysSnapshotUpdate(
   useAIStore.setState({
     apiKeys: payload.apiKeys,
     apiKeysRevision: payload.revision,
+    apiKeysAuthoritative: !isUnavailable,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError,
   });
@@ -666,12 +713,13 @@ async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
   }
   const detail = getErrorDetail(res.data);
   const revision = extractApiKeysRevisionFromErrorPayload(res.data);
+  const errorCode = getErrorCode(res.data);
+  const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
   useAIStore.setState((state) => ({
-    apiKeys:
-      getErrorCode(res.data) === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
-        ? {}
-        : state.apiKeys,
+    apiKeys: isCorrupt || isUnavailable ? {} : state.apiKeys,
     apiKeysRevision: revision ?? state.apiKeysRevision,
+    apiKeysAuthoritative: isCorrupt,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: detail ?? "Failed to load LLM API keys",
   }));
@@ -711,6 +759,7 @@ async function persistLLMApiKeysMutation(
       const revision = extractApiKeysRevisionFromErrorPayload(res.data);
       if (revision === null) {
         useAIStore.setState({
+          apiKeysAuthoritative: false,
           apiKeysInitialLoadComplete: true,
           apiKeysLoadError:
             getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
@@ -720,6 +769,7 @@ async function persistLLMApiKeysMutation(
       useAIStore.setState({
         apiKeys: {},
         apiKeysRevision: revision,
+        apiKeysAuthoritative: true,
         apiKeysInitialLoadComplete: true,
         apiKeysLoadError:
           getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
@@ -731,6 +781,8 @@ async function persistLLMApiKeysMutation(
       errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
     ) {
       useAIStore.setState({
+        apiKeys: {},
+        apiKeysAuthoritative: false,
         apiKeysInitialLoadComplete: true,
         apiKeysLoadError:
           getErrorDetail(res.data) ?? "Managed API key store is unavailable.",
@@ -738,6 +790,7 @@ async function persistLLMApiKeysMutation(
       return false;
     }
     useAIStore.setState({
+      apiKeysAuthoritative: false,
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError:
         getErrorDetail(res.data) ?? "Failed to save LLM API keys",
@@ -745,6 +798,7 @@ async function persistLLMApiKeysMutation(
     return false;
   }
   useAIStore.setState({
+    apiKeysAuthoritative: false,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: "Failed to save LLM API keys after retrying conflicts.",
   });
@@ -819,6 +873,7 @@ export async function loadAgentRuns() {
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   useAIStore.setState({
     agentRuns: payload,
+    chatProvenanceByChatId: buildChatProvenanceRecordFromRuns(payload),
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
   });
@@ -2102,6 +2157,11 @@ export async function submitMessage(
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
+        syncChatProvenanceAfterSubmit({
+          chatId: returnedChatId,
+          engineConfigId,
+          isExternalEngine,
+        });
         if (isExternalEngine) {
           await getExternalAgentChat(
             returnedChatId,
@@ -2244,6 +2304,11 @@ export async function submitEditedMessage({
     }
     const returnedChatId = res.data ?? null;
     if (returnedChatId) {
+      syncChatProvenanceAfterSubmit({
+        chatId: returnedChatId,
+        engineConfigId: resolvedEngineConfigId,
+        isExternalEngine,
+      });
       if (isExternalEngine) {
         await getExternalAgentChat(
           returnedChatId,
@@ -2253,7 +2318,6 @@ export async function submitEditedMessage({
       } else {
         await getLLMChat(returnedChatId, sectionId ?? undefined);
       }
-      void loadAgentRuns();
       if (sectionId) {
         await setSectionChatId(returnedChatId);
         commitPendingChatDetails(returnedChatId);

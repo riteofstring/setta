@@ -1360,7 +1360,11 @@ async def route_get_external_agent_chat(
     )
     latest_run = _select_latest_run(runs)
     if latest_run is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        _raise_chat_hydration_http_error(
+            status_code=404,
+            message="Chat not found.",
+            error_code=ChatHydrationErrorCode.chat_not_found,
+        )
     state = build_chat_state_from_run(latest_run)
     if latest_run.status == AgentRunStatus.running:
         runner = ctx.state.external_agent_runner

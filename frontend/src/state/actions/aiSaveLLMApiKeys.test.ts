@@ -122,6 +122,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
     });
     expect(state.apiKeysRevision).toBe(4);
     expect(state.apiKeysLoadError).toBeNull();
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 
   it("reloads and retries on revision conflicts", async () => {
@@ -195,6 +196,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
     });
     expect(state.apiKeysRevision).toBe(3);
     expect(state.apiKeysLoadError).toBeNull();
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 
   it("serializes queued mutations so later writes build on earlier revisions", async () => {
@@ -273,6 +275,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
       ANTHROPIC_API_KEY: "two",
     });
     expect(state.apiKeysRevision).toBe(2);
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 
   it("applies websocket snapshots by updating keys and revision atomically", () => {
@@ -296,6 +299,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
     });
     expect(state.apiKeysRevision).toBe(7);
     expect(state.apiKeysLoadError).toBeNull();
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 
   it("surfaces websocket corruption snapshots without dropping revision metadata", () => {
@@ -318,6 +322,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
     expect(state.apiKeys).toEqual({});
     expect(state.apiKeysRevision).toBe(9);
     expect(state.apiKeysLoadError).toBe("Managed API key store is corrupt.");
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 
   it("surfaces websocket unavailable-store snapshots as load errors", () => {
@@ -342,5 +347,6 @@ describe("mutateAndSaveLLMApiKeys", () => {
     expect(state.apiKeysLoadError).toBe(
       "Managed API key store is unavailable.",
     );
+    expect(state.apiKeysAuthoritative).toBe(false);
   });
 });

@@ -2674,7 +2674,11 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 404
-            assert exc.value.detail == "Chat not found"
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat not found.",
+                error_code="chat_not_found",
+            )
 
     async def test_external_agent_prior_messages_use_external_runs(self) -> None:
         with TemporaryDirectory() as tmpdir:

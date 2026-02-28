@@ -38,7 +38,6 @@ import { RiChatHistoryLine } from "react-icons/ri";
 import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
-  buildChatProvenanceByChatId,
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
@@ -142,6 +141,7 @@ type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
       engineConfigId: string | null;
     }
   >;
+  chatProvenanceAuthoritative: boolean;
   engineConfigById: Map<string, EngineConfig>;
   engineConfigsAuthoritative: boolean;
 };
@@ -239,6 +239,7 @@ function isSelectedChatRunTypeCompatibleWithEngineType({
 export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatId,
   chatProvenanceByChatId,
+  chatProvenanceAuthoritative,
   engineConfigById,
   engineConfigsAuthoritative,
 }: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
@@ -248,6 +249,9 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   }
   const provenance = chatProvenanceByChatId.get(resolvedChatId);
   if (!provenance) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
     return {
       status: "blocked",
       errorCode: "chat_provenance_missing",
@@ -255,6 +259,9 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   }
   const requiredEngineConfigId = provenance.engineConfigId;
   if (!requiredEngineConfigId) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
     return {
       status: "blocked",
       errorCode: "chat_provenance_missing",
@@ -331,6 +338,7 @@ export function ProjectChat() {
 
   const {
     apiKeys,
+    apiKeysAuthoritative,
     apiKeysInitialLoadComplete,
     viewThreads,
     projectChatThreadsExplicitlyClosedAtLargeWidth,
@@ -349,9 +357,13 @@ export function ProjectChat() {
     projectChatSelectedEngineId,
     projectChatActivityAccordionOpenByDefault,
     projectChatActivityChildrenOpenByDefault,
+    chatProvenanceByChatId,
+    agentRunsInitialLoadComplete,
+    agentRunsLoadError,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
+      apiKeysAuthoritative: x.apiKeysAuthoritative,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewThreads: x.viewThreads,
       projectChatThreadsExplicitlyClosedAtLargeWidth:
@@ -375,6 +387,9 @@ export function ProjectChat() {
         x.projectChatActivityAccordionOpenByDefault,
       projectChatActivityChildrenOpenByDefault:
         x.projectChatActivityChildrenOpenByDefault,
+      chatProvenanceByChatId: x.chatProvenanceByChatId,
+      agentRunsInitialLoadComplete: x.agentRunsInitialLoadComplete,
+      agentRunsLoadError: x.agentRunsLoadError,
     }),
     _.isEqual,
   );
@@ -535,8 +550,14 @@ export function ProjectChat() {
           selectedTranscriptionProfile,
           allLLMConfigs,
           apiKeys,
+          apiKeysAuthoritative,
         }),
-      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+      [
+        allLLMConfigs,
+        apiKeys,
+        apiKeysAuthoritative,
+        selectedTranscriptionProfile,
+      ],
     );
   const defaultLLMConfigId = allLLMConfigs?.default_config_id ?? null;
   const providerDictationLikelySupported = providerDictationAvailable;
@@ -619,34 +640,47 @@ export function ProjectChat() {
     }
     return entriesById;
   }, [chatHistoryEntries]);
-  const chatProvenanceByChatId = useMemo(
-    () =>
-      buildChatProvenanceByChatId(agentRuns, {
-        projectConfigId,
-        unscopedOnly: true,
-        compatibility: null,
-      }),
-    [agentRuns, projectConfigId],
-  );
-  const chatEngineConfigByChatId = useMemo(() => {
-    const nextByChatId = new Map<string, string | null>();
-    for (const [runChatId, provenance] of chatProvenanceByChatId.entries()) {
-      nextByChatId.set(runChatId, provenance.engineConfigId);
+  const chatProvenanceByChatIdMap = useMemo(() => {
+    const nextByChatId = new Map<
+      string,
+      {
+        runType: ChatRunType;
+        engineConfigId: string | null;
+      }
+    >();
+    for (const [runChatId, provenance] of Object.entries(
+      chatProvenanceByChatId,
+    )) {
+      if (!runChatId.trim()) {
+        continue;
+      }
+      nextByChatId.set(runChatId, provenance);
     }
     return nextByChatId;
   }, [chatProvenanceByChatId]);
+  const chatEngineConfigByChatId = useMemo(() => {
+    const nextByChatId = new Map<string, string | null>();
+    for (const [runChatId, provenance] of chatProvenanceByChatIdMap.entries()) {
+      nextByChatId.set(runChatId, provenance.engineConfigId);
+    }
+    return nextByChatId;
+  }, [chatProvenanceByChatIdMap]);
   const selectedThreadCompatibility = useMemo(
     () =>
       resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
         chatId,
-        chatProvenanceByChatId,
+        chatProvenanceByChatId: chatProvenanceByChatIdMap,
+        chatProvenanceAuthoritative:
+          agentRunsInitialLoadComplete && agentRunsLoadError === null,
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
       }),
     [
       chatId,
-      chatProvenanceByChatId,
+      chatProvenanceByChatIdMap,
+      agentRunsInitialLoadComplete,
+      agentRunsLoadError,
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,

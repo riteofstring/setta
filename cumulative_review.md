@@ -298,3 +298,35 @@
 
 ### Verification
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+
+## 2026-02-26 11:25:39 PST
+
+### Consolidated Findings
+- Project chat thread compatibility could be evaluated before chat provenance was authoritative, producing premature blocked states.
+- Provider dictation availability could be derived from non-authoritative API key snapshots.
+- Managed API-key unavailable/corrupt handling did not keep authoritative state aligned across load, snapshot, and save paths.
+- Codex trusted-project TOML serialization could alter project keys through quoting normalization.
+- Missing external-agent run chat hydration returned an untyped 404 detail.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added authoritative `chatProvenanceByChatId` store state derived from agent runs and used authoritative gating in selected-thread compatibility checks.
+- Synced chat provenance immediately after submit/edit chat creation and triggered run refresh to keep thread visibility deterministic.
+- Required authoritative API-key snapshots when resolving provider dictation availability in both Project AI and managed chat surfaces.
+- Unified managed API-key unavailable/corrupt state handling around deterministic key clearing and explicit `apiKeysAuthoritative` transitions.
+- Refactored `safeLocalStorage` to a deterministic namespace overlay adapter model for read-after-write/remove behavior when persistence throws.
+- Removed Codex trusted-project key quoting heuristics and added strict TOML round-trip key validation.
+- Standardized missing external-agent chat hydration to typed `chat_not_found` route errors.
+- Added/updated backend, Vitest, and Playwright coverage for these paths.
+
+### UX/DX Before -> After
+- Thread compatibility: selected threads could be blocked while provenance was still loading -> compatibility remains unknown until authoritative provenance is available.
+- Dictation controls: availability could appear valid from stale key snapshots -> availability now requires authoritative key state.
+- Key-store failure semantics: unavailable/corrupt paths could leave stale state -> state now converges deterministically across load/save/realtime updates.
+- External-agent config generation: trusted project keys could drift on serialization -> keys now round-trip exactly with validation.
+- Chat hydration handling: missing runs returned generic 404 detail -> typed not-found errors provide deterministic frontend handling.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Targeted Vitest suite: passed (`72 passed`).
+- Targeted backend pytest: passed.
+- Targeted Playwright e2e scenarios for project chat hydration/provenance: passed.

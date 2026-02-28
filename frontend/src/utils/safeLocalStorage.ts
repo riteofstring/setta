@@ -5,27 +5,32 @@ type SafeLocalStorageAdapter = {
 };
 
 const adaptersByNamespace = new Map<string, SafeLocalStorageAdapter>();
-const memoryFallbackByNamespace = new Map<string, Map<string, string>>();
+const overlayByNamespace = new Map<string, Map<string, string | null>>();
 
-function getMemoryFallback(namespace: string): Map<string, string> {
-  let fallback = memoryFallbackByNamespace.get(namespace);
-  if (fallback) {
-    return fallback;
+function getOverlay(namespace: string): Map<string, string | null> {
+  let overlay = overlayByNamespace.get(namespace);
+  if (overlay) {
+    return overlay;
   }
-  fallback = new Map<string, string>();
-  memoryFallbackByNamespace.set(namespace, fallback);
-  return fallback;
+  overlay = new Map<string, string | null>();
+  overlayByNamespace.set(namespace, overlay);
+  return overlay;
 }
 
 function createMemoryAdapter(namespace: string): SafeLocalStorageAdapter {
-  const fallback = getMemoryFallback(namespace);
+  const overlay = getOverlay(namespace);
   return {
-    getItem: (key) => fallback.get(key) ?? null,
+    getItem: (key) => {
+      if (!overlay.has(key)) {
+        return null;
+      }
+      return overlay.get(key) ?? null;
+    },
     setItem: (key, value) => {
-      fallback.set(key, value);
+      overlay.set(key, value);
     },
     removeItem: (key) => {
-      fallback.delete(key);
+      overlay.set(key, null);
     },
   };
 }
@@ -38,7 +43,7 @@ export function getSafeLocalStorageAdapter(
     return cached;
   }
 
-  const fallback = getMemoryFallback(namespace);
+  const overlay = getOverlay(namespace);
   if (typeof window === "undefined") {
     const adapter = createMemoryAdapter(namespace);
     adaptersByNamespace.set(namespace, adapter);
@@ -52,27 +57,28 @@ export function getSafeLocalStorageAdapter(
     storage.removeItem(probeKey);
     const adapter: SafeLocalStorageAdapter = {
       getItem: (key) => {
+        if (overlay.has(key)) {
+          return overlay.get(key) ?? null;
+        }
         try {
           return storage.getItem(key);
         } catch {
-          return fallback.get(key) ?? null;
+          return null;
         }
       },
       setItem: (key, value) => {
+        overlay.set(key, value);
         try {
           storage.setItem(key, value);
-          fallback.delete(key);
-        } catch {
-          fallback.set(key, value);
-        }
+        } catch {}
       },
       removeItem: (key) => {
+        overlay.set(key, null);
         try {
           storage.removeItem(key);
         } catch {
-          // Fall back to in-memory removal only.
+          // Keep adapter read-after-remove deterministic even if persistence fails.
         }
-        fallback.delete(key);
       },
     };
     adaptersByNamespace.set(namespace, adapter);

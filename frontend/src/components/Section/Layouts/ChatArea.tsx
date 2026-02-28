@@ -1216,6 +1216,7 @@ function ManagedChatArea({
 
   const {
     apiKeys,
+    apiKeysAuthoritative,
     allLLMConfigs,
     agentProfiles,
     engineConfigs,
@@ -1226,6 +1227,7 @@ function ManagedChatArea({
   } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
+      apiKeysAuthoritative: state.apiKeysAuthoritative,
       allLLMConfigs: state.allLLMConfigs,
       agentProfiles: state.agentProfiles,
       engineConfigs: state.engineConfigs,
@@ -1308,8 +1310,14 @@ function ManagedChatArea({
         selectedTranscriptionProfile,
         allLLMConfigs,
         apiKeys,
+        apiKeysAuthoritative,
       }),
-    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+    [
+      allLLMConfigs,
+      apiKeys,
+      apiKeysAuthoritative,
+      selectedTranscriptionProfile,
+    ],
   );
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasEngineConfig = Boolean(selectedEngineConfig);

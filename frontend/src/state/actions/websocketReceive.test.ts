@@ -272,5 +272,6 @@ describe("openWebSocket", () => {
     });
     expect(state.apiKeysRevision).toBe(4);
     expect(state.apiKeysLoadError).toBeNull();
+    expect(state.apiKeysAuthoritative).toBe(true);
   });
 });

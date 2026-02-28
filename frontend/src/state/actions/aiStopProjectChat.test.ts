@@ -60,6 +60,7 @@ let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
+let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
@@ -92,6 +93,8 @@ describe("stopProjectChatResponse", () => {
     stopProjectChatResponse = ai.stopProjectChatResponse;
     stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
     getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
+    getExternalAgentChatHydrationOutcome =
+      ai.getExternalAgentChatHydrationOutcome;
     getDefaultChatDetails = ai.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
@@ -1041,6 +1044,30 @@ describe("stopProjectChatResponse", () => {
       outcome: "terminal_failure",
       status: 409,
       errorCode: "terminal_hydration_failure",
+    });
+  });
+
+  it("classifies typed external 404 hydration failures as chat_not_found", async () => {
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      },
+    });
+
+    const outcome = await getExternalAgentChatHydrationOutcome(
+      "external-chat-missing",
+      "project-external",
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 404,
+      errorCode: "chat_not_found",
     });
   });
 });

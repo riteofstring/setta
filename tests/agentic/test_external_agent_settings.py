@@ -225,6 +225,43 @@ class TestExternalAgentSettings:
             )
             assert base_path.read_text(encoding="utf-8") == original
 
+    def test_build_codex_settings_file_trusted_project_round_trips_raw_path_key(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_root = Path(tmpdir) / "project-root"
+            project_root.mkdir(parents=True, exist_ok=True)
+            config = ExternalAgentConfig(
+                id="codex-trusted-project",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+                project_root=project_root,
+            )
+
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            projects = output_payload.get("projects")
+            assert isinstance(projects, dict)
+            if not isinstance(projects, dict):
+                raise AssertionError("Expected projects table")
+            trusted_entry = projects.get(str(project_root))
+            assert isinstance(trusted_entry, dict)
+            if isinstance(trusted_entry, dict):
+                assert trusted_entry.get("trust_level") == "trusted"
+            assert f'"{project_root}"' not in projects
+
     def test_build_codex_settings_file_bootstraps_non_setta_servers_when_missing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
