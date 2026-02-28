@@ -161,12 +161,40 @@ In IDE mode, the launcher UI uses:
     "llmConfigPath": ".../setta_files/llm_config.json"
   }
   ```
+  - `activeSettaFilesLocation` is `custom` when `setta_files_root` is explicitly set.
 
 Skills/MCP discovery UI also uses:
 
 - `POST /api/revealPathInOsFileExplorer` with `{ "path": "..." }`
   - Allowed roots are restricted to workspace root, resolved `setta_files` root,
     and discovered skill roots.
+
+## Managed LLM API keys (`./.env`)
+
+LLM provider definitions and key values live in different places:
+
+- Provider/model definitions: `<setta_files_root>/llm_config.json`
+- Managed API key values: `<workspace>/.env`
+
+Setta tracks managed key ownership in `.env` with:
+
+- `SETTA_MANAGED_LLM_API_KEY_NAMES`: JSON array of env var names currently managed by Setta.
+
+Managed key route contract:
+
+- `GET /api/llm/apiKeys`
+  - Returns `{ apiKeys, revision }`.
+  - `apiKeys` is the effective key map (configured process env keys + Setta-managed keys).
+- `POST /api/llm/apiKeys`
+  - Request: `{ apiKeys, expectedRevision }`.
+  - Uses compare-and-set semantics (`expectedRevision` must match current managed-key revision).
+  - Returns `{ apiKeys, revision }` on success.
+
+Error responses for managed key routes:
+
+- `409` with `errorCode=managed_api_keys_store_corrupt`
+- `409` with `errorCode=managed_api_keys_revision_conflict`
+- `503` with `errorCode=managed_api_keys_store_unavailable`
 
 ## Examples
 
