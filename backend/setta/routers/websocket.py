@@ -82,6 +82,15 @@ async def _close_not_found(websocket: WebSocket) -> None:
     await _close_with_code(websocket, 4404)
 
 
+async def _close_if_launcher_mode(
+    websocket: WebSocket, state: AppStateFromWebsocket
+) -> bool:
+    if not getattr(state, "launcher_mode", False):
+        return False
+    await _close_forbidden(websocket)
+    return True
+
+
 async def websocket_route_loop(
     websocket: WebSocket,
     websocket_manager: WebsocketManager,
@@ -179,6 +188,8 @@ async def websocket_route_loop(
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
+    if await _close_if_launcher_mode(websocket, state):
+        return
     if not await _maybe_authenticate_websocket(
         websocket, deployment_mode=state.deployment_mode
     ):
@@ -249,6 +260,8 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
+    if await _close_if_launcher_mode(websocket, state):
+        return
     if state.deployment_mode:
         await _close_forbidden(websocket)
         return
@@ -276,6 +289,8 @@ async def route_websocket_python_script(
     state: AppStateFromWebsocket,
     id: str,
 ):
+    if await _close_if_launcher_mode(websocket, state):
+        return
     if not await _maybe_authenticate_websocket(
         websocket, deployment_mode=state.deployment_mode
     ):

@@ -152,3 +152,25 @@ test("app routes select the configured UI root", async ({ page }) => {
   expect(betaMarkup).toContain("Beta view");
   expect(betaMarkup).not.toContain("Alpha view");
 });
+
+test("app mode blocks direct /launching navigation", async ({ page }) => {
+  await ensureAppReady(page);
+
+  const navigationResult = await page.evaluate(async () => {
+    const { useServerMode } = await import("/src/state/definitions.ts");
+    const { router } = await import("/src/components/Pages/router.tsx");
+
+    useServerMode.setState({
+      mode: "app",
+      modeResolved: true,
+      modeError: null,
+    });
+    await router.navigate("/launching");
+    return {
+      pathname: window.location.pathname,
+    };
+  });
+
+  expect(navigationResult.pathname).toBe("/home");
+  await expect(page).toHaveURL(/\/home$/);
+});

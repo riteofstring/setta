@@ -613,15 +613,15 @@ class MultiMCPClient:
         server_id: str,
         config: MCPServerConfig,
     ):
-        http_headers = self._build_http_headers(server_id, config)
+        auth_headers = self._build_auth_headers(server_id)
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "", headers=http_headers)
+                sse_client(url=config.url or "", headers=auth_headers)
             )
             return read_stream, write_stream
         if config.transport == "streamable_http":
-            if http_headers:
-                http_client = create_mcp_http_client(headers=http_headers)
+            if auth_headers:
+                http_client = create_mcp_http_client(headers=auth_headers)
                 client = await exit_stack.enter_async_context(http_client)
                 read_stream, write_stream, _ = await exit_stack.enter_async_context(
                     streamable_http_client(url=config.url or "", http_client=client)
@@ -644,20 +644,7 @@ class MultiMCPClient:
         )
         return read_stream, write_stream
 
-    def _build_http_headers(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-    ) -> dict[str, str] | None:
-        combined_headers: dict[str, str] = {}
-        if config.http_headers:
-            combined_headers.update(config.http_headers)
-        auth_headers = self._build_setta_auth_headers(server_id)
-        if auth_headers:
-            combined_headers.update(auth_headers)
-        return combined_headers or None
-
-    def _build_setta_auth_headers(self, server_id: str) -> dict[str, str] | None:
+    def _build_auth_headers(self, server_id: str) -> dict[str, str] | None:
         if server_id != SETTA_MCP_SERVER_ID:
             return None
         session_info = load_current_session_secret()
