@@ -192,18 +192,3 @@ def write_text_file(*, path: Path, content: str, executable: bool = False) -> No
     if executable:
         current_mode = stat.S_IMODE(path.stat().st_mode)
         path.chmod(current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-
-def remove_path_if_exists(path: Path) -> bool:
-    if not path.exists():
-        return False
-    if path.is_dir() and not path.is_symlink():
-        for child in path.iterdir():
-            if child.is_dir() and not child.is_symlink():
-                remove_path_if_exists(child)
-            else:
-                child.unlink()
-        path.rmdir()
-        return True
-    path.unlink()
-    return True

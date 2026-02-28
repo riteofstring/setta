@@ -402,6 +402,46 @@ def test_status_connect_info_defaults_to_ide_server_mode(status_env) -> None:
     assert payload["session"]["serverMode"] == "ide"
 
 
+def test_status_ignores_sessions_missing_server_mode(status_env) -> None:
+    valid_session = status_env.create_session(port=61234, server_mode="ide")
+    missing_mode_id = "missing-mode"
+    missing_mode_dir = status_env.sessions_root / missing_mode_id
+    missing_mode_dir.mkdir(parents=True, exist_ok=True)
+    secret_path = missing_mode_dir / "secret"
+    secret_path.write_bytes(b"secret")
+    metadata_path = missing_mode_dir / "session.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "id": missing_mode_id,
+                "workspacePath": str(status_env.workspace),
+                "workspacePathCanonical": str(status_env.workspace.resolve()),
+                "host": "127.0.0.1",
+                "port": 61235,
+                "pid": status_env.process.pid,
+                "secretPath": str(secret_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+    old = time.time() - 10.0
+    os.utime(metadata_path, (old, old))
+    runner = CliRunner()
+
+    connect_result = runner.invoke(status, ["--connect-info", "--json", "--latest"])
+    assert connect_result.exit_code == 0, connect_result.output
+    connect_payload = _decode_connect_info(connect_result.output)
+    assert connect_payload["session"]["id"] == valid_session.id
+
+    list_result = runner.invoke(status, ["--list-sessions", "--json"])
+    assert list_result.exit_code == 0, list_result.output
+    list_payload = _decode_connect_info(list_result.output)
+    listed_ids = {session["id"] for session in list_payload["sessions"]}
+    assert valid_session.id in listed_ids
+    assert missing_mode_id not in listed_ids
+    assert not missing_mode_dir.exists()
+
+
 def test_status_list_sessions_requires_json(status_env) -> None:
     status_env.create_session(port=61234)
     runner = CliRunner()

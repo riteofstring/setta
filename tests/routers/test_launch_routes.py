@@ -24,6 +24,7 @@ from setta.launcher_metadata import LauncherMetadataError
 from setta.routers.launch import (
     CreateWorkspaceLaunchIntentRequest,
     LaunchRequest,
+    LocalSessionRollbackError,
     _WORKSPACE_LAUNCH_INTENT_STORE,
     normalize_setta_files_location_for_launch,
     route_create_workspace_launch_intent,
@@ -327,6 +328,72 @@ class TestLaunchRoutes:
         assert second.ok is False
         assert second.error is not None
         assert second.error.code == "InvalidLaunchIntent"
+
+    def test_launch_intent_requires_new_token_after_consume(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        launch_attempts: list[str] = []
+
+        def fake_launch_workspace_session(**_kwargs):
+            launch_attempts.append("launch")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        first_intent = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+        assert first_intent.ok is True
+        assert first_intent.launchIntentToken is not None
+
+        first_launch = route_launch(
+            LaunchRequest(launchIntentToken=first_intent.launchIntentToken)
+        )
+        replay_launch = route_launch(
+            LaunchRequest(launchIntentToken=first_intent.launchIntentToken)
+        )
+
+        second_intent = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+        assert second_intent.ok is True
+        assert second_intent.launchIntentToken is not None
+        assert second_intent.launchIntentToken != first_intent.launchIntentToken
+
+        second_launch = route_launch(
+            LaunchRequest(launchIntentToken=second_intent.launchIntentToken)
+        )
+
+        assert first_launch.ok is False
+        assert first_launch.error is not None
+        assert first_launch.error.code == "Captured"
+        assert replay_launch.ok is False
+        assert replay_launch.error is not None
+        assert replay_launch.error.code == "InvalidLaunchIntent"
+        assert second_launch.ok is False
+        assert second_launch.error is not None
+        assert second_launch.error.code == "Captured"
+        assert len(launch_attempts) == 2
 
     def test_launch_intent_rejects_expired_token(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1126,7 +1193,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 
@@ -1173,7 +1239,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile=None,
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 
@@ -1419,7 +1484,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 
@@ -1476,7 +1540,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin="http://launcher.example:7999",
                 launcher_origin_proof=None,
             )
 
@@ -1545,7 +1608,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin="https://evil.example",
                 launcher_origin_proof="proof",
             )
 
@@ -2287,15 +2349,14 @@ class TestLaunchRoutes:
         setta_home = Path("/tmp/.setta").resolve(strict=False)
         setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
         runtime_root = (setta_files_root / "runtime").resolve(strict=False)
-        removed_sessions: list[str] = []
-        kill_calls: list[tuple[int, int]] = []
+        rollback_steps: list[str] = []
 
         class _Registry:
             def load_secret(self, _session: object) -> bytes:
                 return b"secret"
 
             def delete_session(self, session_id: str) -> None:
-                removed_sessions.append(session_id)
+                rollback_steps.append(f"delete:{session_id}")
 
         result = SimpleNamespace(
             session=SimpleNamespace(
@@ -2343,8 +2404,8 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.os.kill",
-            lambda pid, sig: kill_calls.append((pid, sig)),
+            "setta.routers.launch._stop_local_session_process",
+            lambda **kwargs: rollback_steps.append(f"stop:{kwargs['session_id']}"),
         )
 
         response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
@@ -2352,8 +2413,81 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
-        assert kill_calls == [(12345, signal.SIGTERM)]
-        assert removed_sessions == ["session-1"]
+        assert rollback_steps == ["stop:session-1", "delete:session-1"]
+
+    def test_launch_route_returns_local_rollback_failed_when_new_session_cleanup_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        workspace_root = Path("/tmp/workspace").resolve(strict=False)
+        setta_home = Path("/tmp/.setta").resolve(strict=False)
+        setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
+        runtime_root = (setta_files_root / "runtime").resolve(strict=False)
+
+        class _Registry:
+            def load_secret(self, _session: object) -> bytes:
+                return b"secret"
+
+            def delete_session(self, _session_id: str) -> None:
+                raise AssertionError("delete_session should not run on rollback failure")
+
+        result = SimpleNamespace(
+            session=SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+            registry=_Registry(),
+            paths=SimpleNamespace(
+                workspace_root=workspace_root,
+                setta_files_location="local",
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
+                setta_home=setta_home,
+                profile_name=None,
+            ),
+            started_new=True,
+        )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session", lambda **_k: result
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok"
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._rollback_started_local_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                LocalSessionRollbackError("session did not exit")
+            ),
+        )
+
+        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LocalRollbackFailed"
+        assert "session-1" in response.error.message
 
     def test_launch_route_does_not_rollback_reused_session_when_trust_persistence_fails(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2363,7 +2497,7 @@ class TestLaunchRoutes:
         setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
         runtime_root = (setta_files_root / "runtime").resolve(strict=False)
         removed_sessions: list[str] = []
-        kill_calls: list[tuple[int, int]] = []
+        stop_calls: list[str] = []
 
         class _Registry:
             def load_secret(self, _session: object) -> bytes:
@@ -2418,8 +2552,8 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.os.kill",
-            lambda pid, sig: kill_calls.append((pid, sig)),
+            "setta.routers.launch._stop_local_session_process",
+            lambda **kwargs: stop_calls.append(kwargs["session_id"]),
         )
 
         response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
@@ -2427,7 +2561,7 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
-        assert kill_calls == []
+        assert stop_calls == []
         assert removed_sessions == []
 
     def test_launch_route_rolls_back_new_remote_session_when_trust_persistence_fails(
@@ -2455,7 +2589,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 
@@ -2530,7 +2663,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 
@@ -2584,7 +2716,6 @@ class TestLaunchRoutes:
                 runtime_root="/remote/runtime",
                 setta_home="/remote/home/.setta",
                 profile="dev",
-                launcher_origin=None,
                 launcher_origin_proof=None,
             )
 

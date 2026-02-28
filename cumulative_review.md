@@ -206,3 +206,13 @@
 - Made release installer-version resolver test version-agnostic by deriving expected value from backend `__version__` source instead of pinning a transient literal.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for token-only launch contracts, rollback invariants, URL cleanup fallbacks, and workspace-switcher/e2e launch behavior; targeted suites passed in this workstream.
 - Ran `pnpm gcf` request flow: root `pnpm gcf` failed due missing root importer manifest, then executed `pnpm -C frontend gcf` successfully.
+
+## 2026-02-27 11:19:11 PST
+
+- Implemented review-driven launch/session hardening without backward-compatibility shims: local trust-persistence rollback is now transactional (`terminate -> wait -> kill fallback -> verify -> delete metadata`) and returns typed `LocalRollbackFailed` when cleanup cannot complete.
+- Fixed launch-intent lifecycle consistency by making invalid session consume attempts side-effect free in `WorkspaceLaunchIntentStore.consume_once(...)`; token removal now occurs only on valid consume paths.
+- Tightened session safety contract by requiring explicit `serverMode` in `SessionMetadata` (no implicit `ide` default), so malformed session metadata is rejected/quarantined rather than fail-open classified.
+- Removed dead contract/code surface identified in review: dropped unused `RemoteConnectResult.launcher_origin`, removed unused `remove_path_if_exists(...)`, and removed unused `write_recent_workspaces(...)` production API.
+- Updated launch error UX to eliminate misleading one-time-token retries by removing the launch-page `Retry` action; recovery flow is now `Back to Switcher` only (which mints a fresh launch intent).
+- Added/updated backend pytest and frontend Playwright coverage for rollback ordering/failure typing, token non-consumption on invalid session, explicit-session-mode quarantine/status filtering, remote result contract guard, and no-retry launch error UI.
+- Ran `pnpm gcf` for this pass (executed in `frontend/` due repo importer layout) and validated targeted backend pytest suites, targeted Vitest, and targeted Playwright with passing results.

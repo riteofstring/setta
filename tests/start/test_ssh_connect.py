@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+from dataclasses import fields
 from datetime import datetime, timezone
 
 import psutil
@@ -88,6 +89,13 @@ def test_stop_pid_treats_no_such_process_races_as_success(
 
     # Should not raise even if the process disappears between checks.
     ssh_connect._stop_pid(99, expected_create_time=123.456)
+
+
+def test_remote_connect_result_contract_excludes_unused_launcher_origin_field() -> None:
+    field_names = [field.name for field in fields(ssh_connect.RemoteConnectResult)]
+
+    assert "launcher_origin" not in field_names
+    assert "launcher_origin_proof" in field_names
 
 
 def test_ensure_ssh_tunnel_reports_missing_ssh_binary(tmp_path) -> None:

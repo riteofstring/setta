@@ -76,27 +76,6 @@ def _load_recent_workspaces_from_path(path: Path) -> list[LauncherWorkspaceEntry
     return _normalize_workspace_entries(raw_payload)
 
 
-def write_recent_workspaces(
-    *,
-    setta_home: Path,
-    entries: list[LauncherWorkspaceEntry],
-) -> Path:
-    path = resolve_recent_workspaces_path(setta_home=setta_home)
-    lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
-    allowed_roots = launcher_allowed_roots()
-    sorted_entries = _sort_and_limit_entries(entries)
-    filtered_entries = _filter_entries_within_allowed_roots(
-        entries=sorted_entries,
-        allowed_roots=allowed_roots,
-    )
-    try:
-        with _acquire_recent_workspaces_lock(lock_path):
-            _write_recent_workspaces_atomic(path=path, entries=filtered_entries)
-    except LauncherWorkspaceStoreError:
-        raise
-    return path
-
-
 def upsert_recent_workspace(
     *,
     setta_home: Path,

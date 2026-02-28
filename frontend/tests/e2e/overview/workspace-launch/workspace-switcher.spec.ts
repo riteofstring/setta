@@ -552,6 +552,45 @@ test("workspace launch ignores forged plr hash values on error back-navigation",
   await expect(page).not.toHaveURL(/evil\.example/);
 });
 
+test("workspace launch error view does not render retry action", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.route("**/api/launch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: { message: "Intentional failure for retry action test." },
+      }),
+    });
+  });
+
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: { launchIntentToken: "fresh-intent-token" },
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  });
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(
+    page.getByText("Intentional failure for retry action test."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Back to Switcher" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(0);
+});
+
 test("workspace launch back-navigation reopens switcher with successful settaHomeInfo hydration", async ({
   page,
 }) => {

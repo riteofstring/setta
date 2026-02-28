@@ -12,7 +12,6 @@ from setta.launcher_workspace_store import (
     load_recent_workspaces,
     resolve_recent_workspaces_path,
     upsert_recent_workspace,
-    write_recent_workspaces,
 )
 
 
@@ -80,15 +79,11 @@ def test_atomic_write_preserves_previous_json_on_replace_failure(
     existing_workspace = (tmp_path / "workspace-existing").resolve(strict=False)
     replacement_workspace = (tmp_path / "workspace-replacement").resolve(strict=False)
 
-    write_recent_workspaces(
+    upsert_recent_workspace(
         setta_home=setta_home,
-        entries=[
-            LauncherWorkspaceEntry(
-                workspace_root=existing_workspace,
-                pinned=False,
-                last_used_at=111,
-            )
-        ],
+        workspace_root=existing_workspace,
+        pinned=False,
+        last_used_at=111,
     )
 
     def fail_replace(_src: Path, _dst: Path) -> None:
@@ -97,15 +92,11 @@ def test_atomic_write_preserves_previous_json_on_replace_failure(
     monkeypatch.setattr("setta.launcher_workspace_store.os.replace", fail_replace)
 
     with pytest.raises(LauncherWorkspaceStoreError) as excinfo:
-        write_recent_workspaces(
+        upsert_recent_workspace(
             setta_home=setta_home,
-            entries=[
-                LauncherWorkspaceEntry(
-                    workspace_root=replacement_workspace,
-                    pinned=True,
-                    last_used_at=222,
-                )
-            ],
+            workspace_root=replacement_workspace,
+            pinned=True,
+            last_used_at=222,
         )
 
     assert "Failed writing launcher recent-workspaces file" in str(excinfo.value)

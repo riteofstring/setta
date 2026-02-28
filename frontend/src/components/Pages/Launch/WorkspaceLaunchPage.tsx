@@ -365,14 +365,6 @@ export function WorkspaceLaunchPage() {
           >
             Back to Switcher
           </button>
-          {phase.status === "error" && (
-            <button
-              className="cursor-pointer rounded-full bg-setta-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-setta-800 dark:hover:bg-setta-600"
-              onClick={() => window.location.reload()}
-            >
-              Retry
-            </button>
-          )}
         </div>
       </section>
     </main>

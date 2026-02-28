@@ -35,7 +35,7 @@ class SessionMetadata(BaseModel):
     runtimeRoot: str | None = None
     settaHome: str | None = None
     profile: str | None = None
-    serverMode: Literal["ide", "launcher"] = "ide"
+    serverMode: Literal["ide", "launcher"]
 
 
 class SessionRegistry:

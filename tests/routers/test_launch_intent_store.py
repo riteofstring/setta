@@ -64,6 +64,10 @@ def test_launch_intent_store_rejects_session_mismatch(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="bound to a different session"):
         store.consume_once(token="token-1", session_id="session-2", now=110)
 
+    stored = store.consume_once(token="token-1", session_id="session-1", now=110)
+    assert stored.launch_request_payload["workspaceRoot"] == "/tmp/workspace"
+    assert stored.return_url == "http://localhost/home"
+
 
 def test_launch_intent_store_persists_across_store_instances(tmp_path: Path) -> None:
     store_a = _build_store(tmp_path)

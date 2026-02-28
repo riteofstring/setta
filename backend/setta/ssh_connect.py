@@ -53,7 +53,6 @@ class RemoteConnectResult:
     runtime_root: str | None
     setta_home: str | None
     profile: str | None
-    launcher_origin: str | None
     launcher_origin_proof: str | None
 
 
@@ -455,7 +454,6 @@ def connect_remote_workspace_session(
         runtime_root=remote_runtime_root,
         setta_home=remote_setta_home,
         profile=remote_profile,
-        launcher_origin=remote_launcher_origin,
         launcher_origin_proof=remote_launcher_origin_proof,
     )
 

@@ -176,6 +176,7 @@ def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:
                 "port": 61234,
                 "pid": 12345,
                 "secretPath": str(good_secret_path),
+                "serverMode": "ide",
             }
         ),
         encoding="utf-8",
@@ -207,6 +208,7 @@ def test_load_sessions_skips_relative_secret_paths(tmp_path: Path) -> None:
                 "pid": 12345,
                 # Session metadata should always store absolute secret paths.
                 "secretPath": "secret",
+                "serverMode": "ide",
             }
         ),
         encoding="utf-8",
@@ -237,6 +239,49 @@ def test_find_sessions_by_workspace_resolves_paths() -> None:
         matches = registry.find_sessions_by_workspace(alt_path, prune_stale=False)
         assert len(matches) == 1
         assert Path(matches[0].workspacePathCanonical) == workspace.resolve()
+
+
+def test_load_session_prunes_missing_server_mode(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "missing-mode"
+    session_dir = sessions_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    secret_path = session_dir / "secret"
+    secret_path.write_bytes(b"secret")
+    metadata_path = session_dir / "session.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "id": session_id,
+                "workspacePath": str(workspace),
+                "workspacePathCanonical": str(workspace.resolve()),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                "secretPath": str(secret_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+    old = time.time() - 10.0
+    os.utime(metadata_path, (old, old))
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    loaded = registry.load_session(session_id, prune_stale=True)
+
+    assert loaded is None
+    assert not session_dir.exists()
+    invalid_root = sessions_root / "invalid"
+    assert invalid_root.exists()
+    quarantined = [
+        entry
+        for entry in invalid_root.iterdir()
+        if entry.is_dir() and entry.name.startswith(f"{session_id}-")
+    ]
+    assert len(quarantined) == 1
+    assert (quarantined[0] / "session.json").exists()
 
 
 def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:

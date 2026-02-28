@@ -101,17 +101,20 @@ class WorkspaceLaunchIntentStore:
         with self._lock, self._store_lock():
             store = self._read_store_locked()
             pruned = self._prune_locked(store=store, now=now)
-            stored = store.pop(token_hash, None)
+            stored = store.get(token_hash)
             if stored is None:
                 if pruned:
                     self._write_store_locked(store)
                 raise ValueError("Launch intent token is missing or already consumed.")
             if stored.exp <= now:
+                store.pop(token_hash, None)
                 self._write_store_locked(store)
                 raise ValueError("Launch intent token has expired.")
             if stored.session_id != session_id:
-                self._write_store_locked(store)
+                if pruned:
+                    self._write_store_locked(store)
                 raise ValueError("Launch intent token is bound to a different session.")
+            store.pop(token_hash, None)
             self._write_store_locked(store)
             return stored
 
