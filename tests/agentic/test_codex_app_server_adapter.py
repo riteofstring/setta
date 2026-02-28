@@ -683,6 +683,107 @@ class TestCodexAppServerAdapterParser:
         tool_call_ids = {call.id for call in tool_calls}
         assert "call-buffer-1" in tool_call_ids
 
+    def test_response_item_reasoning_emits_thinking_delta(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "type": "response_item",
+                "payload": {
+                    "id": "reason-response-1",
+                    "type": "reasoning",
+                    "summary": [{"text": "Plan"}],
+                    "content": [{"text": "Analyze constraints."}],
+                },
+            }
+        )
+
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[1].stream_chunk, MessageDeltaEvent):
+            delta = events[1].stream_chunk.content[0]
+            assert isinstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                assert delta.summary == "Plan"
+                assert delta.thinking == "Analyze constraints."
+
+    def test_response_item_reasoning_does_not_fallback_summary_to_text(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "type": "response_item",
+                "payload": {
+                    "id": "reason-response-no-summary",
+                    "type": "reasoning",
+                    "text": [{"text": "This is body text, not summary."}],
+                    "content": [{"text": "Detailed reasoning content."}],
+                },
+            }
+        )
+
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[1].stream_chunk, MessageDeltaEvent):
+            delta = events[1].stream_chunk.content[0]
+            assert isinstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                assert delta.summary == ""
+                assert delta.thinking == "Detailed reasoning content."
+
+    def test_response_item_message_with_reasoning_content_emits_thinking_and_text(
+        self,
+    ) -> None:
+        parser = _CodexAppServerEventParser()
+        state = build_chat_section_state(messages=[])
+
+        payload = {
+            "type": "response_item",
+            "payload": {
+                "id": "msg-response-with-reasoning",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "reasoning",
+                        "summary": [{"text": "Plan"}],
+                        "content": [{"text": "Evaluate options."}],
+                    },
+                    {
+                        "type": "output_text",
+                        "text": "Build the navigator first.",
+                    },
+                ],
+            },
+        }
+
+        for event in parser.handle(payload):
+            if event.stream_chunk is None:
+                continue
+            state = apply_stream_delta(state=state, chunk=event.stream_chunk)
+
+        message = next(
+            (
+                entry
+                for entry in state.messages
+                if isinstance(entry, AssistantChatMessage)
+                and entry.id == "msg-response-with-reasoning"
+            ),
+            None,
+        )
+        assert message is not None
+        if isinstance(message, AssistantChatMessage):
+            assert len(message.content) == 2
+            first = message.content[0]
+            second = message.content[1]
+            assert first.type == "thinking"
+            if first.type == "thinking":
+                assert first.summary == "Plan"
+                assert first.thinking == "Evaluate options."
+            assert second.type == "text"
+            if second.type == "text":
+                assert second.text == "Build the navigator first."
+
     def test_mcp_tool_call_starts_message_without_prior_message(self) -> None:
         parser = _CodexAppServerEventParser()
         start_events = parser.handle(

@@ -1,235 +1,564 @@
-## 2026-02-25 13:49:09 PST
+## 2026-02-25 18:03:21 PST
 
-- Enforced launch session mode invariants end-to-end by introducing workspace+mode registry lookup and requiring `server_mode` filtering in both pre-spawn reuse and post-spawn wait paths.
-- Hardened launcher artifact lifecycle with strict managed-artifact registry checks (platform key allowlist, trusted-root path constraints, protected-root rejection), ownership markers, and transactional uninstall semantics that preserve metadata on artifact-removal failure.
-- Replaced channel-string update gating with explicit metadata-backed install source strategy (`uv_tool`, `installer_managed`, `unsupported`) and removed in-app updates for unsupported/manual sources.
-- Fixed frontend endpoint contract drift by adding explicit query serialization in endpoint URL building and ensuring launcher recent-workspaces transmits `setta_home` query parameters when provided.
-- Added and updated backend unit/integration tests, frontend Vitest coverage, and Playwright launcher-home coverage; targeted test runs passed for the modified areas.
+### Consolidated Findings
+- Global undo order was non-chronological because local thread-delete undo intercepted backend undo.
+- LLM API-key routes/watchers exposed `.env`-sourced values beyond explicit managed keys.
+- Historical chat context usage could drift because it depended on mutable live config instead of run metadata.
+- Runtime activity and dictation fallback relied on brittle string/regex heuristics.
+- Codex MCP bootstrap could silently lose semantics for richer server definitions.
 
-## 2026-02-25 15:04:43 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Removed local thread-undo interception from global undo; backend undo/redo is now authoritative.
+- Added explicit thread/group restore action in Project AI Chat toolbar (`Restore Delete`).
+- Moved API-key persistence/read/watch flows to managed runtime key storage and updated preflight/runtime readers accordingly.
+- Switched internal/external chat context usage resolution to persisted run metadata snapshots.
+- Added structured transcription error codes and frontend code-based fallback handling.
+- Replaced suffix-based runtime activity inference with explicit tool-ID classification.
+- Extended MCP bootstrap/client support for HTTP headers and explicit rejection/warning on unsupported Codex MCP fields.
 
-- Unified launcher-home scope handling by introducing shared `settaHome` context propagation across recent workspace actions (open/pin/remove), launcher settings operations (status/setup/repair/remove/update), and backend launcher-status query handling.
-- Fixed frontend launcher-origin routing determinism by normalizing route matching before origin resolution so query/hash-bearing launcher endpoints cannot silently fall back to backend origin.
-- Removed implicit non-IDE route fallbacks by introducing explicit mode route resolution and preventing app mode from inheriting IDE route elements for `/launching`.
-- Hardened artifact installation safety with pre-write artifact path planning/validation, strict filename-component checks for `desktop_entry_name`/`app_name`, and Freedesktop-compatible Linux `.desktop` `Exec=` escaping.
-- Made recent workspace persistence transactional and concurrency-safe with file locking plus atomic temp-file replacement, eliminating read-modify-write races and partial-write corruption windows.
-- Expanded regression coverage with new/updated backend pytest, frontend Vitest, and Playwright tests validating scoped launcher payload propagation, route/origin behavior, artifact safety constraints, and atomic recents-store behavior.
+### UX/DX Before -> After
+- Undo behavior: inconsistent cross-domain undo -> deterministic backend timeline + explicit restore control.
+- Secret boundary: broad `.env` surface risk -> explicit managed key boundary only.
+- Historical context telemetry: drift after config edits -> stable values tied to each run snapshot.
+- Dictation fallback/activity indicators: heuristic and fragile -> typed/structured and deterministic.
+- MCP import fidelity: partially working silent degradation -> preserved semantics or explicit warning/skip.
 
-## 2026-02-25 15:51:14 PST
+## 2026-02-25 18:36:12 PST
 
-- Restored cross-origin launcher handoff correctness by making launcher mode resolve `/launching` to workspace launch processing (instead of home redirect), with explicit mode-policy coverage in frontend tests.
-- Fixed launcher setup idempotence drift by treating omitted setup fields as patch-like on the backend and by sending current launcher identity settings on frontend reruns, preventing accidental channel/open-mode resets.
-- Hardened launcher artifact setup invariants by enforcing one-to-one artifact-key-to-path mapping, rejecting duplicate planned/managed paths, and normalizing installer filesystem failures into typed `ArtifactInstallFailed` errors.
-- Unified launcher-home open-workspace scope resolution on backend effective `setta_home` and blocked dot-segment (`.`/`..`) create-path semantics that could escape the intended child-directory invariant.
-- Decoupled successful launch/open flows from non-critical metadata persistence by making last-used-workspace updates fail-soft for metadata parse and I/O failures.
-- Corrected release automation reliability by replacing PowerShell-incompatible multiline command syntax with argument-array splatting and by selecting repair-break artifacts from fresh post-update launcher status in smoke tests.
-- Added regression coverage across backend pytest, frontend Vitest, and Playwright for the above invariants, including route handoff behavior, setup payload stability, dot-segment validation, fail-soft metadata updates, and release script contract checks.
+### Consolidated Findings
+- Home pane storage keys and pane-layout identities drifted, causing invalid defaults and unsupported pane behavior.
+- Project chat hydration route selection was coupled to current engine selection instead of selected-thread provenance.
+- MCP runtime-status init tool used stale client/status APIs and could throw at runtime.
+- LLM config example seeding wrote seeded data but could return stale pre-seed payload in the same call.
+- Transcription `unsupported_model` classification depended on message text matching.
+- Codex MCP parsing/bootstrap logic was duplicated across LLM/external paths and could silently coerce invalid transport declarations.
 
-## 2026-02-25 16:19:19 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Canonicalized Home pane state onto `homeWorkspacePane*` and `homeSelectedProjectPane*`, then unified Home panes into shared `paneLayout`/`PaneContainer` behavior with explicit pane IDs.
+- Added provenance-driven project-chat hydration routing so selected thread `runType` controls `getExternalAgentChat` vs `getLLMChat`.
+- Updated MCP init runtime-status tool to use `MultiMCPClient.get_server_runtime_statuses()` and canonical status fields (`toolCount`, `lastError`, `missingEnvVar`).
+- Made `load_llm_config` deterministic by always returning the seeded example payload in the same invocation when sentinel-empty raw config is detected.
+- Introduced typed transcription session errors (`TranscriptionSessionError`, `UnsupportedTranscriptionModelError`) and mapped router error codes from typed metadata.
+- Extracted a shared Codex MCP loader/parser (`setta.mcp.codex_config`) and reused it from both LLM bootstrap and external-agent settings bootstrap with strict transport-shape validation.
 
-- Converted launcher-home routing policy from ad hoc frontend checks to backend-enforced contracts by adding an explicit `require_launcher_mode` dependency and applying it to launcher-home endpoints.
-- Removed duplicated launcher `setta_home` fallback logic by introducing shared backend scope resolution (`resolve_launcher_setta_home`) and wiring it through launcher-home plus launcher management/status routes.
-- Simplified launcher-home bootstrap by deleting the redundant `launcherAppMode` probe call and relying on global server-mode routing with direct launcher API initialization.
-- Updated backend and frontend regression coverage to lock the new contracts (launcher-only access, blank `setta_home` defaulting, and launcher-home e2e flows without the mode probe route).
+### UX/DX Before -> After
+- Home panes: mismatched keys/unsupported pane names -> deterministic pane visibility/width behavior with shared layout logic.
+- Thread hydration: selectable historical thread could hydrate via wrong endpoint -> hydration route always matches selected thread provenance.
+- MCP runtime status: init tool could fail hard -> stable status output from canonical runtime-status schema.
+- LLM seeding: first load could show empty models despite persisted seed -> seeded models available immediately and consistently.
+- Transcription fallback: wording changes could break fallback classification -> stable typed `unsupported_model` semantics.
+- Codex MCP imports: internal/external paths could diverge or silently coerce transport -> same parser, same accepted server set, explicit skip/warning for invalid entries.
 
-## 2026-02-25 17:19:57 PST
+### Verification
+- Backend targeted pytest set: 84 passed.
+- Frontend targeted Vitest set: 49 passed.
+- Playwright targeted checks: updated Home pane behavior test passed; new chat hydration provenance test passed.
 
-- Hardened launch-session reuse by enforcing full runtime identity matching (`settaHome`, `profile`, `settaFilesLocation`/`settaFilesRoot`, `runtimeRoot`) for both reuse and post-spawn session discovery.
-- Reworked launcher setup into marker-verified, safer artifact reconciliation with cleanup on metadata-write failures, and persisted canonical `artifactOptions` so setup/repair/update replay platform customization deterministically.
-- Removed unsupported manual managed-artifact setup surface from backend request models, CLI options, and docs instead of preserving compatibility for rejected paths.
-- Added signed launcher-origin handoff (`lo` + `lop`) across launch and launcher-home bootstrap flows, validated server-side during bootstrap consume, and restricted frontend launcher-origin persistence to `sessionStorage`.
-- Tightened frontend endpoint-origin resolution by routing launcher-management/status/home-info/reveal-path traffic to backend origin while keeping launcher-home-specific endpoints plus `/launch` on launcher origin.
-- Expanded automated coverage with new and updated backend pytest, frontend Vitest, and Playwright tests for identity reuse, artifact lifecycle safety, launcher-origin proof validation, and routing/storage behavior; targeted suites passed.
+## 2026-02-25 19:23:53 PST
 
-## 2026-02-25 17:50:32 PST
+### Consolidated Findings
+- Interrupted-message flags in project chat were not run-scoped and stop rollback did not restore interruption state.
+- Context telemetry rendering still fell back to frontend heuristics when backend context usage was missing.
+- Hydration dedupe for selected project chat threads was not success-aware and ignored provenance endpoint changes.
+- MCP runtime-status mapping dropped actionable diagnostics (`missingEnvVar`, tool count details).
+- AI follow default mode regressed from opt-in to always-on.
+- API key mutation normalization in UI diverged from backend trim/empty canonicalization.
+- Codex MCP bootstrap could re-import previously removed servers on subsequent loads.
 
-- Canonicalized launcher setup intent end-to-end: backend setup now supports tri-state `installArtifacts` omission semantics (preserve existing mode), explicit empty `artifactOptions` now clears prior values, and frontend rerun payloads now always send explicit `installArtifacts` derived from current launcher status.
-- Closed recents-store policy gaps by enforcing allowed-root invariants at the persistence boundary (load/write/update), including atomic pruning of stale out-of-policy entries so returned recent workspaces remain actionable.
-- Isolated launcher runtime initialization from IDE bootstrap by adding a dedicated launcher-mode initialization path in `SettaFastAPIState` and skipping heavy IDE subsystems/plugins/LSP/MCP startup phases in launcher mode.
-- Eliminated release installer version drift by deriving installer version once in CI from tag/input and propagating it to macOS/Windows jobs, plus adding release-mode script guards that fail when installer version is missing/invalid.
-- Removed launch-test contract fragility by updating `_wait_for_session` tests to the keyword-only invocation contract, introducing a shared localhost-bind capability gate helper, and adding behavior-level timeout/termination coverage through `launch_workspace_session`.
-- Added/updated backend pytest, frontend Vitest, and Playwright coverage for setup intent, recents pruning, launcher-mode init boundaries, release workflow/script contracts, and launcher rerun payload semantics; targeted suites passed.
+### Implemented Fixes (No Backward Compatibility Layer)
+- Made interruption marking run-scoped to current assistant `message_start`, added interruption snapshot restore on stop rollback paths, and cleared stop-eligible IDs on lifecycle boundaries.
+- Removed frontend context-usage heuristics from project chat telemetry and rendered explicit unavailable state when backend context data is incomplete.
+- Replaced one-shot hydration guard with success-aware `(chatId, runType)` cache status (`in_flight`, `succeeded`, `failed`, `retry_scheduled`) and retry behavior.
+- Extended MCP runtime-status frontend mapping to preserve `missingEnvVar` and include lossless diagnostic quick info (error/tool-count/env-var context).
+- Restored AI follow default mode to `off`.
+- Added API key value normalization (trim + empty handling) before optimistic update and persistence for add/edit flows.
+- Added one-time codex MCP bootstrap migration marker (`codexMcpImportedAt`) so post-bootstrap user removals remain authoritative.
 
-## 2026-02-25 18:22:01 PST
+### UX/DX Before -> After
+- Stop/interrupt labels: prior completed assistant responses could be marked interrupted -> interruption labels now map to the actual current stopped run and rollback leaves no stale marks.
+- Context badge: estimated token/window values could be shown as if authoritative -> badge now shows backend-authored values or explicit `CONTEXT UNAVAILABLE`.
+- Thread hydration: transient hydrate failures or late provenance resolution could strand selected chats -> hydration retries and converges automatically per endpoint provenance.
+- MCP runtime diagnostics: status chips could hide missing-env/tool-count details -> UI now surfaces actionable diagnostics directly.
+- Follow behavior: viewport-follow could activate without explicit user intent -> follow remains opt-in by default.
+- API key saves: whitespace-only values could appear to save then disappear -> client behavior now matches backend canonicalization immediately.
+- Codex MCP lifecycle: removed imported servers could reappear after reload -> one-time import migration preserves user removals.
 
-- Enforced fail-fast native command execution for Windows installer build steps by introducing a shared PowerShell native-invocation wrapper that hard-fails on non-zero exit for WiX compile/link and optional signing.
-- Removed macOS launcher wrapper dependency on local Python interpreters for path/JSON handling by replacing inline Python parsing with shell-native path canonicalization and explicit JSON success-contract checks.
-- Tightened launcher target validation to require true invokability (existing regular file plus platform-specific executable checks: POSIX execute bit and Windows executable extension policy).
-- Hardened Linux desktop artifact generation against field injection by centralizing desktop-entry text sanitization and rejecting control-character payloads for `app_name`.
-- Split IDE route-mode guarantees with an explicit full-IDE-runtime guard and applied it to IDE-runtime endpoints that can dereference uninitialized launcher-mode subsystems (`/loadAllProjectMetadata`, `/mcpServerRuntimeStatus`).
-- Made session mode a first-class connect contract by emitting `serverMode` in status/list/connect payloads, validating it in remote parsers, and enforcing IDE-only session selection in local/SSH connect/stop workflows.
-- Added/updated backend pytest coverage for all above invariants (scripts, metadata/artifacts, mode guards, session contracts) and validated with targeted backend suite runs plus Ruff checks; all targeted tests passed.
+### Verification
+- Frontend targeted Vitest set: 90 passed.
+- Backend targeted pytest set (`tests/llm/test_config.py`): 24 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 2 passed.
+- CDP visual verification: context-unavailable badge rendering confirmed in project chat composer.
 
-## 2026-02-25 18:58:55 PST
+## 2026-02-25 20:19:53 PST
 
-- Replaced hand-built macOS `Info.plist` string interpolation with `plistlib` serialization and added icon filename control-character validation so launcher metadata remains parseable for XML metacharacter filenames.
-- Hardened Linux desktop-entry rendering by validating `icon_path` through the shared desktop-entry text sanitizer, preventing newline/control-character line injection into generated `.desktop` files.
-- Enforced explicit full-IDE-runtime guards on settings load/save routes so launcher mode now fails fast with deterministic `403` contracts instead of deferred-attribute runtime crashes.
-- Split launcher `/launching` route composition from IDE wrappers by introducing launcher-safe workspace-launch route kind resolution and rendering launcher handoff without `GlobalWrapper` bootstrap dependencies.
-- Centralized frontend endpoint-origin policy into an exported contract/resolver and aligned generated-endpoint tests so `/launcherStatus` is asserted against backend origin under distinct backend/launcher base URLs.
-- Added/updated backend pytest, frontend Vitest, and Playwright coverage for plist/desktop artifact sanitization, launcher mode settings guards, launcher `/launching` no-`/loadSettings` behavior, and endpoint-origin contract consistency; targeted runs passed.
+### Consolidated Findings
+- Chat provenance for hydration/engine correction was derived from history projection that excludes branch chats.
+- Hydration retry state used per-key status plus a global timer, allowing `retry_scheduled` keys to get stranded after timer cancellation.
+- Internal stop could mark messages interrupted even when backend stop was a no-op.
+- External-agent Codex MCP bootstrap could re-import previously removed servers.
+- Managed API key parsing accepted falsy non-object payloads as valid empty state.
+- Thread/group delete tooltips still referenced Cmd/Ctrl+Z despite restore moving to explicit `Restore Delete`.
 
-## 2026-02-25 20:08:27 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added canonical chat provenance indexing from `agentRuns` (including branches) and used it for engine provenance and hydration route selection.
+- Replaced hydration retry gating with per-cache-key retry state/timer ownership, including explicit re-hydration eligibility after cancellation.
+- Updated stop API to return authoritative outcome metadata (`alreadyStopped`, `stoppedRunId`, `stoppedMessageId`) and reconciled frontend interruption state from response semantics.
+- Added durable external-agent Codex MCP import marker (`codexMcpImportedAt`) so one-time bootstrap does not resurrect user-removed servers.
+- Made managed key parser fail closed for non-object JSON payloads by validating all present payload roots as objects.
+- Updated delete recovery copy to point users to `Restore Delete` and removed stale keyboard-undo guidance.
 
-- Centralized full-IDE-runtime API policy by adding dedicated full-runtime router classes and migrating runtime-dependent routers (`mcp_tools`, `lsp`, `app_spec_streaming`, `projects`) so launcher-mode requests fail fast with deterministic `403` contracts.
-- Made session mode an explicit destructive-action selector for `setta stop` by adding `--server-mode` (default `ide`) and enforcing mode filtering in both local workspace lookup and remote session fetch paths.
-- Defined a single native installer behavior contract: macOS `.pkg` and Windows `.msi` now execute launcher bootstrap during install (postinstall/custom action) instead of only shipping helper scripts.
-- Aligned release automation with installer contract by adding native-installer smoke jobs on macOS/Windows and gating release asset attachment on smoke success.
-- Updated native installer docs to reflect bootstrap-on-install behavior and required `uv` precondition.
-- Added/updated backend pytest coverage for full-runtime route policy, launcher-mode blocking, stop mode filtering, and installer/workflow contract assertions; targeted suites passed.
+### UX/DX Before -> After
+- Provenance routing: hidden-branch filtering could change runtime hydration behavior -> runtime provenance is now sourced from canonical run metadata, independent of history visibility.
+- Hydration retries: chat switches could strand selected threads in non-hydrated state -> retries are deterministic per hydration key and recover after cancellation/switching.
+- Stop state trust: interruption badges could persist after no-op stop -> interruption labels now reflect backend-confirmed stop outcomes only.
+- MCP bootstrap intent: removed servers could silently reappear -> user removals remain authoritative across rebuilds.
+- Secret-store robustness: malformed falsy payloads could masquerade as empty valid state -> invalid payloads now fail loudly and avoid silent state wipe behavior.
+- Recovery affordance clarity: users were told to use Cmd/Ctrl+Z for thread restore -> UI now consistently points to explicit `Restore Delete`.
 
-## 2026-02-25 21:58:02 PST
+### Verification
+- Frontend targeted Vitest set: 50 passed.
+- Backend targeted pytest set: 9 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`, `project-ai-chat-restore.spec.ts`): 4 passed.
+- CDP visual verification: `Restore Delete` visible in Project AI chat threads panel and no `Cmd/Ctrl+Z` recovery text present.
 
-- Replaced launcher handoff trust in raw hash payloads with signed one-time launch-intent tokens (`createWorkspaceLaunchIntent` + `/launch` token consume), including expiry and replay protection.
-- Removed legacy hash-payload acceptance in frontend launch parsing, switched cross-origin launcher handoff to tokenized hash fields, and blocked forged legacy `#pl` payload usage.
-- Fixed launcher-home/launch parity for Setta files location semantics by introducing a shared backend tri-state normalization helper and preserving omitted-field intent for profile/root-aware launches.
-- Made launcher install identity explicit end-to-end by adding `installSource` through CLI/API/scripts/native installer bootstrap paths and removing channel-derived install-source inference.
-- Corrected dev bootstrap `osw` behavior by propagating open-switcher intent via redirect query parameter instead of backend-origin sessionStorage side effects.
-- Aligned status/stop mode contracts (`status --connect-info` IDE default; `status --list-sessions` unfiltered default; `stop` explicit mode resolution) and updated CLI docs accordingly.
-- Refactored release workflow publishing into a single final gated asset-publish job and hardened launcher smoke cleanup/assertions with explicit launcher-mode stop/session checks.
-- Added and updated backend pytest, frontend Vitest, and Playwright coverage for the above contracts; targeted backend/Vitest suites passed and targeted Playwright specs passed.
+## 2026-02-25 21:46:46 PST
 
-## 2026-02-25 22:45:04 PST
+### Consolidated Findings
+- Managed and scriptable section chat context badges still fell back to frontend token/window estimates when backend telemetry was missing/partial.
+- Stop outcome for managed chat could derive `stoppedMessageId` from merged history and re-mark historical assistant messages.
+- Provider dictation pipeline uploaded one-shot PCM and forwarded source sample rates directly, violating realtime 24kHz/chunk transport contracts.
+- Transcription router error-code mapping still depended on `KeyError` message text.
+- Codex MCP parsing silently dropped invalid IDs/non-object entries without diagnostics.
+- Runtime Codex settings bootstrap stored import migration marker only in session output instead of canonical config.
 
-- Replaced mutable global launch-intent tracking with a synchronized `WorkspaceLaunchIntentStore` abstraction and switched launch routes to atomic create/consume semantics with explicit prune behavior.
-- Bound workspace launch `returnUrl` to server-owned intent state, validated/canonicalized it at intent creation, and returned canonical `returnUrl` in `/launch` responses for deterministic back-navigation.
-- Removed unsigned `plr` trust from launcher hash handoff (token + requested-at only), kept cleanup of legacy hash params, and tightened launch-page return navigation to allowed Setta origins with safe `/home` fallback.
-- Fixed endpoint origin policy drift by routing `createWorkspaceLaunchIntent` to launcher origin alongside `/launch`.
-- Enforced full-runtime policy consistency by moving `llm` and `agentic` routers onto `SettaFullRuntimeAPIRouter`, ensuring launcher mode fails fast with deterministic `403` instead of deferred-runtime `500`s.
-- Added/updated backend unit and integration tests, frontend Vitest coverage, and Playwright workspace-launch coverage for intent-store concurrency, return-url validation, hash tampering, endpoint routing, and launcher-mode runtime guards.
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added shared authoritative context telemetry resolver and removed section-chat estimate fallbacks; missing/partial backend telemetry now renders explicit unavailable state.
+- Made stop message resolution run-scoped to assistant messages produced by active run outputs only; frontend stop reconciliation now ignores backend IDs when no local stop-eligible assistant exists.
+- Reworked provider dictation flow to transport-aware chunked append with realtime resampling to 24kHz mono PCM16 and payload-bounded chunk sizing.
+- Introduced typed transcription missing-resource exceptions and routed error codes by exception type (`profile_not_found`, `session_not_found`) with no message parsing.
+- Hardened Codex MCP parser to explicitly reject/log invalid IDs and non-object entries; removed silent-drop paths.
+- Persisted Codex bootstrap migration state to canonical config before writing runtime session overlays, and fail fast if canonical persistence cannot complete.
 
-## 2026-02-25 23:12:41 PST
+### UX/DX Before -> After
+- Context badge trust: estimated-looking numbers shown without backend telemetry -> explicit authoritative values or `CONTEXT UNAVAILABLE`.
+- Stop labeling: immediate stop could mark old replies interrupted -> interruption labels stay bound to active run messages only.
+- Provider dictation reliability: realtime mode could fail from sample-rate mismatch; long recordings hit one-shot payload limits -> deterministic realtime/file transport behavior with chunked uploads.
+- Error-code stability: copy edits could change API error classification -> stable type-driven contract.
+- MCP import diagnosability: invalid servers vanished silently -> explicit warning reasons per rejected server.
+- Codex bootstrap durability: removed imported servers could reappear on later runtime sessions -> canonical migration marker preserves user intent across sessions.
 
-- Added an explicit non-launcher runtime boundary (`require_not_launcher_mode`) with shared router wrappers and migrated launcher-unsafe routers (`artifact`, `attachments`, `terminals` HTTP/WS, `project_manager`) to fail fast with deterministic `403` in launcher mode while preserving share/app behavior.
-- Closed launcher/IDE split-origin CORS drift by extending backend CORS policy with launcher-mode loopback origin regex support and optional extra trusted frontend origins (`SETTA_FRONTEND_ORIGINS`), then wiring this policy into server middleware.
-- Made launcher session mode an explicit CLI JSON contract (`sessionServerMode`) and updated release smoke logic to derive stop/status mode from that contract instead of hardcoded assumptions.
-- Hardened release update validation by requiring `startedNew == true` on post-update relaunch and asserting no stale sessions remain in the expected mode before relaunch.
-- Added/updated pytest coverage for router policy enforcement, launcher-mode guards on representative endpoints, launcher CORS preflight behavior (trusted vs untrusted origins), launcher CLI payload contract, and smoke script mode/freshness contracts.
+### Verification
+- Backend targeted pytest set (`tests/routers/test_ai_agent_run_chats.py -k "stop_llm_chat or transcription"`): 15 passed.
+- Backend targeted pytest set (`tests/agentic/test_external_agent_settings.py -k "codex"`): 10 passed.
+- Backend targeted pytest set (`tests/agentic/test_external_agent_runner.py -k "codex_home_config_is_written or codex_runtime_home_respects_canonical_bootstrap_marker"`): 2 passed.
+- Backend targeted pytest set (`tests/llm/test_config.py -k "codex"`): 6 passed.
+- Frontend targeted Vitest set: 53 passed.
+- Playwright targeted checks (`chat-composer-controls.spec.ts`, context badge scenarios): 3 passed.
+- CDP visual verification: project chat composer renders `CONTEXT UNAVAILABLE` for missing telemetry.
 
-## 2026-02-26 00:01:45 PST
+## 2026-02-25 22:45:31 PST
 
-- Closed remaining launcher/full-runtime boundary gaps by migrating `ai` and `listener` routers to full-runtime router wrappers, so launcher-mode calls now fail fast with deterministic `403` before deferred runtime fields are touched.
-- Removed CLI auth/api session-selection drift by extending shared mode-selection defaults to `auth` and `api` auto-auth (`ide` by default) and applying one shared session filter path for latest-session resolution.
-- Tightened launcher credentialed CORS trust to explicit allowlisted origins only by removing broad loopback regex acceptance; trusted loopback origins must now be configured (for example via `SETTA_FRONTEND_ORIGINS`).
-- Added/updated regression coverage across router-policy tests, launcher-mode guard tests with deferred-field sentinels, CLI mode-selection unit/integration tests, and CORS tests for configured vs unconfigured loopback origins.
-- Ran `pnpm gcf` and validated targeted suites (`pytest` for touched backend/start/cors/router areas and Playwright launcher-origin workspace-launch spec) with passing results.
+### Consolidated Findings
+- Managed LLM API-key store corruption could break preflight/startup/watch flows and make repair difficult.
+- Codex MCP config loading and parsing still allowed ambiguous fallback/coercion paths under invalid config shapes.
+- External stop semantics and project-chat hydration retries could leave interruption state inconsistent and retry loops unbounded.
+- Context telemetry and composer submit contracts still had ambiguity when authoritative backend data/contracts were missing.
 
-## 2026-02-26 09:04:12 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added managed-key typed read status with explicit corruption reporting, made key writes canonical authoritative overwrites, and aligned frontend settings writes to full-key payloads.
+- Hardened Codex MCP loading/parsing with authoritative `CODEX_HOME` behavior, strict snake/camel table conflict handling, and strict nested args/env/encoding validation.
+- Reworked stop/hydration behavior to rely on confirmed backend cancellation outcomes, added typed hydration outcomes (`success`, `transient_failure`, `terminal_failure`), and bounded retries with capped exponential backoff.
+- Switched context usage resolution to persisted run payloads only and tightened `ChatInput` `onSubmit` to strict boolean semantics.
 
-- Reworked workspace launch-intent persistence to a file-backed, lock-protected store with hashed token keys, cross-process atomic consume-once semantics, and expiry pruning that survives process restarts.
-- Split launch-intent token handling into validation and consumption paths so `/launch` now validates signature/session binding before atomically consuming the stored intent payload.
-- Added dynamic trusted frontend-origin persistence driven by verified bootstrap launcher-origin handoff (`lo` + proof), and routed CORS enforcement through `SettaCORSMiddleware` so trusted origins can make credentialed launcher API requests.
-- Tightened launcher-mode runtime boundaries by moving detached runs to a non-launcher router policy and explicitly rejecting launcher-mode frontend/python websocket endpoints.
-- Fixed Windows launcher wrapper workspace forwarding by quoting `%~1` in the generated `launcher --workspace` call to preserve paths with spaces.
-- Expanded regression coverage with new/updated pytest and Playwright tests for trusted-origin storage/CORS behavior, launch-intent durability and cross-instance consume races, websocket/route mode guards, and Windows wrapper quoting.
-- Ran `pnpm gcf` in `frontend/` as part of this update.
+### UX/DX Before -> After
+- Managed API key handling: corrupt store could cascade into unrelated failures -> corruption is isolated and explicitly actionable while repair/save remains available.
+- Codex MCP ingest: invalid or conflicting config shapes could degrade silently -> invalid shapes are rejected deterministically with explicit failure behavior.
+- Stop/hydration: interruption markers and retries could diverge from backend truth -> interruption state now follows confirmed stop outcomes and retry scheduling is bounded/terminal-aware.
+- Context/composer contract: UI could imply inferred telemetry and permissive submit behavior -> telemetry is authoritative-only and submit contract is explicit.
 
-## 2026-02-26 10:02:03 PST
+### Verification
+- `pnpm gcf` (run from `frontend/`): completed successfully.
+- Frontend targeted Vitest set: 83 passed.
+- Backend targeted pytest set: 122 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 4 passed.
+- CDP visual verification: Project AI chat pane and settings dialog rendered correctly with no console errors.
 
-- Replaced crash-unsafe sentinel lock handling in request-path stores with a shared process-file lock utility and typed store errors, then wired launch-intent and trusted-origin stores to use the same crash-recoverable lock/write path.
-- Enforced session-owned trusted frontend-origin state (`session_id -> origin -> exp`) with no backward-compatibility shim, and made CORS/auth trust checks session-scoped and fail-closed on store read failures.
-- Aligned trusted-origin lifetime with auth lifecycle by refreshing trusted-origin expiry on auth-cookie mint/refresh paths and writing bootstrap trust entries using the minted auth-cookie expiry.
-- Hardened SSH launcher-origin handoff contracts by requiring remote `launcherOrigin` to exactly match the requested origin and requiring `launcherOriginProof` whenever launcher-origin handoff is requested.
-- Removed request-time process-global env mutation from `/launch` by introducing `get_setta_paths_without_profile_env()` and switching launch default-path resolution to the non-mutating path.
-- Added/updated backend pytest coverage for crash recovery, typed store failure mapping, session trust isolation/lifetime refresh, strict SSH origin checks, and launch env isolation, plus Playwright coverage to ensure trusted bootstrap origin does not widen CORS trust to a different origin.
-- Ran `pnpm gcf` in `frontend/` and then validated targeted suites (`pytest` affected backend/auth/router/start tests, Playwright bootstrap launcher-origin spec, and Ruff checks on touched files), all passing.
+## 2026-02-25 23:15:30 PST
 
-## 2026-02-26 10:47:26 PST
+### Consolidated Findings
+- Codex MCP import/write paths still allowed non-canonical table shape persistence and non-authoritative fallback behavior.
+- Bootstrap completion markers could be written on failed/empty imports, preventing deterministic retry after source config repair.
+- Managed API-key corruption handling was incomplete for malformed JSON payloads.
+- Context usage telemetry parsing could raise on non-finite numbers and break chat hydration.
+- Stop reconciliation could leave stale optimistic interruption markers when backend returned a successful stop without `stoppedMessageId`.
 
-- Fixed lock-boundary contract leakage by moving parent-directory creation and lock setup inside the typed `acquire_process_file_lock` error boundary so stores consistently surface typed unavailable errors.
-- Corrected launcher directory listing cap semantics by counting only valid in-policy entries toward `_MAX_DIRECTORY_ENTRIES` (filter first, cap second), eliminating lexicographic drop-off of later valid directories.
-- Hardened macOS install/uninstall wrappers with a shared strict JSON contract validator (structural parse + required-field checks), replacing regex-only `"ok": true` acceptance.
-- Added and updated regression coverage across unit/store/route/script levels for lock-parent failure mapping, launch-intent and bootstrap unavailable-error contracts, launcher-directory cap-after-filter behavior, and malformed/missing-field macOS wrapper payload rejection.
-- Ran `pnpm gcf` in `frontend/` and validated targeted backend suites (`97 passed`) plus Ruff/shell syntax checks on touched files.
+### Implemented Fixes (No Backward Compatibility Layer)
+- Made `CODEX_HOME` authoritative for Codex MCP config resolution and removed fallback-to-home behavior when env is set.
+- Canonicalized Codex settings persistence to `mcp_servers` and removed dual-key persistence paths.
+- Gated Codex bootstrap marker writes on successful non-Setta import presence and preserved retryability after failed reads/parses.
+- Centralized managed API-key parse handling in typed status reads and mapped malformed JSON/empty payload to explicit corrupt status.
+- Hardened context usage parsing to ignore non-finite numeric values (`NaN`, `Inf`, `-Inf`) without raising.
+- Reconciled stop interruption state to restore optimistic snapshot when backend omits `stoppedMessageId` on successful stop.
 
-## 2026-02-26 11:49:01 PST
+### UX/DX Before -> After
+- Codex config resolution: env-scoped runs could still import from fallback home -> env-scoped resolution is deterministic to one root.
+- Codex config persistence: repeated writes could introduce snake/camel MCP table conflicts -> writes are idempotent and canonical.
+- Bootstrap migration: transient source parse errors could permanently suppress import -> fixed source now re-imports automatically.
+- API key corruption path: malformed managed-key JSON could throw through startup/preflight/watchers -> corruption is explicit and recoverable through normal save flow.
+- Chat telemetry: malformed/non-finite usage fields could produce hydration failures -> telemetry degrades to unavailable/partial without breaking chat load.
+- Stop badge consistency: successful stop without message id could keep stale interruption labels -> interruption labels now match backend-confirmed outcome semantics.
 
-- Hardened launcher-mode runtime policy to fail closed by making `require_ide_mode` reject launcher mode and migrating `sections`/`git` routers to explicit non-launcher guards, while keeping launcher-safe routes (`/launch`, bootstrap, launcher-home) on deployment-only guards.
-- Fixed cross-origin launcher handoff trust asymmetry by persisting reciprocal trust from launcher session to launched workspace origin during successful `/launch` flows (local and SSH), using auth-cookie-aligned expiry.
-- Tightened launch-intent return URL validation by removing caller-controlled `Origin` header allowlisting and accepting cross-origin `returnUrl` only when request origin matches or session-scoped trusted-origin policy allows it.
-- Added launch-intent store capacity invariants (per-session and global caps) with typed `WorkspaceLaunchIntentStoreCapacityError` mapping to launch-route `LaunchIntentStoreCapacityExceeded` responses.
-- Corrected process-file lock error taxonomy by restricting typed lock remapping to lock lifecycle failures and preserving in-body I/O exceptions unchanged.
-- Reworked launcher directory listing to bounded paginated behavior with `cursor`/`pageSize` and `hasMore`/`nextCursor`, using `os.scandir` with explicit scan budget to cap server work.
-- Expanded regression coverage with updated backend unit/integration tests plus Playwright launch-handoff trust verification (`bootstrap-launcher-origin`), and ran targeted suites successfully.
-- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest set: `137 passed` (`tests/llm/test_api_keys.py`, `tests/llm/test_config.py`, `tests/agentic/test_external_agent_settings.py`, `tests/agentic/test_external_agent_preflight.py`, `tests/agentic/test_context_usage.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/routers/test_llm_api_key_routes.py`).
+- Additional backend reruns after API-key empty-payload hardening: `14 passed` and `24 passed`.
+- Frontend targeted Vitest: `20 passed` (`src/state/actions/aiStopProjectChat.test.ts`).
+- Playwright targeted regression: `1 passed` (`frontend/tests/e2e/chat/chat-stop-reconciliation.spec.ts`).
+- CDP visual verification: stop-response reconciliation confirmed in Project AI chat with backend response `{ alreadyStopped: false, stoppedMessageId: null }`.
 
-## 2026-02-26 21:28:37 PST
+## 2026-02-26 00:20:10 PST
 
-- Unified launcher-origin trust behavior across launch paths by extracting a shared launcher handoff trust helper and applying it to both `/launch` and `/openLauncherWorkspace`, with fail-fast typed error mapping when trust persistence fails.
-- Enforced launcher/IDE capability contract in frontend launcher home by introducing explicit mode capabilities and hiding desktop-launcher management controls in launcher mode.
-- Fixed launcher directory pagination end-to-end by adding frontend cursor/page-size state with load-more UX, and tightening backend continuation semantics to avoid contradictory `hasMore=true` with no actionable cursor.
-- Corrected endpoint origin policy drift by routing `settaHomeInfo` via backend origin to match backend launcher-mode guards.
-- Added/updated regression coverage: backend route tests for launcher management guards, launcher-home trust persistence and pagination invariants; frontend unit tests for mode capabilities and directory pagination state; Playwright launcher-home flows for hidden management controls and multi-page directory continuation.
-- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout), then ran targeted suites (`vitest`, `pytest`, and launcher-home Playwright), passing.
+### Consolidated Findings
+- Managed API-key writes were full-snapshot and non-linearizable across concurrent editors, with inconsistent corruption behavior across route/watcher/runtime paths.
+- MCP runtime health identity collapsed on `serverId` only, allowing Setta and external statuses to overwrite each other when IDs matched.
+- Codex MCP header aliases (`headers` vs `http_headers`) accepted conflicting values with silent precedence.
+- Context telemetry coercion accepted/truncated non-integer values into plausible token counts.
+- Git decoration fallback could replace valid decorations with partial data when fallback ref scans were truncated.
 
-## 2026-02-26 22:42:57 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Introduced strict revisioned managed-key store contract (`{ revision, apiKeys }`) with CAS writes (`expectedRevision`) and typed `409` errors for revision conflict/corruption.
+- Unified managed-key runtime sync into one fail-closed path for watchers: corruption now applies empty runtime keys and broadcasts empty snapshots deterministically.
+- Updated frontend API-key persistence to serialized mutation queue with `409` conflict refresh/retry and explicit corruption handling.
+- Promoted MCP runtime status identity to `(source, serverId)` throughout runtime map creation and status resolution/rendering.
+- Added hard conflict rejection for Codex MCP `headers`/`http_headers` alias mismatches; equal aliases canonicalize cleanly.
+- Tightened backend/frontend context telemetry parsing to accept only finite non-negative integers.
+- Hardened git decoration fallback to avoid partial-overwrite regressions under truncated fallback output.
+- Regenerated endpoint/type bindings and updated frontend callers/tests to the new managed-key contract.
 
-- Implemented launcher review fixes across backend/frontend/release workflow without adding backward-compatibility shims: transactional session rollback on trust-store persistence failure, explicit launcher-directory truncation contract/UI, mode-aware endpoint-origin routing, launcher metadata/install scope hardening, and deterministic installer-version resolution.
-- Enforced launcher install scope end-to-end by requiring `settaHome` in launcher metadata schema v3, validating metadata scope during status/setup, and propagating `--setta-home` through generated launcher wrappers on Linux/macOS/Windows.
-- Simplified workspace switcher handoff flow by always persisting pending launch state locally before navigating to `/launching`, and fixed launch-page back navigation to reopen the local switcher for backend/launcher `/home` return targets.
-- Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/trust contracts, truncation behavior, endpoint-origin policy, release installer-version resolver, and SSH launcher-origin handoff expectations.
-- Ran cleanup with `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout) and then validated targeted backend/frontend/Playwright suites in this workstream.
+### UX/DX Before -> After
+- API-key saves: out-of-order writes could silently drop unrelated keys -> stale saves now fail explicitly (`409`) and frontend retries from authoritative snapshot.
+- Corruption handling: route/watcher/runtime could diverge -> one fail-closed behavior across all consumers with actionable typed errors.
+- MCP diagnostics: duplicate IDs across sources could show wrong status chips -> each source/server pair now resolves independently.
+- Config debugging: conflicting header aliases were silently accepted -> conflicts fail fast with deterministic remediation.
+- Context trust: malformed telemetry could look valid (e.g., coerced to `0`) -> invalid telemetry is unavailable instead of fabricated.
+- Git refs display: decorations could disappear intermittently on large refs -> fallback preserves existing decorations unless complete valid fallback data is available.
 
-## 2026-02-27 08:21:02 PST
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest: `120 passed` (`tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`, `tests/llm/test_config.py`, `tests/agentic/test_context_usage.py`, `tests/routers/test_git_routes.py`, `tests/routers/test_share_policy_routes.py`).
+- Frontend targeted Vitest: `31 passed` (`aiSaveLLMApiKeys`, `aiResourceLoadGuards`, `contextTelemetry`, `projectChatSkillsMcpViewerUtils`, `llmConfigUtils`).
+- Playwright targeted e2e: `31 passed` (project-ai settings/MCP viewer + related app-config/misc specs).
+- CDP visual verification: Project AI settings and Skills/MCP viewer exercised; runtime crash path in `buildLLMConfigGroups` no longer reproduces.
 
-- Consolidated backend mode/origin/trust boundary decisions into shared policy helpers (`frontend_origin_policy`) and rewired launch return-origin validation, CORS trusted-origin checks, and dev auto-auth origin/referer checks to the shared contract.
-- Unified launcher handoff trust persistence lifecycle by introducing `trust_frontend_origin_for_launcher_session` and reusing it across launch-handoff trust writes and bootstrap consume trust writes with auth-cookie-aligned expiry.
-- Consolidated frontend mode boundary behavior into `serverModeBoundaryPolicy` so endpoint-origin routing, launcher capability gating, and workspace-launch mode policy now derive from one explicit contract instead of duplicated route-specific logic.
-- Added/updated focused backend and frontend tests for the consolidated contracts, including launch/CORS/auth route coverage, Vitest policy coverage, and launcher-origin + launcher-home Playwright flows.
-- Ran cleanup via `gcf` workflow (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and updated `gcf.log` from this run.
+## 2026-02-26 09:23:46 PST
 
-## 2026-02-27 08:49:58 PST
+### Consolidated Findings
+- Managed API-key websocket updates were values-only, dropping revision/corruption metadata and causing avoidable conflict churn.
+- External-agent preflight/runtime credential resolution still treated `.env` as an active fallback source after managed-key migration.
+- Selected-thread chat provenance could hydrate into ambiguous execution state instead of hard-blocking on missing/mismatched provenance.
+- Project AI panes used direct `localStorage` calls without a shared fail-open adapter.
+- Managed key read-path canonicalization accepted whitespace-only values, diverging from write-path normalization.
 
-- Fixed release workflow preconditions by adding `actions/checkout@v4` to `resolve_installer_version` before running repository scripts.
-- Added a workflow contract pytest that parses `release-desktop-launcher.yml` and fails if any `./scripts/...` run step appears before checkout within a job.
-- Corrected frontend endpoint-origin policy drift by making `GET_SETTA_HOME_INFO` mode-scoped (backend in IDE/unresolved mode, launcher in launcher mode), aligned with backend mode guards.
-- Hardened workspace switcher launcher-management scope by propagating hydrated `settaHome` into launcher settings, requiring scope in that flow, and fail-fast disabling controls with explicit scope-resolution errors when unavailable.
-- Added/updated Vitest and Playwright coverage for the above contracts, including IDE-mode backend-origin assertions for `settaHomeInfo`, launcher settings scoped requests, and explicit `settaHome` payload checks on launcher update requests.
-- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+### Implemented Fixes (No Backward Compatibility Layer)
+- Promoted websocket API-key updates to a typed revisioned snapshot contract (`apiKeys`, `revision`, `corrupt`, `errorCode`, `message`) and unified runtime push/pull reducers on that snapshot shape.
+- Removed `.env` fallback from external-agent env assembly and preflight; credential presence now comes from process env + managed keys only, with whitespace-aware normalization.
+- Added typed chat hydration terminal error codes (`engine_config_missing`, `engine_type_mismatch`, `llm_config_missing`) and enforced deterministic Project AI blocked-mode UX for selected blocked threads.
+- Added a shared `safeLocalStorage` fail-open adapter and migrated Project AI local persistence callsites to it.
+- Aligned managed key normalization across read/write pathways and rejected whitespace-only secrets as corrupt/missing where applicable (including transcription API-key resolution).
+- Regenerated generated endpoint/type artifacts and updated frontend websocket/hydration consumers to the new contracts.
 
-## 2026-02-27 09:43:23 PST
+### UX/DX Before -> After
+- API-key sync semantics: values-only websocket updates could leave stale revisions and hidden corruption state -> realtime updates now stay revision/corruption-aware and deterministic.
+- Secret source-of-truth: clearing managed keys could still leave stale `.env` credentials active -> clearing managed keys now deterministically affects runtime/preflight behavior.
+- Thread continuation safety: selected historical threads could proceed without explicit provenance guarantees -> blocked threads now surface explicit reasons and disable send controls.
+- Storage resilience: localStorage restrictions could break Project AI render/effects -> persistence degrades to in-memory fallback without crashing the pane.
+- Invalid secret material: whitespace-only key values could appear present and fail later -> invalid key material now fails fast with explicit missing/corrupt semantics.
 
-- Hardened SSH launch transactional behavior by rolling back newly created remote sessions when launcher-origin trust persistence fails, and surfacing explicit `RemoteRollbackFailed` when cleanup fails.
-- Added `rollback_remote_workspace_session` to remote SSH orchestration to execute remote `status --delete-session` with the resolved remote shell/workspace/path args and strict launch-error mapping.
-- Removed obsolete `/launcherAppMode` backend/frontend route surface (route enum, generated endpoint/type, and router handler) instead of preserving a compatibility shim.
-- Tightened workspace-switcher launch handoff behavior by dropping legacy hash compatibility (`pl`/`plr`) and only consuming the current launch-intent hash contract (`plt`/`pla`) with safe hash cleanup.
-- Fixed launcher-mode `settaHomeInfo` behavior by keeping that endpoint on backend origin and skipping launcher-scope hydration in launcher mode, with corresponding frontend policy/test updates.
-- Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/error contracts, removed route surface, launch-hash handling, and switcher back-navigation hydration flow.
-- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest: `29 passed` (`tests/llm/test_api_keys.py`, `tests/llm/test_api_key_runtime_sync.py`, `tests/llm/test_transcription_sessions.py`, targeted external-agent env tests, targeted typed hydration route tests).
+- Frontend targeted Vitest: `77 passed` (`safeLocalStorage`, API-key websocket/snapshot reducers, hydration outcome typing, project-chat blocked-mode helpers).
+- Playwright targeted e2e: `5 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts`).
+- CDP visual verification: blocked-thread banner and disabled composer/send controls confirmed in Project AI chat.
 
-## 2026-02-27 10:35:01 PST
+## 2026-02-26 10:24:46 PST
 
-- Enforced token-first workspace launch flow end-to-end: workspace switcher now creates launch intents before navigating to `/launching`, pending storage carries tokenized launch request plus minimal UI metadata, and `/launch` rejects routed requests missing `launchIntentToken`.
-- Removed dead launch-intent replay-consume path from `LaunchIntentTokenManager` so launch-intent consumption remains single-authority in `WorkspaceLaunchIntentStore.consume_once(...)`.
-- Completed SSH trust-failure rollback as one transactional primitive by rolling back both remote session state and local tunnel metadata/process state for newly started remote launches.
-- Hardened URL handoff cleanup/recovery by always scrubbing launch control params (`plt`, `pla`, `pl`, `plr`) and reusing clone-safe `replaceState` fallback behavior for open-switcher query consumption.
-- Made release installer-version resolver test version-agnostic by deriving expected value from backend `__version__` source instead of pinning a transient literal.
-- Added/updated backend pytest, frontend Vitest, and Playwright coverage for token-only launch contracts, rollback invariants, URL cleanup fallbacks, and workspace-switcher/e2e launch behavior; targeted suites passed in this workstream.
-- Ran `pnpm gcf` request flow: root `pnpm gcf` failed due missing root importer manifest, then executed `pnpm -C frontend gcf` successfully.
+### Consolidated Findings
+- Repository cleanup/generation needed to be rerun from workspace package context (`frontend/`) for this worktree.
+- Consolidated review history is maintained in `cumulative_review.md`; top-level `review*.md` files are transient inputs and should be removed after consolidation.
 
-## 2026-02-27 11:19:11 PST
+### Implemented Fixes (No Backward Compatibility Layer)
+- Ran `pnpm -C frontend gcf` to regenerate, prune, and format generated/frontend/backend artifacts.
+- Appended this cumulative review entry as the canonical top-level review record.
+- Removed top-level review docs (`review1.md`, `review2.md`, `review3.md`) from the workspace.
 
-- Implemented review-driven launch/session hardening without backward-compatibility shims: local trust-persistence rollback is now transactional (`terminate -> wait -> kill fallback -> verify -> delete metadata`) and returns typed `LocalRollbackFailed` when cleanup cannot complete.
-- Fixed launch-intent lifecycle consistency by making invalid session consume attempts side-effect free in `WorkspaceLaunchIntentStore.consume_once(...)`; token removal now occurs only on valid consume paths.
-- Tightened session safety contract by requiring explicit `serverMode` in `SessionMetadata` (no implicit `ide` default), so malformed session metadata is rejected/quarantined rather than fail-open classified.
-- Removed dead contract/code surface identified in review: dropped unused `RemoteConnectResult.launcher_origin`, removed unused `remove_path_if_exists(...)`, and removed unused `write_recent_workspaces(...)` production API.
-- Updated launch error UX to eliminate misleading one-time-token retries by removing the launch-page `Retry` action; recovery flow is now `Back to Switcher` only (which mints a fresh launch intent).
-- Added/updated backend pytest and frontend Playwright coverage for rollback ordering/failure typing, token non-consumption on invalid session, explicit-session-mode quarantine/status filtering, remote result contract guard, and no-retry launch error UI.
-- Ran `pnpm gcf` for this pass (executed in `frontend/` due repo importer layout) and validated targeted backend pytest suites, targeted Vitest, and targeted Playwright with passing results.
+### UX/DX Before -> After
+- Review records: multiple transient top-level review files -> single cumulative audit trail in `cumulative_review.md`.
+- Cleanup workflow: stale generated/pruned state risk -> synchronized generated outputs and formatting after `gcf`.
 
-## 2026-02-27 12:13:39 PST
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 
-- Unified local rollback semantics by extracting shared transactional rollback helpers and applying them to both `/launch` and `/openLauncherWorkspace`; launcher-home now returns explicit `LocalRollbackFailed` when cleanup cannot complete.
-- Enforced the single token-first `/launch` route contract (always require `launchIntentToken`) and moved route-independent launch execution into `execute_launch_request(...)` so non-route launch logic remains directly testable without preserving tokenless route behavior.
-- Hardened SSH trust-failure cleanup by making local tunnel rollback transactional: verify process exit before metadata deletion, preserve metadata if the process remains alive, and surface typed `TunnelRollback` failures.
-- Removed inert origin-regex policy surface by deleting `FRONTEND_ORIGIN_REGEX` plumbing and CORS regex wiring; trusted-origin decisions now flow only through explicit configured origins plus session-scoped trusted-origin storage.
-- Added/updated backend unit/integration and Playwright coverage for launch-token contract enforcement, local/remote rollback error typing, SSH tunnel rollback invariants, and trusted-origin policy behavior.
-- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+## 2026-02-26 11:25:39 PST
 
-## 2026-02-27 13:37:27 PST
+### Consolidated Findings
+- Project chat thread compatibility could be evaluated before chat provenance was authoritative, producing premature blocked states.
+- Provider dictation availability could be derived from non-authoritative API key snapshots.
+- Managed API-key unavailable/corrupt handling did not keep authoritative state aligned across load, snapshot, and save paths.
+- Codex trusted-project TOML serialization could alter project keys through quoting normalization.
+- Missing external-agent run chat hydration returned an untyped 404 detail.
 
-- Implemented review-driven launch/session correctness fixes with no backward-compatibility shim: local rollback now requires PID identity (`pid` + `pidCreateTime`) and fails closed before metadata deletion on identity mismatch.
-- Added shared PID identity helpers and reused them across local rollback and SSH tunnel PID create-time checks to keep process-ownership validation consistent.
-- Reordered launcher-state persistence to be commit-after-trust: `lastUsedWorkspace` and launcher recents now persist only after trusted-origin persistence succeeds; trust-failure paths perform rollback/error handling without launcher-state writes.
-- Extended tests across unit/integration/e2e for PID-identity rollback failures, trust-failure no-persist invariants, and success-path commit ordering; updated launcher-home Playwright coverage for open-failure UX behavior.
-- Ran requested cleanup workflow: root `pnpm gcf` failed due missing root importer manifest, then `pnpm -C frontend gcf` completed successfully.
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added authoritative `chatProvenanceByChatId` store state derived from agent runs and used authoritative gating in selected-thread compatibility checks.
+- Synced chat provenance immediately after submit/edit chat creation and triggered run refresh to keep thread visibility deterministic.
+- Required authoritative API-key snapshots when resolving provider dictation availability in both Project AI and managed chat surfaces.
+- Unified managed API-key unavailable/corrupt state handling around deterministic key clearing and explicit `apiKeysAuthoritative` transitions.
+- Refactored `safeLocalStorage` to a deterministic namespace overlay adapter model for read-after-write/remove behavior when persistence throws.
+- Removed Codex trusted-project key quoting heuristics and added strict TOML round-trip key validation.
+- Standardized missing external-agent chat hydration to typed `chat_not_found` route errors.
+- Added/updated backend, Vitest, and Playwright coverage for these paths.
+
+### UX/DX Before -> After
+- Thread compatibility: selected threads could be blocked while provenance was still loading -> compatibility remains unknown until authoritative provenance is available.
+- Dictation controls: availability could appear valid from stale key snapshots -> availability now requires authoritative key state.
+- Key-store failure semantics: unavailable/corrupt paths could leave stale state -> state now converges deterministically across load/save/realtime updates.
+- External-agent config generation: trusted project keys could drift on serialization -> keys now round-trip exactly with validation.
+- Chat hydration handling: missing runs returned generic 404 detail -> typed not-found errors provide deterministic frontend handling.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Targeted Vitest suite: passed (`72 passed`).
+- Targeted backend pytest: passed.
+- Targeted Playwright e2e scenarios for project chat hydration/provenance: passed.
+
+## 2026-02-26 21:36:20 PST
+
+### Consolidated Findings
+- Selected-thread hydration could still proceed before authoritative provenance metadata settled, and stale hydration cache decisions could persist across metadata changes.
+- Hydration merge behavior could retain local-only ghost messages after backend snapshots when streaming was no longer active.
+- Skills/MCP activity detection relied on prompt token heuristics (`$Skill`) instead of structured invocation metadata.
+- Managed API-key write route used a route-local runtime update path instead of the canonical sync-and-broadcast mechanism.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Enforced authoritative selected-thread provenance gating in Project AI hydration, removed selected-thread fallback execution resolution while provenance is unknown, and introduced metadata-revision-driven hydration cache invalidation/trim behavior.
+- Added backend-authoritative hydration reconciliation to replace local message state on hydrate when stream overlays are inactive, while preserving local-only overlays only for active streams.
+- Removed prompt-token skill heuristics and derived skill activity from structured tool metadata only, including explicit `Unknown` activity states when metadata is unavailable.
+- Updated `route_set_llm_api_keys` to use canonical managed-key runtime sync/broadcast immediately after successful writes and event logging.
+- Added/updated targeted backend pytest, frontend Vitest (unit/integration/perf), and Playwright e2e coverage for provenance gating, hydration reconciliation, skills activity derivation, and API-key snapshot propagation.
+
+### UX/DX Before -> After
+- Thread hydration authority: selected historical threads could hydrate from ambiguous state -> hydration now waits for authoritative provenance and reevaluates cleanly on metadata revision changes.
+- Transcript consistency: stale local-only assistant artifacts could survive hydrate -> backend snapshots now deterministically replace inactive-stream state.
+- Skill visibility trust: prompt text could imply false skill activity -> skill indicators now reflect actual structured tool activity or explicit unknown state.
+- API-key propagation path: runtime updates were split between route-local and canonical sync flows -> one canonical sync+broadcast path now drives runtime and websocket snapshots.
+
+### Verification
+- `pnpm gcf` equivalent run in package context (`source activate.sh && cd frontend && pnpm gcf`): completed successfully (`exit 0`).
+- Frontend targeted Vitest suites for updated hydration/merge/skills paths: passed.
+- Backend targeted pytest (`tests/routers/test_llm_api_key_routes.py`): passed.
+- Targeted Playwright e2e for Project AI hydration provenance and skills viewer paths: passed.
+- CDP visual verification: Project AI settings and Skills/MCP viewer flows validated.
+
+## 2026-02-26 22:26:38 PST
+
+### Consolidated Findings
+- Cleanup and generation for this worktree must run from `frontend/` package context.
+- Top-level `review*.md` files are transient reviewer inputs and should be removed after consolidating into `cumulative_review.md`.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Ran `source activate.sh && cd frontend && pnpm gcf` to regenerate/prune/format artifacts.
+- Appended this timestamped cumulative entry as the canonical consolidated review record.
+- Removed top-level review docs (`review1.md`, `review2.md`, `review3.md`) from the workspace.
+
+### UX/DX Before -> After
+- Review workflow: separate transient top-level review docs -> single cumulative review ledger.
+- Cleanup state: possible stale generated/pruned artifacts -> refreshed, synchronized generated and formatted outputs after `gcf`.
+
+### Verification
+- `source activate.sh && cd frontend && pnpm gcf`: completed successfully (`exit 0`).
+
+## 2026-02-27 08:29:30 PST
+
+### Consolidated Findings
+- Project AI chat hydration/execution settings still had split authority across parallel flags and fallback branches, creating repeated patch points.
+- Managed API-key unavailable/corrupt handling remained duplicated across frontend save/load/update paths.
+- Codex MCP table canonicalization existed in multiple backend paths and could drift.
+- The `pnpm gcf` wrapper script uses `/dev/fd` process substitution, which is blocked by this sandbox.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added the execution plan at `docs/plans/fault-line-contract-consolidation-plan.md` and implemented the listed consolidation work.
+- Introduced `projectChatHydrationAuthority.ts` and rewired `ProjectChat` + `ProjectChatCore` to consume one hydration authority contract instead of parallel booleans.
+- Unified managed API-key unavailable/corrupt mapping in frontend AI actions and reused that path from save-related flows.
+- Centralized Codex MCP canonicalization in `backend/setta/mcp/codex_config.py` and reused it from external-agent settings.
+- Added/updated targeted Vitest, backend pytest, and Playwright coverage for hydration provenance and stale-thread behavior.
+- Ran the `pnpm gcf` equivalent sequence with env activation (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and captured output in `gcf.log`.
+- Removed top-level `review*.md` files (no files matched in this worktree).
+
+### UX/DX Before -> After
+- Hydration authority: fragmented per-flag branching -> one typed authority object with deterministic precedence.
+- API-key failure handling: repeated callsite-specific branches -> one explicit corruption/unavailable pathway.
+- Codex config normalization: duplicated canonicalization behavior -> single source-of-truth helper.
+- Cleanup execution under sandbox: wrapper failure on `/dev/fd` -> equivalent deterministic cleanup flow executed successfully.
+
+### Verification
+- `source activate.sh && cd frontend && (pnpm generate && pnpm full-cleanup && pnpm f)`: completed successfully (`exit 0`), output captured to `gcf.log`.
+- Targeted frontend Vitest suite from this consolidation set: passed (`65 passed`).
+- Targeted backend pytest sets: passed (`16 passed`, `14 passed`).
+- Targeted Playwright provenance suite: passed (`12 passed`).
+- CDP visual verification: Project AI pane/chat/settings flow checked after hydration-authority consolidation with no visual regression observed.
+
+## 2026-02-27 09:29:11 PST
+
+### Consolidated Findings
+- Managed API-key store reads could surface untyped decode failures and break route/runtime sync guarantees.
+- External-agent preflight availability could be blocked by managed-store unavailability even when required process env vars were already present.
+- Persisted AI store retained a legacy `viewHistory` hydration path alongside canonical `viewThreads`.
+- Dead paths remained in backend/frontend (`iter_codex_config_paths`, `apply_api_key_updates`, chat heuristic modules no longer used by runtime).
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Hardened managed API-key read/write flows to map invalid UTF-8 and malformed payloads to typed corrupt/unavailable contracts, while preserving explicit repair-on-save semantics for `expectedRevision=0`.
+- Updated external-agent preflight issue handling so managed-store-unavailable diagnostics are non-blocking when env requirements are already satisfied and blocking only when unresolved vars remain.
+- Removed legacy `viewHistory` hydration shim and kept canonical `viewThreads` persistence behavior only.
+- Removed dead code paths: backend helpers and unused frontend heuristic modules/tests.
+- Ran `pnpm -C frontend gcf` successfully to regenerate/prune/format after changes.
+
+### UX/DX Before -> After
+- Managed key failures: potential decode exception/500 surfaces -> deterministic typed corruption/unavailable outcomes.
+- Preflight availability: false-negative unavailable states with valid process env -> availability now matches runtime executability.
+- Persisted thread visibility: dual-key hydration ambiguity -> single canonical key behavior.
+- Maintenance surface: unused heuristic/dead helper drift risk -> reduced active code surface and clearer ownership.
+
+### Verification
+- Backend pytest (targeted suites): passed (`64 passed`).
+- Frontend Vitest (targeted suites): passed (`8 passed` + `5 passed`).
+- Playwright targeted e2e (`project ai ignores legacy viewHistory in persisted ai store`): passed (`1 passed`).
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- CDP visual check: completed (validated canonical `setta_ai_data` persistence behavior after project load).
+
+## 2026-02-27 09:49:25 PST
+
+### Consolidated Findings
+- Codex MCP parsing still accepted non-string scalar fields by coercing or defaulting values instead of rejecting malformed typed input.
+- External-agent preflight availability still diverged from runtime executability for managed key-store corruption cases.
+- Managed API-key persistence still exposed a parallel non-CAS write contract.
+- Frontend dictation code retained an orphan session-handler implementation that was not used at runtime.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Enforced strict scalar typing for Codex MCP server fields (`transport`, `command`, `url`, `cwd`, `encoding`) and skipped invalid servers with explicit parse warnings.
+- Unified managed-store issue gating in external-agent preflight so corruption/unavailable diagnostics remain visible but only block availability when required env vars are unresolved.
+- Removed legacy `write_managed_api_keys` and kept CAS-only writes via `write_managed_api_keys_with_expected_revision`.
+- Removed dead frontend hook implementation from `useProviderTranscriptionSessionHandlers.ts` while preserving active helper behavior.
+- Added/updated regression tests for strict Codex scalar rejection, Codex bootstrap marker behavior with invalid-only imports, preflight corruption/env parity, and API-key writer contract removal.
+
+### UX/DX Before -> After
+- MCP config validation: malformed scalar input could silently mutate behavior -> malformed scalar input is rejected deterministically with field-specific diagnostics.
+- External-agent readiness: engines could be flagged unavailable even when runtime env satisfied requirements -> preflight availability now tracks actual executability while still surfacing managed-store warnings.
+- Managed key writes: multiple write contracts with different conflict behavior -> single CAS contract with deterministic revision semantics.
+- Dictation maintenance: misleading dead alternate path -> single authoritative runtime path and reduced maintenance surface.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `117 passed` (`tests/llm/test_config.py`, `tests/agentic/test_external_agent_preflight.py`, `tests/agentic/test_external_agent_settings.py`, `tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`).
+- Backend targeted env parity pytest: `5 passed` (`tests/agentic/test_external_agent_runner.py -k env`).
+- Frontend targeted Vitest: `2 passed` (`useProviderTranscriptionSessionHandlers.test.ts`).
+- CDP visual check: done (validated app page load and console-clean state at `/home`).
+
+## 2026-02-27 10:20:30 PST
+
+### Consolidated Findings
+- Canonical Codex MCP server ID normalization still allowed silent overwrite on collisions (`"foo"` vs `" foo "`), violating deterministic import invariants.
+- Frontend transcription refactor residue remained (`useProviderTranscriptionSessionHandlers.ts` and its orphan test-only call path).
+- Transcription error module included an unused exported type alias (`TranscriptionErrorCode`) and lacked active-path assertions for null append/stop deltas in provider dictation flow.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated Codex MCP parsing to detect canonical-ID collisions after normalization, skip all colliding entries for that canonical ID, and emit explicit collision warnings with canonical/raw IDs.
+- Added backend regression coverage for collision fail-closed behavior in LLM bootstrap and external-agent Codex settings bootstrap.
+- Removed orphan frontend transcription session helper module and its isolated test.
+- Removed the unused `TranscriptionErrorCode` alias from frontend transcription error contracts.
+- Added active-runtime transcription unit coverage to assert `ProviderTranscriptionError` on null append and null stop deltas.
+- Added Playwright coverage for chat-section dictation behavior when provider transcription stop returns a null delta (auto mode stays on browser fallback path).
+- Ran `pnpm -C frontend gcf` from package context and kept the resulting repo state synchronized.
+
+### UX/DX Before -> After
+- MCP imports: ambiguous server IDs could silently pick a winner -> colliding canonical IDs are rejected deterministically with actionable logs.
+- Transcription code ownership: orphan helper implied a live runtime path -> only active dictation/transcription paths remain.
+- Error contract clarity: unused alias and partial runtime assertions -> tighter transcription error surface with active-flow guard coverage.
+- Dictation fallback confidence: null-stop edge case behavior was implicit -> explicit e2e guardrail on browser fallback continuity in auto mode.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `58 passed` (`tests/llm/test_config.py`, `tests/agentic/test_external_agent_settings.py`).
+- Frontend targeted Vitest: `23 passed` (`src/state/actions/aiTranscribeChatAudio.test.ts`, `src/utils/transcriptionErrors.test.ts`, `src/components/Chat/dictationPolicy.test.ts`).
+- Targeted Playwright e2e: `1 passed` (`frontend/tests/e2e/chat/chat-dictation-fallback.spec.ts`, grep: `chat section falls back to browser dictation when provider transcription stop returns no delta`).
+
+## 2026-02-27 11:02:43 PST
+
+### Consolidated Findings
+- Managed API-key CAS write paths could still leak untyped filesystem failures during save/repair writes.
+- MCP runtime status route and setta-home route exposed different `activeSettaFilesLocation` semantics for custom `setta_files` roots.
+- Frontend Skills/MCP utilities retained legacy runtime-status parser code paths that were no longer used at runtime.
+- Skills/MCP local storage hydration still accepted a legacy array-shaped payload for agent-native slash commands.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Hardened managed API-key write-path error mapping to return typed `store_unavailable` outcomes for all write branches.
+- Unified backend `activeSettaFilesLocation` normalization (`None -> "custom"`) and reused it across both status endpoints.
+- Removed legacy MCP runtime-status parser functions and kept typed runtime mapper resolution as the only active path.
+- Removed legacy array-shape slash-command hydration fallback and kept canonical object-shape hydration only.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for these behaviors.
+- Ran cleanup/generation via package-context `pnpm -C frontend gcf`.
+
+### UX/DX Before -> After
+- API-key save failures: generic/untyped write-path failures possible -> deterministic typed unavailable contract across read/write/repair paths.
+- Custom root labeling: route-dependent semantics -> consistent "custom" provenance across status endpoints and MCP viewer labels.
+- Runtime status parsing: dead compatibility path in production module -> single typed runtime ingestion path aligned with runtime behavior.
+- Slash command hydration: dual storage semantics -> one canonical persisted shape with clearer failure/debug behavior.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `37 passed` (`tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`, `tests/routers/test_mcp_server_runtime_status_route.py`).
+- Frontend targeted Vitest: `21 passed` (`projectChatSkillsMcpViewerUtils.test.ts`, `projectChatSkillsMcpViewerUtils.perf.test.ts`, `ProjectChatSkillsMcpViewer.test.ts`).
+- Targeted Playwright e2e: `14 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts`).
+- CDP visual check: done (Skills/MCP viewer rendered `ACTIVE CUSTOM SETTA_FILES ROOT` under runtime-status custom location payload).
+
+## 2026-02-27 11:49:04 PST
+
+### Consolidated Findings
+- Top-level `review*.md` files were temporary reviewer inputs and should not remain in the repository after consolidation.
+- Final repo hygiene checkpoint was needed before commit to keep generated/cleanup outputs in sync.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Ran `pnpm -C frontend gcf` to execute generation, cleanup, and formatting workflows from the package context.
+- Appended this cumulative record entry with a timestamped heading.
+- Removed all top-level `review*.md` files from the worktree.
+
+### UX/DX Before -> After
+- Review artifact handling: temporary review files persisted at repo root -> review outcomes now preserved only in `cumulative_review.md`.
+- Finalization flow: cleanup status implicit before commit -> explicit `gcf` checkpoint recorded in cumulative history.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `find . -maxdepth 1 -type f -name 'review*.md'`: no matches after cleanup.
+
+## 2026-02-27 13:32:17 -0800
+
+### Consolidated Findings
+- Session-scoped Codex config persistence was gated on bootstrap/canonicalization flags, so canonical config creation varied by host `CODEX_HOME` content.
+- `test_codex_home_config_is_written` could fail on hosts without bootstrapable Codex MCP servers because canonical config was not always written.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated `build_codex_settings_file` to always persist canonical managed Codex config when generating runtime session output for non-explicit settings modes.
+- Updated Codex runner integration tests to explicitly seed `CODEX_HOME` for the bootstrap-positive contract and assert imported server persistence.
+- Added empty-bootstrap deterministic coverage (`CODEX_HOME` unset + isolated `HOME`) in both runner and settings test suites to assert canonical config creation without import marker.
+- Ran `pnpm -C frontend gcf` and kept resulting generated/cleanup formatting outputs synchronized.
+
+### UX/DX Before -> After
+- Managed Codex runtime sessions: canonical config file could appear/disappear by machine state -> canonical config is always present for managed runtime sessions.
+- Test determinism: host `~/.codex` state could influence pass/fail outcomes -> tests now fully control bootstrap source and are host-independent.
+- Persistence debugging: conditional canonical writes obscured expected artifact layout -> deterministic canonical/runtime split with explicit marker semantics.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend focused pytest: `3 passed` (`tests/agentic/test_external_agent_runner.py -k "codex_home_config_is_written or codex_runtime_config_persists_canonical_config_without_bootstrap_source or codex_runtime_home_respects_canonical_bootstrap_marker"`).
+- Backend module pytest: `119 passed` (`tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`).
+- Backend broader regression subset: `207 passed` (`tests/llm/test_api_keys.py tests/routers/test_llm_api_key_routes.py tests/agentic/test_external_agent_preflight.py tests/agentic/test_external_agent_runner.py tests/mcp/test_base_tools.py tests/routers/test_git_routes.py`).
+- Ruff targeted check: passed for touched Python files.
