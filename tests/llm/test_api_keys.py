@@ -195,7 +195,7 @@ def test_write_managed_api_keys_with_expected_revision_reports_unavailable_store
         )
 
         # Write-path I/O failures must return the typed unavailable contract.
-        def _raise_write_failure(*args, **kwargs) -> None:
+        def _raise_write_failure(*_args: object, **_kwargs: object) -> None:
             raise OSError("disk full")
 
         monkeypatch.setattr(
@@ -228,7 +228,7 @@ def test_write_managed_api_keys_with_expected_revision_reports_unavailable_store
         )
 
         # Corrupt-store repair writes must use the same typed unavailable contract.
-        def _raise_write_failure(*args, **kwargs) -> None:
+        def _raise_write_failure(*_args: object, **_kwargs: object) -> None:
             raise OSError("disk full")
 
         monkeypatch.setattr(

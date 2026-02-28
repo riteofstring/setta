@@ -148,14 +148,11 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
-    allow_managed_settings_update = _allow_managed_settings_update(config, base_path)
+    allow_runtime_payload_mutation = _allow_managed_settings_update(config, base_path)
+    allow_canonical_persistence = _allow_canonical_settings_persistence(config)
     canonicalize_codex_mcp_servers_payload(payload)
     _bootstrap_codex_mcp_servers_from_user_config(payload, config)
-    if (
-        output_dir is not None
-        and config.settingsMode != ExternalAgentSettingsMode.explicit_path
-        and allow_managed_settings_update
-    ):
+    if output_dir is not None and allow_canonical_persistence:
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             settings_path.write_text(_dump_toml(payload), encoding="utf-8")
@@ -164,7 +161,7 @@ def build_codex_settings_file(
                 f"Failed to persist Codex bootstrap marker to canonical config: {settings_path}"
             ) from exc
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
-    if allow_managed_settings_update:
+    if allow_runtime_payload_mutation:
         _apply_codex_managed_settings(payload, config, allowlist)
         _apply_codex_auth_settings(payload, config)
         _apply_codex_reasoning_settings(payload)
@@ -244,6 +241,15 @@ def _allow_managed_settings_update(
     ):
         return False
     return True
+
+
+def _allow_canonical_settings_persistence(config: ExternalAgentConfig) -> bool:
+    if config.settingsMode in {
+        ExternalAgentSettingsMode.read_only,
+        ExternalAgentSettingsMode.explicit_path,
+    }:
+        return False
+    return config.settingsAllowSettaEdits
 
 
 def _build_claude_managed_payload(config: ExternalAgentConfig) -> dict[str, Any]:

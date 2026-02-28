@@ -588,3 +588,31 @@
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 - `source activate.sh && ruff check backend/setta/mcp/codex_config.py backend/setta/agentic/external_agent_settings.py tests/llm/test_config.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`: passed.
 - `source activate.sh && pytest tests/llm/test_config.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py -q`: `160 passed`.
+
+## 2026-02-27 14:19:27 PST
+
+### Consolidated Findings
+- Managed-local/no-edit Codex runtime could still create canonical config on first run when canonical config was absent, because canonical write authority depended on file existence.
+- API key test write-failure stubs used unused varargs and failed strict Ruff `ARG001` checks.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Split Codex settings authority in `build_codex_settings_file` into:
+  - runtime payload mutation authority, and
+  - canonical persistence authority.
+- Added `_allow_canonical_settings_persistence` as a pure policy gate for canonical writes (managed modes + `settingsAllowSettaEdits=true` only).
+- Added backend regression coverage for no-edit managed-local runtime with missing canonical config:
+  - unit coverage in `tests/agentic/test_external_agent_settings.py`,
+  - integration coverage in `tests/agentic/test_external_agent_runner.py`.
+- Updated API key test failure stubs to typed underscore-prefixed varargs (`*_args: object, **_kwargs: object`) to satisfy strict linting.
+- Ran `pnpm -C frontend gcf` and kept the repository state synchronized.
+
+### UX/DX Before -> After
+- No-edit managed-local runtime: first run could silently create canonical Codex config depending on filesystem state -> canonical config remains absent while runtime session config is still generated.
+- Write-authority behavior: mixed policy + file-existence gate -> explicit policy-only gate for canonical persistence.
+- Test hygiene: strict Ruff checks reported `ARG001` in touched API key tests -> strict Ruff checks pass cleanly for those tests.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `source activate.sh && ruff check backend/setta/agentic/external_agent_settings.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py tests/llm/test_api_keys.py`: passed.
+- `source activate.sh && pytest -q tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`: `125 passed`.
+- `source activate.sh && pytest -q tests/llm/test_api_keys.py`: `13 passed`.

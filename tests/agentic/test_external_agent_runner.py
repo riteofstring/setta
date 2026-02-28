@@ -1683,6 +1683,53 @@ url = "http://127.0.0.1:9900/mcp"
                 if context is not None:
                     runner._cleanup_context(context)
 
+    def test_codex_runtime_config_managed_local_no_edit_does_not_create_missing_canonical(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            isolated_home = Path(tmpdir) / "isolated-home"
+            isolated_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.setenv("HOME", str(isolated_home))
+            config = ExternalAgentConfig(
+                id="codex-managed-local-no-edit-missing-canonical",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                settingsMode=ExternalAgentSettingsMode.managed_local,
+                settingsAllowSettaEdits=False,
+            )
+            canonical_config_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / "codex-managed-local-no-edit-missing-canonical"
+                / "config.toml"
+            )
+            assert not canonical_config_path.exists()
+
+            context = _build_context_for_test(runner, config)
+            runtime_codex_home = context.env.get("CODEX_HOME")
+            assert isinstance(runtime_codex_home, str)
+            runtime_payload = tomllib.loads(
+                (Path(str(runtime_codex_home)) / "config.toml").read_text(
+                    encoding="utf-8"
+                )
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert runtime_servers.get("setta", {}).get("url") == (
+                f"{C.BACKEND}/mcp/streamable/"
+            )
+            assert not canonical_config_path.exists()
+
+            runner._cleanup_context(context)
+
     def test_codex_runtime_home_respects_canonical_bootstrap_marker(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
