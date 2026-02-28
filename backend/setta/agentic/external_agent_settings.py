@@ -1,11 +1,19 @@
 import json
+import re
 import tomllib
+from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from setta.agentic.external_tool_allowlist import ExternalToolAllowlist
 from setta.database.db_objs import DBE
+from setta.mcp.codex_config import (
+    canonicalize_codex_mcp_servers_payload,
+    load_codex_mcp_server_payloads_from_config,
+    resolve_raw_codex_mcp_servers,
+)
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
@@ -21,6 +29,8 @@ _CLAUDE_SETTINGS_PROJECT = "settings.json"
 _CLAUDE_SETTINGS_LOCAL = "settings.local.json"
 _CODEX_CONFIG_NAME = "config.toml"
 _OPENCODE_CONFIG_NAME = "opencode.json"
+_CODEX_MCP_IMPORTED_AT_KEY = "codexMcpImportedAt"
+_TOML_BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 @dataclass(frozen=True)
@@ -138,6 +148,20 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
+    mcp_shape_canonicalized = canonicalize_codex_mcp_servers_payload(payload)
+    bootstrap_applied = _bootstrap_codex_mcp_servers_from_user_config(payload, config)
+    if (
+        output_dir is not None
+        and config.settingsMode != ExternalAgentSettingsMode.explicit_path
+        and (bootstrap_applied or mcp_shape_canonicalized)
+    ):
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            settings_path.write_text(_dump_toml(payload), encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"Failed to persist Codex bootstrap marker to canonical config: {settings_path}"
+            ) from exc
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
@@ -145,6 +169,7 @@ def build_codex_settings_file(
         _apply_codex_reasoning_settings(payload)
     _apply_codex_system_prompt(payload, system_prompt)
     _apply_codex_trusted_project(payload, project_root)
+    _assert_codex_project_keys_round_trip(payload)
     output_path.write_text(_dump_toml(payload), encoding="utf-8")
     return output_root
 
@@ -342,7 +367,7 @@ def _apply_codex_trusted_project(
     if not isinstance(projects, dict):
         projects = {}
     projects = _normalize_codex_project_keys(projects)
-    project_key = _quote_codex_project_key(str(project_root))
+    project_key = str(project_root)
     entry = projects.get(project_key)
     if not isinstance(entry, dict):
         entry = {}
@@ -357,17 +382,8 @@ def _normalize_codex_project_keys(
     normalized: dict[str, Any] = {}
     for key, value in projects.items():
         key_str = str(key)
-        normalized[_quote_codex_project_key(key_str)] = value
+        normalized[key_str] = value
     return normalized
-
-
-def _quote_codex_project_key(key: str) -> str:
-    stripped = key.strip()
-    if stripped.startswith('"') and stripped.endswith('"'):
-        return stripped
-    if "/" in stripped or "\\" in stripped:
-        return f'"{stripped}"'
-    return stripped
 
 
 def _apply_opencode_managed_settings(
@@ -465,6 +481,57 @@ def _set_codex_mcp_server(
     payload["mcp_servers"] = mcp_servers
 
 
+def _bootstrap_codex_mcp_servers_from_user_config(
+    payload: dict[str, Any],
+    config: ExternalAgentConfig,
+) -> bool:
+    if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
+        return False
+    if _get_codex_mcp_imported_at(payload):
+        canonicalize_codex_mcp_servers_payload(payload)
+        return False
+    existing_servers = _resolve_bootstrap_codex_mcp_servers(payload)
+    if not _has_non_setta_mcp_server(existing_servers):
+        imported_servers = load_codex_mcp_server_payloads_from_config()
+        for server_id, server_config in imported_servers.items():
+            if server_id in existing_servers:
+                continue
+            existing_servers[server_id] = server_config
+    payload.pop("mcpServers", None)
+    payload["mcp_servers"] = existing_servers
+    if not _has_non_setta_mcp_server(existing_servers):
+        return False
+    payload[_CODEX_MCP_IMPORTED_AT_KEY] = (
+        datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
+    return True
+
+
+def _get_codex_mcp_imported_at(payload: dict[str, Any]) -> str | None:
+    raw_marker = payload.get(_CODEX_MCP_IMPORTED_AT_KEY)
+    if not isinstance(raw_marker, str):
+        return None
+    marker = raw_marker.strip()
+    if not marker:
+        return None
+    return marker
+
+
+def _resolve_bootstrap_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        raw_servers = resolve_raw_codex_mcp_servers(payload)
+    except ValueError as exc:
+        raise ValueError(f"Invalid Codex MCP server config shape: {exc}") from exc
+    return deepcopy(raw_servers)
+
+
+def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:
+    for server_id in mcp_servers.keys():
+        if server_id != SETTA_MCP_SERVER_ID:
+            return True
+    return False
+
+
 def _set_opencode_mcp_server(
     payload: dict[str, Any],
     mcp_url: str,
@@ -530,6 +597,25 @@ def _dump_toml(payload: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _assert_codex_project_keys_round_trip(payload: dict[str, Any]) -> None:
+    projects = payload.get("projects")
+    if not isinstance(projects, dict):
+        return
+    serialized = _dump_toml(payload)
+    parsed = tomllib.loads(serialized) if serialized.strip() else {}
+    parsed_projects = parsed.get("projects")
+    if not isinstance(parsed_projects, dict):
+        raise ValueError("Codex projects table failed TOML round-trip validation.")
+    expected_keys = {str(key) for key in projects.keys()}
+    parsed_keys = {str(key) for key in parsed_projects.keys()}
+    if parsed_keys != expected_keys:
+        raise ValueError(
+            "Codex projects keys failed TOML round-trip validation."
+            f" expected={sorted(expected_keys)}"
+            f" parsed={sorted(parsed_keys)}"
+        )
+
+
 def _emit_toml_table(lines: list[str], path: list[str], table: dict[str, Any]) -> None:
     scalar_items: dict[str, Any] = {}
     nested_tables: dict[str, dict[str, Any]] = {}
@@ -539,12 +625,12 @@ def _emit_toml_table(lines: list[str], path: list[str], table: dict[str, Any]) -
         else:
             scalar_items[str(key)] = value
     if path:
-        lines.append(f"[{'.'.join(path)}]")
+        lines.append(f"[{'.'.join(_dump_toml_key(segment) for segment in path)}]")
     for key in sorted(scalar_items.keys()):
         value = scalar_items[key]
         if value is None:
             continue
-        lines.append(f"{key} = {_dump_toml_value(value)}")
+        lines.append(f"{_dump_toml_key(key)} = {_dump_toml_value(value)}")
     for key in sorted(nested_tables.keys()):
         if lines and lines[-1] != "":
             lines.append("")
@@ -566,9 +652,16 @@ def _dump_toml_value(value: Any) -> str:
     return json.dumps(str(value))
 
 
+def _dump_toml_key(value: str) -> str:
+    if _TOML_BARE_KEY_RE.fullmatch(value):
+        return value
+    return json.dumps(value)
+
+
 def _dump_inline_toml_table(value: dict[str, Any]) -> str:
     items = ", ".join(
-        f"{key} = {_dump_toml_value(item)}" for key, item in value.items()
+        f"{_dump_toml_key(str(key))} = {_dump_toml_value(item)}"
+        for key, item in value.items()
     )
     return f"{{ {items} }}"
 
