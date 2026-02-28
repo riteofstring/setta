@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
   openIsolatedProject,
@@ -452,7 +453,9 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
       overviewPane.getByText("Hydrated legacy alpha chat.").first(),
     ).toBeVisible();
 
-    await overviewPane.getByRole("button", { name: "Project AI Settings" }).click();
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
     const engineInput = page.getByPlaceholder("Select an engine");
     await expect(engineInput).toBeVisible();
     await engineInput.fill("Setta LLM Beta");
@@ -483,6 +486,266 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
       continueFromChatId: "chat-legacy-alpha",
       engineConfigId: "engine-beta",
     });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat continuation preserves source chat id across failed first submit retry", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const submittedPayloads: Array<{
+    chatId: string | null;
+    continueFromChatId: string | null;
+    engineConfigId: string;
+  }> = [];
+  let submitAttempt = 0;
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-alpha",
+          name: "Setta LLM Alpha",
+          engineType: "setta_llm",
+          settaLlmConfigId: "alpha-model",
+          externalAgentConfigId: null,
+        },
+        {
+          id: "engine-beta",
+          name: "Setta LLM Beta",
+          engineType: "setta_llm",
+          settaLlmConfigId: "beta-model",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "alpha-model": {
+            id: "alpha-model",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+          "beta-model": {
+            id: "beta-model",
+            model: "gpt-4.1-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "alpha-model",
+        mcpServers: {},
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-legacy-alpha",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-02-01T00:00:00Z",
+          finishedAt: "2026-02-01T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "chat-legacy-alpha",
+            engineConfigId: "engine-alpha",
+            messages: [
+              {
+                id: "legacy-user",
+                role: "user",
+                content: [{ type: "text", text: "Legacy conversation prompt" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Legacy Setta Thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    const chatId = payload?.chatId ?? null;
+    if (chatId === "chat-legacy-alpha") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "legacy-assistant",
+              role: "assistant",
+              content: [{ type: "text", text: "Hydrated legacy alpha chat." }],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "alpha-model",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: null,
+            mcpServerIds: null,
+            temporary: false,
+          },
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "beta-model",
+          model: "gpt-4.1-mini",
+          provider: "openai",
+          api_key_env: null,
+          base_url: null,
+          other_params: null,
+          mcpServerIds: null,
+          temporary: false,
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | {
+          chatId?: string | null;
+          continueFromChatId?: string | null;
+          engineConfigId?: string;
+        }
+      | undefined;
+    submittedPayloads.push({
+      chatId: payload?.chatId ?? null,
+      continueFromChatId: payload?.continueFromChatId ?? null,
+      engineConfigId: payload?.engineConfigId ?? "",
+    });
+    submitAttempt += 1;
+    if (submitAttempt === 1) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "forced first-submit failure" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify("chat-new-beta"),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Legacy Setta Thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+    await expect(
+      overviewPane.getByText("Hydrated legacy alpha chat.").first(),
+    ).toBeVisible();
+
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
+    const engineInput = page.getByPlaceholder("Select an engine");
+    await expect(engineInput).toBeVisible();
+    await engineInput.fill("Setta LLM Beta");
+    await engineInput.press("Enter");
+    await expect(engineInput).toHaveValue("Setta LLM Beta");
+
+    await overviewPane
+      .getByTestId("project-chat-engine-switch-continue-button")
+      .click();
+    await expect(
+      overviewPane.getByTestId("project-chat-engine-switch-banner"),
+    ).toHaveCount(0);
+
+    allowExpectedApiError(page, {
+      path: "/api/getLLMResponse",
+      statuses: [500],
+      method: "POST",
+      count: 1,
+    });
+    await overviewPane
+      .locator("textarea")
+      .first()
+      .fill("Attempt one should fail.");
+    await overviewPane.locator("textarea").first().press("Enter");
+    await expect.poll(() => submittedPayloads.length).toBe(1);
+
+    await overviewPane
+      .locator("textarea")
+      .first()
+      .fill("Attempt two should work.");
+    await overviewPane.locator("textarea").first().press("Enter");
+    await expect.poll(() => submittedPayloads.length).toBe(2);
+
+    expect(submittedPayloads).toEqual([
+      {
+        chatId: null,
+        continueFromChatId: "chat-legacy-alpha",
+        engineConfigId: "engine-beta",
+      },
+      {
+        chatId: null,
+        continueFromChatId: "chat-legacy-alpha",
+        engineConfigId: "engine-beta",
+      },
+    ]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

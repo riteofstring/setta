@@ -21,7 +21,6 @@ _SUPPORTED_FIELDS = {
     "encoding",
     "encoding_error_handler",
     "http_headers",
-    "headers",
 }
 _SUPPORTED_ENCODING_ERROR_HANDLERS = {"strict", "ignore", "replace"}
 
@@ -54,45 +53,22 @@ def _resolve_raw_codex_mcp_servers_table(
 
 
 def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
+    if "mcpServers" in payload:
+        raise ValueError("'mcpServers' is not supported. Use 'mcp_servers'.")
     snake_case_servers = _resolve_raw_codex_mcp_servers_table(
         payload,
         field_name="mcp_servers",
     )
-    camel_case_servers = _resolve_raw_codex_mcp_servers_table(
-        payload,
-        field_name="mcpServers",
-    )
-    if snake_case_servers is None and camel_case_servers is None:
+    if snake_case_servers is None:
         return {}
-    if snake_case_servers is not None and camel_case_servers is not None:
-        if snake_case_servers != camel_case_servers:
-            raise ValueError(
-                "Both 'mcp_servers' and 'mcpServers' are present with conflicting values"
-            )
-        return snake_case_servers
-    if snake_case_servers is not None:
-        return snake_case_servers
-    if camel_case_servers is None:
-        return {}
-    return camel_case_servers
+    return snake_case_servers
 
 
 def canonicalize_codex_mcp_servers_payload(payload: dict[str, Any]) -> bool:
-    has_snake_key = "mcp_servers" in payload
-    has_camel_key = "mcpServers" in payload
-    if not has_snake_key and not has_camel_key:
+    if "mcp_servers" not in payload and "mcpServers" not in payload:
         return False
-    canonical_servers = resolve_raw_codex_mcp_servers(payload)
-    existing_snake_value = payload.get("mcp_servers")
-    changed = has_camel_key
-    if not isinstance(existing_snake_value, dict):
-        changed = True
-    elif existing_snake_value != canonical_servers:
-        changed = True
-    payload.pop("mcp_servers", None)
-    payload.pop("mcpServers", None)
-    payload["mcp_servers"] = deepcopy(canonical_servers)
-    return changed
+    resolve_raw_codex_mcp_servers(payload)
+    return False
 
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
@@ -327,35 +303,14 @@ def _parse_http_headers(
     *,
     server_id: str,
 ) -> dict[str, str] | None:
-    raw_http_headers = raw_entry.get("http_headers")
-    raw_headers_alias = raw_entry.get("headers")
-    has_http_headers = "http_headers" in raw_entry
-    has_headers_alias = "headers" in raw_entry
-    normalized_http_headers = _parse_http_headers_alias_payload(
-        raw_http_headers,
+    return _parse_http_headers_payload(
+        raw_entry.get("http_headers"),
         server_id=server_id,
         field_name="http_headers",
     )
-    normalized_headers_alias = _parse_http_headers_alias_payload(
-        raw_headers_alias,
-        server_id=server_id,
-        field_name="headers",
-    )
-    if not has_http_headers and not has_headers_alias:
-        return None
-    if has_http_headers and has_headers_alias:
-        if normalized_http_headers != normalized_headers_alias:
-            raise ValueError(
-                f"server '{server_id}' cannot define conflicting "
-                "'http_headers' and 'headers' values"
-            )
-        return normalized_http_headers
-    if has_http_headers:
-        return normalized_http_headers
-    return normalized_headers_alias
 
 
-def _parse_http_headers_alias_payload(
+def _parse_http_headers_payload(
     raw_http_headers: Any,
     *,
     server_id: str,

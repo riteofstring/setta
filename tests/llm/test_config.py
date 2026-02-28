@@ -1111,7 +1111,7 @@ encoding_error_handler = "surrogateescape"
                 "encoding_error_handler" in message for message in warning_messages
             )
 
-    def test_load_llm_config_rejects_conflicting_http_header_aliases(
+    def test_load_llm_config_rejects_http_header_alias_field(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1169,12 +1169,11 @@ Authorization = "Bearer old-token"
             assert "valid-http" in loaded.mcpServers
             assert "invalid-conflicting-headers" not in loaded.mcpServers
             assert any(
-                "cannot define conflicting 'http_headers' and 'headers' values"
-                in message
+                "unsupported fields: headers" in message
                 for message in warning_messages
             )
 
-    def test_load_llm_config_accepts_equal_http_header_aliases(
+    def test_load_llm_config_rejects_http_header_alias_even_when_values_match(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1199,6 +1198,17 @@ Authorization = "Bearer same-token"
                 encoding="utf-8",
             )
             monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
 
             save_llm_config(
                 AllLLMConfigs(
@@ -1214,11 +1224,13 @@ Authorization = "Bearer same-token"
 
             loaded = load_llm_config(dbe)
 
-            assert "alias-equal" in loaded.mcpServers
-            alias_equal = loaded.mcpServers["alias-equal"]
-            assert alias_equal.http_headers == {"Authorization": "Bearer same-token"}
+            assert "alias-equal" not in loaded.mcpServers
+            assert any(
+                "unsupported fields: headers" in message
+                for message in warning_messages
+            )
 
-    def test_load_llm_config_rejects_conflicting_snake_and_camel_mcp_tables(
+    def test_load_llm_config_rejects_camel_case_mcp_root_key(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1267,7 +1279,7 @@ command = "beta"
 
             assert "alpha" not in loaded.mcpServers
             assert any(
-                "Both 'mcp_servers' and 'mcpServers' are present with conflicting values"
+                "'mcpServers' is not supported. Use 'mcp_servers'."
                 in message
                 for message in warning_messages
             )

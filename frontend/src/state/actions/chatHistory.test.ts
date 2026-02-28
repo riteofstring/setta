@@ -309,6 +309,50 @@ describe("chatHistory", () => {
     expect(entries[0]?.chatId).toBe("chat-match");
   });
 
+  it("keeps mixed-engine history visible when no compatibility filter is applied", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-selected-engine",
+        messageText: "Selected engine row",
+        projectConfigId: "project-a",
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      }),
+      buildRun({
+        chatId: "chat-other-engine",
+        messageText: "Other engine row",
+        projectConfigId: "project-a",
+        runType: "llm_chat",
+        engineConfigId: "engine-b",
+        startedAt: "2024-01-02T00:00:00Z",
+      }),
+      buildRun({
+        chatId: "chat-external",
+        messageText: "External row",
+        projectConfigId: "project-a",
+        runType: "external_agent",
+        engineConfigId: "engine-external",
+        startedAt: "2024-01-03T00:00:00Z",
+      }),
+    ];
+
+    // ProjectChatHistory intentionally uses an unfiltered history feed.
+    const entries = buildChatHistoryEntries(runs, {
+      projectConfigId: "project-a",
+      unscopedOnly: true,
+    });
+
+    const chatIds = entries.map((entry) => entry.chatId);
+    expect(chatIds).toHaveLength(3);
+    expect(chatIds).toEqual(
+      expect.arrayContaining([
+        "chat-selected-engine",
+        "chat-other-engine",
+        "chat-external",
+      ]),
+    );
+  });
+
   it("includes branch chats in canonical provenance resolution", () => {
     const runs = [
       buildRun({ chatId: "root", messageText: "Root message" }),

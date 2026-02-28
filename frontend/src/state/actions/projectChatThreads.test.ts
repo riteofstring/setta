@@ -345,6 +345,72 @@ describe("project chat thread storage helpers", () => {
     ).toBe(groupId);
   });
 
+  it("undoing a deleted thread keeps later reorder and pin edits intact", () => {
+    // Undo should restore the deleted thread only and preserve subsequent edits.
+    reorderProjectChatThreads("project-a", ["chat-1", "chat-2", "chat-3"]);
+    const deleted = deleteProjectChatThread("project-a", "chat-1");
+    expect(deleted).toBe(true);
+
+    reorderProjectChatThreads("project-a", ["chat-3", "chat-2"]);
+    toggleProjectChatThreadPinned("project-a", "chat-3");
+
+    const restored = undoLastProjectChatThreadStorageMutation("project-a");
+    expect(restored).toBe(true);
+
+    const localState = useLocalStorage.getState();
+    const order =
+      localState.projectChatThreadOrderByProjectConfigId["project-a"] ?? [];
+    expect(order).toContain("chat-1");
+    expect(order.indexOf("chat-3")).toBeLessThan(order.indexOf("chat-2"));
+
+    const pinned =
+      localState.pinnedProjectChatThreadIdsByProjectConfigId["project-a"] ?? [];
+    expect(pinned).toContain("chat-3");
+
+    const trashed =
+      localState.trashedProjectChatThreadIdsByProjectConfigId["project-a"] ??
+      [];
+    expect(trashed).not.toContain("chat-1");
+  });
+
+  it("undoing a deleted group restores the group without clobbering later assignment edits", () => {
+    const groupA = createProjectChatThreadGroup("project-a", "Alpha");
+    const groupB = createProjectChatThreadGroup("project-a", "Beta");
+    if (!groupA || !groupB) {
+      throw new Error("Expected thread group ids.");
+    }
+    setProjectChatThreadGroupAssignment("project-a", "chat-1", groupA);
+    setProjectChatThreadGroupAssignment("project-a", "chat-2", groupA);
+    setProjectChatThreadGroupAssignment("project-a", "chat-3", groupB);
+    reorderProjectChatThreads("project-a", ["chat-1", "chat-2", "chat-3"]);
+
+    const deleted = deleteProjectChatThreadGroup("project-a", groupA);
+    expect(deleted).toBe(true);
+
+    // Later edits after delete should survive undo.
+    setProjectChatThreadGroupAssignment("project-a", "chat-2", groupB);
+    reorderProjectChatThreads("project-a", ["chat-3", "chat-2", "chat-1"]);
+
+    const restored = undoLastProjectChatThreadStorageMutation("project-a");
+    expect(restored).toBe(true);
+
+    const localState = useLocalStorage.getState();
+    const groups =
+      localState.projectChatThreadGroupsByProjectConfigId["project-a"] ?? [];
+    expect(groups.map((group) => group.id)).toEqual([groupA, groupB]);
+
+    const assignments =
+      localState.projectChatThreadAssignmentsByProjectConfigId["project-a"] ??
+      {};
+    expect(assignments["chat-1"]).toBe(groupA);
+    expect(assignments["chat-2"]).toBe(groupB);
+    expect(assignments["chat-3"]).toBe(groupB);
+
+    const order =
+      localState.projectChatThreadOrderByProjectConfigId["project-a"] ?? [];
+    expect(order).toEqual(["chat-3", "chat-2", "chat-1"]);
+  });
+
   it("reports when a project has a thread storage mutation to undo", () => {
     const groupId = createProjectChatThreadGroup("project-a", "Backend");
     if (!groupId) {

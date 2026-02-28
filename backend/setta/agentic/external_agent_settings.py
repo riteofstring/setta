@@ -504,7 +504,6 @@ def _bootstrap_codex_mcp_servers_from_user_config(
             if server_id in existing_servers:
                 continue
             existing_servers[server_id] = server_config
-    payload.pop("mcpServers", None)
     payload["mcp_servers"] = existing_servers
     if not _has_non_setta_mcp_server(existing_servers):
         return False

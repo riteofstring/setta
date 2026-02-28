@@ -195,11 +195,9 @@ export function resolveProjectChatHydrationAuthority({
     };
   }
   if (selectedScopedChatProvenance.status !== "ready") {
-    return {
-      status: "ready",
-      hydrationRunType: resolveProjectChatRunTypeForEngine(engineType),
-      blockedErrorCode: null,
-    };
+    throw new Error(
+      "Expected ready chat provenance when compatibility status is 'compatible'.",
+    );
   }
   return {
     status: "ready",

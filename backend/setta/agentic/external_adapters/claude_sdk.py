@@ -1511,7 +1511,7 @@ def _load_mcp_servers(path_str: str | None) -> dict[str, Any] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    raw = payload.get("mcpServers") or payload.get("mcp_servers")
+    raw = payload.get("mcpServers")
     if isinstance(raw, dict):
         return raw
     return None

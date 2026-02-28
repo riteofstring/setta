@@ -1331,26 +1331,20 @@ export function ProjectChat() {
       };
     });
   }, [overviewPaneWidth]);
-  const handleNewChatClick = useCallback(() => {
-    setChatId(undefined);
-    setDraftThreadState({ phase: "idle" });
-    setDraftThreadTargetGroupId(selectedThreadGroupId);
-    setDraftThreadContinuationSourceChatId(null);
-    setEngineSwitchContinuation(null);
-    if (!showInlineThreads) {
-      useAIStore.setState({
-        viewThreads: false,
-      });
-    }
-    setViewSkillsMcpViewer(false);
-  }, [selectedThreadGroupId, setChatId, showInlineThreads]);
-  const handleNewChatInThreadGroup = useCallback(
-    (groupId: string) => {
+  const startNewChatDraft = useCallback(
+    ({
+      targetGroupId,
+      clearContinuationSource,
+    }: {
+      targetGroupId: string | null;
+      clearContinuationSource: boolean;
+    }) => {
       setChatId(undefined);
       setDraftThreadState({ phase: "idle" });
-      setDraftThreadTargetGroupId(groupId);
-      setSelectedThreadGroupId(groupId);
-      setDraftThreadContinuationSourceChatId(null);
+      setDraftThreadTargetGroupId(targetGroupId);
+      if (clearContinuationSource) {
+        setDraftThreadContinuationSourceChatId(null);
+      }
       setEngineSwitchContinuation(null);
       if (!showInlineThreads) {
         useAIStore.setState({
@@ -1360,6 +1354,28 @@ export function ProjectChat() {
       setViewSkillsMcpViewer(false);
     },
     [setChatId, showInlineThreads],
+  );
+  const handleNewChatClick = useCallback(() => {
+    startNewChatDraft({
+      targetGroupId: selectedThreadGroupId,
+      clearContinuationSource: true,
+    });
+  }, [selectedThreadGroupId, startNewChatDraft]);
+  const handleNewChatStartForSubmit = useCallback(() => {
+    startNewChatDraft({
+      targetGroupId: selectedThreadGroupId,
+      clearContinuationSource: false,
+    });
+  }, [selectedThreadGroupId, startNewChatDraft]);
+  const handleNewChatInThreadGroup = useCallback(
+    (groupId: string) => {
+      startNewChatDraft({
+        targetGroupId: groupId,
+        clearContinuationSource: true,
+      });
+      setSelectedThreadGroupId(groupId);
+    },
+    [startNewChatDraft],
   );
   const handleContinueInNewThread = useCallback(() => {
     if (!engineSwitchContinuation) {
@@ -1788,7 +1804,7 @@ export function ProjectChat() {
                     providerDictationLikelySupported
                   }
                   setChatId={setChatId}
-                  onStartNewChat={handleNewChatClick}
+                  onStartNewChat={handleNewChatStartForSubmit}
                   onDraftThreadStart={handleDraftThreadStart}
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
@@ -1854,7 +1870,7 @@ export function ProjectChat() {
                 providerDictationLikelySupported
               }
               setChatId={setChatId}
-              onStartNewChat={handleNewChatClick}
+              onStartNewChat={handleNewChatStartForSubmit}
               onDraftThreadStart={handleDraftThreadStart}
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}

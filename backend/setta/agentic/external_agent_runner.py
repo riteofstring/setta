@@ -1786,8 +1786,6 @@ class ExternalAgentRunner:
             return []
         raw_servers = payload.get("mcpServers")
         if not isinstance(raw_servers, dict):
-            raw_servers = payload.get("mcp_servers")
-        if not isinstance(raw_servers, dict):
             return []
         statuses: list[MCPServerRuntimeStatus] = []
         for server_id, entry in raw_servers.items():
@@ -2471,14 +2469,13 @@ def _extract_status_payloads_from_container(
                 )
                 if len(nested_payloads) > 0:
                     return nested_payloads
-        for key in ("mcp_servers", "mcpServers"):
-            nested = container.get(key)
-            if isinstance(nested, dict | list):
-                return _extract_status_payloads_from_container(
-                    nested,
-                    is_mcp_container=True,
-                    allow_generic_server_containers=allow_generic_server_containers,
-                )
+        nested = container.get("mcp_servers")
+        if isinstance(nested, dict | list):
+            return _extract_status_payloads_from_container(
+                nested,
+                is_mcp_container=True,
+                allow_generic_server_containers=allow_generic_server_containers,
+            )
         if allow_generic_server_containers:
             nested = container.get("servers")
             if isinstance(nested, dict | list):

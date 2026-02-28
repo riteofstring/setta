@@ -437,7 +437,7 @@ url = "http://localhost:1234"
             if isinstance(dotted_server, dict):
                 assert dotted_server.get("url") == "http://localhost:1234"
 
-    def test_build_codex_settings_file_rejects_conflicting_snake_and_camel_mcp_keys(
+    def test_build_codex_settings_file_rejects_camel_case_mcp_root_key(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -466,7 +466,7 @@ command = "beta"
 
             with pytest.raises(
                 ValueError,
-                match="Both 'mcp_servers' and 'mcpServers' are present with conflicting values",
+                match="'mcpServers' is not supported. Use 'mcp_servers'.",
             ):
                 build_codex_settings_file(
                     dbe,
@@ -477,7 +477,7 @@ command = "beta"
                     system_prompt=None,
                 )
 
-    def test_build_codex_settings_file_canonicalizes_camel_only_mcp_tables_and_is_idempotent(
+    def test_build_codex_settings_file_rejects_camel_only_mcp_tables(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -502,41 +502,18 @@ args = ["mcp"]
                 encoding="utf-8",
             )
 
-            output_dir = build_codex_settings_file(
-                dbe,
-                config,
-                allowlist=None,
-                mcp_url="http://localhost:8000/mcp",
-                auth_headers=None,
-                system_prompt=None,
-            )
-            first_payload = tomllib.loads(
-                (output_dir / "config.toml").read_text(encoding="utf-8")
-            )
-            assert "mcpServers" not in first_payload
-            first_servers = first_payload.get("mcp_servers")
-            assert isinstance(first_servers, dict)
-            if not isinstance(first_servers, dict):
-                raise AssertionError("Expected mcp_servers table")
-            assert "figma-desktop" in first_servers
-
-            second_output_dir = build_codex_settings_file(
-                dbe,
-                config,
-                allowlist=None,
-                mcp_url="http://localhost:8000/mcp",
-                auth_headers=None,
-                system_prompt=None,
-            )
-            second_payload = tomllib.loads(
-                (second_output_dir / "config.toml").read_text(encoding="utf-8")
-            )
-            assert "mcpServers" not in second_payload
-            second_servers = second_payload.get("mcp_servers")
-            assert isinstance(second_servers, dict)
-            if not isinstance(second_servers, dict):
-                raise AssertionError("Expected mcp_servers table")
-            assert "figma-desktop" in second_servers
+            with pytest.raises(
+                ValueError,
+                match="'mcpServers' is not supported. Use 'mcp_servers'.",
+            ):
+                build_codex_settings_file(
+                    dbe,
+                    config,
+                    allowlist=None,
+                    mcp_url="http://localhost:8000/mcp",
+                    auth_headers=None,
+                    system_prompt=None,
+                )
 
     def test_build_codex_settings_file_keeps_user_removed_imported_servers_removed(
         self, monkeypatch: pytest.MonkeyPatch

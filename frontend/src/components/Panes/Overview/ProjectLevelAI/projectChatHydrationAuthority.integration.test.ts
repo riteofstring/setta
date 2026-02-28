@@ -5,6 +5,7 @@ import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuth
 
 describe("project chat hydration authority integration", () => {
   const resolvedEngineConfigId = "engine-llm-resolved";
+  const resolvedExternalEngineConfigId = "engine-external-resolved";
   const resolvedEngineConfigById = new Map([
     [
       resolvedEngineConfigId,
@@ -14,6 +15,16 @@ describe("project chat hydration authority integration", () => {
         engineType: EngineTypeEnum.setta_llm,
         externalAgentConfigId: null,
         settaLlmConfigId: "llm-resolved",
+      },
+    ],
+    [
+      resolvedExternalEngineConfigId,
+      {
+        id: resolvedExternalEngineConfigId,
+        name: "Resolved External",
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentConfigId: "external-resolved",
+        settaLlmConfigId: null,
       },
     ],
   ]);
@@ -150,5 +161,45 @@ describe("project chat hydration authority integration", () => {
     expect(cacheKey).toBe(
       "chat-missing-provenance:llm_chat:rev-missing-provenance",
     );
+  });
+
+  it("uses provenance run type for compatible entries even when current engine type differs", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-compatible-provenance",
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "external_agent",
+          engineConfigId: resolvedExternalEngineConfigId,
+        },
+      },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: resolvedEngineConfigById,
+      engineConfigsAuthoritative: true,
+      engineType: EngineTypeEnum.setta_llm,
+    });
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "external_agent",
+      blockedErrorCode: null,
+    });
+  });
+
+  it("routes ambiguous provenance through warning compatibility instead of a compatible fallback", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-ambiguous-provenance",
+      selectedScopedChatProvenance: { status: "ambiguous" },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: resolvedEngineConfigById,
+      engineConfigsAuthoritative: true,
+      engineType: EngineTypeEnum.external_agent,
+    });
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "external_agent",
+      blockedErrorCode: "chat_provenance_missing",
+    });
   });
 });

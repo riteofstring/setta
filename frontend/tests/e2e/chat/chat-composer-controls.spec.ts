@@ -14,6 +14,7 @@ import {
 type EngineConfigSummary = {
   id: string;
   engineType: string;
+  externalAgentConfigId?: string | null;
 };
 
 test.describe.serial("chat composer controls", () => {
@@ -354,12 +355,16 @@ test.describe.serial("chat composer controls", () => {
       ).toBeVisible();
       await selectProjectAiEngine(page, "Setta E2E");
 
-      const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+      const threadsPanel = overviewPane.getByTestId(
+        "project-chat-threads-panel",
+      );
       if (
         (await threadsPanel.count()) === 0 ||
         !(await threadsPanel.first().isVisible())
       ) {
-        await overviewPane.getByRole("button", { name: "View Threads" }).click();
+        await overviewPane
+          .getByRole("button", { name: "View Threads" })
+          .click();
       }
       await expect(threadsPanel).toBeVisible();
 
@@ -394,7 +399,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(composerInput).toBeVisible();
       await composerInput.fill("/new");
       await composerInput.press("Enter");
-      await expect(overviewPane.getByText("Started a new chat thread.")).toBeVisible();
+      await expect(
+        overviewPane.getByText("Started a new chat thread."),
+      ).toBeVisible();
 
       await composerInput.fill("Route this thread into Backend");
       await composerInput.press("Enter");
@@ -632,9 +639,7 @@ test.describe.serial("chat composer controls", () => {
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(section.locator("textarea").first()).toBeVisible();
-      await expect(
-        section.getByLabel(/context unavailable/i),
-      ).toBeVisible();
+      await expect(section.getByLabel(/context unavailable/i)).toBeVisible();
       await expect(
         section.getByRole("button", {
           name: /^est\. context(?: left)?/i,
@@ -732,9 +737,7 @@ test.describe.serial("chat composer controls", () => {
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(section.locator("textarea").first()).toBeVisible();
-      await expect(
-        section.getByLabel(/context unavailable/i),
-      ).toBeVisible();
+      await expect(section.getByLabel(/context unavailable/i)).toBeVisible();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -1098,9 +1101,48 @@ test.describe.serial("chat composer controls", () => {
     if (!activeEngineId) {
       throw new Error("Missing managed LLM engine config for history test.");
     }
+    const externalEngine =
+      engineConfigs.find((config) => config.engineType === "external_agent") ??
+      null;
+    if (!externalEngine?.externalAgentConfigId) {
+      throw new Error(
+        "Missing external engine config for mixed-engine history test.",
+      );
+    }
+    const externalAgentConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getExternalAgentConfigs`,
+    );
+    expect(externalAgentConfigsResponse.ok()).toBe(true);
+    const externalAgentConfigs =
+      (await externalAgentConfigsResponse.json()) as Array<{
+        id: string;
+        toolType: "codex" | "claude_code" | "opencode";
+      }>;
+    const externalAgentConfig = externalAgentConfigs.find(
+      (config) => config.id === externalEngine.externalAgentConfigId,
+    );
+    if (!externalAgentConfig) {
+      throw new Error(
+        "Missing external agent config for mixed-engine history test.",
+      );
+    }
+    const externalBadgeTextByToolType: Record<
+      "codex" | "claude_code" | "opencode",
+      string
+    > = {
+      codex: "codex",
+      claude_code: "claude",
+      opencode: "opencode",
+    };
+    const expectedExternalBadgeText =
+      externalBadgeTextByToolType[externalAgentConfig.toolType];
+    if (!expectedExternalBadgeText) {
+      throw new Error("Unsupported external agent tool type for history test.");
+    }
 
     const matchingChatId = "chat-resume-match";
     const mismatchedChatId = "chat-resume-mismatch";
+    const externalChatId = "chat-resume-external";
     await page.route("**/api/getAgentRuns", async (route) => {
       await route.fulfill({
         status: 200,
@@ -1152,6 +1194,29 @@ test.describe.serial("chat composer controls", () => {
             },
             outputs: {},
           },
+          {
+            id: "run-external",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-01-03T00:00:00Z",
+            finishedAt: "2026-01-03T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "external_agent",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: externalChatId,
+              engineConfigId: externalEngine.id,
+              messages: [
+                {
+                  id: "msg-external",
+                  role: "user",
+                  content: [{ type: "text", text: "external history entry" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {},
+          },
         ]),
       });
     });
@@ -1163,6 +1228,7 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      await selectProjectAiEngine(page, "setta");
 
       const closeThreadsIfOpen = async () => {
         const returnToChatButton = overviewPane
@@ -1193,6 +1259,9 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByText("mismatch history entry"),
       ).toBeVisible();
+      await expect(
+        overviewPane.getByText("external history entry"),
+      ).toBeVisible();
       const matchingThreadEntry = overviewPane
         .getByTestId("project-chat-thread-entry")
         .filter({ hasText: "matching history entry" })
@@ -1200,6 +1269,13 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         matchingThreadEntry.getByTestId("project-chat-thread-agent-badge"),
       ).toHaveText(/setta/i);
+      const externalThreadEntry = overviewPane
+        .getByTestId("project-chat-thread-entry")
+        .filter({ hasText: "external history entry" })
+        .first();
+      await expect(
+        externalThreadEntry.getByTestId("project-chat-thread-agent-badge"),
+      ).toHaveText(new RegExp(expectedExternalBadgeText, "i"));
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

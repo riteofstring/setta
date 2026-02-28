@@ -123,7 +123,7 @@ def _read_dot_env_raw_payload_from_disk(path: Path) -> str | None:
 def _parse_dot_env_payload(raw_payload: str | None) -> dict[str, str]:
     if raw_payload is None:
         return {}
-    env_vars = dotenv_values(stream=StringIO(raw_payload))
+    env_vars = dotenv_values(stream=StringIO(raw_payload), interpolate=False)
     normalized: dict[str, str] = {}
     for raw_key, raw_value in env_vars.items():
         if raw_value is None:

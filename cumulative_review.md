@@ -867,3 +867,18 @@
 
 ### Verification
 - `pnpm -C frontend gcf`: completed (`exit 0`).
+
+## 2026-02-28 08:51:51 PST
+
+### Consolidated Findings
+- Ran `pnpm -C frontend gcf` in the current workspace to apply generation/cleanup and formatting passes.
+- `gcf` completed end-to-end (`run-knip` converged, prune-generated script completed, and frontend formatting ran).
+- Top-level `review*.md` files were present and needed explicit removal from the workspace and commit scope.
+
+### Actions
+- Executed `pnpm -C frontend gcf` successfully.
+- Removed top-level review docs (`review1.md`, `review2.md`, `review3.md`).
+- Prepared commit to include all current code changes plus this `cumulative_review.md` update while excluding `review*.md` documents.
+
+### Verification
+- `pnpm -C frontend gcf`: completed (`exit 0`).

@@ -156,6 +156,58 @@ def test_write_managed_api_keys_with_expected_revision_preserves_quoted_unrelate
         assert reparsed_dot_env["UNRELATED"] == "a b # c"
 
 
+def test_write_managed_api_keys_with_expected_revision_preserves_literal_interpolation_tokens() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+
+        write_result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "tok_${HOME}_x"},
+            expected_revision=0,
+        )
+
+        assert write_result.status == "success"
+        # Managed key persistence must keep `${...}` segments literal.
+        assert read_managed_api_keys(dbe)["OPENAI_API_KEY"] == "tok_${HOME}_x"
+
+
+def test_write_managed_api_keys_with_expected_revision_preserves_unset_variable_tokens() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+
+        write_result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "tok_${UNSET_VAR}_x"},
+            expected_revision=0,
+        )
+
+        assert write_result.status == "success"
+        assert read_managed_api_keys(dbe)["OPENAI_API_KEY"] == "tok_${UNSET_VAR}_x"
+
+
+def test_read_managed_api_keys_with_status_is_stable_across_repeated_reads() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        write_result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "tok_${HOME}_x"},
+            expected_revision=0,
+        )
+        assert write_result.status == "success"
+
+        first_read = read_managed_api_keys_with_status(dbe)
+        second_read = read_managed_api_keys_with_status(dbe)
+
+        assert first_read.error_code is None
+        assert second_read.error_code is None
+        assert first_read.api_keys == second_read.api_keys
+        assert first_read.revision == second_read.revision
+
+
 def test_write_managed_api_keys_with_expected_revision_can_remove_managed_key() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
