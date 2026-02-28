@@ -29,6 +29,23 @@ class RevealResultTransportDisconnectedError(RuntimeError):
         )
 
 
+class RevealResultContractMismatchError(RuntimeError):
+    def __init__(
+        self,
+        *,
+        request_id: str,
+        websocket_id: str,
+        reason: str,
+    ) -> None:
+        self.request_id = request_id
+        self.websocket_id = websocket_id
+        self.reason = reason
+        super().__init__(
+            "Frontend reveal response contract mismatch for request "
+            f"{request_id} from websocket {websocket_id}: {reason}"
+        )
+
+
 class UISettingRevealResultHub:
     def __init__(self) -> None:
         self._waiters_by_request_id: dict[str, _RevealResultWaiter] = {}
@@ -122,14 +139,48 @@ class UISettingRevealResultHub:
             expected_project_config_id is not None
             and content.projectConfigId != expected_project_config_id
         ):
-            return False
+            waiter.set_exception(
+                RevealResultContractMismatchError(
+                    request_id=content.requestId,
+                    websocket_id=from_websocket_id,
+                    reason=(
+                        "Frontend reveal response project mismatch: expected "
+                        f"{expected_project_config_id} but received "
+                        f"{content.projectConfigId}."
+                    ),
+                )
+            )
+            return True
         expected_setting_ids = waiter_record.expected_setting_ids
         if expected_setting_ids is not None:
             actual_setting_ids = {status.settingId for status in content.statuses}
             if len(content.statuses) != len(expected_setting_ids):
-                return False
+                waiter.set_exception(
+                    RevealResultContractMismatchError(
+                        request_id=content.requestId,
+                        websocket_id=from_websocket_id,
+                        reason=(
+                            "Frontend reveal response status envelope mismatch: "
+                            f"expected {len(expected_setting_ids)} status entry but "
+                            f"received {len(content.statuses)}."
+                        ),
+                    )
+                )
+                return True
             if actual_setting_ids != expected_setting_ids:
-                return False
+                expected_ids_text = ", ".join(sorted(expected_setting_ids))
+                actual_ids_text = ", ".join(sorted(actual_setting_ids))
+                waiter.set_exception(
+                    RevealResultContractMismatchError(
+                        request_id=content.requestId,
+                        websocket_id=from_websocket_id,
+                        reason=(
+                            "Frontend reveal response setting id mismatch: expected "
+                            f"[{expected_ids_text}] but received [{actual_ids_text}]."
+                        ),
+                    )
+                )
+                return True
         waiter.set_result(content)
         return True
 

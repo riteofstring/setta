@@ -50,6 +50,7 @@ from setta.ui_settings.registry import (
     validate_ui_setting_value,
 )
 from setta.ui_settings.reveal_result_hub import (
+    RevealResultContractMismatchError,
     RevealResultTransportDisconnectedError,
     UISettingRevealResultContent,
     UISettingRevealResultStatus,
@@ -858,6 +859,24 @@ async def _reveal_settings(
             timeout_seconds=_resolve_frontend_reveal_timeout_seconds(
                 bounded_duration_ms
             ),
+        )
+    except RevealResultContractMismatchError as exc:
+        await _rollback_pending_section_activation()
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=str(exc),
+                    ),
+                )
+            ],
         )
     except RevealResultTransportDisconnectedError as exc:
         await _rollback_pending_section_activation()

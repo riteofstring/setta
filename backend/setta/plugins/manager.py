@@ -1224,6 +1224,8 @@ class PluginManager:
             )
         if validate_old_value is not None:
             validate_old_value(observed_old_value)
+        if observed_old_value == value:
+            return observed_old_value, observed_old_value
         self._invoke_backend_ui_setting_handler(
             plugin_id=plugin_id,
             handler_id=write_handler_id,
@@ -1340,6 +1342,8 @@ class PluginManager:
             )
         if validate_old_value is not None:
             validate_old_value(observed_old_value)
+        if observed_old_value == value:
+            return observed_old_value, observed_old_value
 
         next_config = self._write_plugin_config_path_value(
             config=current_config,

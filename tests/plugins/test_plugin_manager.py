@@ -9317,6 +9317,115 @@ def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
     assert observed_new_value is True
 
 
+def test_backend_ui_setting_compare_and_write_same_value_skips_write_handler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-cas-noop-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": "setta-fixture-backend-ui-setting-cas-noop",
+                "name": "Backend UI Setting CAS Noop Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registration = manager.get_backend_ui_settings(
+        plugin_id="setta-fixture-backend-ui-setting-cas-noop"
+    )[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    write_handler_calls = 0
+    original_invoke_handler = manager._invoke_backend_ui_setting_handler
+
+    def _count_write_handler_invocations(
+        *,
+        plugin_id: str,
+        handler_id: str,
+        operation: Literal["read", "write"],
+        project_config_id: str,
+        value: Any,
+    ) -> Any:
+        nonlocal write_handler_calls
+        if operation == "write":
+            write_handler_calls += 1
+        return original_invoke_handler(
+            plugin_id=plugin_id,
+            handler_id=handler_id,
+            operation=operation,
+            project_config_id=project_config_id,
+            value=value,
+        )
+
+    monkeypatch.setattr(
+        manager,
+        "_invoke_backend_ui_setting_handler",
+        _count_write_handler_invocations,
+    )
+
+    # Same-value CAS writes should return unchanged without invoking write handlers.
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting-cas-noop",
+            setting_id=(
+                "plugin.setta-fixture-backend-ui-setting-cas-noop.backend_enabled"
+            ),
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=False,
+            expected_old_value=False,
+        )
+    )
+    assert observed_old_value is False
+    assert observed_new_value is False
+    assert write_handler_calls == 0
+
+
 def test_backend_ui_setting_compare_and_write_rolls_back_when_post_write_validation_fails(
     tmp_path: Path,
 ) -> None:
@@ -9569,6 +9678,61 @@ def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserve
     )
     assert plugin_entry.config.currentConfig["enabled"] is True
     assert plugin_entry.config.currentConfig["label"] == "updated"
+
+
+def test_plugin_config_path_compare_and_write_same_value_skips_save_and_rescan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": False, "label": "unset"},
+    )
+
+    save_state_calls = 0
+    rescan_calls = 0
+    original_save_plugins_state = manager._save_plugins_state
+    original_rescan = manager.rescan
+
+    def _count_save_plugins_state_calls(state_file) -> None:
+        nonlocal save_state_calls
+        save_state_calls += 1
+        original_save_plugins_state(state_file)
+
+    def _count_rescan_calls() -> None:
+        nonlocal rescan_calls
+        rescan_calls += 1
+        original_rescan()
+
+    monkeypatch.setattr(
+        manager,
+        "_save_plugins_state",
+        _count_save_plugins_state_calls,
+    )
+    monkeypatch.setattr(manager, "rescan", _count_rescan_calls)
+
+    # No-op schema CAS should return unchanged without persistence or rescan.
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=False,
+            expected_old_value=False,
+        )
+    )
+    assert observed_old_value is False
+    assert observed_new_value is False
+    assert save_state_calls == 0
+    assert rescan_calls == 0
 
 
 def test_plugin_config_path_compare_and_write_rejects_non_object_root_without_rewrite(

@@ -598,3 +598,28 @@
 2. UX after: generation and cleanup outputs are synchronized with the current codebase.
 3. DX before: transient review inputs remained alongside canonical review history.
 4. DX after: consolidated review history remains in one place (`cumulative_review.md`) with root-level transient files removed.
+
+## 2026-02-26 21:27:50 PST
+
+### Consolidated Findings
+1. Frontend reveal affinity was still tied to per-socket identity, so websocket reconnects could invalidate in-flight reveal routing for the same tab.
+2. Reveal ACK envelope mismatches (project/setting contract drift) were still surfacing as timeout-class failures instead of immediate protocol errors.
+3. Plugin compare-and-set write paths could return `changed=false` while still executing backend write handlers or schema config persistence/rescan side effects.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added stable tab-scoped affinity rebinding in websocket manager using the `#setta-ws-affinity=` address marker; affinity tokens now rebind to the latest websocket for the same tab/session.
+2. Updated frontend receiver identity flow to re-emit typed `FrontendIdentity` after current-address updates so reconnects converge to the canonical affinity token.
+3. Added `RevealResultContractMismatchError` and converted reveal result hub envelope mismatches into fail-fast waiter exceptions.
+4. Mapped reveal contract-mismatch exceptions to immediate structured `mutation_failed` responses in `reveal_ui_setting`.
+5. Added manager-level no-op gates in plugin backend/schema CAS flows so same-value writes return early before handler invocation, persistence, or rescan.
+6. Added/updated backend unit/integration tests and Playwright E2E coverage for affinity rebinding, reveal fail-fast mismatch behavior, and plugin CAS no-op side-effect guarantees.
+
+### UX/DX Before and After
+1. UX before: reconnecting a tab during long-running reveal/tool flows could make affinity routing fail as unavailable.
+2. UX after: reconnects are transparent for the same tab and reveal routing remains valid.
+3. UX before: envelope mismatches looked like slow timeouts, delaying actionable feedback.
+4. UX after: contract mismatches fail immediately with explicit mismatch diagnostics.
+5. UX before: same-value plugin writes could still trigger hidden side effects despite unchanged responses.
+6. UX after: same-value plugin writes are true no-ops, reducing unnecessary work and side-effect risk.
+7. DX before: debugging mixed transport/protocol/no-op behavior required tracing across timeout paths and plugin internals.
+8. DX after: explicit fail-fast protocol errors and manager-owned no-op gates make behavior deterministic and easier to reason about.

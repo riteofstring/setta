@@ -238,6 +238,101 @@ async def test_frontend_receiver_rebroadcasts_connections_after_current_address_
 
 
 @pytest.mark.asyncio
+async def test_frontend_receiver_reuses_tab_affinity_token_after_reconnect() -> None:
+    websocket_manager = WebsocketManager()
+    listener_registry = ListenerRegistry()
+    sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+    event_hub = RealtimeEventHub(sender)
+    receiver = WMHFrontendReceiver(
+        websocket_manager,
+        project_manager=None,
+        realtime_event_hub=event_hub,
+        ui_setting_reveal_result_hub=UISettingRevealResultHub(),
+        share_mode=False,
+    )
+    first_messages: list[Message] = []
+    second_messages: list[Message] = []
+    first_socket = await _build_websocket(first_messages)
+    second_socket = await _build_websocket(second_messages)
+    first_frontend_id = await websocket_manager.on_connect(
+        first_socket,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-identity-first",
+        shareSessionId=None,
+        broadcast_connections=False,
+    )
+
+    try:
+        await receiver.on_connect(first_frontend_id)
+        await receiver.process_json_str(
+            WebsocketMsgCurrentAddressUpdate(
+                content="/project#setta-ws-affinity=tab-stable"
+            ).model_dump_json(),
+            first_frontend_id,
+        )
+        first_identity_messages = [
+            WebsocketMsgFrontendIdentity.model_validate_json(message)
+            for message in _sent_text_messages(first_messages)
+            if json.loads(message).get("messageType") == "FrontendIdentity"
+        ]
+        assert len(first_identity_messages) >= 1
+        stable_affinity_token = first_identity_messages[-1].content.frontendAffinityToken
+
+        await websocket_manager.on_disconnect(
+            first_frontend_id,
+            broadcast_connections=False,
+        )
+        await receiver.on_disconnect(first_frontend_id)
+        await first_socket.close()
+
+        second_frontend_id = await websocket_manager.on_connect(
+            second_socket,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-identity-second",
+            shareSessionId=None,
+            broadcast_connections=False,
+        )
+        try:
+            await receiver.on_connect(second_frontend_id)
+            await receiver.process_json_str(
+                WebsocketMsgCurrentAddressUpdate(
+                    content="/project#setta-ws-affinity=tab-stable"
+                ).model_dump_json(),
+                second_frontend_id,
+            )
+            second_identity_messages = [
+                WebsocketMsgFrontendIdentity.model_validate_json(message)
+                for message in _sent_text_messages(second_messages)
+                if json.loads(message).get("messageType") == "FrontendIdentity"
+            ]
+            assert len(second_identity_messages) >= 2
+            assert (
+                second_identity_messages[-1].content.frontendAffinityToken
+                == stable_affinity_token
+            )
+            assert (
+                websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                    affinity_token=stable_affinity_token,
+                    share_session_id=None,
+                )
+                == second_frontend_id
+            )
+        finally:
+            await websocket_manager.on_disconnect(
+                second_frontend_id,
+                broadcast_connections=False,
+            )
+            await receiver.on_disconnect(second_frontend_id)
+            await second_socket.close()
+    finally:
+        if first_frontend_id in websocket_manager.sockets:
+            await websocket_manager.on_disconnect(
+                first_frontend_id,
+                broadcast_connections=False,
+            )
+
+
+@pytest.mark.asyncio
 async def test_websocket_manager_affinity_token_resolution_is_share_session_bound() -> (
     None
 ):

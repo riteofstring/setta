@@ -10,6 +10,7 @@ const BACKEND_ORIGIN =
 const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
 const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 const FRONTEND_IDENTITY_GLOBAL_KEY = "__settaFrontendIdentity";
+const FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY = "__settaFrontendIdentityHistory";
 
 type ToolError = {
   code: string;
@@ -97,9 +98,10 @@ async function callMcpTool<TStructured>(
 
 async function installFrontendIdentityCapture(page: Page): Promise<void> {
   await page.addInitScript(
-    ({ identityMessageType, globalKey }) => {
+    ({ identityMessageType, globalKey, historyKey }) => {
       const targetWindow = window as unknown as Record<string, unknown>;
       targetWindow[globalKey] = null;
+      targetWindow[historyKey] = [];
       const originalAddEventListener = WebSocket.prototype.addEventListener;
       WebSocket.prototype.addEventListener = function (
         type: string,
@@ -122,8 +124,14 @@ async function installFrontendIdentityCapture(page: Page): Promise<void> {
                 typeof payload.content?.frontendAffinityToken === "string" &&
                 payload.content.frontendAffinityToken.trim() !== ""
               ) {
-                targetWindow[globalKey] =
-                  payload.content.frontendAffinityToken.trim();
+                const nextIdentity = payload.content.frontendAffinityToken.trim();
+                targetWindow[globalKey] = nextIdentity;
+                const history = targetWindow[historyKey];
+                if (Array.isArray(history)) {
+                  history.push(nextIdentity);
+                } else {
+                  targetWindow[historyKey] = [nextIdentity];
+                }
               }
             } catch {}
           }
@@ -139,6 +147,7 @@ async function installFrontendIdentityCapture(page: Page): Promise<void> {
     {
       identityMessageType: FRONTEND_IDENTITY_MESSAGE_TYPE,
       globalKey: FRONTEND_IDENTITY_GLOBAL_KEY,
+      historyKey: FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY,
     },
   );
 }
@@ -164,6 +173,72 @@ async function waitForFrontendIdentity(page: Page): Promise<string> {
   }, FRONTEND_IDENTITY_GLOBAL_KEY);
   if (identity === null) {
     throw new Error("Expected frontend websocket identity to be available.");
+  }
+  return identity;
+}
+
+async function getFrontendIdentityMessageCount(page: Page): Promise<number> {
+  return await page.evaluate((historyKey) => {
+    const history = (window as unknown as Record<string, unknown>)[historyKey];
+    if (!Array.isArray(history)) {
+      return 0;
+    }
+    return history.length;
+  }, FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY);
+}
+
+async function waitForFrontendIdentityAfterCount(
+  page: Page,
+  previousCount: number,
+): Promise<string> {
+  await expect
+    .poll(
+      async () => {
+        return await page.evaluate(
+          ({ historyKey, count }) => {
+            const history = (window as unknown as Record<string, unknown>)[
+              historyKey
+            ];
+            if (!Array.isArray(history) || history.length <= count) {
+              return null;
+            }
+            const latestIdentity = history[history.length - 1];
+            if (
+              typeof latestIdentity !== "string" ||
+              latestIdentity.trim() === ""
+            ) {
+              return null;
+            }
+            return latestIdentity.trim();
+          },
+          {
+            historyKey: FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY,
+            count: previousCount,
+          },
+        );
+      },
+      { timeout: 20000 },
+    )
+    .not.toBeNull();
+  const identity = await page.evaluate(
+    ({ historyKey, count }) => {
+      const history = (window as unknown as Record<string, unknown>)[historyKey];
+      if (!Array.isArray(history) || history.length <= count) {
+        return null;
+      }
+      const latestIdentity = history[history.length - 1];
+      if (typeof latestIdentity !== "string" || latestIdentity.trim() === "") {
+        return null;
+      }
+      return latestIdentity.trim();
+    },
+    {
+      historyKey: FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY,
+      count: previousCount,
+    },
+  );
+  if (identity === null) {
+    throw new Error("Expected frontend identity update after reconnect.");
   }
   return identity;
 }
@@ -268,6 +343,47 @@ test("reveal_ui_setting fails fast when frontend websocket id is unavailable", a
       "Timed out waiting for frontend reveal confirmation",
     );
   } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+  }
+});
+
+test("reveal_ui_setting remains routable after websocket reconnect in the same tab", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  await installFrontendIdentityCapture(page);
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
+
+  try {
+    const initialFrontendIdentity = await waitForFrontendIdentity(page);
+    const initialIdentityCount = await getFrontendIdentityMessageCount(page);
+
+    await page.context().setOffline(true);
+    await page.waitForTimeout(1500);
+    await page.context().setOffline(false);
+
+    const identityAfterReconnect = await waitForFrontendIdentityAfterCount(
+      page,
+      initialIdentityCount,
+    );
+    expect(identityAfterReconnect).toBe(initialFrontendIdentity);
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 900,
+      },
+      initialFrontendIdentity,
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
+  } finally {
+    await page.context().setOffline(false);
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
   }
 });

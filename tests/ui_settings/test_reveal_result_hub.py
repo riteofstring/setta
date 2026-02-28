@@ -7,8 +7,11 @@ from setta.types.websocket import (
     UISettingRevealResultContent,
     UISettingRevealResultStatus,
 )
-from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
-from setta.ui_settings.reveal_result_hub import RevealResultTransportDisconnectedError
+from setta.ui_settings.reveal_result_hub import (
+    RevealResultContractMismatchError,
+    RevealResultTransportDisconnectedError,
+    UISettingRevealResultHub,
+)
 
 
 def _build_reveal_result_content(
@@ -131,7 +134,7 @@ async def test_reveal_result_hub_requires_expected_project_config_id() -> None:
         expected_project_config_id=ID("project-expected"),
     )
 
-    ignored = hub.resolve(
+    resolved_mismatch = hub.resolve(
         _build_reveal_result_content(
             request_id="request-4",
             status="revealed",
@@ -139,20 +142,10 @@ async def test_reveal_result_hub_requires_expected_project_config_id() -> None:
         ),
         from_websocket_id="frontend-a",
     )
-    assert ignored is False
+    assert resolved_mismatch is True
 
-    resolved = hub.resolve(
-        _build_reveal_result_content(
-            request_id="request-4",
-            status="revealed",
-            project_config_id=ID("project-expected"),
-        ),
-        from_websocket_id="frontend-a",
-    )
-    assert resolved is True
-    result = await hub.wait_for_result(request_id="request-4", timeout_seconds=0.2)
-    assert result is not None
-    assert result.projectConfigId == ID("project-expected")
+    with pytest.raises(RevealResultContractMismatchError, match="project mismatch"):
+        await hub.wait_for_result(request_id="request-4", timeout_seconds=0.2)
 
 
 @pytest.mark.asyncio
@@ -163,7 +156,7 @@ async def test_reveal_result_hub_requires_exact_expected_setting_ids() -> None:
         expected_setting_ids={"setting-a"},
     )
 
-    ignored = hub.resolve(
+    resolved_mismatch = hub.resolve(
         _build_reveal_result_content(
             request_id="request-5",
             status="revealed",
@@ -171,17 +164,7 @@ async def test_reveal_result_hub_requires_exact_expected_setting_ids() -> None:
         ),
         from_websocket_id="frontend-a",
     )
-    assert ignored is False
+    assert resolved_mismatch is True
 
-    resolved = hub.resolve(
-        _build_reveal_result_content(
-            request_id="request-5",
-            status="revealed",
-            setting_id="setting-a",
-        ),
-        from_websocket_id="frontend-a",
-    )
-    assert resolved is True
-    result = await hub.wait_for_result(request_id="request-5", timeout_seconds=0.2)
-    assert result is not None
-    assert result.statuses[0].settingId == "setting-a"
+    with pytest.raises(RevealResultContractMismatchError, match="setting id mismatch"):
+        await hub.wait_for_result(request_id="request-5", timeout_seconds=0.2)

@@ -2,6 +2,7 @@ import asyncio
 import json
 import shutil
 from pathlib import Path
+from time import monotonic
 from types import SimpleNamespace
 
 import pytest
@@ -3775,9 +3776,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_sta
         assert result.emittedRevealCount == 0
         assert result.statuses[0].status == "failed"
         assert result.statuses[0].error is not None
-        assert "Timed out waiting for frontend reveal confirmation" in (
-            result.statuses[0].error.message
-        )
+        assert "setting id mismatch" in result.statuses[0].error.message
         updated_state = manager.get_single_config_state(project_config_id)
         assert updated_state.projectConfig.activeIds == []
         assert frontend_sender.reveal_messages
@@ -3798,7 +3797,7 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
         monkeypatch.setattr(
             ui_settings_tools_module,
             "_resolve_frontend_reveal_timeout_seconds",
-            lambda _duration_ms: 0.01,
+            lambda _duration_ms: 5.0,
         )
         manager = project_fixture.manager
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
@@ -3812,18 +3811,19 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
             },
         )
 
+        started_at = monotonic()
         result = await reveal_ui_setting(
             settingId="core.watch_code.enabled",
             projectConfigId=project_config_id,
             durationMs=250,
             ctx=ctx,
         )
+        elapsed_seconds = monotonic() - started_at
         assert result.emittedRevealCount == 0
         assert result.statuses[0].status == "failed"
         assert result.statuses[0].error is not None
-        assert "Timed out waiting for frontend reveal confirmation" in (
-            result.statuses[0].error.message
-        )
+        assert elapsed_seconds < 1.0
+        assert "project mismatch" in result.statuses[0].error.message
 
 
 @pytest.mark.asyncio
@@ -4917,6 +4917,177 @@ async def test_plugin_schema_set_rejects_stale_precondition_without_clobbering_n
         )
         assert plugin_entry.config.currentConfig["enabled"] is True
         assert plugin_entry.config.currentConfig["label"] == "updated-by-other-writer"
+
+
+@pytest.mark.asyncio
+async def test_plugin_schema_set_same_value_is_noop_without_save_or_rescan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        save_plugins_state_calls = 0
+        rescan_calls = 0
+        original_save_plugins_state = plugin_manager._save_plugins_state
+        original_rescan = plugin_manager.rescan
+
+        def _count_save_plugins_state_calls(state_file) -> None:
+            nonlocal save_plugins_state_calls
+            save_plugins_state_calls += 1
+            original_save_plugins_state(state_file)
+
+        def _count_rescan_calls() -> None:
+            nonlocal rescan_calls
+            rescan_calls += 1
+            original_rescan()
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "_save_plugins_state",
+            _count_save_plugins_state_calls,
+        )
+        monkeypatch.setattr(plugin_manager, "rescan", _count_rescan_calls)
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Same-value writes should be true no-ops in schema-backed CAS paths.
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=False,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.changed is False
+        assert set_result.oldValue is False
+        assert set_result.newValue is False
+        assert save_plugins_state_calls == 0
+        assert rescan_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_plugin_backend_set_same_value_is_noop_without_backend_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        (plugin_root / "backend" / "entrypoint.py").write_text(
+            "_STATE = {'enabled': False}\n\n"
+            "def _read_backend_enabled(*, project_config_id: str):\n"
+            "    return _STATE['enabled']\n\n"
+            "def _write_backend_enabled(*, project_config_id: str, value):\n"
+            "    _STATE['enabled'] = bool(value)\n"
+            "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+            "def register(plugin):\n"
+            "    plugin.register_ui_setting(\n"
+            "        {\n"
+            "            'id': 'backend_enabled',\n"
+            "            'title': 'Backend Enabled',\n"
+            "            'description': 'Enable backend-provided fixture behavior.',\n"
+            "            'paneId': 'full-settings-pane',\n"
+            "            'revealKey': 'full-settings',\n"
+            "            'synonyms': ['backend enabled'],\n"
+            "            'mutability': 'writable',\n"
+            "            'valueSchema': {'type': 'boolean'},\n"
+            "            'read': _read_backend_enabled,\n"
+            "            'write': _write_backend_enabled,\n"
+            "        }\n"
+            "    )\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.load_backend_plugins(app=FastAPI())
+
+        write_handler_calls = 0
+        original_invoke_handler = plugin_manager._invoke_backend_ui_setting_handler
+
+        def _count_backend_write_handler_calls(
+            *,
+            plugin_id: str,
+            handler_id: str,
+            operation: str,
+            project_config_id: str,
+            value: object,
+        ) -> object:
+            nonlocal write_handler_calls
+            if operation == "write":
+                write_handler_calls += 1
+            return original_invoke_handler(
+                plugin_id=plugin_id,
+                handler_id=handler_id,
+                operation=operation,
+                project_config_id=project_config_id,
+                value=value,
+            )
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "_invoke_backend_ui_setting_handler",
+            _count_backend_write_handler_calls,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::backend_enabled"
+
+        try:
+            # Same-value backend CAS writes should not invoke write handlers.
+            set_result = await set_ui_setting_value(
+                settingId=plugin_setting_id,
+                value=False,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert set_result.error is None
+            assert set_result.changed is False
+            assert set_result.oldValue is False
+            assert set_result.newValue is False
+            assert write_handler_calls == 0
+        finally:
+            plugin_manager.shutdown_backend_plugins()
 
 
 @pytest.mark.asyncio
