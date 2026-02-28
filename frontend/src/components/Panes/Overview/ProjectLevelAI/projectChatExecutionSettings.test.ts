@@ -84,28 +84,18 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
 });
 
 describe("resolveProjectChatProviderDictationTranscribeEnabled", () => {
-  it("keeps provider dictation enabled for external engines when provider support is available", () => {
-    // External-agent chats should still be able to use provider transcription.
+  it("returns true when provider support is available", () => {
     expect(
       resolveProjectChatProviderDictationTranscribeEnabled({
         providerDictationAvailable: true,
-        isExternalEngine: true,
       }),
     ).toBe(true);
   });
 
-  it("disables provider dictation when provider support is unavailable", () => {
-    // Missing provider readiness should disable provider dictation regardless of engine.
+  it("returns false when provider support is unavailable", () => {
     expect(
       resolveProjectChatProviderDictationTranscribeEnabled({
         providerDictationAvailable: false,
-        isExternalEngine: true,
-      }),
-    ).toBe(false);
-    expect(
-      resolveProjectChatProviderDictationTranscribeEnabled({
-        providerDictationAvailable: false,
-        isExternalEngine: false,
       }),
     ).toBe(false);
   });

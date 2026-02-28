@@ -438,15 +438,9 @@ export function resolveProjectChatRuntimeActivityCounts({
 
 export function resolveProjectChatProviderDictationTranscribeEnabled({
   providerDictationAvailable,
-  isExternalEngine,
 }: {
   providerDictationAvailable: boolean;
-  isExternalEngine: boolean;
 }): boolean {
-  // Provider dictation should remain available regardless of engine type.
-  if (isExternalEngine) {
-    return providerDictationAvailable;
-  }
   return providerDictationAvailable;
 }
 
@@ -1779,7 +1773,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           onProviderDictationTranscribe={
             !resolveProjectChatProviderDictationTranscribeEnabled({
               providerDictationAvailable,
-              isExternalEngine,
             })
               ? undefined
               : handleProviderDictationTranscribe
