@@ -6,6 +6,7 @@ from pathlib import Path
 from setta.launcher_artifacts.common import (
     LauncherArtifactContext,
     LauncherArtifactError,
+    build_scoped_launcher_command,
     existing_artifact_path,
     parse_bool_option,
     resolve_path_option_with_existing,
@@ -81,6 +82,7 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
     wrapper_content = _build_windows_wrapper(
         target_command=context.target_command,
         setta_home=context.setta_home,
+        channel=context.channel,
     )
     write_text_file(path=wrapper_path, content=wrapper_content, executable=False)
 
@@ -138,12 +140,32 @@ def _resolve_desktop_dir() -> Path:
     return (Path.home() / "Desktop").resolve(strict=False)
 
 
-def _build_windows_wrapper(*, target_command: list[str], setta_home: str) -> str:
+def _build_windows_wrapper(
+    *, target_command: list[str], setta_home: str, channel: str
+) -> str:
     quoted_target_command = " ".join(_quote_for_cmd(part) for part in target_command)
     quoted_setta_home = _quote_for_cmd(setta_home)
+    repair_command = " ".join(
+        _quote_for_cmd(part)
+        for part in build_scoped_launcher_command(
+            target_command=target_command,
+            setta_home=setta_home,
+            launcher_args=["repair"],
+        )
+    )
+    setup_command = " ".join(
+        _quote_for_cmd(part)
+        for part in build_scoped_launcher_command(
+            target_command=target_command,
+            setta_home=setta_home,
+            launcher_args=["setup", "--channel", channel],
+        )
+    )
     return f"""@echo off
 setlocal
 set "setta_launcher_log=%TEMP%\\setta-launcher-error-%RANDOM%%RANDOM%.log"
+set "setta_launcher_repair_cmd={repair_command}"
+set "setta_launcher_setup_cmd={setup_command}"
 
 if not "%~1"=="" (
   set "first_path=%~1"
@@ -188,7 +210,9 @@ echo Setta could not start.>&2
 if exist "%setta_launcher_log%" (
   type "%setta_launcher_log%" >&2
 )
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg='Setta could not start. Open PowerShell and run setta launcher repair.'; try {{ Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($msg,'Setta Launch Failed','OK','Error') | Out-Null }} catch {{ }}"
+echo Repair launcher metadata with: %setta_launcher_repair_cmd%>&2
+echo Or rerun setup with: %setta_launcher_setup_cmd%>&2
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg='Setta could not start. Open PowerShell and run: %setta_launcher_repair_cmd%'; try {{ Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($msg,'Setta Launch Failed','OK','Error') | Out-Null }} catch {{ }}"
 exit /b 0
 """
 

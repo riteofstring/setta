@@ -273,3 +273,13 @@
 - Fixed dev/runtime LSP startup by invoking basedpyright through an explicit Python entrypoint call (`from basedpyright.langserver import main; main()`) so backend initialization no longer fails on immediate language-server exit.
 - Updated backend/frontend tests that cover workspace switcher behavior, launch error messaging, and LSP manager command wiring.
 - Verified focused checks for touched backend areas: targeted pytest suites and `ruff check` passed.
+
+## 2026-02-28 15:18:31 PST
+
+- Implemented launcher setup omission-contract fixes: CLI now preserves omitted `installArtifacts` and `artifactOptions`, supports explicit artifact-option clearing via `--clear-artifact-options`, and keeps reruns idempotent unless explicit mutation flags are provided.
+- Replaced launch-page traceback/message heuristics with a typed backend/frontend contract: backend now emits `OutdatedProjectSettings` for missing settings sections, and frontend migration guidance is keyed strictly on `error.code`.
+- Hardened launcher artifact remediation UX by generating scope-safe repair/setup commands from shared command helpers across Linux/macOS/Windows so guidance always includes the active `--setta-home` scope.
+- Made macOS chrome-app visibility checks path-agnostic by detecting Chrome/Chromium app processes via command structure instead of hard-coded app-bundle paths.
+- Enforced fail-fast default icon behavior for macOS launcher artifacts: missing bundled `Setta.icns` now raises `LauncherArtifactError` instead of silently omitting icon installation.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for the new launcher setup tri-state behavior, typed outdated-settings contract, macOS chrome-app detection robustness, scoped remediation guidance, and macOS icon-failure contract.
+- Ran requested cleanup workflow: `pnpm -C frontend gcf`.

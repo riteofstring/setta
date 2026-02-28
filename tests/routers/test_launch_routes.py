@@ -121,6 +121,30 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
+    def test_launch_returns_typed_outdated_settings_error_code(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_launch_workspace_session(**_kwargs):
+            raise LaunchError(
+                "OutdatedProjectSettings",
+                "This workspace uses an older Setta settings/project format.",
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = _invoke_launch_for_tests(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "OutdatedProjectSettings"
+
     def test_launch_requires_token_and_uses_origin_header_for_return_url_when_available(
         self,
     ) -> None:

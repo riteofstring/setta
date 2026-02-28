@@ -411,6 +411,37 @@ def test_open_url_in_chrome_app_macos_returns_false_when_not_visible(
     assert opened is False
 
 
+def test_open_url_in_chrome_app_macos_accepts_relocated_binary_paths(
+    monkeypatch,
+) -> None:
+    import setta.start as start_module
+    from setta.start import _open_url_in_chrome_app
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(start_module.time, "sleep", lambda _seconds: None)
+
+    def fake_run(cmd: list[str], **kwargs):
+        assert kwargs.get("check") is False
+        if cmd[:3] == ["ps", "ax", "-o"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=(
+                    "/Volumes/Apps/Google Chrome.app/Contents/MacOS/Google Chrome "
+                    "--app=https://example.com\n"
+                ),
+                stderr="",
+            )
+        if cmd[0] == "open":
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    monkeypatch.setattr("setta.start.subprocess.run", fake_run)
+
+    opened = _open_url_in_chrome_app("https://example.com")
+    assert opened is True
+
+
 def test_launcher_setup_status_and_remove_roundtrip() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
 
@@ -497,6 +528,123 @@ def test_launcher_setup_rerun_preserves_existing_identity_fields() -> None:
     assert status_payload["ok"] is True
     assert status_payload["channel"] == "uv-tool"
     assert status_payload["updateCapability"] == "in_app"
+
+
+def test_launcher_setup_preserves_artifact_options_when_option_is_omitted() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="preserve-cli-artifact-options-token",
+        setta_version="1.2.3",
+        setta_home=setta_home,
+        open_mode="browser",
+        artifact_options={"app_name": "Setta Custom"},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    runner = CliRunner()
+    setup_result = runner.invoke(
+        cli,
+        ["launcher", "setup", "--json", "--no-install-artifacts"],
+    )
+
+    assert setup_result.exit_code == 0, setup_result.output
+    setup_payload = json.loads(setup_result.output)
+    assert setup_payload["ok"] is True
+    assert setup_payload["artifactOptions"] == {"app_name": "Setta Custom"}
+
+
+def test_launcher_setup_preserves_no_artifact_mode_when_install_flag_is_omitted(
+    monkeypatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="preserve-cli-no-artifacts-token",
+        setta_version="1.2.3",
+        setta_home=setta_home,
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "install_current_platform_artifacts should not run when install mode is omitted and preserved as disabled."
+            )
+        ),
+    )
+
+    runner = CliRunner()
+    setup_result = runner.invoke(cli, ["launcher", "setup", "--json"])
+
+    assert setup_result.exit_code == 0, setup_result.output
+    setup_payload = json.loads(setup_result.output)
+    assert setup_payload["ok"] is True
+    assert setup_payload["managedArtifacts"] == {}
+
+
+def test_launcher_setup_clear_artifact_options_flag_clears_existing_values() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="clear-cli-artifact-options-token",
+        setta_version="1.2.3",
+        setta_home=setta_home,
+        open_mode="browser",
+        artifact_options={"app_name": "Setta Custom"},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    runner = CliRunner()
+    setup_result = runner.invoke(
+        cli,
+        [
+            "launcher",
+            "setup",
+            "--json",
+            "--no-install-artifacts",
+            "--clear-artifact-options",
+        ],
+    )
+
+    assert setup_result.exit_code == 0, setup_result.output
+    setup_payload = json.loads(setup_result.output)
+    assert setup_payload["ok"] is True
+    assert setup_payload["artifactOptions"] == {}
+
+
+def test_launcher_setup_rejects_combining_artifact_option_with_clear_flag() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "launcher",
+            "setup",
+            "--json",
+            "--artifact-option",
+            "app_name=Setta Custom",
+            "--clear-artifact-options",
+        ],
+    )
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "BadRequest"
+    assert "Use either --artifact-option or --clear-artifact-options" in payload[
+        "error"
+    ]["message"]
 
 
 def test_launcher_setup_no_longer_accepts_managed_artifact_option(

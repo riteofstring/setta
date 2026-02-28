@@ -9,6 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+from setta.database.db_objs import DBE
+from setta.project_state.settings_project import (
+    MissingSettingsSectionError,
+    ensure_settings_code_objs,
+)
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
@@ -42,6 +47,7 @@ DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
 DEFAULT_EXISTING_SESSION_GRACE_SECONDS = 2.0
 DEFAULT_EXISTING_SESSION_EXTENDED_GRACE_SECONDS = 10.0
 DEFAULT_EXISTING_SESSION_RECENT_SECONDS = 15.0
+SETTINGS_PROJECT_FILE_NAME = "setta-settings-project.json"
 
 
 def _resolve_optional_path(value: str | Path | None) -> Path | None:
@@ -199,6 +205,7 @@ def launch_workspace_session(
                 )
             time.sleep(min(poll_interval_seconds, 0.2))
 
+    _raise_if_outdated_settings_project(paths=paths)
     process = _start_setta_process(paths, server_mode=server_mode)
     session = _wait_for_session(
         registry,
@@ -216,6 +223,27 @@ def launch_workspace_session(
         paths=paths,
         started_new=True,
     )
+
+
+def _raise_if_outdated_settings_project(*, paths: SettaPaths) -> None:
+    settings_project_path = paths.setta_files_root / SETTINGS_PROJECT_FILE_NAME
+    if not settings_project_path.exists():
+        return
+    try:
+        project_state = DBE(paths.setta_files_root).read_settings_project()
+        ensure_settings_code_objs(project_state)
+    except MissingSettingsSectionError as exc:
+        raise LaunchError(
+            "OutdatedProjectSettings",
+            (
+                "This workspace uses an older Setta settings/project format "
+                f"(missing settings section {exc.section_name}). "
+                "Please migrate the project metadata and try again."
+            ),
+        ) from exc
+    except (KeyError, OSError, TypeError, ValueError):
+        # Keep existing launch behavior for unrelated malformed settings states.
+        return
 
 
 @dataclass(frozen=True)

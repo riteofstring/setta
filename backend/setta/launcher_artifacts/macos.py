@@ -6,9 +6,9 @@ from pathlib import Path
 from setta.launcher_artifacts.common import (
     LauncherArtifactContext,
     LauncherArtifactError,
+    build_scoped_launcher_shell_command,
     resolve_path_option_with_existing,
     shell_array_literal,
-    shell_command,
     write_text_file,
 )
 
@@ -42,14 +42,26 @@ def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     )
 
     target_array_literal = shell_array_literal(context.target_command)
-    target_command_shell = shell_command(context.target_command)
-    channel_literal = shlex.quote(context.channel)
     setta_home_literal = shlex.quote(context.setta_home)
+    repair_command_literal = shlex.quote(
+        build_scoped_launcher_shell_command(
+            target_command=context.target_command,
+            setta_home=context.setta_home,
+            launcher_args=["repair"],
+        )
+    )
+    setup_command_literal = shlex.quote(
+        build_scoped_launcher_shell_command(
+            target_command=context.target_command,
+            setta_home=context.setta_home,
+            launcher_args=["setup", "--channel", context.channel],
+        )
+    )
     launcher_content = _build_launcher_script(
         target_array_literal=target_array_literal,
-        target_command_shell=target_command_shell,
-        channel_literal=channel_literal,
         setta_home_literal=setta_home_literal,
+        repair_command_literal=repair_command_literal,
+        setup_command_literal=setup_command_literal,
     )
 
     info_plist_payload: dict[str, str] = {
@@ -89,7 +101,9 @@ def _copy_optional_icns_icon(
             / DEFAULT_MACOS_ICON_FILE_NAME
         )
         if not resolved_source.exists() or not resolved_source.is_file():
-            return None
+            raise LauncherArtifactError(
+                f"Bundled launcher icon is missing: {resolved_source}"
+            )
     else:
         resolved_source = Path(source_path).expanduser().resolve(strict=False)
     if not resolved_source.exists() or not resolved_source.is_file():
@@ -119,15 +133,17 @@ def _sanitize_info_plist_text_value(*, raw_value: str, option_key: str) -> str:
 def _build_launcher_script(
     *,
     target_array_literal: str,
-    target_command_shell: str,
-    channel_literal: str,
     setta_home_literal: str,
+    repair_command_literal: str,
+    setup_command_literal: str,
 ) -> str:
     template = """#!/usr/bin/env bash
 set -euo pipefail
 
 TARGET_COMMAND=(__TARGET_ARRAY__)
 SETTA_HOME=__SETTA_HOME__
+REPAIR_COMMAND=__REPAIR_COMMAND__
+SETUP_COMMAND=__SETUP_COMMAND__
 
 run_launcher() {
   local workspace_arg="${1-}"
@@ -143,10 +159,10 @@ run_launcher() {
 
   local exit_code=$?
   local guidance
-  guidance="Setta could not start.\n\n${output}\n\nRepair launcher metadata with:\n__TARGET_SHELL__ launcher repair\n\nOr rerun setup with:\n__TARGET_SHELL__ launcher setup --channel __CHANNEL__"
+  guidance="Setta could not start.\n\n${output}\n\nRepair launcher metadata with:\n${REPAIR_COMMAND}\n\nOr rerun setup with:\n${SETUP_COMMAND}"
   printf '%b\n' "${guidance}" >&2
   if command -v osascript >/dev/null 2>&1; then
-    osascript -e "display alert \\\"Setta Launch Failed\\\" message \\\"Open Terminal and run 'setta launcher repair'.\\\" as critical buttons {\\\"OK\\\"} default button \\\"OK\\\"" >/dev/null 2>&1 || true
+    osascript -e "display alert \\\"Setta Launch Failed\\\" message \\\"Open Terminal and run: ${REPAIR_COMMAND}\\\" as critical buttons {\\\"OK\\\"} default button \\\"OK\\\"" >/dev/null 2>&1 || true
   fi
   return "${exit_code}"
 }
@@ -168,7 +184,7 @@ exit $?
 """
     return (
         template.replace("__TARGET_ARRAY__", target_array_literal)
-        .replace("__TARGET_SHELL__", target_command_shell)
-        .replace("__CHANNEL__", channel_literal)
         .replace("__SETTA_HOME__", setta_home_literal)
+        .replace("__REPAIR_COMMAND__", repair_command_literal)
+        .replace("__SETUP_COMMAND__", setup_command_literal)
     )

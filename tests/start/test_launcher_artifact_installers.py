@@ -36,6 +36,14 @@ def test_install_macos_artifacts_writes_bundle_files(tmp_path: Path) -> None:
     assert "/tmp/python" in launcher_script
     assert "--setta-home" in launcher_script
     assert "/tmp/setta-home" in launcher_script
+    assert "Repair launcher metadata with:" in launcher_script
+    macos_repair_line = next(
+        line
+        for line in launcher_script.splitlines()
+        if line.startswith("REPAIR_COMMAND=")
+    )
+    assert "--setta-home" in macos_repair_line
+    assert "launcher repair" in macos_repair_line
     assert "CFBundleExecutable" in info_plist
     assert "CFBundleIconFile" in info_plist
     assert "Setta.icns" in info_plist
@@ -109,6 +117,29 @@ def test_install_macos_artifacts_rejects_control_characters_in_icon_name(
     assert "icon_path" in str(excinfo.value)
 
 
+def test_install_macos_artifacts_fails_when_bundled_icon_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_path = tmp_path / "Applications" / "Setta.app"
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.macos.DEFAULT_MACOS_ICON_FILE_NAME",
+        "MissingSetta.icns",
+    )
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
+        channel="manual",
+        existing_managed_artifacts={},
+        options={"app_path": str(app_path)},
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_macos_artifacts(context=context)
+
+    assert "MissingSetta.icns" in str(excinfo.value)
+
+
 def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
     tmp_path: Path,
     monkeypatch,
@@ -159,6 +190,12 @@ def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
     assert "linux-script" in wrapper_script
     assert "--setta-home" in wrapper_script
     assert "/tmp/setta-home" in wrapper_script
+    assert "Repair launcher metadata with:" in wrapper_script
+    linux_repair_line = next(
+        line for line in wrapper_script.splitlines() if line.startswith("REPAIR_COMMAND=")
+    )
+    assert "--setta-home" in linux_repair_line
+    assert "launcher repair" in linux_repair_line
     assert "Name=Setta Test" in desktop_entry
     icon_lines = [
         line for line in desktop_entry.splitlines() if line.startswith("Icon=")
@@ -392,6 +429,11 @@ def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
     assert "launcher" in wrapper_script
     assert '--setta-home "/tmp/setta-home"' in wrapper_script
     assert "Setta could not start" in wrapper_script
+    assert (
+        'setta_launcher_repair_cmd="C:\\Python\\python.exe" "-m" "setta" '
+        '"--setta-home" "/tmp/setta-home" "launcher" "repair"'
+    ) in wrapper_script
+    assert "Repair launcher metadata with: %setta_launcher_repair_cmd%" in wrapper_script
 
     assert created_shortcuts == [
         (start_menu_shortcut_path, wrapper_path),

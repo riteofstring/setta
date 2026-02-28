@@ -40,9 +40,10 @@ type LaunchPhase =
 type RouteLaunchResult = Awaited<ReturnType<typeof route_launch>>;
 
 const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
-const MISSING_SETTINGS_SECTION_PATTERN =
-  /Missing settings section ([A-Za-z0-9_]+)/;
-const SETTINGS_PROJECT_PATH_HINT = "settings_project.py";
+const OUTDATED_PROJECT_SETTINGS_ERROR_CODE = "OutdatedProjectSettings";
+const OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE =
+  "This workspace uses an older Setta settings/project format. " +
+  "Please migrate the project metadata and try again.";
 
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
@@ -71,41 +72,23 @@ export function resolveWorkspaceLaunchReturnUrl(
   }
 }
 
-function resolveMissingSettingsSectionName(rawMessage: string): string | null {
-  const match = rawMessage.match(MISSING_SETTINGS_SECTION_PATTERN);
-  if (!match || !match[1]) {
-    return null;
-  }
-  return match[1];
-}
-
 export function resolveWorkspaceLaunchErrorMessage(
-  rawMessage: string | null | undefined,
+  rawError:
+    | {
+        code: string | null | undefined;
+        message: string | null | undefined;
+      }
+    | null
+    | undefined,
 ): string {
+  if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
+    return OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE;
+  }
+  const rawMessage = rawError?.message;
   if (!rawMessage || !rawMessage.trim()) {
     return "Launch failed.";
   }
-  const trimmedMessage = rawMessage.trim();
-  const isOutdatedSettingsProjectError =
-    trimmedMessage.includes(SETTINGS_PROJECT_PATH_HINT) &&
-    MISSING_SETTINGS_SECTION_PATTERN.test(trimmedMessage);
-  if (!isOutdatedSettingsProjectError) {
-    return trimmedMessage;
-  }
-
-  const missingSectionName = resolveMissingSettingsSectionName(trimmedMessage);
-  if (!missingSectionName) {
-    return (
-      "This workspace uses an older Setta settings/project format. " +
-      "Please migrate the project metadata and try again."
-    );
-  }
-
-  return (
-    "This workspace uses an older Setta settings/project format " +
-    `(missing settings section ${missingSectionName}). ` +
-    "Please migrate the project metadata and try again."
-  );
+  return rawMessage.trim();
 }
 
 export function WorkspaceLaunchPage() {
@@ -178,12 +161,14 @@ export function WorkspaceLaunchPage() {
         const detail = getErrorDetail(res.data);
         setPhase({
           status: "error",
-          message: resolveWorkspaceLaunchErrorMessage(
-            detail ??
+          message: resolveWorkspaceLaunchErrorMessage({
+            code: null,
+            message:
+              detail ??
               (res.status
                 ? `Launch failed (HTTP ${res.status}). Please try again.`
                 : "Launch failed. Please try again."),
-          ),
+          }),
           returnUrl: pendingReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
@@ -200,9 +185,10 @@ export function WorkspaceLaunchPage() {
       if (!res.data.ok) {
         setPhase({
           status: "error",
-          message: resolveWorkspaceLaunchErrorMessage(
-            res.data.error?.message ?? "Launch failed.",
-          ),
+          message: resolveWorkspaceLaunchErrorMessage({
+            code: res.data.error?.code,
+            message: res.data.error?.message ?? "Launch failed.",
+          }),
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,

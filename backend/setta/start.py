@@ -818,13 +818,22 @@ def _is_macos_chrome_app_visible(*, chrome_flag: str) -> bool:
     if result.returncode != 0:
         return False
     for line in result.stdout.splitlines():
-        if chrome_flag not in line:
-            continue
-        if "Google Chrome.app/Contents/MacOS/Google Chrome" in line:
-            return True
-        if "Chromium.app/Contents/MacOS/Chromium" in line:
+        if _is_macos_chrome_process_command(command=line, chrome_flag=chrome_flag):
             return True
     return False
+
+
+def _is_macos_chrome_process_command(*, command: str, chrome_flag: str) -> bool:
+    if chrome_flag not in command:
+        return False
+    stripped_command = command.strip()
+    if not stripped_command:
+        return False
+    executable_token = stripped_command.split(maxsplit=1)[0]
+    if Path(executable_token).name.strip().lower() == "open":
+        return False
+    prefix = stripped_command.split(chrome_flag, 1)[0].strip().lower()
+    return prefix.endswith("google chrome") or prefix.endswith("chromium")
 
 
 def _open_url_with_launcher_mode(
@@ -2149,22 +2158,43 @@ def _run_launcher_setup_subcommand(
     install_source: str | None,
     open_mode: str | None,
     workspace_behavior: str | None,
-    install_artifacts: bool,
+    install_artifacts: bool | None,
     artifact_option_specs: tuple[str, ...],
+    clear_artifact_options: bool,
 ) -> None:
     launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
 
-    try:
-        parsed_artifact_options = _parse_launcher_artifact_option_specs(
-            artifact_option_specs
-        )
-    except click.ClickException as exc:
+    artifact_option_source = ctx.get_parameter_source("artifact_option_specs")
+    artifact_option_specs_provided = (
+        artifact_option_source is not click.core.ParameterSource.DEFAULT
+    )
+    if clear_artifact_options and artifact_option_specs_provided:
         _emit_launcher_error_and_exit(
             json_output=json_output,
             code="BadRequest",
-            message=str(exc),
+            message=(
+                "Use either --artifact-option or --clear-artifact-options, not both."
+            ),
             exit_code=2,
         )
+
+    parsed_artifact_options: dict[str, str] | None
+    if clear_artifact_options:
+        parsed_artifact_options = {}
+    elif not artifact_option_specs_provided:
+        parsed_artifact_options = None
+    else:
+        try:
+            parsed_artifact_options = _parse_launcher_artifact_option_specs(
+                artifact_option_specs
+            )
+        except click.ClickException as exc:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="BadRequest",
+                message=str(exc),
+                exit_code=2,
+            )
 
     parsed_workspace_behavior: LauncherWorkspaceBehavior | None = None
     if workspace_behavior is not None:
@@ -2280,9 +2310,14 @@ def _run_launcher_remove_subcommand(
     ),
 )
 @click.option(
-    "--no-install-artifacts",
+    "--clear-artifact-options",
     is_flag=True,
-    help="Skip creating platform desktop artifacts and only update metadata.",
+    help="Clear all stored launcher artifact options.",
+)
+@click.option(
+    "--install-artifacts/--no-install-artifacts",
+    default=None,
+    help="Install or skip managed platform artifacts. Omit to preserve existing mode.",
 )
 @click.pass_context
 def launcher_setup(
@@ -2293,7 +2328,8 @@ def launcher_setup(
     open_mode: str | None,
     workspace_behavior: str | None,
     artifact_option_specs: tuple[str, ...],
-    no_install_artifacts: bool,
+    clear_artifact_options: bool,
+    install_artifacts: bool | None,
 ) -> None:
     _run_launcher_setup_subcommand(
         ctx=ctx,
@@ -2302,8 +2338,9 @@ def launcher_setup(
         install_source=install_source,
         open_mode=open_mode,
         workspace_behavior=workspace_behavior,
-        install_artifacts=not no_install_artifacts,
+        install_artifacts=install_artifacts,
         artifact_option_specs=artifact_option_specs,
+        clear_artifact_options=clear_artifact_options,
     )
 
 

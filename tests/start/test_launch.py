@@ -14,6 +14,7 @@ import pytest
 from click.testing import CliRunner
 
 from setta.launch import LaunchError, launch_workspace_session
+from setta.project_state.settings_project import MissingSettingsSectionError
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.start import cli, launch
@@ -519,6 +520,47 @@ def test_launch_workspace_session_reports_spawn_failures(
 
     content = log_path.read_text(encoding="utf-8")
     assert "failed to spawn setta process" in content
+
+
+def test_launch_workspace_session_surfaces_outdated_settings_project_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_files_root = workspace / "setta_files"
+    setta_files_root.mkdir(parents=True, exist_ok=True)
+    (setta_files_root / "setta-settings-project.json").write_text(
+        "{}",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("setta.launch.DBE.read_settings_project", lambda _self: object())
+    monkeypatch.setattr(
+        "setta.launch.ensure_settings_code_objs",
+        lambda _project_state: (_ for _ in ()).throw(
+            MissingSettingsSectionError("pluginSectionDefault")
+        ),
+    )
+    monkeypatch.setattr(
+        "setta.launch._start_setta_process",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "_start_setta_process should not run when settings are known to be outdated."
+            )
+        ),
+    )
+
+    with pytest.raises(LaunchError) as excinfo:
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_files_location="local",
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert excinfo.value.code == "OutdatedProjectSettings"
+    assert "pluginSectionDefault" in str(excinfo.value)
 
 
 def test_launch_workspace_session_times_out_and_terminates_spawned_process(

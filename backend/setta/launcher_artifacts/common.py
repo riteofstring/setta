@@ -164,6 +164,36 @@ def shell_array_literal(parts: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in parts)
 
 
+def build_scoped_launcher_command(
+    *,
+    target_command: list[str],
+    setta_home: str,
+    launcher_args: list[str],
+) -> list[str]:
+    return [
+        *target_command,
+        "--setta-home",
+        setta_home,
+        "launcher",
+        *launcher_args,
+    ]
+
+
+def build_scoped_launcher_shell_command(
+    *,
+    target_command: list[str],
+    setta_home: str,
+    launcher_args: list[str],
+) -> str:
+    return shell_command(
+        build_scoped_launcher_command(
+            target_command=target_command,
+            setta_home=setta_home,
+            launcher_args=launcher_args,
+        )
+    )
+
+
 def validate_file_name_component(*, option_key: str, raw_value: str) -> str:
     normalized_value = raw_value.strip()
     if not normalized_value:

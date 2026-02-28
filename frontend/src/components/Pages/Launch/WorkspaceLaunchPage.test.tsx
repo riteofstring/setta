@@ -32,29 +32,40 @@ describe("WorkspaceLaunchPage return URL helpers", () => {
 });
 
 describe("WorkspaceLaunchPage launch error helpers", () => {
-  it("maps outdated settings project startup tracebacks to migration guidance", () => {
-    const rawMessage = [
-      "Traceback ...",
-      'File "/tmp/site-packages/setta/project_state/settings_project.py", line 625',
-      'raise KeyError("Missing settings section pluginSectionDefault.")',
-      "KeyError: 'Missing settings section pluginSectionDefault.'",
-    ].join("\n");
-
-    const resolved = resolveWorkspaceLaunchErrorMessage(rawMessage);
+  it("maps typed outdated-settings launch errors to migration guidance", () => {
+    const resolved = resolveWorkspaceLaunchErrorMessage({
+      code: "OutdatedProjectSettings",
+      message: "any backend detail",
+    });
 
     expect(resolved).toContain("older Setta settings/project format");
-    expect(resolved).toContain("pluginSectionDefault");
     expect(resolved).toContain("migrate the project metadata");
   });
 
-  it("keeps non-migration launch errors unchanged", () => {
-    const resolved = resolveWorkspaceLaunchErrorMessage(
-      "Workspace root does not exist: /tmp/demo",
-    );
+  it("does not remap messages when the typed error code is missing", () => {
+    const rawMessage = [
+      "Traceback ...",
+      'File "/tmp/site-packages/setta/project_state/settings_project.py", line 625',
+      "KeyError: 'Missing settings section pluginSectionDefault.'",
+    ].join("\n");
+    const resolved = resolveWorkspaceLaunchErrorMessage({
+      code: null,
+      message: rawMessage,
+    });
+    expect(resolved).toBe(rawMessage);
+  });
+
+  it("keeps non-outdated launch errors unchanged", () => {
+    const resolved = resolveWorkspaceLaunchErrorMessage({
+      code: "InvalidWorkspace",
+      message: "Workspace root does not exist: /tmp/demo",
+    });
     expect(resolved).toBe("Workspace root does not exist: /tmp/demo");
   });
 
   it("falls back to a generic launch error when message is empty", () => {
-    expect(resolveWorkspaceLaunchErrorMessage("   ")).toBe("Launch failed.");
+    expect(
+      resolveWorkspaceLaunchErrorMessage({ code: null, message: "   " }),
+    ).toBe("Launch failed.");
   });
 });

@@ -7,11 +7,11 @@ from pathlib import Path
 from setta.launcher_artifacts.common import (
     LauncherArtifactContext,
     LauncherArtifactError,
+    build_scoped_launcher_shell_command,
     existing_artifact_path,
     parse_bool_option,
     resolve_path_option_with_existing,
     shell_array_literal,
-    shell_command,
     validate_file_name_component,
     write_text_file,
 )
@@ -121,15 +121,27 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     desktop_shortcut_path = planned_artifacts.get("linuxDesktopShortcut")
 
     target_array_literal = shell_array_literal(context.target_command)
-    target_command_shell = shell_command(context.target_command)
-    channel_literal = shlex.quote(context.channel)
     setta_home_literal = shlex.quote(context.setta_home)
+    repair_command_literal = shlex.quote(
+        build_scoped_launcher_shell_command(
+            target_command=context.target_command,
+            setta_home=context.setta_home,
+            launcher_args=["repair"],
+        )
+    )
+    setup_command_literal = shlex.quote(
+        build_scoped_launcher_shell_command(
+            target_command=context.target_command,
+            setta_home=context.setta_home,
+            launcher_args=["setup", "--channel", context.channel],
+        )
+    )
 
     wrapper_content = _build_linux_wrapper_script(
         target_array_literal=target_array_literal,
-        target_command_shell=target_command_shell,
-        channel_literal=channel_literal,
         setta_home_literal=setta_home_literal,
+        repair_command_literal=repair_command_literal,
+        setup_command_literal=setup_command_literal,
     )
     write_text_file(path=wrapper_path, content=wrapper_content, executable=True)
 
@@ -166,15 +178,17 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
 def _build_linux_wrapper_script(
     *,
     target_array_literal: str,
-    target_command_shell: str,
-    channel_literal: str,
     setta_home_literal: str,
+    repair_command_literal: str,
+    setup_command_literal: str,
 ) -> str:
     template = """#!/usr/bin/env bash
 set -euo pipefail
 
 TARGET_COMMAND=(__TARGET_ARRAY__)
 SETTA_HOME=__SETTA_HOME__
+REPAIR_COMMAND=__REPAIR_COMMAND__
+SETUP_COMMAND=__SETUP_COMMAND__
 
 show_failure_dialog() {
   local message="${1-}"
@@ -201,9 +215,9 @@ run_launcher() {
 
   local exit_code=$?
   local guidance
-  guidance="Setta could not start.\n\n${output}\n\nRepair launcher metadata with:\n__TARGET_SHELL__ launcher repair\n\nOr rerun setup with:\n__TARGET_SHELL__ launcher setup --channel __CHANNEL__"
+  guidance="Setta could not start.\n\n${output}\n\nRepair launcher metadata with:\n${REPAIR_COMMAND}\n\nOr rerun setup with:\n${SETUP_COMMAND}"
   printf '%b\n' "${guidance}" >&2
-  show_failure_dialog "Setta could not start. Open a terminal and run 'setta launcher repair'."
+  show_failure_dialog "Setta could not start. Open a terminal and run: ${REPAIR_COMMAND}"
   return "${exit_code}"
 }
 
@@ -224,9 +238,9 @@ exit $?
 """
     return (
         template.replace("__TARGET_ARRAY__", target_array_literal)
-        .replace("__TARGET_SHELL__", target_command_shell)
-        .replace("__CHANNEL__", channel_literal)
         .replace("__SETTA_HOME__", setta_home_literal)
+        .replace("__REPAIR_COMMAND__", repair_command_literal)
+        .replace("__SETUP_COMMAND__", setup_command_literal)
     )
 
 
