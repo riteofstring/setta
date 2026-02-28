@@ -19,6 +19,7 @@ class LauncherArtifactError(ValueError):
 @dataclass(frozen=True)
 class LauncherArtifactContext:
     target_command: list[str]
+    setta_home: str
     channel: str
     existing_managed_artifacts: dict[str, str]
     options: dict[str, str]

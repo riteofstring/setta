@@ -78,7 +78,10 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
     create_desktop_shortcut = "windowsDesktopShortcut" in planned_artifacts
     desktop_shortcut_path = planned_artifacts.get("windowsDesktopShortcut")
 
-    wrapper_content = _build_windows_wrapper(target_command=context.target_command)
+    wrapper_content = _build_windows_wrapper(
+        target_command=context.target_command,
+        setta_home=context.setta_home,
+    )
     write_text_file(path=wrapper_path, content=wrapper_content, executable=False)
 
     _create_windows_shortcut(
@@ -135,8 +138,9 @@ def _resolve_desktop_dir() -> Path:
     return (Path.home() / "Desktop").resolve(strict=False)
 
 
-def _build_windows_wrapper(*, target_command: list[str]) -> str:
+def _build_windows_wrapper(*, target_command: list[str], setta_home: str) -> str:
     quoted_target_command = " ".join(_quote_for_cmd(part) for part in target_command)
+    quoted_setta_home = _quote_for_cmd(setta_home)
     return f"""@echo off
 setlocal
 set "setta_launcher_log=%TEMP%\\setta-launcher-error-%RANDOM%%RANDOM%.log"
@@ -160,7 +164,7 @@ call :launch_default
 exit /b %ERRORLEVEL%
 
 :launch_with_workspace
-{quoted_target_command} launcher --workspace "%~1" > "%setta_launcher_log%" 2>&1
+{quoted_target_command} --setta-home {quoted_setta_home} launcher --workspace "%~1" > "%setta_launcher_log%" 2>&1
 set "setta_launcher_exit=%ERRORLEVEL%"
 if "%setta_launcher_exit%"=="0" (
   if exist "%setta_launcher_log%" del /q "%setta_launcher_log%" >nul 2>&1
@@ -170,7 +174,7 @@ call :show_failure
 exit /b %setta_launcher_exit%
 
 :launch_default
-{quoted_target_command} launcher > "%setta_launcher_log%" 2>&1
+{quoted_target_command} --setta-home {quoted_setta_home} launcher > "%setta_launcher_log%" 2>&1
 set "setta_launcher_exit=%ERRORLEVEL%"
 if "%setta_launcher_exit%"=="0" (
   if exist "%setta_launcher_log%" del /q "%setta_launcher_log%" >nul 2>&1

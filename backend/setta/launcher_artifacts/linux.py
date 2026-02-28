@@ -123,11 +123,13 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     target_array_literal = shell_array_literal(context.target_command)
     target_command_shell = shell_command(context.target_command)
     channel_literal = shlex.quote(context.channel)
+    setta_home_literal = shlex.quote(context.setta_home)
 
     wrapper_content = _build_linux_wrapper_script(
         target_array_literal=target_array_literal,
         target_command_shell=target_command_shell,
         channel_literal=channel_literal,
+        setta_home_literal=setta_home_literal,
     )
     write_text_file(path=wrapper_path, content=wrapper_content, executable=True)
 
@@ -166,11 +168,13 @@ def _build_linux_wrapper_script(
     target_array_literal: str,
     target_command_shell: str,
     channel_literal: str,
+    setta_home_literal: str,
 ) -> str:
     template = """#!/usr/bin/env bash
 set -euo pipefail
 
 TARGET_COMMAND=(__TARGET_ARRAY__)
+SETTA_HOME=__SETTA_HOME__
 
 show_failure_dialog() {
   local message="${1-}"
@@ -185,7 +189,7 @@ show_failure_dialog() {
 
 run_launcher() {
   local workspace_arg="${1-}"
-  local cmd=("${TARGET_COMMAND[@]}" launcher)
+  local cmd=("${TARGET_COMMAND[@]}" --setta-home "${SETTA_HOME}" launcher)
   if [[ -n "${workspace_arg}" ]]; then
     cmd+=(--workspace "${workspace_arg}")
   fi
@@ -222,6 +226,7 @@ exit $?
         template.replace("__TARGET_ARRAY__", target_array_literal)
         .replace("__TARGET_SHELL__", target_command_shell)
         .replace("__CHANNEL__", channel_literal)
+        .replace("__SETTA_HOME__", setta_home_literal)
     )
 
 

@@ -14,6 +14,7 @@ def test_install_macos_artifacts_writes_bundle_files(tmp_path: Path) -> None:
     app_path = tmp_path / "Applications" / "Setta.app"
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="manual",
         existing_managed_artifacts={},
         options={"app_path": str(app_path)},
@@ -33,6 +34,8 @@ def test_install_macos_artifacts_writes_bundle_files(tmp_path: Path) -> None:
 
     assert "launcher repair" in launcher_script
     assert "/tmp/python" in launcher_script
+    assert "--setta-home" in launcher_script
+    assert "/tmp/setta-home" in launcher_script
     assert "CFBundleExecutable" in info_plist
 
 
@@ -43,6 +46,7 @@ def test_install_macos_artifacts_copies_optional_icon(tmp_path: Path) -> None:
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="manual",
         existing_managed_artifacts={},
         options={"app_path": str(app_path), "icon_path": str(icon_path)},
@@ -67,6 +71,7 @@ def test_install_macos_artifacts_writes_parseable_plist_for_xml_icon_names(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="manual",
         existing_managed_artifacts={},
         options={"app_path": str(app_path), "icon_path": str(icon_path)},
@@ -88,6 +93,7 @@ def test_install_macos_artifacts_rejects_control_characters_in_icon_name(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="manual",
         existing_managed_artifacts={},
         options={"app_path": str(app_path), "icon_path": str(icon_path)},
@@ -116,6 +122,7 @@ def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={},
         options={
@@ -146,6 +153,8 @@ def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
 
     assert "launcher repair" in wrapper_script
     assert "linux-script" in wrapper_script
+    assert "--setta-home" in wrapper_script
+    assert "/tmp/setta-home" in wrapper_script
     assert "Name=Setta Test" in desktop_entry
     icon_lines = [
         line for line in desktop_entry.splitlines() if line.startswith("Icon=")
@@ -171,6 +180,7 @@ def test_install_linux_artifacts_does_not_delete_existing_shortcut_when_disabled
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={
             "linuxDesktopShortcut": str(desktop_shortcut_path),
@@ -202,6 +212,7 @@ def test_install_linux_artifacts_escapes_exec_argument_for_spaced_wrapper_path(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={},
         options={
@@ -246,6 +257,7 @@ def test_install_linux_artifacts_rejects_control_characters_in_app_name(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={},
         options={
@@ -278,6 +290,7 @@ def test_install_linux_artifacts_rejects_control_characters_in_icon_path(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={},
         options={
@@ -308,6 +321,7 @@ def test_install_linux_artifacts_rejects_path_like_desktop_entry_name(
 
     context = LauncherArtifactContext(
         target_command=["/tmp/python", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="linux-script",
         existing_managed_artifacts={},
         options={
@@ -350,6 +364,7 @@ def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
 
     context = LauncherArtifactContext(
         target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="windows-script",
         existing_managed_artifacts={},
         options={
@@ -371,6 +386,7 @@ def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
     assert wrapper_path.exists()
     wrapper_script = wrapper_path.read_text(encoding="utf-8")
     assert "launcher" in wrapper_script
+    assert '--setta-home "/tmp/setta-home"' in wrapper_script
     assert "Setta could not start" in wrapper_script
 
     assert created_shortcuts == [
@@ -402,6 +418,7 @@ def test_install_windows_artifacts_quotes_workspace_forwarding(
 
     context = LauncherArtifactContext(
         target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="windows-script",
         existing_managed_artifacts={},
         options={
@@ -414,6 +431,7 @@ def test_install_windows_artifacts_quotes_workspace_forwarding(
     install_windows_artifacts(context=context)
 
     wrapper_script = wrapper_path.read_text(encoding="utf-8")
+    assert '--setta-home "/tmp/setta-home"' in wrapper_script
     assert 'launcher --workspace "%~1"' in wrapper_script
     assert "launcher --workspace %1" not in wrapper_script
 
@@ -442,6 +460,7 @@ def test_install_windows_artifacts_rejects_path_like_app_name(
 
     context = LauncherArtifactContext(
         target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="windows-script",
         existing_managed_artifacts={},
         options={
@@ -484,6 +503,7 @@ def test_install_windows_artifacts_keeps_existing_desktop_shortcut_when_disabled
 
     context = LauncherArtifactContext(
         target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        setta_home="/tmp/setta-home",
         channel="windows-script",
         existing_managed_artifacts={
             "windowsDesktopShortcut": str(existing_desktop_shortcut),

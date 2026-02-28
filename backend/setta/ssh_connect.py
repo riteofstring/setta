@@ -252,7 +252,8 @@ def connect_remote_workspace_session(
         if remote_launcher_origin != launcher_origin:
             raise LaunchError(
                 "RemoteConnectInfo",
-                "Remote connect info launcherOrigin did not match requested launcher origin.",
+                "Remote connect info launcherOrigin did not match requested launcher origin. "
+                f"requested={launcher_origin!r}, remote={remote_launcher_origin!r}",
             )
         if remote_launcher_origin_proof is None:
             raise LaunchError(

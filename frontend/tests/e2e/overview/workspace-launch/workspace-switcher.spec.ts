@@ -1031,14 +1031,14 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     modalAfterReload.getByRole("combobox", { name: "Setta Files Location" }),
   ).toHaveValue("local");
 
-  // Regression test: once we are "inside" an SSH session, launching again must
-  // still send /api/launch to the original launcher backend (not the tunneled backend).
+  // Regression test: in IDE mode, follow-up launches stay bound to the active
+  // backend origin for the current session.
   const followupLaunchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
       req.method() === "POST" &&
       url.pathname === "/api/launch" &&
-      url.origin === expectedLauncherOrigin
+      url.origin === tunnelOrigin
     );
   });
   await modalAfterReload.getByPlaceholder("61000").fill("");

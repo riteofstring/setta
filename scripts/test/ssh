@@ -5,6 +5,7 @@ import json
 import os
 import re
 import select
+import shlex
 import socket
 import sys
 import threading
@@ -221,8 +222,41 @@ def _extract_setta_files_location(command: str) -> str | None:
     return None
 
 
+def _extract_launcher_origin(command: str) -> str | None:
+    candidate: str | None = None
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = command.split()
+    for index, token in enumerate(tokens):
+        if token == "--launcher-origin" and index + 1 < len(tokens):
+            candidate = tokens[index + 1]
+            break
+        if token.startswith("--launcher-origin="):
+            candidate = token.split("=", 1)[1]
+            break
+    if candidate is None:
+        match = re.search(
+            r"launcher-origin[^A-Za-z0-9]*(https?://[^\s'\";&]+)",
+            command,
+        )
+        if match:
+            candidate = match.group(1)
+    if candidate is None:
+        return None
+    try:
+        from setta.utils.launcher_origin_handoff import normalize_launcher_origin
+
+        return normalize_launcher_origin(candidate)
+    except Exception:
+        return None
+
+
 def _handle_remote_command(command: str) -> int:
     command = command.strip()
+    debug_commands_raw = os.environ.get("SETTA_SSH_STUB_DEBUG_COMMANDS", "").strip()
+    if debug_commands_raw.lower() not in {"", "0", "false"}:
+        sys.stderr.write(f"ssh stub command: {command}\n")
 
     if command.startswith("command -v "):
         tool = command.split()[-1].strip().strip("'\"")
@@ -317,6 +351,21 @@ def _handle_remote_command(command: str) -> int:
             "settaFilesLocation": resolved_location,
             "runtimeRoot": runtime_root or None,
         }
+        requested_launcher_origin = _extract_launcher_origin(command)
+        if requested_launcher_origin is not None:
+            try:
+                from setta.utils.launcher_origin_handoff import (
+                    mint_launcher_origin_handoff_proof,
+                )
+
+                payload["launcherOrigin"] = requested_launcher_origin
+                payload["launcherOriginProof"] = mint_launcher_origin_handoff_proof(
+                    session_id=session_id,
+                    launcher_origin=requested_launcher_origin,
+                    secret=secret,
+                )
+            except Exception:
+                pass
         _emit_json(payload)
         return 0
 

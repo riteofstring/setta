@@ -210,6 +210,13 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
             metadata=None,
         )
 
+    if metadata is not None:
+        _validate_metadata_setta_home_scope(
+            metadata=metadata,
+            setta_home=resolved_setta_home,
+            error_code="LauncherMetadata",
+        )
+
     normalized_managed_artifacts = _validate_managed_artifact_registry(
         managed_artifacts=metadata.managedArtifacts,
         setta_home=resolved_setta_home,
@@ -272,6 +279,12 @@ def setup_launcher_installation(
         )
     except LauncherMetadataError as exc:
         raise LauncherSetupError("LauncherMetadata", str(exc)) from exc
+    if existing_metadata is not None:
+        _validate_metadata_setta_home_scope(
+            metadata=existing_metadata,
+            setta_home=resolved_setta_home,
+            error_code="LauncherMetadata",
+        )
 
     resolved_channel: str
     if channel is not None:
@@ -355,6 +368,7 @@ def setup_launcher_installation(
     if resolved_install_artifacts:
         artifact_context = LauncherArtifactContext(
             target_command=resolved_target_command,
+            setta_home=str(resolved_setta_home),
             channel=resolved_channel,
             existing_managed_artifacts=merged_artifacts,
             options=normalized_artifact_options,
@@ -419,6 +433,7 @@ def setup_launcher_installation(
             install_source=resolved_install_source,
             artifact_ownership_token=ownership_token,
             setta_version=__version__,
+            setta_home=resolved_setta_home,
             open_mode=resolved_open_mode,
             workspace_behavior=resolved_workspace_behavior,
             last_used_workspace=existing_metadata.lastUsedWorkspace
@@ -893,6 +908,22 @@ def _validate_unique_artifact_paths(
         error_code,
         "Launcher artifact paths must be unique per artifact key. "
         f"Conflicts: {conflict_details}",
+    )
+
+
+def _validate_metadata_setta_home_scope(
+    *,
+    metadata: LauncherInstallMetadata,
+    setta_home: Path,
+    error_code: str,
+) -> None:
+    normalized_setta_home = str(setta_home.resolve(strict=False))
+    if metadata.settaHome == normalized_setta_home:
+        return
+    raise LauncherSetupError(
+        error_code,
+        "Launcher metadata settaHome does not match requested scope. "
+        f"metadata={metadata.settaHome}, requested={normalized_setta_home}",
     )
 
 

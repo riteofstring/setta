@@ -1,4 +1,4 @@
-import { useShareSession } from "state/definitions";
+import { useServerMode, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
 import { RouteEnum } from "./generatedTypes";
 
@@ -9,6 +9,7 @@ export type ResponseDataAndStatus<T> = {
 };
 
 type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
+type ServerMode = ReturnType<typeof useServerMode.getState>["mode"];
 
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
@@ -48,6 +49,7 @@ export function getErrorDetail(value: unknown): string | null {
 export const ENDPOINT_ORIGIN_POLICY: Readonly<
   Record<string, EndpointOriginPolicy>
 > = Object.freeze({
+  [RouteEnum.GET_SETTA_HOME_INFO]: "launcher",
   [RouteEnum.LAUNCH]: "launcher",
   [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
   [RouteEnum.GET_LAUNCHER_APP_MODE]: "launcher",
@@ -59,6 +61,11 @@ export const ENDPOINT_ORIGIN_POLICY: Readonly<
   [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
   [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
 });
+
+const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
+  RouteEnum.LAUNCH,
+  RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
+]);
 
 function stripQueryAndHash(address: string): string {
   const hashIndex = address.indexOf("#");
@@ -73,16 +80,29 @@ function stripQueryAndHash(address: string): string {
   return withoutHash;
 }
 
-export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+function resolveEndpointOriginForMode(
+  address: string,
+  serverMode: ServerMode,
+): EndpointOriginPolicy {
   const normalizedAddress = stripQueryAndHash(address);
   if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return "backend-origin";
   }
   const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
   if (routePolicy === "launcher") {
+    if (
+      MODE_SCOPED_LAUNCHER_ROUTES.has(normalizedAddress) &&
+      serverMode !== "launcher"
+    ) {
+      return "backend";
+    }
     return "launcher";
   }
   return "backend";
+}
+
+export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+  return resolveEndpointOriginForMode(address, useServerMode.getState().mode);
 }
 
 function resolveBackendUrl(address: string): string {

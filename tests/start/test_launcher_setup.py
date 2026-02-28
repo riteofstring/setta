@@ -70,6 +70,62 @@ def test_collect_launcher_status_reports_not_installed() -> None:
     assert status.update_guidance is not None
 
 
+def test_collect_launcher_status_rejects_metadata_scope_mismatch(
+    tmp_path: Path,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    mismatched_setta_home = (tmp_path / "other-setta-home").resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="scope-mismatch-status-token",
+        setta_version="1.2.3",
+        setta_home=mismatched_setta_home,
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        collect_launcher_status(setta_home=setta_home)
+
+    assert excinfo.value.code == "LauncherMetadata"
+    assert "settaHome does not match requested scope" in str(excinfo.value)
+
+
+def test_setup_launcher_installation_rejects_metadata_scope_mismatch(
+    tmp_path: Path,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    mismatched_setta_home = (tmp_path / "other-setta-home").resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="scope-mismatch-setup-token",
+        setta_version="1.2.3",
+        setta_home=mismatched_setta_home,
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel=None,
+            open_mode=None,
+            workspace_behavior=None,
+            install_artifacts=False,
+        )
+
+    assert excinfo.value.code == "LauncherMetadata"
+    assert "settaHome does not match requested scope" in str(excinfo.value)
+
+
 def test_setup_launcher_installation_rejects_metadata_outside_trusted_roots(
     tmp_path: Path,
 ) -> None:
@@ -82,6 +138,7 @@ def test_setup_launcher_installation_rejects_metadata_outside_trusted_roots(
         install_source="unsupported",
         artifact_ownership_token="setup-outside-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={artifact_key: outside_artifact},
     )
@@ -304,6 +361,7 @@ def test_setup_launcher_installation_rejects_shortcut_removal_without_owned_mark
         install_source="unsupported",
         artifact_ownership_token="expected-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={artifact_key: artifact_path},
     )
@@ -378,6 +436,7 @@ def test_setup_launcher_installation_removes_owned_shortcuts_when_disabled(
         install_source="unsupported",
         artifact_ownership_token=ownership_token,
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={artifact_key: artifact_path},
     )
@@ -461,6 +520,7 @@ def test_setup_launcher_installation_clears_artifact_options_when_empty() -> Non
         install_source="unsupported",
         artifact_ownership_token="preserve-artifact-options-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         artifact_options={"app_name": "Setta Custom"},
     )
@@ -487,6 +547,7 @@ def test_setup_launcher_installation_preserves_artifact_options_when_omitted() -
         install_source="unsupported",
         artifact_ownership_token="preserve-artifact-options-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         artifact_options={"app_name": "Setta Custom"},
     )
@@ -514,6 +575,7 @@ def test_setup_launcher_installation_preserves_no_artifact_mode_when_omitted(
         install_source="unsupported",
         artifact_ownership_token="preserve-no-artifact-mode-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={},
     )
@@ -568,6 +630,7 @@ def test_repair_launcher_installation_rebinds_missing_target(
         install_source="unsupported",
         artifact_ownership_token="repair-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -620,6 +683,7 @@ def test_repair_launcher_installation_preserves_preferences_and_rewrites_platfor
         install_source="unsupported",
         artifact_ownership_token=ownership_token,
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="chrome-app",
         workspace_behavior="always_prompt",
         last_used_workspace=previous_workspace,
@@ -773,6 +837,7 @@ def test_remove_launcher_installation_rejects_metadata_outside_trusted_roots(
         install_source="uv_tool",
         artifact_ownership_token="outside-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={artifact_key: outside_artifact},
     )
@@ -801,6 +866,7 @@ def test_remove_launcher_installation_requires_ownership_markers() -> None:
         install_source="uv_tool",
         artifact_ownership_token="missing-marker-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={artifact_key: artifact_path},
     )
@@ -827,6 +893,7 @@ def test_update_launcher_installation_rejects_installer_managed_channel(
         install_source="installer_managed",
         artifact_ownership_token="installer-managed-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -856,6 +923,7 @@ def test_update_launcher_installation_runs_uv_and_rebinds(
         install_source="uv_tool",
         artifact_ownership_token="uv-tool-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         artifact_options={"app_name": "Setta"},
     )

@@ -1,4 +1,5 @@
 import os
+import signal
 from pathlib import Path
 from typing import Literal
 
@@ -109,6 +110,7 @@ class LauncherListDirectoryResponse(BaseModel):
     entries: list[LauncherDirectoryEntryPayload] = Field(default_factory=list)
     nextCursor: str | None = None
     hasMore: bool = False
+    truncated: bool = False
     error: LauncherHomeErrorPayload | None = None
 
 
@@ -353,6 +355,7 @@ def route_list_launcher_directory(
         entries=visible_entries,
         hasMore=has_more,
         nextCursor=next_cursor,
+        truncated=scan_budget_reached,
     )
 
 
@@ -522,6 +525,12 @@ def route_open_launcher_workspace(
             launcher_session_info=launcher_session_info,
         )
     except TrustedFrontendOriginStoreError as exc:
+        if result.started_new:
+            _rollback_started_workspace_session(
+                session_id=result.session.id,
+                pid=result.session.pid,
+                registry=result.registry,
+            )
         return LauncherOpenWorkspaceResponse(
             ok=False,
             error=LauncherHomeErrorPayload(
@@ -586,3 +595,22 @@ def _path_display_name(path: Path) -> str:
     if drive:
         return drive
     return str(path)
+
+
+def _rollback_started_workspace_session(
+    *, session_id: str, pid: int, registry: object
+) -> None:
+    if pid > 0:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    try:
+        delete_session = getattr(registry, "delete_session")
+    except AttributeError:
+        return
+    try:
+        delete_session(session_id)
+    except OSError:
+        pass

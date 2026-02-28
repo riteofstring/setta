@@ -1,3 +1,5 @@
+import os
+import signal
 import time
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -107,6 +109,25 @@ SAFE_LAUNCH_RETURN_PATH = "/home"
 _WORKSPACE_LAUNCH_INTENT_STORE = WorkspaceLaunchIntentStore()
 
 
+def _rollback_started_local_session(
+    *, session_id: str, pid: int, registry: object
+) -> None:
+    if pid > 0:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    try:
+        delete_session = getattr(registry, "delete_session")
+    except AttributeError:
+        return
+    try:
+        delete_session(session_id)
+    except OSError:
+        pass
+
+
 @router.post(Route.CREATE_WORKSPACE_LAUNCH_INTENT)
 def route_create_workspace_launch_intent(
     x: CreateWorkspaceLaunchIntentRequest,
@@ -192,7 +213,10 @@ def route_launch(
     x: LaunchRequest,
     request: Request = None,  # type: ignore[assignment]
 ) -> LaunchResponse:
-    request_origin = _resolve_request_origin(request)
+    request_origin = _resolve_request_origin(
+        request,
+        allow_client_origin_header=True,
+    )
     return_url = _build_safe_launch_return_url(request_origin=request_origin)
     launcher_session_info = load_current_session_secret()
     if x.launchIntentToken is not None:
@@ -384,6 +408,12 @@ def route_launch(
             launcher_session_info=launcher_session_info,
         )
     except TrustedFrontendOriginStoreError as exc:
+        if result.started_new:
+            _rollback_started_local_session(
+                session_id=result.session.id,
+                pid=result.session.pid,
+                registry=result.registry,
+            )
         return LaunchResponse(
             ok=False,
             returnUrl=return_url,
@@ -461,9 +491,19 @@ def _consume_workspace_launch_intent(
     ), stored.return_url
 
 
-def _resolve_request_origin(request: Request | None) -> str | None:
+def _resolve_request_origin(
+    request: Request | None,
+    *,
+    allow_client_origin_header: bool = False,
+) -> str | None:
     if request is None:
         return None
+    if allow_client_origin_header:
+        raw_origin = request.headers.get("origin")
+        if raw_origin:
+            normalized_origin = normalize_launcher_origin(raw_origin)
+            if normalized_origin is not None:
+                return normalized_origin
     return normalize_launcher_origin(f"{request.url.scheme}://{request.url.netloc}")
 
 

@@ -105,6 +105,7 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
         install_source="unsupported",
         artifact_ownership_token="last-used-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="chrome-app",
         last_used_workspace=last_used_workspace,
     )
@@ -159,6 +160,7 @@ def test_launcher_json_honors_always_prompt_workspace_behavior(
         install_source="unsupported",
         artifact_ownership_token="always-prompt-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         workspace_behavior="always_prompt",
         last_used_workspace=last_used_workspace,
@@ -210,6 +212,7 @@ def test_launcher_json_reports_missing_bound_target(
         install_source="unsupported",
         artifact_ownership_token="missing-target-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -388,6 +391,7 @@ def test_launcher_setup_rerun_preserves_existing_identity_fields() -> None:
         install_source="uv_tool",
         artifact_ownership_token="preserve-identity-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={},
     )
@@ -456,6 +460,7 @@ def test_launcher_repair_rebinds_missing_target(tmp_path: Path) -> None:
         install_source="unsupported",
         artifact_ownership_token="repair-cli-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)

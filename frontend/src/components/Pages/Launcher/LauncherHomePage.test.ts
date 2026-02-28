@@ -62,6 +62,7 @@ describe("applyDirectoryListingPage", () => {
         ],
         hasMore: true,
         nextCursor: "1",
+        truncated: false,
         error: null,
       },
       append: false,
@@ -70,6 +71,7 @@ describe("applyDirectoryListingPage", () => {
     expect(result.entries.map((entry) => entry.name)).toEqual(["alpha"]);
     expect(result.hasMore).toBe(true);
     expect(result.nextCursor).toBe("1");
+    expect(result.truncated).toBe(false);
     expect(result.error).toBeNull();
   });
 
@@ -97,6 +99,7 @@ describe("applyDirectoryListingPage", () => {
         ],
         hasMore: false,
         nextCursor: null,
+        truncated: true,
         error: null,
       },
       append: true,
@@ -108,6 +111,7 @@ describe("applyDirectoryListingPage", () => {
     ]);
     expect(result.hasMore).toBe(false);
     expect(result.nextCursor).toBeNull();
+    expect(result.truncated).toBe(true);
     expect(result.error).toBeNull();
   });
 
@@ -121,6 +125,7 @@ describe("applyDirectoryListingPage", () => {
         entries: [],
         hasMore: true,
         nextCursor: null,
+        truncated: false,
         error: null,
       },
       append: false,
@@ -128,6 +133,7 @@ describe("applyDirectoryListingPage", () => {
 
     expect(result.hasMore).toBe(true);
     expect(result.nextCursor).toBeNull();
+    expect(result.truncated).toBe(false);
     expect(result.error).toMatch(/continuation cursor/i);
   });
 });

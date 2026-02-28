@@ -39,6 +39,7 @@ from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStore,
+    TrustedFrontendOriginStoreError,
     trust_frontend_origin,
 )
 from setta.types.routes import Route
@@ -101,6 +102,39 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
+
+    def test_launch_uses_origin_header_for_return_url_when_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_launch_workspace_session(**_kwargs):
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app, base_url="http://backend.example") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.LAUNCH.value}",
+                headers={"origin": "http://frontend.example"},
+                json={"workspaceRoot": "/tmp/workspace"},
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "Captured"
+        assert payload["returnUrl"] == "http://frontend.example/home"
 
     def test_launch_intent_roundtrip_uses_server_stored_request(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2180,3 +2214,153 @@ class TestLaunchRoutes:
             )
             is False
         )
+
+    def test_launch_route_rolls_back_new_session_when_trust_persistence_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        workspace_root = Path("/tmp/workspace").resolve(strict=False)
+        setta_home = Path("/tmp/.setta").resolve(strict=False)
+        setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
+        runtime_root = (setta_files_root / "runtime").resolve(strict=False)
+        removed_sessions: list[str] = []
+        kill_calls: list[tuple[int, int]] = []
+
+        class _Registry:
+            def load_secret(self, _session: object) -> bytes:
+                return b"secret"
+
+            def delete_session(self, session_id: str) -> None:
+                removed_sessions.append(session_id)
+
+        result = SimpleNamespace(
+            session=SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+            registry=_Registry(),
+            paths=SimpleNamespace(
+                workspace_root=workspace_root,
+                setta_files_location="local",
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
+                setta_home=setta_home,
+                profile_name=None,
+            ),
+            started_new=True,
+        )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session", lambda **_k: result
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok"
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.os.kill",
+            lambda pid, sig: kill_calls.append((pid, sig)),
+        )
+
+        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
+        assert kill_calls == [(12345, signal.SIGTERM)]
+        assert removed_sessions == ["session-1"]
+
+    def test_launch_route_does_not_rollback_reused_session_when_trust_persistence_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        workspace_root = Path("/tmp/workspace").resolve(strict=False)
+        setta_home = Path("/tmp/.setta").resolve(strict=False)
+        setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
+        runtime_root = (setta_files_root / "runtime").resolve(strict=False)
+        removed_sessions: list[str] = []
+        kill_calls: list[tuple[int, int]] = []
+
+        class _Registry:
+            def load_secret(self, _session: object) -> bytes:
+                return b"secret"
+
+            def delete_session(self, session_id: str) -> None:
+                removed_sessions.append(session_id)
+
+        result = SimpleNamespace(
+            session=SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+            registry=_Registry(),
+            paths=SimpleNamespace(
+                workspace_root=workspace_root,
+                setta_files_location="local",
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
+                setta_home=setta_home,
+                profile_name=None,
+            ),
+            started_new=False,
+        )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session", lambda **_k: result
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok"
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.os.kill",
+            lambda pid, sig: kill_calls.append((pid, sig)),
+        )
+
+        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
+        assert kill_calls == []
+        assert removed_sessions == []

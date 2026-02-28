@@ -267,6 +267,15 @@ export function WorkspaceLaunchPage() {
       if (!allowedOrigins.has(url.origin)) {
         throw new Error("Disallowed return URL origin.");
       }
+      const isBackendOrLauncherHomeReturn =
+        url.pathname === HOME_ROUTER_PATH &&
+        (url.origin === C_ADDRESSES.BACKEND_ORIGIN ||
+          url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
+      if (isBackendOrLauncherHomeReturn) {
+        requestOpenWorkspaceSwitcherOnNextMount();
+        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+        return;
+      }
       if (url.origin === window.location.origin) {
         requestOpenWorkspaceSwitcherOnNextMount();
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });

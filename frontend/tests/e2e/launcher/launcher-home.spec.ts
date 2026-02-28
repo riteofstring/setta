@@ -29,6 +29,26 @@ type ListDirectoryRequest = {
   pageSize: number | null;
 };
 
+type LauncherHomeMockOptions = {
+  delayedLoadMoreGate?: Promise<void>;
+  projectsListingTruncated?: boolean;
+};
+
+function createRouteGate(): { wait: Promise<void>; release: () => void } {
+  let gateRelease: (() => void) | null = null;
+  const wait = new Promise<void>((resolve) => {
+    gateRelease = resolve;
+  });
+  return {
+    wait,
+    release: () => {
+      if (gateRelease) {
+        gateRelease();
+      }
+    },
+  };
+}
+
 const LAUNCHER_MANAGEMENT_ENDPOINT_PATTERNS = [
   `${BACKEND_ORIGIN}/api/launcherStatus*`,
   `${BACKEND_ORIGIN}/api/setupLauncher`,
@@ -37,7 +57,10 @@ const LAUNCHER_MANAGEMENT_ENDPOINT_PATTERNS = [
   `${BACKEND_ORIGIN}/api/updateLauncher`,
 ];
 
-async function installLauncherHomeMocks(page: Page): Promise<{
+async function installLauncherHomeMocks(
+  page: Page,
+  options?: LauncherHomeMockOptions,
+): Promise<{
   getLastOpenRequest: () => OpenWorkspaceRequest | null;
   getLastPinRequest: () => PinWorkspaceRequest | null;
   getLastRemoveRecentRequest: () => RemoveWorkspaceRequest | null;
@@ -176,6 +199,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
             ],
             hasMore: false,
             nextCursor: null,
+            truncated: false,
           }),
         });
         return;
@@ -205,13 +229,46 @@ async function installLauncherHomeMocks(page: Page): Promise<{
             ],
             hasMore: false,
             nextCursor: null,
+            truncated: false,
           }),
         });
         return;
       }
 
       if (currentPath === "/Users/demo/projects") {
+        if (options?.projectsListingTruncated === true) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              ok: true,
+              currentPath,
+              parentPath: "/Users/demo",
+              entries: [
+                {
+                  name: "alpha",
+                  path: "/Users/demo/projects/alpha",
+                  isDirectory: true,
+                  isSymlink: false,
+                },
+                {
+                  name: "beta",
+                  path: "/Users/demo/projects/beta",
+                  isDirectory: true,
+                  isSymlink: false,
+                },
+              ],
+              hasMore: false,
+              nextCursor: null,
+              truncated: true,
+            }),
+          });
+          return;
+        }
         if (cursor === "2") {
+          if (options?.delayedLoadMoreGate) {
+            await options.delayedLoadMoreGate;
+          }
           await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -229,6 +286,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
               ],
               hasMore: false,
               nextCursor: null,
+              truncated: false,
             }),
           });
           return;
@@ -256,6 +314,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
             ],
             hasMore: true,
             nextCursor: "2",
+            truncated: false,
           }),
         });
         return;
@@ -278,6 +337,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
           ],
           hasMore: false,
           nextCursor: null,
+          truncated: false,
         }),
       });
     },
@@ -399,6 +459,71 @@ test("launcher directory picker loads continuation pages via cursor", async ({
       pageSize: 250,
     },
   ]);
+});
+
+test("launcher directory picker blocks conflicting actions while loading more", async ({
+  page,
+}) => {
+  const gate = createRouteGate();
+  await installLauncherHomeMocks(page, { delayedLoadMoreGate: gate.wait });
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+
+  const loadMore = page.getByTestId("launcher-directory-load-more");
+  await loadMore.click();
+  await expect(loadMore).toHaveText("Loading...");
+  await expect(page.getByRole("button", { name: "Up" })).toBeDisabled();
+  const browseButtons = page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", {
+      name: "Browse",
+    });
+  await expect(browseButtons).toHaveCount(2);
+  await expect(browseButtons.nth(0)).toBeDisabled();
+  await expect(browseButtons.nth(1)).toBeDisabled();
+
+  gate.release();
+
+  await expect(
+    page.getByTestId("launcher-directory-list").getByRole("button", {
+      name: "gamma",
+    }),
+  ).toBeVisible();
+});
+
+test("launcher directory picker shows explicit truncation when backend caps scan", async ({
+  page,
+}) => {
+  await installLauncherHomeMocks(page, { projectsListingTruncated: true });
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+
+  await expect(
+    page.getByTestId("launcher-directory-truncated"),
+  ).toContainText("Directory results are truncated");
+  await expect(page.getByTestId("launcher-directory-load-more")).toHaveCount(0);
 });
 
 test("launcher home opens a selected directory workspace", async ({ page }) => {

@@ -8,7 +8,7 @@ LauncherOpenMode = Literal["browser", "chrome-app"]
 LauncherWorkspaceBehavior = Literal["last_used_or_prompt", "always_prompt"]
 LauncherInstallSource = Literal["uv_tool", "installer_managed", "unsupported"]
 
-LAUNCHER_METADATA_SCHEMA_VERSION = 2
+LAUNCHER_METADATA_SCHEMA_VERSION = 3
 LAUNCHER_WORKSPACE_BEHAVIOR: LauncherWorkspaceBehavior = "last_used_or_prompt"
 LAUNCHER_METADATA_FILE_NAME = "launcher-install.json"
 
@@ -25,6 +25,7 @@ class LauncherInstallMetadata:
     installSource: LauncherInstallSource
     artifactOwnershipToken: str
     settaVersion: str
+    settaHome: str
     openMode: LauncherOpenMode
     workspaceBehavior: LauncherWorkspaceBehavior
     lastUsedWorkspace: str | None
@@ -39,6 +40,7 @@ class LauncherInstallMetadata:
             "installSource": self.installSource,
             "artifactOwnershipToken": self.artifactOwnershipToken,
             "settaVersion": self.settaVersion,
+            "settaHome": self.settaHome,
             "openMode": self.openMode,
             "workspaceBehavior": self.workspaceBehavior,
             "artifactOptions": self.artifactOptions,
@@ -72,6 +74,7 @@ def build_launcher_install_metadata(
     install_source: LauncherInstallSource,
     artifact_ownership_token: str,
     setta_version: str,
+    setta_home: str | Path,
     open_mode: LauncherOpenMode,
     workspace_behavior: LauncherWorkspaceBehavior = LAUNCHER_WORKSPACE_BEHAVIOR,
     last_used_workspace: str | Path | None = None,
@@ -86,6 +89,7 @@ def build_launcher_install_metadata(
         label="artifactOwnershipToken",
     )
     normalized_version = _normalize_required_string(setta_version, label="settaVersion")
+    normalized_setta_home = _normalize_required_setta_home(setta_home)
     normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
     normalized_artifact_options = _normalize_artifact_options_map(
@@ -100,6 +104,7 @@ def build_launcher_install_metadata(
         installSource=normalized_install_source,
         artifactOwnershipToken=normalized_artifact_ownership_token,
         settaVersion=normalized_version,
+        settaHome=normalized_setta_home,
         openMode=open_mode,
         workspaceBehavior=normalized_workspace_behavior,
         lastUsedWorkspace=normalized_last_used_workspace,
@@ -243,6 +248,7 @@ def _parse_launcher_metadata(
     setta_version = _normalize_required_string(
         raw_payload.get("settaVersion"), label="settaVersion"
     )
+    setta_home = _normalize_required_setta_home(raw_payload.get("settaHome"))
     open_mode = _normalize_open_mode(raw_payload.get("openMode"))
     workspace_behavior = _normalize_workspace_behavior(
         raw_payload.get("workspaceBehavior")
@@ -264,6 +270,7 @@ def _parse_launcher_metadata(
         installSource=install_source,
         artifactOwnershipToken=artifact_ownership_token,
         settaVersion=setta_version,
+        settaHome=setta_home,
         openMode=open_mode,
         workspaceBehavior=workspace_behavior,
         lastUsedWorkspace=last_used_workspace,
@@ -279,6 +286,17 @@ def _normalize_required_string(raw_value: object, *, label: str) -> str:
     if not trimmed:
         raise LauncherMetadataError(f"{label} must be non-empty.")
     return trimmed
+
+
+def _normalize_required_setta_home(raw_value: object) -> str:
+    if isinstance(raw_value, Path):
+        return str(raw_value.expanduser().resolve(strict=False))
+    if not isinstance(raw_value, str):
+        raise LauncherMetadataError("settaHome must be a string.")
+    trimmed = raw_value.strip()
+    if not trimmed:
+        raise LauncherMetadataError("settaHome must be non-empty.")
+    return str(Path(trimmed).expanduser().resolve(strict=False))
 
 
 def _normalize_target_command(raw_value: object) -> list[str]:

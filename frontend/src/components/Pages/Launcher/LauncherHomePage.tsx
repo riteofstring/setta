@@ -1,5 +1,5 @@
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
@@ -93,6 +93,7 @@ function resolveLauncherContextFromQueryParam(): LauncherContext {
 }
 
 type RecentActionInFlight = "refresh" | "pin" | "remove" | "open" | null;
+type DirectoryActionInFlight = "navigate" | "load-more" | null;
 type DirectoryLoadOptions = {
   cursor?: string | null;
   append?: boolean;
@@ -104,8 +105,19 @@ type DirectoryListingState = {
   entries: Array<LauncherDirectoryEntryPayload>;
   hasMore: boolean;
   nextCursor: string | null;
+  truncated: boolean;
   error: string | null;
 };
+
+type LauncherDirectoryPayload = LauncherListDirectoryResponse & {
+  truncated?: boolean;
+};
+
+function isDirectoryListingTruncated(
+  payload: LauncherDirectoryPayload,
+): boolean {
+  return payload.truncated === true;
+}
 
 export function applyDirectoryListingPage({
   previousEntries,
@@ -113,7 +125,7 @@ export function applyDirectoryListingPage({
   append,
 }: {
   previousEntries: Array<LauncherDirectoryEntryPayload>;
-  payload: LauncherListDirectoryResponse;
+  payload: LauncherDirectoryPayload;
   append: boolean;
 }): DirectoryListingState {
   const nextEntries = append
@@ -124,6 +136,7 @@ export function applyDirectoryListingPage({
       entries: nextEntries,
       hasMore: payload.hasMore,
       nextCursor: payload.nextCursor,
+      truncated: isDirectoryListingTruncated(payload),
       error:
         "Directory listing reported more results without a continuation cursor.",
     };
@@ -132,6 +145,7 @@ export function applyDirectoryListingPage({
     entries: nextEntries,
     hasMore: payload.hasMore,
     nextCursor: payload.nextCursor,
+    truncated: isDirectoryListingTruncated(payload),
     error: null,
   };
 }
@@ -156,16 +170,17 @@ export function LauncherHomePage() {
   const [filesystemRoots, setFilesystemRoots] = useState<Array<string>>([]);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [parentPath, setParentPath] = useState<string | null>(null);
-  const [directoryEntries, setDirectoryEntries] = useState<
-    Array<LauncherDirectoryEntryPayload>
-  >([]);
-  const [directoryNextCursor, setDirectoryNextCursor] = useState<string | null>(
-    null,
-  );
-  const [directoryHasMore, setDirectoryHasMore] = useState(false);
-  const [directoryLoadMoreInFlight, setDirectoryLoadMoreInFlight] =
-    useState(false);
-  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [directoryListing, setDirectoryListing] =
+    useState<DirectoryListingState>({
+      entries: [],
+      hasMore: false,
+      nextCursor: null,
+      truncated: false,
+      error: null,
+    });
+  const [directoryActionInFlight, setDirectoryActionInFlight] =
+    useState<DirectoryActionInFlight>(null);
+  const latestDirectoryRequestIdRef = useRef(0);
 
   const [selectedWorkspacePath, setSelectedWorkspacePath] =
     useState<string>("");
@@ -203,34 +218,52 @@ export function LauncherHomePage() {
     path: string | null,
     options?: DirectoryLoadOptions,
   ) {
+    const append = options?.append === true;
     const request: LauncherListDirectoryRequestInput = {
       path,
       cursor: options?.cursor ?? null,
       pageSize: DIRECTORY_PAGE_SIZE,
     };
-    const response = await route_list_launcher_directory(request);
-    if (!res200(response) || !response.data) {
-      setDirectoryError("Failed to load launcher directory listing.");
-      return;
-    }
+    const requestId = latestDirectoryRequestIdRef.current + 1;
+    latestDirectoryRequestIdRef.current = requestId;
+    setDirectoryActionInFlight(append ? "load-more" : "navigate");
 
-    const payload = response.data;
-    if (!payload.ok) {
-      setDirectoryError(payload.error?.message ?? "Directory listing failed.");
-      return;
-    }
+    try {
+      const response = await route_list_launcher_directory(request);
+      if (requestId !== latestDirectoryRequestIdRef.current) {
+        return;
+      }
+      if (!res200(response) || !response.data) {
+        setDirectoryListing((previousState) => ({
+          ...previousState,
+          error: "Failed to load launcher directory listing.",
+        }));
+        return;
+      }
 
-    const nextDirectoryState = applyDirectoryListingPage({
-      previousEntries: directoryEntries,
-      payload,
-      append: options?.append === true,
-    });
-    setDirectoryEntries(nextDirectoryState.entries);
-    setCurrentPath(payload.currentPath);
-    setParentPath(payload.parentPath);
-    setDirectoryHasMore(nextDirectoryState.hasMore);
-    setDirectoryNextCursor(nextDirectoryState.nextCursor);
-    setDirectoryError(nextDirectoryState.error);
+      const payload = response.data;
+      if (!payload.ok) {
+        setDirectoryListing((previousState) => ({
+          ...previousState,
+          error: payload.error?.message ?? "Directory listing failed.",
+        }));
+        return;
+      }
+
+      setCurrentPath(payload.currentPath);
+      setParentPath(payload.parentPath);
+      setDirectoryListing((previousState) =>
+        applyDirectoryListingPage({
+          previousEntries: previousState.entries,
+          payload,
+          append,
+        }),
+      );
+    } finally {
+      if (requestId === latestDirectoryRequestIdRef.current) {
+        setDirectoryActionInFlight(null);
+      }
+    }
   }
 
   async function bootstrapLauncherHome() {
@@ -246,15 +279,18 @@ export function LauncherHomePage() {
   }, []);
 
   async function loadMoreDirectoryEntries() {
-    if (!currentPath || !directoryHasMore || !directoryNextCursor) {
+    if (
+      directoryActionInFlight !== null ||
+      !currentPath ||
+      !directoryListing.hasMore ||
+      !directoryListing.nextCursor
+    ) {
       return;
     }
-    setDirectoryLoadMoreInFlight(true);
     await loadDirectory(currentPath, {
       append: true,
-      cursor: directoryNextCursor,
+      cursor: directoryListing.nextCursor,
     });
-    setDirectoryLoadMoreInFlight(false);
   }
 
   const sortedRecentWorkspaces = useMemo(() => {
@@ -372,7 +408,10 @@ export function LauncherHomePage() {
     await openWorkspace(workspaceRoot, true);
   }
 
-  const launcherBusy = openInFlight || recentActionInFlight !== null;
+  const launcherBusy =
+    openInFlight ||
+    recentActionInFlight !== null ||
+    directoryActionInFlight !== null;
 
   return (
     <main
@@ -535,9 +574,18 @@ export function LauncherHomePage() {
             )}
           </div>
 
-          {directoryError && (
+          {directoryListing.error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-              {directoryError}
+              {directoryListing.error}
+            </div>
+          )}
+          {directoryListing.truncated && (
+            <div
+              data-testid="launcher-directory-truncated"
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/30 dark:text-amber-200"
+            >
+              Directory results are truncated. Narrow this path to view
+              additional folders.
             </div>
           )}
 
@@ -545,13 +593,13 @@ export function LauncherHomePage() {
             className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
             data-testid="launcher-directory-list"
           >
-            {directoryEntries.length === 0 && (
+            {directoryListing.entries.length === 0 && (
               <p className="rounded-md border border-dashed border-setta-200 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:text-setta-400">
                 No directories found for this location.
               </p>
             )}
 
-            {directoryEntries.map((entry) => (
+            {directoryListing.entries.map((entry) => (
               <div
                 key={entry.path}
                 className="flex items-center justify-between gap-2 rounded-lg border border-setta-200 bg-setta-50/60 px-3 py-2 dark:border-setta-700 dark:bg-setta-900/30"
@@ -589,17 +637,19 @@ export function LauncherHomePage() {
                 </div>
               </div>
             ))}
-            {directoryHasMore && (
+            {directoryListing.hasMore && (
               <button
                 type="button"
                 data-testid="launcher-directory-load-more"
                 className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                disabled={launcherBusy || directoryLoadMoreInFlight}
+                disabled={launcherBusy}
                 onClick={() => {
                   void loadMoreDirectoryEntries();
                 }}
               >
-                {directoryLoadMoreInFlight ? "Loading..." : "Load more"}
+                {directoryActionInFlight === "load-more"
+                  ? "Loading..."
+                  : "Load more"}
               </button>
             )}
           </div>

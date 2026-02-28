@@ -144,6 +144,7 @@ def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
         install_source="uv_tool",
         artifact_ownership_token="route-setup-preserve-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         workspace_behavior="always_prompt",
         artifact_options={"app_name": "Setta Custom"},
@@ -185,6 +186,7 @@ def test_setup_launcher_route_preserves_no_artifact_mode_when_install_flag_omitt
         install_source="uv_tool",
         artifact_ownership_token="route-setup-preserve-install-mode-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         managed_artifacts={},
     )
@@ -228,6 +230,7 @@ def test_setup_launcher_route_clears_artifact_options_when_explicitly_empty(
         install_source="uv_tool",
         artifact_ownership_token="route-setup-clear-artifact-options-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         workspace_behavior="always_prompt",
         artifact_options={"app_name": "Setta Custom"},
@@ -260,6 +263,7 @@ def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
         install_source="unsupported",
         artifact_ownership_token="route-repair-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -290,6 +294,7 @@ def test_update_launcher_route_reports_installer_managed_channel(
         install_source="installer_managed",
         artifact_ownership_token="route-update-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)

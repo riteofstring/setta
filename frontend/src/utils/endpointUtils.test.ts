@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
 import {
   ENDPOINT_ORIGIN_POLICY,
@@ -15,6 +16,11 @@ describe("endpointUtils URL routing", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
+    useServerMode.setState({
+      mode: null,
+      modeResolved: true,
+      modeError: null,
+    });
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockImplementation(() =>
       Promise.resolve(
@@ -32,11 +38,11 @@ describe("endpointUtils URL routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes settaHomeInfo via backend origin", async () => {
+  it("routes settaHomeInfo via launcher origin", async () => {
     await get(RouteEnum.GET_SETTA_HOME_INFO);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
     );
   });
 
@@ -76,6 +82,11 @@ describe("endpointUtils URL routing", () => {
   });
 
   it("routes launcher-home APIs via launcher origin", async () => {
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
     await get(RouteEnum.GET_LAUNCHER_APP_MODE);
     await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES);
     await get(RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS);
@@ -104,7 +115,12 @@ describe("endpointUtils URL routing", () => {
   });
 
   it("keeps a single endpoint-origin policy contract", () => {
-    // Contract test: every launcher-marked route resolves to launcher origin.
+    // Contract test: launcher mode routes always resolve to launcher origin.
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
     for (const [route, origin] of Object.entries(ENDPOINT_ORIGIN_POLICY)) {
       if (origin === "launcher") {
         expect(resolveEndpointOrigin(route)).toBe("launcher");
@@ -115,7 +131,26 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
-  it("routes launch endpoint via launcher origin", async () => {
+  it("routes launch endpoint via backend origin in ide mode", async () => {
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
+    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+    );
+  });
+
+  it("routes launch endpoint via launcher origin in launcher mode", async () => {
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
     await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -124,7 +159,43 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
-  it("routes createWorkspaceLaunchIntent via launcher origin", async () => {
+  it("routes launch endpoint via backend origin while mode is unresolved", async () => {
+    useServerMode.setState({
+      mode: null,
+      modeResolved: false,
+      modeError: null,
+    });
+    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+    );
+  });
+
+  it("routes createWorkspaceLaunchIntent via backend origin in ide mode", async () => {
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
+    await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+      launchRequest: { workspaceRoot: "/tmp/workspace" },
+      returnUrl: "http://localhost/home",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+    );
+  });
+
+  it("routes createWorkspaceLaunchIntent via launcher origin in launcher mode", async () => {
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
     await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
       launchRequest: { workspaceRoot: "/tmp/workspace" },
       returnUrl: "http://localhost/home",

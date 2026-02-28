@@ -453,6 +453,12 @@ export const TextBlockFormatEnum = {
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
+const ListenerDependencyModeEnum = {
+  REFRESH_ONLY: "refresh_only",
+  REALTIME_ONLY: "realtime_only",
+  ALWAYS: "always",
+} as const;
+
 const MCPServerRuntimeStateEnum = {
   connected: "connected",
   connecting: "connecting",
@@ -9056,6 +9062,7 @@ const LauncherListDirectoryResponseSchema = z.object({
   entries: z.array(LauncherDirectoryEntryPayloadSchema).default(() => []),
   nextCursor: z.union([z.string(), z.null()]).default(null),
   hasMore: z.boolean().default(false),
+  truncated: z.boolean().default(false),
   error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
 });
 

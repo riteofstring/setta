@@ -161,3 +161,11 @@
 - Corrected endpoint origin policy drift by routing `settaHomeInfo` via backend origin to match backend launcher-mode guards.
 - Added/updated regression coverage: backend route tests for launcher management guards, launcher-home trust persistence and pagination invariants; frontend unit tests for mode capabilities and directory pagination state; Playwright launcher-home flows for hidden management controls and multi-page directory continuation.
 - Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout), then ran targeted suites (`vitest`, `pytest`, and launcher-home Playwright), passing.
+
+## 2026-02-26 22:42:57 PST
+
+- Implemented launcher review fixes across backend/frontend/release workflow without adding backward-compatibility shims: transactional session rollback on trust-store persistence failure, explicit launcher-directory truncation contract/UI, mode-aware endpoint-origin routing, launcher metadata/install scope hardening, and deterministic installer-version resolution.
+- Enforced launcher install scope end-to-end by requiring `settaHome` in launcher metadata schema v3, validating metadata scope during status/setup, and propagating `--setta-home` through generated launcher wrappers on Linux/macOS/Windows.
+- Simplified workspace switcher handoff flow by always persisting pending launch state locally before navigating to `/launching`, and fixed launch-page back navigation to reopen the local switcher for backend/launcher `/home` return targets.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/trust contracts, truncation behavior, endpoint-origin policy, release installer-version resolver, and SSH launcher-origin handoff expectations.
+- Ran cleanup with `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout) and then validated targeted backend/frontend/Playwright suites in this workstream.

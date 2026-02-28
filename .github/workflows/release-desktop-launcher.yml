@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
       installer_version:
-        description: Optional installer version override (must be major.minor.patch)
+        description: Optional installer version override (defaults to backend/setta/__init__.py version)
         required: false
         default: ""
   release:
@@ -29,23 +29,9 @@ jobs:
         env:
           INPUT_INSTALLER_VERSION: ${{ inputs.installer_version }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
-          REF_NAME: ${{ github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [[ -n "${INPUT_INSTALLER_VERSION}" ]]; then
-            raw_version="${INPUT_INSTALLER_VERSION}"
-          elif [[ "${EVENT_NAME}" == "release" ]]; then
-            raw_version="${RELEASE_TAG_NAME}"
-          else
-            raw_version="${REF_NAME}"
-          fi
-
-          version="${raw_version#v}"
-          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Failed to derive installer version from '${raw_version}'." >&2
-            echo "Provide workflow_dispatch input installer_version or run from a semver tag." >&2
-            exit 1
-          fi
+          version="$(./scripts/release/resolve_installer_version.sh)"
           echo "installer_version=${version}" >> "$GITHUB_OUTPUT"
 
   bootstrap-assets:

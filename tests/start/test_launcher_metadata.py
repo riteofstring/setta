@@ -25,6 +25,7 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
         install_source="uv_tool",
         artifact_ownership_token="roundtrip-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
         last_used_workspace=tmp_path / "workspace",
         artifact_options={"app_name": "Setta"},
@@ -44,6 +45,7 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
     assert reloaded.installSource == "uv_tool"
     assert reloaded.artifactOwnershipToken == "roundtrip-token"
     assert reloaded.settaVersion == "1.2.3"
+    assert reloaded.settaHome == str(setta_home.resolve(strict=False))
     assert reloaded.openMode == "browser"
     assert reloaded.lastUsedWorkspace == str((tmp_path / "workspace").resolve(strict=False))
     assert reloaded.artifactOptions == {"app_name": "Setta"}
@@ -55,12 +57,14 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
 def test_launcher_target_validation_reports_missing_executable(
     tmp_path: Path,
 ) -> None:
+    setta_home = tmp_path / ".setta"
     metadata = build_launcher_install_metadata(
         target_command=[str(tmp_path / "missing-python"), "-m", "setta"],
         channel="manual",
         install_source="unsupported",
         artifact_ownership_token="validation-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
 
@@ -72,6 +76,7 @@ def test_launcher_target_validation_reports_missing_executable(
 def test_launcher_target_validation_reports_non_executable_file(
     tmp_path: Path,
 ) -> None:
+    setta_home = tmp_path / ".setta"
     target_executable = tmp_path / "python"
     target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     target_executable.chmod(0o644)
@@ -81,6 +86,7 @@ def test_launcher_target_validation_reports_non_executable_file(
         install_source="unsupported",
         artifact_ownership_token="validation-token-no-exec",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
 
@@ -112,6 +118,7 @@ def test_update_launcher_last_used_workspace_if_installed(tmp_path: Path) -> Non
         install_source="unsupported",
         artifact_ownership_token="last-used-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -140,6 +147,7 @@ def test_update_launcher_last_used_workspace_if_installed_is_fail_soft_on_write_
         install_source="unsupported",
         artifact_ownership_token="last-used-fail-soft-token",
         setta_version="1.2.3",
+        setta_home=setta_home,
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -188,6 +196,7 @@ def test_load_launcher_metadata_rejects_non_object_payload(tmp_path: Path) -> No
 def test_build_launcher_metadata_rejects_invalid_workspace_behavior(
     tmp_path: Path,
 ) -> None:
+    setta_home = tmp_path / ".setta"
     target_executable = tmp_path / "python"
     target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     target_executable.chmod(0o755)
@@ -199,6 +208,7 @@ def test_build_launcher_metadata_rejects_invalid_workspace_behavior(
             install_source="unsupported",
             artifact_ownership_token="workspace-behavior-token",
             setta_version="1.2.3",
+            setta_home=setta_home,
             open_mode="browser",
             workspace_behavior="unexpected_behavior",
         )
@@ -206,3 +216,32 @@ def test_build_launcher_metadata_rejects_invalid_workspace_behavior(
         assert "workspaceBehavior" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("Expected LauncherMetadataError for invalid workspace behavior.")
+
+
+def test_load_launcher_metadata_rejects_missing_setta_home(tmp_path: Path) -> None:
+    setta_home = tmp_path / ".setta"
+    metadata_path = resolve_launcher_metadata_path(setta_home=setta_home)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(
+        """{
+  "schemaVersion": 3,
+  "targetCommand": ["/usr/bin/python3", "-m", "setta"],
+  "channel": "manual",
+  "installSource": "unsupported",
+  "artifactOwnershipToken": "missing-setta-home-token",
+  "settaVersion": "1.2.3",
+  "openMode": "browser",
+  "workspaceBehavior": "last_used_or_prompt",
+  "artifactOptions": {},
+  "managedArtifacts": {}
+}
+""",
+        encoding="utf-8",
+    )
+
+    try:
+        load_launcher_install_metadata(setta_home=setta_home)
+    except LauncherMetadataError as exc:
+        assert "settaHome" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Expected LauncherMetadataError for missing settaHome.")

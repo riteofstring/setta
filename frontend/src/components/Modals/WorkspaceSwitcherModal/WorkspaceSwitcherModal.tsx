@@ -3,18 +3,10 @@ import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLaunc
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { C_ADDRESSES } from "utils/c_addresses";
-import {
-  HOME_ROUTER_PATH,
-  WORKSPACE_LAUNCH_ROUTER_PATH,
-} from "utils/constants";
+import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
-  route_create_workspace_launch_intent,
-  route_get_setta_home_info,
-} from "utils/generatedEndpoints";
-import {
-  type CreateWorkspaceLaunchIntentRequestInput,
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
@@ -29,7 +21,6 @@ import {
   type WorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
-  buildWorkspaceLaunchIntentHash,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
@@ -151,47 +142,6 @@ export function WorkspaceSwitcherModal() {
       returnUrl: typeof window !== "undefined" ? window.location.href : "/",
       requestedAt: Date.now(),
     };
-
-    if (
-      !import.meta.env?.DEV &&
-      typeof window !== "undefined" &&
-      C_ADDRESSES.LAUNCHER_ORIGIN !== window.location.origin
-    ) {
-      const launchIntentRequest: CreateWorkspaceLaunchIntentRequestInput = {
-        launchRequest: request,
-        returnUrl: new URL(
-          HOME_ROUTER_PATH,
-          C_ADDRESSES.LAUNCHER_ORIGIN,
-        ).toString(),
-      };
-      const launchIntentResponse =
-        await route_create_workspace_launch_intent(launchIntentRequest);
-      if (
-        !res200(launchIntentResponse) ||
-        !launchIntentResponse.data ||
-        !launchIntentResponse.data.ok ||
-        !launchIntentResponse.data.launchIntentToken
-      ) {
-        setIsLaunching(false);
-        setError(
-          launchIntentResponse.data?.error?.message ??
-            "Failed to create launch intent.",
-        );
-        return;
-      }
-      const hash = buildWorkspaceLaunchIntentHash({
-        launchIntentToken: launchIntentResponse.data.launchIntentToken,
-        requestedAt: launchIntentResponse.data.requestedAt ?? Date.now(),
-      });
-      const url = new URL(
-        WORKSPACE_LAUNCH_ROUTER_PATH,
-        C_ADDRESSES.LAUNCHER_ORIGIN,
-      );
-      url.hash = hash;
-      closeModal();
-      window.location.assign(url.toString());
-      return;
-    }
 
     writePendingWorkspaceLaunch(pendingLaunch);
 

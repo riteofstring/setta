@@ -43,10 +43,12 @@ def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     target_array_literal = shell_array_literal(context.target_command)
     target_command_shell = shell_command(context.target_command)
     channel_literal = shlex.quote(context.channel)
+    setta_home_literal = shlex.quote(context.setta_home)
     launcher_content = _build_launcher_script(
         target_array_literal=target_array_literal,
         target_command_shell=target_command_shell,
         channel_literal=channel_literal,
+        setta_home_literal=setta_home_literal,
     )
 
     info_plist_payload: dict[str, str] = {
@@ -111,15 +113,17 @@ def _build_launcher_script(
     target_array_literal: str,
     target_command_shell: str,
     channel_literal: str,
+    setta_home_literal: str,
 ) -> str:
     template = """#!/usr/bin/env bash
 set -euo pipefail
 
 TARGET_COMMAND=(__TARGET_ARRAY__)
+SETTA_HOME=__SETTA_HOME__
 
 run_launcher() {
   local workspace_arg="${1-}"
-  local cmd=("${TARGET_COMMAND[@]}" launcher)
+  local cmd=("${TARGET_COMMAND[@]}" --setta-home "${SETTA_HOME}" launcher)
   if [[ -n "${workspace_arg}" ]]; then
     cmd+=(--workspace "${workspace_arg}")
   fi
@@ -158,4 +162,5 @@ exit $?
         template.replace("__TARGET_ARRAY__", target_array_literal)
         .replace("__TARGET_SHELL__", target_command_shell)
         .replace("__CHANNEL__", channel_literal)
+        .replace("__SETTA_HOME__", setta_home_literal)
     )

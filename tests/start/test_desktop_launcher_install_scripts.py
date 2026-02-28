@@ -192,6 +192,7 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     workflow_content = workflow_path.read_text(encoding="utf-8")
 
     assert "resolve_installer_version:" in workflow_content
+    assert "./scripts/release/resolve_installer_version.sh" in workflow_content
     assert (
         "installer_version: ${{ steps.resolve.outputs.installer_version }}"
         in workflow_content
@@ -210,6 +211,83 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
         in workflow_content
     )
     assert "name: Publish release assets" in workflow_content
+    assert "raw_version=\"${REF_NAME}\"" not in workflow_content
+
+
+def _run_resolve_installer_version(
+    *,
+    event_name: str,
+    input_installer_version: str = "",
+    release_tag_name: str = "",
+    setta_version_file: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    resolver_script = _repo_root() / "scripts" / "release" / "resolve_installer_version.sh"
+    env = os.environ.copy()
+    env["EVENT_NAME"] = event_name
+    env["INPUT_INSTALLER_VERSION"] = input_installer_version
+    env["RELEASE_TAG_NAME"] = release_tag_name
+    if setta_version_file is not None:
+        env["SETTA_VERSION_FILE"] = setta_version_file
+    return subprocess.run(
+        ["/bin/bash", str(resolver_script)],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_release_installer_version_resolver_defaults_dispatch_to_project_version() -> None:
+    result = _run_resolve_installer_version(event_name="workflow_dispatch")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "0.0.18"
+
+
+def test_release_installer_version_resolver_prefers_explicit_dispatch_input() -> None:
+    result = _run_resolve_installer_version(
+        event_name="workflow_dispatch",
+        input_installer_version="2.4.6",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2.4.6"
+
+
+def test_release_installer_version_resolver_uses_release_tag() -> None:
+    result = _run_resolve_installer_version(
+        event_name="release",
+        release_tag_name="v3.5.7",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "3.5.7"
+
+
+def test_release_installer_version_resolver_rejects_invalid_dispatch_version() -> None:
+    result = _run_resolve_installer_version(
+        event_name="workflow_dispatch",
+        input_installer_version="main",
+    )
+
+    assert result.returncode != 0
+    assert "major.minor.patch" in result.stderr
+
+
+def test_release_installer_version_resolver_fails_when_version_file_is_invalid(
+    tmp_path: Path,
+) -> None:
+    invalid_version_file = tmp_path / "__init__.py"
+    invalid_version_file.write_text('__version__ = "invalid"\n', encoding="utf-8")
+
+    result = _run_resolve_installer_version(
+        event_name="workflow_dispatch",
+        setta_version_file=str(invalid_version_file),
+    )
+
+    assert result.returncode != 0
+    assert "Cannot resolve installer version" in result.stderr
 
 
 def test_release_workflow_publishes_assets_only_after_all_smoke_gates() -> None:
