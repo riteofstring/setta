@@ -265,3 +265,11 @@
 - Added/updated launcher CLI tests for the new macOS retry/visibility logic and for non-resolved interpreter binding behavior.
 - Verified targeted backend launcher suites and lint: `pytest tests/start/test_launcher_cli.py tests/start/test_launcher_setup.py tests/start/test_launcher_metadata.py` and `ruff check` on modified files.
 - Ran requested cleanup workflow: attempted root `pnpm gcf` (no root importer manifest), then completed `pnpm -C frontend gcf`.
+
+## 2026-02-28 13:25:34 PST
+
+- Updated launcher-mode workspace switcher UX to hide desktop launcher management controls when launcher capabilities are unavailable.
+- Added launch-page error formatting for outdated workspace/project settings traces so users see migration guidance instead of raw backend stack traces.
+- Fixed dev/runtime LSP startup by invoking basedpyright through an explicit Python entrypoint call (`from basedpyright.langserver import main; main()`) so backend initialization no longer fails on immediate language-server exit.
+- Updated backend/frontend tests that cover workspace switcher behavior, launch error messaging, and LSP manager command wiring.
+- Verified focused checks for touched backend areas: targeted pytest suites and `ruff check` passed.

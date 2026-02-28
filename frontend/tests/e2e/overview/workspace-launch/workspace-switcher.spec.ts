@@ -591,6 +591,50 @@ test("workspace launch error view does not render retry action", async ({
   await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(0);
 });
 
+test("workspace launch maps outdated settings tracebacks to migration guidance", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.route("**/api/launch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: {
+          message: [
+            "Traceback ...",
+            "File \"/tmp/site-packages/setta/project_state/settings_project.py\", line 625",
+            "raise KeyError(\"Missing settings section pluginSectionDefault.\")",
+            "KeyError: 'Missing settings section pluginSectionDefault.'",
+          ].join("\n"),
+        },
+      }),
+    });
+  });
+
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: { launchIntentToken: "outdated-settings-intent-token" },
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  });
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(
+    page.getByText("This workspace uses an older Setta settings/project format"),
+  ).toBeVisible();
+  await expect(page.getByText("pluginSectionDefault")).toBeVisible();
+  await expect(page.getByText("settings_project.py")).toHaveCount(0);
+});
+
 test("workspace launch back-navigation reopens switcher with successful settaHomeInfo hydration", async ({
   page,
 }) => {

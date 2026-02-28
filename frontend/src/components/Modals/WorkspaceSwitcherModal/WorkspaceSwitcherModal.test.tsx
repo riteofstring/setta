@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
+import { useServerMode } from "state/definitions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -23,9 +24,27 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_setta_home_info: routeGetSettaHomeInfoMock,
 }));
 
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
+}
+
 describe("WorkspaceSwitcherModal", () => {
   beforeEach(() => {
     routeCreateWorkspaceLaunchIntentMock.mockReset();
+    routeGetSettaHomeInfoMock.mockReset();
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
+    syncStoreInitialState(useServerMode);
   });
 
   it("renders desktop launcher management controls", () => {
@@ -43,6 +62,28 @@ describe("WorkspaceSwitcherModal", () => {
     expect(markup).toContain("Setup Desktop App");
     expect(markup).toContain("Repair Desktop App");
     expect(markup).toContain("Remove Desktop App");
+  });
+
+  it("hides desktop launcher management controls in launcher mode", () => {
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
+    syncStoreInitialState(useServerMode);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Dialog.Root open>
+          <Dialog.Content>
+            <WorkspaceSwitcherModal />
+          </Dialog.Content>
+        </Dialog.Root>
+      </MemoryRouter>,
+    );
+
+    expect(markup).not.toContain("Desktop Launcher");
+    expect(markup).not.toContain("Setup Desktop App");
   });
 
   it("creates tokenized pending launch data from launch intent response", async () => {

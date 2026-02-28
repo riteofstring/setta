@@ -14,6 +14,7 @@ import {
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
+import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
@@ -83,6 +84,9 @@ export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const serverMode = useServerMode((state) => state.mode);
   const modeResolved = useServerMode((state) => state.modeResolved);
+  const canManageDesktopLauncher = resolveServerModeCapabilities(
+    serverMode,
+  ).canManageDesktopLauncher;
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [settaFilesLocation, setSettaFilesLocation] =
@@ -124,11 +128,9 @@ export function WorkspaceSwitcherModal() {
     let isMounted = true;
 
     async function hydrateLauncherSettaHomeInfo() {
-      if (serverMode === "launcher") {
+      if (!canManageDesktopLauncher) {
         setLauncherSettaHomeInfo(null);
-        setLauncherSettaHomeInfoError(
-          "Desktop launcher actions are unavailable in launcher mode.",
-        );
+        setLauncherSettaHomeInfoError(null);
         return;
       }
 
@@ -151,7 +153,7 @@ export function WorkspaceSwitcherModal() {
     return () => {
       isMounted = false;
     };
-  }, [modeResolved, serverMode]);
+  }, [canManageDesktopLauncher, modeResolved]);
 
   const trimmedWorkspace = workspaceRoot.trim();
   const trimmedSshTarget = sshTarget.trim();
@@ -352,14 +354,16 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
-          <DesktopLauncherSettingsSection
-            settaHome={launcherSettaHomeInfo?.settaHome ?? null}
-            requireSettaHome={true}
-            missingSettaHomeMessage={
-              launcherSettaHomeInfoError ??
-              "Resolving launcher scope for desktop launcher actions."
-            }
-          />
+          {canManageDesktopLauncher && (
+            <DesktopLauncherSettingsSection
+              settaHome={launcherSettaHomeInfo?.settaHome ?? null}
+              requireSettaHome={true}
+              missingSettaHomeMessage={
+                launcherSettaHomeInfoError ??
+                "Resolving launcher scope for desktop launcher actions."
+              }
+            />
+          )}
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">

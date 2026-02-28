@@ -422,6 +422,24 @@ test("launcher home hides desktop launcher management controls", async ({
   expect(mocks.getLauncherManagementRequestCount()).toBe(0);
 });
 
+test("launcher workspace switcher modal hides desktop launcher management controls", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(`${HOME_URL}?__setta_open_workspace_switcher=1`, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+  await expect(
+    modal.getByTestId("desktop-launcher-settings-section"),
+  ).toHaveCount(0);
+  await expect(modal.getByText("Desktop Launcher")).toHaveCount(0);
+  expect(mocks.getLauncherManagementRequestCount()).toBe(0);
+});
+
 test("launcher directory picker loads continuation pages via cursor", async ({
   page,
 }) => {
