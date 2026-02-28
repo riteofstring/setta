@@ -15,13 +15,13 @@ from setta.llm.api_keys import (
 )
 from setta.llm.config import save_llm_config
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaFullRuntimeAPIRouter
 from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
-router = SettaAPIRouter()
+router = SettaFullRuntimeAPIRouter()
 
 
 class UpdateAPIKeysRequest(BaseModel):

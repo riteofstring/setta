@@ -55,6 +55,11 @@ and policies.
 Key points:
 
 - Run mode: `app_server`
+- macOS launcher note: GUI-launched `Setta.app` may not inherit shell `PATH`
+  entries such as `/opt/homebrew/bin`. If preflight reports
+  `codex CLI not found (codex)` while `codex` works in Terminal, set the
+  Codex external-agent `commandPath` explicitly (for example,
+  `/opt/homebrew/bin/codex`).
 - Transport: JSON-RPC 2.0 over JSONL stdio (no `jsonrpc` field)
 - Threading: `thread/start` or `thread/resume`, then `turn/start`
 - Approvals: server-initiated JSON-RPC requests (`item/*/requestApproval`)

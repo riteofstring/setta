@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from contextlib import suppress
 
 from setta.logging.tasks import spawn_background_task
@@ -20,6 +21,7 @@ from .writer import LanguageServerWriter
 
 LSP_SHUTDOWN_TIMEOUT_SECONDS = 3
 logger = logging.getLogger(__name__)
+BASEDPYRIGHT_LANGSERVER_ENTRYPOINT = "from basedpyright.langserver import main; main()"
 
 
 def _dedupe_by_identity(values):
@@ -74,8 +76,8 @@ class LSPServers:
             settings=_resolve_language_server_settings(settings, "basedpyright"),
             name="full",
             language=CodeLanguage.python,
-            command="basedpyright-langserver",
-            args=("--stdio",),
+            command=sys.executable,
+            args=("-c", BASEDPYRIGHT_LANGSERVER_ENTRYPOINT, "--stdio"),
         )
         self.by_language: dict[CodeLanguageKey, LanguageServer] = {
             CodeLanguage.python: self.full

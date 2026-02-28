@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
@@ -11,15 +11,15 @@ from pydantic import BaseModel, ValidationError, field_validator
 
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
-from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.frontend_affinity_token import (
     validate_frontend_affinity_token_for_model,
 )
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaFullRuntimeAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaFullRuntimeAPIRouter()
 
 
 class _MCPToolsCallSession:

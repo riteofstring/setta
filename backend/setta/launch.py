@@ -7,7 +7,13 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
+from setta.database.db_objs import DBE
+from setta.project_state.settings_project import (
+    MissingSettingsSectionError,
+    ensure_settings_code_objs,
+)
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
@@ -15,6 +21,7 @@ from setta.utils.env_vars import (
     PROFILE_ENV,
     PROFILE_LOOKUP_HOME_ENV,
     RUNTIME_ROOT_ENV,
+    SERVER_MODE_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
@@ -40,6 +47,33 @@ DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
 DEFAULT_EXISTING_SESSION_GRACE_SECONDS = 2.0
 DEFAULT_EXISTING_SESSION_EXTENDED_GRACE_SECONDS = 10.0
 DEFAULT_EXISTING_SESSION_RECENT_SECONDS = 15.0
+SETTINGS_PROJECT_FILE_NAME = "setta-settings-project.json"
+
+
+def _resolve_optional_path(value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    return Path(value).expanduser().resolve(strict=False)
+
+
+def _matches_optional_path(value: str | Path | None, expected: Path | None) -> bool:
+    resolved = _resolve_optional_path(value)
+    if resolved is None or expected is None:
+        return resolved is None and expected is None
+    return resolved == expected
+
+
+def _session_identity_matches_paths(
+    *, session: SessionMetadata, paths: SettaPaths
+) -> bool:
+    expected_setta_files_location: str | None = paths.setta_files_location
+    return (
+        session.profile == paths.profile_name
+        and session.settaFilesLocation == expected_setta_files_location
+        and _matches_optional_path(session.settaHome, paths.setta_home)
+        and _matches_optional_path(session.settaFilesRoot, paths.setta_files_root)
+        and _matches_optional_path(session.runtimeRoot, paths.runtime_root)
+    )
 
 
 class LaunchError(RuntimeError):
@@ -89,6 +123,7 @@ def launch_workspace_session(
     runtime_root: Path | str | None = None,
     allow_env_files_overrides: bool = True,
     allow_env_non_files_overrides: bool = True,
+    server_mode: Literal["ide", "launcher"] = "ide",
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
 ) -> LaunchResult:
@@ -136,10 +171,18 @@ def launch_workspace_session(
             raise LaunchError(code, message)
 
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
-    sessions = registry.find_sessions_by_workspace(paths.workspace_root)
-    if sessions:
-        sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
-        for session in sessions:
+    sessions = registry.find_sessions_by_workspace_and_mode(
+        paths.workspace_root,
+        server_mode=server_mode,
+    )
+    matching_sessions = [
+        session
+        for session in sessions
+        if _session_identity_matches_paths(session=session, paths=paths)
+    ]
+    if matching_sessions:
+        matching_sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
+        for session in matching_sessions:
             if _can_connect_to_session(session):
                 return LaunchResult(
                     session=session,
@@ -148,7 +191,7 @@ def launch_workspace_session(
                     started_new=False,
                 )
 
-        latest = sessions[0]
+        latest = matching_sessions[0]
         grace_deadline = time.monotonic() + _existing_session_grace_seconds(
             latest, timeout_seconds=timeout_seconds
         )
@@ -162,12 +205,15 @@ def launch_workspace_session(
                 )
             time.sleep(min(poll_interval_seconds, 0.2))
 
-    process = _start_setta_process(paths)
+    _raise_if_outdated_settings_project(paths=paths)
+    process = _start_setta_process(paths, server_mode=server_mode)
     session = _wait_for_session(
         registry,
-        paths.workspace_root,
-        process.process,
-        process.log_path,
+        paths=paths,
+        workspace_root=paths.workspace_root,
+        server_mode=server_mode,
+        process=process.process,
+        log_path=process.log_path,
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
     )
@@ -179,13 +225,36 @@ def launch_workspace_session(
     )
 
 
+def _raise_if_outdated_settings_project(*, paths: SettaPaths) -> None:
+    settings_project_path = paths.setta_files_root / SETTINGS_PROJECT_FILE_NAME
+    if not settings_project_path.exists():
+        return
+    try:
+        project_state = DBE(paths.setta_files_root).read_settings_project()
+        ensure_settings_code_objs(project_state)
+    except MissingSettingsSectionError as exc:
+        raise LaunchError(
+            "OutdatedProjectSettings",
+            (
+                "This workspace uses an older Setta settings/project format "
+                f"(missing settings section {exc.section_name}). "
+                "Please migrate the project metadata and try again."
+            ),
+        ) from exc
+    except (KeyError, OSError, TypeError, ValueError):
+        # Keep existing launch behavior for unrelated malformed settings states.
+        return
+
+
 @dataclass(frozen=True)
 class _LaunchProcess:
     process: subprocess.Popen[str]
     log_path: Path
 
 
-def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
+def _start_setta_process(
+    paths: SettaPaths, *, server_mode: Literal["ide", "launcher"]
+) -> _LaunchProcess:
     cmd = [
         sys.executable,
         "-m",
@@ -238,6 +307,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             PROFILE_ENV,
             FILES_ROOT_ENV,
             FILES_LOCATION_ENV,
+            SERVER_MODE_ENV,
         ):
             env.pop(key, None)
         if paths.profile_name:
@@ -249,6 +319,8 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
         else:
             env.pop("SETTA_AUTH_COOKIE_NAME", None)
+        if server_mode == "launcher":
+            env[SERVER_MODE_ENV] = "launcher"
         popen_kwargs["env"] = env
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
@@ -282,16 +354,25 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
 
 def _wait_for_session(
     registry: SessionRegistry,
+    *,
+    paths: SettaPaths,
     workspace_root: Path,
+    server_mode: Literal["ide", "launcher"],
     process: subprocess.Popen[str],
     log_path: Path,
-    *,
     timeout_seconds: float,
     poll_interval_seconds: float,
 ) -> SessionMetadata:
     deadline = time.monotonic() + timeout_seconds
     while True:
-        sessions = registry.find_sessions_by_workspace(workspace_root)
+        sessions = [
+            session
+            for session in registry.find_sessions_by_workspace_and_mode(
+                workspace_root,
+                server_mode=server_mode,
+            )
+            if _session_identity_matches_paths(session=session, paths=paths)
+        ]
         if sessions:
             # A Setta session registers itself before uvicorn starts listening, so
             # ensure the backend port is reachable before returning a bootstrap URL.
