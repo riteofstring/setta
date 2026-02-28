@@ -1,5 +1,11 @@
 import { resetProjectStores } from "state/utils";
 import {
+  StreamingEventTypeEnum,
+  createAssistantChatMessage,
+  createMessageTextContent,
+  createUserChatMessage,
+} from "utils/generatedTypes";
+import {
   route_get_agent_runs,
   route_get_llm_chat,
   route_get_llm_response,
@@ -39,6 +45,7 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 describe("submitMessage", () => {
@@ -68,6 +75,7 @@ describe("submitMessage", () => {
     const ai = await import("state/actions/ai");
     submitMessage = ai.submitMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
@@ -397,5 +405,192 @@ describe("submitMessage", () => {
       { frontendAffinityToken: string },
     ];
     expect(payload.frontendAffinityToken).toBe("frontend-test-id");
+  });
+
+  it("routes optimistic user messages to the selected chat when chatId is provided", async () => {
+    const chatId = "chat-route-selected";
+    const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit.resolve = resolve;
+    });
+    mockedRouteGetLLMResponse.mockImplementation(async () => {
+      await submitGate;
+      return {
+        status: 200,
+        hasResponse: true,
+        data: chatId,
+      };
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: [],
+          temporary: false,
+        },
+        contextUsage: null,
+      },
+    });
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [],
+          waitingForResponse: false,
+        },
+      },
+      pendingChatDetails: null,
+    });
+
+    const submitPromise = submitMessage(
+      chatId,
+      "Route this to the selected chat.",
+      [],
+      true,
+      "engine-primary",
+      false,
+    );
+
+    // Wait until submit has enqueued its optimistic state before releasing the backend response.
+    await expect
+      .poll(() =>
+        useAIStore
+          .getState()
+          .chatDetails[chatId]?.messages.some(
+            (message) => message.role === "user",
+          ),
+      )
+      .toBe(true);
+    const optimisticState = useAIStore.getState();
+    expect(optimisticState.pendingChatDetails).toBeNull();
+    releaseSubmit.resolve?.();
+
+    await expect(submitPromise).resolves.toBe(chatId);
+  });
+
+  it("keeps pending draft routing isolated when late chunks arrive for another chat", async () => {
+    const existingChatId = "chat-existing-stream";
+    const returnedChatId = "chat-new-draft";
+    const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit.resolve = resolve;
+    });
+    mockedRouteGetLLMResponse.mockImplementation(async () => {
+      await submitGate;
+      return {
+        status: 200,
+        hasResponse: true,
+        data: returnedChatId,
+      };
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: [],
+          temporary: false,
+        },
+        contextUsage: null,
+      },
+    });
+    useAIStore.setState({
+      activeChatId: undefined,
+      pendingChatDetails: null,
+      chatDetails: {
+        [existingChatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createUserChatMessage({
+              id: "existing-user-msg",
+              content: [
+                createMessageTextContent({
+                  text: "Write a long poem",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+    });
+
+    const submitPromise = submitMessage(
+      null,
+      "Can you run a bunch of read only bash commands?",
+      [],
+      true,
+      "engine-primary",
+      false,
+    );
+
+    // Wait for optimistic pending draft state to be applied.
+    await expect
+      .poll(() => {
+        return (
+          useAIStore.getState().pendingChatDetails?.messages.some(
+            (message) => message.role === "user",
+          ) ?? false
+        );
+      })
+      .toBe(true);
+
+    // Simulate an in-flight chunk for the old chat while the new draft request is still pending.
+    receiveLLMResponseChunk({
+      chatId: existingChatId,
+      sectionId: null,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "existing-assistant-msg",
+          content: [createMessageTextContent({ text: "Continuing poem..." })],
+        }),
+      },
+    });
+
+    const stateDuringRace = useAIStore.getState();
+    const pendingUserMessage = stateDuringRace.pendingChatDetails?.messages.find(
+      (message) => message.role === "user",
+    );
+    const pendingUserText =
+      pendingUserMessage?.content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join(" ")
+        .trim() ?? "";
+    const existingChatUserTexts =
+      stateDuringRace.chatDetails[existingChatId]?.messages
+        .filter((message) => message.role === "user")
+        .map((message) =>
+          message.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join(" ")
+            .trim(),
+        ) ?? [];
+    expect(stateDuringRace.activeChatId).toBeUndefined();
+    expect(pendingUserText).toBe("Can you run a bunch of read only bash commands?");
+    expect(existingChatUserTexts).not.toContain(pendingUserText);
+
+    releaseSubmit.resolve?.();
+    await expect(submitPromise).resolves.toBe(returnedChatId);
   });
 });

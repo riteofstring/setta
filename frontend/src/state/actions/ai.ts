@@ -3459,6 +3459,28 @@ function mergeChatDetails(
   };
 }
 
+function hasMaterializedChatDetails(details: ChatDetails | undefined): boolean {
+  if (!details) {
+    return false;
+  }
+  if (details.messages.length > 0) {
+    return true;
+  }
+  if (details.waitingForResponse) {
+    return true;
+  }
+  if (Object.keys(details.toolCallArguments).length > 0) {
+    return true;
+  }
+  if (details.llmConfig !== null) {
+    return true;
+  }
+  if (details.contextUsage !== null) {
+    return true;
+  }
+  return false;
+}
+
 function promotePendingChatDetailsIfNeeded(chatId: string) {
   useAIStore.setState((state) => {
     if (!chatId) {
@@ -3469,6 +3491,9 @@ function promotePendingChatDetailsIfNeeded(chatId: string) {
       return state;
     }
     if (!state.pendingChatDetails) {
+      return state;
+    }
+    if (hasMaterializedChatDetails(state.chatDetails[chatId])) {
       return state;
     }
     const existingDetails =
