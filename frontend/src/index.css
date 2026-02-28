@@ -261,3 +261,31 @@
   background: rgb(15 23 42 / 0.85);
   color: rgb(226 232 240);
 }
+
+.setta-ui-setting-reveal-highlight {
+  outline: 2px solid rgb(59 130 246 / 0.95);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 3px rgb(59 130 246 / 0.2),
+    0 0 24px rgb(59 130 246 / 0.25);
+  animation: setta-ui-setting-reveal-pulse 1.4s ease-out;
+}
+
+@keyframes setta-ui-setting-reveal-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgb(59 130 246 / 0.35),
+      0 0 0 0 rgb(59 130 246 / 0.2);
+  }
+  100% {
+    box-shadow:
+      0 0 0 10px rgb(59 130 246 / 0),
+      0 0 0 18px rgb(59 130 246 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setta-ui-setting-reveal-highlight {
+    animation: none;
+  }
+}

@@ -58,13 +58,16 @@ from setta.agentic.agentic_scope import (
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.database.db_objs import DBE
+from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
+    AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_registry import register_setta_tool
@@ -782,58 +785,77 @@ class SettaFastMCP(FastMCP):
                 return None
             return self.temporary_to_canonical.get(value, value)
 
+        def _parse_frontend_affinity_token(value: Any) -> str | None:
+            return parse_frontend_affinity_token(value)
+
         meta = ctx.request_context.meta
         if meta is not None:
             payload = meta.model_dump()
-            project_config_id = _parse_meta_id(payload.get("projectConfigId"))
-            if project_config_id is not None:
-                project_config_id = _canonicalize(project_config_id)
-                chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
-                section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
-                allow_unscoped = False
-                raw_allow_unscoped = payload.get("allowUnscoped")
-                if raw_allow_unscoped is not None:
-                    if not isinstance(raw_allow_unscoped, bool):
-                        raise TypeError("allowUnscoped must be a boolean")
-                    allow_unscoped = raw_allow_unscoped
-                return AgenticContext(
-                    project_config_id=project_config_id,
-                    chat_id=chat_id,
-                    section_id=section_id,
-                    allow_unscoped=allow_unscoped,
-                )
+            try:
+                project_config_id = _parse_meta_id(payload.get("projectConfigId"))
+                if project_config_id is not None:
+                    project_config_id = _canonicalize(project_config_id)
+                    chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
+                    section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
+                    frontend_affinity_token = _parse_frontend_affinity_token(
+                        payload.get("frontendAffinityToken")
+                    )
+                    allow_unscoped = False
+                    raw_allow_unscoped = payload.get("allowUnscoped")
+                    if raw_allow_unscoped is not None:
+                        if not isinstance(raw_allow_unscoped, bool):
+                            raise TypeError("allowUnscoped must be a boolean")
+                        allow_unscoped = raw_allow_unscoped
+                    return AgenticContext(
+                        project_config_id=project_config_id,
+                        chat_id=chat_id,
+                        section_id=section_id,
+                        frontend_affinity_token=frontend_affinity_token,
+                        allow_unscoped=allow_unscoped,
+                    )
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError(str(exc)) from exc
         request = ctx.request_context.request
         if request is not None and hasattr(request, "headers"):
             headers = request.headers
-            project_config_id = _parse_meta_id(
-                headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER)
-            )
-            if project_config_id is not None:
-                project_config_id = _canonicalize(project_config_id)
-                chat_id = _canonicalize(
-                    _parse_meta_id(headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER))
+            try:
+                project_config_id = _parse_meta_id(
+                    headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER)
                 )
-                section_id = _canonicalize(
-                    _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
-                )
-                allow_unscoped = False
-                raw_allow_unscoped = headers.get(AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER)
-                if raw_allow_unscoped is not None:
-                    normalized = raw_allow_unscoped.strip().lower()
-                    if normalized in {"1", "true", "yes"}:
-                        allow_unscoped = True
-                    elif normalized in {"0", "false", "no", ""}:
-                        allow_unscoped = False
-                    else:
-                        raise TypeError(
-                            f"{AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER} must be a boolean"
-                        )
-                return AgenticContext(
-                    project_config_id=project_config_id,
-                    chat_id=chat_id,
-                    section_id=section_id,
-                    allow_unscoped=allow_unscoped,
-                )
+                if project_config_id is not None:
+                    project_config_id = _canonicalize(project_config_id)
+                    chat_id = _canonicalize(
+                        _parse_meta_id(headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER))
+                    )
+                    section_id = _canonicalize(
+                        _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
+                    )
+                    frontend_affinity_token = _parse_frontend_affinity_token(
+                        headers.get(AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER)
+                    )
+                    allow_unscoped = False
+                    raw_allow_unscoped = headers.get(
+                        AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER
+                    )
+                    if raw_allow_unscoped is not None:
+                        normalized = raw_allow_unscoped.strip().lower()
+                        if normalized in {"1", "true", "yes"}:
+                            allow_unscoped = True
+                        elif normalized in {"0", "false", "no", ""}:
+                            allow_unscoped = False
+                        else:
+                            raise TypeError(
+                                f"{AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER} must be a boolean"
+                            )
+                    return AgenticContext(
+                        project_config_id=project_config_id,
+                        chat_id=chat_id,
+                        section_id=section_id,
+                        frontend_affinity_token=frontend_affinity_token,
+                        allow_unscoped=allow_unscoped,
+                    )
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError(str(exc)) from exc
         session = self._resolve_agentic_session(ctx)
         if session is None:
             return None
@@ -848,6 +870,8 @@ class SettaFastMCP(FastMCP):
         return getattr(request_context, "session", None)
 
     def _resolve_share_session_id(self, ctx: Context) -> str | None:
+        if not self.state.deployment_mode:
+            return None
         meta = ctx.request_context.meta
         if meta is None:
             return None
@@ -856,7 +880,7 @@ class SettaFastMCP(FastMCP):
         if raw is None:
             return None
         if not isinstance(raw, str):
-            raise TypeError("shareSessionId must be a string")
+            raise InvalidToolArgumentsError("shareSessionId must be a string")
         return raw or None
 
     def setta_id_transformer(self, func):

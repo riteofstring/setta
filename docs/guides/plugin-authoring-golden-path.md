@@ -23,6 +23,101 @@ This generates:
   - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
 - Content: add templates/assets under `content/`.
 
+### Optional: define plugin UI settings from config schema
+
+Add `x-setta-ui-settings` entries to your plugin config schema (`content/config/schema.json`) when settings should read/write plugin config paths directly:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "enabled": { "type": "boolean" }
+  },
+  "x-setta-ui-settings": [
+    {
+      "settingId": "enabled",
+      "title": "Plugin Enabled",
+      "description": "Enable plugin behavior.",
+      "paneId": "my-settings-pane",
+      "revealKey": "my-settings",
+      "configPath": ["enabled"],
+      "defaultValue": false,
+      "mutability": "writable"
+    }
+  ]
+}
+```
+
+Notes:
+- `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
+- `configPath` must be a non-empty string array.
+- `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
+- Do not register the same local setting id in both schema and backend runtime registration.
+
+### Optional: define plugin UI settings from backend runtime handlers
+
+Use backend runtime handlers when reads/writes are not simple config-path updates:
+
+```python
+def register(plugin):
+    plugin.register_ui_setting(
+        {
+            "id": "backend_enabled",
+            "title": "Backend Enabled",
+            "description": "Enable backend-controlled behavior.",
+            "paneId": "my-settings-pane",
+            "revealKey": "my-settings",
+            "synonyms": ["backend enabled"],
+            "mutability": "writable",
+            "valueSchema": {"type": "boolean"},
+            "read": read_setting,
+            "write": write_setting,
+        }
+    )
+```
+
+Notes:
+- Backend UI setting registration requires effective `registerPane` capability.
+- `read` is required for all backend settings.
+- For `mutability="writable"`, `write` is required; for `readOnly`, `write` must be omitted.
+- `id` is plugin-local and must not contain `::`.
+
+### Optional: implement frontend reveal handlers for plugin settings
+
+Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Register a pane and reveal handler in frontend `register(host)`:
+
+```js
+export function register(host) {
+  host.registerPane({
+    id: "my-settings-pane",
+    title: "My Settings",
+    renderer: {
+      mount(el) {
+        el.textContent = "Settings UI";
+      },
+      unmount(el) {
+        el.textContent = "";
+      },
+    },
+  });
+
+  host.registerSettingRevealHandler(
+    "my-settings",
+    ({ settingId, durationMs, abortSignal }) => {
+      if (abortSignal.aborted) {
+        return false;
+      }
+      // Focus/scroll/highlight the DOM control for settingId.
+      return true;
+    },
+  );
+}
+```
+
+Notes:
+- `revealKey` in schema/backend registration must match `registerSettingRevealHandler(revealKey, ...)`.
+- Reveal handlers must return `true`/`false` (or `Promise<boolean>`).
+
 ## 3. Link locally during development
 
 ```bash

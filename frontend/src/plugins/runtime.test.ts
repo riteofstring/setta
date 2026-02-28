@@ -2,6 +2,7 @@ import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   computePluginSectionFallbackReason,
   getPluginSectionFallbackReason,
+  invokePluginSettingRevealHandler,
   PluginFrontendErrorCodeEnum,
   pluginRuntimeTestApi,
   PluginSectionFallbackReasonEnum,
@@ -3322,5 +3323,98 @@ describe("plugin runtime helpers", () => {
     });
 
     expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBeNull();
+  });
+
+  it("treats non-boolean plugin reveal handler results as contract failures", async () => {
+    const pluginId = "acme.plugin";
+    const revealKey = "full-settings";
+    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
+      pluginId,
+      revealKey,
+      () => {
+        const malformed = JSON.parse('"unexpected-string"');
+        return malformed;
+      },
+    );
+
+    const result = await invokePluginSettingRevealHandler({
+      pluginId,
+      revealKey,
+      settingId: "plugin::acme.plugin::enabled",
+      paneId: "full-settings-pane",
+      durationMs: 1200,
+      abortSignal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Plugin acme.plugin reveal handler full-settings returned a non-boolean value.",
+    });
+  });
+
+  it("fails before invoking the plugin reveal handler when abort is pre-signaled", async () => {
+    const pluginId = "acme.plugin";
+    const revealKey = "full-settings";
+    const handlerSpy = vi.fn(() => true);
+    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
+      pluginId,
+      revealKey,
+      handlerSpy,
+    );
+
+    const controller = new AbortController();
+    controller.abort();
+    const result = await invokePluginSettingRevealHandler({
+      pluginId,
+      revealKey,
+      settingId: "plugin::acme.plugin::enabled",
+      paneId: "full-settings-pane",
+      durationMs: 1200,
+      abortSignal: controller.signal,
+    });
+
+    expect(handlerSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Plugin acme.plugin reveal handler full-settings was aborted before invocation.",
+    });
+  });
+
+  it("returns a timeout message when plugin reveal handler settles after abort", async () => {
+    const pluginId = "acme.plugin";
+    const revealKey = "full-settings";
+    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
+      pluginId,
+      revealKey,
+      ({ abortSignal }) =>
+        new Promise<boolean>((resolve) => {
+          abortSignal.addEventListener(
+            "abort",
+            () => {
+              resolve(true);
+            },
+            { once: true },
+          );
+        }),
+    );
+
+    const controller = new AbortController();
+    const pendingResult = invokePluginSettingRevealHandler({
+      pluginId,
+      revealKey,
+      settingId: "plugin::acme.plugin::enabled",
+      paneId: "full-settings-pane",
+      durationMs: 1200,
+      abortSignal: controller.signal,
+    });
+    controller.abort();
+    const result = await pendingResult;
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Plugin acme.plugin reveal handler full-settings timed out.",
+    });
   });
 });

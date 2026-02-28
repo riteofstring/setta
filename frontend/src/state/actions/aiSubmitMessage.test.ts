@@ -27,6 +27,10 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
+vi.mock("state/actions/frontendWebsocketAffinity", () => ({
+  waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
+}));
+
 const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
 const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
@@ -369,5 +373,29 @@ describe("submitMessage", () => {
           .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
       )
       .toBe(true);
+  });
+
+  it("includes frontend websocket affinity id in llm requests", async () => {
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Check websocket affinity propagation.",
+        [],
+        false,
+        "engine-primary",
+        false,
+      ),
+    ).resolves.toBeNull();
+
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      { frontendAffinityToken: string },
+    ];
+    expect(payload.frontendAffinityToken).toBe("frontend-test-id");
   });
 });
