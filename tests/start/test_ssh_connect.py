@@ -456,3 +456,97 @@ def test_connect_remote_workspace_session_requires_launcher_origin_proof(
 
     assert excinfo.value.code == "RemoteConnectInfo"
     assert "did not include launcherOriginProof" in str(excinfo.value)
+
+
+def test_rollback_remote_workspace_session_deletes_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash"
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "resolve_remote_workspace",
+        lambda *_args, **_kwargs: "/remote/workspace",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "build_remote_setta_path_args",
+        lambda **_kwargs: "--profile dev",
+    )
+
+    def fake_run_remote_setta_command(
+        ssh_target: str,
+        ssh_args: list[str],
+        shell: str,
+        workspace: str,
+        setta_command: str,
+        setta_args: str,
+        **_kwargs,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["ssh_target"] = ssh_target
+        captured["ssh_args"] = ssh_args
+        captured["shell"] = shell
+        captured["workspace"] = workspace
+        captured["setta_command"] = setta_command
+        captured["setta_args"] = setta_args
+        return subprocess.CompletedProcess(args=["ssh"], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        ssh_connect, "run_remote_setta_command", fake_run_remote_setta_command
+    )
+
+    ssh_connect.rollback_remote_workspace_session(
+        ssh_target="user@host",
+        ssh_args="-i ~/.ssh/id_ed25519",
+        workspace="/requested/workspace",
+        session_id="session-123",
+        remote_cmd="setta",
+        profile="dev",
+    )
+
+    assert captured["ssh_target"] == "user@host"
+    assert captured["shell"] == "bash"
+    assert captured["workspace"] == "/remote/workspace"
+    assert captured["setta_command"] == "setta"
+    assert captured["setta_args"] == "--profile dev status --delete-session session-123"
+    assert isinstance(captured["ssh_args"], list)
+    assert captured["ssh_args"]
+
+
+def test_rollback_remote_workspace_session_raises_when_delete_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash"
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "resolve_remote_workspace",
+        lambda *_args, **_kwargs: "/remote/workspace",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "build_remote_setta_path_args",
+        lambda **_kwargs: "",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "run_remote_setta_command",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["ssh"], returncode=1, stdout="", stderr="permission denied"
+        ),
+    )
+
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_connect.rollback_remote_workspace_session(
+            ssh_target="user@host",
+            workspace="/requested/workspace",
+            session_id="session-123",
+            remote_cmd="setta",
+        )
+
+    assert excinfo.value.code == "RemoteRollback"
+    assert "session-123" in str(excinfo.value)

@@ -180,9 +180,12 @@ class TestLaunchRoutes:
         assert captured["workspace_root"] == "/tmp/workspace"
         assert captured["setta_files_location"] == "global"
         assert create_response.launchIntentToken is not None
-        assert not _WORKSPACE_LAUNCH_INTENT_STORE.contains(
-            create_response.launchIntentToken
-        )
+        with pytest.raises(ValueError, match="missing or already consumed"):
+            _WORKSPACE_LAUNCH_INTENT_STORE.consume_once(
+                token=create_response.launchIntentToken,
+                session_id="session-1",
+                now=0,
+            )
 
     def test_launch_intent_roundtrip_survives_store_reinitialization(
         self,
@@ -241,7 +244,12 @@ class TestLaunchRoutes:
         assert response.returnUrl == "http://localhost/home"
         assert captured["workspace_root"] == "/tmp/workspace"
         assert captured["setta_files_location"] == "global"
-        assert not store_b.contains(create_response.launchIntentToken)
+        with pytest.raises(ValueError, match="missing or already consumed"):
+            store_b.consume_once(
+                token=create_response.launchIntentToken,
+                session_id="session-1",
+                now=0,
+            )
 
     def test_launch_intent_rejects_tampered_token(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2364,3 +2372,189 @@ class TestLaunchRoutes:
         assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
         assert kill_calls == []
         assert removed_sessions == []
+
+    def test_launch_route_rolls_back_new_remote_session_when_trust_persistence_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rollback_calls: list[dict[str, object]] = []
+
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=True,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin=None,
+                launcher_origin_proof=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.rollback_remote_workspace_session",
+            lambda **kwargs: rollback_calls.append(kwargs),
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+                profile="dev",
+                settaHome="/remote/home/.setta",
+                settaFilesRoot="/remote/state",
+                settaFilesLocation="global",
+                runtimeRoot="/remote/runtime",
+                sshArgs="-o StrictHostKeyChecking=no",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
+        assert len(rollback_calls) == 1
+        rollback_call = rollback_calls[0]
+        assert rollback_call["ssh_target"] == "user@host"
+        assert rollback_call["workspace"] == "/remote/workspace"
+        assert rollback_call["session_id"] == "remote-session-id"
+        assert rollback_call["remote_cmd"] == "setta"
+        assert rollback_call["profile"] == "dev"
+        assert rollback_call["setta_home"] == "/remote/home/.setta"
+        assert rollback_call["setta_files_root"] == "/remote/state"
+        assert rollback_call["setta_files_location"] == "global"
+        assert rollback_call["runtime_root"] == "/remote/runtime"
+        assert rollback_call["ssh_args"] == "-o StrictHostKeyChecking=no"
+
+    def test_launch_route_does_not_rollback_reused_remote_session_when_trust_persistence_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rollback_calls: list[dict[str, object]] = []
+
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin=None,
+                launcher_origin_proof=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.rollback_remote_workspace_session",
+            lambda **kwargs: rollback_calls.append(kwargs),
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "TrustedFrontendOriginStoreUnavailable"
+        assert rollback_calls == []
+
+    def test_launch_route_returns_rollback_failure_when_remote_cleanup_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=True,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin=None,
+                launcher_origin_proof=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.rollback_remote_workspace_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                LaunchError("RemoteRollback", "failed deleting session remotely")
+            ),
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "RemoteRollbackFailed"
+        assert "remote-session-id" in response.error.message
+        assert "failed deleting session remotely" in response.error.message

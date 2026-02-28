@@ -26,7 +26,10 @@ from setta.launcher_metadata import (
 from setta.routers.dependencies import require_not_deployment_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
-from setta.ssh_connect import connect_remote_workspace_session
+from setta.ssh_connect import (
+    connect_remote_workspace_session,
+    rollback_remote_workspace_session,
+)
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
 )
@@ -309,11 +312,48 @@ def route_launch(
                     proof=remote.launcher_origin_proof,
                 )
             resolved_workspace_root = remote.session.workspace_path_canonical
-            trust_launched_workspace_origin_for_launcher_session(
-                request_origin=request_origin,
-                bootstrap_url_fragment=remote_bootstrap_url,
-                launcher_session_info=launcher_session_info,
-            )
+            try:
+                trust_launched_workspace_origin_for_launcher_session(
+                    request_origin=request_origin,
+                    bootstrap_url_fragment=remote_bootstrap_url,
+                    launcher_session_info=launcher_session_info,
+                )
+            except TrustedFrontendOriginStoreError as exc:
+                if remote.started_new:
+                    try:
+                        rollback_remote_workspace_session(
+                            ssh_target=x.sshTarget,
+                            ssh_args=x.sshArgs,
+                            workspace=remote.session.workspace_path_canonical,
+                            session_id=remote.session.id,
+                            remote_cmd=remote.remote_cmd_resolved,
+                            profile=normalized_profile,
+                            setta_home=normalized_setta_home,
+                            setta_files_root=normalized_setta_files_root,
+                            setta_files_location=setta_files_location,
+                            runtime_root=normalized_runtime_root,
+                        )
+                    except LaunchError as rollback_exc:
+                        return LaunchResponse(
+                            ok=False,
+                            returnUrl=return_url,
+                            error=LaunchErrorPayload(
+                                code="RemoteRollbackFailed",
+                                message=(
+                                    "Launch trust persistence failed and rollback of "
+                                    f"remote session {remote.session.id} also failed: "
+                                    f"{rollback_exc}"
+                                ),
+                            ),
+                        )
+                return LaunchResponse(
+                    ok=False,
+                    returnUrl=return_url,
+                    error=LaunchErrorPayload(
+                        code="TrustedFrontendOriginStoreUnavailable",
+                        message=str(exc),
+                    ),
+                )
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote_bootstrap_url,
@@ -368,15 +408,6 @@ def route_launch(
             ok=False,
             returnUrl=return_url,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
-        )
-    except TrustedFrontendOriginStoreError as exc:
-        return LaunchResponse(
-            ok=False,
-            returnUrl=return_url,
-            error=LaunchErrorPayload(
-                code="TrustedFrontendOriginStoreUnavailable",
-                message=str(exc),
-            ),
         )
 
     try:

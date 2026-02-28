@@ -3,6 +3,7 @@ import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLaunc
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
+import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_get_setta_home_info } from "utils/generatedEndpoints";
@@ -28,6 +29,8 @@ import {
 
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
+  const serverMode = useServerMode((state) => state.mode);
+  const modeResolved = useServerMode((state) => state.modeResolved);
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [settaFilesLocation, setSettaFilesLocation] =
@@ -45,7 +48,6 @@ export function WorkspaceSwitcherModal() {
   const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
     setHistory(loadWorkspaceHistory());
 
     const draft = readWorkspaceSwitcherDraft();
@@ -61,8 +63,23 @@ export function WorkspaceSwitcherModal() {
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
     }
+  }, []);
+
+  useEffect(() => {
+    if (!modeResolved) {
+      return;
+    }
+    let isMounted = true;
 
     async function hydrateLauncherSettaHomeInfo() {
+      if (serverMode === "launcher") {
+        setLauncherSettaHomeInfo(null);
+        setLauncherSettaHomeInfoError(
+          "Desktop launcher actions are unavailable in launcher mode.",
+        );
+        return;
+      }
+
       const response = await route_get_setta_home_info();
       if (!isMounted) {
         return;
@@ -82,7 +99,7 @@ export function WorkspaceSwitcherModal() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [modeResolved, serverMode]);
 
   const trimmedWorkspace = workspaceRoot.trim();
   const trimmedSshTarget = sshTarget.trim();

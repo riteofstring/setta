@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { RouteEnum } from "./generatedTypes";
 import {
+  ENDPOINT_ORIGIN_POLICY,
   modeSupportsWorkspaceLaunch,
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
@@ -30,7 +31,7 @@ describe("serverModeBoundaryPolicy", () => {
     expect(modeSupportsWorkspaceLaunch(null)).toBe(false);
   });
 
-  it("keeps launch/intent/settaHomeInfo endpoint origin mode-scoped", () => {
+  it("keeps launch and launch-intent endpoint origin mode-scoped", () => {
     expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "ide")).toBe(
       "backend",
     );
@@ -53,13 +54,15 @@ describe("serverModeBoundaryPolicy", () => {
         "launcher",
       ),
     ).toBe("launcher");
+  });
 
+  it("keeps settaHomeInfo on backend across all modes", () => {
     expect(
       resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "ide"),
     ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "launcher"),
-    ).toBe("launcher");
+    ).toBe("backend");
     expect(
       resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, null),
     ).toBe("backend");
@@ -78,5 +81,8 @@ describe("serverModeBoundaryPolicy", () => {
         "launcher",
       ),
     ).toBe("backend-origin");
+    expect(Object.keys(ENDPOINT_ORIGIN_POLICY)).not.toContain(
+      "/launcherAppMode",
+    );
   });
 });

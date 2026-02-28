@@ -550,7 +550,6 @@ export const RouteEnum = {
   REPAIR_LAUNCHER: "/repairLauncher",
   REMOVE_LAUNCHER: "/removeLauncher",
   UPDATE_LAUNCHER: "/updateLauncher",
-  GET_LAUNCHER_APP_MODE: "/launcherAppMode",
   GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
   ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
   REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
@@ -9005,14 +9004,6 @@ const LaunchResponseSchema = z.object({
 });
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
-
-const LauncherAppModeResponseSchema = z.object({
-  launcherMode: z.boolean(),
-});
-
-export type LauncherAppModeResponse = z.infer<
-  typeof LauncherAppModeResponseSchema
->;
 
 const LauncherDirectoryEntryPayloadSchema = z.object({
   name: z.string(),

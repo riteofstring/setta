@@ -42,6 +42,19 @@ function createRouteGate(): { wait: Promise<void>; release: () => void } {
   };
 }
 
+function buildWorkspaceLaunchIntentHash({
+  launchIntentToken,
+  requestedAt,
+}: {
+  launchIntentToken: string;
+  requestedAt: number;
+}): string {
+  const params = new URLSearchParams();
+  params.set("plt", launchIntentToken);
+  params.set("pla", String(requestedAt));
+  return params.toString();
+}
+
 test("workspace switcher launches a session and persists history", async ({
   page,
 }) => {
@@ -405,14 +418,9 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
     );
   });
 
-  const hash = await page.evaluate(async () => {
-    const { buildWorkspaceLaunchIntentHash } = await import(
-      "/src/utils/workspaceSwitcherLaunch"
-    );
-    return buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "fresh-intent-token",
-      requestedAt: 222,
-    });
+  const hash = buildWorkspaceLaunchIntentHash({
+    launchIntentToken: "fresh-intent-token",
+    requestedAt: 222,
   });
 
   await page.route("**/api/launch", async (route) => {
@@ -474,6 +482,44 @@ test("workspace launch ignores forged plr hash values on error back-navigation",
   await page.getByRole("button", { name: "Back to Switcher" }).click();
   await expect(page).toHaveURL(/\/home(?:\?|#|$)/);
   await expect(page).not.toHaveURL(/evil\.example/);
+});
+
+test("workspace launch back-navigation reopens switcher with successful settaHomeInfo hydration", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+  await modal.getByPlaceholder("/path/to/workspace").fill("/path/does/not/exist");
+  await modal.getByRole("button", { name: "Launch" }).click();
+  await page.waitForURL("**/launching");
+  await expect(page.getByText("Workspace root does not exist")).toBeVisible();
+
+  const settaHomeInfoRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return request.method() === "GET" && url.pathname === "/api/settaHomeInfo";
+  });
+  const settaHomeInfoResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/settaHomeInfo"
+    );
+  });
+
+  await page.getByRole("button", { name: "Back to Switcher" }).click();
+  await expect(page).toHaveURL(/\/home(?:\?|#|$)/);
+  await expect(page.getByRole("dialog")).toContainText("Switch Workspace");
+
+  const request = await settaHomeInfoRequest;
+  expect(new URL(request.url()).pathname).toBe("/api/settaHomeInfo");
+  const response = await settaHomeInfoResponse;
+  expect(response.status()).toBe(200);
+  await expect(
+    page.getByText("Failed to resolve launcher scope for desktop launcher actions."),
+  ).toHaveCount(0);
 });
 
 test("workspace launch blocks legacy forged hash payloads", async ({ page }) => {

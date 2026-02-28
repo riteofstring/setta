@@ -13,9 +13,7 @@ const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
 const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
-const PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_REQUESTED_AT_HASH_KEY = "pla";
-const LEGACY_PENDING_LAUNCH_HASH_KEY = "pl";
 
 function parsePendingWorkspaceLaunch(
   candidate: unknown,
@@ -57,9 +55,7 @@ function parseRequestedAt(raw: string | null): number {
 
 function cleanPendingWorkspaceLaunchParams(params: URLSearchParams): void {
   params.delete(PENDING_LAUNCH_INTENT_HASH_KEY);
-  params.delete(PENDING_LAUNCH_RETURN_URL_HASH_KEY);
   params.delete(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY);
-  params.delete(LEGACY_PENDING_LAUNCH_HASH_KEY);
 }
 
 function getDefaultLaunchReturnUrl(): string {
@@ -100,19 +96,6 @@ function replaceCurrentUrlHash(params: URLSearchParams): void {
   }
 }
 
-export function buildWorkspaceLaunchIntentHash({
-  launchIntentToken,
-  requestedAt,
-}: {
-  launchIntentToken: string;
-  requestedAt: number;
-}): string {
-  const params = new URLSearchParams();
-  params.set(PENDING_LAUNCH_INTENT_HASH_KEY, launchIntentToken);
-  params.set(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY, String(requestedAt));
-  return params.toString();
-}
-
 function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | null {
   if (typeof window === "undefined") {
     return null;
@@ -128,12 +111,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     const launchIntentToken = params
       .get(PENDING_LAUNCH_INTENT_HASH_KEY)
       ?.trim();
-    const hasLegacyPayload = params.has(LEGACY_PENDING_LAUNCH_HASH_KEY);
     if (!launchIntentToken) {
-      if (hasLegacyPayload) {
-        cleanPendingWorkspaceLaunchParams(params);
-        replaceCurrentUrlHash(params);
-      }
       return null;
     }
 

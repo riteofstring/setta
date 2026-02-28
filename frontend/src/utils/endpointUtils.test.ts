@@ -113,7 +113,6 @@ describe("endpointUtils URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await get(RouteEnum.GET_LAUNCHER_APP_MODE);
     await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES);
     await get(RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS);
     await post(RouteEnum.LIST_LAUNCHER_DIRECTORY, { path: null });
@@ -122,21 +121,32 @@ describe("endpointUtils URL routing", () => {
       createIfMissing: false,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_APP_MODE}`,
-    );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}`,
     );
-    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS}`,
     );
-    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.LIST_LAUNCHER_DIRECTORY}`,
     );
-    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.OPEN_LAUNCHER_WORKSPACE}`,
+    );
+  });
+
+  it("routes settaHomeInfo via backend origin in launcher mode", async () => {
+    useServerMode.setState({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
+
+    await get(RouteEnum.GET_SETTA_HOME_INFO);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
     );
   });
 

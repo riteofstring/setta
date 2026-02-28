@@ -161,7 +161,7 @@ def test_launch_intent_store_read_failures_keep_store_error_domain(
         WorkspaceLaunchIntentStoreUnavailableError,
         match="Failed reading launch-intent store",
     ) as excinfo:
-        store.contains("token-1")
+        store.prune(now=0)
 
     # Read failures must not be rewritten into lock-acquisition wording.
     assert "Failed acquiring launch-intent store lock" not in str(excinfo.value)
@@ -243,7 +243,12 @@ def test_launch_intent_store_capacity_recovers_after_prune(tmp_path: Path) -> No
         exp=131,
         now=101,
     )
-    assert store.contains("fresh-token-after-prune")
+    stored = store.consume_once(
+        token="fresh-token-after-prune",
+        session_id="session-1",
+        now=102,
+    )
+    assert stored.return_url == "http://localhost/home"
 
 
 def test_launch_intent_store_enforces_global_capacity_with_session_isolation(

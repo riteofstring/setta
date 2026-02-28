@@ -39,8 +39,7 @@ export const ENDPOINT_ORIGIN_POLICY: Readonly<
 > = Object.freeze({
   [RouteEnum.LAUNCH]: "launcher",
   [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
-  [RouteEnum.GET_SETTA_HOME_INFO]: "launcher",
-  [RouteEnum.GET_LAUNCHER_APP_MODE]: "launcher",
+  [RouteEnum.GET_SETTA_HOME_INFO]: "backend",
   [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
   [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
   [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
@@ -53,7 +52,6 @@ export const ENDPOINT_ORIGIN_POLICY: Readonly<
 const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
   RouteEnum.LAUNCH,
   RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
-  RouteEnum.GET_SETTA_HOME_INFO,
 ]);
 
 export function resolveServerModeCapabilities(

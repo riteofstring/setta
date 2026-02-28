@@ -125,12 +125,6 @@ class WorkspaceLaunchIntentStore:
         with self._lock, self._store_lock():
             self._write_store_locked({})
 
-    def contains(self, token: str) -> bool:
-        token_hash = self._token_hash(token)
-        with self._lock, self._store_lock():
-            store = self._read_store_locked()
-            return token_hash in store
-
     def _token_hash(self, token: str) -> str:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
 

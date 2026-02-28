@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from setta.ssh_common import (
     resolve_remote_setta_command,
     resolve_remote_shell,
     resolve_remote_workspace,
+    run_remote_setta_command,
     select_free_port,
     ssh_command_prefix,
     start_remote_setta,
@@ -64,6 +66,79 @@ class SshTunnelMetadata(BaseModel):
     pidCreateTime: float
     createdAt: str
     lastUsedAt: str
+
+
+def rollback_remote_workspace_session(
+    *,
+    ssh_target: str,
+    workspace: str,
+    session_id: str,
+    remote_cmd: str,
+    profile: str | None = None,
+    setta_home: str | None = None,
+    setta_files_root: str | None = None,
+    setta_files_location: str | None = None,
+    runtime_root: str | None = None,
+    ssh_args: str | None = None,
+) -> None:
+    trimmed_target = normalize_optional_argument(ssh_target)
+    if trimmed_target is None:
+        raise LaunchError("RemoteRollback", "Missing sshTarget for rollback.")
+    trimmed_workspace = normalize_optional_argument(workspace)
+    if trimmed_workspace is None:
+        raise LaunchError("RemoteRollback", "Missing workspace for rollback.")
+    trimmed_session_id = normalize_optional_argument(session_id)
+    if trimmed_session_id is None:
+        raise LaunchError("RemoteRollback", "Missing session id for rollback.")
+    trimmed_remote_cmd = normalize_optional_argument(remote_cmd)
+    if trimmed_remote_cmd is None:
+        raise LaunchError("RemoteRollback", "Missing remote command for rollback.")
+
+    trimmed_profile = normalize_optional_argument(profile)
+    trimmed_setta_home = normalize_optional_argument(setta_home)
+    trimmed_setta_files_root = normalize_optional_argument(setta_files_root)
+    trimmed_runtime_root = normalize_optional_argument(runtime_root)
+    trimmed_location = normalize_setta_files_location(setta_files_location)
+    if (
+        trimmed_setta_files_root is None
+        and trimmed_location is None
+        and trimmed_profile is None
+    ):
+        trimmed_location = "auto"
+
+    ssh_prefix = ssh_command_prefix(batch_mode=True)
+    ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
+    shell = resolve_remote_shell(trimmed_target, ssh_args_list, ssh_prefix=ssh_prefix)
+    remote_workspace = resolve_remote_workspace(
+        trimmed_target,
+        ssh_args_list,
+        shell,
+        trimmed_workspace,
+        ssh_prefix=ssh_prefix,
+    )
+    setta_files_args = build_remote_setta_path_args(
+        profile=trimmed_profile,
+        setta_home=trimmed_setta_home,
+        setta_files_root=trimmed_setta_files_root,
+        setta_files_location=trimmed_location,
+        runtime_root=trimmed_runtime_root,
+    )
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
+    result = run_remote_setta_command(
+        trimmed_target,
+        ssh_args_list,
+        shell,
+        remote_workspace,
+        trimmed_remote_cmd,
+        f"{root_prefix}status --delete-session {shlex.quote(trimmed_session_id)}",
+        ssh_prefix=ssh_prefix,
+    )
+    if result.returncode != 0:
+        details = (result.stderr.strip() or result.stdout.strip() or "").strip()
+        raise LaunchError(
+            "RemoteRollback",
+            f"Failed deleting remote session {trimmed_session_id}. {details}".strip(),
+        )
 
 
 def _parse_optional_connect_info_field(

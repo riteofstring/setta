@@ -27,7 +27,6 @@ class Route(str, Enum):
     REPAIR_LAUNCHER = "/repairLauncher"
     REMOVE_LAUNCHER = "/removeLauncher"
     UPDATE_LAUNCHER = "/updateLauncher"
-    GET_LAUNCHER_APP_MODE = "/launcherAppMode"
     GET_LAUNCHER_RECENT_WORKSPACES = "/launcherRecentWorkspaces"
     ADD_LAUNCHER_RECENT_WORKSPACE = "/addLauncherRecentWorkspace"
     REMOVE_LAUNCHER_RECENT_WORKSPACE = "/removeLauncherRecentWorkspace"

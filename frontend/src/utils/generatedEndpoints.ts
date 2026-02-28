@@ -389,12 +389,6 @@ export async function route_launch(
   return await post("/launch", x);
 }
 
-export async function route_get_launcher_app_mode(): Promise<
-  ResponseDataAndStatus<gt.LauncherAppModeResponse>
-> {
-  return await get("/launcherAppMode");
-}
-
 export async function route_get_launcher_recent_workspaces(
   setta_home: string | null,
 ): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {

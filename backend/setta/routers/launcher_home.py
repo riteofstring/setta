@@ -24,7 +24,6 @@ from setta.launcher_workspace_store import (
     upsert_recent_workspace,
 )
 from setta.routers.dependencies import (
-    AppStateFromRequest,
     require_launcher_mode,
     require_not_deployment_mode,
 )
@@ -55,10 +54,6 @@ _MAX_DIRECTORY_CURSOR_OFFSET = 5000
 class LauncherHomeErrorPayload(BaseModel):
     code: str
     message: str
-
-
-class LauncherAppModeResponse(BaseModel):
-    launcherMode: bool
 
 
 class LauncherRecentWorkspacePayload(BaseModel):
@@ -136,11 +131,6 @@ class LauncherOpenWorkspaceResponse(BaseModel):
     sessionId: str | None = None
     startedNew: bool | None = None
     error: LauncherHomeErrorPayload | None = None
-
-
-@router.get(Route.GET_LAUNCHER_APP_MODE)
-def route_get_launcher_app_mode(state: AppStateFromRequest) -> LauncherAppModeResponse:
-    return LauncherAppModeResponse(launcherMode=state.launcher_mode)
 
 
 @router.get(Route.GET_LAUNCHER_RECENT_WORKSPACES)

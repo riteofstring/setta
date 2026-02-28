@@ -30,17 +30,13 @@ def _build_app(*, deployment_mode: bool = False, launcher_mode: bool = True) -> 
     return app
 
 
-def test_get_launcher_app_mode_reports_current_state() -> None:
+def test_get_launcher_app_mode_route_is_not_available() -> None:
     app = _build_app(launcher_mode=True)
 
     with TestClient(app) as client:
-        response = client.get(
-            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_APP_MODE.value}"
-        )
+        response = client.get(f"{Route.PREFIX.value}/launcherAppMode")
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["launcherMode"] is True
+    assert response.status_code == 404
 
 
 def test_launcher_home_routes_are_blocked_outside_launcher_mode() -> None:

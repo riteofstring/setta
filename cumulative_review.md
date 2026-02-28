@@ -186,3 +186,13 @@
 - Hardened workspace switcher launcher-management scope by propagating hydrated `settaHome` into launcher settings, requiring scope in that flow, and fail-fast disabling controls with explicit scope-resolution errors when unavailable.
 - Added/updated Vitest and Playwright coverage for the above contracts, including IDE-mode backend-origin assertions for `settaHomeInfo`, launcher settings scoped requests, and explicit `settaHome` payload checks on launcher update requests.
 - Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+
+## 2026-02-27 09:43:23 PST
+
+- Hardened SSH launch transactional behavior by rolling back newly created remote sessions when launcher-origin trust persistence fails, and surfacing explicit `RemoteRollbackFailed` when cleanup fails.
+- Added `rollback_remote_workspace_session` to remote SSH orchestration to execute remote `status --delete-session` with the resolved remote shell/workspace/path args and strict launch-error mapping.
+- Removed obsolete `/launcherAppMode` backend/frontend route surface (route enum, generated endpoint/type, and router handler) instead of preserving a compatibility shim.
+- Tightened workspace-switcher launch handoff behavior by dropping legacy hash compatibility (`pl`/`plr`) and only consuming the current launch-intent hash contract (`plt`/`pla`) with safe hash cleanup.
+- Fixed launcher-mode `settaHomeInfo` behavior by keeping that endpoint on backend origin and skipping launcher-scope hydration in launcher mode, with corresponding frontend policy/test updates.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/error contracts, removed route surface, launch-hash handling, and switcher back-navigation hydration flow.
+- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).

@@ -1,14 +1,25 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { encodeBase64Url } from "./base64Url";
 import type { LaunchRequestInput } from "./generatedTypes";
 import {
-  buildWorkspaceLaunchIntentHash,
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
+
+function buildWorkspaceLaunchIntentHash({
+  launchIntentToken,
+  requestedAt,
+}: {
+  launchIntentToken: string;
+  requestedAt: number;
+}): string {
+  const params = new URLSearchParams();
+  params.set("plt", launchIntentToken);
+  params.set("pla", String(requestedAt));
+  return params.toString();
+}
 
 describe("workspaceSwitcherLaunch", () => {
   let memoryStorage: Storage;
@@ -189,28 +200,15 @@ describe("workspaceSwitcherLaunch", () => {
     expect(windowStub.location.href).not.toContain("plt=");
   });
 
-  it("does not decode legacy raw payload hashes", () => {
-    const payload = JSON.stringify({
-      request: { workspaceRoot: "/tmp/forged" },
-      returnUrl: "http://localhost/project",
-      requestedAt: 999,
-    });
-    const encoded = encodeBase64Url(new TextEncoder().encode(payload));
-    windowStub.location.hash = `#pl=${encoded}`;
-
-    const pending = readPendingWorkspaceLaunch();
-    expect(pending).toBeNull();
-    expect(windowStub.location.hash).not.toContain("pl=");
-  });
-
-  it("ignores forged plr hash params and uses the safe default return URL", () => {
+  it("ignores unknown hash params and uses the safe default return URL", () => {
     windowStub.location.hash =
       "#plt=intent-token&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU&pla=123";
 
     const pending = readPendingWorkspaceLaunch();
     expect(pending?.request.launchIntentToken).toBe("intent-token");
     expect(pending?.returnUrl).toBe("http://localhost/home");
-    expect(windowStub.location.hash).not.toContain("plr=");
+    expect(windowStub.location.hash).not.toContain("plt=");
+    expect(windowStub.location.hash).not.toContain("pla=");
   });
 
   it("consumes the open-switcher request from the URL", () => {
