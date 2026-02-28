@@ -734,6 +734,59 @@ args = ["mcp"]
                     "http://localhost:8000/mcp/streamable/"
                 )
 
+    def test_build_codex_settings_file_runtime_output_persists_canonical_config_without_bootstrap_source(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            # Isolate HOME and unset CODEX_HOME so host-level config cannot affect this case.
+            isolated_home = Path(tmpdir) / "isolated-home"
+            isolated_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.setenv("HOME", str(isolated_home))
+            config = ExternalAgentConfig(
+                id="codex-runtime-empty-bootstrap",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            canonical_path = resolve_codex_settings_path(dbe, config)
+            if canonical_path is None:
+                raise AssertionError("Expected canonical Codex config path")
+            runtime_output_dir = canonical_path.parent / "sessions" / "chat-1"
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-1"},
+                system_prompt=None,
+                output_dir=runtime_output_dir,
+            )
+
+            assert output_dir == runtime_output_dir
+            assert canonical_path.exists()
+            canonical_payload = tomllib.loads(canonical_path.read_text(encoding="utf-8"))
+            assert canonical_payload.get("codexMcpImportedAt") is None
+            canonical_servers = canonical_payload.get("mcp_servers")
+            assert isinstance(canonical_servers, dict)
+            if not isinstance(canonical_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert canonical_servers == {}
+
+            runtime_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert runtime_servers.get("setta", {}).get("url") == (
+                "http://localhost:8000/mcp/streamable/"
+            )
+
     def test_build_codex_settings_file_runtime_output_keeps_user_removed_servers_removed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

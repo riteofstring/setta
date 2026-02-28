@@ -67,8 +67,8 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.frontend_affinity_token import parse_frontend_affinity_token
+from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,

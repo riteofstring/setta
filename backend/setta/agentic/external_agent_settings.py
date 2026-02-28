@@ -148,12 +148,11 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
-    mcp_shape_canonicalized = canonicalize_codex_mcp_servers_payload(payload)
-    bootstrap_applied = _bootstrap_codex_mcp_servers_from_user_config(payload, config)
+    canonicalize_codex_mcp_servers_payload(payload)
+    _bootstrap_codex_mcp_servers_from_user_config(payload, config)
     if (
         output_dir is not None
         and config.settingsMode != ExternalAgentSettingsMode.explicit_path
-        and (bootstrap_applied or mcp_shape_canonicalized)
     ):
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         try:

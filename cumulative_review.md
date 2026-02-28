@@ -538,3 +538,27 @@
 ### Verification
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 - `find . -maxdepth 1 -type f -name 'review*.md'`: no matches after cleanup.
+
+## 2026-02-27 13:32:17 -0800
+
+### Consolidated Findings
+- Session-scoped Codex config persistence was gated on bootstrap/canonicalization flags, so canonical config creation varied by host `CODEX_HOME` content.
+- `test_codex_home_config_is_written` could fail on hosts without bootstrapable Codex MCP servers because canonical config was not always written.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated `build_codex_settings_file` to always persist canonical managed Codex config when generating runtime session output for non-explicit settings modes.
+- Updated Codex runner integration tests to explicitly seed `CODEX_HOME` for the bootstrap-positive contract and assert imported server persistence.
+- Added empty-bootstrap deterministic coverage (`CODEX_HOME` unset + isolated `HOME`) in both runner and settings test suites to assert canonical config creation without import marker.
+- Ran `pnpm -C frontend gcf` and kept resulting generated/cleanup formatting outputs synchronized.
+
+### UX/DX Before -> After
+- Managed Codex runtime sessions: canonical config file could appear/disappear by machine state -> canonical config is always present for managed runtime sessions.
+- Test determinism: host `~/.codex` state could influence pass/fail outcomes -> tests now fully control bootstrap source and are host-independent.
+- Persistence debugging: conditional canonical writes obscured expected artifact layout -> deterministic canonical/runtime split with explicit marker semantics.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend focused pytest: `3 passed` (`tests/agentic/test_external_agent_runner.py -k "codex_home_config_is_written or codex_runtime_config_persists_canonical_config_without_bootstrap_source or codex_runtime_home_respects_canonical_bootstrap_marker"`).
+- Backend module pytest: `119 passed` (`tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`).
+- Backend broader regression subset: `207 passed` (`tests/llm/test_api_keys.py tests/routers/test_llm_api_key_routes.py tests/agentic/test_external_agent_preflight.py tests/agentic/test_external_agent_runner.py tests/mcp/test_base_tools.py tests/routers/test_git_routes.py`).
+- Ruff targeted check: passed for touched Python files.

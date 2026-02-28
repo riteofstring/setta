@@ -1476,11 +1476,25 @@ class TestExternalAgentRunner:
             runner._cleanup_context(context)
             assert path.exists()
 
-    def test_codex_home_config_is_written(self) -> None:
+    def test_codex_home_config_is_written(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             runner = _build_runner(dbe)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
             config = ExternalAgentConfig(
                 id="codex-config",
                 name="Codex app-server",
@@ -1507,10 +1521,64 @@ class TestExternalAgentRunner:
                 canonical_config_path.read_text(encoding="utf-8")
             )
             assert isinstance(canonical_payload.get("codexMcpImportedAt"), str)
+            canonical_servers = canonical_payload.get("mcp_servers")
+            assert isinstance(canonical_servers, dict)
+            if not isinstance(canonical_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in canonical_servers
             assert Path(str(codex_home)) == expected_runtime_dir
 
             runner._cleanup_context(context)
             assert config_path.exists()
+
+    def test_codex_runtime_config_persists_canonical_config_without_bootstrap_source(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            # Use an isolated HOME and no CODEX_HOME to avoid host fallback behavior.
+            fallback_home = Path(tmpdir) / "fake-home"
+            fallback_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.setenv("HOME", str(fallback_home))
+            config = ExternalAgentConfig(
+                id="codex-empty-bootstrap",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            context = _build_context_for_test(runner, config)
+
+            runtime_codex_home = context.env.get("CODEX_HOME")
+            assert isinstance(runtime_codex_home, str)
+            runtime_payload = tomllib.loads(
+                (Path(str(runtime_codex_home)) / "config.toml").read_text(
+                    encoding="utf-8"
+                )
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert set(runtime_servers.keys()) == {SETTA_MCP_SERVER_ID}
+
+            canonical_config_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / "codex-empty-bootstrap"
+                / "config.toml"
+            )
+            assert canonical_config_path.exists()
+            canonical_payload = tomllib.loads(
+                canonical_config_path.read_text(encoding="utf-8")
+            )
+            assert canonical_payload.get("codexMcpImportedAt") is None
+
+            runner._cleanup_context(context)
 
     def test_codex_runtime_home_respects_canonical_bootstrap_marker(self) -> None:
         with TemporaryDirectory() as tmpdir:
