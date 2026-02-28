@@ -170,3 +170,10 @@
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/trust contracts, truncation behavior, endpoint-origin policy, release installer-version resolver, and SSH launcher-origin handoff expectations.
 - Ran cleanup with `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout) and then validated targeted backend/frontend/Playwright suites in this workstream.
 
+## 2026-02-27 08:21:02 PST
+
+- Consolidated backend mode/origin/trust boundary decisions into shared policy helpers (`frontend_origin_policy`) and rewired launch return-origin validation, CORS trusted-origin checks, and dev auto-auth origin/referer checks to the shared contract.
+- Unified launcher handoff trust persistence lifecycle by introducing `trust_frontend_origin_for_launcher_session` and reusing it across launch-handoff trust writes and bootstrap consume trust writes with auth-cookie-aligned expiry.
+- Consolidated frontend mode boundary behavior into `serverModeBoundaryPolicy` so endpoint-origin routing, launcher capability gating, and workspace-launch mode policy now derive from one explicit contract instead of duplicated route-specific logic.
+- Added/updated focused backend and frontend tests for the consolidated contracts, including launch/CORS/auth route coverage, Vitest policy coverage, and launcher-origin + launcher-home Playwright flows.
+- Ran cleanup via `gcf` workflow (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and updated `gcf.log` from this run.

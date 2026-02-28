@@ -153,7 +153,7 @@ def test_launcher_mode_cors_allows_handoff_trusted_loopback_preflight_origin(
         now=now,
     )
     monkeypatch.setattr(
-        "setta.middleware.cors.load_current_session_secret",
+        "setta.utils.frontend_origin_policy.load_current_session_secret",
         lambda: (SimpleNamespace(id="session-1"), b"secret"),
     )
 
@@ -199,7 +199,7 @@ def test_launch_handoff_trusts_workspace_origin_for_launcher_cors(monkeypatch) -
         lambda: (SimpleNamespace(id="session-1"), b"secret"),
     )
     monkeypatch.setattr(
-        "setta.middleware.cors.load_current_session_secret",
+        "setta.utils.frontend_origin_policy.load_current_session_secret",
         lambda: (SimpleNamespace(id="session-1"), b"secret"),
     )
 
@@ -409,7 +409,7 @@ def test_launcher_mode_cors_fails_closed_when_store_read_raises(
     monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
     monkeypatch.delenv("SETTA_FRONTEND_ORIGINS", raising=False)
     monkeypatch.setattr(
-        "setta.middleware.cors.load_current_session_secret",
+        "setta.utils.frontend_origin_policy.load_current_session_secret",
         lambda: (SimpleNamespace(id="session-1"), b"secret"),
     )
 

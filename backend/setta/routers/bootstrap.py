@@ -12,12 +12,12 @@ from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
 from setta.routers.dependencies import require_not_deployment_mode
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.trusted_frontend_origins import (
-    TrustedFrontendOriginStoreError,
-    trust_frontend_origin,
-)
+from setta.trusted_frontend_origins import TrustedFrontendOriginStoreError
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.launcher_handoff_trust import (
+    trust_frontend_origin_for_launcher_session,
+)
 from setta.utils.launcher_origin_handoff import (
     normalize_launcher_origin,
     validate_launcher_origin_handoff_proof,
@@ -626,9 +626,9 @@ async def route_bootstrap_consume(
     response_payload: dict[str, str] = {"status": "ok"}
     if trusted_launcher_origin is not None:
         try:
-            trust_frontend_origin(
-                trusted_launcher_origin,
-                session_id=session_metadata.id,
+            trust_frontend_origin_for_launcher_session(
+                origin=trusted_launcher_origin,
+                launcher_session_info=(session_metadata, secret),
                 exp=auth_cookie_payload.exp,
             )
         except TrustedFrontendOriginStoreError as exc:

@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -13,11 +12,11 @@ from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
-    is_trusted_frontend_origin,
     refresh_trusted_frontend_origins_for_session,
 )
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.frontend_origin_policy import has_trusted_frontend_origin
 
 AUTH_EXEMPT_PATHS = {Route.BOOTSTRAP_PAGE.value, Route.BOOTSTRAP_CONSUME.value}
 
@@ -403,14 +402,4 @@ def _should_auto_auth_dev_request(request: Request, *, session_id: str) -> bool:
     client = request.client
     if not client or client.host not in {"127.0.0.1", "::1"}:
         return False
-    origin = request.headers.get("origin")
-    if origin and is_trusted_frontend_origin(origin, session_id=session_id):
-        return True
-    referer = request.headers.get("referer")
-    if not referer:
-        return False
-    parsed = urlparse(referer)
-    if not parsed.scheme or not parsed.netloc:
-        return False
-    referer_origin = f"{parsed.scheme}://{parsed.netloc}"
-    return is_trusted_frontend_origin(referer_origin, session_id=session_id)
+    return has_trusted_frontend_origin(request, session_id=session_id)

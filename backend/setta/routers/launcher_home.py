@@ -33,6 +33,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.trusted_frontend_origins import TrustedFrontendOriginStoreError
 from setta.types.routes import Route
+from setta.utils.frontend_origin_policy import resolve_request_origin
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
 from setta.utils.launcher_handoff_trust import (
     trust_launched_workspace_origin_for_launcher_session,
@@ -40,7 +41,6 @@ from setta.utils.launcher_handoff_trust import (
 from setta.utils.launcher_origin_handoff import (
     append_launcher_origin_handoff_to_bootstrap_url,
     mint_launcher_origin_handoff_proof,
-    normalize_launcher_origin,
 )
 from setta.utils.network import build_bootstrap_urls
 
@@ -504,8 +504,9 @@ def route_open_launcher_workspace(
         result.session.port,
         token,
     )
-    request_origin = normalize_launcher_origin(
-        f"{request.url.scheme}://{request.url.netloc}"
+    request_origin = resolve_request_origin(
+        request,
+        allow_client_origin_header=True,
     )
     if request_origin is not None:
         launcher_origin_proof = mint_launcher_origin_handoff_proof(

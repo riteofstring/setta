@@ -31,11 +31,25 @@ def trust_launched_workspace_origin_for_launcher_session(
         return
     if launched_workspace_origin == request_origin:
         return
+    trust_frontend_origin_for_launcher_session(
+        origin=launched_workspace_origin,
+        launcher_session_info=launcher_session_info,
+    )
+
+
+def trust_frontend_origin_for_launcher_session(
+    *,
+    origin: str,
+    launcher_session_info: tuple["SessionMetadata", bytes],
+    exp: int | None = None,
+) -> None:
     session_metadata, session_secret = launcher_session_info
-    auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, session_secret)
-    auth_cookie_payload = AUTH_COOKIE_MANAGER.validate(auth_cookie, session_secret)
+    if exp is None:
+        auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, session_secret)
+        auth_cookie_payload = AUTH_COOKIE_MANAGER.validate(auth_cookie, session_secret)
+        exp = auth_cookie_payload.exp
     trust_frontend_origin(
-        launched_workspace_origin,
+        origin,
         session_id=session_metadata.id,
-        exp=auth_cookie_payload.exp,
+        exp=exp,
     )

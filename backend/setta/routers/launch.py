@@ -29,9 +29,12 @@ from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
-    is_trusted_frontend_origin,
 )
 from setta.types.routes import Route
+from setta.utils.frontend_origin_policy import (
+    is_return_origin_allowed,
+    resolve_request_origin,
+)
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
 from setta.utils.launcher_handoff_trust import (
     trust_launched_workspace_origin_for_launcher_session,
@@ -213,7 +216,7 @@ def route_launch(
     x: LaunchRequest,
     request: Request = None,  # type: ignore[assignment]
 ) -> LaunchResponse:
-    request_origin = _resolve_request_origin(
+    request_origin = resolve_request_origin(
         request,
         allow_client_origin_header=True,
     )
@@ -491,22 +494,6 @@ def _consume_workspace_launch_intent(
     ), stored.return_url
 
 
-def _resolve_request_origin(
-    request: Request | None,
-    *,
-    allow_client_origin_header: bool = False,
-) -> str | None:
-    if request is None:
-        return None
-    if allow_client_origin_header:
-        raw_origin = request.headers.get("origin")
-        if raw_origin:
-            normalized_origin = normalize_launcher_origin(raw_origin)
-            if normalized_origin is not None:
-                return normalized_origin
-    return normalize_launcher_origin(f"{request.url.scheme}://{request.url.netloc}")
-
-
 def _build_safe_launch_return_url(*, request_origin: str | None) -> str:
     if request_origin is None:
         return SAFE_LAUNCH_RETURN_PATH
@@ -534,12 +521,13 @@ def _validate_and_normalize_return_url(
     if normalized_origin is None:
         raise ValueError("returnUrl origin is invalid.")
 
-    request_origin = _resolve_request_origin(request)
-    if request_origin is not None:
-        if normalized_origin != request_origin and not is_trusted_frontend_origin(
-            normalized_origin, session_id=session_id
-        ):
-            raise ValueError("returnUrl origin is not allowed.")
+    request_origin = resolve_request_origin(request)
+    if not is_return_origin_allowed(
+        return_origin=normalized_origin,
+        request_origin=request_origin,
+        session_id=session_id,
+    ):
+        raise ValueError("returnUrl origin is not allowed.")
 
     normalized_origin_parts = urlsplit(normalized_origin)
     normalized_path = parsed.path if parsed.path else "/"
