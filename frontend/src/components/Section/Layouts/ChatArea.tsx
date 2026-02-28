@@ -891,7 +891,7 @@ function ScriptableChatArea({
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (!transcriptionProfileId) {
-        return null;
+        throw new Error("Provider dictation is not configured.");
       }
       return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },
@@ -1766,7 +1766,7 @@ function ManagedChatArea({
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (isExternalEngine || !transcriptionProfileId) {
-        return null;
+        throw new Error("Provider dictation is not configured.");
       }
       return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },

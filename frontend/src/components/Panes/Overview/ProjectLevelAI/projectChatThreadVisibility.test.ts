@@ -146,7 +146,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("returns compatible when no chat is selected", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: null,
-      chatProvenanceByChatId: new Map(),
+      selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
@@ -157,7 +157,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("blocks when selected chat has missing provenance", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map(),
+      selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
@@ -171,15 +171,13 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("blocks when selected chat has missing engine metadata in provenance", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map([
-        [
-          "chat-1",
-          {
-            runType: "llm_chat",
-            engineConfigId: null,
-          },
-        ],
-      ]),
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "llm_chat",
+          engineConfigId: null,
+        },
+      },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
@@ -193,7 +191,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("returns unknown when selected chat provenance is missing from a non-authoritative run snapshot", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map(),
+      selectedScopedChatProvenance: { status: "missing" },
       chatProvenanceAuthoritative: false,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: true,
@@ -201,18 +199,30 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "unknown" });
   });
 
+  it("blocks when selected chat provenance is ambiguous", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      selectedScopedChatProvenance: { status: "ambiguous" },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+    });
+    expect(result).toEqual({
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    });
+  });
+
   it("returns unknown when local engine cache is not authoritative", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map([
-        [
-          "chat-1",
-          {
-            runType: "llm_chat",
-            engineConfigId: "engine-llm",
-          },
-        ],
-      ]),
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "llm_chat",
+          engineConfigId: "engine-llm",
+        },
+      },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map(),
       engineConfigsAuthoritative: false,
@@ -223,15 +233,13 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("blocks when selected chat run type mismatches persisted engine type", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map([
-        [
-          "chat-1",
-          {
-            runType: "llm_chat",
-            engineConfigId: "engine-external",
-          },
-        ],
-      ]),
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "llm_chat",
+          engineConfigId: "engine-external",
+        },
+      },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map([
         [
@@ -256,15 +264,13 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
   it("returns compatible when selected chat provenance is available and compatible", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
-      chatProvenanceByChatId: new Map([
-        [
-          "chat-1",
-          {
-            runType: "llm_chat",
-            engineConfigId: "engine-llm",
-          },
-        ],
-      ]),
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "llm_chat",
+          engineConfigId: "engine-llm",
+        },
+      },
       chatProvenanceAuthoritative: true,
       engineConfigById: new Map([
         [

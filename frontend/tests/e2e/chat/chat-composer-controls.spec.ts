@@ -812,6 +812,13 @@ test.describe.serial("chat composer controls", () => {
       const input = overviewPane.getByPlaceholder("Type a message...");
       await expect(input).toHaveValue("");
 
+      await input.fill("   ");
+      await input.press("ArrowUp");
+      await expect(input).toHaveValue("History prompt newest");
+      await input.press("Escape");
+      await expect(input).toHaveValue("   ");
+
+      await input.fill("");
       await input.press("ArrowUp");
       await expect(input).toHaveValue("History prompt newest");
       await input.press("ArrowUp");

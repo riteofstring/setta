@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
+  resolveScopedChatProvenanceForChatId,
 } from "./chatHistory";
 
 function buildRun({
@@ -340,5 +341,70 @@ describe("chatHistory", () => {
       runType: "llm_chat",
       engineConfigId: null,
     });
+  });
+
+  it("resolves project-scoped provenance for shared chat ids without cross-scope collisions", () => {
+    const runs = [
+      buildRun({
+        chatId: "shared-chat",
+        messageText: "Section variant",
+        projectConfigId: "project-a",
+        sectionId: "section-a",
+        runType: "external_agent",
+        engineConfigId: "engine-external",
+        startedAt: "2026-01-02T00:00:00Z",
+      }),
+      buildRun({
+        chatId: "shared-chat",
+        messageText: "Project variant",
+        projectConfigId: "project-a",
+        runType: "llm_chat",
+        engineConfigId: "engine-llm",
+        startedAt: "2026-01-01T00:00:00Z",
+      }),
+    ];
+
+    const result = resolveScopedChatProvenanceForChatId(runs, {
+      chatId: "shared-chat",
+      projectConfigId: "project-a",
+      unscopedOnly: true,
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      provenance: {
+        runType: "llm_chat",
+        engineConfigId: "engine-llm",
+      },
+    });
+  });
+
+  it("fails fast when latest scoped provenance is ambiguous", () => {
+    const runs = [
+      buildRun({
+        chatId: "ambiguous-chat",
+        messageText: "Latest A",
+        projectConfigId: "project-a",
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+        startedAt: "2026-01-03T00:00:00Z",
+      }),
+      buildRun({
+        chatId: "ambiguous-chat",
+        messageText: "Latest B",
+        projectConfigId: "project-a",
+        runType: "external_agent",
+        engineConfigId: "engine-b",
+        startedAt: "2026-01-03T00:00:00Z",
+      }),
+    ];
+
+    const result = resolveScopedChatProvenanceForChatId(runs, {
+      chatId: "ambiguous-chat",
+      projectConfigId: "project-a",
+      unscopedOnly: true,
+    });
+
+    expect(result).toEqual({ status: "ambiguous" });
   });
 });

@@ -1,9 +1,9 @@
-import logging
-
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-from setta.llm.api_key_runtime_sync import sync_managed_api_keys_to_runtime
+from setta.llm.api_key_runtime_sync import (
+    apply_managed_api_keys_write_attempt_to_runtime,
+)
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
@@ -20,7 +20,6 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
-logger = logging.getLogger(__name__)
 
 
 class UpdateAPIKeysRequest(BaseModel):
@@ -139,15 +138,9 @@ async def route_set_llm_api_keys(
         "Saved LLM API keys",
         severity=SettaBackendLogEventSeverity.info,
     )
-    await sync_managed_api_keys_to_runtime(
-        dbe=ctx.state.dbe,
+    await apply_managed_api_keys_write_attempt_to_runtime(
+        write_attempt=write_attempt,
         agent_runner=ctx.state.agent_runner,
         websocket_msg_handler=ctx.state.wmh_frontend_sender,
-        logger=logger,
-        log_label="llm-api-keys-save",
-        corruption_message=(
-            "Failed to parse llm_api_keys.json after save; applying empty API keys snapshot"
-        ),
-        context={"route": "route_set_llm_api_keys"},
     )
     return updated_payload

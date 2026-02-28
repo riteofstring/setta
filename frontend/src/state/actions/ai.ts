@@ -149,12 +149,15 @@ let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
 let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
 let agentRunsLoadPromise: Promise<void> | null = null;
+let agentRunsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let agentRunsTransientFailureCount = 0;
 const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
 const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
   "managed_api_keys_revision_conflict";
 const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
 const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
   "managed_api_keys_store_unavailable";
+const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
 type ManagedAPIKeysSnapshotPayload = {
@@ -307,6 +310,15 @@ type DictationPcmPayload = {
   sampleRateHz: number;
   channels: number;
 };
+
+type ProviderDictationTranscriptionResult =
+  | {
+      kind: "ok";
+      transcript: string;
+    }
+  | {
+      kind: "no_speech";
+    };
 
 const PCM16_BYTES_PER_SAMPLE = 2;
 const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24_000;
@@ -493,20 +505,45 @@ async function decodeDictationBlobToPcm16(
   }
 }
 
+function asProviderDictationTranscriptionError(
+  error: unknown,
+  fallbackMessage: string,
+): ProviderTranscriptionError {
+  if (error instanceof ProviderTranscriptionError) {
+    return error;
+  }
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message
+      : fallbackMessage;
+  return new ProviderTranscriptionError({
+    message,
+    code: "provider_failure",
+    status: undefined,
+  });
+}
+
 export async function transcribeChatAudioWithProfile(
   transcriptionProfileId: string,
   audioBlob: Blob,
-): Promise<string | null> {
-  if (!transcriptionProfileId || audioBlob.size === 0) {
-    return null;
+): Promise<ProviderDictationTranscriptionResult> {
+  if (!transcriptionProfileId) {
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation profile is not configured.",
+      code: "profile_not_found",
+      status: undefined,
+    });
+  }
+  if (audioBlob.size === 0) {
+    return { kind: "no_speech" };
   }
   const pcmPayload = await decodeDictationBlobToPcm16(audioBlob);
   if (!pcmPayload) {
-    addTemporaryNotification(
-      "Provider dictation is not available in this browser.",
-      SettaNotificationTypeEnum.warning,
-    );
-    return null;
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation is not available in this browser.",
+      code: "provider_failure",
+      status: undefined,
+    });
   }
   const session = await startTranscriptionSession(
     transcriptionProfileId,
@@ -517,7 +554,11 @@ export async function transcribeChatAudioWithProfile(
     },
   );
   if (!session) {
-    return null;
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription session could not be started.",
+      code: "provider_failure",
+      status: undefined,
+    });
   }
   const sessionId = session.sessionId;
   const sessionPcmPayload = resolveProviderTranscriptionPcmPayloadForSession(
@@ -531,11 +572,15 @@ export async function transcribeChatAudioWithProfile(
   });
   if (chunkSampleCount <= 0) {
     await cancelTranscriptionSession(sessionId);
-    throw new Error("Provider transcription chunk size is invalid.");
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription chunk size is invalid.",
+      code: "provider_failure",
+      status: undefined,
+    });
   }
   if (sessionPcmPayload.audioPcm16.length === 0) {
     await cancelTranscriptionSession(sessionId);
-    return null;
+    return { kind: "no_speech" };
   }
   const appendTextSegments: string[] = [];
   try {
@@ -561,13 +606,20 @@ export async function transcribeChatAudioWithProfile(
       );
       if (!appendDelta) {
         await cancelTranscriptionSession(sessionId);
-        return null;
+        throw new ProviderTranscriptionError({
+          message: "Provider transcription append returned no result.",
+          code: "provider_failure",
+          status: undefined,
+        });
       }
       appendTextSegments.push(appendDelta.appendText);
     }
   } catch (error) {
     await cancelTranscriptionSession(sessionId);
-    throw error;
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription append failed.",
+    );
   }
   let stopDelta: TranscriptionSessionDeltaResponse | null = null;
   try {
@@ -577,19 +629,29 @@ export async function transcribeChatAudioWithProfile(
     });
   } catch (error) {
     await cancelTranscriptionSession(sessionId);
-    throw error;
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription stop failed.",
+    );
   }
   if (!stopDelta) {
     await cancelTranscriptionSession(sessionId);
-    return null;
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription stop returned no result.",
+      code: "provider_failure",
+      status: undefined,
+    });
   }
   const fullText = stopDelta.fullText.trim();
   if (fullText) {
-    return fullText;
+    return { kind: "ok", transcript: fullText };
   }
   const appendText =
     `${appendTextSegments.join("")}${stopDelta.appendText}`.trim();
-  return appendText || null;
+  if (appendText) {
+    return { kind: "ok", transcript: appendText };
+  }
+  return { kind: "no_speech" };
 }
 
 export async function loadLLMConfig() {
@@ -850,17 +912,80 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
   });
 }
 
+function clearScheduledAgentRunsRetry(): void {
+  if (!agentRunsRetryTimer) {
+    return;
+  }
+  clearTimeout(agentRunsRetryTimer);
+  agentRunsRetryTimer = null;
+}
+
+function scheduleAgentRunsRetry(transientFailureCount: number): void {
+  if (agentRunsRetryTimer) {
+    return;
+  }
+  const delayIndex = Math.max(
+    0,
+    Math.min(transientFailureCount - 1, AGENT_RUNS_RETRY_DELAYS_MS.length - 1),
+  );
+  const delayMs = AGENT_RUNS_RETRY_DELAYS_MS[delayIndex] ?? 2500;
+  agentRunsRetryTimer = setTimeout(() => {
+    agentRunsRetryTimer = null;
+    void loadAgentRuns();
+  }, delayMs);
+}
+
 export async function loadAgentRuns() {
   if (agentRunsLoadPromise) {
     await agentRunsLoadPromise;
     return;
+  }
+  const currentState = useAIStore.getState();
+  if (
+    currentState.agentRunsAuthorityState === "loading" &&
+    !currentState.agentRunsInitialLoadComplete &&
+    currentState.agentRunsLoadError === null
+  ) {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  const currentAuthorityState = currentState.agentRunsAuthorityState;
+  const shouldUseRetryFlow = currentAuthorityState !== "ready";
+  if (currentAuthorityState === "terminal_error") {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  if (shouldUseRetryFlow) {
+    useAIStore.setState({
+      agentRunsAuthorityState: "loading",
+      agentRunsInitialLoadComplete: false,
+    });
   }
   agentRunsLoadPromise = (async () => {
     const res = await route_get_agent_runs();
     if (res200(res)) {
       receiveAgentRunsUpdate(res.data);
     } else {
+      if (!shouldUseRetryFlow) {
+        useAIStore.setState({
+          agentRunsInitialLoadComplete: true,
+          agentRunsLoadError: "Failed to load agent runs",
+        });
+        return;
+      }
+      agentRunsTransientFailureCount += 1;
+      if (agentRunsTransientFailureCount <= AGENT_RUNS_RETRY_DELAYS_MS.length) {
+        useAIStore.setState({
+          agentRunsAuthorityState: "transient_error",
+          agentRunsInitialLoadComplete: false,
+          agentRunsLoadError: "Failed to load agent runs",
+        });
+        scheduleAgentRunsRetry(agentRunsTransientFailureCount);
+        return;
+      }
+      clearScheduledAgentRunsRetry();
       useAIStore.setState({
+        agentRunsAuthorityState: "terminal_error",
         agentRunsInitialLoadComplete: true,
         agentRunsLoadError: "Failed to load agent runs",
       });
@@ -874,9 +999,12 @@ export async function loadAgentRuns() {
 }
 
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  clearScheduledAgentRunsRetry();
+  agentRunsTransientFailureCount = 0;
   useAIStore.setState({
     agentRuns: payload,
     chatProvenanceByChatId: buildChatProvenanceRecordFromRuns(payload),
+    agentRunsAuthorityState: "ready",
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
   });

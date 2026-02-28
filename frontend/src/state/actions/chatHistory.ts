@@ -16,6 +16,18 @@ type ChatRunProvenance = {
   engineConfigId: string | null;
 };
 
+type ScopedChatProvenanceLookupResult =
+  | {
+      status: "ready";
+      provenance: ChatRunProvenance;
+    }
+  | {
+      status: "missing";
+    }
+  | {
+      status: "ambiguous";
+    };
+
 type ChatHistoryEntry = {
   chatId: string;
   label: string;
@@ -77,6 +89,89 @@ export function buildChatProvenanceByChatId(
     });
   }
   return provenance;
+}
+
+export function resolveScopedChatProvenanceForChatId(
+  runs: Array<AgentRun>,
+  {
+    chatId,
+    projectConfigId,
+    sectionId,
+    unscopedOnly,
+  }: {
+    chatId: string;
+    projectConfigId?: string | null;
+    sectionId?: string | null;
+    unscopedOnly?: boolean;
+  },
+): ScopedChatProvenanceLookupResult {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return { status: "missing" };
+  }
+  const normalizedSectionId = normalizeRunSectionId(sectionId ?? null);
+  const normalizedProjectConfigId = normalizeProjectConfigId(
+    projectConfigId ?? null,
+  );
+  const candidates: Array<{
+    runType: ChatRunType;
+    engineConfigId: string | null;
+    lastUpdatedMs: number;
+  }> = [];
+  for (const run of runs) {
+    const runChatId = getRunChatId(run);
+    if (runChatId !== normalizedChatId) {
+      continue;
+    }
+    if (
+      !shouldCollectRunForChatSummary(run, {
+        projectConfigId: normalizedProjectConfigId,
+        sectionId: normalizedSectionId,
+        unscopedOnly: unscopedOnly === true,
+        compatibility: null,
+      })
+    ) {
+      continue;
+    }
+    const runType = getRunType(run);
+    if (!runType) {
+      continue;
+    }
+    candidates.push({
+      runType,
+      engineConfigId: getRunInputString(run, "engineConfigId"),
+      lastUpdatedMs: getRunLastUpdatedMs(run),
+    });
+  }
+  if (candidates.length === 0) {
+    return { status: "missing" };
+  }
+  const latestUpdatedMs = Math.max(
+    ...candidates.map((candidate) => candidate.lastUpdatedMs),
+  );
+  const latestCandidates = candidates.filter(
+    (candidate) => candidate.lastUpdatedMs === latestUpdatedMs,
+  );
+  const distinctLatestProvenance = new Set(
+    latestCandidates.map(
+      (candidate) =>
+        `${candidate.runType}:${candidate.engineConfigId ?? "__none__"}`,
+    ),
+  );
+  if (distinctLatestProvenance.size > 1) {
+    return { status: "ambiguous" };
+  }
+  const [latestCandidate] = latestCandidates;
+  if (!latestCandidate) {
+    return { status: "missing" };
+  }
+  return {
+    status: "ready",
+    provenance: {
+      runType: latestCandidate.runType,
+      engineConfigId: latestCandidate.engineConfigId,
+    },
+  };
 }
 
 function collectChatRunSummaries(

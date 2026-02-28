@@ -144,6 +144,41 @@ async def test_llm_api_keys_set_route_broadcasts_snapshot_immediately(
 
 
 @pytest.mark.asyncio
+async def test_llm_api_keys_set_route_does_not_reread_store_after_successful_write(
+    state_env: SettaFastAPIState,
+) -> None:
+    # Save-ack convergence must be sourced from the successful CAS write payload.
+    state_env.wmh_frontend_sender.broadcast_llm_api_keys_update = AsyncMock()
+
+    def _raise_on_read(_path: Path) -> str | None:
+        raise OSError("post-write reread should not execute")
+
+    state_env.dbe.read = _raise_on_read
+
+    with runtime_context(state_env) as runtime_ctx:
+        response = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "saved-without-reread"},
+                expectedRevision=0,
+            ),
+            runtime_ctx,
+        )
+
+    assert response.apiKeys == {"OPENAI_API_KEY": "saved-without-reread"}
+    assert response.revision == 1
+    assert state_env.agent_runner.raw_env_vars == {
+        "OPENAI_API_KEY": "saved-without-reread"
+    }
+    state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.assert_called_once()
+    payload = state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.await_args.args[
+        0
+    ]
+    assert payload.apiKeys == {"OPENAI_API_KEY": "saved-without-reread"}
+    assert payload.revision == 1
+    assert payload.corrupt is False
+
+
+@pytest.mark.asyncio
 async def test_llm_api_keys_routes_remove_key_on_empty_value(
     state_env: SettaFastAPIState,
 ) -> None:

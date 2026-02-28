@@ -273,7 +273,10 @@ describe("transcription session actions", () => {
         new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
       );
 
-      expect(transcript).toBe("ready");
+      expect(transcript).toEqual({
+        kind: "ok",
+        transcript: "ready",
+      });
       expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(2);
       for (const [payload] of mockedRouteAppendTranscriptionAudio.mock.calls) {
         expect(payload.sampleRateHz).toBe(24_000);
@@ -282,6 +285,71 @@ describe("transcription session actions", () => {
       expect(closeMock).toHaveBeenCalledTimes(1);
     } finally {
       testWindow.AudioContext = originalAudioContext;
+      if (!hadWindow) {
+        delete withAudioContext.window;
+      }
+    }
+  });
+
+  it("returns no_speech when provider audio payload is empty", async () => {
+    const transcript = await transcribeChatAudioWithProfile(
+      "profile-1",
+      new Blob(),
+    );
+
+    expect(transcript).toEqual({ kind: "no_speech" });
+    expect(mockedRouteStartTranscriptionSession).not.toHaveBeenCalled();
+    expect(mockedRouteAppendTranscriptionAudio).not.toHaveBeenCalled();
+    expect(mockedRouteStopTranscriptionSession).not.toHaveBeenCalled();
+  });
+
+  it("throws a profile_not_found error when profile id is missing", async () => {
+    await expect(
+      transcribeChatAudioWithProfile(
+        "",
+        new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+      ),
+    ).rejects.toMatchObject<ProviderTranscriptionError>({
+      name: "ProviderTranscriptionError",
+      code: "profile_not_found",
+    });
+  });
+
+  it("throws a typed provider failure when browser decode support is unavailable", async () => {
+    const withAudioContext = globalThis as typeof globalThis & {
+      window?: typeof window & {
+        AudioContext?: typeof AudioContext;
+        webkitAudioContext?: typeof AudioContext;
+      };
+    };
+    const hadWindow = typeof withAudioContext.window !== "undefined";
+    const originalWindow = withAudioContext.window;
+    const testWindow =
+      originalWindow ??
+      ({} as unknown as typeof window & {
+        AudioContext?: typeof AudioContext;
+        webkitAudioContext?: typeof AudioContext;
+      });
+    withAudioContext.window = testWindow;
+    const originalAudioContext = testWindow.AudioContext;
+    const originalWebkitAudioContext = testWindow.webkitAudioContext;
+    testWindow.AudioContext = undefined;
+    testWindow.webkitAudioContext = undefined;
+    try {
+      await expect(
+        transcribeChatAudioWithProfile(
+          "profile-1",
+          new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }),
+        ),
+      ).rejects.toMatchObject<ProviderTranscriptionError>({
+        name: "ProviderTranscriptionError",
+        code: "provider_failure",
+        message: "Provider dictation is not available in this browser.",
+      });
+      expect(mockedRouteStartTranscriptionSession).not.toHaveBeenCalled();
+    } finally {
+      testWindow.AudioContext = originalAudioContext;
+      testWindow.webkitAudioContext = originalWebkitAudioContext;
       if (!hadWindow) {
         delete withAudioContext.window;
       }

@@ -46,7 +46,7 @@ const PROVIDER_FAILURE_PHASES: Array<DictationProviderFailurePhase> = [
   "transcription",
 ];
 
-function buildProviderFailurePolicy(
+function buildProviderFailurePolicyWithDefaultDecision(
   decision: ProviderFailureDecision,
 ): DictationProviderFailurePolicy {
   const byClass = Object.fromEntries(
@@ -60,13 +60,25 @@ function buildProviderFailurePolicy(
   ) as DictationProviderFailurePolicy;
 }
 
+function buildAutoModeProviderFailurePolicy(): DictationProviderFailurePolicy {
+  const policy = buildProviderFailurePolicyWithDefaultDecision(
+    "fallback_to_browser",
+  );
+  for (const phase of PROVIDER_FAILURE_PHASES) {
+    policy[phase].missing_api_key = "surface_error";
+    policy[phase].profile_not_found = "surface_error";
+    policy[phase].invalid_request = "surface_error";
+  }
+  return policy;
+}
+
 const DICTATION_PROVIDER_FAILURE_POLICY: Record<
   DictationMode,
   DictationProviderFailurePolicy
 > = {
-  auto: buildProviderFailurePolicy("fallback_to_browser"),
-  browser: buildProviderFailurePolicy("surface_error"),
-  provider: buildProviderFailurePolicy("surface_error"),
+  auto: buildAutoModeProviderFailurePolicy(),
+  browser: buildProviderFailurePolicyWithDefaultDecision("surface_error"),
+  provider: buildProviderFailurePolicyWithDefaultDecision("surface_error"),
 };
 
 function formatDictationSource(source: DictationSource): string {

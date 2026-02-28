@@ -1706,7 +1706,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (isExternalEngine || !transcriptionProfileId) {
-        return null;
+        throw new Error("Provider dictation is not configured.");
       }
       return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },

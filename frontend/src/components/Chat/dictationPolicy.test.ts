@@ -28,7 +28,7 @@ describe("dictationPolicy", () => {
     ).toBe("Always browser / OS");
   });
 
-  it("falls back to browser for auto mode across provider transcription error classes", () => {
+  it("falls back to browser for capability/transient failures in auto mode", () => {
     expect(
       shouldFallbackToBrowserAfterProviderFailure({
         mode: "auto",
@@ -40,7 +40,7 @@ describe("dictationPolicy", () => {
       shouldFallbackToBrowserAfterProviderFailure({
         mode: "auto",
         phase: "transcription",
-        failureClass: "missing_api_key",
+        failureClass: "provider_failure",
       }),
     ).toBe(true);
     expect(
@@ -50,6 +50,30 @@ describe("dictationPolicy", () => {
         failureClass: "unknown",
       }),
     ).toBe(true);
+  });
+
+  it("surfaces configuration and contract errors in auto mode", () => {
+    expect(
+      shouldFallbackToBrowserAfterProviderFailure({
+        mode: "auto",
+        phase: "transcription",
+        failureClass: "missing_api_key",
+      }),
+    ).toBe(false);
+    expect(
+      shouldFallbackToBrowserAfterProviderFailure({
+        mode: "auto",
+        phase: "transcription",
+        failureClass: "profile_not_found",
+      }),
+    ).toBe(false);
+    expect(
+      shouldFallbackToBrowserAfterProviderFailure({
+        mode: "auto",
+        phase: "transcription",
+        failureClass: "invalid_request",
+      }),
+    ).toBe(false);
   });
 
   it("keeps provider mode fail-fast without browser fallback", () => {

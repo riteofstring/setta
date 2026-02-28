@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import (
     ManagedAPIKeysReadResult,
+    ManagedAPIKeysWriteAttempt,
     build_managed_api_keys_snapshot,
     read_managed_api_keys_with_status,
 )
@@ -45,3 +46,24 @@ async def sync_managed_api_keys_to_runtime(
         build_managed_api_keys_snapshot(managed_api_keys)
     )
     return managed_api_keys
+
+
+async def apply_managed_api_keys_write_attempt_to_runtime(
+    *,
+    write_attempt: ManagedAPIKeysWriteAttempt,
+    agent_runner: "AgentRunner",
+    websocket_msg_handler: "WMHFrontendSender",
+) -> None:
+    if write_attempt.status != "success":
+        raise ValueError(
+            "Managed API key write attempt must be successful for runtime sync."
+        )
+    snapshot_payload = ManagedAPIKeysReadResult(
+        api_keys=write_attempt.api_keys,
+        revision=write_attempt.revision,
+        corrupt=False,
+    )
+    agent_runner.update_api_keys(write_attempt.api_keys)
+    await websocket_msg_handler.broadcast_llm_api_keys_update(
+        build_managed_api_keys_snapshot(snapshot_payload)
+    )

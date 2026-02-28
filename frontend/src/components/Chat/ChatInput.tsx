@@ -189,19 +189,24 @@ export function resolveEscapeComposerAction({
   waitingForResponse,
   onStopAvailable,
   stopRequestedForCurrentResponse,
+  selectedSubmittedMessageIndex,
   hasComposerDraft,
 }: {
   waitingForResponse: boolean;
   onStopAvailable: boolean;
   stopRequestedForCurrentResponse: boolean;
+  selectedSubmittedMessageIndex: number | null;
   hasComposerDraft: boolean;
-}): "stop" | "clear" | "none" {
+}): "stop" | "restore_history_draft" | "clear" | "none" {
   if (
     waitingForResponse &&
     onStopAvailable &&
     !stopRequestedForCurrentResponse
   ) {
     return "stop";
+  }
+  if (selectedSubmittedMessageIndex !== null) {
+    return "restore_history_draft";
   }
   if (hasComposerDraft) {
     return "clear";
@@ -215,6 +220,15 @@ type QueuedChatDraft = {
   attachments: ChatFileAttachment[];
   queuedAtMs: number;
 };
+
+type ProviderDictationTranscriptionResult =
+  | {
+      kind: "ok";
+      transcript: string;
+    }
+  | {
+      kind: "no_speech";
+    };
 
 export function enqueueQueuedDraft(
   queue: QueuedChatDraft[],
@@ -287,7 +301,9 @@ type ChatInputProps = {
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
   dictationMode?: "auto" | "browser" | "provider";
-  onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
+  onProviderDictationTranscribe?: (
+    audioBlob: Blob,
+  ) => Promise<ProviderDictationTranscriptionResult>;
   dictationEnabledByProvider?: boolean;
   providerDictationLikelySupported?: boolean;
   contextWindowTokens?: number | null;
@@ -804,6 +820,7 @@ export const ChatInput = memo(function ChatInput({
         onStopAvailable: Boolean(onStop),
         stopRequestedForCurrentResponse:
           stopRequestedForCurrentResponseRef.current,
+        selectedSubmittedMessageIndex: null,
         hasComposerDraft: false,
       });
       if (escapeAction !== "stop" || !onStop) {
@@ -1039,6 +1056,7 @@ export const ChatInput = memo(function ChatInput({
           onStopAvailable: Boolean(onStop),
           stopRequestedForCurrentResponse:
             stopRequestedForCurrentResponseRef.current,
+          selectedSubmittedMessageIndex,
           hasComposerDraft,
         });
         if (escapeAction === "stop" && onStop) {
@@ -1052,6 +1070,12 @@ export const ChatInput = memo(function ChatInput({
           event.preventDefault();
           event.stopPropagation();
           clearComposerByEscape();
+          return;
+        }
+        if (escapeAction === "restore_history_draft") {
+          event.preventDefault();
+          event.stopPropagation();
+          restoreDraftFromSubmittedHistorySelection();
           return;
         }
       }
@@ -1119,20 +1143,6 @@ export const ChatInput = memo(function ChatInput({
         attachments.length === 0 &&
         submittedMessageHistoryEntries.length > 0 &&
         (selectedSubmittedMessageIndex !== null || !hasComposerDraft);
-
-      if (
-        selectedSubmittedMessageIndex !== null &&
-        !waitingForResponse &&
-        event.key === "Escape" &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        !event.ctrlKey
-      ) {
-        event.preventDefault();
-        restoreDraftFromSubmittedHistorySelection();
-        return;
-      }
 
       if (
         canCycleSubmittedMessageHistory &&
@@ -1804,12 +1814,18 @@ export const ChatInput = memo(function ChatInput({
           setDictationFeedback("Transcribing...");
           void (async () => {
             try {
-              const transcript = await onProviderDictationTranscribe(blob);
-              const normalized = (transcript ?? "").trim();
-              if (!normalized) {
-                setDictationState("error");
-                setDictationFeedback("Provider transcription failed.");
+              const result = await onProviderDictationTranscribe(blob);
+              if (result.kind === "no_speech") {
+                setDictationState("idle");
+                setDictationFeedback(null);
+                addTemporaryNotification("No speech was detected.");
                 return;
+              }
+              const normalized = result.transcript.trim();
+              if (!normalized) {
+                throw new Error(
+                  "Provider transcription returned an empty result.",
+                );
               }
               insertTranscript(`${normalized} `);
               setDictationState("idle");

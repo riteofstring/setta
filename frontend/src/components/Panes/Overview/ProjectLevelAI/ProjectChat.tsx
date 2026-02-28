@@ -42,6 +42,8 @@ import {
 import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
+  buildChatProvenanceByChatId,
+  resolveScopedChatProvenanceForChatId,
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
@@ -139,13 +141,17 @@ type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
 
 type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
   chatId: string | null | undefined;
-  chatProvenanceByChatId: Map<
-    string,
-    {
-      runType: ChatRunType;
-      engineConfigId: string | null;
-    }
-  >;
+  selectedScopedChatProvenance:
+    | {
+        status: "ready";
+        provenance: {
+          runType: ChatRunType;
+          engineConfigId: string | null;
+        };
+      }
+    | {
+        status: "missing" | "ambiguous";
+      };
   chatProvenanceAuthoritative: boolean;
   engineConfigById: Map<string, EngineConfig>;
   engineConfigsAuthoritative: boolean;
@@ -243,7 +249,7 @@ function isSelectedChatRunTypeCompatibleWithEngineType({
 
 export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatId,
-  chatProvenanceByChatId,
+  selectedScopedChatProvenance,
   chatProvenanceAuthoritative,
   engineConfigById,
   engineConfigsAuthoritative,
@@ -252,8 +258,7 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   if (!resolvedChatId) {
     return { status: "compatible" };
   }
-  const provenance = chatProvenanceByChatId.get(resolvedChatId);
-  if (!provenance) {
+  if (selectedScopedChatProvenance.status === "missing") {
     if (!chatProvenanceAuthoritative) {
       return { status: "unknown" };
     }
@@ -262,6 +267,13 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       errorCode: "chat_provenance_missing",
     };
   }
+  if (selectedScopedChatProvenance.status === "ambiguous") {
+    return {
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    };
+  }
+  const provenance = selectedScopedChatProvenance.provenance;
   const requiredEngineConfigId = provenance.engineConfigId;
   if (!requiredEngineConfigId) {
     if (!chatProvenanceAuthoritative) {
@@ -362,9 +374,8 @@ export function ProjectChat() {
     projectChatSelectedEngineId,
     projectChatActivityAccordionOpenByDefault,
     projectChatActivityChildrenOpenByDefault,
-    chatProvenanceByChatId,
-    agentRunsInitialLoadComplete,
     agentRunsLoadError,
+    agentRunsAuthorityState,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
@@ -392,9 +403,8 @@ export function ProjectChat() {
         x.projectChatActivityAccordionOpenByDefault,
       projectChatActivityChildrenOpenByDefault:
         x.projectChatActivityChildrenOpenByDefault,
-      chatProvenanceByChatId: x.chatProvenanceByChatId,
-      agentRunsInitialLoadComplete: x.agentRunsInitialLoadComplete,
       agentRunsLoadError: x.agentRunsLoadError,
+      agentRunsAuthorityState: x.agentRunsAuthorityState,
     }),
     _.isEqual,
   );
@@ -645,24 +655,24 @@ export function ProjectChat() {
     }
     return entriesById;
   }, [chatHistoryEntries]);
-  const chatProvenanceByChatIdMap = useMemo(() => {
-    const nextByChatId = new Map<
-      string,
-      {
-        runType: ChatRunType;
-        engineConfigId: string | null;
-      }
-    >();
-    for (const [runChatId, provenance] of Object.entries(
-      chatProvenanceByChatId,
-    )) {
-      if (!runChatId.trim()) {
-        continue;
-      }
-      nextByChatId.set(runChatId, provenance);
+  const chatProvenanceByChatIdMap = useMemo(
+    () =>
+      buildChatProvenanceByChatId(agentRuns, {
+        projectConfigId,
+        unscopedOnly: true,
+      }),
+    [agentRuns, projectConfigId],
+  );
+  const selectedScopedChatProvenance = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return { status: "missing" } as const;
     }
-    return nextByChatId;
-  }, [chatProvenanceByChatId]);
+    return resolveScopedChatProvenanceForChatId(agentRuns, {
+      chatId,
+      projectConfigId,
+      unscopedOnly: true,
+    });
+  }, [agentRuns, chatId, projectConfigId]);
   const chatEngineConfigByChatId = useMemo(() => {
     const nextByChatId = new Map<string, string | null>();
     for (const [runChatId, provenance] of chatProvenanceByChatIdMap.entries()) {
@@ -671,31 +681,25 @@ export function ProjectChat() {
     return nextByChatId;
   }, [chatProvenanceByChatIdMap]);
   const selectedChatRunType = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return null;
+    if (selectedScopedChatProvenance.status === "ready") {
+      return selectedScopedChatProvenance.provenance.runType;
     }
-    const normalizedChatId = chatId.trim();
-    if (!normalizedChatId) {
-      return null;
-    }
-    return chatProvenanceByChatIdMap.get(normalizedChatId)?.runType ?? null;
-  }, [chatId, chatProvenanceByChatIdMap]);
+    return null;
+  }, [selectedScopedChatProvenance]);
   const selectedThreadCompatibility = useMemo(
     () =>
       resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
         chatId,
-        chatProvenanceByChatId: chatProvenanceByChatIdMap,
-        chatProvenanceAuthoritative:
-          agentRunsInitialLoadComplete && agentRunsLoadError === null,
+        selectedScopedChatProvenance,
+        chatProvenanceAuthoritative: agentRunsAuthorityState === "ready",
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
       }),
     [
       chatId,
-      chatProvenanceByChatIdMap,
-      agentRunsInitialLoadComplete,
-      agentRunsLoadError,
+      selectedScopedChatProvenance,
+      agentRunsAuthorityState,
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,
@@ -761,13 +765,13 @@ export function ProjectChat() {
       selectedProvenanceEngineConfigId ?? "missing_engine_config_id",
       selectedEngineRevision,
       selectedChatRunWatermark,
-      agentRunsInitialLoadComplete ? "runs_ready" : "runs_loading",
+      `runs_${agentRunsAuthorityState}`,
       agentRunsLoadError ?? "runs_ok",
       engineConfigsInitialLoadComplete ? "engines_ready" : "engines_loading",
       engineConfigsLoadError ?? "engines_ok",
     ].join("|");
   }, [
-    agentRunsInitialLoadComplete,
+    agentRunsAuthorityState,
     agentRunsLoadError,
     chatId,
     chatProvenanceByChatIdMap,

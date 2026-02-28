@@ -524,6 +524,7 @@ describe("resolveEscapeComposerAction", () => {
         waitingForResponse: true,
         onStopAvailable: true,
         stopRequestedForCurrentResponse: false,
+        selectedSubmittedMessageIndex: null,
         hasComposerDraft: true,
       }),
     ).toBe("stop");
@@ -535,9 +536,22 @@ describe("resolveEscapeComposerAction", () => {
         waitingForResponse: true,
         onStopAvailable: true,
         stopRequestedForCurrentResponse: true,
+        selectedSubmittedMessageIndex: null,
         hasComposerDraft: true,
       }),
     ).toBe("clear");
+  });
+
+  it("restores pre-history draft before considering generic clear", () => {
+    expect(
+      resolveEscapeComposerAction({
+        waitingForResponse: false,
+        onStopAvailable: true,
+        stopRequestedForCurrentResponse: false,
+        selectedSubmittedMessageIndex: 0,
+        hasComposerDraft: true,
+      }),
+    ).toBe("restore_history_draft");
   });
 
   it("returns none when there is no running response and no draft", () => {
@@ -546,6 +560,7 @@ describe("resolveEscapeComposerAction", () => {
         waitingForResponse: false,
         onStopAvailable: true,
         stopRequestedForCurrentResponse: false,
+        selectedSubmittedMessageIndex: null,
         hasComposerDraft: false,
       }),
     ).toBe("none");

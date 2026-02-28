@@ -183,6 +183,181 @@ test("project ai hydrates external threads via external provenance endpoint", as
   }
 });
 
+test("project ai resolves selected-thread provenance from project scope when chat ids overlap", async ({
+  page,
+}) => {
+  const sharedChatId = "pw-shared-scope-chat-id";
+  let externalHydrateCalls = 0;
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+        {
+          id: "engine-config-external",
+          name: "External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-1",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-shared-project",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-10T00:00:00Z",
+          finishedAt: "2026-01-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: sharedChatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "shared-user-project",
+                role: "user",
+                content: [{ type: "text", text: "Project thread message" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Project scoped thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: "run-shared-section",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-11T00:00:00Z",
+          finishedAt: "2026-01-11T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            sectionId: "section-overlap",
+            chatId: sharedChatId,
+            engineConfigId: "engine-config-external",
+            messages: [
+              {
+                id: "shared-user-section",
+                role: "user",
+                content: [{ type: "text", text: "Section thread message" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Section scoped thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === sharedChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-scoped-provenance",
+            role: "assistant",
+            content: [{ type: "text", text: "Hydrated from project scope." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === sharedChatId) {
+      externalHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Project scoped thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    expect(externalHydrateCalls).toBe(0);
+    await expect(
+      overviewPane.getByText("Hydrated from project scope.").first(),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai blocks selected threads when persisted engine config is missing", async ({
   page,
 }) => {
@@ -1277,11 +1452,12 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
   }
 });
 
-test("project ai keeps stale selected chat ids unblocked while agent runs are non-authoritative", async ({
+test("project ai retries transient metadata failures and hydrates after authority recovery", async ({
   page,
 }) => {
   const staleChatId = "pw-stale-selected-chat-non-authoritative";
   let llmHydrateCalls = 0;
+  let agentRunsCalls = 0;
   await page.setViewportSize({ width: 1480, height: 920 });
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
@@ -1308,10 +1484,48 @@ test("project ai keeps stale selected chat ids unblocked while agent runs are no
     });
   });
   await page.route("**/api/getAgentRuns", async (route) => {
+    agentRunsCalls += 1;
+    if (agentRunsCalls === 1) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "agent run load failed" }),
+      });
+      return;
+    }
     await route.fulfill({
-      status: 500,
+      status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "agent run load failed" }),
+      body: JSON.stringify([
+        {
+          id: "run-stale-selected-chat",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-02T00:00:00Z",
+          finishedAt: "2026-06-02T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: staleChatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "stale-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate after retry" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Hydrate after authority retry",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
@@ -1363,13 +1577,17 @@ test("project ai keeps stale selected chat ids unblocked while agent runs are no
     allowExpectedApiError(page, {
       path: "/api/getAgentRuns",
       statuses: [500],
-      count: 4,
+      count: 1,
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = page.locator("#OverviewPane");
 
+    await page.waitForTimeout(200);
+    expect(llmHydrateCalls).toBe(0);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(1);
     await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(2);
     await expect(
       overviewPane.getByText("Hydrated stale selected chat.").first(),
     ).toBeVisible();

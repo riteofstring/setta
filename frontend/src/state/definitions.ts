@@ -717,6 +717,11 @@ type ZustandAIStore = {
   agentProfilesLoadError: string | null;
   agentProfilesLoading: boolean;
   agentRuns: Array<AgentRun>;
+  agentRunsAuthorityState:
+    | "loading"
+    | "ready"
+    | "transient_error"
+    | "terminal_error";
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
   promptTemplates: Array<PromptTemplate>;
@@ -773,6 +778,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         agentProfilesLoadError: null,
         agentProfilesLoading: false,
         agentRuns: [],
+        agentRunsAuthorityState: "loading",
         agentRunsInitialLoadComplete: false,
         agentRunsLoadError: null,
         promptTemplates: [],
