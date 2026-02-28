@@ -36,7 +36,8 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
+from setta.routers.frontend_websocket_id import require_frontend_websocket_id
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -56,7 +57,7 @@ from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 
-router = SettaProjectContextFullRuntimeAPIRouter()
+router = SettaProjectContextAPIRouter()
 
 AppGenerationMode = Literal[
     "json_render",
@@ -485,6 +486,7 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
+    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -746,6 +748,9 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
+    normalized_frontend_websocket_id = require_frontend_websocket_id(
+        x.frontendWebsocketId
+    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -795,6 +800,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_websocket_id is not None:
+            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -870,6 +877,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_websocket_id is not None:
+            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:

@@ -20,7 +20,7 @@ from setta.project_state.artifacts import (
     SaveConflictStrategy,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaNonLauncherAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.policy import ensure_share_deployment_path
 from setta.types.artifact import (
     ArtifactType,
@@ -48,7 +48,7 @@ from setta.utils.paths import (
 )
 from setta.utils.user_config import load_setta_user_config
 
-router = SettaNonLauncherAPIRouter()
+router = SettaAPIRouter()
 TArtifact = TypeVar("TArtifact")
 
 DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
