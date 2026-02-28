@@ -92,7 +92,9 @@ def test_build_ui_settings_registry_isolates_plugin_id_collisions(
     assert (plugin_id, "enabled") in registry.pluginErrorsByPluginAndLocalSettingId
 
 
-def test_collect_known_plugin_ids_and_settings_without_fastmcp_returns_empty_sets() -> None:
+def test_collect_known_plugin_ids_and_settings_without_fastmcp_returns_empty_sets() -> (
+    None
+):
     # Registry construction should remain valid when MCP runtime state is unavailable.
     known_plugin_ids, known_plugin_and_local_setting_ids = (
         ui_settings_registry._collect_known_plugin_ids_and_settings(
@@ -126,6 +128,21 @@ def test_build_ui_settings_registry_without_fastmcp_uses_empty_known_plugin_sets
 
     assert registry.knownPluginIds == set()
     assert registry.knownPluginAndLocalSettingIds == set()
+
+
+def test_build_ui_settings_registry_without_fastmcp_builds_core_only_registry() -> None:
+    registry = ui_settings_registry.build_ui_settings_registry(
+        ctx=SimpleNamespace(),
+        project_config_id=ID("project-1"),
+    )
+
+    assert registry.pluginErrorsByPluginId == {}
+    assert registry.pluginErrorsByPluginAndLocalSettingId == {}
+    assert registry.knownPluginIds == set()
+    assert registry.knownPluginAndLocalSettingIds == set()
+    project_name_entry = registry.get("core.project.name")
+    assert project_name_entry is not None
+    assert project_name_entry.metadata.source == "core"
 
 
 def test_build_ui_settings_registry_rejects_writable_entries_without_precondition_arg(

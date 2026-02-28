@@ -714,3 +714,27 @@
 4. UX after: one enforced compare-and-write mutation path with consistent precondition and rollback semantics.
 5. DX before: tests and future changes had to account for two backend write contracts and context-coupled registry assumptions.
 6. DX after: a single backend write contract and explicit non-MCP registry behavior reduce ambiguity and maintenance risk.
+
+## 2026-02-27 10:42:11 PST
+
+### Consolidated Findings
+1. UI-setting registry build still needed full non-MCP hardening across both known-plugin discovery and plugin-entry construction.
+2. Right-pane reveal flow needed one rollback boundary so every non-success exit after lease acquisition restores activation/pane state.
+3. Project rename manager logic still had duplicate mutation paths instead of a single CAS-owned contract.
+4. Root-level `pnpm gcf` is not directly runnable in this repo layout because the importer manifest is under `frontend/`.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Introduced a shared registry plugin-manager resolver and wired both known-plugin collection and plugin-entry build through it, returning core-only behavior when MCP runtime context is absent.
+2. Updated frontend reveal flow so non-success outcomes after lease acquisition always rollback mutation snapshots before lease finalization.
+3. Removed `BaseProjectManager.set_project_config_name(...)` and kept `compare_and_set_project_config_name(...)` as the single project-rename mutation path.
+4. Updated backend/frontend tests to match canonical paths and rollback invariants, including new non-MCP registry, right-pane rollback, and CAS rename side-effect assertions.
+5. Ran `pnpm gcf` via `pnpm -C frontend gcf` (equivalent command for this repo structure).
+6. Removed all top-level `review*.md` files.
+
+### UX/DX Before and After
+1. UX before: registry construction could still crash outside MCP runtime contexts.
+2. UX after: registry construction degrades deterministically to core-only settings when plugin runtime context is unavailable.
+3. UX before: failed right-pane reveals could leave section/pane state drift after mutation.
+4. UX after: failed right-pane reveals are side-effect free for activation and pane/tab state after lease rollback.
+5. DX before: project rename semantics were split across duplicate manager methods and tests.
+6. DX after: one canonical CAS rename contract with aligned tests and lower drift risk.

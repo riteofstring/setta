@@ -130,6 +130,26 @@ async function readFrontendActiveIds(page: Page): Promise<string[]> {
   });
 }
 
+type FrontendUiEditorState = {
+  uiEditorVis: boolean;
+  uiEditorTabForCode: string | null;
+};
+
+async function readFrontendUiEditorState(
+  page: Page,
+): Promise<FrontendUiEditorState> {
+  return page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const state = useLocalStorage.getState();
+    const uiEditorTabForCode = state.uiEditorTab["Code"];
+    return {
+      uiEditorVis: state.uiEditorVis,
+      uiEditorTabForCode:
+        typeof uiEditorTabForCode === "string" ? uiEditorTabForCode : null,
+    };
+  });
+}
+
 async function setFrontendActiveIds(
   page: Page,
   nextActiveIds: string[],
@@ -189,13 +209,80 @@ async function rewriteNextRevealActiveSectionId(
   }, replacementSectionId);
 }
 
-async function wasRevealActiveSectionRewriteConsumed(page: Page): Promise<boolean> {
+async function rewriteNextRevealAnchorId(
+  page: Page,
+  replacementAnchorId: string,
+): Promise<void> {
+  await page.evaluate((replacement) => {
+    type RevealRewriteWindow = Window & {
+      __settaRevealAnchorRewriteInstalled?: boolean;
+      __settaRevealAnchorRewriteConsumed?: boolean;
+    };
+    const windowRef = window as RevealRewriteWindow;
+    windowRef.__settaRevealAnchorRewriteConsumed = false;
+    if (windowRef.__settaRevealAnchorRewriteInstalled) {
+      return;
+    }
+    windowRef.__settaRevealAnchorRewriteInstalled = true;
+    const originalParse = JSON.parse.bind(JSON);
+    JSON.parse = function patchedParse(
+      text: string,
+      reviver?: (this: unknown, key: string, value: unknown) => unknown,
+    ): unknown {
+      const parsed = originalParse(text, reviver);
+      if (
+        windowRef.__settaRevealAnchorRewriteConsumed ||
+        typeof parsed !== "object" ||
+        parsed === null
+      ) {
+        return parsed;
+      }
+      const payload = parsed as {
+        messageType?: unknown;
+        content?: {
+          reveals?: Array<{
+            anchorId?: unknown;
+          }>;
+        };
+      };
+      if (payload.messageType !== "UISettingReveal") {
+        return parsed;
+      }
+      if (!payload.content || !Array.isArray(payload.content.reveals)) {
+        return parsed;
+      }
+      for (const reveal of payload.content.reveals) {
+        if (typeof reveal.anchorId !== "string") {
+          continue;
+        }
+        reveal.anchorId = replacement;
+        windowRef.__settaRevealAnchorRewriteConsumed = true;
+        break;
+      }
+      return parsed;
+    };
+  }, replacementAnchorId);
+}
+
+async function wasRevealActiveSectionRewriteConsumed(
+  page: Page,
+): Promise<boolean> {
   return page.evaluate(() => {
     type RevealRewriteWindow = Window & {
       __settaRevealActiveSectionRewriteConsumed?: boolean;
     };
     const windowRef = window as RevealRewriteWindow;
     return windowRef.__settaRevealActiveSectionRewriteConsumed === true;
+  });
+}
+
+async function wasRevealAnchorRewriteConsumed(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    type RevealRewriteWindow = Window & {
+      __settaRevealAnchorRewriteConsumed?: boolean;
+    };
+    const windowRef = window as RevealRewriteWindow;
+    return windowRef.__settaRevealAnchorRewriteConsumed === true;
   });
 }
 
@@ -316,16 +403,9 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
       /setta-ui-setting-reveal-highlight/,
     );
 
-    const latestProjectState = await postBackend<{
-      projectState?: {
-        projectConfig?: { activeIds?: string[] };
-      };
-    }>(page, "/getLatestProjectState", {
-      projectConfigId: projectContext.projectConfigId,
-    });
-    expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual([
-      sectionId,
-    ]);
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([sectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -372,22 +452,24 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
         `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
       );
     }
-    const temporaryInitialSectionId = await resolveTemporarySectionIdFromSummary(
-      page,
-      projectContext.projectConfigId,
-      seedResult.projectConfigId,
-      initialSectionName,
-    );
-    const temporaryRequestedSectionId = await resolveTemporarySectionIdFromSummary(
-      page,
-      projectContext.projectConfigId,
-      seedResult.projectConfigId,
-      requestedSectionName,
-    );
+    const temporaryInitialSectionId =
+      await resolveTemporarySectionIdFromSummary(
+        page,
+        projectContext.projectConfigId,
+        seedResult.projectConfigId,
+        initialSectionName,
+      );
+    const temporaryRequestedSectionId =
+      await resolveTemporarySectionIdFromSummary(
+        page,
+        projectContext.projectConfigId,
+        seedResult.projectConfigId,
+        requestedSectionName,
+      );
     await setFrontendActiveIds(page, [temporaryInitialSectionId]);
-    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([
-      temporaryInitialSectionId,
-    ]);
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([temporaryInitialSectionId]);
 
     await rewriteNextRevealActiveSectionId(
       page,
@@ -411,15 +493,15 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
       "Right-pane reveal requires an active section",
     );
     expect(await wasRevealActiveSectionRewriteConsumed(page)).toBe(true);
-    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([
-      temporaryInitialSectionId,
-    ]);
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([temporaryInitialSectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("right-pane reveal_ui_setting keeps activeIds unchanged when reveal fails after activation", async ({
+test("right-pane reveal_ui_setting keeps frontend activation and pane state unchanged when reveal fails after activation", async ({
   page,
 }) => {
   await setOverviewTab(page, "Overview");
@@ -459,6 +541,12 @@ test("right-pane reveal_ui_setting keeps activeIds unchanged when reveal fails a
       seedResult.projectConfigId,
       sectionName,
     );
+    const frontendUiEditorBeforeReveal = await readFrontendUiEditorState(page);
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
+    await rewriteNextRevealAnchorId(
+      page,
+      "missing-anchor-for-reveal-activation-rollback",
+    );
 
     const revealResult = await callMcpTool<RevealUISettingResult>(
       page,
@@ -467,11 +555,17 @@ test("right-pane reveal_ui_setting keeps activeIds unchanged when reveal fails a
       {
         settingId: RIGHT_PANE_SETTING_ID,
         sectionIdToActivate: temporarySectionId,
-        durationMs: 1,
+        durationMs: 3000,
       },
     );
-    expect(revealResult.emittedRevealCount).toBe(0);
     expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(await wasRevealAnchorRewriteConsumed(page)).toBe(true);
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
+    await expect(page.getByTestId("ui-editor-tab-content-shell")).toHaveCount(
+      0,
+    );
+    const frontendUiEditorAfterReveal = await readFrontendUiEditorState(page);
+    expect(frontendUiEditorAfterReveal).toEqual(frontendUiEditorBeforeReveal);
 
     const latestProjectState = await postBackend<{
       projectState?: {

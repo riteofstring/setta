@@ -4114,9 +4114,10 @@ async def test_set_ui_setting_value_core_project_name_rejects_stale_precondition
             *,
             expected_old_value: str | None = None,
         ) -> tuple[str, str]:
-            await manager.set_project_config_name(
+            await original_compare(
                 target_project_config_id,
                 concurrent_name,
+                expected_old_value=None,
             )
             return await original_compare(
                 target_project_config_id,

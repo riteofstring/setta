@@ -344,6 +344,69 @@ describe("receiveUISettingReveal", () => {
     ]);
   });
 
+  it("rolls back request-scoped activeSectionId and pane state when right-pane anchor lookup fails", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: ["section-initial"],
+    });
+    const rightAnchorId = "core.code.section_variants";
+    const rightPaneRoot = {
+      querySelector: vi.fn(() => null),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+          return rightPaneRoot;
+        }
+        return null;
+      }),
+    };
+    const uiEditorVisBeforeReveal = useLocalStorage.getState().uiEditorVis;
+    const uiEditorTabBeforeReveal =
+      useLocalStorage.getState().uiEditorTab[SectionTypeEnum.Code];
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        durationMs: 120,
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: rightAnchorId,
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: rightAnchorId,
+          }),
+        ],
+      }),
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses).toEqual([
+      {
+        settingId: rightAnchorId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: `Could not find anchor ${rightAnchorId} for ${rightAnchorId}.`,
+      },
+    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-initial",
+    ]);
+    const localStorageAfterReveal = useLocalStorage.getState();
+    expect(localStorageAfterReveal.uiEditorVis).toBe(uiEditorVisBeforeReveal);
+    expect(localStorageAfterReveal.uiEditorTab[SectionTypeEnum.Code]).toBe(
+      uiEditorTabBeforeReveal,
+    );
+  });
+
   it("rolls back request-scoped activeSectionId when target section cannot resolve to a section type", async () => {
     configureCodeSections({
       projectConfigId: "project-1",

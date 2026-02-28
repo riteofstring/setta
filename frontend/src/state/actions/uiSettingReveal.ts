@@ -230,6 +230,7 @@ async function revealSingleSetting({
     return mutationResult.status;
   }
   const mutationLease = mutationResult.lease;
+  let shouldRollbackMutationLease = true;
   try {
     const deadlineMs = Date.now() + durationMs;
 
@@ -243,13 +244,13 @@ async function revealSingleSetting({
       const postPluginRevealMismatch =
         resolveRevealExecutionMismatch(executionContext);
       if (postPluginRevealMismatch !== null) {
-        await rollbackRevealMutationLease(mutationLease);
         return buildExecutionContextMismatchStatus(
           target.settingId,
           postPluginRevealMismatch.message,
         );
       }
       if (pluginRevealResult.ok) {
+        shouldRollbackMutationLease = false;
         return {
           settingId: target.settingId,
           status: "revealed",
@@ -291,7 +292,6 @@ async function revealSingleSetting({
     const postAnchorLookupMismatch =
       resolveRevealExecutionMismatch(executionContext);
     if (postAnchorLookupMismatch !== null) {
-      await rollbackRevealMutationLease(mutationLease);
       return buildExecutionContextMismatchStatus(
         target.settingId,
         postAnchorLookupMismatch.message,
@@ -309,6 +309,7 @@ async function revealSingleSetting({
     }
     scrollIntoView(anchorElement);
     applyHighlight(anchorElement, durationMs);
+    shouldRollbackMutationLease = false;
     return {
       settingId: target.settingId,
       status: "revealed",
@@ -316,7 +317,13 @@ async function revealSingleSetting({
       errorMessage: null,
     };
   } finally {
-    await finalizeRevealMutationLease(mutationLease);
+    try {
+      if (shouldRollbackMutationLease) {
+        await rollbackRevealMutationLease(mutationLease);
+      }
+    } finally {
+      await finalizeRevealMutationLease(mutationLease);
+    }
   }
 }
 

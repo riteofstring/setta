@@ -233,6 +233,51 @@ async def test_compare_and_set_project_config_name_same_value_skips_broadcast_an
 
 
 @pytest.mark.asyncio
+async def test_compare_and_set_project_config_name_changed_value_broadcasts_and_saves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        old_name = manager.project_state_backend.projectConfigs[project_config_id].name
+        new_name = f"{old_name}_renamed"
+        metadata_broadcast_calls = 0
+        manual_save_calls = 0
+        original_broadcast = manager.broadcast_all_project_metadata
+        original_manual_save = manager.perform_manual_save
+
+        async def _record_broadcast() -> None:
+            nonlocal metadata_broadcast_calls
+            metadata_broadcast_calls += 1
+            await original_broadcast()
+
+        def _record_manual_save() -> None:
+            nonlocal manual_save_calls
+            manual_save_calls += 1
+            original_manual_save()
+
+        monkeypatch.setattr(
+            manager, "broadcast_all_project_metadata", _record_broadcast
+        )
+        monkeypatch.setattr(manager, "perform_manual_save", _record_manual_save)
+
+        previous_name, next_name = await manager.compare_and_set_project_config_name(
+            project_config_id,
+            new_name,
+            expected_old_value=old_name,
+        )
+
+        assert previous_name == old_name
+        assert next_name == new_name
+        assert metadata_broadcast_calls == 1
+        assert manual_save_calls == 1
+        persisted_project_state = fixture.dbe.read_project()
+        assert (
+            persisted_project_state.projectConfigs[project_config_id].name == new_name
+        )
+
+
+@pytest.mark.asyncio
 async def test_compare_and_set_app_definition_metadata_noops_do_not_materialize_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

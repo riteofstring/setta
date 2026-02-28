@@ -300,9 +300,7 @@ def _collect_known_plugin_ids_and_settings(
     *,
     ctx: "Context",
 ) -> tuple[set[str], set[tuple[str, str]]]:
-    fastmcp = getattr(ctx, "fastmcp", None)
-    state = getattr(fastmcp, "state", None)
-    plugin_manager = getattr(state, "plugin_manager", None)
+    plugin_manager = _resolve_registry_build_plugin_manager(ctx=ctx)
     if plugin_manager is None:
         return set(), set()
 
@@ -338,6 +336,12 @@ def _collect_known_plugin_ids_and_settings(
             known_plugin_and_local_setting_ids.add((plugin_id, local_setting_id))
 
     return known_plugin_ids, known_plugin_and_local_setting_ids
+
+
+def _resolve_registry_build_plugin_manager(*, ctx: "Context") -> Any | None:
+    fastmcp = getattr(ctx, "fastmcp", None)
+    state = getattr(fastmcp, "state", None)
+    return getattr(state, "plugin_manager", None)
 
 
 def _validate_runtime_entry_write_signature(entry: UISettingRuntimeEntry) -> None:
@@ -957,10 +961,10 @@ def _build_plugin_entries(
     *,
     ctx: "Context",
     project_config_id: ID,  # noqa: ARG001 - reserved for future plugin state scoping
-) -> tuple[list[UISettingRuntimeEntry], dict[str, str]]:
-    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+) -> tuple[list[UISettingRuntimeEntry], PluginUISettingErrorsByPluginId]:
+    plugin_manager = _resolve_registry_build_plugin_manager(ctx=ctx)
     if plugin_manager is None:
-        return [], {}
+        return [], PluginUISettingErrorsByPluginId()
     runtime_response = plugin_manager.get_runtime_response()
     entries: list[UISettingRuntimeEntry] = []
     plugin_errors_by_plugin_id = PluginUISettingErrorsByPluginId()

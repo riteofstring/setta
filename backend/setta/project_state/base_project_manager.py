@@ -4150,22 +4150,6 @@ class BaseProjectManager(ABC):
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
-    async def set_project_config_name(self, projectConfigId: ID, newName: str):
-        old_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
-            projectConfigId,
-            self._plugin_codegen_output_root(old_name),
-        )
-        set_project_config_name(self.project_state_backend, projectConfigId, newName)
-        new_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        if previous_output_root.exists() and old_name != new_name:
-            shutil.rmtree(previous_output_root)
-        if projectConfigId in self._plugin_codegen_output_root_by_project_config:
-            self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
-                self._plugin_codegen_output_root(new_name)
-            )
-
-    @enqueue_method
     async def compare_and_set_project_config_name(
         self,
         projectConfigId: ID,
