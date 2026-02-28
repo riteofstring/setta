@@ -408,14 +408,14 @@ export async function route_set_llm_config(
 }
 
 export async function route_get_llm_api_keys(): Promise<
-  ResponseDataAndStatus<gt.ManagedAPIKeysResponse>
+  ResponseDataAndStatus<Record<string, string>>
 > {
   return await get("/llm/apiKeys");
 }
 
 export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
-): Promise<ResponseDataAndStatus<gt.ManagedAPIKeysResponse>> {
+): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llm/apiKeys", payload);
 }
 
@@ -451,7 +451,7 @@ export async function route_cancel_transcription_session(
 
 export async function route_stop_llm_chat(
   x: gt.StopLLMChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.StopLLMChatResponse>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/stopLLMChat", x);
 }
 

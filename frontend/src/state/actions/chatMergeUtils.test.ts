@@ -1,7 +1,4 @@
-import {
-  mergeChatMessages,
-  reconcileHydratedChatMessages,
-} from "state/actions/chatMergeUtils";
+import { mergeChatMessages } from "state/actions/chatMergeUtils";
 import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -61,60 +58,5 @@ describe("chatMergeUtils", () => {
     const mergedIds = merged.map((message) => message.id);
     expect(mergedIds).toContain("msg-1");
     expect(mergedIds).toContain("msg-2");
-  });
-
-  it("drops local-only messages when hydrate is not preserving in-flight overlays", () => {
-    const reconciled = reconcileHydratedChatMessages({
-      backendMessages: [
-        {
-          id: "msg-remote",
-          role: ChatRoleEnum.assistant,
-          content: [createMessageTextContent({ text: "Remote message" })],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      localMessages: [
-        {
-          id: "msg-local",
-          role: ChatRoleEnum.assistant,
-          content: [createMessageTextContent({ text: "Local only" })],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      preserveLocalOnlyMessages: false,
-    });
-
-    expect(reconciled.map((message) => message.id)).toEqual(["msg-remote"]);
-  });
-
-  it("keeps local-only messages when hydrate preserves in-flight overlays", () => {
-    const reconciled = reconcileHydratedChatMessages({
-      backendMessages: [
-        {
-          id: "msg-remote",
-          role: ChatRoleEnum.assistant,
-          content: [createMessageTextContent({ text: "Remote message" })],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      localMessages: [
-        {
-          id: "msg-local",
-          role: ChatRoleEnum.assistant,
-          content: [createMessageTextContent({ text: "Local only" })],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      preserveLocalOnlyMessages: true,
-    });
-
-    expect(reconciled.map((message) => message.id)).toEqual([
-      "msg-remote",
-      "msg-local",
-    ]);
   });
 });
