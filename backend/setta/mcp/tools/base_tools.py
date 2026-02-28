@@ -22,18 +22,6 @@ class InstalledPythonPackageList(BaseModel):
     packages: list[str]
 
 
-class MCPServerRuntimeStatusEntry(BaseModel):
-    serverId: str
-    state: str
-    toolCount: int
-    lastError: str | None = None
-    missingEnvVar: str | None = None
-
-
-class MCPServerRuntimeStatusList(BaseModel):
-    servers: list[MCPServerRuntimeStatusEntry]
-
-
 @setta_tool
 def getInstalledPythonPackages(*, ctx: Context | None = None):  # noqa: ARG001
     """
@@ -86,21 +74,3 @@ def getProjectConfigNamesAndIds(ctx: Context):
     _, metadata = manager.get_all_project_metadata()
     entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
     return ProjectConfigNamesAndIdsList(projectConfigs=entries)
-
-
-@setta_init_tool
-def get_mcp_server_runtime_status(ctx: Context) -> MCPServerRuntimeStatusList:
-    """Return runtime MCP connection status for every configured MCP server."""
-
-    statuses = ctx.fastmcp.state.mcp_client.get_server_runtime_statuses()
-    entries = [
-        MCPServerRuntimeStatusEntry(
-            serverId=status.serverId,
-            state=status.state,
-            toolCount=status.toolCount,
-            lastError=status.lastError,
-            missingEnvVar=status.missingEnvVar,
-        )
-        for status in statuses
-    ]
-    return MCPServerRuntimeStatusList(servers=entries)

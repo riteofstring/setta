@@ -311,8 +311,14 @@ class ChatStreamEmitterClient:
 
 
 class ChatToolRunnerClient:
-    def __init__(self, project_manager: RouterEndpointAPI) -> None:
+    def __init__(
+        self,
+        project_manager: RouterEndpointAPI,
+        *,
+        frontend_affinity_token: str | None = None,
+    ) -> None:
         self._project_manager = project_manager
+        self._frontend_affinity_token = frontend_affinity_token
 
     async def run(
         self,
@@ -320,12 +326,18 @@ class ChatToolRunnerClient:
         chat_id: ID,
         section_id: ID,
         tool_calls: list[ToolCall],
+        frontend_affinity_token: str | None = None,
     ) -> list[ToolChatMessage]:
         payload: dict[str, object] = {
             "chatId": chat_id,
             "sectionId": section_id,
             "toolCalls": tool_calls,
         }
+        resolved_frontend_affinity_token = frontend_affinity_token
+        if resolved_frontend_affinity_token is None:
+            resolved_frontend_affinity_token = self._frontend_affinity_token
+        if resolved_frontend_affinity_token is not None:
+            payload["frontendAffinityToken"] = resolved_frontend_affinity_token
         return _coerce_tool_messages(await self._project_manager.run_mcp_tools(payload))
 
 
@@ -403,7 +415,10 @@ class ChatSession:
             raise KeyError("No chat send event for section")
         history = ChatHistoryClient(ctx.project_manager)
         stream = ChatStreamEmitterClient(ctx.project_manager)
-        tools = ChatToolRunnerClient(ctx.project_manager)
+        tools = ChatToolRunnerClient(
+            ctx.project_manager,
+            frontend_affinity_token=ctx.frontend_affinity_token,
+        )
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
         content = [MessageTextContent(text=resolved_event.text)]

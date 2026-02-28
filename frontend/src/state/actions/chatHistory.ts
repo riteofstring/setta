@@ -11,10 +11,6 @@ export type ChatHistoryCompatibility = {
   runType: ChatRunType;
   engineConfigId: string | null;
 };
-type ChatRunProvenance = {
-  runType: ChatRunType;
-  engineConfigId: string | null;
-};
 
 type ChatHistoryEntry = {
   chatId: string;
@@ -36,78 +32,50 @@ type BuildChatHistoryEntriesOptions = {
   sectionId?: string | null;
   unscopedOnly?: boolean;
   compatibility?: ChatHistoryCompatibility | null;
-  projectConfigId?: string | null;
 };
 
 export function buildChatHistoryEntries(
   runs: Array<AgentRun>,
   options: BuildChatHistoryEntriesOptions = {},
 ): Array<ChatHistoryEntry> {
-  const grouped = collectChatRunSummaries(runs, options, false);
-
-  const entries: Array<ChatHistoryEntry> = [];
-  for (const [runChatId, summary] of grouped.entries()) {
-    entries.push({
-      chatId: runChatId,
-      label: deriveChatLabel(summary.latestRun, runChatId),
-      nameSource: deriveChatNameSource(summary.latestRun),
-      lastUpdatedMs: summary.lastUpdatedMs,
-      waitingForResponse: summary.waitingForResponse,
-      runType: getRunType(summary.latestRun),
-      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
-    });
-  }
-  return entries;
-}
-
-export function buildChatProvenanceByChatId(
-  runs: Array<AgentRun>,
-  options: BuildChatHistoryEntriesOptions = {},
-): Map<string, ChatRunProvenance> {
-  const grouped = collectChatRunSummaries(runs, options, true);
-  const provenance = new Map<string, ChatRunProvenance>();
-  for (const [runChatId, summary] of grouped.entries()) {
-    const runType = getRunType(summary.latestRun);
-    if (!runType) {
-      continue;
-    }
-    provenance.set(runChatId, {
-      runType,
-      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
-    });
-  }
-  return provenance;
-}
-
-function collectChatRunSummaries(
-  runs: Array<AgentRun>,
-  options: BuildChatHistoryEntriesOptions,
-  includeBranchChats: boolean,
-): Map<string, ChatRunSummary> {
   const sectionId = normalizeRunSectionId(options.sectionId ?? null);
-  const projectConfigId = normalizeProjectConfigId(
-    options.projectConfigId ?? null,
-  );
   const unscopedOnly = options.unscopedOnly === true;
   const compatibility = options.compatibility ?? null;
-  const branchChatIds = includeBranchChats
-    ? new Set<string>()
-    : collectBranchChatIds(runs, {
-        projectConfigId,
-        sectionId,
-        unscopedOnly,
-        compatibility,
-      });
+  const branchChatIds = new Set<string>();
+  for (const run of runs) {
+    if (!isChatRun(run)) {
+      continue;
+    }
+    if (!isRunCompatibleWithHistoryFilter(run, compatibility)) {
+      continue;
+    }
+    if (unscopedOnly && getRunSectionId(run) !== null) {
+      continue;
+    }
+    if (sectionId && getRunSectionId(run) !== sectionId) {
+      continue;
+    }
+    if (!isBranchRun(run)) {
+      continue;
+    }
+    const runChatId = getRunChatId(run);
+    if (runChatId) {
+      branchChatIds.add(runChatId);
+    }
+  }
+
   const grouped = new Map<string, ChatRunSummary>();
   for (const run of runs) {
-    if (
-      !shouldCollectRunForChatSummary(run, {
-        projectConfigId,
-        sectionId,
-        unscopedOnly,
-        compatibility,
-      })
-    ) {
+    if (!isChatRun(run)) {
+      continue;
+    }
+    if (!isRunCompatibleWithHistoryFilter(run, compatibility)) {
+      continue;
+    }
+    if (unscopedOnly && getRunSectionId(run) !== null) {
+      continue;
+    }
+    if (sectionId && getRunSectionId(run) !== sectionId) {
       continue;
     }
     const runChatId = getRunChatId(run);
@@ -144,76 +112,23 @@ function collectChatRunSummaries(
       });
     }
   }
-  return grouped;
-}
 
-function shouldCollectRunForChatSummary(
-  run: AgentRun,
-  options: {
-    projectConfigId: string | null;
-    sectionId: string | null;
-    unscopedOnly: boolean;
-    compatibility: ChatHistoryCompatibility | null;
-  },
-): boolean {
-  if (!isChatRun(run)) {
-    return false;
+  const entries: Array<ChatHistoryEntry> = [];
+  for (const [runChatId, summary] of grouped.entries()) {
+    entries.push({
+      chatId: runChatId,
+      label: deriveChatLabel(summary.latestRun, runChatId),
+      nameSource: deriveChatNameSource(summary.latestRun),
+      lastUpdatedMs: summary.lastUpdatedMs,
+      waitingForResponse: summary.waitingForResponse,
+      runType: getRunType(summary.latestRun),
+      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
+    });
   }
-  if (!isRunCompatibleWithHistoryFilter(run, options.compatibility)) {
-    return false;
-  }
-  if (
-    options.projectConfigId !== null &&
-    getRunInputString(run, "projectConfigId") !== options.projectConfigId
-  ) {
-    return false;
-  }
-  if (options.unscopedOnly && getRunSectionId(run) !== null) {
-    return false;
-  }
-  if (options.sectionId && getRunSectionId(run) !== options.sectionId) {
-    return false;
-  }
-  return true;
-}
-
-function collectBranchChatIds(
-  runs: Array<AgentRun>,
-  options: {
-    projectConfigId: string | null;
-    sectionId: string | null;
-    unscopedOnly: boolean;
-    compatibility: ChatHistoryCompatibility | null;
-  },
-): Set<string> {
-  const branchChatIds = new Set<string>();
-  for (const run of runs) {
-    if (!shouldCollectRunForChatSummary(run, options)) {
-      continue;
-    }
-    if (!isBranchRun(run)) {
-      continue;
-    }
-    const runChatId = getRunChatId(run);
-    if (runChatId) {
-      branchChatIds.add(runChatId);
-    }
-  }
-  return branchChatIds;
+  return entries;
 }
 
 function normalizeRunSectionId(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
-}
-
-function normalizeProjectConfigId(value: string | null): string | null {
   if (!value) {
     return null;
   }
@@ -291,32 +206,14 @@ function isBranchRun(run: AgentRun): boolean {
 function deriveChatLabel(run: AgentRun, chatId: string): string {
   const outputName = getRunOutputString(run, "name");
   if (outputName) {
-    const normalizedOutputName = normalizeChatLabelText(outputName);
-    if (normalizedOutputName) {
-      return normalizedOutputName;
-    }
+    return outputName;
   }
   const messages = getRunMessages(run);
   const firstText = extractFirstMessageText(messages);
   if (firstText) {
-    const normalizedFirstText = normalizeChatLabelText(firstText);
-    if (normalizedFirstText) {
-      return normalizedFirstText.slice(0, 30);
-    }
+    return firstText.slice(0, 30);
   }
   return `Chat ${chatId.slice(0, 8)}`;
-}
-
-function normalizeChatLabelText(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return "";
-  }
-  const withoutUserPrefix = trimmed.replace(/^User:\s*/iu, "");
-  if (withoutUserPrefix.trim().length > 0) {
-    return withoutUserPrefix.trim();
-  }
-  return trimmed;
 }
 
 function getRunOutputString(run: AgentRun, key: string): string | null {
