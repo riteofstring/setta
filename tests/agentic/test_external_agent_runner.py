@@ -3275,6 +3275,11 @@ class TestExternalAgentRunnerUsage:
                             "output_tokens": 25,
                             "total_tokens": 2025,
                         },
+                        "last_token_usage": {
+                            "input_tokens": 1500,
+                            "output_tokens": 20,
+                            "total_tokens": 1520,
+                        },
                         "model_context_window": 258400,
                     }
                 }
@@ -3287,6 +3292,7 @@ class TestExternalAgentRunnerUsage:
         assert {"input_tokens": 2000, "output_tokens": 25, "total_tokens": 2025} in (
             usage_payloads
         )
+        assert {"contextUsedTokens": 1500} in usage_payloads
 
     def test_capture_external_usage_from_codex_raw_payload_tracks_usage(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -3414,6 +3420,83 @@ class TestExternalAgentRunnerUsage:
             assert usage.get("completionTokens") == 25
             assert usage.get("totalTokens") == 2025
             assert usage.get("contextWindowTokens") == 258400
+
+    def test_capture_external_usage_from_codex_token_count_prefers_last_for_context(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-codex",
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-codex"),
+            )
+            run = context.run
+
+            # token_count reports both cumulative (total) and current-turn (last)
+            # usage; context occupancy should use the last prompt-token count.
+            runner._capture_external_usage_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "method": "codex/event/token_count",
+                    "params": {
+                        "msg": {
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 69941,
+                                    "output_tokens": 1455,
+                                    "total_tokens": 71396,
+                                },
+                                "last_token_usage": {
+                                    "input_tokens": 24766,
+                                    "output_tokens": 430,
+                                    "total_tokens": 25196,
+                                },
+                                "model_context_window": 258400,
+                            }
+                        }
+                    },
+                },
+            )
+
+            usage = runner._usage_by_run_id.get(run.id)
+            assert isinstance(usage, dict)
+            assert usage.get("inputTokens") == 69941
+            assert usage.get("promptTokens") == 69941
+            assert usage.get("contextWindowTokens") == 258400
+            assert usage.get("contextUsedTokens") == 24766
+
+    def test_upsert_external_usage_prefers_latest_context_used_tokens(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run_id = ID("usage-run-context-latest")
+
+            # Cumulative counters should remain max-based, but context occupancy is
+            # point-in-time and must always reflect the latest update.
+            runner._upsert_external_usage(
+                run_id,
+                {"promptTokens": 1000, "contextUsedTokens": 900},
+            )
+            runner._upsert_external_usage(
+                run_id,
+                {"promptTokens": 1100, "contextUsedTokens": 850},
+            )
+
+            usage = runner._usage_by_run_id.get(run_id)
+            assert isinstance(usage, dict)
+            assert usage.get("promptTokens") == 1100
+            assert usage.get("contextUsedTokens") == 850
 
     def test_persist_outputs_from_state_merges_tracked_and_existing_usage(self) -> None:
         with TemporaryDirectory() as tmpdir:

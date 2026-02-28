@@ -1210,7 +1210,11 @@ class ExternalAgentRunner:
         if current is None:
             return dict(incoming)
         merged = dict(current)
+        prefer_latest_keys = {"contextUsedTokens"}
         for key, value in incoming.items():
+            if key in prefer_latest_keys:
+                merged[key] = value
+                continue
             if key not in merged or value >= merged[key]:
                 merged[key] = value
         if "promptTokens" not in merged and "inputTokens" in merged:
@@ -2710,6 +2714,16 @@ def _extract_usage_int(value: Any) -> int | None:
     return None
 
 
+def _extract_context_used_tokens_from_payload(value: Any) -> int | None:
+    if not isinstance(value, dict):
+        return None
+    for key in ("inputTokens", "promptTokens", "input_tokens", "prompt_tokens"):
+        parsed = _extract_usage_int(value.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _normalize_external_usage_payload(payload: Any) -> dict[str, int] | None:
     if not isinstance(payload, dict):
         return None
@@ -2722,6 +2736,7 @@ def _normalize_external_usage_payload(payload: Any) -> dict[str, int] | None:
         "outputTokens": "outputTokens",
         "reasoningOutputTokens": "reasoningOutputTokens",
         "contextWindowTokens": "contextWindowTokens",
+        "contextUsedTokens": "contextUsedTokens",
         "prompt_tokens": "promptTokens",
         "completion_tokens": "completionTokens",
         "total_tokens": "totalTokens",
@@ -2730,6 +2745,7 @@ def _normalize_external_usage_payload(payload: Any) -> dict[str, int] | None:
         "output_tokens": "outputTokens",
         "reasoning_output_tokens": "reasoningOutputTokens",
         "context_window_tokens": "contextWindowTokens",
+        "context_used_tokens": "contextUsedTokens",
         "model_context_window": "contextWindowTokens",
         "modelContextWindow": "contextWindowTokens",
         "usedTokens": "inputTokens",
@@ -2770,6 +2786,11 @@ def _extract_usage_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
             _append_if_dict(token_usage.get("total"))
             _append_if_dict(token_usage.get("last"))
             usage_payloads.append(token_usage)
+            context_used_tokens = _extract_context_used_tokens_from_payload(
+                token_usage.get("last")
+            )
+            if context_used_tokens is not None:
+                usage_payloads.append({"contextUsedTokens": context_used_tokens})
         usage_payloads.append(value)
 
     _append_if_dict(payload.get("usage"))
@@ -2805,6 +2826,13 @@ def _extract_usage_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     _append_if_dict(info_payload.get("total_token_usage"))
                     _append_if_dict(info_payload.get("last_token_usage"))
                     usage_payloads.append(info_payload)
+                    context_used_tokens = _extract_context_used_tokens_from_payload(
+                        info_payload.get("last_token_usage")
+                    )
+                    if context_used_tokens is not None:
+                        usage_payloads.append(
+                            {"contextUsedTokens": context_used_tokens}
+                        )
 
     return usage_payloads
 

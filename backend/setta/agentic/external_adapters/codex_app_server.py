@@ -683,12 +683,59 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
                 timeout_seconds=_MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
             )
         except Exception as exc:
+            error_text = str(exc)
+            if "unknown variant `thread/tokenUsage/read`" not in error_text:
+                logger.debug(
+                    "Codex thread token-usage request failed (run_id=%s): %s",
+                    handle.run_id,
+                    exc,
+                )
+                return None
+        try:
+            thread_read_payload = await self._send_request(
+                state,
+                "thread/read",
+                params,
+                timeout_seconds=_MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
+            )
+        except Exception as fallback_exc:
             logger.debug(
-                "Codex thread token-usage request failed (run_id=%s): %s",
+                "Codex thread token-usage fallback request failed (run_id=%s): %s",
                 handle.run_id,
-                exc,
+                fallback_exc,
             )
             return None
+        return _extract_thread_usage_payload(thread_read_payload)
+
+
+def _extract_thread_usage_payload(payload: Any) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    candidates: list[dict[str, Any]] = [payload]
+    for key in ("thread", "conversation", "data", "result"):
+        nested = payload.get(key)
+        if isinstance(nested, dict):
+            candidates.append(nested)
+    for candidate in candidates:
+        token_usage = candidate.get("tokenUsage")
+        if isinstance(token_usage, dict):
+            return {"tokenUsage": token_usage}
+        usage = candidate.get("usage")
+        if isinstance(usage, dict):
+            return {"usage": usage}
+        if any(
+            key in candidate
+            for key in (
+                "usedTokens",
+                "windowTokens",
+                "inputTokens",
+                "promptTokens",
+                "contextWindowTokens",
+                "modelContextWindow",
+            )
+        ):
+            return candidate
+    return None
 
 
 class _CodexAppServerEventParser:

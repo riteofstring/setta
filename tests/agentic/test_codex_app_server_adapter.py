@@ -1319,3 +1319,51 @@ class TestCodexAppServerMcpStatusProbe:
         payload = await adapter._read_thread_token_usage(state, handle)
 
         assert payload is None
+
+    @pytest.mark.asyncio
+    async def test_read_thread_token_usage_falls_back_to_thread_read(self) -> None:
+        adapter = CodexAppServerAdapter()
+        state = SimpleNamespace(thread_id="thread-1")
+        handle = ExternalAgentRunHandle(run_id=ID("run-usage-fallback"), metadata={})
+        calls: list[str] = []
+
+        async def _send_request(
+            _state,
+            method: str,
+            _params,
+            *,
+            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
+        ):
+            calls.append(method)
+            if method == "thread/tokenUsage/read":
+                raise RuntimeError(
+                    "Codex app-server request failed (thread/tokenUsage/read): "
+                    "{'code': -32600, 'message': 'Invalid request: unknown variant "
+                    "`thread/tokenUsage/read`'}"
+                )
+            if method == "thread/read":
+                return {
+                    "thread": {
+                        "tokenUsage": {
+                            "total": {"inputTokens": 69941, "outputTokens": 1455},
+                            "last": {"inputTokens": 24766, "outputTokens": 430},
+                            "modelContextWindow": 258400,
+                        }
+                    }
+                }
+            raise AssertionError(
+                f"Unexpected request method {method} with timeout {timeout_seconds}"
+            )
+
+        adapter._send_request = _send_request
+
+        payload = await adapter._read_thread_token_usage(state, handle)
+
+        assert calls == ["thread/tokenUsage/read", "thread/read"]
+        assert payload == {
+            "tokenUsage": {
+                "total": {"inputTokens": 69941, "outputTokens": 1455},
+                "last": {"inputTokens": 24766, "outputTokens": 430},
+                "modelContextWindow": 258400,
+            }
+        }

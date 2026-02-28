@@ -143,3 +143,20 @@ def test_external_context_usage_accepts_codex_used_tokens_aliases() -> None:
     assert usage.context_used_tokens == 88
     assert usage.context_window_tokens == 272000
     assert usage.estimated is False
+
+
+def test_external_context_usage_prefers_explicit_context_used_tokens() -> None:
+    run = _build_run_with_usage(
+        {
+            "promptTokens": 69941,
+            "contextUsedTokens": 24766,
+            "contextWindowTokens": 258400,
+        }
+    )
+
+    usage = resolve_external_run_context_usage(run)
+
+    assert usage is not None
+    assert usage.context_used_tokens == 24766
+    assert usage.context_window_tokens == 258400
+    assert usage.estimated is False

@@ -3040,6 +3040,75 @@ class TestAgentRunChatRoutes:
             assert response.contextUsage.contextUsedTokens == 99
             assert response.contextUsage.contextWindowTokens is None
 
+    async def test_get_external_agent_chat_context_usage_prefers_context_used_tokens(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            external_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-codex",
+            )
+            engine_config_id = ID("engine-external-context-explicit-used")
+            save_external_agent_configs(dbe, [external_config])
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=engine_config_id,
+                        name="External Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=external_config.id,
+                    )
+                ],
+            )
+            chat_id = ID("external-context-chat-explicit-used")
+            project_config_id = ID("external-context-project-explicit-used")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external usage")],
+            )
+            assistant_message = AssistantChatMessage(
+                id="assistant-context-explicit-used",
+                content=[MessageTextContent(text="Hi usage")],
+            )
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 9, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, assistant_message],
+                usage={
+                    "promptTokens": 69941,
+                    "contextUsedTokens": 24766,
+                    "contextWindowTokens": 258400,
+                },
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                response = await route_get_external_agent_chat(
+                    GetExternalAgentChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
+
+            assert response.contextUsage is not None
+            assert response.contextUsage.estimated is False
+            assert response.contextUsage.contextUsedTokens == 24766
+            assert response.contextUsage.contextWindowTokens == 258400
+
     async def test_get_external_agent_chat_ignores_non_finite_usage_values(
         self,
     ) -> None:

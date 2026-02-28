@@ -13,6 +13,7 @@ _USAGE_NUMERIC_KEYS: tuple[str, ...] = (
     "cachedInputTokens",
     "reasoningOutputTokens",
     "contextWindowTokens",
+    "contextUsedTokens",
 )
 _USAGE_SNAKE_TO_CAMEL: dict[str, str] = {
     "prompt_tokens": "promptTokens",
@@ -23,6 +24,7 @@ _USAGE_SNAKE_TO_CAMEL: dict[str, str] = {
     "cached_input_tokens": "cachedInputTokens",
     "reasoning_output_tokens": "reasoningOutputTokens",
     "context_window_tokens": "contextWindowTokens",
+    "context_used_tokens": "contextUsedTokens",
     "model_context_window": "contextWindowTokens",
     "modelContextWindow": "contextWindowTokens",
     "usedTokens": "inputTokens",
@@ -110,6 +112,9 @@ def _resolve_context_window_tokens(
 def _resolve_context_used_tokens(usage_payload: dict[str, int] | None) -> int | None:
     if usage_payload is None:
         return None
+    context_used_tokens = usage_payload.get("contextUsedTokens")
+    if context_used_tokens is not None:
+        return context_used_tokens
     prompt_tokens = usage_payload.get("promptTokens")
     if prompt_tokens is not None:
         return prompt_tokens

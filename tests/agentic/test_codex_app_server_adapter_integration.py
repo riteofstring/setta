@@ -429,21 +429,27 @@ class TestCodexAppServerAdapterIntegration:
             completion_tokens = usage.get("completionTokens")
             output_tokens = usage.get("outputTokens")
             total_tokens = usage.get("totalTokens")
+            context_used_tokens = usage.get("contextUsedTokens")
             assert isinstance(context_window_tokens, int)
             assert isinstance(prompt_tokens, int)
             assert isinstance(input_tokens, int)
             assert isinstance(completion_tokens, int)
             assert isinstance(output_tokens, int)
             assert isinstance(total_tokens, int)
+            assert isinstance(context_used_tokens, int)
             assert context_window_tokens > 0
             assert prompt_tokens > 0
             assert input_tokens > 0
             assert completion_tokens >= 0
             assert output_tokens >= 0
+            assert context_used_tokens >= 0
             assert prompt_tokens == input_tokens
             assert completion_tokens == output_tokens
             assert total_tokens == prompt_tokens + completion_tokens
             assert context_window_tokens >= total_tokens
+            # Context occupancy should be based on current-turn usage, not
+            # cumulative conversation totals, so it must not exceed prompt usage.
+            assert context_used_tokens <= prompt_tokens
 
     async def test_codex_app_server_persists_thread_id(self) -> None:
         codex_path = self._require_codex_cli()

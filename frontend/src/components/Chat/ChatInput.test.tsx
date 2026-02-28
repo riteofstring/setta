@@ -249,6 +249,20 @@ describe("ChatInput composer controls", () => {
     expect(markup).toContain("25%");
   });
 
+  it("renders non-estimated context percentages from large token windows", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 258_400,
+      contextUsedTokens: 24_766,
+      value: "run commands",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("context left");
+    expect(markup).not.toContain("est. context left");
+    expect(markup).toContain("90%");
+    expect(markup).toContain('aria-label="context left 90%"');
+  });
+
   it("does not render context badge when used tokens are unavailable", () => {
     const markup = renderChatInput({
       contextWindowTokens: 200,
