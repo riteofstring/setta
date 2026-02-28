@@ -344,6 +344,81 @@ describe("receiveUISettingReveal", () => {
     ]);
   });
 
+  it("rolls back request-scoped activeSectionId when target section cannot resolve to a section type", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial"],
+      activeIds: ["section-initial"],
+    });
+
+    // A missing section target should fail reveal and restore prior activeIds.
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-missing",
+        reveals: [
+          createRevealTarget({
+            settingId: "core.code.section_variants",
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: "core.code.section_variants",
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.code.section_variants",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
+      },
+    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-initial",
+    ]);
+    expect(useLocalStorage.getState().uiEditorVis).toBe(false);
+  });
+
+  it("rolls back request-scoped activeSectionId when right-pane preconditions fail after activation", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: ["section-initial"],
+    });
+
+    // Unsupported tabs fail after activeSectionId is applied, so rollback must restore prior selection.
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: "core.project.show_param_display_names",
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "QuickInfoConfig",
+            anchorId: "core.project.show_param_display_names",
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.project.show_param_display_names",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: "Section type Code does not support tab QuickInfoConfig.",
+      },
+    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-initial",
+    ]);
+    expect(useLocalStorage.getState().uiEditorVis).toBe(false);
+  });
+
   it("rolls back request-scoped activeSectionId on execution-context mismatch", async () => {
     configureCodeSections({
       projectConfigId: "project-1",

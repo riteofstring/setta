@@ -14,12 +14,3 @@ def parse_frontend_affinity_token(value: Any) -> str | None:
     if normalized == "":
         raise ValueError(FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE)
     return normalized
-
-
-def normalize_frontend_affinity_token(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        return None
-    return normalized

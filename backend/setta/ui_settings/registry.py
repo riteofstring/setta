@@ -1,6 +1,5 @@
 import inspect
 import logging
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
@@ -1474,19 +1473,6 @@ def _convert_plugin_manager_error_for_ui_setting(
     )
 
 
-def _clone_plugin_config_object(
-    value: Any,
-    *,
-    plugin_id: str,
-) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise UISettingValidationError(
-            "mutation_failed",
-            f"Plugin {plugin_id} config root must be an object.",
-        )
-    return deepcopy(value)
-
-
 def _parse_plugin_ui_setting_definitions(
     *,
     schema_json: dict[str, Any],
@@ -1964,55 +1950,6 @@ def _read_plugin_config_path_value_for_write(
         traversed_segments.append(segment)
         current_value = current_value[segment]
     return current_value
-
-
-def _write_plugin_config_path_value(
-    *,
-    config: dict[str, Any],
-    config_path: list[str],
-    value: JSONValue,
-    plugin_id: str,
-) -> dict[str, Any]:
-    output = deepcopy(config)
-    current_value: dict[str, Any] = output
-    for segment in config_path[:-1]:
-        if segment not in current_value:
-            nested_value: dict[str, Any] = {}
-            current_value[segment] = nested_value
-            current_value = nested_value
-            continue
-        nested_raw_value = current_value[segment]
-        if not isinstance(nested_raw_value, dict):
-            raise UISettingValidationError(
-                "mutation_failed",
-                (
-                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
-                    f"contains a non-object node at {segment}."
-                ),
-            )
-        nested_value = nested_raw_value
-        current_value = nested_value
-    current_value[config_path[-1]] = value
-    return output
-
-
-def _assert_expected_old_value_matches(
-    *,
-    setting_id: str,
-    expected_old_value: JSONValue | None,
-    observed_old_value: JSONValue,
-) -> None:
-    if expected_old_value is None:
-        return
-    if expected_old_value == observed_old_value:
-        return
-    raise UISettingValidationError(
-        "mutation_failed",
-        (
-            f"UI setting {setting_id} changed since pre-write validation. "
-            "Retry with a fresh read before writing."
-        ),
-    )
 
 
 def _get_project_manager(ctx: "Context", project_config_id: ID):

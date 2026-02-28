@@ -22,7 +22,6 @@ from typing import (
     cast,
     overload,
 )
-from uuid import uuid4
 
 from fastapi import HTTPException, status
 
@@ -683,8 +682,6 @@ class BaseProjectManager(ABC):
         self.pending_rename_results: dict[
             str, tuple[str, list[RenameReferenceChangedValue]]
         ] = {}
-        self._ui_setting_reveal_active_ids_version_by_project: dict[ID, int] = {}
-        self._ui_setting_reveal_leases: dict[str, tuple[ID, int]] = {}
         self._bootstrap_watch_code_baselines()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         self.watch_json_source_files()
@@ -4351,116 +4348,6 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].activeIds = x.activeIds
-        self._record_ui_setting_reveal_active_ids_mutation(
-            project_config_id=x.projectConfigId,
-            invalidate_existing_leases=True,
-        )
-
-    @enqueue_method
-    async def set_active_ids_for_ui_setting_reveal(
-        self,
-        *,
-        project_config_id: ID,
-        active_ids: list[ID],
-    ) -> str:
-        current_active_ids = self.project_state_backend.projectConfigs[
-            project_config_id
-        ].activeIds
-        active_ids_changed = current_active_ids != active_ids
-        if active_ids_changed:
-            self.project_state_backend.projectConfigs[
-                project_config_id
-            ].activeIds = active_ids
-        mutation_version = self._record_ui_setting_reveal_active_ids_mutation(
-            project_config_id=project_config_id,
-            invalidate_existing_leases=True,
-        )
-        reveal_activation_lease_id = uuid4().hex
-        self._ui_setting_reveal_leases[reveal_activation_lease_id] = (
-            project_config_id,
-            mutation_version,
-        )
-        if active_ids_changed:
-            project_state = self.get_single_config_state(project_config_id)
-            await self._update_and_broadcast_project_state_no_name_validation(
-                project_state,
-                updateFileWatcher=False,
-            )
-        return reveal_activation_lease_id
-
-    @enqueue_method
-    async def rollback_active_ids_for_ui_setting_reveal(
-        self,
-        *,
-        project_config_id: ID,
-        reveal_activation_lease_id: str,
-        rollback_active_ids: list[ID],
-    ) -> bool:
-        lease_record = self._ui_setting_reveal_leases.pop(
-            reveal_activation_lease_id, None
-        )
-        if lease_record is None:
-            return False
-        lease_project_config_id, lease_mutation_version = lease_record
-        if lease_project_config_id != project_config_id:
-            return False
-        current_mutation_version = (
-            self._ui_setting_reveal_active_ids_version_by_project.get(
-                project_config_id, 0
-            )
-        )
-        if current_mutation_version != lease_mutation_version:
-            return False
-        self.project_state_backend.projectConfigs[
-            project_config_id
-        ].activeIds = rollback_active_ids
-        self._record_ui_setting_reveal_active_ids_mutation(
-            project_config_id=project_config_id,
-            invalidate_existing_leases=True,
-        )
-        project_state = self.get_single_config_state(project_config_id)
-        await self._update_and_broadcast_project_state_no_name_validation(
-            project_state,
-            updateFileWatcher=False,
-        )
-        return True
-
-    def _record_ui_setting_reveal_active_ids_mutation(
-        self,
-        *,
-        project_config_id: ID,
-        invalidate_existing_leases: bool,
-    ) -> int:
-        next_mutation_version = (
-            self._ui_setting_reveal_active_ids_version_by_project.get(
-                project_config_id, 0
-            )
-            + 1
-        )
-        self._ui_setting_reveal_active_ids_version_by_project[project_config_id] = (
-            next_mutation_version
-        )
-        if invalidate_existing_leases:
-            self._invalidate_ui_setting_reveal_leases(
-                project_config_id=project_config_id
-            )
-        return next_mutation_version
-
-    def _invalidate_ui_setting_reveal_leases(
-        self,
-        *,
-        project_config_id: ID,
-    ) -> None:
-        lease_ids_to_invalidate = [
-            lease_id
-            for lease_id, (
-                lease_project_config_id,
-                _,
-            ) in self._ui_setting_reveal_leases.items()
-            if lease_project_config_id == project_config_id
-        ]
-        for lease_id in lease_ids_to_invalidate:
-            del self._ui_setting_reveal_leases[lease_id]
 
     @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):

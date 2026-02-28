@@ -2,8 +2,6 @@ import pytest
 
 from setta.app.spec_store import default_app_spec_path
 from setta.project_state.project_manager_types import (
-    CreateTopLevelSectionRequest,
-    SetActiveIdsRequest,
     SetShowParamDisplayNamesRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -15,7 +13,6 @@ from setta.types.project_config import (
     ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
 )
-from setta.types.section_impls import SectionType
 from tests.utils.manager_fixture import real_project_manager
 
 
@@ -66,66 +63,11 @@ async def test_compare_and_set_python_codegen_enabled_same_value_is_noop_preserv
 
 
 @pytest.mark.asyncio
-async def test_set_active_ids_for_ui_setting_reveal_supersedes_stale_lease_without_rebroadcast(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_project_manager_no_longer_exposes_backend_reveal_lease_helpers() -> None:
     async with real_project_manager() as fixture:
         manager = fixture.manager
-        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
-        create_result = await manager.create_top_level_section(
-            CreateTopLevelSectionRequest(
-                projectConfigId=project_config_id,
-                implType=SectionType.Dict,
-                controlCodeObjType=None,
-                implOverrides=None,
-                position=None,
-                topLevelSections=None,
-                viewportBounds=None,
-            )
-        )
-        section_id = create_result.sectionId
-        await manager.set_active_ids(
-            SetActiveIdsRequest(
-                projectConfigId=project_config_id,
-                activeIds=[],
-            )
-        )
-        broadcast_calls = 0
-        original_update = manager._update_and_broadcast_project_state_no_name_validation
-
-        async def _record_update(*args, **kwargs) -> None:
-            nonlocal broadcast_calls
-            broadcast_calls += 1
-            await original_update(*args, **kwargs)
-
-        monkeypatch.setattr(
-            manager,
-            "_update_and_broadcast_project_state_no_name_validation",
-            _record_update,
-        )
-
-        # A second lease acquisition for the same activeIds must supersede rollback ownership.
-        first_lease_id = await manager.set_active_ids_for_ui_setting_reveal(
-            project_config_id=project_config_id,
-            active_ids=[section_id],
-        )
-        second_lease_id = await manager.set_active_ids_for_ui_setting_reveal(
-            project_config_id=project_config_id,
-            active_ids=[section_id],
-        )
-
-        assert first_lease_id != second_lease_id
-        stale_rollback_applied = (
-            await manager.rollback_active_ids_for_ui_setting_reveal(
-                project_config_id=project_config_id,
-                reveal_activation_lease_id=first_lease_id,
-                rollback_active_ids=[],
-            )
-        )
-        assert stale_rollback_applied is False
-        updated_state = manager.get_single_config_state(project_config_id)
-        assert updated_state.projectConfig.activeIds == [section_id]
-        assert broadcast_calls == 1
+        assert not hasattr(type(manager), "set_active_ids_for_ui_setting_reveal")
+        assert not hasattr(type(manager), "rollback_active_ids_for_ui_setting_reveal")
 
 
 @pytest.mark.asyncio

@@ -828,15 +828,15 @@ async def test_ui_setting_tools_normalize_setting_id_whitespace() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reveal_right_pane_does_not_use_backend_active_ids_reveal_helpers(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_reveal_right_pane_uses_frontend_owned_activation_flow() -> None:
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
         manager = project_fixture.manager
+        assert not hasattr(type(manager), "set_active_ids_for_ui_setting_reveal")
+        assert not hasattr(type(manager), "rollback_active_ids_for_ui_setting_reveal")
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
         create_result = await manager.create_top_level_section(
             CreateTopLevelSectionRequest(
@@ -857,35 +857,6 @@ async def test_reveal_right_pane_does_not_use_backend_active_ids_reveal_helpers(
             )
         )
 
-        async def _fail_set_active_ids_for_ui_setting_reveal(
-            *,
-            project_config_id: ID,  # noqa: ARG001
-            active_ids: list[ID],  # noqa: ARG001
-        ) -> str:
-            raise AssertionError(
-                "set_active_ids_for_ui_setting_reveal should not be called"
-            )
-
-        async def _fail_rollback_active_ids_for_ui_setting_reveal(
-            *,
-            project_config_id: ID,  # noqa: ARG001
-            reveal_activation_lease_id: str,  # noqa: ARG001
-            rollback_active_ids: list[ID],  # noqa: ARG001
-        ) -> bool:
-            raise AssertionError(
-                "rollback_active_ids_for_ui_setting_reveal should not be called"
-            )
-
-        monkeypatch.setattr(
-            manager,
-            "set_active_ids_for_ui_setting_reveal",
-            _fail_set_active_ids_for_ui_setting_reveal,
-        )
-        monkeypatch.setattr(
-            manager,
-            "rollback_active_ids_for_ui_setting_reveal",
-            _fail_rollback_active_ids_for_ui_setting_reveal,
-        )
         ctx = _build_ctx(
             main_manager=manager,
             settings_manager=settings_fixture.manager,

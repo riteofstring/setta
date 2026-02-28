@@ -51,7 +51,6 @@ type PluginRevealResult = {
 
 type PluginRevealHandlerOutcome =
   | { status: "handled"; message: null }
-  | { status: "retryable_failure"; message: string }
   | { status: "terminal_failure"; message: string };
 
 type LocalStorageState = ReturnType<typeof useLocalStorage.getState>;
@@ -346,37 +345,9 @@ async function applyRevealMutationsWithLease({
     const localStorageSnapshot = captureRevealLocalStorageSnapshot();
     const projectStateSnapshot = captureRevealProjectStateSnapshot();
     const mutationDiff = createEmptyRevealMutationDiff();
-    const requestedSectionActivationResult =
-      applyRequestedActiveSectionForReveal({
-        requestedActiveSectionId,
-        fallbackProjectConfigId,
-        mutationDiff,
-      });
-    if (!requestedSectionActivationResult.ok) {
-      return {
-        ok: false,
-        status: {
-          settingId: target.settingId,
-          status: "failed",
-          errorCode: "mutation_failed",
-          errorMessage: requestedSectionActivationResult.errorMessage,
-        },
-      };
-    }
-    const opened = openPaneForRevealTarget(target, mutationDiff);
-    if (!opened.ok) {
-      return {
-        ok: false,
-        status: {
-          settingId: target.settingId,
-          status: "failed",
-          errorCode: "mutation_failed",
-          errorMessage: opened.errorMessage,
-        },
-      };
-    }
-    const postPaneMismatch = resolveRevealExecutionMismatch(executionContext);
-    if (postPaneMismatch !== null) {
+    const buildMutationFailureResult = (
+      status: UISettingRevealResultStatus,
+    ): RevealMutationResult => {
       const postMutationLocalStorageSnapshot =
         captureRevealLocalStorageSnapshot();
       const postMutationProjectStateSnapshot =
@@ -390,11 +361,40 @@ async function applyRevealMutationsWithLease({
       });
       return {
         ok: false,
-        status: buildExecutionContextMismatchStatus(
+        status,
+      };
+    };
+    const requestedSectionActivationResult =
+      applyRequestedActiveSectionForReveal({
+        requestedActiveSectionId,
+        fallbackProjectConfigId,
+        mutationDiff,
+      });
+    if (!requestedSectionActivationResult.ok) {
+      return buildMutationFailureResult({
+        settingId: target.settingId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: requestedSectionActivationResult.errorMessage,
+      });
+    }
+    const opened = openPaneForRevealTarget(target, mutationDiff);
+    if (!opened.ok) {
+      return buildMutationFailureResult({
+        settingId: target.settingId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: opened.errorMessage,
+      });
+    }
+    const postPaneMismatch = resolveRevealExecutionMismatch(executionContext);
+    if (postPaneMismatch !== null) {
+      return buildMutationFailureResult(
+        buildExecutionContextMismatchStatus(
           target.settingId,
           postPaneMismatch.message,
         ),
-      };
+      );
     }
     applyRevealActivationSteps({
       target,
@@ -404,24 +404,12 @@ async function applyRevealMutationsWithLease({
     const postActivationMismatch =
       resolveRevealExecutionMismatch(executionContext);
     if (postActivationMismatch !== null) {
-      const postMutationLocalStorageSnapshot =
-        captureRevealLocalStorageSnapshot();
-      const postMutationProjectStateSnapshot =
-        captureRevealProjectStateSnapshot();
-      restoreRevealMutationSnapshotsIfOwned({
-        localStorageSnapshot,
-        postMutationLocalStorageSnapshot,
-        projectStateSnapshot,
-        postMutationProjectStateSnapshot,
-        mutationDiff,
-      });
-      return {
-        ok: false,
-        status: buildExecutionContextMismatchStatus(
+      return buildMutationFailureResult(
+        buildExecutionContextMismatchStatus(
           target.settingId,
           postActivationMismatch.message,
         ),
-      };
+      );
     }
     const postMutationLocalStorageSnapshot =
       captureRevealLocalStorageSnapshot();

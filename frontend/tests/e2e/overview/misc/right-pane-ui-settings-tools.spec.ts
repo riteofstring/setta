@@ -123,6 +123,82 @@ async function resolveTemporarySectionIdFromSummary(
   return matchedSection.sectionId;
 }
 
+async function readFrontendActiveIds(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    return [...useProjectState.getState().projectConfig.activeIds];
+  });
+}
+
+async function setFrontendActiveIds(
+  page: Page,
+  nextActiveIds: string[],
+): Promise<void> {
+  await page.evaluate(async (activeIds) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = activeIds;
+    });
+  }, nextActiveIds);
+}
+
+async function rewriteNextRevealActiveSectionId(
+  page: Page,
+  replacementSectionId: string,
+): Promise<void> {
+  await page.evaluate((replacement) => {
+    type RevealRewriteWindow = Window & {
+      __settaRevealActiveSectionRewriteInstalled?: boolean;
+      __settaRevealActiveSectionRewriteConsumed?: boolean;
+      __settaRevealActiveSectionRewriteOriginalParse?: typeof JSON.parse;
+    };
+    const windowRef = window as RevealRewriteWindow;
+    windowRef.__settaRevealActiveSectionRewriteConsumed = false;
+    if (windowRef.__settaRevealActiveSectionRewriteInstalled) {
+      return;
+    }
+    windowRef.__settaRevealActiveSectionRewriteInstalled = true;
+    const originalParse = JSON.parse.bind(JSON);
+    windowRef.__settaRevealActiveSectionRewriteOriginalParse = originalParse;
+    JSON.parse = function patchedParse(
+      text: string,
+      reviver?: (this: unknown, key: string, value: unknown) => unknown,
+    ): unknown {
+      const parsed = originalParse(text, reviver);
+      if (
+        windowRef.__settaRevealActiveSectionRewriteConsumed ||
+        typeof parsed !== "object" ||
+        parsed === null
+      ) {
+        return parsed;
+      }
+      const payload = parsed as {
+        messageType?: unknown;
+        content?: { activeSectionId?: unknown };
+      };
+      if (
+        payload.messageType === "UISettingReveal" &&
+        payload.content &&
+        typeof payload.content.activeSectionId === "string"
+      ) {
+        payload.content.activeSectionId = replacement;
+        windowRef.__settaRevealActiveSectionRewriteConsumed = true;
+      }
+      return payload;
+    };
+  }, replacementSectionId);
+}
+
+async function wasRevealActiveSectionRewriteConsumed(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    type RevealRewriteWindow = Window & {
+      __settaRevealActiveSectionRewriteConsumed?: boolean;
+    };
+    const windowRef = window as RevealRewriteWindow;
+    return windowRef.__settaRevealActiveSectionRewriteConsumed === true;
+  });
+}
+
 test("right-pane reveal_ui_setting returns failure when no section is active", async ({
   page,
 }) => {
@@ -249,6 +325,94 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
     });
     expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual([
       sectionId,
+    ]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("right-pane reveal_ui_setting restores frontend activeIds when incoming reveal target is stale", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const initialSectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
+  const requestedSectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
+  const initialSectionName = `right-pane-stale-initial-${Date.now()}`;
+  const requestedSectionName = `right-pane-stale-target-${Date.now()}`;
+
+  try {
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: initialSectionId,
+      name: initialSectionName,
+    });
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: requestedSectionId,
+      name: requestedSectionName,
+    });
+
+    const seedResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+      },
+    );
+    if (typeof seedResult.projectConfigId !== "string") {
+      throw new Error(
+        `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
+      );
+    }
+    const temporaryInitialSectionId = await resolveTemporarySectionIdFromSummary(
+      page,
+      projectContext.projectConfigId,
+      seedResult.projectConfigId,
+      initialSectionName,
+    );
+    const temporaryRequestedSectionId = await resolveTemporarySectionIdFromSummary(
+      page,
+      projectContext.projectConfigId,
+      seedResult.projectConfigId,
+      requestedSectionName,
+    );
+    await setFrontendActiveIds(page, [temporaryInitialSectionId]);
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([
+      temporaryInitialSectionId,
+    ]);
+
+    await rewriteNextRevealActiveSectionId(
+      page,
+      "missing-section-for-reveal-rollback",
+    );
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+        sectionIdToActivate: temporaryRequestedSectionId,
+        durationMs: 3000,
+      },
+    );
+
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "Right-pane reveal requires an active section",
+    );
+    expect(await wasRevealActiveSectionRewriteConsumed(page)).toBe(true);
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([
+      temporaryInitialSectionId,
     ]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);

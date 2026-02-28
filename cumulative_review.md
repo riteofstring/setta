@@ -668,3 +668,27 @@
 2. UX after: generation/cleanup/format steps are completed and synchronized for the current workspace state.
 3. DX before: this run state was not yet recorded in cumulative review history.
 4. DX after: the run outcomes and constraints are explicitly documented in `cumulative_review.md`.
+
+## 2026-02-27 09:36:43 PST
+
+### Consolidated Findings
+1. Frontend reveal mutation flow still required a single rollback boundary so all post-snapshot failure exits restore `activeIds`/pane state deterministically.
+2. Backend/frontend had dead or orphaned reveal-related helpers/APIs that were no longer part of the production reveal path.
+3. Workspace needed a fresh generation/cleanup pass and root-level `review*.md` cleanup before commit finalization.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Centralized mutation-phase failure rollback in frontend `uiSettingReveal` so failed right-pane/stale-section flows restore pre-mutation snapshots on every non-success exit.
+2. Removed unreachable `retryable_failure` reveal outcome type branch.
+3. Removed unused backend helper functions in `frontend_affinity_token.py` and `ui_settings/registry.py`.
+4. Removed orphan backend reveal-lease state/methods from `BaseProjectManager` and updated tests to assert the frontend-owned activation path.
+5. Added/updated Vitest, pytest integration, and Playwright coverage for reveal rollback invariants and single-path ownership assertions.
+6. Ran `pnpm gcf` in `frontend/` (repo root has no importer manifest) to complete generation/cleanup/prune/format flows.
+7. Removed top-level `review*.md` files.
+
+### UX/DX Before and After
+1. UX before: failed reveal requests could leave selection/pane state drift in race-like failure paths.
+2. UX after: failed reveal requests are side-effect free for activation/focus state.
+3. UX before: duplicate/dead reveal ownership paths increased hidden regression surface.
+4. UX after: one production reveal ownership path with leaner code and clearer failure semantics.
+5. DX before: maintainers had to reason about unreachable variants and orphan manager APIs.
+6. DX after: reveal flow ownership and rollback behavior are explicit, with tighter unit/integration/e2e guardrails.
