@@ -41,7 +41,7 @@ from setta.llm.transcription_capabilities import supports_realtime_transcription
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaFullRuntimeAPIRouter
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -70,7 +70,7 @@ from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
 from setta.utils.constants import C
 
-router = SettaAPIRouter()
+router = SettaFullRuntimeAPIRouter()
 
 
 class CreateAgentProfileRequest(BaseModel):
