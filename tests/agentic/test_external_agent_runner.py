@@ -35,6 +35,8 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentRunState,
     ExternalAgentRunner,
     _extract_status_payloads,
+    _extract_usage_payloads,
+    _normalize_external_usage_payload,
     _resolve_mcp_runtime_state,
 )
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
@@ -3176,6 +3178,128 @@ class TestExternalAgentRunnerClaudeCapture:
             assert isinstance(tool_calls, list)
             assert len(tool_calls) == 1
             assert tool_calls[0].get("id") == "toolu-1"
+
+
+class TestExternalAgentRunnerUsage:
+    def test_normalize_external_usage_payload_maps_codex_and_context_fields(self) -> None:
+        payload = {
+            "usedTokens": "17",
+            "windowTokens": 272000,
+            "output_tokens": 9,
+        }
+
+        # Codex tokenUsage payloads should normalize to the shared usage shape.
+        normalized = _normalize_external_usage_payload(payload)
+
+        assert normalized == {
+            "inputTokens": 17,
+            "promptTokens": 17,
+            "outputTokens": 9,
+            "completionTokens": 9,
+            "totalTokens": 26,
+            "contextWindowTokens": 272000,
+        }
+
+    def test_extract_usage_payloads_reads_claude_result_message_usage(self) -> None:
+        payload = {
+            "type": "result_message",
+            "message": {
+                "usage": {
+                    "input_tokens": 13,
+                    "output_tokens": 4,
+                }
+            },
+        }
+
+        # Claude result envelopes should expose usage for runner-side capture.
+        usage_payloads = _extract_usage_payloads(payload)
+
+        assert len(usage_payloads) == 1
+        assert usage_payloads[0] == {"input_tokens": 13, "output_tokens": 4}
+
+    def test_extract_usage_payloads_reads_codex_thread_token_usage_result(self) -> None:
+        payload = {
+            "method": "thread/tokenUsage/read",
+            "result": {
+                "usedTokens": 31,
+                "windowTokens": 272000,
+            },
+        }
+
+        # Codex thread token-usage notifications should be discoverable.
+        usage_payloads = _extract_usage_payloads(payload)
+
+        assert usage_payloads
+        assert {"usedTokens": 31, "windowTokens": 272000} in usage_payloads
+
+    def test_capture_external_usage_from_codex_raw_payload_tracks_usage(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-codex",
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-codex"),
+            )
+            run = context.run
+
+            runner._capture_external_usage_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "method": "thread/tokenUsage/read",
+                    "result": {"usedTokens": 41, "windowTokens": 272000},
+                },
+            )
+
+            usage = runner._usage_by_run_id.get(run.id)
+            assert isinstance(usage, dict)
+            assert usage.get("inputTokens") == 41
+            assert usage.get("promptTokens") == 41
+            assert usage.get("contextWindowTokens") == 272000
+
+    def test_persist_outputs_from_state_merges_tracked_and_existing_usage(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-4o-mini",
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-codex"),
+            )
+            run = context.run
+            run.outputs = {"usage": {"completionTokens": 3}}
+            runner._usage_by_run_id[run.id] = {"promptTokens": 5}
+
+            # Persists merged usage and fills context window metadata.
+            runner._persist_outputs_from_state(run, config)
+
+            persisted = load_agent_run(dbe, run.id)
+            assert persisted is not None
+            outputs = persisted.outputs
+            assert isinstance(outputs, dict)
+            usage = outputs.get("usage")
+            assert isinstance(usage, dict)
+            assert usage.get("promptTokens") == 5
+            assert usage.get("completionTokens") == 3
+            assert usage.get("totalTokens") == 8
+            context_window_tokens = usage.get("contextWindowTokens")
+            assert isinstance(context_window_tokens, int)
+            assert context_window_tokens > 0
 
 
 class TestExternalAgentRunnerMcpAuth:

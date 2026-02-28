@@ -624,6 +624,10 @@ def _build_result_message_payload(message: ResultMessage) -> dict[str, Any] | No
         dumped = message.dict()
         if isinstance(dumped, dict):
             return {"type": "result_message", "message": dumped}
+    if hasattr(message, "__dict__"):
+        dumped = message.__dict__
+        if isinstance(dumped, dict):
+            return {"type": "result_message", "message": dumped}
     return None
 
 

@@ -12,7 +12,10 @@ from setta.agentic.external_adapters.codex_app_server import (
     _build_turn_params,
     _map_approval_policy,
 )
-from setta.agentic.external_adapters.base import ExternalAgentRunContext
+from setta.agentic.external_adapters.base import (
+    ExternalAgentRunContext,
+    ExternalAgentRunHandle,
+)
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.types.agentic import AgentRun
 from setta.types.chat_messages import (
@@ -1267,3 +1270,52 @@ class TestCodexAppServerMcpStatusProbe:
         # Startup should succeed even when the optional status probe fails.
         assert "mcp_server_status_payload" not in handle.metadata
         state.lock.release()
+
+    @pytest.mark.asyncio
+    async def test_read_thread_token_usage_uses_short_timeout_and_thread_id(self) -> None:
+        adapter = CodexAppServerAdapter()
+        state = SimpleNamespace(thread_id="thread-from-state")
+        handle = ExternalAgentRunHandle(run_id=ID("run-usage"), metadata={})
+        captured: dict[str, object] = {}
+
+        async def _send_request(
+            _state,
+            method: str,
+            params,
+            *,
+            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
+        ):
+            captured["method"] = method
+            captured["params"] = params
+            captured["timeout"] = timeout_seconds
+            return {"usedTokens": 11, "windowTokens": 272000}
+
+        adapter._send_request = _send_request
+
+        payload = await adapter._read_thread_token_usage(state, handle)
+
+        assert payload == {"usedTokens": 11, "windowTokens": 272000}
+        assert captured.get("method") == "thread/tokenUsage/read"
+        assert captured.get("params") == {"threadId": "thread-from-state"}
+        assert captured.get("timeout") == _MCP_STATUS_REQUEST_TIMEOUT_SECONDS
+
+    @pytest.mark.asyncio
+    async def test_read_thread_token_usage_returns_none_on_request_error(self) -> None:
+        adapter = CodexAppServerAdapter()
+        state = SimpleNamespace(thread_id="thread-1")
+        handle = ExternalAgentRunHandle(run_id=ID("run-usage-fail"), metadata={})
+
+        async def _send_request(
+            _state,
+            _method: str,
+            _params,
+            *,
+            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
+        ):
+            raise RuntimeError(f"timeout: {timeout_seconds}")
+
+        adapter._send_request = _send_request
+
+        payload = await adapter._read_thread_token_usage(state, handle)
+
+        assert payload is None

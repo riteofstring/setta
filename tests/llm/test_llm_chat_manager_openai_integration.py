@@ -243,6 +243,23 @@ class TestLLMChatManagerOpenAIIntegration:
                 assert metadata.get("thinking") is False
                 assert metadata.get("projectConfigId") == str(project_config.id)
                 assert metadata.get("chatId") == str(first_run.id)
+                # Integration assertion: usage comes from provider/runtime metadata,
+                # including the model context window and real token counts.
+                usage = outputs.get("usage")
+                assert isinstance(usage, dict)
+                context_window_tokens = usage.get("contextWindowTokens")
+                prompt_tokens = usage.get("promptTokens")
+                completion_tokens = usage.get("completionTokens")
+                total_tokens = usage.get("totalTokens")
+                assert isinstance(context_window_tokens, int)
+                assert isinstance(prompt_tokens, int)
+                assert isinstance(completion_tokens, int)
+                assert isinstance(total_tokens, int)
+                assert context_window_tokens > 0
+                assert prompt_tokens > 0
+                assert completion_tokens > 0
+                assert total_tokens == prompt_tokens + completion_tokens
+                assert context_window_tokens >= total_tokens
 
                 messages_out = outputs.get("messages")
                 assert isinstance(messages_out, list)
