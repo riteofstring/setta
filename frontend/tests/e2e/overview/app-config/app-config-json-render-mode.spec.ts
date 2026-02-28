@@ -210,7 +210,10 @@ test("json-render mode does not eager-load AI chat config until chat-backed mode
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        apiKeys: {},
+        revision: 0,
+      }),
     });
   });
   await page.route("**/api/getEngineConfigs", async (route) => {

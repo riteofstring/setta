@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import Request
+from starlette.types import Scope
 
 from setta.middleware import auth as auth_middleware
 from setta.utils import constants
@@ -11,7 +12,7 @@ def _make_request(
     headers: list[tuple[bytes, bytes]] | None = None,
     client_host: str = "127.0.0.1",
 ) -> Request:
-    scope: dict[str, Any] = {
+    scope: Scope = {
         "type": "http",
         "http_version": "1.1",
         "scheme": "http",
@@ -51,10 +52,7 @@ def test_dev_auto_auth_allows_referer_even_with_untrusted_origin(monkeypatch):
             (b"referer", f"{allowed_origin}/path".encode()),
         ]
     )
-    assert auth_middleware._should_auto_auth_dev_request(
-        request,
-        session_id="session-1",
-    )
+    assert auth_middleware._should_auto_auth_dev_request(request)
 
 
 def test_dev_auto_auth_accepts_allowed_origin(monkeypatch):
@@ -63,10 +61,7 @@ def test_dev_auto_auth_accepts_allowed_origin(monkeypatch):
         f"http://{constants.C.HOST}:{constants.C.DEV_MODE_FRONTEND_PORT}"
     )
     request = _make_request(headers=[(b"origin", allowed_origin.encode())])
-    assert auth_middleware._should_auto_auth_dev_request(
-        request,
-        session_id="session-1",
-    )
+    assert auth_middleware._should_auto_auth_dev_request(request)
 
 
 def test_dev_auto_auth_falls_back_to_referer_when_origin_missing(monkeypatch):
@@ -77,7 +72,4 @@ def test_dev_auto_auth_falls_back_to_referer_when_origin_missing(monkeypatch):
     request = _make_request(
         headers=[(b"referer", f"{allowed_origin}/path".encode())]
     )
-    assert auth_middleware._should_auto_auth_dev_request(
-        request,
-        session_id="session-1",
-    )
+    assert auth_middleware._should_auto_auth_dev_request(request)

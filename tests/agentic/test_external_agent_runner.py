@@ -940,6 +940,54 @@ class TestExternalAgentRunner:
             )
             assert settings_paths.get("codex") == str(expected_codex_path)
 
+    def test_run_outputs_store_runtime_model_override_in_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-4o-mini",
+            )
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-runtime-model",
+                    "projectConfigId": "config-runtime-model",
+                    "engineConfigId": "engine-runtime-model",
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "model": "gpt-5-codex",
+                },
+                run_id=ID("chat-runtime-model"),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                run,
+                MessageStartEvent(
+                    message=AssistantChatMessage(
+                        id="m-runtime-model",
+                        content=[],
+                    )
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                run,
+                MessageFinalizedEvent(
+                    message=AssistantChatMessage(
+                        id="m-runtime-model",
+                        content=[MessageTextContent(text="Done")],
+                    )
+                ),
+            )
+
+            runner._persist_outputs_from_state(run, config, state)
+
+            assert run.outputs is not None
+            metadata = run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            assert metadata.get("model") == "gpt-5-codex"
+
     def test_run_outputs_prefer_session_settings_paths_when_present(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1116,99 +1164,169 @@ class TestExternalAgentRunner:
             assert resolved.exists()
             assert resolved == working_dir
 
-    def test_env_whitelist_reads_dotenv(self) -> None:
+    def test_env_whitelist_reads_process_env(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            try:
+                os.environ["OPENAI_API_KEY"] = "secret"
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
+
+                env = runner._build_env(config)
+
+                assert env.get("OPENAI_API_KEY") == "secret"
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+
+    def test_env_whitelist_ignores_whitespace_process_values(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            try:
+                os.environ["OPENAI_API_KEY"] = "   "
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
+
+                env = runner._build_env(config)
+
+                assert "OPENAI_API_KEY" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+
+    def test_env_whitelist_ignores_dotenv_without_managed_or_process_value(self) -> (
+        None
+    ):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             dbe.dot_env = Path(tmpdir) / ".env"
             dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-                envVarWhitelist=["OPENAI_API_KEY"],
-            )
+            previous_openai_key = os.environ.pop("OPENAI_API_KEY", None)
+            try:
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("OPENAI_API_KEY") == "secret"
+                assert "OPENAI_API_KEY" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
 
     def test_plugin_adapter_env_whitelist_is_applied_in_runtime_env(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env({"FIXTURE_EXTERNAL_AGENT_TOKEN": "secret"})
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Fixture Plugin Adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=[],
-            )
+            previous_plugin_key = os.environ.get("FIXTURE_EXTERNAL_AGENT_TOKEN")
+            try:
+                os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = "secret"
+                websocket_manager = WebsocketManager()
+                frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+                registration = PluginRegisteredExternalAgentAdapter(
+                    adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                    pluginId="setta-fixture-backend-external-agent",
+                    name="Fixture External Agent",
+                    runModes=["sdk"],
+                    command=sys.executable,
+                    args=["-c", "print('fixture')"],
+                    envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                    defaultModel="fixture-model",
+                )
+                runner = ExternalAgentRunner(
+                    dbe,
+                    frontend_sender,
+                    plugin_external_agent_adapters=[registration],
+                )
+                config = ExternalAgentConfig(
+                    name="Fixture Plugin Adapter",
+                    toolType=ExternalAgentToolType.plugin,
+                    pluginAdapterId=registration.adapterId,
+                    runMode=ExternalAgentRunMode.sdk,
+                    envVarWhitelist=[],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+                assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+            finally:
+                if previous_plugin_key is None:
+                    os.environ.pop("FIXTURE_EXTERNAL_AGENT_TOKEN", None)
+                else:
+                    os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = previous_plugin_key
 
     def test_non_plugin_tool_ignores_plugin_adapter_env_whitelist(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env(
-                {
-                    "OPENAI_API_KEY": "openai-secret",
-                    "FIXTURE_EXTERNAL_AGENT_TOKEN": "plugin-secret",
-                }
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.app_server,
-                envVarWhitelist=["OPENAI_API_KEY"],
-            )
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            previous_plugin_key = os.environ.get("FIXTURE_EXTERNAL_AGENT_TOKEN")
+            try:
+                os.environ["OPENAI_API_KEY"] = "openai-secret"
+                os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = "plugin-secret"
+                websocket_manager = WebsocketManager()
+                frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+                registration = PluginRegisteredExternalAgentAdapter(
+                    adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                    pluginId="setta-fixture-backend-external-agent",
+                    name="Fixture External Agent",
+                    runModes=["sdk"],
+                    command=sys.executable,
+                    args=["-c", "print('fixture')"],
+                    envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                    defaultModel="fixture-model",
+                )
+                runner = ExternalAgentRunner(
+                    dbe,
+                    frontend_sender,
+                    plugin_external_agent_adapters=[registration],
+                )
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    pluginAdapterId=registration.adapterId,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("OPENAI_API_KEY") == "openai-secret"
-            assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+                assert env.get("OPENAI_API_KEY") == "openai-secret"
+                assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+                if previous_plugin_key is None:
+                    os.environ.pop("FIXTURE_EXTERNAL_AGENT_TOKEN", None)
+                else:
+                    os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = previous_plugin_key
 
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1350,12 +1468,77 @@ class TestExternalAgentRunner:
                 dbe.path / "external_agent_settings" / "codex" / "codex-config"
             )
             expected_runtime_dir = expected_dir / "sessions" / str(context.chat_id)
-            # With agentic headers/session-scoped home we skip writing the base config.
-            assert not (expected_dir / "config.toml").exists()
+            canonical_config_path = expected_dir / "config.toml"
+            assert canonical_config_path.exists()
+            canonical_payload = tomllib.loads(
+                canonical_config_path.read_text(encoding="utf-8")
+            )
+            assert isinstance(canonical_payload.get("codexMcpImportedAt"), str)
             assert Path(str(codex_home)) == expected_runtime_dir
 
             runner._cleanup_context(context)
             assert config_path.exists()
+
+    def test_codex_runtime_home_respects_canonical_bootstrap_marker(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            config = ExternalAgentConfig(
+                id="codex-runtime-marker",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            with pytest.MonkeyPatch.context() as monkeypatch:
+                monkeypatch.setenv("CODEX_HOME", str(codex_home))
+                context_1 = _build_context_for_test(runner, config)
+                canonical_config_path = (
+                    dbe.path
+                    / "external_agent_settings"
+                    / "codex"
+                    / "codex-runtime-marker"
+                    / "config.toml"
+                )
+                canonical_payload = tomllib.loads(
+                    canonical_config_path.read_text(encoding="utf-8")
+                )
+                marker = canonical_payload.get("codexMcpImportedAt")
+                assert isinstance(marker, str)
+                canonical_config_path.write_text(
+                    f'codexMcpImportedAt = "{marker}"\n',
+                    encoding="utf-8",
+                )
+
+                context_2 = _build_context_for_test(runner, config)
+                runtime_payload = tomllib.loads(
+                    (
+                        Path(str(context_2.env["CODEX_HOME"])) / "config.toml"
+                    ).read_text(encoding="utf-8")
+                )
+                runtime_servers = runtime_payload.get("mcp_servers")
+                assert isinstance(runtime_servers, dict)
+                if not isinstance(runtime_servers, dict):
+                    raise AssertionError("Expected mcp_servers table")
+                assert "figma-desktop" not in runtime_servers
+                assert runtime_servers.get("setta", {}).get("url") == (
+                    f"{C.BACKEND}/mcp/streamable/"
+                )
+
+                runner._cleanup_context(context_1)
+                runner._cleanup_context(context_2)
 
     def test_codex_config_writes_policy_fields(self) -> None:
         with TemporaryDirectory() as tmpdir:

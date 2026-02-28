@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { encodeBase64Url } from "./base64Url";
 import type { LaunchRequestInput } from "./generatedTypes";
 import {
-  buildWorkspaceLaunchIntentHash,
   consumeOpenWorkspaceSwitcherRequest,
+  encodePendingWorkspaceLaunchForUrlHash,
   readPendingWorkspaceLaunch,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
@@ -99,40 +98,47 @@ describe("workspaceSwitcherLaunch", () => {
     expect(pending?.requestedAt).toBe(123);
   });
 
-  it("can consume pending launch intent from the URL hash", () => {
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "intent-token",
+  it("can consume pending launch from the URL hash", () => {
+    const request: LaunchRequestInput = { workspaceRoot: "/tmp/work" };
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request,
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("intent-token");
-    expect(pending?.returnUrl).toBe("http://localhost/home");
     expect(pending?.requestedAt).toBe(456);
-    expect(windowStub.location.hash).not.toContain("plt=");
-    expect(windowStub.location.href).not.toContain("plt=");
+    expect(windowStub.location.hash).not.toContain("pl=");
+    expect(windowStub.location.href).not.toContain("pl=");
   });
 
-  it("prefers the URL hash intent over sessionStorage when both exist", () => {
+  it("prefers the URL hash payload over sessionStorage when both exist", () => {
     writePendingWorkspaceLaunch({
       request: { workspaceRoot: "/tmp/stale" },
       returnUrl: "http://localhost/project",
       requestedAt: 123,
     });
 
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "fresh-intent-token",
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/fresh" },
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("fresh-intent-token");
+    expect(pending?.request.workspaceRoot).toBe("/tmp/fresh");
     expect(pending?.requestedAt).toBe(456);
 
     const stored = memoryStorage.getItem("setta.pendingWorkspaceLaunch");
-    expect(stored).toContain("fresh-intent-token");
+    expect(stored).toContain("/tmp/fresh");
     expect(stored).not.toContain("/tmp/stale");
   });
 
@@ -156,11 +162,15 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("cleans the URL hash even when history state is not cloneable", () => {
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "intent-token",
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/work" },
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     windowStub.history.state = { from: "test" };
     const originalReplaceState = windowStub.history.replaceState;
@@ -186,31 +196,7 @@ describe("workspaceSwitcherLaunch", () => {
 
     expect(seenStates[0]).toMatchObject({ from: "test" });
     expect(seenStates[1]).toBeNull();
-    expect(windowStub.location.href).not.toContain("plt=");
-  });
-
-  it("does not decode legacy raw payload hashes", () => {
-    const payload = JSON.stringify({
-      request: { workspaceRoot: "/tmp/forged" },
-      returnUrl: "http://localhost/project",
-      requestedAt: 999,
-    });
-    const encoded = encodeBase64Url(new TextEncoder().encode(payload));
-    windowStub.location.hash = `#pl=${encoded}`;
-
-    const pending = readPendingWorkspaceLaunch();
-    expect(pending).toBeNull();
-    expect(windowStub.location.hash).not.toContain("pl=");
-  });
-
-  it("ignores forged plr hash params and uses the safe default return URL", () => {
-    windowStub.location.hash =
-      "#plt=intent-token&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU&pla=123";
-
-    const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("intent-token");
-    expect(pending?.returnUrl).toBe("http://localhost/home");
-    expect(windowStub.location.hash).not.toContain("plr=");
+    expect(windowStub.location.href).not.toContain("pl=");
   });
 
   it("consumes the open-switcher request from the URL", () => {

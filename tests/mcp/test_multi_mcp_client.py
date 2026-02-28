@@ -380,3 +380,60 @@ class TestMultiMCPClientRuntimeStatus:
         assert retry_marks == []
         assert sleep_calls == []
         assert cleanup_calls == ["github"]
+
+
+class TestMultiMCPClientHTTPHeaders:
+    def test_build_http_headers_merges_config_and_setta_auth(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = MultiMCPClient(
+            {
+                SETTA_MCP_SERVER_ID: MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                    http_headers={"Authorization": "Bearer custom-token"},
+                )
+            }
+        )
+        config = client.server_configs[SETTA_MCP_SERVER_ID]
+        monkeypatch.setattr(
+            client,
+            "_build_setta_auth_headers",
+            lambda _server_id: {"Cookie": "setta_session=cookie-value"},
+        )
+
+        headers = client._build_http_headers(SETTA_MCP_SERVER_ID, config)
+
+        assert headers == {
+            "Authorization": "Bearer custom-token",
+            "Cookie": "setta_session=cookie-value",
+        }
+
+    def test_build_http_headers_excludes_setta_auth_for_non_setta_server(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9001/mcp",
+                    http_headers={"X-Api-Key": "github-token"},
+                )
+            }
+        )
+        config = client.server_configs["github"]
+        monkeypatch.setattr(
+            client,
+            "_build_setta_auth_headers",
+            lambda server_id: (
+                {"Cookie": "should-not-apply"}
+                if server_id == SETTA_MCP_SERVER_ID
+                else None
+            ),
+        )
+
+        headers = client._build_http_headers("github", config)
+
+        assert headers == {"X-Api-Key": "github-token"}
