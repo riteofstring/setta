@@ -37,7 +37,7 @@ from setta.routers.app_generation_limits import (
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.frontend_affinity_token import require_frontend_affinity_token
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -57,7 +57,7 @@ from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 
-router = SettaProjectContextAPIRouter()
+router = SettaProjectContextFullRuntimeAPIRouter()
 
 AppGenerationMode = Literal[
     "json_render",

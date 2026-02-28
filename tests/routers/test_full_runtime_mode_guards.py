@@ -182,6 +182,34 @@ def test_get_listener_coverage_is_blocked_in_launcher_mode() -> None:
     assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
 
 
+def test_create_chat_is_blocked_in_launcher_mode() -> None:
+    # Listener chat routes are full-runtime-only and must fail fast in launcher mode.
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        dbe=_DeferredRuntimeField("dbe"),
+        agent_runner=_DeferredRuntimeField("agent_runner"),
+        wmh_frontend_sender=_DeferredRuntimeField("wmh_frontend_sender"),
+    )
+    app.include_router(listener_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.CREATE_CHAT.value}",
+            json={
+                "engineConfigId": None,
+                "firstMessage": {
+                    "id": "msg-1",
+                    "role": "user",
+                    "content": [{"type": "text", "text": "hello"}],
+                    "attachments": [],
+                },
+            },
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
 def test_update_artifacts_is_blocked_in_launcher_mode() -> None:
     app = FastAPI()
     app.state.setta = _build_launcher_mode_state(

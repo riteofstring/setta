@@ -45,6 +45,7 @@ def _find_api_route(*, route_path: str, routers: list) -> APIRoute:
         Route.GET_EXTERNAL_AGENT_HEALTH.value,
         Route.GET_AI_FOLLOW_SNAPSHOT.value,
         Route.GET_LISTENER_COVERAGE.value,
+        Route.CREATE_CHAT.value,
     ],
 )
 def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:

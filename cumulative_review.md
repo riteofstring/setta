@@ -233,3 +233,11 @@
 - Reordered launcher-state persistence to be commit-after-trust: `lastUsedWorkspace` and launcher recents now persist only after trusted-origin persistence succeeds; trust-failure paths perform rollback/error handling without launcher-state writes.
 - Extended tests across unit/integration/e2e for PID-identity rollback failures, trust-failure no-persist invariants, and success-path commit ordering; updated launcher-home Playwright coverage for open-failure UX behavior.
 - Ran requested cleanup workflow: root `pnpm gcf` failed due missing root importer manifest, then `pnpm -C frontend gcf` completed successfully.
+
+## 2026-02-27 14:00:32 PST
+
+- Enforced full-runtime boundary contracts by migrating `ai` and `listener` routers to `SettaProjectContextFullRuntimeAPIRouter` and migrating `mcp_tools` to `SettaFullRuntimeAPIRouter` (no backward-compatibility shim).
+- Fixed transport safety of launcher/IDE mode guard dependencies by resolving app state from request or websocket contexts and returning websocket-forbidden close semantics via `WebSocketException(code=4403)` for websocket-guarded routes.
+- Added launcher-mode fail-fast regression coverage for listener chat creation (`/createChat`) and expanded full-runtime policy assertions to include that route.
+- Added websocket guard and integration tests for non-launcher routers, including terminal websocket route behavior in non-launcher mode (handler reached) and launcher mode (closed with `4403` before handler side effects).
+- Ran requested cleanup workflow: attempted root `pnpm gcf` (no root importer manifest), then successfully ran `pnpm -C frontend gcf`.
