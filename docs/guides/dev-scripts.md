@@ -84,6 +84,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Backend pytest runner (invoked by `t.sh`).
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
+  - Always uses disposable temp `SETTA_WORKSPACE_ROOT` + `SETTA_HOME` paths for isolation.
 - `./scripts/plugin-fixtures/build.sh`
   - Builds fixture frontend assets under `tests/fixtures/plugins/**/frontend/dist`.
   - Used by fixture link/smoke flows and test runners.
