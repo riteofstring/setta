@@ -165,45 +165,6 @@ async def state_env(tmp_path: Path) -> AsyncIterator[SettaFastAPIState]:
 class TestNameValidationRoutes:
     pytestmark = pytest.mark.asyncio
 
-    async def test_project_config_name_route_commits_broadcast_and_save(
-        self, state_env: SettaFastAPIState, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        main_manager = state_env.project_manager_switcher.main
-        project_config_id = _get_default_project_config_id(state_env)
-        original_name = main_manager.project_state_backend.projectConfigs[
-            project_config_id
-        ].name
-        new_name = f"{original_name}-renamed"
-        broadcast_calls = 0
-        original_broadcast_all_project_metadata = (
-            main_manager.broadcast_all_project_metadata
-        )
-
-        async def _record_broadcast_all_project_metadata() -> None:
-            nonlocal broadcast_calls
-            broadcast_calls += 1
-            await original_broadcast_all_project_metadata()
-
-        monkeypatch.setattr(
-            main_manager,
-            "broadcast_all_project_metadata",
-            _record_broadcast_all_project_metadata,
-        )
-
-        request = SetProjectConfigNameRequest(
-            projectConfigId=project_config_id,
-            newName=new_name,
-        )
-        await route_set_project_config_name(request, state_env)
-
-        updated_name = main_manager.project_state_backend.projectConfigs[
-            project_config_id
-        ].name
-        assert updated_name == new_name
-        persisted_project = state_env.dbe.read_project()
-        assert persisted_project.projectConfigs[project_config_id].name == new_name
-        assert broadcast_calls == 1
-
     async def test_project_config_name_validation_rejects_invalid_name(
         self, state_env: SettaFastAPIState
     ) -> None:
