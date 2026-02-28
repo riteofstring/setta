@@ -1,6 +1,7 @@
 from fastapi.routing import APIRoute
 import pytest
 
+from setta.routers.ai import router as ai_router
 from setta.routers.app_spec_streaming import router as app_spec_streaming_router
 from setta.routers.agentic import router as agentic_router
 from setta.routers.artifact import router as artifact_router
@@ -11,6 +12,7 @@ from setta.routers.dependencies import (
     require_not_launcher_mode,
 )
 from setta.routers.llm import router as llm_router
+from setta.routers.listener import router as listener_router
 from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
@@ -38,6 +40,8 @@ def _find_api_route(*, route_path: str, routers: list) -> APIRoute:
         Route.LLM_CONFIG.value,
         Route.LLM_API_KEYS.value,
         Route.GET_EXTERNAL_AGENT_HEALTH.value,
+        Route.GET_AI_FOLLOW_SNAPSHOT.value,
+        Route.GET_LISTENER_COVERAGE.value,
     ],
 )
 def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
@@ -50,6 +54,8 @@ def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
             projects_router,
             llm_router,
             agentic_router,
+            ai_router,
+            listener_router,
         ],
     )
     dependency_calls = {

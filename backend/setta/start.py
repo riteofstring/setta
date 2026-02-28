@@ -119,14 +119,29 @@ SessionServerMode = Literal["ide", "launcher"]
 
 def _resolve_session_selection_server_mode(
     *,
-    selector: Literal["status-connect", "status-list", "stop"],
+    selector: Literal["status-connect", "status-list", "stop", "auth", "api-auto-auth"],
     requested_server_mode: SessionServerMode | None,
 ) -> SessionServerMode | None:
     if requested_server_mode is not None:
         return requested_server_mode
-    if selector in {"status-connect", "stop"}:
+    if selector in {"status-connect", "stop", "auth", "api-auto-auth"}:
         return "ide"
     return None
+
+
+def _filter_sessions_for_selector(
+    *,
+    sessions: list[SessionMetadata],
+    selector: Literal["status-connect", "status-list", "stop", "auth", "api-auto-auth"],
+    requested_server_mode: SessionServerMode | None,
+) -> list[SessionMetadata]:
+    session_mode = _resolve_session_selection_server_mode(
+        selector=selector,
+        requested_server_mode=requested_server_mode,
+    )
+    if session_mode is None:
+        return sessions
+    return [session for session in sessions if session.serverMode == session_mode]
 
 
 def _resolve_cli_paths(
@@ -1093,9 +1108,16 @@ def _load_session_secret(registry: SessionRegistry, session: SessionMetadata) ->
 
 def _resolve_latest_session_for_workspace(
     workspace: Path,
+    *,
+    selector: Literal["auth", "api-auto-auth"],
 ) -> tuple[SessionMetadata, bytes]:
     registry = _build_session_registry(workspace)
     sessions = registry.find_sessions_by_workspace(workspace)
+    sessions = _filter_sessions_for_selector(
+        sessions=sessions,
+        selector=selector,
+        requested_server_mode=None,
+    )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
     session = max(sessions, key=lambda entry: entry.startedAt)
@@ -2674,6 +2696,11 @@ def auth(
             sessions = registry.find_sessions_by_workspace(
                 resolved_workspace, prune_stale=False
             )
+    sessions = _filter_sessions_for_selector(
+        sessions=sessions,
+        selector="auth",
+        requested_server_mode=None,
+    )
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -2833,7 +2860,8 @@ def api(
                     )
             if resolved_base_url is None:
                 session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
+                    get_setta_paths().workspace_root,
+                    selector="api-auto-auth",
                 )
                 resolved_base_url = _base_url_from_session(session)
         elif auth_payload is not None:
@@ -2842,12 +2870,14 @@ def api(
                 resolved_base_url = _base_url_from_auth_payload(auth_payload)
             if resolved_base_url is None:
                 session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
+                    get_setta_paths().workspace_root,
+                    selector="api-auto-auth",
                 )
                 resolved_base_url = _base_url_from_session(session)
         else:
             session, secret = _resolve_latest_session_for_workspace(
-                get_setta_paths().workspace_root
+                get_setta_paths().workspace_root,
+                selector="api-auto-auth",
             )
             resolved_base_url = (
                 _normalize_base_url(base_url)

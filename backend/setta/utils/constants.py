@@ -12,7 +12,6 @@ BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0
 
 _HTTP_TOKEN_SEPARATORS = set("()<>@,;:/[]?={} \t")
 _HTTP_TOKEN_SEPARATORS.update({"\\", '"'})
-_LOOPBACK_ORIGIN_REGEX = r"^https?://(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$"
 
 
 def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> str:
@@ -241,8 +240,6 @@ class C:
 
     @classproperty
     def FRONTEND_ORIGIN_REGEX(cls):
-        if cls.LAUNCHER_MODE and not IS_DEV_MODE:
-            return _LOOPBACK_ORIGIN_REGEX
         return None
 
     @classproperty

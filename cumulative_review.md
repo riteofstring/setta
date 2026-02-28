@@ -105,3 +105,11 @@
 - Made launcher session mode an explicit CLI JSON contract (`sessionServerMode`) and updated release smoke logic to derive stop/status mode from that contract instead of hardcoded assumptions.
 - Hardened release update validation by requiring `startedNew == true` on post-update relaunch and asserting no stale sessions remain in the expected mode before relaunch.
 - Added/updated pytest coverage for router policy enforcement, launcher-mode guards on representative endpoints, launcher CORS preflight behavior (trusted vs untrusted origins), launcher CLI payload contract, and smoke script mode/freshness contracts.
+
+## 2026-02-26 00:01:45 PST
+
+- Closed remaining launcher/full-runtime boundary gaps by migrating `ai` and `listener` routers to full-runtime router wrappers, so launcher-mode calls now fail fast with deterministic `403` before deferred runtime fields are touched.
+- Removed CLI auth/api session-selection drift by extending shared mode-selection defaults to `auth` and `api` auto-auth (`ide` by default) and applying one shared session filter path for latest-session resolution.
+- Tightened launcher credentialed CORS trust to explicit allowlisted origins only by removing broad loopback regex acceptance; trusted loopback origins must now be configured (for example via `SETTA_FRONTEND_ORIGINS`).
+- Added/updated regression coverage across router-policy tests, launcher-mode guard tests with deferred-field sentinels, CLI mode-selection unit/integration tests, and CORS tests for configured vs unconfigured loopback origins.
+- Ran `pnpm gcf` and validated targeted suites (`pytest` for touched backend/start/cors/router areas and Playwright launcher-origin workspace-launch spec) with passing results.

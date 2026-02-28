@@ -53,13 +53,16 @@ def test_cors_headers_on_unauthorized(cors_client) -> None:
     assert response.headers.get("access-control-allow-credentials") == "true"
 
 
-def test_launcher_mode_cors_allows_loopback_cross_origin_launch_intent(
+def test_launcher_mode_cors_allows_configured_loopback_origin_launch_intent(
     monkeypatch,
 ) -> None:
+    # Explicitly configured launcher origins should keep credentialed CORS access.
     monkeypatch.setattr(constants, "IS_DEV_MODE", False)
     monkeypatch.setattr(C, "LAUNCHER_MODE", True)
     monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
     monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+    trusted_origin = "http://127.0.0.1:61234"
+    monkeypatch.setenv("SETTA_FRONTEND_ORIGINS", trusted_origin)
     monkeypatch.setattr(
         "setta.routers.launch.load_current_session_secret",
         lambda: (SimpleNamespace(id="session-1"), b"secret"),
@@ -82,7 +85,6 @@ def test_launcher_mode_cors_allows_loopback_cross_origin_launch_intent(
     )
     app.include_router(launch_router, prefix=Route.PREFIX.value)
 
-    trusted_origin = "http://127.0.0.1:61234"
     with TestClient(app, base_url=C.BACKEND) as client:
         preflight = client.options(
             f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
@@ -110,13 +112,15 @@ def test_launcher_mode_cors_allows_loopback_cross_origin_launch_intent(
     assert response.json()["ok"] is True
 
 
-def test_launcher_mode_cors_rejects_untrusted_preflight_origin(
+def test_launcher_mode_cors_rejects_unconfigured_loopback_preflight_origin(
     monkeypatch,
 ) -> None:
+    # Unconfigured loopback origins should fail preflight in launcher mode.
     monkeypatch.setattr(constants, "IS_DEV_MODE", False)
     monkeypatch.setattr(C, "LAUNCHER_MODE", True)
     monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
     monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+    monkeypatch.delenv("SETTA_FRONTEND_ORIGINS", raising=False)
 
     app = FastAPI()
     app.add_middleware(
@@ -136,7 +140,7 @@ def test_launcher_mode_cors_rejects_untrusted_preflight_origin(
         preflight = client.options(
             f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
             headers={
-                "Origin": "https://evil.example",
+                "Origin": "http://127.0.0.1:61234",
                 "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "content-type",
             },
@@ -144,3 +148,49 @@ def test_launcher_mode_cors_rejects_untrusted_preflight_origin(
 
     assert preflight.status_code == 400
     assert preflight.headers.get("access-control-allow-origin") is None
+
+
+def test_launcher_mode_cors_credentialed_request_blocks_non_allowlisted_loopback(
+    monkeypatch,
+) -> None:
+    # Browser credentialed requests from untrusted loopback origins should not get allow-origin.
+    monkeypatch.setattr(constants, "IS_DEV_MODE", False)
+    monkeypatch.setattr(C, "LAUNCHER_MODE", True)
+    monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
+    monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+    monkeypatch.delenv("SETTA_FRONTEND_ORIGINS", raising=False)
+    monkeypatch.setattr(
+        "setta.routers.launch.load_current_session_secret",
+        lambda: (SimpleNamespace(id="session-1"), b"secret"),
+    )
+
+    app = FastAPI()
+    app.state.setta = SimpleNamespace(
+        deployment_mode=False,
+        launcher_mode=True,
+        share_mode=False,
+        app_mode=False,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=C.FRONTEND_ORIGINS,
+        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+    untrusted_origin = "http://127.0.0.1:61234"
+    with TestClient(app, base_url=C.BACKEND) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+            headers={"Origin": untrusted_origin},
+            json={
+                "launchRequest": {"workspaceRoot": "/tmp/workspace"},
+                "returnUrl": f"{C.BACKEND}/home",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") is None

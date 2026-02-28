@@ -3,11 +3,13 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.routers.ai import router as ai_router
 from setta.routers.app_spec_streaming import router as app_spec_streaming_router
 from setta.routers.agentic import router as agentic_router
 from setta.routers.artifact import router as artifact_router
 from setta.routers.attachments import router as attachments_router
 from setta.routers.llm import router as llm_router
+from setta.routers.listener import router as listener_router
 from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
@@ -133,6 +135,44 @@ def test_external_agent_health_is_blocked_in_launcher_mode() -> None:
     with TestClient(app) as client:
         response = client.get(
             f"{Route.PREFIX.value}{Route.GET_EXTERNAL_AGENT_HEALTH.value}"
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_get_ai_follow_snapshot_is_blocked_in_launcher_mode() -> None:
+    # Full-runtime router guard must reject launcher requests before deferred fields are touched.
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        agent_runner=_DeferredRuntimeField("agent_runner"),
+        external_agent_runner=_DeferredRuntimeField("external_agent_runner"),
+    )
+    app.include_router(ai_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.GET_AI_FOLLOW_SNAPSHOT.value}",
+            json={"projectConfigId": "project-1"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_get_listener_coverage_is_blocked_in_launcher_mode() -> None:
+    # Listener runtime dependencies should never be dereferenced in launcher mode.
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        wmh_python_script_receiver=_DeferredRuntimeField("wmh_python_script_receiver"),
+        listener_registry=_DeferredRuntimeField("listener_registry"),
+    )
+    app.include_router(listener_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.GET_LISTENER_COVERAGE.value}",
+            json={"projectConfigId": "project-1"},
         )
 
     assert response.status_code == 403
