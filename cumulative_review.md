@@ -152,3 +152,12 @@
 - Reworked launcher directory listing to bounded paginated behavior with `cursor`/`pageSize` and `hasMore`/`nextCursor`, using `os.scandir` with explicit scan budget to cap server work.
 - Expanded regression coverage with updated backend unit/integration tests plus Playwright launch-handoff trust verification (`bootstrap-launcher-origin`), and ran targeted suites successfully.
 - Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+
+## 2026-02-26 21:28:37 PST
+
+- Unified launcher-origin trust behavior across launch paths by extracting a shared launcher handoff trust helper and applying it to both `/launch` and `/openLauncherWorkspace`, with fail-fast typed error mapping when trust persistence fails.
+- Enforced launcher/IDE capability contract in frontend launcher home by introducing explicit mode capabilities and hiding desktop-launcher management controls in launcher mode.
+- Fixed launcher directory pagination end-to-end by adding frontend cursor/page-size state with load-more UX, and tightening backend continuation semantics to avoid contradictory `hasMore=true` with no actionable cursor.
+- Corrected endpoint origin policy drift by routing `settaHomeInfo` via backend origin to match backend launcher-mode guards.
+- Added/updated regression coverage: backend route tests for launcher management guards, launcher-home trust persistence and pagination invariants; frontend unit tests for mode capabilities and directory pagination state; Playwright launcher-home flows for hidden management controls and multi-page directory continuation.
+- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout), then ran targeted suites (`vitest`, `pytest`, and launcher-home Playwright), passing.

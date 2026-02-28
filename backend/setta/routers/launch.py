@@ -1,12 +1,11 @@
 import time
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
 from setta.auth.manager import (
-    AUTH_COOKIE_MANAGER,
     BOOTSTRAP_TOKEN_MANAGER,
     LAUNCH_INTENT_TOKEN_MANAGER,
 )
@@ -29,10 +28,12 @@ from setta.ssh_connect import connect_remote_workspace_session
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
     is_trusted_frontend_origin,
-    trust_frontend_origin,
 )
 from setta.types.routes import Route
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
+from setta.utils.launcher_handoff_trust import (
+    trust_launched_workspace_origin_for_launcher_session,
+)
 from setta.utils.launcher_origin_handoff import (
     append_launcher_origin_handoff_to_bootstrap_url,
     mint_launcher_origin_handoff_proof,
@@ -40,9 +41,6 @@ from setta.utils.launcher_origin_handoff import (
 )
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths_without_profile_env
-
-if TYPE_CHECKING:
-    from setta.sessions.registry import SessionMetadata
 
 router = SettaAPIRouter(dependencies=[Depends(require_not_deployment_mode)])
 
@@ -284,7 +282,7 @@ def route_launch(
                     proof=remote.launcher_origin_proof,
                 )
             resolved_workspace_root = remote.session.workspace_path_canonical
-            _trust_launched_workspace_origin_for_launcher_session(
+            trust_launched_workspace_origin_for_launcher_session(
                 request_origin=request_origin,
                 bootstrap_url_fragment=remote_bootstrap_url,
                 launcher_session_info=launcher_session_info,
@@ -380,7 +378,7 @@ def route_launch(
             proof=launcher_origin_proof,
         )
     try:
-        _trust_launched_workspace_origin_for_launcher_session(
+        trust_launched_workspace_origin_for_launcher_session(
             request_origin=request_origin,
             bootstrap_url_fragment=bootstrap_url_fragment,
             launcher_session_info=launcher_session_info,
@@ -513,36 +511,4 @@ def _validate_and_normalize_return_url(
             parsed.query,
             parsed.fragment,
         )
-    )
-
-
-def _resolve_bootstrap_origin(bootstrap_url_fragment: str) -> str | None:
-    parsed = urlsplit(bootstrap_url_fragment)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return None
-    return normalize_launcher_origin(f"{parsed.scheme}://{parsed.netloc}")
-
-
-def _trust_launched_workspace_origin_for_launcher_session(
-    *,
-    request_origin: str | None,
-    bootstrap_url_fragment: str,
-    launcher_session_info: tuple["SessionMetadata", bytes] | None,
-) -> None:
-    if request_origin is None:
-        return
-    if launcher_session_info is None:
-        return
-    launched_workspace_origin = _resolve_bootstrap_origin(bootstrap_url_fragment)
-    if launched_workspace_origin is None:
-        return
-    if launched_workspace_origin == request_origin:
-        return
-    session_metadata, session_secret = launcher_session_info
-    auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, session_secret)
-    auth_cookie_payload = AUTH_COOKIE_MANAGER.validate(auth_cookie, session_secret)
-    trust_frontend_origin(
-        launched_workspace_origin,
-        session_id=session_metadata.id,
-        exp=auth_cookie_payload.exp,
     )

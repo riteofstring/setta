@@ -6,6 +6,7 @@ from fastapi import Body, Depends, Request
 from pydantic import BaseModel, Field
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.launch import LaunchError, launch_workspace_session
 from setta.launcher_metadata import (
     LauncherMetadataError,
@@ -29,8 +30,12 @@ from setta.routers.dependencies import (
 from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
+from setta.trusted_frontend_origins import TrustedFrontendOriginStoreError
 from setta.types.routes import Route
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
+from setta.utils.launcher_handoff_trust import (
+    trust_launched_workspace_origin_for_launcher_session,
+)
 from setta.utils.launcher_origin_handoff import (
     append_launcher_origin_handoff_to_bootstrap_url,
     mint_launcher_origin_handoff_proof,
@@ -328,13 +333,13 @@ def route_list_launcher_directory(
     page_start = cursor_offset
     page_end = cursor_offset + page_size
     visible_entries = candidate_entries[page_start:page_end]
-    if scan_budget_reached:
-        has_more = True
-    elif len(candidate_entries) > page_end:
+    if len(candidate_entries) > page_end:
         has_more = True
     next_cursor: str | None = None
-    if has_more and visible_entries:
+    if has_more:
         next_cursor = str(cursor_offset + len(visible_entries))
+    if scan_budget_reached and next_cursor is None:
+        has_more = False
 
     parent_path: str | None = None
     parent = directory.parent.resolve(strict=False)
@@ -382,6 +387,7 @@ def route_open_launcher_workspace(
     request: Request,
     x: LauncherOpenWorkspaceRequest,
 ) -> LauncherOpenWorkspaceResponse:
+    launcher_session_info = load_current_session_secret()
     normalized_profile = normalize_optional_argument(x.profile)
     normalized_setta_home = normalize_optional_argument(x.settaHome)
     normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
@@ -508,6 +514,20 @@ def route_open_launcher_workspace(
             bootstrap_url_fragment=bootstrap_url_fragment,
             launcher_origin=request_origin,
             proof=launcher_origin_proof,
+        )
+    try:
+        trust_launched_workspace_origin_for_launcher_session(
+            request_origin=request_origin,
+            bootstrap_url_fragment=bootstrap_url_fragment,
+            launcher_session_info=launcher_session_info,
+        )
+    except TrustedFrontendOriginStoreError as exc:
+        return LauncherOpenWorkspaceResponse(
+            ok=False,
+            error=LauncherHomeErrorPayload(
+                code="TrustedFrontendOriginStoreUnavailable",
+                message=str(exc),
+            ),
         )
 
     return LauncherOpenWorkspaceResponse(

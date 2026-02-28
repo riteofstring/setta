@@ -23,31 +23,27 @@ type RemoveWorkspaceRequest = {
   settaHome: string | null;
 };
 
-type LauncherRequestBase = {
-  settaHome: string | null;
+type ListDirectoryRequest = {
+  path: string | null;
+  cursor: string | null;
+  pageSize: number | null;
 };
 
-type LauncherSetupRequest = LauncherRequestBase & {
-  installArtifacts?: boolean | null;
-  channel?: string | null;
-  openMode?: "browser" | "chrome-app" | null;
-  workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
-};
-
-type LauncherUpdateRequest = LauncherRequestBase & {
-  packageSpec: string | null;
-};
+const LAUNCHER_MANAGEMENT_ENDPOINT_PATTERNS = [
+  `${BACKEND_ORIGIN}/api/launcherStatus*`,
+  `${BACKEND_ORIGIN}/api/setupLauncher`,
+  `${BACKEND_ORIGIN}/api/repairLauncher`,
+  `${BACKEND_ORIGIN}/api/removeLauncher`,
+  `${BACKEND_ORIGIN}/api/updateLauncher`,
+];
 
 async function installLauncherHomeMocks(page: Page): Promise<{
   getLastOpenRequest: () => OpenWorkspaceRequest | null;
   getLastPinRequest: () => PinWorkspaceRequest | null;
   getLastRemoveRecentRequest: () => RemoveWorkspaceRequest | null;
-  getLastLauncherStatusRequestUrl: () => string | null;
-  getLastSetupRequest: () => LauncherSetupRequest | null;
-  getLastRepairRequest: () => LauncherRequestBase | null;
-  getLastRemoveLauncherRequest: () => LauncherRequestBase | null;
-  getLastUpdateRequest: () => LauncherUpdateRequest | null;
   getLastRecentWorkspacesRequestUrl: () => string | null;
+  getListDirectoryRequests: () => Array<ListDirectoryRequest>;
+  getLauncherManagementRequestCount: () => number;
 }> {
   let recentWorkspaces = [
     {
@@ -65,17 +61,9 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   let lastOpenRequest: OpenWorkspaceRequest | null = null;
   let lastPinRequest: PinWorkspaceRequest | null = null;
   let lastRemoveRecentRequest: RemoveWorkspaceRequest | null = null;
-  let lastLauncherStatusRequestUrl: string | null = null;
-  let lastSetupRequest: LauncherSetupRequest | null = null;
-  let lastRepairRequest: LauncherRequestBase | null = null;
-  let lastRemoveLauncherRequest: LauncherRequestBase | null = null;
-  let lastUpdateRequest: LauncherUpdateRequest | null = null;
   let lastRecentWorkspacesRequestUrl: string | null = null;
-  let launcherStatusPayload: Record<string, unknown> = {
-    ok: true,
-    installed: false,
-    updateCapability: "unsupported",
-  };
+  const listDirectoryRequests: Array<ListDirectoryRequest> = [];
+  let launcherManagementRequestCount = 0;
 
   await page.route(`${BACKEND_ORIGIN}/api/serverMode`, async (route) => {
     await route.fulfill({
@@ -160,8 +148,15 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   await page.route(
     `${BACKEND_ORIGIN}/api/listLauncherDirectory`,
     async (route) => {
-      const payload = route.request().postDataJSON() as { path: string | null };
-      const currentPath = payload.path;
+      const payload = route.request().postDataJSON() as {
+        path?: string | null;
+        cursor?: string | null;
+        pageSize?: number | null;
+      };
+      const currentPath = payload.path ?? null;
+      const cursor = payload.cursor ?? null;
+      const pageSize = payload.pageSize ?? null;
+      listDirectoryRequests.push({ path: currentPath, cursor, pageSize });
 
       if (!currentPath) {
         await route.fulfill({
@@ -179,6 +174,8 @@ async function installLauncherHomeMocks(page: Page): Promise<{
                 isSymlink: false,
               },
             ],
+            hasMore: false,
+            nextCursor: null,
           }),
         });
         return;
@@ -206,6 +203,59 @@ async function installLauncherHomeMocks(page: Page): Promise<{
                 isSymlink: false,
               },
             ],
+            hasMore: false,
+            nextCursor: null,
+          }),
+        });
+        return;
+      }
+
+      if (currentPath === "/Users/demo/projects") {
+        if (cursor === "2") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              ok: true,
+              currentPath,
+              parentPath: "/Users/demo",
+              entries: [
+                {
+                  name: "gamma",
+                  path: "/Users/demo/projects/gamma",
+                  isDirectory: true,
+                  isSymlink: false,
+                },
+              ],
+              hasMore: false,
+              nextCursor: null,
+            }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            currentPath,
+            parentPath: "/Users/demo",
+            entries: [
+              {
+                name: "alpha",
+                path: "/Users/demo/projects/alpha",
+                isDirectory: true,
+                isSymlink: false,
+              },
+              {
+                name: "beta",
+                path: "/Users/demo/projects/beta",
+                isDirectory: true,
+                isSymlink: false,
+              },
+            ],
+            hasMore: true,
+            nextCursor: "2",
           }),
         });
         return;
@@ -226,6 +276,8 @@ async function installLauncherHomeMocks(page: Page): Promise<{
               isSymlink: false,
             },
           ],
+          hasMore: false,
+          nextCursor: null,
         }),
       });
     },
@@ -260,152 +312,94 @@ async function installLauncherHomeMocks(page: Page): Promise<{
     },
   );
 
-  await page.route(`${BACKEND_ORIGIN}/api/launcherStatus*`, async (route) => {
-    lastLauncherStatusRequestUrl = route.request().url();
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(launcherStatusPayload),
+  for (const endpointPattern of LAUNCHER_MANAGEMENT_ENDPOINT_PATTERNS) {
+    await page.route(endpointPattern, async (route) => {
+      launcherManagementRequestCount += 1;
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: "Launcher mode does not allow this endpoint.",
+        }),
+      });
     });
-  });
-
-  await page.route(`${BACKEND_ORIGIN}/api/setupLauncher`, async (route) => {
-    const payload = route.request().postDataJSON() as {
-      settaHome?: string | null;
-      installArtifacts?: boolean | null;
-      channel?: string | null;
-      openMode?: "browser" | "chrome-app" | null;
-      workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
-    };
-    const nextRequest: LauncherSetupRequest = {
-      settaHome: payload.settaHome ?? null,
-    };
-    if (Object.hasOwn(payload, "installArtifacts")) {
-      nextRequest.installArtifacts = payload.installArtifacts ?? null;
-    }
-    if (Object.hasOwn(payload, "channel")) {
-      nextRequest.channel = payload.channel ?? null;
-    }
-    if (Object.hasOwn(payload, "openMode")) {
-      nextRequest.openMode = payload.openMode ?? null;
-    }
-    if (Object.hasOwn(payload, "workspaceBehavior")) {
-      nextRequest.workspaceBehavior = payload.workspaceBehavior ?? null;
-    }
-    lastSetupRequest = nextRequest;
-
-    const resolvedChannel =
-      payload.channel ??
-      (typeof launcherStatusPayload.channel === "string"
-        ? launcherStatusPayload.channel
-        : "uv-tool");
-    const resolvedOpenMode =
-      payload.openMode ??
-      (launcherStatusPayload.openMode === "browser" ||
-      launcherStatusPayload.openMode === "chrome-app"
-        ? launcherStatusPayload.openMode
-        : "chrome-app");
-    const resolvedWorkspaceBehavior =
-      payload.workspaceBehavior === "always-prompt"
-        ? "always_prompt"
-        : "last_used_or_prompt";
-    const resolvedInstallArtifacts = payload.installArtifacts !== false;
-
-    launcherStatusPayload = {
-      ok: true,
-      installed: true,
-      updateCapability: "in_app",
-      settaHome: payload.settaHome ?? null,
-      channel: resolvedChannel,
-      openMode: resolvedOpenMode,
-      workspaceBehavior: resolvedWorkspaceBehavior,
-      managedArtifacts: resolvedInstallArtifacts
-        ? { desktopShortcut: "/Users/demo/Desktop/Setta" }
-        : {},
-      fromVersion: "1.0.0",
-      toVersion: "1.0.0",
-    };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(launcherStatusPayload),
-    });
-  });
-
-  await page.route(`${BACKEND_ORIGIN}/api/repairLauncher`, async (route) => {
-    const payload = route.request().postDataJSON() as {
-      settaHome?: string | null;
-    };
-    lastRepairRequest = {
-      settaHome: payload.settaHome ?? null,
-    };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(launcherStatusPayload),
-    });
-  });
-
-  await page.route(`${BACKEND_ORIGIN}/api/removeLauncher`, async (route) => {
-    const payload = route.request().postDataJSON() as {
-      settaHome?: string | null;
-    };
-    lastRemoveLauncherRequest = {
-      settaHome: payload.settaHome ?? null,
-    };
-    launcherStatusPayload = {
-      ok: true,
-      installed: false,
-      updateCapability: "unsupported",
-      settaHome: payload.settaHome ?? null,
-    };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(launcherStatusPayload),
-    });
-  });
-
-  await page.route(`${BACKEND_ORIGIN}/api/updateLauncher`, async (route) => {
-    const payload = route.request().postDataJSON() as {
-      settaHome?: string | null;
-      packageSpec?: string | null;
-    };
-    lastUpdateRequest = {
-      settaHome: payload.settaHome ?? null,
-      packageSpec: payload.packageSpec ?? null,
-    };
-    launcherStatusPayload = {
-      ...launcherStatusPayload,
-      ok: true,
-      installed: true,
-      updateCapability: "in_app",
-      settaHome: payload.settaHome ?? null,
-      fromVersion: "1.0.0",
-      toVersion: "1.1.0",
-    };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...launcherStatusPayload,
-        packageSpec: payload.packageSpec ?? "setta",
-      }),
-    });
-  });
+  }
 
   return {
     getLastOpenRequest: () => lastOpenRequest,
     getLastPinRequest: () => lastPinRequest,
     getLastRemoveRecentRequest: () => lastRemoveRecentRequest,
-    getLastLauncherStatusRequestUrl: () => lastLauncherStatusRequestUrl,
-    getLastSetupRequest: () => lastSetupRequest,
-    getLastRepairRequest: () => lastRepairRequest,
-    getLastRemoveLauncherRequest: () => lastRemoveLauncherRequest,
-    getLastUpdateRequest: () => lastUpdateRequest,
     getLastRecentWorkspacesRequestUrl: () => lastRecentWorkspacesRequestUrl,
+    getListDirectoryRequests: () => [...listDirectoryRequests],
+    getLauncherManagementRequestCount: () => launcherManagementRequestCount,
   };
 }
+
+test("launcher home hides desktop launcher management controls", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Launcher Home")).toBeVisible();
+  await expect(
+    page.getByTestId("desktop-launcher-settings-section"),
+  ).toHaveCount(0);
+  expect(mocks.getLauncherManagementRequestCount()).toBe(0);
+});
+
+test("launcher directory picker loads continuation pages via cursor", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+  await page
+    .getByTestId("launcher-directory-list")
+    .getByRole("button", { name: "Browse" })
+    .first()
+    .click();
+
+  await expect(
+    page.getByTestId("launcher-directory-list").getByRole("button", {
+      name: "alpha",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("launcher-directory-list").getByRole("button", {
+      name: "gamma",
+    }),
+  ).toHaveCount(0);
+  await page.getByTestId("launcher-directory-load-more").click();
+  await expect(
+    page.getByTestId("launcher-directory-list").getByRole("button", {
+      name: "gamma",
+    }),
+  ).toBeVisible();
+
+  const projectDirectoryRequests = mocks
+    .getListDirectoryRequests()
+    .filter((request) => request.path === "/Users/demo/projects");
+  expect(projectDirectoryRequests).toEqual([
+    {
+      path: "/Users/demo/projects",
+      cursor: null,
+      pageSize: 250,
+    },
+    {
+      path: "/Users/demo/projects",
+      cursor: "2",
+      pageSize: 250,
+    },
+  ]);
+});
 
 test("launcher home opens a selected directory workspace", async ({ page }) => {
   const mocks = await installLauncherHomeMocks(page);
@@ -588,42 +582,30 @@ test("launcher home propagates scoped setta_home through launcher actions", asyn
     .getByRole("button", { name: /^Pin$/ })
     .first()
     .click();
-  await page
+  await expect
+    .poll(() => mocks.getLastPinRequest(), {
+      message: "Expected pin request to be captured before remove.",
+    })
+    .not.toBeNull();
+  const removeButton = page
     .getByTestId("launcher-recent-list")
     .getByRole("button", { name: "Remove" })
-    .first()
-    .click();
-
-  const launcherSettingsSection = page.getByTestId(
-    "desktop-launcher-settings-section",
-  );
-  await launcherSettingsSection
-    .getByRole("button", { name: "Setup Desktop App" })
-    .click();
-  await expect(
-    launcherSettingsSection.getByRole("button", { name: "Re-run Setup" }),
-  ).toBeVisible();
-  await launcherSettingsSection
-    .getByRole("button", { name: "Repair Desktop App" })
-    .click();
-  await launcherSettingsSection
-    .getByRole("button", { name: "Update Setta" })
-    .click();
-  await launcherSettingsSection
-    .getByRole("button", { name: "Remove Desktop App" })
-    .click();
-
+    .first();
+  await expect(removeButton).toBeEnabled();
+  await removeButton.click();
+  await expect
+    .poll(() => mocks.getLastRemoveRecentRequest(), {
+      message: "Expected remove request to be captured before opening.",
+    })
+    .not.toBeNull();
   await page
     .getByTestId("launcher-recent-list")
     .getByRole("button", { name: "Open" })
     .first()
     .click();
-  await expect(page).toHaveURL(/launcherMock=opened/);
 
+  await expect(page).toHaveURL(/launcherMock=opened/);
   expect(mocks.getLastRecentWorkspacesRequestUrl()).toContain(
-    `setta_home=${encodeURIComponent(scopedSettaHome)}`,
-  );
-  expect(mocks.getLastLauncherStatusRequestUrl()).toContain(
     `setta_home=${encodeURIComponent(scopedSettaHome)}`,
   );
   expect(mocks.getLastPinRequest()).toEqual({
@@ -635,51 +617,10 @@ test("launcher home propagates scoped setta_home through launcher actions", asyn
     workspaceRoot: "/Users/demo/projects/alpha",
     settaHome: scopedSettaHome,
   });
-  expect(mocks.getLastSetupRequest()).toEqual({
-    settaHome: scopedSettaHome,
-  });
-  expect(mocks.getLastRepairRequest()).toEqual({
-    settaHome: scopedSettaHome,
-  });
-  expect(mocks.getLastUpdateRequest()).toEqual({
-    settaHome: scopedSettaHome,
-    packageSpec: null,
-  });
-  expect(mocks.getLastRemoveLauncherRequest()).toEqual({
-    settaHome: scopedSettaHome,
-  });
   expect(mocks.getLastOpenRequest()).toEqual({
     workspaceRoot: "/Users/demo/projects/beta",
     createIfMissing: false,
     settaHome: scopedSettaHome,
   });
-});
-
-test("launcher setup rerun reuses existing launcher identity fields", async ({
-  page,
-}) => {
-  const mocks = await installLauncherHomeMocks(page);
-
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  const launcherSettingsSection = page.getByTestId(
-    "desktop-launcher-settings-section",
-  );
-
-  await launcherSettingsSection
-    .getByRole("button", { name: "Setup Desktop App" })
-    .click();
-  await expect(
-    launcherSettingsSection.getByRole("button", { name: "Re-run Setup" }),
-  ).toBeVisible();
-  await launcherSettingsSection
-    .getByRole("button", { name: "Re-run Setup" })
-    .click();
-
-  expect(mocks.getLastSetupRequest()).toEqual({
-    settaHome: null,
-    installArtifacts: true,
-    channel: "uv-tool",
-    openMode: "chrome-app",
-    workspaceBehavior: "last-used-or-prompt",
-  });
+  expect(mocks.getLauncherManagementRequestCount()).toBe(0);
 });

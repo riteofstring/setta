@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyDirectoryListingPage,
   isReservedProjectName,
   joinLauncherPath,
   normalizeNewProjectName,
@@ -33,5 +34,100 @@ describe("LauncherHomePage path helpers", () => {
     expect(joinLauncherPath("C:\\Users\\me\\workspaces\\", "demo")).toBe(
       "C:\\Users\\me\\workspaces\\demo",
     );
+  });
+});
+
+describe("applyDirectoryListingPage", () => {
+  it("replaces entries for a fresh directory page", () => {
+    const result = applyDirectoryListingPage({
+      previousEntries: [
+        {
+          name: "stale",
+          path: "/stale",
+          isDirectory: true,
+          isSymlink: false,
+        },
+      ],
+      payload: {
+        ok: true,
+        currentPath: "/tmp",
+        parentPath: "/",
+        entries: [
+          {
+            name: "alpha",
+            path: "/tmp/alpha",
+            isDirectory: true,
+            isSymlink: false,
+          },
+        ],
+        hasMore: true,
+        nextCursor: "1",
+        error: null,
+      },
+      append: false,
+    });
+
+    expect(result.entries.map((entry) => entry.name)).toEqual(["alpha"]);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBe("1");
+    expect(result.error).toBeNull();
+  });
+
+  it("appends entries for continuation pages", () => {
+    const result = applyDirectoryListingPage({
+      previousEntries: [
+        {
+          name: "alpha",
+          path: "/tmp/alpha",
+          isDirectory: true,
+          isSymlink: false,
+        },
+      ],
+      payload: {
+        ok: true,
+        currentPath: "/tmp",
+        parentPath: "/",
+        entries: [
+          {
+            name: "beta",
+            path: "/tmp/beta",
+            isDirectory: true,
+            isSymlink: false,
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+        error: null,
+      },
+      append: true,
+    });
+
+    expect(result.entries.map((entry) => entry.name)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
+    expect(result.error).toBeNull();
+  });
+
+  it("returns an explicit error when hasMore is missing nextCursor", () => {
+    const result = applyDirectoryListingPage({
+      previousEntries: [],
+      payload: {
+        ok: true,
+        currentPath: "/tmp",
+        parentPath: "/",
+        entries: [],
+        hasMore: true,
+        nextCursor: null,
+        error: null,
+      },
+      append: false,
+    });
+
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBeNull();
+    expect(result.error).toMatch(/continuation cursor/i);
   });
 });

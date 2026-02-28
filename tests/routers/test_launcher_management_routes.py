@@ -14,9 +14,14 @@ from setta.routers.status import router as status_router
 from setta.types.routes import Route
 
 
-def _build_app(*, deployment_mode: bool = False) -> FastAPI:
+def _build_app(
+    *, deployment_mode: bool = False, launcher_mode: bool = False
+) -> FastAPI:
     app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=deployment_mode)
+    app.state.setta = SimpleNamespace(
+        deployment_mode=deployment_mode,
+        launcher_mode=launcher_mode,
+    )
     app.include_router(status_router, prefix=Route.PREFIX.value)
     return app
 
@@ -305,3 +310,30 @@ def test_launcher_management_routes_blocked_in_deployment_mode() -> None:
         response = client.get(f"{Route.PREFIX.value}{Route.GET_LAUNCHER_STATUS.value}")
 
     assert response.status_code == 403
+
+
+def test_launcher_management_routes_blocked_in_launcher_mode() -> None:
+    app = _build_app(launcher_mode=True)
+
+    with TestClient(app) as client:
+        status_response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_STATUS.value}"
+        )
+        setup_response = client.post(
+            f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}"
+        )
+        repair_response = client.post(
+            f"{Route.PREFIX.value}{Route.REPAIR_LAUNCHER.value}"
+        )
+        remove_response = client.post(
+            f"{Route.PREFIX.value}{Route.REMOVE_LAUNCHER.value}"
+        )
+        update_response = client.post(
+            f"{Route.PREFIX.value}{Route.UPDATE_LAUNCHER.value}"
+        )
+
+    assert status_response.status_code == 403
+    assert setup_response.status_code == 403
+    assert repair_response.status_code == 403
+    assert remove_response.status_code == 403
+    assert update_response.status_code == 403
