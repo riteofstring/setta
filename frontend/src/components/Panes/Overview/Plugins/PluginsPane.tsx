@@ -89,7 +89,7 @@ type PluginCommandSummary = {
 };
 
 type PluginListEntryCardRuntimeState = {
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: "ide" | "share" | "app";
   pluginStatus: PluginStatusEntry | null;
   panes: readonly PluginPaneSummary[];
   commands: readonly PluginCommandSummary[];
@@ -103,7 +103,7 @@ type PluginsPaneRuntimeSummary = {
   status: string;
   statusMessage: string | null;
   restartCapability: PluginRestartCapability | null;
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: "ide" | "share" | "app";
 };
 
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];

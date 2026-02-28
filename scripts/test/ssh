@@ -261,7 +261,6 @@ def _handle_remote_command(command: str) -> int:
                     "port": int(metadata.get("port", 8000)),
                     "pid": int(metadata.get("pid", 0)),
                     "startedAt": metadata.get("startedAt", "2026-02-06T00:00:00Z"),
-                    "serverMode": metadata.get("serverMode", "ide"),
                 }
             ]
         }
@@ -309,7 +308,6 @@ def _handle_remote_command(command: str) -> int:
                 "port": port,
                 "pid": int(metadata.get("pid", 0)),
                 "startedAt": metadata.get("startedAt", "2026-02-06T00:00:00Z"),
-                "serverMode": metadata.get("serverMode", "ide"),
             },
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,

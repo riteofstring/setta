@@ -81,19 +81,19 @@ class WebsocketManager:
             raise KeyError(f"Unknown websocket id: {websocketId}")
         return self.sockets[websocketId].shareSessionId
 
-    async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
+    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
         socket_info = self.sockets.get(toWebsocketId)
         if not socket_info:
-            return
+            return False
         websocket = socket_info.websocket
         if websocket.application_state != WebSocketState.CONNECTED:
             self.sockets.pop(toWebsocketId, None)
-            return
+            return False
         try:
             payload = message.model_dump_json()
             if self._send_timeout_s is None:
                 await websocket.send_text(payload)
-                return
+                return True
             send_task = asyncio.create_task(websocket.send_text(payload))
             _done, pending = await asyncio.wait(
                 {send_task},
@@ -107,9 +107,10 @@ class WebsocketManager:
                 )
                 self.sockets.pop(toWebsocketId, None)
                 send_task.cancel()
-                return
+                return False
             # If the task completed, re-raise any exceptions so we can clean up sockets.
             send_task.result()
+            return True
         except asyncio.TimeoutError:
             logger.warning(
                 "Websocket %s send_text timed out after %.2fs; removing.",
@@ -117,9 +118,11 @@ class WebsocketManager:
                 self._send_timeout_s,
             )
             self.sockets.pop(toWebsocketId, None)
+            return False
         except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)
+            return False
 
     async def send_bytes(self, payload: bytes, toWebsocketId: str) -> None:
         socket_info = self.sockets.get(toWebsocketId)
