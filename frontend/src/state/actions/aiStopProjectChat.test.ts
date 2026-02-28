@@ -9,7 +9,10 @@ import {
 import {
   AgentRunStatusEnum,
   SettaNotificationTypeEnum,
+  StreamingEventTypeEnum,
   createAgentRun,
+  createAssistantChatMessage,
+  createMessageTextContent,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -56,7 +59,9 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
+let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 describe("stopProjectChatResponse", () => {
@@ -86,7 +91,9 @@ describe("stopProjectChatResponse", () => {
     const ai = await import("state/actions/ai");
     stopProjectChatResponse = ai.stopProjectChatResponse;
     stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getDefaultChatDetails = ai.getDefaultChatDetails;
+    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
@@ -106,6 +113,11 @@ describe("stopProjectChatResponse", () => {
       },
     });
     vi.clearAllMocks();
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
   });
 
   afterEach(() => {
@@ -155,6 +167,229 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
   });
 
+  it("does not mark prior assistant messages as interrupted before message_start", async () => {
+    const chatId = "chat-stop-no-message-start";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [
+                createMessageTextContent({
+                  text: "Earlier completed response",
+                }),
+              ],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+  });
+
+  it("ignores backend stoppedMessageId when no local stop-eligible message exists", async () => {
+    const chatId = "chat-stop-no-local-eligible";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [
+                createMessageTextContent({
+                  text: "Earlier completed response",
+                }),
+              ],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: false,
+        stoppedRunId: "run-1",
+        stoppedMessageId: "assistant-backend",
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+  });
+
+  it("restores optimistic interruption markers when stop reports already stopped", async () => {
+    const chatId = "chat-stop-already-stopped";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: true,
+        stoppedRunId: null,
+        stoppedMessageId: null,
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(mockedRouteGetLLMChat).not.toHaveBeenCalled();
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+  });
+
+  it("restores optimistic interruption markers when backend omits stoppedMessageId", async () => {
+    const chatId = "chat-stop-null-message-id";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+      interruptedAssistantMessageIdsByChatId: {
+        [chatId]: {
+          "assistant-prior": true,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: false,
+        stoppedRunId: "run-1",
+        stoppedMessageId: null,
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toEqual({
+      "assistant-prior": true,
+    });
+  });
+
+  it("reconciles interruption marker to backend stopped message id", async () => {
+    const chatId = "chat-stop-backend-message-id";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+      interruptedAssistantMessageIdsByChatId: {
+        [chatId]: {
+          "assistant-prior": true,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-local",
+          content: [createMessageTextContent({ text: "Local optimistic" })],
+        }),
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: false,
+        stoppedRunId: "run-1",
+        stoppedMessageId: "assistant-backend",
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toEqual({
+      "assistant-prior": true,
+      "assistant-backend": true,
+    });
+  });
+
   it("restores local project chat waiting/tool-call state when stop and llm hydrate both fail", async () => {
     const chatId = "chat-stop-rollback-hydrate-fail";
     useAIStore.setState({
@@ -192,6 +427,59 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
       "tool-call-1": '{"path":"/tmp/file.py"}',
+    });
+  });
+
+  it("restores interruption map snapshot when stop and hydrate both fail", async () => {
+    const chatId = "chat-stop-interruption-snapshot";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+        },
+      },
+      interruptedAssistantMessageIdsByChatId: {
+        [chatId]: {
+          "assistant-prior": true,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(false);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toEqual({
+      "assistant-prior": true,
     });
   });
 
@@ -332,6 +620,76 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("does not keep interruption markers when external stop returns a non-cancelled run", async () => {
+    const chatId = "chat-stop-external-noop";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [
+        createAgentRun({
+          id: "run-external-noop",
+          status: AgentRunStatusEnum.running,
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: null,
+          },
+        }),
+      ],
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createAgentRun({
+        id: "run-external-noop",
+        status: AgentRunStatusEnum.completed,
+      }),
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(true);
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: null,
+    });
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
+
   it("refreshes runs and retries external stop when local run cache is stale", async () => {
     const chatId = "chat-stop-external-stale-refresh";
     useAIStore.setState({
@@ -362,7 +720,10 @@ describe("stopProjectChatResponse", () => {
     mockedRouteStopExternalAgentRun.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: null,
+      data: createAgentRun({
+        id: "run-refresh",
+        status: AgentRunStatusEnum.cancelled,
+      }),
     });
 
     const stopped = await stopProjectChatResponse(chatId, true);
@@ -507,6 +868,63 @@ describe("stopProjectChatResponse", () => {
     );
   });
 
+  it("restores managed section interruption markers when backend omits stoppedMessageId", async () => {
+    const chatId = "chat-stop-section-null-message-id";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+      interruptedAssistantMessageIdsByChatId: {
+        [chatId]: {
+          "assistant-prior": true,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: false,
+        stoppedRunId: "run-1",
+        stoppedMessageId: null,
+      },
+    });
+
+    const stopped = await stopManagedSectionChatResponse(
+      chatId,
+      false,
+      "project-a",
+      "section-a",
+    );
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toEqual({
+      "assistant-prior": true,
+    });
+  });
+
   it("restores local managed section chat state when llm stop and hydrate both fail", async () => {
     const chatId = "chat-stop-section-llm-hydrate-fail";
     useAIStore.setState({
@@ -549,6 +967,59 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
       "tool-call-3": '{"question":"proceed"}',
+    });
+  });
+
+  it("classifies 404 hydration failures as terminal outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: { detail: "Chat not found" },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-missing");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 404,
+      errorCode: null,
+    });
+  });
+
+  it("preserves typed terminal hydration error codes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 409,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "engine_config_missing",
+          message: "Chat engine config is no longer available.",
+        },
+      },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-missing-engine");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "engine_config_missing",
+    });
+  });
+
+  it("classifies 5xx hydration failures as transient outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "Server error" },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-transient-error");
+
+    expect(outcome).toEqual({
+      outcome: "transient_failure",
+      status: 500,
+      errorCode: null,
     });
   });
 });

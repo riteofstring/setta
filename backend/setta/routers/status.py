@@ -133,10 +133,13 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
     home = resolve_setta_home()
     config = load_setta_user_config(setta_home=home)
     paths = get_setta_paths()
+    active_setta_files_location = paths.setta_files_location
+    if active_setta_files_location is None:
+        active_setta_files_location = "custom"
     return SettaHomeInfoResponse(
         settaHome=str(home),
         globalSettaFilesBase=str(config.global_setta_files_base),
-        activeSettaFilesLocation=paths.setta_files_location,
+        activeSettaFilesLocation=active_setta_files_location,
         llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
     )
 
