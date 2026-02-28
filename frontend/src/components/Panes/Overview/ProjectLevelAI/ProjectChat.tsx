@@ -1,13 +1,12 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
-import {
-  DICTATION_MODE_ITEMS,
-  resolveProviderDictationAvailability,
-} from "components/Chat/dictationMode";
+import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
+import { getProjectDictationModeOptionLabel } from "components/Chat/dictationPolicy";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
+  getExternalEngineIssueMessage,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
 import {
@@ -17,35 +16,62 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { Resizable } from "re-resizable";
 import {
   SetStateAction,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdAdd, MdOutlineExtension } from "react-icons/md";
+import { MdAdd, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { updateEngineConfig } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
+import { addPersistentNotification } from "state/actions/notifications";
+import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
+import {
+  buildSearchableTextForMessage,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
 import {
   AllLLMConfigs,
-  ChatDictationMode,
+  BaseChatMessageUnion,
+  ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
+import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
 } from "./ProjectChatCore";
+import {
+  focusInputWithoutSelectionById,
+  PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
+} from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -58,17 +84,217 @@ type ProjectAISettingsPopoverProps = {
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
   selectedTranscriptionProfileId: string | null;
-  dictationMode: ChatDictationMode;
+  defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
+  dictationMode: ProjectDictationMode;
+  activityAccordionOpenByDefault: boolean;
+  activityChildrenOpenByDefault: boolean;
+  providerDictationLikelySupported: boolean;
+  providerDictationUnavailableReason: string;
+  onOpenSkillsMcpViewer: () => void;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
   onTranscriptionProfileChange: (value: string | null) => void;
-  onDictationModeChange: (value: string | null) => void;
+  onPinDefaultModel: () => void;
+  onDictationModeChange: (value: ProjectDictationMode) => void;
+  onActivityAccordionOpenByDefaultChange: (value: boolean) => void;
+  onActivityChildrenOpenByDefaultChange: (value: boolean) => void;
 };
+
+type ProjectDictationMode = "auto" | "browser" | "provider";
+const INLINE_THREADS_BREAKPOINT_PX = 760;
+const INLINE_THREADS_MIN_WIDTH_PX = 220;
+const INLINE_THREADS_DEFAULT_WIDTH_PX = 288;
+const INLINE_THREADS_MAX_WIDTH_PX = 520;
+const INLINE_THREADS_MIN_CHAT_WIDTH_PX = 420;
+const PROJECT_CHAT_CONTENT_SHELL_CLASS = "mx-auto w-full max-w-[72rem] px-2";
+const INLINE_THREADS_WIDTH_STORAGE_KEY =
+  "setta_project_ai_inline_threads_width";
+type DraftProjectThreadState =
+  | { phase: "none" }
+  | { phase: "idle" }
+  | { phase: "pending_chat_id" }
+  | { phase: "awaiting_title"; chatId: string };
+
+type ResolveProjectChatThreadVisibilityFromResizeInput = {
+  isInitialRun: boolean;
+  wasLargeEnoughForInlineThreads: boolean;
+  isLargeEnoughForInlineThreads: boolean;
+  viewThreads: boolean;
+  explicitlyClosedAtLargeWidth: boolean;
+};
+
+type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
+  chatId: string | null | undefined;
+  selectedEngineId: string | null;
+  availableEngineConfigIds: Set<string>;
+  chatEngineConfigByChatId: Map<string, string | null>;
+};
+
+type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
+  chatId: string | null | undefined;
+  chatProvenanceByChatId: Map<
+    string,
+    {
+      runType: ChatRunType;
+      engineConfigId: string | null;
+    }
+  >;
+  chatProvenanceAuthoritative: boolean;
+  engineConfigById: Map<string, EngineConfig>;
+  engineConfigsAuthoritative: boolean;
+};
+
+type ProjectChatThreadBlockedErrorCode =
+  | "chat_provenance_missing"
+  | "engine_config_missing"
+  | "engine_type_mismatch";
+
+type ProjectChatThreadCompatibilityResult =
+  | {
+      status: "compatible";
+    }
+  | {
+      status: "unknown";
+    }
+  | {
+      status: "blocked";
+      errorCode: ProjectChatThreadBlockedErrorCode;
+    };
+
+export function resolveProjectChatThreadVisibilityFromResize({
+  isInitialRun,
+  wasLargeEnoughForInlineThreads,
+  isLargeEnoughForInlineThreads,
+  viewThreads,
+  explicitlyClosedAtLargeWidth,
+}: ResolveProjectChatThreadVisibilityFromResizeInput): boolean | null {
+  if (isInitialRun) {
+    if (!isLargeEnoughForInlineThreads) {
+      if (!viewThreads) {
+        return null;
+      }
+      return false;
+    }
+    if (viewThreads || explicitlyClosedAtLargeWidth) {
+      return null;
+    }
+    return true;
+  }
+  if (wasLargeEnoughForInlineThreads === isLargeEnoughForInlineThreads) {
+    return null;
+  }
+  if (!isLargeEnoughForInlineThreads) {
+    if (!viewThreads) {
+      return null;
+    }
+    return false;
+  }
+  if (viewThreads || explicitlyClosedAtLargeWidth) {
+    return null;
+  }
+  return true;
+}
+
+export function resolveProjectChatEngineConfigIdForSelectedChat({
+  chatId,
+  selectedEngineId,
+  availableEngineConfigIds,
+  chatEngineConfigByChatId,
+}: ResolveProjectChatEngineConfigIdForSelectedChatInput): string | null {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return null;
+  }
+  const resolvedEngineConfigId = chatEngineConfigByChatId.get(resolvedChatId);
+  if (!resolvedEngineConfigId) {
+    return null;
+  }
+  if (!availableEngineConfigIds.has(resolvedEngineConfigId)) {
+    return null;
+  }
+  if (resolvedEngineConfigId === selectedEngineId) {
+    return null;
+  }
+  return resolvedEngineConfigId;
+}
+
+function isSelectedChatRunTypeCompatibleWithEngineType({
+  runType,
+  engineType,
+}: {
+  runType: ChatRunType;
+  engineType: EngineTypeEnum;
+}): boolean {
+  if (runType === "llm_chat") {
+    return engineType === EngineTypeEnum.setta_llm;
+  }
+  if (runType === "external_agent") {
+    return engineType === EngineTypeEnum.external_agent;
+  }
+  return false;
+}
+
+export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  chatId,
+  chatProvenanceByChatId,
+  chatProvenanceAuthoritative,
+  engineConfigById,
+  engineConfigsAuthoritative,
+}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return { status: "compatible" };
+  }
+  const provenance = chatProvenanceByChatId.get(resolvedChatId);
+  if (!provenance) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    };
+  }
+  const requiredEngineConfigId = provenance.engineConfigId;
+  if (!requiredEngineConfigId) {
+    if (!chatProvenanceAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    };
+  }
+  const requiredEngine = engineConfigById.get(requiredEngineConfigId);
+  if (!requiredEngine) {
+    if (!engineConfigsAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "blocked",
+      errorCode: "engine_config_missing",
+    };
+  }
+  if (
+    !isSelectedChatRunTypeCompatibleWithEngineType({
+      runType: provenance.runType,
+      engineType: requiredEngine.engineType,
+    })
+  ) {
+    return {
+      status: "blocked",
+      errorCode: "engine_type_mismatch",
+    };
+  }
+  return { status: "compatible" };
+}
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
+  const agentRuns = useAIStore((state) => state.agentRuns);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const setChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {
@@ -79,16 +305,43 @@ export function ProjectChat() {
     },
     [],
   );
+  const [draftThreadState, setDraftThreadState] =
+    useState<DraftProjectThreadState>({
+      phase: "none",
+    });
+  const [draftThreadTargetGroupId, setDraftThreadTargetGroupId] = useState<
+    string | null
+  >(null);
   const [thinking, setThinking] = useState(true);
+  const [conversationFilterText, setConversationFilterText] = useState("");
+  const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
+    useState<number | null>(null);
   useHydrateLLMState();
   useHydrateAgenticState();
+  const activeConversationMessages = useAIStore((state) => {
+    if (chatId === null) {
+      const pendingMessages = state.pendingChatDetails?.messages;
+      if (Array.isArray(pendingMessages)) {
+        return pendingMessages as Array<BaseChatMessageUnion>;
+      }
+      return [];
+    }
+    if (typeof chatId !== "string") {
+      return [];
+    }
+    const activeMessages = state.chatDetails[chatId]?.messages;
+    if (Array.isArray(activeMessages)) {
+      return activeMessages as Array<BaseChatMessageUnion>;
+    }
+    return [];
+  });
 
   const {
     apiKeys,
+    apiKeysAuthoritative,
     apiKeysInitialLoadComplete,
-    viewHistory,
-    projectChatDictationMode,
-    projectChatTranscriptionProfileId,
+    viewThreads,
+    projectChatThreadsExplicitlyClosedAtLargeWidth,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -96,15 +349,25 @@ export function ProjectChat() {
     externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
+    engineConfigsLoadError,
     transcriptionProfiles,
     transcriptionProfilesInitialLoadComplete,
+    projectChatDictationMode,
+    projectChatTranscriptionProfileId,
+    projectChatSelectedEngineId,
+    projectChatActivityAccordionOpenByDefault,
+    projectChatActivityChildrenOpenByDefault,
+    chatProvenanceByChatId,
+    agentRunsInitialLoadComplete,
+    agentRunsLoadError,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
+      apiKeysAuthoritative: x.apiKeysAuthoritative,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-      viewHistory: x.viewHistory,
-      projectChatDictationMode: x.projectChatDictationMode,
-      projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
+      viewThreads: x.viewThreads,
+      projectChatThreadsExplicitlyClosedAtLargeWidth:
+        x.projectChatThreadsExplicitlyClosedAtLargeWidth,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -113,17 +376,67 @@ export function ProjectChat() {
       externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      engineConfigsLoadError: x.engineConfigsLoadError,
       transcriptionProfiles: x.transcriptionProfiles,
       transcriptionProfilesInitialLoadComplete:
         x.transcriptionProfilesInitialLoadComplete,
+      projectChatDictationMode: x.projectChatDictationMode,
+      projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
+      projectChatSelectedEngineId: x.projectChatSelectedEngineId,
+      projectChatActivityAccordionOpenByDefault:
+        x.projectChatActivityAccordionOpenByDefault,
+      projectChatActivityChildrenOpenByDefault:
+        x.projectChatActivityChildrenOpenByDefault,
+      chatProvenanceByChatId: x.chatProvenanceByChatId,
+      agentRunsInitialLoadComplete: x.agentRunsInitialLoadComplete,
+      agentRunsLoadError: x.agentRunsLoadError,
     }),
     _.isEqual,
   );
+  const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
+  const { threadAssignments, threadGroups } = useLocalStorage(
+    (state) => ({
+      threadAssignments:
+        state.projectChatThreadAssignmentsByProjectConfigId[projectConfigId] ??
+        {},
+      threadGroups:
+        state.projectChatThreadGroupsByProjectConfigId[projectConfigId] ?? [],
+    }),
+    _.isEqual,
+  );
+  const inlineThreadsWidthStorage = useMemo(
+    () => getSafeLocalStorageAdapter("project-chat-inline-threads"),
+    [],
+  );
+  const [inlineThreadsWidth, setInlineThreadsWidth] = useState(() => {
+    const stored = Number(
+      inlineThreadsWidthStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY),
+    );
+    if (!Number.isFinite(stored)) {
+      return INLINE_THREADS_DEFAULT_WIDTH_PX;
+    }
+    return stored;
+  });
 
-  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const selectedEngineId = projectChatSelectedEngineId;
+  const setSelectedEngineId = useCallback((value: string | null) => {
+    useAIStore.setState({ projectChatSelectedEngineId: value });
+  }, []);
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
+  const [selectedThreadGroupId, setSelectedThreadGroupId] = useState<
+    string | null
+  >(null);
+  const [inlineThreadsHeaderPortalTarget, setInlineThreadsHeaderPortalTarget] =
+    useState<HTMLDivElement | null>(null);
   const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
+  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
+  const inlineThreadsHeaderShellRef = useRef<HTMLDivElement | null>(null);
+  const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedInlineThreadsResizeSyncRef = useRef(false);
+  const previousLargeEnoughForInlineThreadsRef = useRef(
+    overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX,
+  );
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -142,6 +455,13 @@ export function ProjectChat() {
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
   );
+  const engineConfigById = useMemo(() => {
+    const nextById = new Map<string, EngineConfig>();
+    for (const config of engineConfigs) {
+      nextById.set(config.id, config);
+    }
+    return nextById;
+  }, [engineConfigs]);
   const transcriptionProfileGroups = useMemo<AllItemsType<string>>(
     () => [
       {
@@ -207,6 +527,12 @@ export function ProjectChat() {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, effectiveEngineConfig]);
+  const selectedLLMConfig = useMemo(() => {
+    if (!selectedLLMConfigId || !allLLMConfigs) {
+      return null;
+    }
+    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
+  }, [allLLMConfigs, selectedLLMConfigId]);
   const selectedTranscriptionProfile = useMemo(() => {
     if (!projectChatTranscriptionProfileId) {
       return null;
@@ -224,9 +550,17 @@ export function ProjectChat() {
           selectedTranscriptionProfile,
           allLLMConfigs,
           apiKeys,
+          apiKeysAuthoritative,
         }),
-      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+      [
+        allLLMConfigs,
+        apiKeys,
+        apiKeysAuthoritative,
+        selectedTranscriptionProfile,
+      ],
     );
+  const defaultLLMConfigId = allLLMConfigs?.default_config_id ?? null;
+  const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
@@ -277,35 +611,193 @@ export function ProjectChat() {
     }
     return null;
   }, [engineType]);
-  const externalStatusMessage = useMemo(() => {
-    if (!externalEngineStatus) {
+  const externalEngineIssueMessage = useMemo(
+    () => getExternalEngineIssueMessage(externalEngineStatus),
+    [externalEngineStatus],
+  );
+  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
+    if (!projectHistoryRunType) {
       return null;
     }
-    if (externalEngineStatus.status === "loading") {
-      return "Checking external engine status...";
+    return {
+      runType: projectHistoryRunType,
+      engineConfigId: effectiveEngineId,
+    };
+  }, [effectiveEngineId, projectHistoryRunType]);
+  const chatHistoryEntries = useMemo(
+    () =>
+      buildChatHistoryEntries(agentRuns, {
+        projectConfigId,
+        unscopedOnly: true,
+        compatibility: historyCompatibility,
+      }),
+    [agentRuns, historyCompatibility, projectConfigId],
+  );
+  const chatHistoryEntriesById = useMemo(() => {
+    const entriesById = new Map<string, (typeof chatHistoryEntries)[number]>();
+    for (const entry of chatHistoryEntries) {
+      entriesById.set(entry.chatId, entry);
     }
-    if (externalEngineStatus.status === "available") {
-      return "External engine available";
+    return entriesById;
+  }, [chatHistoryEntries]);
+  const chatProvenanceByChatIdMap = useMemo(() => {
+    const nextByChatId = new Map<
+      string,
+      {
+        runType: ChatRunType;
+        engineConfigId: string | null;
+      }
+    >();
+    for (const [runChatId, provenance] of Object.entries(
+      chatProvenanceByChatId,
+    )) {
+      if (!runChatId.trim()) {
+        continue;
+      }
+      nextByChatId.set(runChatId, provenance);
     }
-    if (externalEngineStatus.issues.length > 0) {
-      return `External engine unavailable: ${externalEngineStatus.issues.join(
-        "; ",
-      )}`;
+    return nextByChatId;
+  }, [chatProvenanceByChatId]);
+  const chatEngineConfigByChatId = useMemo(() => {
+    const nextByChatId = new Map<string, string | null>();
+    for (const [runChatId, provenance] of chatProvenanceByChatIdMap.entries()) {
+      nextByChatId.set(runChatId, provenance.engineConfigId);
     }
-    return "External engine unavailable";
-  }, [externalEngineStatus]);
-  const externalStatusClassName = useMemo(() => {
-    if (!externalEngineStatus) {
-      return "";
+    return nextByChatId;
+  }, [chatProvenanceByChatIdMap]);
+  const selectedThreadCompatibility = useMemo(
+    () =>
+      resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+        chatId,
+        chatProvenanceByChatId: chatProvenanceByChatIdMap,
+        chatProvenanceAuthoritative:
+          agentRunsInitialLoadComplete && agentRunsLoadError === null,
+        engineConfigById,
+        engineConfigsAuthoritative:
+          engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
+      }),
+    [
+      chatId,
+      chatProvenanceByChatIdMap,
+      agentRunsInitialLoadComplete,
+      agentRunsLoadError,
+      engineConfigById,
+      engineConfigsInitialLoadComplete,
+      engineConfigsLoadError,
+    ],
+  );
+  const selectedThreadBlockedErrorCode =
+    selectedThreadCompatibility.status === "blocked"
+      ? selectedThreadCompatibility.errorCode
+      : null;
+  const availableEngineConfigIds = useMemo(
+    () => new Set(engineConfigs.map((config) => config.id)),
+    [engineConfigs],
+  );
+  const draftThreadHint = useMemo(() => {
+    if (draftThreadState.phase === "none") {
+      return null;
     }
-    if (externalEngineStatus.status === "available") {
-      return "text-emerald-600 dark:text-emerald-400";
+    if (draftThreadState.phase === "awaiting_title") {
+      return {
+        chatId: draftThreadState.chatId,
+        groupId: draftThreadTargetGroupId,
+      };
     }
-    if (externalEngineStatus.status === "loading") {
-      return "text-setta-500 dark:text-setta-400";
+    return { chatId: null, groupId: draftThreadTargetGroupId };
+  }, [draftThreadState, draftThreadTargetGroupId]);
+
+  useEffect(() => {
+    setDraftThreadState((current) => {
+      if (current.phase === "none") {
+        return current;
+      }
+      if (current.phase === "idle") {
+        if (typeof chatId === "string") {
+          return { phase: "none" };
+        }
+        return current;
+      }
+      if (current.phase === "pending_chat_id") {
+        if (typeof chatId === "string") {
+          return { phase: "awaiting_title", chatId };
+        }
+        if (chatId === undefined) {
+          return { phase: "idle" };
+        }
+        return current;
+      }
+      if (typeof chatId === "string" && chatId !== current.chatId) {
+        return { phase: "none" };
+      }
+      const historyEntry = chatHistoryEntriesById.get(current.chatId);
+      if (historyEntry && historyEntry.nameSource !== null) {
+        return { phase: "none" };
+      }
+      return current;
+    });
+  }, [chatHistoryEntriesById, chatId]);
+  useEffect(() => {
+    if (draftThreadState.phase !== "none") {
+      return;
     }
-    return "text-red-600 dark:text-red-400";
-  }, [externalEngineStatus]);
+    if (draftThreadTargetGroupId === null) {
+      return;
+    }
+    setDraftThreadTargetGroupId(null);
+  }, [draftThreadState.phase, draftThreadTargetGroupId]);
+
+  useEffect(() => {
+    if (typeof chatId !== "string" || chatId.trim() === "") {
+      return;
+    }
+    setSelectedThreadGroupId(threadAssignments[chatId] ?? null);
+  }, [chatId, threadAssignments]);
+  useEffect(() => {
+    const nextEngineConfigId = resolveProjectChatEngineConfigIdForSelectedChat({
+      chatId,
+      selectedEngineId,
+      availableEngineConfigIds,
+      chatEngineConfigByChatId,
+    });
+    if (!nextEngineConfigId) {
+      return;
+    }
+    setSelectedEngineId(nextEngineConfigId);
+  }, [
+    availableEngineConfigIds,
+    chatEngineConfigByChatId,
+    chatId,
+    selectedEngineId,
+    setSelectedEngineId,
+  ]);
+
+  useEffect(() => {
+    if (selectedThreadGroupId === null) {
+      return;
+    }
+    const exists = threadGroups.some(
+      (group) => group.id === selectedThreadGroupId,
+    );
+    if (!exists) {
+      setSelectedThreadGroupId(null);
+    }
+  }, [selectedThreadGroupId, threadGroups]);
+
+  useEffect(() => {
+    if (!externalEngineIssueMessage) {
+      notifiedExternalEngineIssueRef.current = null;
+      return;
+    }
+    if (notifiedExternalEngineIssueRef.current === externalEngineIssueMessage) {
+      return;
+    }
+    notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
+    addPersistentNotification(
+      externalEngineIssueMessage,
+      SettaNotificationTypeEnum.warning,
+    );
+  }, [externalEngineIssueMessage]);
 
   const handleEngineChange = useCallback(
     (value: string | null) => {
@@ -315,10 +807,13 @@ export function ProjectChat() {
       }
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
-      useAIStore.setState({ viewHistory: false });
+      setDraftThreadState({ phase: "none" });
+      setDraftThreadTargetGroupId(null);
+      setSelectedThreadGroupId(null);
+      useAIStore.setState({ viewThreads: false });
       setViewSkillsMcpViewer(false);
     },
-    [selectedEngineId, setChatId],
+    [selectedEngineId, setChatId, setSelectedEngineId],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -337,17 +832,46 @@ export function ProjectChat() {
     },
     [effectiveEngineConfig],
   );
+  const handlePinDefaultModel = useCallback(() => {
+    if (!allLLMConfigs || !selectedLLMConfigId) {
+      return;
+    }
+    if (allLLMConfigs.default_config_id === selectedLLMConfigId) {
+      return;
+    }
+    void saveLLMConfig({
+      ...allLLMConfigs,
+      default_config_id: selectedLLMConfigId,
+    });
+  }, [allLLMConfigs, selectedLLMConfigId]);
   const handleTranscriptionProfileChange = useCallback(
     (value: string | null) => {
-      useAIStore.setState({ projectChatTranscriptionProfileId: value ?? null });
+      useAIStore.setState({ projectChatTranscriptionProfileId: value });
     },
     [],
   );
-  const handleDictationModeChange = useCallback((value: string | null) => {
-    const nextMode =
-      value === "browser" || value === "provider" ? value : "auto";
-    useAIStore.setState({ projectChatDictationMode: nextMode });
-  }, []);
+  const handleDictationModeChange = useCallback(
+    (value: ProjectDictationMode) => {
+      useAIStore.setState({ projectChatDictationMode: value });
+    },
+    [],
+  );
+  const handleActivityAccordionOpenByDefaultChange = useCallback(
+    (value: boolean) => {
+      useAIStore.setState({
+        projectChatActivityAccordionOpenByDefault: value,
+      });
+    },
+    [],
+  );
+  const handleActivityChildrenOpenByDefaultChange = useCallback(
+    (value: boolean) => {
+      useAIStore.setState({
+        projectChatActivityChildrenOpenByDefault: value,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!engineConfigsInitialLoadComplete) {
@@ -389,6 +913,7 @@ export function ProjectChat() {
     externalAgentHealthInitialLoadComplete,
     preferredEngineId,
     selectedEngineId,
+    setSelectedEngineId,
   ]);
   useEffect(() => {
     if (!transcriptionProfilesInitialLoadComplete) {
@@ -397,11 +922,9 @@ export function ProjectChat() {
     if (!projectChatTranscriptionProfileId) {
       return;
     }
-    const selectedProfile = projectChatTranscriptionProfileId
-      ? transcriptionProfiles.find(
-          (profile) => profile.id === projectChatTranscriptionProfileId,
-        ) ?? null
-      : null;
+    const selectedProfile = transcriptionProfiles.find(
+      (profile) => profile.id === projectChatTranscriptionProfileId,
+    );
     if (!selectedProfile) {
       useAIStore.setState({ projectChatTranscriptionProfileId: null });
     }
@@ -411,148 +934,668 @@ export function ProjectChat() {
     transcriptionProfilesInitialLoadComplete,
   ]);
   useEffect(() => {
+    if (projectChatDictationMode !== "provider") {
+      return;
+    }
+    if (providerDictationAvailable) {
+      return;
+    }
+    useAIStore.setState({ projectChatDictationMode: "auto" });
+  }, [projectChatDictationMode, providerDictationAvailable]);
+  useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
 
-  const isAuxView = viewHistory || viewSkillsMcpViewer;
+  useEffect(() => {
+    const isLargeEnoughForInlineThreads =
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    const nextVisibility = resolveProjectChatThreadVisibilityFromResize({
+      isInitialRun: !hasInitializedInlineThreadsResizeSyncRef.current,
+      wasLargeEnoughForInlineThreads:
+        previousLargeEnoughForInlineThreadsRef.current,
+      isLargeEnoughForInlineThreads,
+      viewThreads,
+      explicitlyClosedAtLargeWidth:
+        projectChatThreadsExplicitlyClosedAtLargeWidth,
+    });
+    previousLargeEnoughForInlineThreadsRef.current =
+      isLargeEnoughForInlineThreads;
+    hasInitializedInlineThreadsResizeSyncRef.current = true;
+    if (nextVisibility === null || nextVisibility === viewThreads) {
+      return;
+    }
+    useAIStore.setState({ viewThreads: nextVisibility });
+  }, [
+    overviewPaneWidth,
+    projectChatThreadsExplicitlyClosedAtLargeWidth,
+    viewThreads,
+  ]);
+
+  const showInlineThreads =
+    viewThreads && overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+  const inlineThreadsMaxWidth = useMemo(() => {
+    const boundedMaxWidth = clamp(
+      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      INLINE_THREADS_MAX_WIDTH_PX,
+    );
+    return boundedMaxWidth;
+  }, [overviewPaneWidth]);
+  const resolvedInlineThreadsWidth = useMemo(() => {
+    return clamp(
+      inlineThreadsWidth,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      inlineThreadsMaxWidth,
+    );
+  }, [inlineThreadsMaxWidth, inlineThreadsWidth]);
+  const canResizeInlineThreads =
+    inlineThreadsMaxWidth > INLINE_THREADS_MIN_WIDTH_PX;
+
+  const updateInlineThreadsWidth = useCallback(
+    (nextWidth: number) => {
+      const resolvedWidth = clamp(
+        nextWidth,
+        INLINE_THREADS_MIN_WIDTH_PX,
+        inlineThreadsMaxWidth,
+      );
+      setInlineThreadsWidth((current) => {
+        if (current === resolvedWidth) {
+          return current;
+        }
+        return resolvedWidth;
+      });
+    },
+    [inlineThreadsMaxWidth],
+  );
+
+  useEffect(() => {
+    if (inlineThreadsWidth === resolvedInlineThreadsWidth) {
+      return;
+    }
+    setInlineThreadsWidth(resolvedInlineThreadsWidth);
+  }, [inlineThreadsWidth, resolvedInlineThreadsWidth]);
+  const syncInlineThreadsHeaderWidth = useCallback((nextWidth: number) => {
+    const inlineThreadsHeaderShellNode = inlineThreadsHeaderShellRef.current;
+    if (!inlineThreadsHeaderShellNode) {
+      return;
+    }
+    inlineThreadsHeaderShellNode.style.width = `${Math.max(
+      0,
+      Math.round(nextWidth),
+    )}px`;
+  }, []);
+  useEffect(() => {
+    if (!showInlineThreads) {
+      return;
+    }
+    syncInlineThreadsHeaderWidth(resolvedInlineThreadsWidth);
+  }, [
+    resolvedInlineThreadsWidth,
+    showInlineThreads,
+    syncInlineThreadsHeaderWidth,
+  ]);
+  useEffect(() => {
+    if (!showInlineThreads || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const inlineThreadsResizableColumnNode =
+      inlineThreadsResizableColumnRef.current;
+    if (!inlineThreadsResizableColumnNode) {
+      return;
+    }
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
+      syncInlineThreadsHeaderWidth(entry.contentRect.width);
+    });
+    resizeObserver.observe(inlineThreadsResizableColumnNode);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [showInlineThreads, syncInlineThreadsHeaderWidth]);
+  useEffect(() => {
+    inlineThreadsWidthStorage.setItem(
+      INLINE_THREADS_WIDTH_STORAGE_KEY,
+      String(inlineThreadsWidth),
+    );
+  }, [inlineThreadsWidth, inlineThreadsWidthStorage]);
+
+  const showThreadsOnlyView =
+    viewThreads && !showInlineThreads && !viewSkillsMcpViewer;
+  const isAuxView = viewSkillsMcpViewer || showThreadsOnlyView;
+  const showConversationFilter = !isAuxView;
+  const normalizedConversationSearchTerms = useMemo(
+    () => tokenizeConversationSearchQuery(conversationFilterText),
+    [conversationFilterText],
+  );
+  const hasConversationSearchTerms =
+    normalizedConversationSearchTerms.length > 0;
+  const conversationSearchMatchMessageIds = useMemo(() => {
+    if (!hasConversationSearchTerms) {
+      return [];
+    }
+    return activeConversationMessages
+      .filter(
+        (message) =>
+          message.role !== ChatRoleEnum.tool &&
+          matchesConversationSearchText(
+            buildSearchableTextForMessage(message),
+            normalizedConversationSearchTerms,
+          ),
+      )
+      .map((message) => message.id);
+  }, [
+    activeConversationMessages,
+    hasConversationSearchTerms,
+    normalizedConversationSearchTerms,
+  ]);
+  const conversationSearchMatchCount = conversationSearchMatchMessageIds.length;
+  const conversationSearchQueryKey = useMemo(
+    () => normalizedConversationSearchTerms.join("\u0000"),
+    [normalizedConversationSearchTerms],
+  );
+  useEffect(() => {
+    if (!hasConversationSearchTerms || conversationSearchMatchCount === 0) {
+      setConversationSearchMatchIndex(null);
+      return;
+    }
+    setConversationSearchMatchIndex(0);
+  }, [
+    conversationSearchMatchCount,
+    conversationSearchQueryKey,
+    hasConversationSearchTerms,
+  ]);
+  useEffect(() => {
+    if (conversationSearchMatchCount === 0) {
+      setConversationSearchMatchIndex(null);
+      return;
+    }
+    setConversationSearchMatchIndex((current) => {
+      if (current === null) {
+        return 0;
+      }
+      if (current >= conversationSearchMatchCount) {
+        return conversationSearchMatchCount - 1;
+      }
+      return current;
+    });
+  }, [conversationSearchMatchCount]);
+  const activeConversationSearchMatchMessageId = useMemo(() => {
+    if (conversationSearchMatchIndex === null) {
+      return null;
+    }
+    return (
+      conversationSearchMatchMessageIds[conversationSearchMatchIndex] ?? null
+    );
+  }, [conversationSearchMatchIndex, conversationSearchMatchMessageIds]);
+  const conversationSearchCounterText =
+    conversationSearchMatchCount > 0 && conversationSearchMatchIndex !== null
+      ? `${conversationSearchMatchIndex + 1}/${conversationSearchMatchCount}`
+      : `0/${conversationSearchMatchCount}`;
+  const handleStepConversationSearch = useCallback(
+    (direction: "previous" | "next") => {
+      if (conversationSearchMatchCount === 0) {
+        return;
+      }
+      setConversationSearchMatchIndex((current) => {
+        const baseIndex = current ?? 0;
+        if (direction === "next") {
+          return (baseIndex + 1) % conversationSearchMatchCount;
+        }
+        return (
+          (baseIndex - 1 + conversationSearchMatchCount) %
+          conversationSearchMatchCount
+        );
+      });
+    },
+    [conversationSearchMatchCount],
+  );
+  const showReturnOnlyNav = viewSkillsMcpViewer || showThreadsOnlyView;
+  const handleReturnToChat = useCallback(() => {
+    if (viewSkillsMcpViewer) {
+      setViewSkillsMcpViewer(false);
+      return;
+    }
+    useAIStore.setState({ viewThreads: false });
+  }, [viewSkillsMcpViewer]);
+  const handleToggleThreads = useCallback(() => {
+    setViewSkillsMcpViewer(false);
+    const isLargeEnoughForInlineThreads =
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    useAIStore.setState((state) => {
+      const nextViewThreads = !state.viewThreads;
+      if (!isLargeEnoughForInlineThreads) {
+        return { viewThreads: nextViewThreads };
+      }
+      return {
+        viewThreads: nextViewThreads,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
+      };
+    });
+  }, [overviewPaneWidth]);
+  const handleNewChatClick = useCallback(() => {
+    setChatId(undefined);
+    setDraftThreadState({ phase: "idle" });
+    setDraftThreadTargetGroupId(selectedThreadGroupId);
+    if (!showInlineThreads) {
+      useAIStore.setState({
+        viewThreads: false,
+      });
+    }
+    setViewSkillsMcpViewer(false);
+  }, [selectedThreadGroupId, setChatId, showInlineThreads]);
+  const handleNewChatInThreadGroup = useCallback(
+    (groupId: string) => {
+      setChatId(undefined);
+      setDraftThreadState({ phase: "idle" });
+      setDraftThreadTargetGroupId(groupId);
+      setSelectedThreadGroupId(groupId);
+      if (!showInlineThreads) {
+        useAIStore.setState({
+          viewThreads: false,
+        });
+      }
+      setViewSkillsMcpViewer(false);
+    },
+    [setChatId, showInlineThreads],
+  );
+  const returnToChatTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Return to chat",
+        content: viewSkillsMcpViewer
+          ? "Leave Skills/MCP and reopen chat."
+          : "Close threads-only view and reopen chat.",
+      }),
+    [viewSkillsMcpViewer],
+  );
+  const newChatTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "New chat",
+        content: "Start a new conversation in the selected group.",
+      }),
+    [],
+  );
+  const threadsTooltipHandlers = useMemo(() => {
+    const showingInlineThreads = viewThreads && showInlineThreads;
+    return getFloatingBoxHandlers({
+      title: showingInlineThreads ? "Hide threads" : "Threads",
+      content: showingInlineThreads
+        ? "Collapse the threads list."
+        : "Open the threads list.",
+    });
+  }, [showInlineThreads, viewThreads]);
+  const handleDraftThreadStart = useCallback(() => {
+    setDraftThreadState((current) => {
+      if (current.phase === "none") {
+        return current;
+      }
+      return { phase: "pending_chat_id" };
+    });
+  }, []);
+  const handleInlineThreadsHeaderHostRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setInlineThreadsHeaderPortalTarget(node);
+    },
+    [],
+  );
+  const handleInlineThreadsHeaderShellRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      inlineThreadsHeaderShellRef.current = node;
+      if (!node) {
+        return;
+      }
+      node.style.width = `${Math.round(resolvedInlineThreadsWidth)}px`;
+    },
+    [resolvedInlineThreadsWidth],
+  );
+  const handleInlineThreadsResizableColumnRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      inlineThreadsResizableColumnRef.current = node;
+    },
+    [],
+  );
+  const handleDraftThreadSettled = useCallback(
+    (nextChatId: string | null, succeeded: boolean) => {
+      if (succeeded && nextChatId && draftThreadTargetGroupId) {
+        setProjectChatThreadGroupAssignment(
+          projectConfigId,
+          nextChatId,
+          draftThreadTargetGroupId,
+        );
+      }
+      setDraftThreadState((current) => {
+        if (current.phase === "none") {
+          return current;
+        }
+        if (!succeeded || !nextChatId) {
+          return { phase: "idle" };
+        }
+        return { phase: "awaiting_title", chatId: nextChatId };
+      });
+    },
+    [draftThreadTargetGroupId, projectConfigId],
+  );
+  useEffect(() => {
+    setConversationFilterText("");
+  }, [chatId]);
 
   return (
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
-          <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              aria-label="New Chat"
-              onClick={() => {
-                setChatId(undefined);
-                useAIStore.setState({
-                  viewHistory: false,
-                });
-                setViewSkillsMcpViewer(false);
-              }}
-            >
-              <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
-            </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                setViewSkillsMcpViewer(false);
-                useAIStore.setState({ viewHistory: !viewHistory });
-              }}
-              aria-label="View History"
-            >
-              {viewHistory ? (
-                <>
-                  <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
-                </>
-              ) : (
-                <>
-                  <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
-                </>
-              )}
-            </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                if (viewSkillsMcpViewer) {
-                  setViewSkillsMcpViewer(false);
-                  return;
-                }
-                useAIStore.setState({ viewHistory: false });
-                setViewSkillsMcpViewer(true);
-              }}
-              aria-label="View Skills and MCP"
-            >
-              {viewSkillsMcpViewer ? (
-                <>
-                  <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
-                </>
-              ) : (
-                <>
-                  <MdOutlineExtension size={15} />
-                  <span className="hidden @[17.5rem]:block">Skills/MCP</span>
-                </>
-              )}
-            </button>
-            {!isAuxView ? (
-              <Menubar.Root className="contents">
-                <FollowAIToggleButton />
-              </Menubar.Root>
-            ) : null}
-            {!isAuxView && showPlanModeBadge ? <PlanModeBadge /> : null}
-            {!isAuxView &&
-            (engineType === EngineTypeEnum.setta_llm ||
-              engineType === EngineTypeEnum.external_agent) ? (
-              <button
-                className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
-                aria-label="Thinking"
-                onClick={() => {
-                  setThinking(!thinking);
-                }}
+        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800 [&_button]:cursor-pointer">
+          <div className="flex w-full min-w-0 items-stretch">
+            {showInlineThreads ? (
+              <div
+                ref={handleInlineThreadsHeaderShellRef}
+                className="shrink-0 border-r border-setta-200 dark:border-setta-800"
+                style={{ width: `${resolvedInlineThreadsWidth}px` }}
               >
-                <BiSolidBrain size={15} />
-                <span className="hidden @[33.5rem]:block">Thinking</span>
-              </button>
-            ) : null}
-            {!isAuxView ? (
-              <div className="ml-auto flex items-center">
-                <ProjectAISettingsPopover
-                  engineGroups={engineGroups}
-                  transcriptionProfileGroups={transcriptionProfileGroups}
-                  availableConfigGroups={availableConfigGroups}
-                  selectedEngineId={effectiveEngineId}
-                  selectedLLMConfigId={selectedLLMConfigId}
-                  selectedTranscriptionProfileId={
-                    projectChatTranscriptionProfileId
-                  }
-                  dictationMode={projectChatDictationMode}
-                  engineType={engineType}
-                  noConfigsAvailable={noConfigsAvailable}
-                  onEngineChange={handleEngineChange}
-                  onLLMConfigChange={handleLLMConfigChange}
-                  onTranscriptionProfileChange={
-                    handleTranscriptionProfileChange
-                  }
-                  onDictationModeChange={handleDictationModeChange}
+                <div
+                  ref={handleInlineThreadsHeaderHostRef}
+                  className="h-full w-full min-w-0"
+                  data-testid="project-chat-inline-threads-header-host"
                 />
               </div>
             ) : null}
+            <div
+              className={`min-w-0 flex-1 @container ${showInlineThreads ? "pl-2" : ""}`}
+            >
+              <div className={PROJECT_CHAT_CONTENT_SHELL_CLASS}>
+                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[44rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {showReturnOnlyNav ? (
+                      <button
+                        className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                        onClick={handleReturnToChat}
+                        aria-label="Return to chat"
+                        {...returnToChatTooltipHandlers}
+                      >
+                        <IoMdArrowRoundBack />
+                        <span className="hidden @[31.25rem]:block">
+                          Return to chat
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                          aria-label="New Chat"
+                          onClick={handleNewChatClick}
+                          {...newChatTooltipHandlers}
+                        >
+                          <MdAdd size={15} />
+                          <span className="hidden @[31.25rem]:block">New</span>
+                        </button>
+                        <button
+                          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                          onClick={handleToggleThreads}
+                          aria-label="View Threads"
+                          {...threadsTooltipHandlers}
+                        >
+                          {viewThreads && showInlineThreads ? (
+                            <>
+                              <RiChatHistoryLine size={15} />
+                              <span className="hidden @[31.25rem]:block">
+                                Hide Threads
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <RiChatHistoryLine size={15} />
+                              <span className="hidden @[31.25rem]:block">
+                                Threads
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {!isAuxView ? (
+                    <div className="flex items-center justify-self-end @[44rem]:col-start-3">
+                      {showPlanModeBadge ? <PlanModeBadge /> : null}
+                      <ProjectAISettingsPopover
+                        engineGroups={engineGroups}
+                        transcriptionProfileGroups={transcriptionProfileGroups}
+                        availableConfigGroups={availableConfigGroups}
+                        selectedEngineId={effectiveEngineId}
+                        selectedLLMConfigId={selectedLLMConfigId}
+                        selectedTranscriptionProfileId={
+                          projectChatTranscriptionProfileId
+                        }
+                        defaultLLMConfigId={defaultLLMConfigId}
+                        engineType={engineType}
+                        noConfigsAvailable={noConfigsAvailable}
+                        dictationMode={projectChatDictationMode}
+                        activityAccordionOpenByDefault={
+                          projectChatActivityAccordionOpenByDefault
+                        }
+                        activityChildrenOpenByDefault={
+                          projectChatActivityChildrenOpenByDefault
+                        }
+                        providerDictationLikelySupported={
+                          providerDictationLikelySupported
+                        }
+                        providerDictationUnavailableReason={
+                          providerDictationUnavailableReason
+                        }
+                        onOpenSkillsMcpViewer={() => {
+                          setViewSkillsMcpViewer(true);
+                        }}
+                        onEngineChange={handleEngineChange}
+                        onLLMConfigChange={handleLLMConfigChange}
+                        onTranscriptionProfileChange={
+                          handleTranscriptionProfileChange
+                        }
+                        onPinDefaultModel={handlePinDefaultModel}
+                        onDictationModeChange={handleDictationModeChange}
+                        onActivityAccordionOpenByDefaultChange={
+                          handleActivityAccordionOpenByDefaultChange
+                        }
+                        onActivityChildrenOpenByDefaultChange={
+                          handleActivityChildrenOpenByDefaultChange
+                        }
+                      />
+                    </div>
+                  ) : null}
+                  {showConversationFilter ? (
+                    <search
+                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[44rem]:col-span-1 @[44rem]:col-start-2 @[44rem]:row-start-1 @[44rem]:min-w-[11rem]"
+                      data-testid="project-chat-conversation-filter"
+                    >
+                      <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">
+                        <i className="gg-sort-az !scale-[0.68] text-setta-300 dark:text-setta-600" />
+                      </span>
+                      <input
+                        type="text"
+                        aria-label="Search in conversation"
+                        data-testid="project-chat-conversation-filter-input"
+                        value={conversationFilterText}
+                        onChange={(event) => {
+                          setConversationFilterText(event.target.value);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Escape") {
+                            return;
+                          }
+                          event.currentTarget.blur();
+                        }}
+                        placeholder="Search in conversation"
+                        className={`w-full min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-5 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 dark:placeholder-setta-600 ${
+                          hasConversationSearchTerms ? "pr-16" : "pr-2"
+                        }`}
+                      />
+                      {hasConversationSearchTerms ? (
+                        <div className="absolute right-0.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5">
+                          <span className="min-w-[34px] px-0.5 text-center text-[10px] text-setta-400 dark:text-setta-500">
+                            {conversationSearchCounterText}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Previous conversation match"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            onClick={() =>
+                              handleStepConversationSearch("previous")
+                            }
+                            disabled={conversationSearchMatchCount === 0}
+                          >
+                            <MdChevronLeft />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Next conversation match"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            onClick={() => handleStepConversationSearch("next")}
+                            disabled={conversationSearchMatchCount === 0}
+                          >
+                            <MdChevronRight />
+                          </button>
+                        </div>
+                      ) : null}
+                    </search>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
         </nav>
 
-        {viewHistory ? (
+        {showInlineThreads ? (
+          <div className="flex min-h-0 flex-1">
+            <Resizable
+              className="h-full shrink-0"
+              size={{ width: resolvedInlineThreadsWidth, height: "100%" }}
+              minWidth={INLINE_THREADS_MIN_WIDTH_PX}
+              maxWidth={inlineThreadsMaxWidth}
+              boundsByDirection
+              enable={{
+                top: false,
+                right: canResizeInlineThreads,
+                bottom: false,
+                left: false,
+                topRight: false,
+                bottomRight: false,
+                bottomLeft: false,
+                topLeft: false,
+              }}
+              handleComponent={{
+                right: (
+                  <div
+                    data-testid="project-chat-inline-threads-resize-handle"
+                    className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
+                  />
+                ),
+              }}
+              onResize={(_event, _direction, elementRef) => {
+                syncInlineThreadsHeaderWidth(elementRef.offsetWidth);
+              }}
+              onResizeStop={(_event, _direction, elementRef) => {
+                syncInlineThreadsHeaderWidth(elementRef.offsetWidth);
+                updateInlineThreadsWidth(elementRef.offsetWidth);
+              }}
+            >
+              <div
+                ref={handleInlineThreadsResizableColumnRef}
+                className="h-full min-h-0"
+              >
+                <ProjectChatHistory
+                  chatId={chatId}
+                  setChatId={setChatId}
+                  runType={projectHistoryRunType}
+                  engineConfigId={effectiveEngineId}
+                  inline={true}
+                  closeOnSelect={false}
+                  draftThread={draftThreadHint}
+                  selectedGroupId={selectedThreadGroupId}
+                  onSelectedGroupChange={setSelectedThreadGroupId}
+                  onStartNewThreadInGroup={handleNewChatInThreadGroup}
+                  headerPortalTarget={inlineThreadsHeaderPortalTarget}
+                />
+              </div>
+            </Resizable>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-2">
+              {viewSkillsMcpViewer ? (
+                <div
+                  className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
+                  data-chat-width-shell="true"
+                >
+                  <ProjectChatSkillsMcpViewer
+                    chatId={chatId}
+                    engineConfigId={effectiveEngineId}
+                    engineType={engineType}
+                    externalAgentToolType={
+                      externalAgentConfig?.toolType ?? null
+                    }
+                  />
+                </div>
+              ) : (
+                <ProjectChatCore
+                  chatId={chatId}
+                  placeholderText={placeholderText}
+                  conversationFilterText={conversationFilterText}
+                  thinking={thinking}
+                  engineConfigId={effectiveEngineId}
+                  engineType={engineType}
+                  hasLLMConfig={hasLLMConfig}
+                  externalEngineAvailable={externalEngineAvailable}
+                  noLLMConfigsAvailable={noConfigsAvailable}
+                  transcriptionProfileId={projectChatTranscriptionProfileId}
+                  dictationMode={projectChatDictationMode}
+                  providerDictationAvailable={providerDictationAvailable}
+                  providerDictationLikelySupported={
+                    providerDictationLikelySupported
+                  }
+                  setChatId={setChatId}
+                  onDraftThreadStart={handleDraftThreadStart}
+                  onDraftThreadSettled={handleDraftThreadSettled}
+                  onThinkingChange={setThinking}
+                  onPermissionModeChange={setRuntimePermissionMode}
+                  selectedThreadBlockedErrorCode={
+                    selectedThreadBlockedErrorCode
+                  }
+                  activeConversationSearchMatchMessageId={
+                    activeConversationSearchMatchMessageId
+                  }
+                />
+              )}
+            </div>
+          </div>
+        ) : viewSkillsMcpViewer ? (
+          <div
+            className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
+            data-chat-width-shell="true"
+          >
+            <ProjectChatSkillsMcpViewer
+              chatId={chatId}
+              engineConfigId={effectiveEngineId}
+              engineType={engineType}
+              externalAgentToolType={externalAgentConfig?.toolType ?? null}
+            />
+          </div>
+        ) : viewThreads ? (
           <ProjectChatHistory
             chatId={chatId}
             setChatId={setChatId}
             runType={projectHistoryRunType}
             engineConfigId={effectiveEngineId}
-          />
-        ) : viewSkillsMcpViewer ? (
-          <ProjectChatSkillsMcpViewer
-            chatId={chatId}
-            engineConfigId={effectiveEngineId}
-            engineType={engineType}
-            externalAgentToolType={externalAgentConfig?.toolType ?? null}
+            closeOnSelect={true}
+            draftThread={draftThreadHint}
+            selectedGroupId={selectedThreadGroupId}
+            onSelectedGroupChange={setSelectedThreadGroupId}
+            onStartNewThreadInGroup={handleNewChatInThreadGroup}
           />
         ) : (
           <>
-            {externalStatusMessage ? (
-              <div className="px-1 pb-2">
-                <p className={`text-xs ${externalStatusClassName}`}>
-                  {externalStatusMessage}
-                </p>
-              </div>
-            ) : null}
             <ProjectChatCore
               chatId={chatId}
               placeholderText={placeholderText}
+              conversationFilterText={conversationFilterText}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
               engineType={engineType}
@@ -562,11 +1605,18 @@ export function ProjectChat() {
               transcriptionProfileId={projectChatTranscriptionProfileId}
               dictationMode={projectChatDictationMode}
               providerDictationAvailable={providerDictationAvailable}
-              providerDictationUnavailableReason={
-                providerDictationUnavailableReason
+              providerDictationLikelySupported={
+                providerDictationLikelySupported
               }
               setChatId={setChatId}
+              onDraftThreadStart={handleDraftThreadStart}
+              onDraftThreadSettled={handleDraftThreadSettled}
+              onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
+              selectedThreadBlockedErrorCode={selectedThreadBlockedErrorCode}
+              activeConversationSearchMatchMessageId={
+                activeConversationSearchMatchMessageId
+              }
             />
           </>
         )}
@@ -661,13 +1711,22 @@ function ProjectAISettingsPopover({
   selectedEngineId,
   selectedLLMConfigId,
   selectedTranscriptionProfileId,
-  dictationMode,
+  defaultLLMConfigId,
   engineType,
   noConfigsAvailable,
+  dictationMode,
+  activityAccordionOpenByDefault,
+  activityChildrenOpenByDefault,
+  providerDictationLikelySupported,
+  providerDictationUnavailableReason,
+  onOpenSkillsMcpViewer,
   onEngineChange,
   onLLMConfigChange,
   onTranscriptionProfileChange,
+  onPinDefaultModel,
   onDictationModeChange,
+  onActivityAccordionOpenByDefaultChange,
+  onActivityChildrenOpenByDefaultChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
   const llmPlaceholder = noConfigsAvailable
@@ -676,6 +1735,94 @@ function ProjectAISettingsPopover({
   const llmBg = selectedLLMConfigId
     ? ""
     : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+  const providerModeAvailable = providerDictationLikelySupported;
+  const autoFallsBackToBrowser =
+    dictationMode === "auto" && !providerDictationLikelySupported;
+  const selectedModelPinnedAsDefault =
+    selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
+  const dictationModeOptions = useMemo<AllItemsType<ProjectDictationMode>>(
+    () => [
+      {
+        group: "Microphone Source",
+        items: [
+          {
+            id: "auto",
+            name: getProjectDictationModeOptionLabel({
+              mode: "auto",
+              providerModeAvailable,
+            }),
+          },
+          {
+            id: "provider",
+            name: getProjectDictationModeOptionLabel({
+              mode: "provider",
+              providerModeAvailable,
+            }),
+          },
+          {
+            id: "browser",
+            name: getProjectDictationModeOptionLabel({
+              mode: "browser",
+              providerModeAvailable,
+            }),
+          },
+        ],
+      },
+    ],
+    [providerModeAvailable],
+  );
+  const handleDictationModeOptionChange = useCallback(
+    (value: ProjectDictationMode | null) => {
+      if (!value) {
+        return;
+      }
+      if (value === "provider" && !providerModeAvailable) {
+        return;
+      }
+      onDictationModeChange(value);
+    },
+    [onDictationModeChange, providerModeAvailable],
+  );
+  const handleSettingsPopoverOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    requestAnimationFrame(() => {
+      focusInputWithoutSelectionById(PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID);
+    });
+  }, []);
+  const settingsTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Project AI settings",
+        content: "Configure engine, model, microphone source, and tools.",
+      }),
+    [],
+  );
+  const pinDefaultModelTooltipHandlers = useMemo(() => {
+    if (selectedModelPinnedAsDefault) {
+      return getFloatingBoxHandlers({
+        title: "Default model",
+        content: "This model is already pinned as default.",
+      });
+    }
+    if (!selectedLLMConfigId) {
+      return getFloatingBoxHandlers({
+        title: "Default model",
+        content: "Select a model before pinning a default.",
+      });
+    }
+    return getFloatingBoxHandlers({
+      title: "Default model",
+      content: "Pin the selected model as the default for new chats.",
+    });
+  }, [selectedLLMConfigId, selectedModelPinnedAsDefault]);
+  const openSkillsMcpTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Open Skills/MCP",
+        content: "Open the Skills and MCP browser.",
+      }),
+    [],
+  );
 
   return (
     <StandardPopover
@@ -684,15 +1831,17 @@ function ProjectAISettingsPopover({
           className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
           aria-label="Project AI Settings"
           type="button"
+          {...settingsTooltipHandlers}
         >
           <IoSettingsOutline size={15} />
-          <span className="hidden @[33.5rem]:block">Settings</span>
+          <span className="hidden @[31.25rem]:block">Settings</span>
         </button>
       }
       contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
       arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentProps={{ onOpenAutoFocus: handleSettingsPopoverOpenAutoFocus }}
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 [&_button:disabled]:cursor-not-allowed [&_button]:cursor-pointer">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
           Project AI
         </p>
@@ -708,25 +1857,9 @@ function ProjectAISettingsPopover({
               onSelectedItemChange={onEngineChange}
               placeholder="Select an engine"
               outerDivClasses="w-full"
+              inputDivId={PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID}
             />
           </div>
-          {showLLMConfig ? (
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-                LLM Config
-              </span>
-              <IdNameCombobox
-                allItems={availableConfigGroups}
-                value={selectedLLMConfigId}
-                small={false}
-                onSelectedItemChange={onLLMConfigChange}
-                placeholder={llmPlaceholder}
-                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={llmBg}
-                outerDivClasses="w-full"
-              />
-            </div>
-          ) : null}
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
               Transcription Profile
@@ -743,16 +1876,99 @@ function ProjectAISettingsPopover({
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-              Dictation Mode
+              Microphone Source
             </span>
             <IdNameCombobox
-              allItems={DICTATION_MODE_ITEMS}
+              allItems={dictationModeOptions}
               value={dictationMode}
               small={false}
-              onSelectedItemChange={onDictationModeChange}
-              placeholder="Select dictation mode"
+              onSelectedItemChange={handleDictationModeOptionChange}
+              placeholder="Microphone source"
               outerDivClasses="w-full"
+              inputDivId="project-ai-microphone-source"
             />
+            <p className="text-[10px] text-setta-500 dark:text-setta-400">
+              Provider mode uses the selected transcription profile.
+            </p>
+            {!providerModeAvailable ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                {providerDictationUnavailableReason}
+              </p>
+            ) : null}
+            {autoFallsBackToBrowser ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Auto currently prefers browser/OS because provider dictation is
+                unavailable.
+              </p>
+            ) : null}
+          </div>
+          {showLLMConfig ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+                LLM Config
+              </span>
+              <IdNameCombobox
+                allItems={availableConfigGroups}
+                value={selectedLLMConfigId}
+                small={false}
+                onSelectedItemChange={onLLMConfigChange}
+                placeholder={llmPlaceholder}
+                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                bg={llmBg}
+                outerDivClasses="w-full"
+              />
+              <button
+                type="button"
+                onClick={onPinDefaultModel}
+                disabled={!selectedLLMConfigId || selectedModelPinnedAsDefault}
+                className="h-8 w-full rounded-md border border-setta-200 bg-white px-2 text-left text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+                {...pinDefaultModelTooltipHandlers}
+              >
+                {selectedModelPinnedAsDefault
+                  ? "Selected model is pinned as default"
+                  : "Pin selected model as default"}
+              </button>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Tools
+            </span>
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onOpenSkillsMcpViewer}
+                className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+                {...openSkillsMcpTooltipHandlers}
+              >
+                Open Skills/MCP
+              </button>
+              <Menubar.Root className="w-full min-w-0">
+                <FollowAIToggleButton
+                  labelMode="always"
+                  triggerClassName="nodrag relative inline-flex box-border h-8 w-full min-w-0 select-none items-center justify-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold transition-colors hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:hover:bg-setta-800/70"
+                />
+              </Menubar.Root>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Activity
+            </span>
+            <label className="flex w-full items-center justify-between gap-2 rounded-md border border-setta-200 bg-white px-2 py-1.5 text-[11px] text-setta-600 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
+              <span>Open activity accordions by default</span>
+              <SwitchInput
+                value={activityAccordionOpenByDefault}
+                onChange={onActivityAccordionOpenByDefaultChange}
+              />
+            </label>
+            <label className="flex w-full items-center justify-between gap-2 rounded-md border border-setta-200 bg-white px-2 py-1.5 text-[11px] text-setta-600 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
+              <span>Open child accordions by default</span>
+              <SwitchInput
+                value={activityChildrenOpenByDefault}
+                onChange={onActivityChildrenOpenByDefaultChange}
+              />
+            </label>
           </div>
         </div>
       </div>

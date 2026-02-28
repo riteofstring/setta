@@ -13,12 +13,21 @@ class ResolvedTranscriptionProfile:
     llm_config: LLMConfig | None
 
 
+class TranscriptionProfileNotFoundError(KeyError):
+    def __init__(self, transcription_profile_id: ID) -> None:
+        self.transcription_profile_id = transcription_profile_id
+        super().__init__(f"Transcription profile {transcription_profile_id} not found")
+
+
 def resolve_transcription_profile(
     dbe: DBE,
     llm_configs: AllLLMConfigs,
     transcription_profile_id: ID,
 ) -> ResolvedTranscriptionProfile:
-    profile = require_transcription_profile(dbe, transcription_profile_id)
+    try:
+        profile = require_transcription_profile(dbe, transcription_profile_id)
+    except KeyError as exc:
+        raise TranscriptionProfileNotFoundError(transcription_profile_id) from exc
     llm_config: LLMConfig | None = None
     try:
         llm_config = llm_configs.resolve_config(profile.transcriptionLlmConfigId)
