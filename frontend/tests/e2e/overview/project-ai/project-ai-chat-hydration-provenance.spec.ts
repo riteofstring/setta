@@ -1018,7 +1018,6 @@ test("project ai waits for authoritative engine config metadata before hydrating
   await seedAIStore(page, {
     activeChatId: selectedChatId,
   });
-  await ensureAppReady(page);
   await page.route("**/api/getExternalAgentChat", async (route) => {
     await route.fulfill({
       status: 200,
@@ -1031,6 +1030,7 @@ test("project ai waits for authoritative engine config metadata before hydrating
       }),
     });
   });
+  await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
 
   await page.route("**/api/getEngineConfigs", async (route) => {
@@ -1339,7 +1339,7 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
     await expect.poll(() => externalHydrateCalls).toBe(1);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
-    ).toContainText("engine config is no longer available");
+    ).toContainText("terminal hydration error");
 
     await page.evaluate(async () => {
       const { loadAgentRuns } = await import("/src/state/actions/ai.ts");

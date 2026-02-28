@@ -9,6 +9,12 @@ const BACKEND_ORIGIN =
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
 const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const FRONTEND_ORIGIN = new URL(BASE_URL).origin;
+const FRONTEND_REFERER = `${FRONTEND_ORIGIN}/`;
+const BACKEND_HELPER_REQUEST_HEADERS = {
+  Origin: FRONTEND_ORIGIN,
+  Referer: FRONTEND_REFERER,
+};
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
@@ -343,6 +349,7 @@ export async function cleanupIsolatedProject(
   try {
     await page.request.post(`${BACKEND_ORIGIN}/api/deleteProjectConfigs`, {
       data: { ids: [context.projectConfigId] },
+      headers: BACKEND_HELPER_REQUEST_HEADERS,
       timeout: 5000,
     });
   } catch {
@@ -737,6 +744,7 @@ export async function postBackend<T>(
 
   const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
     data: payload,
+    headers: BACKEND_HELPER_REQUEST_HEADERS,
   });
   const text = await response.text();
   if (!response.ok()) {
@@ -755,7 +763,9 @@ async function getBackend<T>(page: Page, path: string): Promise<T | null> {
   installUnexpectedApiErrorGuard(page);
   throwIfUnexpectedApiError(page);
 
-  const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`);
+  const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`, {
+    headers: BACKEND_HELPER_REQUEST_HEADERS,
+  });
   const text = await response.text();
   if (!response.ok()) {
     const detail = text ? ` ${text}` : "";
@@ -1030,6 +1040,7 @@ async function getDefaultConfigNameResult(page: Page): Promise<{
     `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
     {
       data: {},
+      headers: BACKEND_HELPER_REQUEST_HEADERS,
     },
   );
   const status = response.status();

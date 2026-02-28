@@ -994,6 +994,70 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+    const llmConfigResponse = await page.request.get(
+      `${backendOrigin}/api/llm/config`,
+    );
+    if (!llmConfigResponse.ok()) {
+      throw new Error("Failed to load llm config payload.");
+    }
+    const llmConfigPayload = (await llmConfigResponse.json()) as {
+      configs?: Record<
+        string,
+        {
+          provider?: string;
+          api_key_env?: string | null;
+        }
+      >;
+    };
+    const llmConfigEntries = Object.entries(llmConfigPayload.configs ?? {});
+    const transcriptionConfigEntry =
+      llmConfigEntries.find(([, config]) => {
+        return (
+          config.provider === "openai" &&
+          config.api_key_env === "OPENAI_API_KEY"
+        );
+      }) ??
+      llmConfigEntries.find(([, config]) => config.provider === "openai") ??
+      llmConfigEntries[0];
+    if (!transcriptionConfigEntry) {
+      throw new Error("Missing transcription-compatible LLM config.");
+    }
+    const transcriptionLlmConfigId = transcriptionConfigEntry[0];
+    const apiKeysResponse = await page.request.get(
+      `${backendOrigin}/api/llm/apiKeys`,
+    );
+    if (!apiKeysResponse.ok()) {
+      throw new Error("Failed to load llm api keys.");
+    }
+    const apiKeysPayload = (await apiKeysResponse.json()) as {
+      revision: number;
+    };
+    await postBackend(page, "/llm/apiKeys", {
+      apiKeys: {
+        OPENAI_API_KEY: "sk-e2e",
+      },
+      expectedRevision: apiKeysPayload.revision,
+    });
+    const transcriptionProfileName = `E2E Mic Start Failure ${Date.now()}`;
+    const transcriptionProfile = await postBackend<{ id?: string }>(
+      page,
+      "/createTranscriptionProfile",
+      {
+        name: transcriptionProfileName,
+        transcriptionLlmConfigId,
+        transportMode: "file",
+        chunkMs: 1200,
+        language: null,
+      },
+    );
+    if (!transcriptionProfile?.id) {
+      throw new Error("Missing transcription profile id.");
+    }
+
+    await setProjectChatEngine(page, "Setta");
+    await setProjectChatTranscriptionProfile(page, transcriptionProfileName);
     await setProjectChatMicrophoneSource(page, "Always provider");
 
     const micButton = overviewPane.getByRole("button", { name: "Mic" });
@@ -1172,10 +1236,12 @@ test("chat section stops browser dictation when composer becomes disabled", asyn
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       managed: true,
+      transcriptionProfileId: null,
       agentProfileId: null,
       thinking: false,
       permissionMode: "minimal",
       searchEnabled: true,
+      dictationMode: "auto",
     };
     await postBackend(page, "/setChatSectionSettings", {
       ...baseSettings,

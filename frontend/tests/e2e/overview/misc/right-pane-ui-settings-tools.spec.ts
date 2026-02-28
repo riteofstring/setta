@@ -286,6 +286,48 @@ async function wasRevealAnchorRewriteConsumed(page: Page): Promise<boolean> {
   });
 }
 
+async function installRevealResultAckDrop(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    type RevealAckDropWindow = Window & {
+      __settaRevealAckDropInstalled?: boolean;
+      __settaRevealAckDropped?: boolean;
+    };
+    const windowRef = window as RevealAckDropWindow;
+    windowRef.__settaRevealAckDropped = false;
+    if (windowRef.__settaRevealAckDropInstalled) {
+      return;
+    }
+    windowRef.__settaRevealAckDropInstalled = true;
+    const originalSend = WebSocket.prototype.send;
+    WebSocket.prototype.send = function patchedSend(
+      data: string | ArrayBufferLike | Blob | ArrayBufferView,
+    ) {
+      if (typeof data === "string") {
+        try {
+          const parsed = JSON.parse(data) as { messageType?: string };
+          if (parsed.messageType === "UISettingRevealResult") {
+            windowRef.__settaRevealAckDropped = true;
+            return;
+          }
+        } catch {
+          // Ignore non-JSON websocket frames.
+        }
+      }
+      return originalSend.call(this, data);
+    };
+  });
+}
+
+async function wasRevealResultAckDropped(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    type RevealAckDropWindow = Window & {
+      __settaRevealAckDropped?: boolean;
+    };
+    const windowRef = window as RevealAckDropWindow;
+    return windowRef.__settaRevealAckDropped === true;
+  });
+}
+
 test("right-pane reveal_ui_setting returns failure when no section is active", async ({
   page,
 }) => {
@@ -634,31 +676,7 @@ test("right-pane reveal timeout preserves user ABA activeIds navigation", async 
       firstSectionName,
     );
 
-    await page.evaluate(() => {
-      const windowRef = window as Window & {
-        __settaRevealAckDropInstalled?: boolean;
-      };
-      if (windowRef.__settaRevealAckDropInstalled) {
-        return;
-      }
-      windowRef.__settaRevealAckDropInstalled = true;
-      const originalSend = WebSocket.prototype.send;
-      WebSocket.prototype.send = function patchedSend(
-        data: string | ArrayBufferLike | Blob | ArrayBufferView,
-      ) {
-        if (typeof data === "string") {
-          try {
-            const parsed = JSON.parse(data) as { messageType?: string };
-            if (parsed.messageType === "UISettingRevealResult") {
-              return;
-            }
-          } catch {
-            // Ignore non-JSON websocket frames.
-          }
-        }
-        return originalSend.call(this, data);
-      };
-    });
+    await installRevealResultAckDrop(page);
 
     const revealResultPromise = callMcpTool<RevealUISettingResult>(
       page,
@@ -671,18 +689,17 @@ test("right-pane reveal timeout preserves user ABA activeIds navigation", async 
       },
     );
 
-    await expect
-      .poll(async () => {
-        const latestProjectState = await postBackend<{
-          projectState?: {
-            projectConfig?: { activeIds?: string[] };
-          };
-        }>(page, "/getLatestProjectState", {
-          projectConfigId: projectContext.projectConfigId,
-        });
-        return latestProjectState?.projectState?.projectConfig?.activeIds ?? [];
-      })
-      .toEqual([firstSectionId]);
+    await expect.poll(() => wasRevealResultAckDropped(page)).toBe(true);
+    const projectStateAfterDroppedAck = await postBackend<{
+      projectState?: {
+        projectConfig?: { activeIds?: string[] };
+      };
+    }>(page, "/getLatestProjectState", {
+      projectConfigId: projectContext.projectConfigId,
+    });
+    expect(projectStateAfterDroppedAck?.projectState?.projectConfig?.activeIds).toEqual(
+      [],
+    );
 
     await postBackend(page, "/setActiveIds", {
       projectConfigId: projectContext.projectConfigId,

@@ -52,12 +52,15 @@ const ATTACHMENT_FIXTURES_DIR = path.join(
 );
 
 test.describe.serial("chat attachments", () => {
-  test("project chat attachments via picker", async ({ page, request }) => {
+  test("project chat attachments via picker", async ({ page }) => {
     await setOverviewTab(page, "ProjectAIChat");
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page, page.request);
 
-    const initialConfig = await getBackend<AllLLMConfigs>(request, "/llm/config");
+    const initialConfig = await getBackend<AllLLMConfigs>(
+      page.request,
+      "/llm/config",
+    );
     if (!initialConfig) {
       throw new Error("Missing LLM config payload.");
     }
@@ -66,7 +69,7 @@ test.describe.serial("chat attachments", () => {
     const existingConfigs = initialConfig.configs ?? {};
 
     const engineConfigs = await getBackend<EngineConfig[]>(
-      request,
+      page.request,
       "/getEngineConfigs",
     );
     const existingEngine =
@@ -84,7 +87,7 @@ test.describe.serial("chat attachments", () => {
         default_config_id: initialConfig.default_config_id ?? llmConfigId,
       };
       await postBackend(
-        request,
+        page.request,
         "/llm/config",
         updated as Record<string, unknown>,
       );
@@ -110,7 +113,7 @@ test.describe.serial("chat attachments", () => {
         default_config_id: llmConfigId,
       };
       await postBackend(
-        request,
+        page.request,
         "/llm/config",
         updated as Record<string, unknown>,
       );
@@ -121,7 +124,7 @@ test.describe.serial("chat attachments", () => {
     let createdEngineConfigId: string | null = null;
     if (!existingEngine) {
       const created = await postBackend<EngineConfig>(
-        request,
+        page.request,
         "/createEngineConfig",
         {
           name: "E2E Engine",
@@ -178,29 +181,29 @@ test.describe.serial("chat attachments", () => {
       await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
-        await postBackend(request, "/deleteEngineConfig", {
+        await postBackend(page.request, "/deleteEngineConfig", {
           configId: createdEngineConfigId,
         });
       }
       if (createdLlmConfigId || didUpdateLlmConfig) {
         await postBackend(
-          request,
+          page.request,
           "/llm/config",
           initialConfig as Record<string, unknown>,
         );
       }
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page.request, projectContext);
     }
   });
 
-  test("chat section drag-and-drop attachments", async ({ page, request }) => {
+  test("chat section drag-and-drop attachments", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page, page.request);
 
     try {
       const chatSection = await ensureChatSection(
         page,
-        request,
+        page.request,
         "__pw_chat_drop__",
       );
       const input = chatSection.getByPlaceholder("Type a message...");
@@ -234,18 +237,18 @@ test.describe.serial("chat attachments", () => {
       await page.keyboard.press("Escape");
       await expect(modal).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page.request, projectContext);
     }
   });
 
-  test("chat section attachment remove and clear", async ({ page, request }) => {
+  test("chat section attachment remove and clear", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page, page.request);
 
     try {
       const chatSection = await ensureChatSection(
         page,
-        request,
+        page.request,
         "__pw_chat_clear__",
       );
       const input = chatSection.getByPlaceholder("Type a message...");
@@ -283,21 +286,18 @@ test.describe.serial("chat attachments", () => {
       await thirdPill.locator("button").first().click();
       await expect(chatSection.getByText("third.txt")).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page.request, projectContext);
     }
   });
 
-  test("chat section attachment size limit warning", async ({
-    page,
-    request,
-  }) => {
+  test("chat section attachment size limit warning", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page, page.request);
 
     try {
       const chatSection = await ensureChatSection(
         page,
-        request,
+        page.request,
         "__pw_chat_limit__",
       );
       const input = chatSection.getByPlaceholder("Type a message...");
@@ -315,21 +315,18 @@ test.describe.serial("chat attachments", () => {
       const inputContainer = input.locator("..");
       await expect(inputContainer.getByText("oversized.txt")).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page.request, projectContext);
     }
   });
 
-  test("chat attachment preview supports common file types", async ({
-    page,
-    request,
-  }) => {
+  test("chat attachment preview supports common file types", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page, page.request);
 
     try {
       const chatSection = await ensureChatSection(
         page,
-        request,
+        page.request,
         "__pw_chat_preview__",
       );
       const input = chatSection.getByPlaceholder("Type a message...");
@@ -376,7 +373,7 @@ test.describe.serial("chat attachments", () => {
       await page.keyboard.press("Escape");
       await expect(modal).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page.request, projectContext);
     }
   });
 });

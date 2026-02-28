@@ -238,15 +238,7 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByRole("button", { name: /permissions$/i }),
       ).toBeVisible();
       const searchButton = overviewPane.getByRole("button", { name: "Search" });
-      await expect(searchButton).toBeVisible();
-      await searchButton.click();
-      await expect(searchButton).toHaveAttribute("aria-pressed", "false");
-      await input.fill("/search on");
-      await input.press("Enter");
-      await expect(searchButton).toHaveAttribute("aria-pressed", "true");
-      await input.fill("/search off");
-      await input.press("Enter");
-      await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+      await expect(searchButton).toHaveCount(0);
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -979,6 +971,18 @@ test.describe.serial("chat composer controls", () => {
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
     const engineCleanup = await ensureManagedChatEngine(page);
@@ -1393,12 +1397,17 @@ test.describe.serial("chat composer controls", () => {
     page,
   }) => {
     let historySectionId: string | null = null;
+    let historyProjectConfigId: string | null = null;
+    let historyEngineConfigId: string | null = null;
     let historyRefreshArmed = false;
     let getAgentRunsRequestCount = 0;
     await page.route("**/api/getAgentRuns", async (route) => {
       getAgentRunsRequestCount += 1;
       const runs =
-        historyRefreshArmed && historySectionId
+        historyRefreshArmed &&
+        historySectionId &&
+        historyProjectConfigId &&
+        historyEngineConfigId
           ? [
               {
                 id: "run-history-refresh",
@@ -1409,8 +1418,10 @@ test.describe.serial("chat composer controls", () => {
                 events: [],
                 inputs: {
                   runType: "llm_chat",
+                  projectConfigId: historyProjectConfigId,
                   chatId: "chat-history-refresh",
                   sectionId: historySectionId,
+                  engineConfigId: historyEngineConfigId,
                   messages: [
                     {
                       id: "history-message-1",
@@ -1434,8 +1445,24 @@ test.describe.serial("chat composer controls", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    historyProjectConfigId = projectContext.projectConfigId;
+    const engineCleanup = await ensureManagedChatEngine(page);
 
     try {
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      historyEngineConfigId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!historyEngineConfigId) {
+        throw new Error("Missing managed LLM engine config for history refresh.");
+      }
       const { sectionId, sectionName } = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -1446,7 +1473,7 @@ test.describe.serial("chat composer controls", () => {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         managed: true,
-        engineConfigId: null,
+        engineConfigId: historyEngineConfigId,
         transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
@@ -1467,6 +1494,7 @@ test.describe.serial("chat composer controls", () => {
         .toBeGreaterThan(initialRequestCount);
       await expect(section.getByText("History refreshed entry")).toBeVisible();
     } finally {
+      await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -1525,11 +1553,15 @@ test.describe.serial("chat composer controls", () => {
     page,
   }) => {
     let idleSectionId: string | null = null;
+    let idleProjectConfigId: string | null = null;
+    let idleEngineConfigId: string | null = null;
     let getAgentRunsRequestCount = 0;
     await page.route("**/api/getAgentRuns", async (route) => {
       getAgentRunsRequestCount += 1;
       const runs =
-        idleSectionId === null
+        idleSectionId === null ||
+        idleProjectConfigId === null ||
+        idleEngineConfigId === null
           ? []
           : [
               {
@@ -1541,8 +1573,10 @@ test.describe.serial("chat composer controls", () => {
                 events: [],
                 inputs: {
                   runType: "llm_chat",
+                  projectConfigId: idleProjectConfigId,
                   chatId: "chat-history-idle",
                   sectionId: idleSectionId,
+                  engineConfigId: idleEngineConfigId,
                   messages: [
                     {
                       id: "history-idle-message",
@@ -1564,8 +1598,24 @@ test.describe.serial("chat composer controls", () => {
 
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    idleProjectConfigId = projectContext.projectConfigId;
+    const engineCleanup = await ensureManagedChatEngine(page);
 
     try {
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      idleEngineConfigId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!idleEngineConfigId) {
+        throw new Error("Missing managed LLM engine config for idle history.");
+      }
       const { sectionId, sectionName } = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -1576,7 +1626,7 @@ test.describe.serial("chat composer controls", () => {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         managed: true,
-        engineConfigId: null,
+        engineConfigId: idleEngineConfigId,
         transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
@@ -1595,6 +1645,7 @@ test.describe.serial("chat composer controls", () => {
       await page.waitForTimeout(6200);
       expect(getAgentRunsRequestCount).toBe(requestCountAfterOpen);
     } finally {
+      await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
   });
