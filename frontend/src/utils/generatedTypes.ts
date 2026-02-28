@@ -453,12 +453,6 @@ export const TextBlockFormatEnum = {
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
-const ListenerDependencyModeEnum = {
-  REFRESH_ONLY: "refresh_only",
-  REALTIME_ONLY: "realtime_only",
-  ALWAYS: "always",
-} as const;
-
 const MCPServerRuntimeStateEnum = {
   connected: "connected",
   connecting: "connecting",
