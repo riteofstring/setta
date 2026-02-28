@@ -177,3 +177,12 @@
 - Consolidated frontend mode boundary behavior into `serverModeBoundaryPolicy` so endpoint-origin routing, launcher capability gating, and workspace-launch mode policy now derive from one explicit contract instead of duplicated route-specific logic.
 - Added/updated focused backend and frontend tests for the consolidated contracts, including launch/CORS/auth route coverage, Vitest policy coverage, and launcher-origin + launcher-home Playwright flows.
 - Ran cleanup via `gcf` workflow (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and updated `gcf.log` from this run.
+
+## 2026-02-27 08:49:58 PST
+
+- Fixed release workflow preconditions by adding `actions/checkout@v4` to `resolve_installer_version` before running repository scripts.
+- Added a workflow contract pytest that parses `release-desktop-launcher.yml` and fails if any `./scripts/...` run step appears before checkout within a job.
+- Corrected frontend endpoint-origin policy drift by making `GET_SETTA_HOME_INFO` mode-scoped (backend in IDE/unresolved mode, launcher in launcher mode), aligned with backend mode guards.
+- Hardened workspace switcher launcher-management scope by propagating hydrated `settaHome` into launcher settings, requiring scope in that flow, and fail-fast disabling controls with explicit scope-resolution errors when unavailable.
+- Added/updated Vitest and Playwright coverage for the above contracts, including IDE-mode backend-origin assertions for `settaHomeInfo`, launcher settings scoped requests, and explicit `settaHome` payload checks on launcher update requests.
+- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).

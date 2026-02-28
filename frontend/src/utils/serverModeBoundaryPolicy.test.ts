@@ -30,7 +30,7 @@ describe("serverModeBoundaryPolicy", () => {
     expect(modeSupportsWorkspaceLaunch(null)).toBe(false);
   });
 
-  it("keeps launch/intent endpoint origin mode-scoped", () => {
+  it("keeps launch/intent/settaHomeInfo endpoint origin mode-scoped", () => {
     expect(resolveEndpointOriginForMode(RouteEnum.LAUNCH, "ide")).toBe(
       "backend",
     );
@@ -53,6 +53,16 @@ describe("serverModeBoundaryPolicy", () => {
         "launcher",
       ),
     ).toBe("launcher");
+
+    expect(
+      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "ide"),
+    ).toBe("backend");
+    expect(
+      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, "launcher"),
+    ).toBe("launcher");
+    expect(
+      resolveEndpointOriginForMode(RouteEnum.GET_SETTA_HOME_INFO, null),
+    ).toBe("backend");
   });
 
   it("keeps launcher-home endpoints on launcher origin and bootstrap on backend origin", () => {

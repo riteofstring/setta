@@ -5,6 +5,7 @@ import { createLauncherStatusResponse } from "utils/generatedTypes";
 import {
   buildSetupLauncherRequest,
   deriveLauncherControlsState,
+  normalizeLauncherScopeSettaHome,
   resolveInstallerInstructionsForUserAgent,
   resolveUpdateProgressLabel,
 } from "./DesktopLauncherSettingsSection";
@@ -152,5 +153,14 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
     const payload = buildSetupLauncherRequest("/tmp/setta-home", status);
     expect(payload).toEqual({ settaHome: "/tmp/setta-home" });
+  });
+
+  it("normalizes launcher scope settaHome values", () => {
+    expect(normalizeLauncherScopeSettaHome(undefined)).toBeNull();
+    expect(normalizeLauncherScopeSettaHome(null)).toBeNull();
+    expect(normalizeLauncherScopeSettaHome("   ")).toBeNull();
+    expect(normalizeLauncherScopeSettaHome(" /tmp/setta-home ")).toBe(
+      "/tmp/setta-home",
+    );
   });
 });

@@ -211,9 +211,29 @@ test("workspace switcher allows selecting setta files location", async ({
 test("workspace switcher can update Setta from launcher controls", async ({
   page,
 }) => {
+  const expectedBackendOrigin = process.env.SETTA_BACKEND_ORIGIN;
+  if (!expectedBackendOrigin) {
+    throw new Error(
+      "Missing SETTA_BACKEND_ORIGIN for workspace switcher update test.",
+    );
+  }
+  const scopedSettaHome = "/tmp/workspace-switcher-scope";
+
   await ensureAppReady(page);
 
-  await page.route("**/api/launcherStatus", async (route) => {
+  await page.route("**/api/settaHomeInfo", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        settaHome: scopedSettaHome,
+        globalSettaFilesBase: `${scopedSettaHome}/setta_files`,
+        activeSettaFilesLocation: "global",
+        llmConfigPath: `${scopedSettaHome}/setta_files/llm_config.json`,
+      }),
+    });
+  });
+  await page.route("**/api/launcherStatus**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -251,10 +271,27 @@ test("workspace switcher can update Setta from launcher controls", async ({
   });
 
   await page.getByRole("menuitem", { name: "Project" }).click();
+  const settaHomeInfoRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "GET" && url.pathname === "/api/settaHomeInfo";
+  });
+  const launcherStatusRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "GET" && url.pathname === "/api/launcherStatus";
+  });
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
 
+  const capturedSettaHomeInfoRequest = await settaHomeInfoRequest;
+  expect(new URL(capturedSettaHomeInfoRequest.url()).origin).toBe(
+    expectedBackendOrigin,
+  );
+  const capturedLauncherStatusRequest = await launcherStatusRequest;
+  expect(
+    new URL(capturedLauncherStatusRequest.url()).searchParams.get("setta_home"),
+  ).toBe(scopedSettaHome);
+
   const modal = page.getByRole("dialog");
-  await expect(modal.getByText("Desktop Launcher")).toBeVisible();
+  await expect(modal.getByText("Desktop Launcher", { exact: true })).toBeVisible();
   const updateButton = modal.getByRole("button", { name: "Update Setta" });
   await expect(updateButton).toBeEnabled();
 
@@ -265,11 +302,11 @@ test("workspace switcher can update Setta from launcher controls", async ({
   await updateButton.click();
 
   const request = await updateRequest;
-  expect(request.postDataJSON()).toEqual({ settaHome: null });
+  expect(request.postDataJSON()).toEqual({ settaHome: scopedSettaHome });
   await expect(modal.getByText("Setta updated: 1.0.0 -> 1.1.0")).toBeVisible();
 });
 
-test("workspace switcher shows launcher global path when backend origin is overridden", async ({
+test("workspace switcher keeps settaHomeInfo on backend origin when launcher origin differs", async ({
   page,
 }) => {
   const settaHome = process.env.SETTA_HOME;
@@ -278,21 +315,34 @@ test("workspace switcher shows launcher global path when backend origin is overr
       "Missing SETTA_HOME for workspace switcher global path test.",
     );
   }
+  const expectedBackendOrigin = process.env.SETTA_BACKEND_ORIGIN;
+  if (!expectedBackendOrigin) {
+    throw new Error(
+      "Missing SETTA_BACKEND_ORIGIN for workspace switcher global path test.",
+    );
+  }
   const expectedGlobalBase = path.join(settaHome, "setta_files");
 
   await ensureAppReady(page);
 
-  // Simulate being "inside" a tunneled/remote session where the backend origin is
-  // not the same as the launcher origin.
+  // Force launcher origin to a different runtime. settaHomeInfo must still
+  // resolve from the active backend origin in IDE mode.
   await page.evaluate(() => {
-    sessionStorage.setItem(
-      "setta.backendOriginOverride",
-      "http://127.0.0.1:65534",
-    );
+    localStorage.setItem("setta.launcherOrigin", "http://127.0.0.1:65534");
+    sessionStorage.setItem("setta.launcherOrigin", "http://127.0.0.1:65534");
   });
 
   await page.getByRole("menuitem", { name: "Project" }).click();
+  const settaHomeInfoRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "GET" && url.pathname === "/api/settaHomeInfo";
+  });
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const capturedSettaHomeInfoRequest = await settaHomeInfoRequest;
+  expect(new URL(capturedSettaHomeInfoRequest.url()).origin).toBe(
+    expectedBackendOrigin,
+  );
 
   const modal = page.getByRole("dialog");
   await expect(modal.getByText("Switch Workspace")).toBeVisible();

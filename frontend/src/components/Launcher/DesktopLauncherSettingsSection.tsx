@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { res200 } from "utils/endpointUtils";
 import {
@@ -42,7 +42,22 @@ type LauncherControlsState = {
 
 type DesktopLauncherSettingsSectionProps = {
   settaHome?: string | null;
+  requireSettaHome?: boolean;
+  missingSettaHomeMessage?: string;
 };
+
+export function normalizeLauncherScopeSettaHome(
+  settaHome: string | null | undefined,
+): string | null {
+  if (settaHome === null || settaHome === undefined) {
+    return null;
+  }
+  const trimmedSettaHome = settaHome.trim();
+  if (!trimmedSettaHome) {
+    return null;
+  }
+  return trimmedSettaHome;
+}
 
 function buildLauncherRequestBase(
   settaHome: string | null,
@@ -212,7 +227,15 @@ export function resolveUpdateProgressLabel(
 
 export function DesktopLauncherSettingsSection({
   settaHome = null,
+  requireSettaHome = false,
+  missingSettaHomeMessage,
 }: DesktopLauncherSettingsSectionProps) {
+  const normalizedSettaHome = normalizeLauncherScopeSettaHome(settaHome);
+  const missingRequiredSettaHome =
+    requireSettaHome && normalizedSettaHome === null;
+  const missingSettaHomeErrorMessage =
+    missingSettaHomeMessage ??
+    "Launcher scope is unavailable. Reload and try again.";
   const [launcherStatus, setLauncherStatus] =
     useState<LauncherStatusResponse | null>(null);
   const [launcherStatusError, setLauncherStatusError] = useState<string | null>(
@@ -235,15 +258,24 @@ export function DesktopLauncherSettingsSection({
     [],
   );
 
-  async function fetchLauncherStatus(): Promise<LauncherStatusResponse | null> {
-    const response = await route_get_launcher_status(settaHome);
-    if (!res200(response) || !response.data) {
-      return null;
-    }
-    return response.data;
-  }
+  const fetchLauncherStatus =
+    useCallback(async (): Promise<LauncherStatusResponse | null> => {
+      if (missingRequiredSettaHome) {
+        return null;
+      }
+      const response = await route_get_launcher_status(normalizedSettaHome);
+      if (!res200(response) || !response.data) {
+        return null;
+      }
+      return response.data;
+    }, [missingRequiredSettaHome, normalizedSettaHome]);
 
-  async function refreshLauncherStatus() {
+  const refreshLauncherStatus = useCallback(async () => {
+    if (missingRequiredSettaHome) {
+      setLauncherStatus(null);
+      setLauncherStatusError(missingSettaHomeErrorMessage);
+      return;
+    }
     setLauncherActionInFlight("refresh");
     setLauncherActionError(null);
     const payload = await fetchLauncherStatus();
@@ -262,11 +294,15 @@ export function DesktopLauncherSettingsSection({
     }
     setLauncherStatusError(null);
     setLauncherActionInFlight(null);
-  }
+  }, [
+    fetchLauncherStatus,
+    missingRequiredSettaHome,
+    missingSettaHomeErrorMessage,
+  ]);
 
   useEffect(() => {
     void refreshLauncherStatus();
-  }, []);
+  }, [refreshLauncherStatus]);
 
   const {
     launcherInstalled,
@@ -278,17 +314,23 @@ export function DesktopLauncherSettingsSection({
     launcherStatus,
     launcherActionInFlight,
   });
+  const launcherControlsDisabled =
+    launcherActionsDisabled || missingRequiredSettaHome;
   const launcherTarget = formatLauncherTargetCommand(
     launcherStatus?.targetCommand,
   );
 
   async function handleLauncherSetup() {
+    if (missingRequiredSettaHome) {
+      setLauncherActionError(missingSettaHomeErrorMessage);
+      return;
+    }
     setLauncherActionInFlight("setup");
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
     const response = await route_setup_launcher(
-      buildSetupLauncherRequest(settaHome, launcherStatus),
+      buildSetupLauncherRequest(normalizedSettaHome, launcherStatus),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -308,12 +350,16 @@ export function DesktopLauncherSettingsSection({
   }
 
   async function handleLauncherRepair() {
+    if (missingRequiredSettaHome) {
+      setLauncherActionError(missingSettaHomeErrorMessage);
+      return;
+    }
     setLauncherActionInFlight("repair");
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
     const response = await route_repair_launcher(
-      buildLauncherRequestBase(settaHome),
+      buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -333,12 +379,16 @@ export function DesktopLauncherSettingsSection({
   }
 
   async function handleLauncherRemove() {
+    if (missingRequiredSettaHome) {
+      setLauncherActionError(missingSettaHomeErrorMessage);
+      return;
+    }
     setLauncherActionInFlight("remove");
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
     const response = await route_remove_launcher(
-      buildLauncherRequestBase(settaHome),
+      buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -360,6 +410,11 @@ export function DesktopLauncherSettingsSection({
   }
 
   async function handleLauncherUpdate() {
+    if (missingRequiredSettaHome) {
+      setLauncherActionError(missingSettaHomeErrorMessage);
+      setUpdateStage("failed");
+      return;
+    }
     setLauncherActionInFlight("update");
     setLauncherActionError(null);
     setLauncherActionMessage(null);
@@ -400,7 +455,7 @@ export function DesktopLauncherSettingsSection({
 
     setUpdateStage("downloading");
     const response = await route_update_launcher(
-      buildUpdateLauncherRequest(settaHome),
+      buildUpdateLauncherRequest(normalizedSettaHome),
     );
     if (!res200(response) || !response.data) {
       setUpdateStage("failed");
@@ -448,7 +503,7 @@ export function DesktopLauncherSettingsSection({
         <button
           className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={refreshLauncherStatus}
-          disabled={launcherActionsDisabled}
+          disabled={launcherControlsDisabled}
         >
           {launcherActionInFlight === "refresh" ? "Refreshing..." : "Refresh"}
         </button>
@@ -527,14 +582,14 @@ export function DesktopLauncherSettingsSection({
         <button
           className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={handleLauncherSetup}
-          disabled={launcherActionsDisabled}
+          disabled={launcherControlsDisabled}
         >
           {launcherSetupButtonLabel}
         </button>
         <button
           className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={handleLauncherRepair}
-          disabled={launcherActionsDisabled || !launcherInstalled}
+          disabled={launcherControlsDisabled || !launcherInstalled}
         >
           {launcherActionInFlight === "repair"
             ? "Repairing..."
@@ -544,7 +599,7 @@ export function DesktopLauncherSettingsSection({
           <button
             className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
             onClick={handleLauncherUpdate}
-            disabled={launcherActionsDisabled}
+            disabled={launcherControlsDisabled}
           >
             {launcherActionInFlight === "update"
               ? "Updating..."
@@ -557,7 +612,7 @@ export function DesktopLauncherSettingsSection({
             onClick={() => {
               setShowInstallerInstructions((value) => !value);
             }}
-            disabled={launcherActionsDisabled}
+            disabled={launcherControlsDisabled}
           >
             {showInstallerInstructions
               ? "Hide Update Instructions"
@@ -567,7 +622,7 @@ export function DesktopLauncherSettingsSection({
         <button
           className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
           onClick={handleLauncherRemove}
-          disabled={launcherActionsDisabled || !launcherInstalled}
+          disabled={launcherControlsDisabled || !launcherInstalled}
         >
           {launcherActionInFlight === "remove"
             ? "Removing..."

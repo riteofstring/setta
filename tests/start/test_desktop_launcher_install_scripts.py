@@ -2,6 +2,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import yaml
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -212,6 +214,40 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     )
     assert "name: Publish release assets" in workflow_content
     assert "raw_version=\"${REF_NAME}\"" not in workflow_content
+
+
+def _load_release_workflow_definition() -> dict[str, object]:
+    workflow_path = (
+        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
+    )
+    workflow_definition = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    assert isinstance(workflow_definition, dict)
+    return workflow_definition
+
+
+def test_release_workflow_checks_out_repo_before_running_repo_scripts() -> None:
+    workflow_definition = _load_release_workflow_definition()
+    jobs = workflow_definition.get("jobs")
+    assert isinstance(jobs, dict)
+
+    for job_name, job_definition in jobs.items():
+        assert isinstance(job_name, str)
+        assert isinstance(job_definition, dict)
+        steps = job_definition.get("steps")
+        if not isinstance(steps, list):
+            continue
+        checkout_seen = False
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            uses = step.get("uses")
+            if isinstance(uses, str) and uses.startswith("actions/checkout@"):
+                checkout_seen = True
+            run_value = step.get("run")
+            if isinstance(run_value, str) and "./scripts/" in run_value:
+                assert checkout_seen, (
+                    f"Job '{job_name}' executes repository scripts before checkout: {run_value}"
+                )
 
 
 def _run_resolve_installer_version(

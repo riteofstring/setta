@@ -24,6 +24,8 @@ jobs:
     outputs:
       installer_version: ${{ steps.resolve.outputs.installer_version }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Resolve installer version
         id: resolve
         env:

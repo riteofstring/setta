@@ -38,11 +38,37 @@ describe("endpointUtils URL routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes settaHomeInfo via launcher origin", async () => {
+  it("routes settaHomeInfo via backend origin in ide mode", async () => {
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
     await get(RouteEnum.GET_SETTA_HOME_INFO);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
+    );
+  });
+
+  it("keeps settaHomeInfo on backend origin when launcher/backend differ in ide mode", async () => {
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
+    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
+      "http://backend.example/api",
+    );
+    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
+      "http://launcher.example/api",
+    );
+
+    await get(RouteEnum.GET_SETTA_HOME_INFO);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://backend.example/api/settaHomeInfo",
     );
   });
 

@@ -34,6 +34,9 @@ export function WorkspaceSwitcherModal() {
     useState<SettaFilesLocation>("auto");
   const [launcherSettaHomeInfo, setLauncherSettaHomeInfo] =
     useState<SettaHomeInfoResponse | null>(null);
+  const [launcherSettaHomeInfoError, setLauncherSettaHomeInfoError] = useState<
+    string | null
+  >(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
@@ -61,9 +64,16 @@ export function WorkspaceSwitcherModal() {
 
     async function hydrateLauncherSettaHomeInfo() {
       const response = await route_get_setta_home_info();
-      if (!isMounted || !res200(response) || !response.data) {
+      if (!isMounted) {
         return;
       }
+      if (!res200(response) || !response.data) {
+        setLauncherSettaHomeInfoError(
+          "Failed to resolve launcher scope for desktop launcher actions.",
+        );
+        return;
+      }
+      setLauncherSettaHomeInfoError(null);
       setLauncherSettaHomeInfo(response.data);
     }
 
@@ -267,7 +277,14 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
-          <DesktopLauncherSettingsSection />
+          <DesktopLauncherSettingsSection
+            settaHome={launcherSettaHomeInfo?.settaHome ?? null}
+            requireSettaHome={true}
+            missingSettaHomeMessage={
+              launcherSettaHomeInfoError ??
+              "Resolving launcher scope for desktop launcher actions."
+            }
+          />
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
