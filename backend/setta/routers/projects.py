@@ -158,8 +158,11 @@ async def route_set_project_config_name(
 ):
     try:
         project_manager = state.project_manager_switcher.main
-        await project_manager.set_project_config_name(x.projectConfigId, x.newName)
-        project_manager.perform_manual_save()
+        await project_manager.compare_and_set_project_config_name(
+            x.projectConfigId,
+            x.newName,
+            expected_old_value=None,
+        )
     except InvalidProjectName as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

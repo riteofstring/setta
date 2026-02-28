@@ -27,6 +27,7 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.invoke_route",
     "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
+    "plugin.invoke_ui_setting_handler",
     "host.register_router",
     "host.register_listener_endpoint",
     "host.register_static_dir",
@@ -34,6 +35,7 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "host.register_language_server",
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
+    "host.register_ui_setting",
     "host.read_project_state",
     "host.emit_listener_dependency_event",
 )
@@ -167,6 +169,12 @@ class _WorkerState:
     route_ids_by_endpoint_name: dict[str, list[str]] = field(default_factory=dict)
     mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
     codegen_target_generators: dict[str, Callable[..., Any]] = field(
+        default_factory=dict
+    )
+    ui_setting_read_handlers: dict[str, Callable[..., Any]] = field(
+        default_factory=dict
+    )
+    ui_setting_write_handlers: dict[str, Callable[..., Any]] = field(
         default_factory=dict
     )
     _next_route_counter: int = 0
@@ -527,6 +535,207 @@ class _WorkerState:
             "host.register_codegen_target",
             {"target": target_payload},
         )
+
+    def _register_ui_setting(
+        self,
+        *,
+        setting: Any,
+        host_call: Callable[[str, dict[str, Any]], Any],
+    ) -> None:
+        if not isinstance(setting, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (f"Plugin {self.plugin_id} ui setting registration must be an object."),
+            )
+        allowed_keys = {
+            "id",
+            "title",
+            "description",
+            "paneId",
+            "revealKey",
+            "synonyms",
+            "mutability",
+            "valueSchema",
+            "read",
+            "write",
+        }
+        unknown_keys = sorted(set(setting.keys()) - allowed_keys)
+        if len(unknown_keys) > 0:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting registration has "
+                    f"unsupported keys: {', '.join(unknown_keys)}"
+                ),
+            )
+        raw_local_id = setting.get("id")
+        if not isinstance(raw_local_id, str) or raw_local_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} ui setting id must be a non-empty string.",
+            )
+        local_id = raw_local_id.strip()
+        if "::" in local_id:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting id cannot contain "
+                    "'::' in worker mode."
+                ),
+            )
+        raw_title = setting.get("title")
+        if not isinstance(raw_title, str) or raw_title.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} ui setting title must be a non-empty string.",
+            )
+        raw_description = setting.get("description")
+        if not isinstance(raw_description, str) or raw_description.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting description must be "
+                    "a non-empty string."
+                ),
+            )
+        raw_pane_id = setting.get("paneId")
+        if not isinstance(raw_pane_id, str) or raw_pane_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} ui setting paneId must be a non-empty string.",
+            )
+        pane_id = raw_pane_id.strip()
+        raw_reveal_key = setting.get("revealKey")
+        if not isinstance(raw_reveal_key, str) or raw_reveal_key.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting revealKey must be "
+                    "a non-empty string."
+                ),
+            )
+        reveal_key = raw_reveal_key.strip()
+        raw_synonyms = setting.get("synonyms")
+        synonyms: list[str] = []
+        if raw_synonyms is not None:
+            if not isinstance(raw_synonyms, list):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} ui setting synonyms must be "
+                        "a string array."
+                    ),
+                )
+            for index, raw_synonym in enumerate(raw_synonyms):
+                if not isinstance(raw_synonym, str) or raw_synonym.strip() == "":
+                    raise WorkerError(
+                        "PLUGIN_BACKEND_REGISTER_FAILED",
+                        (
+                            f"Plugin {self.plugin_id} ui setting synonym at index "
+                            f"{index} must be a non-empty string."
+                        ),
+                    )
+                synonyms.append(raw_synonym.strip())
+        raw_mutability = setting.get("mutability")
+        if raw_mutability is None:
+            mutability: Literal["readOnly", "writable"] = "writable"
+        elif raw_mutability in {"readOnly", "writable"}:
+            mutability = raw_mutability
+        else:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting mutability must be "
+                    "readOnly or writable."
+                ),
+            )
+
+        raw_value_schema = setting.get("valueSchema")
+        if not isinstance(raw_value_schema, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (f"Plugin {self.plugin_id} ui setting valueSchema must be an object."),
+            )
+        value_schema_payload = _ensure_json_serializable(
+            raw_value_schema,
+            plugin_id=self.plugin_id,
+            label="ui setting valueSchema",
+        )
+        if not isinstance(value_schema_payload, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} ui setting valueSchema must remain "
+                    "an object after serialization."
+                ),
+            )
+
+        read_handler = setting.get("read")
+        if not callable(read_handler):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} ui setting read handler must be callable.",
+            )
+        if local_id in self.ui_setting_read_handlers:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} registered duplicate ui setting id: "
+                    f"{local_id}"
+                ),
+            )
+
+        write_handler_id: str | None = None
+        write_handler: Callable[..., Any] | None = None
+        if mutability == "writable":
+            raw_write_handler = setting.get("write")
+            if not callable(raw_write_handler):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} writable ui setting requires "
+                        "a callable write handler."
+                    ),
+                )
+            if local_id in self.ui_setting_write_handlers:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} registered duplicate ui setting "
+                        f"write handler id: {local_id}"
+                    ),
+                )
+            write_handler = raw_write_handler
+            write_handler_id = local_id
+        elif setting.get("write") is not None:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} readOnly ui setting cannot define "
+                    "a write handler."
+                ),
+            )
+
+        host_call(
+            "host.register_ui_setting",
+            {
+                "setting": {
+                    "id": local_id,
+                    "title": raw_title.strip(),
+                    "description": raw_description.strip(),
+                    "paneId": pane_id,
+                    "revealKey": reveal_key,
+                    "synonyms": synonyms,
+                    "mutability": mutability,
+                    "valueSchema": value_schema_payload,
+                    "readHandlerId": local_id,
+                    "writeHandlerId": write_handler_id,
+                }
+            },
+        )
+        self.ui_setting_read_handlers[local_id] = read_handler
+        if write_handler is not None:
+            self.ui_setting_write_handlers[local_id] = write_handler
 
     def _build_route_call_kwargs(
         self,
@@ -1284,6 +1493,115 @@ class _WorkerState:
             label="codegen target result",
         )
 
+    def _invoke_ui_setting_handler(self, params: Any) -> dict[str, Any]:
+        if not isinstance(params, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "plugin.invoke_ui_setting_handler params must be an object.",
+            )
+        raw_handler_id = params.get("handlerId")
+        if not isinstance(raw_handler_id, str) or raw_handler_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "plugin.invoke_ui_setting_handler missing handlerId.",
+            )
+        handler_id = raw_handler_id.strip()
+        raw_operation = params.get("operation")
+        if raw_operation not in {"read", "write"}:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "plugin.invoke_ui_setting_handler operation must be read or write.",
+            )
+        operation: Literal["read", "write"] = raw_operation
+        raw_project_config_id = params.get("projectConfigId")
+        if (
+            not isinstance(raw_project_config_id, str)
+            or raw_project_config_id.strip() == ""
+        ):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "plugin.invoke_ui_setting_handler missing projectConfigId.",
+            )
+        project_config_id = raw_project_config_id.strip()
+
+        if operation == "read":
+            handler = self.ui_setting_read_handlers.get(handler_id)
+            if handler is None:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (f"Plugin ui setting read handler not found: {handler_id}"),
+                )
+            try:
+                result = handler(project_config_id=project_config_id)
+            except TypeError as exc:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        "Plugin ui setting read handler rejected call signature for "
+                        f"{handler_id}: {exc}"
+                    ),
+                ) from exc
+            except Exception as exc:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin ui setting read handler {handler_id} failed for "
+                        f"{self.plugin_id}: {exc}"
+                    ),
+                ) from exc
+            if inspect.isawaitable(result):
+                result = self._run_awaitable(
+                    result,
+                    code="PLUGIN_BACKEND_REGISTER_FAILED",
+                    message_prefix=(
+                        "Async plugin ui setting read handler failed for "
+                        f"{self.plugin_id}:{handler_id}"
+                    ),
+                )
+            return {
+                "value": _ensure_json_serializable(
+                    result,
+                    plugin_id=self.plugin_id,
+                    label="ui setting read result",
+                )
+            }
+
+        handler = self.ui_setting_write_handlers.get(handler_id)
+        if handler is None:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (f"Plugin ui setting write handler not found: {handler_id}"),
+            )
+        value = params.get("value")
+        try:
+            result = handler(project_config_id=project_config_id, value=value)
+        except TypeError as exc:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin ui setting write handler rejected call signature for "
+                    f"{handler_id}: {exc}"
+                ),
+            ) from exc
+        except Exception as exc:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin ui setting write handler {handler_id} failed for "
+                    f"{self.plugin_id}: {exc}"
+                ),
+            ) from exc
+        if inspect.isawaitable(result):
+            result = self._run_awaitable(
+                result,
+                code="PLUGIN_BACKEND_REGISTER_FAILED",
+                message_prefix=(
+                    "Async plugin ui setting write handler failed for "
+                    f"{self.plugin_id}:{handler_id}"
+                ),
+            )
+        return {"ok": True}
+
     def _run_awaitable(
         self,
         awaitable: Any,
@@ -1368,6 +1686,8 @@ class _WorkerState:
             return self._invoke_mcp_tool(params)
         if method == "plugin.invoke_codegen_target":
             return self._invoke_codegen_target(params)
+        if method == "plugin.invoke_ui_setting_handler":
+            return self._invoke_ui_setting_handler(params)
         raise WorkerError(
             "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
             f"Unsupported worker method: {method}",
@@ -1431,6 +1751,12 @@ class _WorkerBackendPluginContext:
     def register_codegen_target(self, target: Any) -> None:
         self._state._register_codegen_target(
             target=target,
+            host_call=self._host_call,
+        )
+
+    def register_ui_setting(self, setting: Any) -> None:
+        self._state._register_ui_setting(
+            setting=setting,
             host_call=self._host_call,
         )
 
