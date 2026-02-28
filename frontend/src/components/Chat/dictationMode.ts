@@ -20,14 +20,23 @@ export function resolveProviderDictationAvailability({
   selectedTranscriptionProfile,
   allLLMConfigs,
   apiKeys,
+  apiKeysAuthoritative,
 }: {
   selectedTranscriptionProfile: TranscriptionProfile | null;
   allLLMConfigs: AllLLMConfigs | null;
   apiKeys: APIKeys;
+  apiKeysAuthoritative: boolean;
 }): {
   providerDictationAvailable: boolean;
   providerDictationUnavailableReason: string;
 } {
+  if (!apiKeysAuthoritative) {
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Provider dictation requires an authoritative API key snapshot.",
+    };
+  }
   if (!selectedTranscriptionProfile) {
     return {
       providerDictationAvailable: false,

@@ -2,7 +2,6 @@ import {
   receiveAgenticScopeViolationEdges,
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
-import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -25,6 +24,7 @@ import {
 } from "state/appSpecPatchStreaming";
 import {
   ChatDetails,
+  ChatRunProvenance,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
@@ -36,7 +36,8 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { C } from "utils/c";
+import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
@@ -64,6 +65,8 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
+  route_set_llm_api_keys,
+  route_set_llm_config,
   route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
@@ -128,10 +131,15 @@ import {
   UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
-import { mergeChatMessages } from "./chatMergeUtils";
+import { buildChatProvenanceByChatId } from "./chatHistory";
+import {
+  mergeChatMessages,
+  reconcileHydratedChatMessages,
+} from "./chatMergeUtils";
 
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -139,7 +147,26 @@ const scopeViolationToastTimeouts = new Map<
 >();
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
+let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
 let agentRunsLoadPromise: Promise<void> | null = null;
+let agentRunsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let agentRunsTransientFailureCount = 0;
+const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
+const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
+  "managed_api_keys_revision_conflict";
+const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
+const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
+  "managed_api_keys_store_unavailable";
+const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
+
+type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -156,6 +183,49 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
+
+function buildChatProvenanceRecordFromRuns(
+  runs: Array<AgentRun>,
+): Record<string, ChatRunProvenance> {
+  const provenanceByChatId = buildChatProvenanceByChatId(runs);
+  const next: Record<string, ChatRunProvenance> = {};
+  for (const [chatId, provenance] of provenanceByChatId.entries()) {
+    next[chatId] = provenance;
+  }
+  return next;
+}
+
+function upsertChatProvenanceForChat(
+  chatId: string,
+  provenance: ChatRunProvenance,
+): void {
+  const resolvedChatId = chatId.trim();
+  if (!resolvedChatId) {
+    return;
+  }
+  useAIStore.setState((state) => ({
+    chatProvenanceByChatId: {
+      ...state.chatProvenanceByChatId,
+      [resolvedChatId]: provenance,
+    },
+  }));
+}
+
+function syncChatProvenanceAfterSubmit({
+  chatId,
+  engineConfigId,
+  isExternalEngine,
+}: {
+  chatId: string;
+  engineConfigId: string;
+  isExternalEngine: boolean;
+}): void {
+  upsertChatProvenanceForChat(chatId, {
+    runType: isExternalEngine ? "external_agent" : "llm_chat",
+    engineConfigId,
+  });
+  void loadAgentRuns();
+}
 
 function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -174,7 +244,7 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
 export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
-  options: { suppressNotification?: boolean } = {},
+  options: TranscriptionRequestOptions = {},
 ): Promise<StartTranscriptionSessionResponse | null> {
   if (!transcriptionProfileId) {
     return null;
@@ -184,11 +254,7 @@ export async function startTranscriptionSession(
     language,
   });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    if (!options.suppressNotification) {
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    }
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
@@ -198,6 +264,7 @@ export async function appendTranscriptionAudio(
   audioPcm16: ArrayBuffer,
   sampleRateHz: number,
   channels: number,
+  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId || audioPcm16.byteLength === 0) {
     return null;
@@ -209,24 +276,21 @@ export async function appendTranscriptionAudio(
     channels,
   });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
 
 export async function stopTranscriptionSession(
   sessionId: string,
+  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId) {
     return null;
   }
   const res = await route_stop_transcription_session({ sessionId });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
@@ -239,6 +303,355 @@ export async function cancelTranscriptionSession(
   }
   const res = await route_cancel_transcription_session({ sessionId });
   return res200(res);
+}
+
+type DictationPcmPayload = {
+  audioPcm16: Int16Array;
+  sampleRateHz: number;
+  channels: number;
+};
+
+type ProviderDictationTranscriptionResult =
+  | {
+      kind: "ok";
+      transcript: string;
+    }
+  | {
+      kind: "no_speech";
+    };
+
+const PCM16_BYTES_PER_SAMPLE = 2;
+const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24_000;
+const TRANSCRIPTION_APPEND_MAX_BYTES =
+  C.REALTIME_BINARY_MAX_BYTES > 0
+    ? C.REALTIME_BINARY_MAX_BYTES
+    : 10 * 1024 * 1024;
+
+type TranscriptionRequestOptions = {
+  suppressNotification?: boolean;
+  throwOnError?: boolean;
+};
+
+function handleTranscriptionEndpointError(
+  responseData: unknown,
+  responseStatus: number | undefined,
+  options: TranscriptionRequestOptions,
+): null {
+  const detail =
+    getErrorDetail(responseData) ?? "Provider transcription failed.";
+  const errorCode = getErrorCode(responseData);
+  const error = new ProviderTranscriptionError({
+    message: detail,
+    code: errorCode,
+    status: responseStatus,
+  });
+  if (!options.suppressNotification) {
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+  }
+  if (options.throwOnError) {
+    throw error;
+  }
+  return null;
+}
+
+function float32ToInt16(input: Float32Array): Int16Array {
+  const output = new Int16Array(input.length);
+  for (let index = 0; index < input.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, input[index] ?? 0));
+    output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return output;
+}
+
+export function resampleMonoPcm16ToSampleRate(
+  input: Int16Array,
+  sourceSampleRateHz: number,
+  targetSampleRateHz: number,
+): Int16Array {
+  if (sourceSampleRateHz <= 0 || targetSampleRateHz <= 0) {
+    throw new Error("Provider transcription requires a positive sample rate.");
+  }
+  if (
+    !Number.isFinite(sourceSampleRateHz) ||
+    !Number.isFinite(targetSampleRateHz)
+  ) {
+    throw new Error("Provider transcription requires a finite sample rate.");
+  }
+  if (input.length === 0 || sourceSampleRateHz === targetSampleRateHz) {
+    return input;
+  }
+  const outputLength = Math.max(
+    1,
+    Math.round((input.length * targetSampleRateHz) / sourceSampleRateHz),
+  );
+  const output = new Int16Array(outputLength);
+  for (let outputIndex = 0; outputIndex < outputLength; outputIndex += 1) {
+    const sourcePosition =
+      (outputIndex * sourceSampleRateHz) / targetSampleRateHz;
+    const sourceIndex = Math.floor(sourcePosition);
+    const nextSourceIndex = Math.min(sourceIndex + 1, input.length - 1);
+    const lerpWeight = sourcePosition - sourceIndex;
+    const leftSample = input[sourceIndex] ?? 0;
+    const rightSample = input[nextSourceIndex] ?? leftSample;
+    const interpolatedSample =
+      leftSample * (1 - lerpWeight) + rightSample * lerpWeight;
+    const clamped = Math.max(
+      -0x8000,
+      Math.min(0x7fff, Math.round(interpolatedSample)),
+    );
+    output[outputIndex] = clamped;
+  }
+  return output;
+}
+
+function resolveProviderTranscriptionPcmPayloadForSession(
+  pcmPayload: DictationPcmPayload,
+  session: StartTranscriptionSessionResponse,
+): DictationPcmPayload {
+  if (session.resolvedTransportMode !== "realtime") {
+    return pcmPayload;
+  }
+  if (pcmPayload.channels !== 1) {
+    throw new Error("Realtime transcription requires mono PCM16 audio.");
+  }
+  if (
+    pcmPayload.sampleRateHz <= 0 ||
+    !Number.isFinite(pcmPayload.sampleRateHz)
+  ) {
+    throw new Error("Realtime transcription requires a valid sample rate.");
+  }
+  if (pcmPayload.sampleRateHz === REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ) {
+    return pcmPayload;
+  }
+  return {
+    audioPcm16: resampleMonoPcm16ToSampleRate(
+      pcmPayload.audioPcm16,
+      pcmPayload.sampleRateHz,
+      REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ,
+    ),
+    sampleRateHz: REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ,
+    channels: 1,
+  };
+}
+
+export function resolveProviderTranscriptionChunkSampleCount({
+  session,
+  sampleRateHz,
+  channels,
+}: {
+  session: StartTranscriptionSessionResponse;
+  sampleRateHz: number;
+  channels: number;
+}): number {
+  if (sampleRateHz <= 0 || channels <= 0) {
+    return 0;
+  }
+  const maxSamplesByPayload = Math.floor(
+    TRANSCRIPTION_APPEND_MAX_BYTES / (PCM16_BYTES_PER_SAMPLE * channels),
+  );
+  if (maxSamplesByPayload <= 0) {
+    return 0;
+  }
+  if (session.resolvedTransportMode !== "realtime") {
+    return maxSamplesByPayload;
+  }
+  const chunkMs = session.chunkMs > 0 ? session.chunkMs : 200;
+  const chunkSamplesByDuration = Math.floor((sampleRateHz * chunkMs) / 1000);
+  if (chunkSamplesByDuration <= 0) {
+    return 1;
+  }
+  return Math.min(chunkSamplesByDuration, maxSamplesByPayload);
+}
+
+async function decodeDictationBlobToPcm16(
+  audioBlob: Blob,
+): Promise<DictationPcmPayload | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const withWebkitAudioContext = window as typeof window & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextCtor =
+    window.AudioContext ?? withWebkitAudioContext.webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+  const audioContext = new AudioContextCtor();
+  try {
+    const audioBuffer = await audioBlob.arrayBuffer();
+    const decodedBuffer = await audioContext.decodeAudioData(
+      audioBuffer.slice(0),
+    );
+    const channelCount = Math.max(decodedBuffer.numberOfChannels, 1);
+    const sampleCount = decodedBuffer.length;
+    const mono = new Float32Array(sampleCount);
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      const channelData = decodedBuffer.getChannelData(channelIndex);
+      for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+        mono[sampleIndex] += (channelData[sampleIndex] ?? 0) / channelCount;
+      }
+    }
+    const pcm16 = float32ToInt16(mono);
+    return {
+      audioPcm16: pcm16,
+      sampleRateHz: decodedBuffer.sampleRate,
+      channels: 1,
+    };
+  } catch {
+    return null;
+  } finally {
+    void audioContext.close();
+  }
+}
+
+function asProviderDictationTranscriptionError(
+  error: unknown,
+  fallbackMessage: string,
+): ProviderTranscriptionError {
+  if (error instanceof ProviderTranscriptionError) {
+    return error;
+  }
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message
+      : fallbackMessage;
+  return new ProviderTranscriptionError({
+    message,
+    code: "provider_failure",
+    status: undefined,
+  });
+}
+
+export async function transcribeChatAudioWithProfile(
+  transcriptionProfileId: string,
+  audioBlob: Blob,
+): Promise<ProviderDictationTranscriptionResult> {
+  if (!transcriptionProfileId) {
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation profile is not configured.",
+      code: "profile_not_found",
+      status: undefined,
+    });
+  }
+  if (audioBlob.size === 0) {
+    return { kind: "no_speech" };
+  }
+  const pcmPayload = await decodeDictationBlobToPcm16(audioBlob);
+  if (!pcmPayload) {
+    throw new ProviderTranscriptionError({
+      message: "Provider dictation is not available in this browser.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const session = await startTranscriptionSession(
+    transcriptionProfileId,
+    null,
+    {
+      suppressNotification: true,
+      throwOnError: true,
+    },
+  );
+  if (!session) {
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription session could not be started.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const sessionId = session.sessionId;
+  const sessionPcmPayload = resolveProviderTranscriptionPcmPayloadForSession(
+    pcmPayload,
+    session,
+  );
+  const chunkSampleCount = resolveProviderTranscriptionChunkSampleCount({
+    session,
+    sampleRateHz: sessionPcmPayload.sampleRateHz,
+    channels: sessionPcmPayload.channels,
+  });
+  if (chunkSampleCount <= 0) {
+    await cancelTranscriptionSession(sessionId);
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription chunk size is invalid.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  if (sessionPcmPayload.audioPcm16.length === 0) {
+    await cancelTranscriptionSession(sessionId);
+    return { kind: "no_speech" };
+  }
+  const appendTextSegments: string[] = [];
+  try {
+    for (
+      let offset = 0;
+      offset < sessionPcmPayload.audioPcm16.length;
+      offset += chunkSampleCount
+    ) {
+      const nextOffset = Math.min(
+        offset + chunkSampleCount,
+        sessionPcmPayload.audioPcm16.length,
+      );
+      const chunk = sessionPcmPayload.audioPcm16.slice(offset, nextOffset);
+      const appendDelta = await appendTranscriptionAudio(
+        sessionId,
+        chunk.buffer,
+        sessionPcmPayload.sampleRateHz,
+        sessionPcmPayload.channels,
+        {
+          suppressNotification: true,
+          throwOnError: true,
+        },
+      );
+      if (!appendDelta) {
+        await cancelTranscriptionSession(sessionId);
+        throw new ProviderTranscriptionError({
+          message: "Provider transcription append returned no result.",
+          code: "provider_failure",
+          status: undefined,
+        });
+      }
+      appendTextSegments.push(appendDelta.appendText);
+    }
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription append failed.",
+    );
+  }
+  let stopDelta: TranscriptionSessionDeltaResponse | null = null;
+  try {
+    stopDelta = await stopTranscriptionSession(sessionId, {
+      suppressNotification: true,
+      throwOnError: true,
+    });
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw asProviderDictationTranscriptionError(
+      error,
+      "Provider transcription stop failed.",
+    );
+  }
+  if (!stopDelta) {
+    await cancelTranscriptionSession(sessionId);
+    throw new ProviderTranscriptionError({
+      message: "Provider transcription stop returned no result.",
+      code: "provider_failure",
+      status: undefined,
+    });
+  }
+  const fullText = stopDelta.fullText.trim();
+  if (fullText) {
+    return { kind: "ok", transcript: fullText };
+  }
+  const appendText =
+    `${appendTextSegments.join("")}${stopDelta.appendText}`.trim();
+  if (appendText) {
+    return { kind: "ok", transcript: appendText };
+  }
+  return { kind: "no_speech" };
 }
 
 export async function loadLLMConfig() {
@@ -264,6 +677,103 @@ export async function loadLLMConfig() {
   }
 }
 
+export async function saveLLMConfig(
+  config: AllLLMConfigs,
+): Promise<AllLLMConfigs | null> {
+  const res = await route_set_llm_config(config);
+  if (!res200(res)) {
+    useAIStore.setState({
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: "Failed to save LLM config",
+    });
+    return null;
+  }
+  receiveLLMConfigUpdate(res.data);
+  return res.data;
+}
+
+type ManagedAPIKeysErrorDetails = {
+  detail: string | null;
+  revision: number | null;
+  errorCode: string | null;
+  isCorrupt: boolean;
+  isUnavailable: boolean;
+};
+
+function resolveManagedApiKeysErrorDetails(
+  payload: unknown,
+): ManagedAPIKeysErrorDetails {
+  const detail = getErrorDetail(payload);
+  const revision = extractApiKeysRevisionFromErrorPayload(payload);
+  const errorCode = getErrorCode(payload);
+  const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  return {
+    detail,
+    revision,
+    errorCode,
+    isCorrupt,
+    isUnavailable,
+  };
+}
+
+function applyManagedApiKeysReadFailure(payload: unknown): void {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  useAIStore.setState((state) => ({
+    apiKeys:
+      errorDetails.isCorrupt || errorDetails.isUnavailable ? {} : state.apiKeys,
+    apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+    apiKeysAuthoritative: errorDetails.isCorrupt,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? "Failed to load LLM API keys",
+  }));
+}
+
+function applyManagedApiKeysWriteFailure({
+  payload,
+  fallbackMessage,
+  fallbackAuthoritative,
+}: {
+  payload: unknown;
+  fallbackMessage: string;
+  fallbackAuthoritative: boolean;
+}): {
+  shouldRetryCorruptWrite: boolean;
+  isUnavailable: boolean;
+} {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  if (errorDetails.isCorrupt) {
+    useAIStore.setState((state) => ({
+      apiKeys: {},
+      apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+      apiKeysAuthoritative: errorDetails.revision !== null,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is corrupt.",
+    }));
+    return {
+      shouldRetryCorruptWrite: errorDetails.revision !== null,
+      isUnavailable: false,
+    };
+  }
+  if (errorDetails.isUnavailable) {
+    useAIStore.setState({
+      apiKeys: {},
+      apiKeysAuthoritative: false,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is unavailable.",
+    });
+    return { shouldRetryCorruptWrite: false, isUnavailable: true };
+  }
+  useAIStore.setState({
+    apiKeysAuthoritative: fallbackAuthoritative,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? fallbackMessage,
+  });
+  return { shouldRetryCorruptWrite: false, isUnavailable: false };
+}
+
 export async function loadLLMApiKeys() {
   if (llmApiKeysLoadPromise) {
     await llmApiKeysLoadPromise;
@@ -272,13 +782,10 @@ export async function loadLLMApiKeys() {
   llmApiKeysLoadPromise = (async () => {
     const res = await route_get_llm_api_keys();
     if (res200(res)) {
-      receiveLLMApiKeysUpdate(res.data);
+      receiveLLMApiKeysSnapshotUpdate(res.data);
       return;
     }
-    useAIStore.setState({
-      apiKeysInitialLoadComplete: true,
-      apiKeysLoadError: "Failed to load LLM API keys",
-    });
+    applyManagedApiKeysReadFailure(res.data);
   })();
   try {
     await llmApiKeysLoadPromise;
@@ -295,12 +802,131 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
-export function receiveLLMApiKeysUpdate(payload: APIKeys) {
+export function receiveLLMApiKeysSnapshotUpdate(
+  payload: ManagedAPIKeysSnapshotPayload,
+) {
+  const isCorrupt =
+    payload.corrupt === true ||
+    payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable =
+    payload.errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  let apiKeysLoadError: string | null = null;
+  if (isCorrupt) {
+    apiKeysLoadError = payload.message ?? "Managed API key store is corrupt.";
+  } else if (isUnavailable) {
+    apiKeysLoadError =
+      payload.message ?? "Managed API key store is unavailable.";
+  }
   useAIStore.setState({
-    apiKeys: payload,
+    apiKeys: payload.apiKeys,
+    apiKeysRevision: payload.revision,
+    apiKeysAuthoritative: !isUnavailable,
     apiKeysInitialLoadComplete: true,
-    apiKeysLoadError: null,
+    apiKeysLoadError,
   });
+}
+
+function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const revision = value.revision;
+  if (
+    typeof revision === "number" &&
+    Number.isInteger(revision) &&
+    revision >= 0
+  ) {
+    return revision;
+  }
+  return extractApiKeysRevisionFromErrorPayload(value.detail);
+}
+
+async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
+  const res = await route_get_llm_api_keys();
+  if (res200(res)) {
+    receiveLLMApiKeysSnapshotUpdate(res.data);
+    return true;
+  }
+  applyManagedApiKeysReadFailure(res.data);
+  return false;
+}
+
+async function persistLLMApiKeysMutation(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
+    const state = useAIStore.getState();
+    const nextApiKeys = mutation(state.apiKeys);
+    const res = await route_set_llm_api_keys({
+      apiKeys: nextApiKeys,
+      expectedRevision: state.apiKeysRevision,
+    });
+    if (res200(res)) {
+      receiveLLMApiKeysSnapshotUpdate(res.data);
+      return true;
+    }
+    const errorCode = getErrorCode(res.data);
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE
+    ) {
+      const refreshed = await refreshLLMApiKeysSnapshotFromServer();
+      if (!refreshed) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      res.status === 409 &&
+      errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    ) {
+      const writeFailureResult = applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is corrupt.",
+        fallbackAuthoritative: false,
+      });
+      if (!writeFailureResult.shouldRetryCorruptWrite) {
+        return false;
+      }
+      continue;
+    }
+    if (
+      res.status === 503 &&
+      errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    ) {
+      applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is unavailable.",
+        fallbackAuthoritative: false,
+      });
+      return false;
+    }
+    applyManagedApiKeysWriteFailure({
+      payload: res.data,
+      fallbackMessage: "Failed to save LLM API keys",
+      fallbackAuthoritative: false,
+    });
+    return false;
+  }
+  useAIStore.setState({
+    apiKeysAuthoritative: false,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: "Failed to save LLM API keys after retrying conflicts.",
+  });
+  return false;
+}
+
+export async function mutateAndSaveLLMApiKeys(
+  mutation: APIKeysMutation,
+): Promise<boolean> {
+  let didPersist = false;
+  const runMutation = async () => {
+    didPersist = await persistLLMApiKeysMutation(mutation);
+  };
+  llmApiKeysSaveQueue = llmApiKeysSaveQueue.then(runMutation, runMutation);
+  await llmApiKeysSaveQueue;
+  return didPersist;
 }
 
 export async function loadAgentProfiles(force: boolean = false) {
@@ -333,17 +959,80 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
   });
 }
 
+function clearScheduledAgentRunsRetry(): void {
+  if (!agentRunsRetryTimer) {
+    return;
+  }
+  clearTimeout(agentRunsRetryTimer);
+  agentRunsRetryTimer = null;
+}
+
+function scheduleAgentRunsRetry(transientFailureCount: number): void {
+  if (agentRunsRetryTimer) {
+    return;
+  }
+  const delayIndex = Math.max(
+    0,
+    Math.min(transientFailureCount - 1, AGENT_RUNS_RETRY_DELAYS_MS.length - 1),
+  );
+  const delayMs = AGENT_RUNS_RETRY_DELAYS_MS[delayIndex] ?? 2500;
+  agentRunsRetryTimer = setTimeout(() => {
+    agentRunsRetryTimer = null;
+    void loadAgentRuns();
+  }, delayMs);
+}
+
 export async function loadAgentRuns() {
   if (agentRunsLoadPromise) {
     await agentRunsLoadPromise;
     return;
+  }
+  const currentState = useAIStore.getState();
+  if (
+    currentState.agentRunsAuthorityState === "loading" &&
+    !currentState.agentRunsInitialLoadComplete &&
+    currentState.agentRunsLoadError === null
+  ) {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  const currentAuthorityState = currentState.agentRunsAuthorityState;
+  const shouldUseRetryFlow = currentAuthorityState !== "ready";
+  if (currentAuthorityState === "terminal_error") {
+    agentRunsTransientFailureCount = 0;
+    clearScheduledAgentRunsRetry();
+  }
+  if (shouldUseRetryFlow) {
+    useAIStore.setState({
+      agentRunsAuthorityState: "loading",
+      agentRunsInitialLoadComplete: false,
+    });
   }
   agentRunsLoadPromise = (async () => {
     const res = await route_get_agent_runs();
     if (res200(res)) {
       receiveAgentRunsUpdate(res.data);
     } else {
+      if (!shouldUseRetryFlow) {
+        useAIStore.setState({
+          agentRunsInitialLoadComplete: true,
+          agentRunsLoadError: "Failed to load agent runs",
+        });
+        return;
+      }
+      agentRunsTransientFailureCount += 1;
+      if (agentRunsTransientFailureCount <= AGENT_RUNS_RETRY_DELAYS_MS.length) {
+        useAIStore.setState({
+          agentRunsAuthorityState: "transient_error",
+          agentRunsInitialLoadComplete: false,
+          agentRunsLoadError: "Failed to load agent runs",
+        });
+        scheduleAgentRunsRetry(agentRunsTransientFailureCount);
+        return;
+      }
+      clearScheduledAgentRunsRetry();
       useAIStore.setState({
+        agentRunsAuthorityState: "terminal_error",
         agentRunsInitialLoadComplete: true,
         agentRunsLoadError: "Failed to load agent runs",
       });
@@ -357,8 +1046,12 @@ export async function loadAgentRuns() {
 }
 
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+  clearScheduledAgentRunsRetry();
+  agentRunsTransientFailureCount = 0;
   useAIStore.setState({
     agentRuns: payload,
+    chatProvenanceByChatId: buildChatProvenanceRecordFromRuns(payload),
+    agentRunsAuthorityState: "ready",
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
   });
@@ -796,13 +1489,142 @@ export function getDefaultChatDetails(): ChatDetails {
     toolCallArguments: {},
     waitingForResponse: false,
     llmConfig: null,
+    contextUsage: null,
   };
 }
 
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
+  interruptedAssistantMessageIdsByChat: Record<string, true>;
+  stopEligibleAssistantMessageId: string | null;
 };
+
+function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
+  const normalizedChatId = chatId.trim();
+  const normalizedMessageId = messageId.trim();
+  if (!normalizedChatId || !normalizedMessageId) {
+    return;
+  }
+  stopEligibleAssistantMessageIdByChatId.set(
+    normalizedChatId,
+    normalizedMessageId,
+  );
+}
+
+function clearStopEligibleAssistantMessageId(chatId: string) {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return;
+  }
+  stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
+}
+
+function markInterruptedAssistantMessage(chatId: string, messageId: string) {
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    if (existingByChat[messageId]) {
+      return state;
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: {
+          ...existingByChat,
+          [messageId]: true,
+        },
+      },
+    };
+  });
+}
+
+function clearInterruptedAssistantMessages(
+  chatId: string,
+  messageIds: Array<string | null | undefined>,
+) {
+  const normalizedIds = messageIds.filter(
+    (messageId): messageId is string => typeof messageId === "string",
+  );
+  if (normalizedIds.length === 0) {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    let changed = false;
+    const nextByChat = { ...existingByChat };
+    for (const messageId of normalizedIds) {
+      if (nextByChat[messageId]) {
+        changed = true;
+        delete nextByChat[messageId];
+      }
+    }
+    if (!changed) {
+      return state;
+    }
+    if (Object.keys(nextByChat).length === 0) {
+      const nextByChatId = {
+        ...state.interruptedAssistantMessageIdsByChatId,
+      };
+      delete nextByChatId[chatId];
+      return {
+        interruptedAssistantMessageIdsByChatId: nextByChatId,
+      };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: nextByChat,
+      },
+    };
+  });
+}
+
+function interruptedMessageMapEquals(
+  left: Record<string, true>,
+  right: Record<string, true>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function restoreInterruptedAssistantMessageSnapshot(
+  chatId: string | null | undefined,
+  snapshot: StopChatResponseSnapshot,
+) {
+  if (typeof chatId !== "string") {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const currentByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    const snapshotByChat = snapshot.interruptedAssistantMessageIdsByChat;
+    if (interruptedMessageMapEquals(currentByChat, snapshotByChat)) {
+      return state;
+    }
+    const nextByChatId = {
+      ...state.interruptedAssistantMessageIdsByChatId,
+    };
+    if (Object.keys(snapshotByChat).length === 0) {
+      delete nextByChatId[chatId];
+    } else {
+      nextByChatId[chatId] = { ...snapshotByChat };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: nextByChatId,
+    };
+  });
+}
 
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
@@ -812,9 +1634,20 @@ function getStopChatResponseSnapshot(
     typeof chatId === "string"
       ? state.chatDetails[chatId] ?? getDefaultChatDetails()
       : state.pendingChatDetails ?? getDefaultChatDetails();
+  const interruptedAssistantMessageIdsByChat =
+    typeof chatId === "string"
+      ? {
+          ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
+        }
+      : {};
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
+    interruptedAssistantMessageIdsByChat,
+    stopEligibleAssistantMessageId:
+      typeof chatId === "string"
+        ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
+        : null,
   };
 }
 
@@ -836,7 +1669,12 @@ function restoreStoppedChatResponseLocally(
 
 function stopChatResponseLocally(
   chatId: string | null | undefined,
+  options: {
+    markInterruptedOptimistically?: boolean;
+  } = {},
 ): StopChatResponseSnapshot {
+  const markInterruptedOptimistically =
+    options.markInterruptedOptimistically ?? true;
   const snapshot = getStopChatResponseSnapshot(chatId);
   const stopDetails = (details: ChatDetails): ChatDetails => ({
     ...details,
@@ -844,11 +1682,34 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
+    if (
+      markInterruptedOptimistically &&
+      snapshot.waitingForResponse &&
+      snapshot.stopEligibleAssistantMessageId
+    ) {
+      markInterruptedAssistantMessage(
+        chatId,
+        snapshot.stopEligibleAssistantMessageId,
+      );
+    }
   } else {
     updatePendingChatDetails(stopDetails);
   }
   clearAllAppSpecPatchStreams();
   return snapshot;
+}
+
+function applyConfirmedExternalStopInterruption(
+  chatId: string,
+  snapshot: StopChatResponseSnapshot,
+): void {
+  restoreInterruptedAssistantMessageSnapshot(chatId, snapshot);
+  const stoppedMessageId =
+    snapshot.stopEligibleAssistantMessageId?.trim() ?? "";
+  if (!stoppedMessageId) {
+    return;
+  }
+  markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
 
 async function resolveLatestRunningExternalRunIdWithRefresh(
@@ -899,8 +1760,10 @@ async function stopExternalChatResponse({
   if (!runId) {
     const refreshState = await refreshChatAndResolveWaiting();
     if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
       return true;
     }
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
@@ -910,12 +1773,27 @@ async function stopExternalChatResponse({
   const response = await route_stop_external_agent_run({ runId });
   if (res200(response)) {
     void loadAgentRuns();
-    return true;
+    if (response.data?.status === AgentRunStatusEnum.cancelled) {
+      applyConfirmedExternalStopInterruption(chatId, localSnapshot);
+      return true;
+    }
+    const refreshState = await refreshChatAndResolveWaiting();
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      return true;
+    }
+    if (!refreshState.hydrated) {
+      restoreStoppedChatResponseLocally(chatId, localSnapshot);
+    }
+    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    return false;
   }
   const refreshState = await refreshChatAndResolveWaiting();
   if (refreshState.hydrated && !refreshState.waitingForResponse) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     return true;
   }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -923,11 +1801,53 @@ async function stopExternalChatResponse({
   return false;
 }
 
+function reconcileStoppedLLMChatOutcome({
+  chatId,
+  localSnapshot,
+  stopOutcome,
+}: {
+  chatId: string;
+  localSnapshot: StopChatResponseSnapshot;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
+}): void {
+  if (!stopOutcome) {
+    return;
+  }
+  if (stopOutcome.alreadyStopped) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
+  if (!stoppedMessageId) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  const localStoppedMessageId =
+    localSnapshot.stopEligibleAssistantMessageId?.trim() ?? "";
+  if (!localStoppedMessageId) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  if (localStoppedMessageId === stoppedMessageId) {
+    return;
+  }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  markInterruptedAssistantMessage(chatId, stoppedMessageId);
+}
+
 export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
 ): Promise<boolean> {
-  const localSnapshot = stopChatResponseLocally(chatId);
+  const localSnapshot = stopChatResponseLocally(chatId, {
+    markInterruptedOptimistically: !isExternalEngine,
+  });
   if (typeof chatId !== "string") {
     return true;
   }
@@ -943,9 +1863,15 @@ export async function stopProjectChatResponse(
 
   const response = await route_stop_llm_chat({ chatId });
   if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
     return true;
   }
   const hydrated = await getLLMChat(chatId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -962,7 +1888,9 @@ export async function stopManagedSectionChatResponse(
   projectConfigId: string,
   sectionId: string,
 ): Promise<boolean> {
-  const localSnapshot = stopChatResponseLocally(chatId);
+  const localSnapshot = stopChatResponseLocally(chatId, {
+    markInterruptedOptimistically: !isExternalEngine,
+  });
   if (typeof chatId !== "string") {
     return true;
   }
@@ -977,9 +1905,15 @@ export async function stopManagedSectionChatResponse(
   }
   const response = await route_stop_llm_chat({ chatId });
   if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
     return true;
   }
   const hydrated = await getLLMChat(chatId, sectionId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -999,11 +1933,11 @@ function mergeChatSectionState(
   },
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
-  // Treat backend order as canonical, but keep any more-complete local copies.
-  const mergedMessages = mergeChatMessages(
-    incoming.messages ?? [],
-    currentState.messages ?? [],
-  );
+  const mergedMessages = reconcileHydratedChatMessages({
+    backendMessages: incoming.messages ?? [],
+    localMessages: currentState.messages ?? [],
+    preserveLocalOnlyMessages: preserveWaitingForResponse,
+  });
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
     : Boolean(incoming.waitingForResponse);
@@ -1084,55 +2018,243 @@ export function clearPendingChatDetails() {
   useAIStore.setState({ pendingChatDetails: null });
 }
 
+export type ChatHydrationOutcomeType =
+  | "success"
+  | "transient_failure"
+  | "terminal_failure";
+
+export type ChatHydrationErrorCode =
+  | "chat_not_found"
+  | "chat_provenance_missing"
+  | "engine_config_missing"
+  | "engine_type_mismatch"
+  | "llm_config_missing"
+  | "terminal_hydration_failure";
+
+type ChatHydrationOutcome = {
+  outcome: ChatHydrationOutcomeType;
+  status: number | undefined;
+  errorCode: ChatHydrationErrorCode | null;
+};
+
+function parseChatHydrationErrorCode(
+  value: string | null,
+): ChatHydrationErrorCode | null {
+  if (value === "chat_not_found") {
+    return "chat_not_found";
+  }
+  if (value === "chat_provenance_missing") {
+    return "chat_provenance_missing";
+  }
+  if (value === "engine_config_missing") {
+    return "engine_config_missing";
+  }
+  if (value === "engine_type_mismatch") {
+    return "engine_type_mismatch";
+  }
+  if (value === "llm_config_missing") {
+    return "llm_config_missing";
+  }
+  return null;
+}
+
+function classifyChatHydrationOutcomeType(
+  status: number | undefined,
+): ChatHydrationOutcomeType {
+  if (status === 404 || status === 409) {
+    return "terminal_failure";
+  }
+  return "transient_failure";
+}
+
+function buildChatHydrationFailureOutcome(response: {
+  status: number | undefined;
+  data: unknown;
+}): ChatHydrationOutcome {
+  const outcome = classifyChatHydrationOutcomeType(response.status);
+  const parsedErrorCode = parseChatHydrationErrorCode(
+    getErrorCode(response.data),
+  );
+  return {
+    outcome,
+    status: response.status,
+    errorCode:
+      outcome === "terminal_failure"
+        ? parsedErrorCode ?? "terminal_hydration_failure"
+        : parsedErrorCode,
+  };
+}
+
+function applyLLMChatHydrationSuccess({
+  chatId,
+  sectionId,
+  projectConfigId,
+  payload,
+}: {
+  chatId: string;
+  sectionId?: string;
+  projectConfigId: string;
+  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
+}): void {
+  const { messages, waitingForResponse, llmConfig, contextUsage } = payload;
+  useAIStore.setState((state) => {
+    const existingDetails = state.chatDetails[chatId];
+    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextWaitingForResponse = preserveWaitingForResponse
+      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+      : Boolean(waitingForResponse);
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(existingDetails ?? {}),
+          messages: nextMessages,
+          waitingForResponse: nextWaitingForResponse,
+          llmConfig: llmConfig,
+          contextUsage: contextUsage ?? null,
+        },
+      },
+    };
+  });
+  if (sectionId) {
+    const nextState = applyChatDetailsToSectionState({
+      sectionId,
+      messages,
+      waitingForResponse,
+      toolCallArguments: {},
+    });
+    persistChatSectionState({
+      projectConfigId,
+      sectionId,
+      nextState,
+      reason: "hydrate-llm-chat",
+    });
+  }
+  if (!waitingForResponse) {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
+}
+
+function applyExternalChatHydrationSuccess({
+  chatId,
+  projectConfigId,
+  sectionId,
+  payload,
+}: {
+  chatId: string;
+  projectConfigId: string | null;
+  sectionId?: string;
+  payload: NonNullable<
+    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+  >;
+}): void {
+  const { messages, waitingForResponse, toolCallArguments, contextUsage } =
+    payload;
+  useAIStore.setState((state) => {
+    const existingDetails = state.chatDetails[chatId];
+    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextWaitingForResponse = preserveWaitingForResponse
+      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+      : Boolean(waitingForResponse);
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(existingDetails ?? {}),
+          messages: nextMessages,
+          waitingForResponse: nextWaitingForResponse,
+          toolCallArguments,
+          llmConfig: null,
+          contextUsage: contextUsage ?? null,
+        },
+      },
+    };
+  });
+  if (sectionId) {
+    const nextState = applyChatDetailsToSectionState({
+      sectionId,
+      messages,
+      waitingForResponse,
+      toolCallArguments,
+    });
+    const resolvedProjectConfigId = projectConfigId ?? getCurrProjectConfigId();
+    persistChatSectionState({
+      projectConfigId: resolvedProjectConfigId,
+      sectionId,
+      nextState,
+      reason: "hydrate-external-chat",
+    });
+  }
+  if (!waitingForResponse) {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
+}
+
+export async function getLLMChatHydrationOutcome(
+  chatId: string,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const projectConfigId = getCurrProjectConfigId();
+  const res = await route_get_llm_chat({ chatId, projectConfigId });
+  if (res200(res)) {
+    applyLLMChatHydrationSuccess({
+      chatId,
+      sectionId,
+      projectConfigId,
+      payload: res.data,
+    });
+    return {
+      outcome: "success",
+      status: res.status,
+      errorCode: null,
+    };
+  }
+  return buildChatHydrationFailureOutcome(res);
+}
+
 export async function getLLMChat(
   chatId: string,
   sectionId?: string,
 ): Promise<boolean> {
-  const projectConfigId = getCurrProjectConfigId();
-  const res = await route_get_llm_chat({ chatId, projectConfigId });
+  const outcome = await getLLMChatHydrationOutcome(chatId, sectionId);
+  return outcome.outcome === "success";
+}
+
+export async function getExternalAgentChatHydrationOutcome(
+  chatId: string,
+  projectConfigId: string | null,
+  sectionId?: string,
+): Promise<ChatHydrationOutcome> {
+  const res = await route_get_external_agent_chat({
+    chatId,
+    projectConfigId,
+  });
   if (res200(res)) {
-    const { messages, waitingForResponse, llmConfig } = res.data;
-    useAIStore.setState((state) => {
-      const existingDetails = state.chatDetails[chatId];
-      const preserveWaitingForResponse = isChatStreamActive(chatId);
-      const nextWaitingForResponse = preserveWaitingForResponse
-        ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-        : Boolean(waitingForResponse);
-      // Treat backend order as canonical, but keep any more-complete local copies.
-      const nextMessages = mergeChatMessages(
-        messages,
-        existingDetails?.messages ?? [],
-      );
-      return {
-        chatDetails: {
-          ...state.chatDetails,
-          [chatId]: {
-            ...getDefaultChatDetails(),
-            ...(existingDetails ?? {}),
-            messages: nextMessages,
-            waitingForResponse: nextWaitingForResponse,
-            llmConfig: llmConfig,
-          },
-        },
-      };
+    applyExternalChatHydrationSuccess({
+      chatId,
+      projectConfigId,
+      sectionId,
+      payload: res.data,
     });
-    if (sectionId) {
-      const nextState = applyChatDetailsToSectionState({
-        sectionId,
-        messages,
-        waitingForResponse,
-        toolCallArguments: {},
-      });
-      persistChatSectionState({
-        projectConfigId,
-        sectionId,
-        nextState,
-        reason: "hydrate-llm-chat",
-      });
-    }
-    return true;
+    return {
+      outcome: "success",
+      status: res.status,
+      errorCode: null,
+    };
   }
-  return false;
+  return buildChatHydrationFailureOutcome(res);
 }
 
 export async function getExternalAgentChat(
@@ -1140,56 +2262,12 @@ export async function getExternalAgentChat(
   projectConfigId: string | null,
   sectionId?: string,
 ): Promise<boolean> {
-  const res = await route_get_external_agent_chat({
+  const outcome = await getExternalAgentChatHydrationOutcome(
     chatId,
     projectConfigId,
-  });
-  if (res200(res)) {
-    const { messages, waitingForResponse, toolCallArguments } = res.data;
-    useAIStore.setState((state) => {
-      const existingDetails = state.chatDetails[chatId];
-      const preserveWaitingForResponse = isChatStreamActive(chatId);
-      const nextWaitingForResponse = preserveWaitingForResponse
-        ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-        : Boolean(waitingForResponse);
-      // Treat backend order as canonical, but keep any more-complete local copies.
-      const nextMessages = mergeChatMessages(
-        messages,
-        existingDetails?.messages ?? [],
-      );
-      return {
-        chatDetails: {
-          ...state.chatDetails,
-          [chatId]: {
-            ...getDefaultChatDetails(),
-            ...(existingDetails ?? {}),
-            messages: nextMessages,
-            waitingForResponse: nextWaitingForResponse,
-            toolCallArguments,
-            llmConfig: null,
-          },
-        },
-      };
-    });
-    if (sectionId) {
-      const nextState = applyChatDetailsToSectionState({
-        sectionId,
-        messages,
-        waitingForResponse,
-        toolCallArguments,
-      });
-      const resolvedProjectConfigId =
-        projectConfigId ?? getCurrProjectConfigId();
-      persistChatSectionState({
-        projectConfigId: resolvedProjectConfigId,
-        sectionId,
-        nextState,
-        reason: "hydrate-external-chat",
-      });
-    }
-    return true;
-  }
-  return false;
+    sectionId,
+  );
+  return outcome.outcome === "success";
 }
 
 export async function submitMessage(
@@ -1232,7 +2310,6 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    const frontendAffinityToken = await waitForFrontendAffinityToken();
     const appGenerationMode = appGeneration?.mode ?? null;
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
@@ -1251,7 +2328,6 @@ export async function submitMessage(
         appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
       sectionId: options.sectionId ?? null,
-      frontendAffinityToken,
       allowUnscoped: options.sectionId == null,
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
@@ -1259,6 +2335,11 @@ export async function submitMessage(
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
+        syncChatProvenanceAfterSubmit({
+          chatId: returnedChatId,
+          engineConfigId,
+          isExternalEngine,
+        });
         if (isExternalEngine) {
           await getExternalAgentChat(
             returnedChatId,
@@ -1370,7 +2451,6 @@ export async function submitEditedMessage({
   }
 
   try {
-    const frontendAffinityToken = await waitForFrontendAffinityToken();
     const res = await route_get_llm_response({
       message: editedMessage,
       thinking,
@@ -1379,7 +2459,6 @@ export async function submitEditedMessage({
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
-      frontendAffinityToken,
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
@@ -1403,6 +2482,11 @@ export async function submitEditedMessage({
     }
     const returnedChatId = res.data ?? null;
     if (returnedChatId) {
+      syncChatProvenanceAfterSubmit({
+        chatId: returnedChatId,
+        engineConfigId: resolvedEngineConfigId,
+        isExternalEngine,
+      });
       if (isExternalEngine) {
         await getExternalAgentChat(
           returnedChatId,
@@ -1412,7 +2496,6 @@ export async function submitEditedMessage({
       } else {
         await getLLMChat(returnedChatId, sectionId ?? undefined);
       }
-      void loadAgentRuns();
       if (sectionId) {
         await setSectionChatId(returnedChatId);
         commitPendingChatDetails(returnedChatId);
@@ -1656,12 +2739,6 @@ function shouldIgnoreResponsePlaceholderChunk(
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
     return isResponsePlaceholderId(chunk.message.id);
   }
-  if (
-    chunk.type === StreamingEventTypeEnum.DELTA ||
-    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP
-  ) {
-    return isResponsePlaceholderId(chunk.message_id);
-  }
   return false;
 }
 
@@ -1820,6 +2897,10 @@ export function persistChatSectionState({
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    setStopEligibleAssistantMessageId(chatId, chunk.message.id);
+    clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
+  }
   updateChatDetails(chatId, (details) => ({
     ...details,
     messages: upsertMessage(details.messages, chunk.message),
@@ -1970,6 +3051,7 @@ function handleToolResult(
 }
 
 function handleMessageStop(chatId: string) {
+  clearStopEligibleAssistantMessageId(chatId);
   updateChatDetails(chatId, (details) => ({
     ...details,
     waitingForResponse: false,
@@ -1982,20 +3064,74 @@ function handleMessageFinalized(
   chunk: MessageFinalizedEvent,
   projectConfigId: string,
 ) {
-  const targetId = chunk.message.id;
+  let resolvedTargetId: string | null = chunk.message.id;
   updateChatDetails(chatId, (details) => {
+    const { message: messageToUpsert, targetId } =
+      chunk.message.role === ChatRoleEnum.assistant
+        ? resolveFinalizedAssistantMessageUpdate(
+            details.messages,
+            chunk.message as AssistantChatMessage,
+          )
+        : {
+            message: chunk.message,
+            targetId: chunk.message.id,
+          };
+    resolvedTargetId = targetId;
     return {
       ...details,
-      messages: upsertMessage(details.messages, chunk.message, targetId),
+      messages: upsertMessage(details.messages, messageToUpsert, targetId),
       waitingForResponse: false,
       toolCallArguments: {},
     };
   });
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearStopEligibleAssistantMessageId(chatId);
+    clearInterruptedAssistantMessages(chatId, [
+      resolvedTargetId,
+      chunk.message.id,
+    ]);
+  }
   const toolCallIds: string[] =
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
       : [];
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
+}
+
+function resolveFinalizedAssistantMessageUpdate(
+  messages: Array<BaseChatMessageUnion>,
+  message: AssistantChatMessage,
+): { message: AssistantChatMessage; targetId: string } {
+  const existingAssistant = findAssistantMessageForFinalizedUpdate(
+    messages,
+    message,
+  );
+  const targetId = existingAssistant?.id ?? message.id;
+  return {
+    message: mergeFinalizedAssistantMessage(message, existingAssistant),
+    targetId,
+  };
+}
+
+function findAssistantMessageForFinalizedUpdate(
+  messages: Array<BaseChatMessageUnion>,
+  message: AssistantChatMessage,
+): AssistantChatMessage | null {
+  const sameId = messages.find((entry) => entry.id === message.id);
+  if (sameId?.role === ChatRoleEnum.assistant) {
+    return sameId;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (candidate.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    if (!isResponsePlaceholderId(candidate.id)) {
+      continue;
+    }
+    return candidate;
+  }
+  return null;
 }
 
 function handleToolArgumentPreviewDelta(
@@ -2477,6 +3613,9 @@ function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
 ) {
+  if (typeof chatId === "string") {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
   const updater = (details: ChatDetails) => ({
     ...details,
     messages: [...details.messages, userMessage],
@@ -2778,14 +3917,17 @@ function applyStreamDeltaToChatSectionState(
       };
     }
     case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
-      const messageToUpsert =
+      const { message: messageToUpsert, targetId } =
         chunk.message.role === ChatRoleEnum.assistant
-          ? mergeFinalizedAssistantMessage(
+          ? resolveFinalizedAssistantMessageUpdate(
               messages,
               chunk.message as AssistantChatMessage,
             )
-          : chunk.message;
-      messages = upsertMessage(messages, messageToUpsert);
+          : {
+              message: chunk.message,
+              targetId: chunk.message.id,
+            };
+      messages = upsertMessage(messages, messageToUpsert, targetId);
       waitingForResponse = false;
       toolCallArguments = {};
       const nextBranches = syncActiveBranchMessages(messages);
@@ -2814,23 +3956,38 @@ function applyStreamDeltaToChatSectionState(
 }
 
 function mergeFinalizedAssistantMessage(
-  messages: Array<BaseChatMessageUnion>,
   message: AssistantChatMessage,
+  existingAssistant: AssistantChatMessage | null,
 ): AssistantChatMessage {
-  if (message.content.length > 0) {
+  if (!existingAssistant) {
     return message;
   }
-  const existing = messages.find((entry) => entry.id === message.id);
-  if (!existing || existing.role !== ChatRoleEnum.assistant) {
-    return message;
-  }
-  const existingContent = existing.content ?? [];
-  if (existingContent.length === 0) {
+  const hasFinalizedContent = message.content.length > 0;
+  const mergedContent = hasFinalizedContent
+    ? message.content
+    : existingAssistant.content;
+  const finalizedToolCalls = message.tool_calls ?? [];
+  const existingToolCalls = existingAssistant.tool_calls ?? [];
+  const mergedToolCalls =
+    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
+  const finalizedAttachments = message.attachments ?? [];
+  const existingAttachments = existingAssistant.attachments ?? [];
+  const mergedAttachments =
+    finalizedAttachments.length > 0
+      ? finalizedAttachments
+      : existingAttachments;
+  if (
+    mergedContent === message.content &&
+    mergedToolCalls === message.tool_calls &&
+    mergedAttachments === message.attachments
+  ) {
     return message;
   }
   return {
     ...message,
-    content: [...existingContent],
+    content: mergedContent,
+    tool_calls: mergedToolCalls,
+    attachments: mergedAttachments,
   };
 }
 

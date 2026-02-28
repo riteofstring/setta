@@ -26,6 +26,7 @@ export function DummyCodeMirror({
   className,
   placeholder,
   language,
+  useJsx = false,
   singleLine = false,
   wrapLines,
 }) {
@@ -40,6 +41,7 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       className={className}
       language={language}
+      useJsx={useJsx}
       style={resolvedStyle}
     />
   ) : (
@@ -84,10 +86,11 @@ function HighlightedCode({
   onMouseDownCapture,
   className,
   language,
+  useJsx,
   onFocus,
   style,
 }) {
-  const parser = getCodeMirrorLanguageParser(language, false);
+  const parser = getCodeMirrorLanguageParser(language, useJsx);
   if (!parser) {
     return (
       <div
