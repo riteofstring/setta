@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import (
     ManagedAPIKeysReadResult,
+    build_managed_api_keys_snapshot,
     read_managed_api_keys_with_status,
 )
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -40,5 +41,7 @@ async def sync_managed_api_keys_to_runtime(
             context=context,
         )
     agent_runner.update_api_keys(managed_api_keys.api_keys)
-    await websocket_msg_handler.broadcast_llm_api_keys_update(managed_api_keys.api_keys)
+    await websocket_msg_handler.broadcast_llm_api_keys_update(
+        build_managed_api_keys_snapshot(managed_api_keys)
+    )
     return managed_api_keys

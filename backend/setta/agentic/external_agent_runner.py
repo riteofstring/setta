@@ -149,6 +149,15 @@ _SUMMARY_EVENT_TYPES = {
 }
 
 
+def _normalize_runtime_env_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized == "":
+        return None
+    return normalized
+
+
 @dataclass(frozen=True)
 class ExternalAgentRunState:
     handle: ExternalAgentRunHandle
@@ -1356,8 +1365,8 @@ class ExternalAgentRunner:
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}
         for key in _BASE_ENV_KEYS:
-            value = os.environ.get(key)
-            if value:
+            value = _normalize_runtime_env_value(os.environ.get(key))
+            if value is not None:
                 env[key] = value
         allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
         plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
@@ -1370,7 +1379,6 @@ class ExternalAgentRunner:
             )
         if not allowed:
             return env
-        dot_env = self.dbe.read_dot_env()
         managed_api_keys_result = read_managed_api_keys_with_status(self.dbe)
         if managed_api_keys_result.corrupt:
             logger.warning(
@@ -1379,12 +1387,12 @@ class ExternalAgentRunner:
             )
         managed_api_keys = managed_api_keys_result.api_keys
         for key in allowed:
-            if key in os.environ:
-                env[key] = os.environ[key]
-            if key in dot_env:
-                env[key] = dot_env[key]
-            if key in managed_api_keys:
-                env[key] = managed_api_keys[key]
+            process_value = _normalize_runtime_env_value(os.environ.get(key))
+            if process_value is not None:
+                env[key] = process_value
+            managed_value = _normalize_runtime_env_value(managed_api_keys.get(key))
+            if managed_value is not None:
+                env[key] = managed_value
         return env
 
     def _cleanup_context(self, context: ExternalAgentRunContext) -> None:

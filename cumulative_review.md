@@ -249,3 +249,34 @@
 - Frontend targeted Vitest: `31 passed` (`aiSaveLLMApiKeys`, `aiResourceLoadGuards`, `contextTelemetry`, `projectChatSkillsMcpViewerUtils`, `llmConfigUtils`).
 - Playwright targeted e2e: `31 passed` (project-ai settings/MCP viewer + related app-config/misc specs).
 - CDP visual verification: Project AI settings and Skills/MCP viewer exercised; runtime crash path in `buildLLMConfigGroups` no longer reproduces.
+
+## 2026-02-26 09:23:46 PST
+
+### Consolidated Findings
+- Managed API-key websocket updates were values-only, dropping revision/corruption metadata and causing avoidable conflict churn.
+- External-agent preflight/runtime credential resolution still treated `.env` as an active fallback source after managed-key migration.
+- Selected-thread chat provenance could hydrate into ambiguous execution state instead of hard-blocking on missing/mismatched provenance.
+- Project AI panes used direct `localStorage` calls without a shared fail-open adapter.
+- Managed key read-path canonicalization accepted whitespace-only values, diverging from write-path normalization.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Promoted websocket API-key updates to a typed revisioned snapshot contract (`apiKeys`, `revision`, `corrupt`, `errorCode`, `message`) and unified runtime push/pull reducers on that snapshot shape.
+- Removed `.env` fallback from external-agent env assembly and preflight; credential presence now comes from process env + managed keys only, with whitespace-aware normalization.
+- Added typed chat hydration terminal error codes (`engine_config_missing`, `engine_type_mismatch`, `llm_config_missing`) and enforced deterministic Project AI blocked-mode UX for selected blocked threads.
+- Added a shared `safeLocalStorage` fail-open adapter and migrated Project AI local persistence callsites to it.
+- Aligned managed key normalization across read/write pathways and rejected whitespace-only secrets as corrupt/missing where applicable (including transcription API-key resolution).
+- Regenerated generated endpoint/type artifacts and updated frontend websocket/hydration consumers to the new contracts.
+
+### UX/DX Before -> After
+- API-key sync semantics: values-only websocket updates could leave stale revisions and hidden corruption state -> realtime updates now stay revision/corruption-aware and deterministic.
+- Secret source-of-truth: clearing managed keys could still leave stale `.env` credentials active -> clearing managed keys now deterministically affects runtime/preflight behavior.
+- Thread continuation safety: selected historical threads could proceed without explicit provenance guarantees -> blocked threads now surface explicit reasons and disable send controls.
+- Storage resilience: localStorage restrictions could break Project AI render/effects -> persistence degrades to in-memory fallback without crashing the pane.
+- Invalid secret material: whitespace-only key values could appear present and fail later -> invalid key material now fails fast with explicit missing/corrupt semantics.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest: `29 passed` (`tests/llm/test_api_keys.py`, `tests/llm/test_api_key_runtime_sync.py`, `tests/llm/test_transcription_sessions.py`, targeted external-agent env tests, targeted typed hydration route tests).
+- Frontend targeted Vitest: `77 passed` (`safeLocalStorage`, API-key websocket/snapshot reducers, hydration outcome typing, project-chat blocked-mode helpers).
+- Playwright targeted e2e: `5 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts`).
+- CDP visual verification: blocked-thread banner and disabled composer/send controls confirmed in Project AI chat.

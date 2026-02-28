@@ -10,6 +10,7 @@ from setta.llm.transcription_sessions import (
     TranscriptionAudioLimitExceededError,
     UnsupportedTranscriptionModelError,
     TranscriptionSessionManager,
+    _resolve_api_key,
     _is_realtime_fallback_error,
 )
 from setta.types.agentic import TranscriptionProfile, TranscriptionTransportMode
@@ -146,6 +147,18 @@ def test_realtime_fallback_error_accepts_capability_failures() -> None:
             RuntimeError("Realtime transcription is unavailable for this model.")
         )
         is True
+    )
+
+
+def test_resolve_api_key_rejects_whitespace_only_values() -> None:
+    with pytest.raises(KeyError):
+        _resolve_api_key({"OPENAI_API_KEY": "   "}, "OPENAI_API_KEY")
+
+
+def test_resolve_api_key_trims_values() -> None:
+    assert (
+        _resolve_api_key({"OPENAI_API_KEY": "  trimmed-secret  "}, "OPENAI_API_KEY")
+        == "trimmed-secret"
     )
 
 

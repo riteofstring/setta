@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveProjectChatEngineConfigIdForSelectedChat,
+  resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
 } from "./ProjectChat";
 
@@ -138,5 +139,89 @@ describe("resolveProjectChatEngineConfigIdForSelectedChat", () => {
       chatEngineConfigByChatId: new Map([["chat-1", "engine-b"]]),
     });
     expect(resolved).toBe("engine-b");
+  });
+});
+
+describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
+  it("returns null when no chat is selected", () => {
+    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: null,
+      chatProvenanceByChatId: new Map(),
+      engineConfigById: new Map(),
+    });
+    expect(blocked).toBeNull();
+  });
+
+  it("blocks when selected chat has missing engine metadata", () => {
+    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map([
+        [
+          "chat-1",
+          {
+            runType: "llm_chat",
+            engineConfigId: null,
+          },
+        ],
+      ]),
+      engineConfigById: new Map(),
+    });
+    expect(blocked).toBe("engine_config_missing");
+  });
+
+  it("blocks when selected chat run type mismatches persisted engine type", () => {
+    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map([
+        [
+          "chat-1",
+          {
+            runType: "llm_chat",
+            engineConfigId: "engine-external",
+          },
+        ],
+      ]),
+      engineConfigById: new Map([
+        [
+          "engine-external",
+          {
+            id: "engine-external",
+            name: "External Engine",
+            engineType: "external_agent",
+            externalAgentConfigId: "ext-config",
+            settaLlmConfigId: null,
+          },
+        ],
+      ]),
+    });
+    expect(blocked).toBe("engine_type_mismatch");
+  });
+
+  it("returns null when selected chat provenance is available and compatible", () => {
+    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map([
+        [
+          "chat-1",
+          {
+            runType: "llm_chat",
+            engineConfigId: "engine-llm",
+          },
+        ],
+      ]),
+      engineConfigById: new Map([
+        [
+          "engine-llm",
+          {
+            id: "engine-llm",
+            name: "LLM Engine",
+            engineType: "setta_llm",
+            settaLlmConfigId: "primary",
+            externalAgentConfigId: null,
+          },
+        ],
+      ]),
+    });
+    expect(blocked).toBeNull();
   });
 });

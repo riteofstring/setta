@@ -7,9 +7,12 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
-test("project ai hydrates external threads using run provenance when engine selection differs", async ({
+test("project ai hydrates external threads via external provenance endpoint", async ({
   page,
 }) => {
+  const externalChatId = "pw-external-provenance";
+  let externalHydrateCalls = 0;
+  let llmHydrateCalls = 0;
   await page.setViewportSize({ width: 1480, height: 920 });
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
@@ -20,47 +23,21 @@ test("project ai hydrates external threads using run provenance when engine sele
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
 
-  const externalChatId = "pw-external-missing-engine";
-  let externalHydrateCalls = 0;
-  let llmHydrateCalls = 0;
-
-  await page.route("**/api/getAgentRuns", async (route) => {
+  await page.route("**/api/getEngineConfigs", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify([
         {
-          id: "run-external-missing-engine",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-01-10T00:00:00Z",
-          finishedAt: "2026-01-10T00:00:02Z",
-          events: [],
-          inputs: {
-            runType: "external_agent",
-            projectConfigId: projectContext.projectConfigId,
-            chatId: externalChatId,
-            engineConfigId: "engine-config-removed",
-            messages: [
-              {
-                id: "user-message-1",
-                role: "user",
-                content: [{ type: "text", text: "Open prior external thread" }],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: {
-            name: "External missing engine thread",
-            nameSource: "llm",
-          },
-          toolCalls: [],
-          cost: null,
+          id: "engine-config-external",
+          name: "External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-1",
+          settaLlmConfigId: null,
         },
       ]),
     });
   });
-
   await page.route("**/api/getExternalAgentChat", async (route) => {
     const payload = route.request().postDataJSON() as
       | { chatId?: string }
@@ -112,6 +89,188 @@ test("project ai hydrates external threads using run provenance when engine sele
     });
   });
 
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-external-provenance",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-10T00:00:00Z",
+          finishedAt: "2026-01-10T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: externalChatId,
+            engineConfigId: "engine-config-external",
+            messages: [
+              {
+                id: "user-message-1",
+                role: "user",
+                content: [{ type: "text", text: "Open prior external thread" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "External provenance thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "External provenance thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(0);
+    expect(llmHydrateCalls).toBe(0);
+    await expect(
+      overviewPane.getByText("Hydrated from external endpoint.").first(),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai blocks selected threads when persisted engine config is missing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const blockedChatId = "pw-llm-missing-engine";
+  let llmHydrateCalls = 0;
+  let llmSubmitCalls = 0;
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-llm-missing-engine",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-10T00:00:00Z",
+          finishedAt: "2026-04-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: blockedChatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "blocked-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Resume blocked thread" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Blocked provenance thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === blockedChatId) {
+      llmHydrateCalls += 1;
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: {
+            errorCode: "engine_config_missing",
+            message: "Chat engine config is no longer available.",
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === blockedChatId) {
+      llmSubmitCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("unexpected-blocked-submit"),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
@@ -122,16 +281,24 @@ test("project ai hydrates external threads using run provenance when engine sele
 
     const threadEntry = threadsPanel
       .getByTestId("project-chat-thread-entry")
-      .filter({ hasText: "External missing engine thread" })
+      .filter({ hasText: "Blocked provenance thread" })
       .first();
     await expect(threadEntry).toBeVisible();
+    allowExpectedApiError(page, {
+      path: "/api/getLLMChat",
+      method: "POST",
+      statuses: [409],
+      count: 1,
+    });
     await threadEntry.click();
 
-    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(0);
-    expect(llmHydrateCalls).toBe(0);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
     await expect(
-      overviewPane.getByText("Hydrated from external endpoint.").first(),
-    ).toBeVisible();
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("engine config is no longer available");
+    await expect(overviewPane.locator('button[type="submit"]').first()).toBeDisabled();
+    await page.waitForTimeout(500);
+    expect(llmSubmitCalls).toBe(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -377,6 +544,22 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
   const terminalChatId = "pw-hydration-terminal-404";
   let terminalHydrateCalls = 0;
 
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-terminal-404",
+          name: "Terminal Retry Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-terminal-404",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+
   await page.route("**/api/getAgentRuns", async (route) => {
     await route.fulfill({
       status: 200,
@@ -479,6 +662,22 @@ test("project ai shows context unavailable when backend context telemetry is mis
   const projectContext = await openIsolatedProject(page);
 
   const chatId = "pw-context-unavailable";
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-managed",
+          name: "Managed External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-managed",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
 
   await page.route("**/api/getAgentRuns", async (route) => {
     await route.fulfill({

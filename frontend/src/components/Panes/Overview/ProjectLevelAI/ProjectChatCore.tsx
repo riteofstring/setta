@@ -44,6 +44,7 @@ import {
   submitEditedMessage,
   submitMessage,
   transcribeChatAudioWithProfile,
+  type ChatHydrationErrorCode,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
@@ -91,6 +92,7 @@ const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
+type ProjectChatBlockedErrorCode = ChatHydrationErrorCode;
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -115,6 +117,18 @@ function resolveProjectChatRunType(
     return "llm_chat";
   }
   return null;
+}
+
+export function getProjectChatBlockedReasonMessage(
+  errorCode: ProjectChatBlockedErrorCode,
+): string {
+  if (errorCode === "engine_config_missing") {
+    return "This thread's engine config is no longer available. Start a new chat after selecting a valid engine.";
+  }
+  if (errorCode === "engine_type_mismatch") {
+    return "This thread's engine type no longer matches its saved provenance. Start a new chat.";
+  }
+  return "This thread's LLM config is no longer available. Start a new chat after choosing a valid model.";
 }
 
 export function resolveProjectChatHydrationRunType({
@@ -843,6 +857,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   conversationFilterText,
   activeConversationSearchMatchMessageId = null,
+  selectedThreadBlockedErrorCode = null,
   thinking,
   engineConfigId,
   engineType,
@@ -863,6 +878,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText: string;
   conversationFilterText: string;
   activeConversationSearchMatchMessageId?: string | null;
+  selectedThreadBlockedErrorCode?: ProjectChatBlockedErrorCode | null;
   thinking: boolean;
   engineConfigId: string | null;
   engineType: EngineTypeEnum | null;
@@ -917,6 +933,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
   const [draftMessage, setDraftMessage] = useState("");
+  const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
+    useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =
     useState<ChatExecutionSettings>(() => ({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
@@ -1037,9 +1055,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
+  const blockedErrorCode =
+    selectedThreadBlockedErrorCode ?? hydrationBlockedErrorCode;
+  const blockedReason = blockedErrorCode
+    ? getProjectChatBlockedReasonMessage(blockedErrorCode)
+    : null;
+  const isThreadBlocked = blockedReason !== null;
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
-    (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
+    (isExternalEngine ? externalEngineAvailable : hasLLMConfig) &&
+    !isThreadBlocked;
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
   const slashCommands = useMemo(
@@ -1095,6 +1120,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [chatId]);
 
+  useEffect(() => {
+    setHydrationBlockedErrorCode(null);
+  }, [chatId, hydrationRunType]);
+
   const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
     const state = hydrationStatusByKeyRef.current[cacheKey];
     if (!state || state.timerId === null) {
@@ -1129,6 +1158,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   useEffect(() => {
     if (typeof chatId !== "string") {
+      return;
+    }
+    if (selectedThreadBlockedErrorCode !== null) {
       return;
     }
     if (waitingForResponse) {
@@ -1179,15 +1211,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         attempt: state.attempt,
       });
       if (retryDecision.type === "success") {
+        setHydrationBlockedErrorCode(null);
         state.status = "succeeded";
         clearHydrationRetryTimer(cacheKey);
         return;
       }
       if (retryDecision.type === "terminal_failure") {
+        setHydrationBlockedErrorCode(hydrationOutcome.errorCode);
         clearHydrationRetryTimer(cacheKey);
         state.status = "terminal_failure";
         return;
       }
+      setHydrationBlockedErrorCode(null);
       clearHydrationRetryTimer(cacheKey);
       state.attempt = retryDecision.nextAttempt;
       if (retryDecision.type === "transient_exhausted") {
@@ -1217,7 +1252,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         state.status = "failed";
       }
     };
-  }, [chatId, clearHydrationRetryTimer, hydrationRunType, waitingForResponse]);
+  }, [
+    chatId,
+    clearHydrationRetryTimer,
+    hydrationRunType,
+    selectedThreadBlockedErrorCode,
+    waitingForResponse,
+  ]);
 
   const handleNewChatStart = useCallback(() => {
     onDraftThreadStart?.();
@@ -1303,6 +1344,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (!trimmed && attachments.length === 0) {
         return false;
       }
+      if (isThreadBlocked) {
+        return false;
+      }
       if (!engineConfigId) {
         return false;
       }
@@ -1350,6 +1394,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
+      isThreadBlocked,
       isExternalEngine,
       externalEngineAvailable,
       hasLLMConfig,
@@ -1371,6 +1416,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       const resolvedChatId =
         typeof chatId === "string" ? chatId : lastChatIdRef.current;
       if (!resolvedChatId) {
+        return false;
+      }
+      if (isThreadBlocked) {
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
@@ -1398,6 +1446,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       chatId,
       engineConfigId,
       externalEngineAvailable,
+      isThreadBlocked,
       isExternalEngine,
       messages,
       thinking,
@@ -1421,6 +1470,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       const resolvedChatId =
         typeof chatId === "string" ? chatId : lastChatIdRef.current;
       if (!resolvedChatId || waitingForResponse) {
+        return false;
+      }
+      if (isThreadBlocked) {
         return false;
       }
       if (!engineConfigId) {
@@ -1466,6 +1518,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       executionSettings.searchEnabled,
       externalEngineAvailable,
       hasLLMConfig,
+      isThreadBlocked,
       isExternalEngine,
       messages,
       thinking,
@@ -1474,29 +1527,34 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const isDisabled =
+    isThreadBlocked ||
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
     (isExternalEngine && !externalEngineAvailable);
-  const editDisabledReason = useMemo(
-    () =>
-      getChatEditDisabledReason({
-        hasEngineConfig: Boolean(engineConfigId),
-        hasLLMConfig,
-        isExternalEngine,
-        externalEngineAvailable,
-        noLLMConfigsAvailable,
-      }),
-    [
-      engineConfigId,
-      externalEngineAvailable,
+  const editDisabledReason = useMemo(() => {
+    if (blockedReason) {
+      return blockedReason;
+    }
+    return getChatEditDisabledReason({
+      hasEngineConfig: Boolean(engineConfigId),
       hasLLMConfig,
       isExternalEngine,
+      externalEngineAvailable,
       noLLMConfigsAvailable,
-    ],
-  );
+    });
+  }, [
+    blockedReason,
+    engineConfigId,
+    externalEngineAvailable,
+    hasLLMConfig,
+    isExternalEngine,
+    noLLMConfigsAvailable,
+  ]);
   const submitDisabled = useMemo(
-    () => !waitingForResponse && hasPendingToolInteraction(messages),
-    [messages, waitingForResponse],
+    () =>
+      isThreadBlocked ||
+      (!waitingForResponse && hasPendingToolInteraction(messages)),
+    [isThreadBlocked, messages, waitingForResponse],
   );
   const runtimeActivityCounts = useMemo(
     () =>
@@ -1547,6 +1605,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {blockedReason ? (
+        <div
+          role="alert"
+          data-testid="project-chat-thread-blocked-banner"
+          className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {blockedReason}
+        </div>
+      ) : null}
       {showEmptyState ? (
         <div
           className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}

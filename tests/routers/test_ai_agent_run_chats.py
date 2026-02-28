@@ -150,6 +150,17 @@ def _assert_transcription_http_error(
     assert exc.detail.get("errorCode") == error_code
 
 
+def _assert_chat_hydration_http_error(
+    exc: HTTPException,
+    *,
+    message: str,
+    error_code: str,
+) -> None:
+    assert isinstance(exc.detail, dict)
+    assert exc.detail.get("message") == message
+    assert exc.detail.get("errorCode") == error_code
+
+
 def _build_share_deployment_root(
     tmpdir: str,
     project_config_name: str,
@@ -635,6 +646,167 @@ class TestAgentRunChatRoutes:
 
             assert response.contextUsage is not None
             assert response.contextUsage.contextWindowTokens == 123
+
+    async def test_get_llm_chat_returns_typed_error_when_engine_metadata_missing(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            chat_id = ID("chat-missing-engine-metadata")
+            project_config_id = ID("project-missing-engine-metadata")
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-legacy"),
+                started_at=datetime(2024, 1, 6, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    UserChatMessage(content=[MessageTextContent(text="Hello")])
+                ],
+                output_messages=[
+                    AssistantChatMessage(content=[MessageTextContent(text="Done")])
+                ],
+            )
+            assert run.inputs is not None
+            run.inputs.pop("engineConfigId", None)
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_chat(
+                        GetLLMChatRequest(
+                            chatId=chat_id,
+                            projectConfigId=project_config_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat engine config is no longer available.",
+                error_code="engine_config_missing",
+            )
+
+    async def test_get_llm_chat_returns_typed_error_when_engine_type_mismatches(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            external_engine_id = ID("engine-external")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=external_engine_id,
+                        name="External Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=ID("external-config-unused"),
+                    )
+                ],
+            )
+            chat_id = ID("chat-engine-type-mismatch")
+            project_config_id = ID("project-engine-type-mismatch")
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=external_engine_id,
+                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    UserChatMessage(content=[MessageTextContent(text="Hello")])
+                ],
+                output_messages=[
+                    AssistantChatMessage(content=[MessageTextContent(text="Done")])
+                ],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_chat(
+                        GetLLMChatRequest(
+                            chatId=chat_id,
+                            projectConfigId=project_config_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat engine mismatch; start a new chat.",
+                error_code="engine_type_mismatch",
+            )
+
+    async def test_get_llm_chat_returns_typed_error_when_llm_config_is_missing(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-missing-llm-config")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=engine_config_id,
+                        name="Broken LLM Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId="missing-llm-config",
+                    )
+                ],
+            )
+            chat_id = ID("chat-missing-llm-config")
+            project_config_id = ID("project-missing-llm-config")
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    UserChatMessage(content=[MessageTextContent(text="Hello")])
+                ],
+                output_messages=[
+                    AssistantChatMessage(content=[MessageTextContent(text="Done")])
+                ],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_chat(
+                        GetLLMChatRequest(
+                            chatId=chat_id,
+                            projectConfigId=project_config_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat LLM config is no longer available.",
+                error_code="llm_config_missing",
+            )
 
     async def test_external_engine_rejects_llm_chat_id(
         self,

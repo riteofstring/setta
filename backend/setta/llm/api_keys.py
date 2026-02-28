@@ -9,6 +9,7 @@ from typing import Literal
 from setta.database.db_objs import DBE
 from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
+from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 
 LLM_API_KEYS_FILENAME = "llm_api_keys.json"
 MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt"
@@ -38,6 +39,17 @@ def llm_api_keys_path(dbe: DBE) -> Path:
     return dbe.runtime_root / "secrets" / LLM_API_KEYS_FILENAME
 
 
+def _normalize_api_key_name(raw_key: str) -> str:
+    return raw_key.strip()
+
+
+def _normalize_api_key_value(raw_value: str) -> str:
+    value = raw_value.strip()
+    if value == "":
+        raise ValueError("Managed API key values must be non-empty strings.")
+    return value
+
+
 def _normalize_managed_api_keys_payload(payload: object) -> APIKeys:
     if not isinstance(payload, dict):
         raise ValueError("Managed API key store must contain an object.")
@@ -47,10 +59,10 @@ def _normalize_managed_api_keys_payload(payload: object) -> APIKeys:
             raise ValueError("Managed API key names must be strings.")
         if not isinstance(raw_value, str):
             raise ValueError("Managed API key values must be strings.")
-        key = raw_key.strip()
+        key = _normalize_api_key_name(raw_key)
         if not key:
             continue
-        normalized[key] = raw_value
+        normalized[key] = _normalize_api_key_value(raw_value)
     return normalized
 
 
@@ -83,14 +95,26 @@ def _normalize_managed_api_key_store_payload(payload: object) -> tuple[int, APIK
 def _normalize_api_key_write_payload(payload: APIKeys) -> APIKeys:
     normalized: APIKeys = {}
     for raw_key, raw_value in payload.items():
-        key = raw_key.strip()
+        key = _normalize_api_key_name(raw_key)
         if not key:
             continue
         value = raw_value.strip()
-        if not value:
+        if value == "":
             continue
         normalized[key] = value
     return normalized
+
+
+def build_managed_api_keys_snapshot(
+    result: ManagedAPIKeysReadResult,
+) -> ManagedAPIKeysSnapshot:
+    return ManagedAPIKeysSnapshot(
+        apiKeys=result.api_keys,
+        revision=result.revision,
+        corrupt=result.corrupt,
+        errorCode=result.error_code,
+        message=result.error,
+    )
 
 
 def _parse_managed_api_keys_raw_payload(

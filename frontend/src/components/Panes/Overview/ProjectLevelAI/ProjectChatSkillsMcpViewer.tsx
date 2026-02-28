@@ -28,6 +28,7 @@ import {
   type BaseChatMessageUnion,
   type EngineConfig,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import {
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
@@ -476,14 +477,14 @@ export function ProjectChatSkillsMcpViewer({
   const [selectedSkillOriginalSizeBytes, setSelectedSkillOriginalSizeBytes] =
     useState<number | null>(null);
   const [skillContentLoading, setSkillContentLoading] = useState(false);
+  const storageAdapter = useMemo(
+    () => getSafeLocalStorageAdapter("project-chat-skills-mcp-viewer"),
+    [],
+  );
   const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] = useState(
     () => {
-      if (typeof window === "undefined") {
-        return false;
-      }
       return (
-        window.localStorage.getItem(SKILL_MARKDOWN_VIEWER_STORAGE_KEY) ===
-        "true"
+        storageAdapter.getItem(SKILL_MARKDOWN_VIEWER_STORAGE_KEY) === "true"
       );
     },
   );
@@ -512,11 +513,8 @@ export function ProjectChatSkillsMcpViewer({
     agentNativeSlashCommandsByEngineId,
     setAgentNativeSlashCommandsByEngineId,
   ] = useState<Record<string, AgentNativeSlashCommandsEntry>>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
     return parseAgentNativeSlashCommandsStorage(
-      window.localStorage.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
     );
   });
   const [skillsRevision, setSkillsRevision] = useState(0);
@@ -694,14 +692,11 @@ export function ProjectChatSkillsMcpViewer({
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
+    storageAdapter.setItem(
       SKILL_MARKDOWN_VIEWER_STORAGE_KEY,
       isSkillMarkdownViewerOpen ? "true" : "false",
     );
-  }, [isSkillMarkdownViewerOpen]);
+  }, [isSkillMarkdownViewerOpen, storageAdapter]);
 
   useEffect(() => {
     if (agentRunsInitialLoadComplete) {
@@ -740,14 +735,11 @@ export function ProjectChatSkillsMcpViewer({
   }, [agentRuns, agentRunsInitialLoadComplete]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
+    storageAdapter.setItem(
       AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
       JSON.stringify(agentNativeSlashCommandsByEngineId),
     );
-  }, [agentNativeSlashCommandsByEngineId]);
+  }, [agentNativeSlashCommandsByEngineId, storageAdapter]);
 
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);

@@ -986,6 +986,27 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("preserves typed terminal hydration error codes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 409,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "engine_config_missing",
+          message: "Chat engine config is no longer available.",
+        },
+      },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-missing-engine");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "engine_config_missing",
+    });
+  });
+
   it("classifies 5xx hydration failures as transient outcomes", async () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 500,

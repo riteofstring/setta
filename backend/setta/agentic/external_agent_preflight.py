@@ -55,6 +55,12 @@ class _EnvStatusResult:
     corruption_issue: str | None = None
 
 
+def _has_present_env_value(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip() != ""
+
+
 def _prune_preflight_cache(*, now: float) -> None:
     expired_keys = [
         cache_key
@@ -284,20 +290,19 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
     normalized = [name.strip() for name in whitelist if name.strip()]
     if not normalized:
         return _EnvStatusResult(status=ExternalAgentEnvVarStatus())
-    dot_env = dbe.read_dot_env()
     managed_api_keys_result = read_managed_api_keys_with_status(dbe)
     managed_api_keys = managed_api_keys_result.api_keys
     present = sorted(
         name
         for name in normalized
-        if name in os.environ or name in dot_env or name in managed_api_keys
+        if _has_present_env_value(os.environ.get(name))
+        or _has_present_env_value(managed_api_keys.get(name))
     )
     missing = sorted(
         name
         for name in normalized
-        if name not in os.environ
-        and name not in dot_env
-        and name not in managed_api_keys
+        if not _has_present_env_value(os.environ.get(name))
+        and not _has_present_env_value(managed_api_keys.get(name))
     )
     corruption_issue: str | None = None
     if managed_api_keys_result.corrupt:

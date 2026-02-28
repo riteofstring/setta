@@ -61,7 +61,52 @@ class TestExternalAgentPreflight:
             envVarWhitelist=env_vars or [],
         )
 
-    def test_env_var_status_reads_dot_env(self) -> None:
+    def test_env_var_status_reads_process_env(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_present = "SETTA_TEST_ENV_PRESENT"
+            key_missing = "SETTA_TEST_ENV_MISSING"
+
+            previous_present = os.environ.pop(key_present, None)
+            previous_missing = os.environ.pop(key_missing, None)
+            try:
+                os.environ[key_present] = "yes"
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                    env_vars=[key_present, key_missing],
+                )
+                status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.envVars.present == [key_present]
+                assert status.envVars.missing == [key_missing]
+            finally:
+                _restore_env_var(key_present, previous_present)
+                _restore_env_var(key_missing, previous_missing)
+
+    def test_env_var_status_treats_whitespace_process_values_as_missing(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_name = "SETTA_TEST_ENV_WHITESPACE"
+
+            previous_value = os.environ.pop(key_name, None)
+            try:
+                os.environ[key_name] = "   "
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                    env_vars=[key_name],
+                )
+                status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.envVars.present == []
+                assert status.envVars.missing == [key_name]
+            finally:
+                _restore_env_var(key_name, previous_value)
+
+    def test_env_var_status_ignores_dot_env_without_managed_or_process_value(self) -> (
+        None
+    ):
         with _temp_cwd() as tmp:
             dbe = DBE(tmp / "setta_files")
             key_present = "SETTA_TEST_ENV_PRESENT"
@@ -78,8 +123,8 @@ class TestExternalAgentPreflight:
                 )
                 status = build_external_agent_preflight_status(dbe, config)
 
-                assert status.envVars.present == [key_present]
-                assert status.envVars.missing == [key_missing]
+                assert status.envVars.present == []
+                assert status.envVars.missing == [key_missing, key_present]
             finally:
                 _restore_env_var(key_present, previous_present)
                 _restore_env_var(key_missing, previous_missing)

@@ -150,6 +150,13 @@ const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
 const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -611,25 +618,20 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
-function receiveLLMApiKeysSnapshotUpdate(payload: {
-  apiKeys: APIKeys;
-  revision: number;
-}) {
+export function receiveLLMApiKeysSnapshotUpdate(
+  payload: ManagedAPIKeysSnapshotPayload,
+) {
+  const isCorrupt =
+    payload.corrupt === true ||
+    payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
   useAIStore.setState({
     apiKeys: payload.apiKeys,
     apiKeysRevision: payload.revision,
     apiKeysInitialLoadComplete: true,
-    apiKeysLoadError: null,
+    apiKeysLoadError: isCorrupt
+      ? payload.message ?? "Managed API key store is corrupt."
+      : null,
   });
-}
-
-export function receiveLLMApiKeysUpdate(payload: APIKeys) {
-  useAIStore.setState((state) => ({
-    apiKeys: payload,
-    apiKeysRevision: state.apiKeysRevision,
-    apiKeysInitialLoadComplete: true,
-    apiKeysLoadError: null,
-  }));
 }
 
 function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
@@ -1768,11 +1770,31 @@ export type ChatHydrationOutcomeType =
   | "transient_failure"
   | "terminal_failure";
 
+export type ChatHydrationErrorCode =
+  | "engine_config_missing"
+  | "engine_type_mismatch"
+  | "llm_config_missing";
+
 type ChatHydrationOutcome = {
   outcome: ChatHydrationOutcomeType;
   status: number | undefined;
-  errorCode: string | null;
+  errorCode: ChatHydrationErrorCode | null;
 };
+
+function parseChatHydrationErrorCode(
+  value: string | null,
+): ChatHydrationErrorCode | null {
+  if (value === "engine_config_missing") {
+    return "engine_config_missing";
+  }
+  if (value === "engine_type_mismatch") {
+    return "engine_type_mismatch";
+  }
+  if (value === "llm_config_missing") {
+    return "llm_config_missing";
+  }
+  return null;
+}
 
 function classifyChatHydrationOutcomeType(
   status: number | undefined,
@@ -1790,7 +1812,7 @@ function buildChatHydrationFailureOutcome(response: {
   return {
     outcome: classifyChatHydrationOutcomeType(response.status),
     status: response.status,
-    errorCode: getErrorCode(response.data),
+    errorCode: parseChatHydrationErrorCode(getErrorCode(response.data)),
   };
 }
 

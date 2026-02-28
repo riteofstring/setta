@@ -30,6 +30,7 @@ const mockedRouteSetLLMApiKeys = vi.mocked(route_set_llm_api_keys);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let mutateAndSaveLLMApiKeys: typeof import("state/actions/ai").mutateAndSaveLLMApiKeys;
+let receiveLLMApiKeysSnapshotUpdate: typeof import("state/actions/ai").receiveLLMApiKeysSnapshotUpdate;
 let memoryStorage: Storage;
 
 describe("mutateAndSaveLLMApiKeys", () => {
@@ -58,6 +59,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
 
     const ai = await import("state/actions/ai");
     mutateAndSaveLLMApiKeys = ai.mutateAndSaveLLMApiKeys;
+    receiveLLMApiKeysSnapshotUpdate = ai.receiveLLMApiKeysSnapshotUpdate;
   });
 
   beforeEach(() => {
@@ -271,5 +273,50 @@ describe("mutateAndSaveLLMApiKeys", () => {
       ANTHROPIC_API_KEY: "two",
     });
     expect(state.apiKeysRevision).toBe(2);
+  });
+
+  it("applies websocket snapshots by updating keys and revision atomically", () => {
+    useAIStore.setState({
+      apiKeys: { OPENAI_API_KEY: "old" },
+      apiKeysRevision: 1,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: "stale error",
+    });
+
+    receiveLLMApiKeysSnapshotUpdate({
+      apiKeys: { OPENAI_API_KEY: "new", ANTHROPIC_API_KEY: "secret" },
+      revision: 7,
+      corrupt: false,
+    });
+
+    const state = useAIStore.getState();
+    expect(state.apiKeys).toEqual({
+      OPENAI_API_KEY: "new",
+      ANTHROPIC_API_KEY: "secret",
+    });
+    expect(state.apiKeysRevision).toBe(7);
+    expect(state.apiKeysLoadError).toBeNull();
+  });
+
+  it("surfaces websocket corruption snapshots without dropping revision metadata", () => {
+    useAIStore.setState({
+      apiKeys: { OPENAI_API_KEY: "old" },
+      apiKeysRevision: 3,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: null,
+    });
+
+    receiveLLMApiKeysSnapshotUpdate({
+      apiKeys: {},
+      revision: 9,
+      corrupt: true,
+      errorCode: "managed_api_keys_store_corrupt",
+      message: "Managed API key store is corrupt.",
+    });
+
+    const state = useAIStore.getState();
+    expect(state.apiKeys).toEqual({});
+    expect(state.apiKeysRevision).toBe(9);
+    expect(state.apiKeysLoadError).toBe("Managed API key store is corrupt.");
   });
 });

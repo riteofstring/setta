@@ -14,6 +14,7 @@ import {
   buildProjectChatHydrationCacheKey,
   buildProjectChatSubmittedMessageHistory,
   getDefaultProjectChatPermissionMode,
+  getProjectChatBlockedReasonMessage,
   PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
@@ -38,6 +39,20 @@ describe("getDefaultProjectChatPermissionMode", () => {
       "minimal",
     );
     expect(getDefaultProjectChatPermissionMode(null)).toBe("minimal");
+  });
+});
+
+describe("getProjectChatBlockedReasonMessage", () => {
+  it("returns deterministic blocked copy for each hydration error code", () => {
+    expect(
+      getProjectChatBlockedReasonMessage("engine_config_missing"),
+    ).toContain("engine config is no longer available");
+    expect(
+      getProjectChatBlockedReasonMessage("engine_type_mismatch"),
+    ).toContain("engine type no longer matches");
+    expect(getProjectChatBlockedReasonMessage("llm_config_missing")).toContain(
+      "LLM config is no longer available",
+    );
   });
 });
 

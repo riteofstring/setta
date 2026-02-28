@@ -95,11 +95,11 @@ def _resolve_api_key(api_keys: dict[str, str], api_key_env: str | None) -> str |
     if api_key_env is None:
         return None
     api_key = api_keys.get(api_key_env)
-    if not api_key:
+    if api_key is None or api_key.strip() == "":
         raise KeyError(
             f"Missing API key for '{api_key_env}'. Configure it in LLM API Keys."
         )
-    return api_key
+    return api_key.strip()
 
 
 class FileTranscriptionEngine(BaseTranscriptionEngine):

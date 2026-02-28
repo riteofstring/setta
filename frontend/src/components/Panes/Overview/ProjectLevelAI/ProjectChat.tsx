@@ -39,6 +39,7 @@ import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
   type ChatHistoryCompatibility,
+  type ChatRunType,
 } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
@@ -61,6 +62,7 @@ import {
   ExternalAgentPreflightStatus,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
@@ -130,6 +132,22 @@ type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
   chatEngineConfigByChatId: Map<string, string | null>;
 };
 
+type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
+  chatId: string | null | undefined;
+  chatProvenanceByChatId: Map<
+    string,
+    {
+      runType: ChatRunType;
+      engineConfigId: string | null;
+    }
+  >;
+  engineConfigById: Map<string, EngineConfig>;
+};
+
+type ProjectChatThreadBlockedErrorCode =
+  | "engine_config_missing"
+  | "engine_type_mismatch";
+
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -185,6 +203,54 @@ export function resolveProjectChatEngineConfigIdForSelectedChat({
     return null;
   }
   return resolvedEngineConfigId;
+}
+
+function isSelectedChatRunTypeCompatibleWithEngineType({
+  runType,
+  engineType,
+}: {
+  runType: ChatRunType;
+  engineType: EngineTypeEnum;
+}): boolean {
+  if (runType === "llm_chat") {
+    return engineType === EngineTypeEnum.setta_llm;
+  }
+  if (runType === "external_agent") {
+    return engineType === EngineTypeEnum.external_agent;
+  }
+  return false;
+}
+
+export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  chatId,
+  chatProvenanceByChatId,
+  engineConfigById,
+}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadBlockedErrorCode | null {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return null;
+  }
+  const provenance = chatProvenanceByChatId.get(resolvedChatId);
+  if (!provenance) {
+    return null;
+  }
+  const requiredEngineConfigId = provenance.engineConfigId;
+  if (!requiredEngineConfigId) {
+    return "engine_config_missing";
+  }
+  const requiredEngine = engineConfigById.get(requiredEngineConfigId);
+  if (!requiredEngine) {
+    return "engine_config_missing";
+  }
+  if (
+    !isSelectedChatRunTypeCompatibleWithEngineType({
+      runType: provenance.runType,
+      engineType: requiredEngine.engineType,
+    })
+  ) {
+    return "engine_type_mismatch";
+  }
+  return null;
 }
 
 export function ProjectChat() {
@@ -290,12 +356,13 @@ export function ProjectChat() {
     }),
     _.isEqual,
   );
+  const inlineThreadsWidthStorage = useMemo(
+    () => getSafeLocalStorageAdapter("project-chat-inline-threads"),
+    [],
+  );
   const [inlineThreadsWidth, setInlineThreadsWidth] = useState(() => {
-    if (typeof window === "undefined") {
-      return INLINE_THREADS_DEFAULT_WIDTH_PX;
-    }
     const stored = Number(
-      window.localStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY),
+      inlineThreadsWidthStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY),
     );
     if (!Number.isFinite(stored)) {
       return INLINE_THREADS_DEFAULT_WIDTH_PX;
@@ -340,6 +407,13 @@ export function ProjectChat() {
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
   );
+  const engineConfigById = useMemo(() => {
+    const nextById = new Map<string, EngineConfig>();
+    for (const config of engineConfigs) {
+      nextById.set(config.id, config);
+    }
+    return nextById;
+  }, [engineConfigs]);
   const transcriptionProfileGroups = useMemo<AllItemsType<string>>(
     () => [
       {
@@ -511,17 +585,30 @@ export function ProjectChat() {
     }
     return entriesById;
   }, [chatHistoryEntries]);
+  const chatProvenanceByChatId = useMemo(
+    () =>
+      buildChatProvenanceByChatId(agentRuns, {
+        unscopedOnly: true,
+        compatibility: null,
+      }),
+    [agentRuns],
+  );
   const chatEngineConfigByChatId = useMemo(() => {
-    const provenanceByChatId = buildChatProvenanceByChatId(agentRuns, {
-      unscopedOnly: true,
-      compatibility: null,
-    });
     const nextByChatId = new Map<string, string | null>();
-    for (const [runChatId, provenance] of provenanceByChatId.entries()) {
+    for (const [runChatId, provenance] of chatProvenanceByChatId.entries()) {
       nextByChatId.set(runChatId, provenance.engineConfigId);
     }
     return nextByChatId;
-  }, [agentRuns]);
+  }, [chatProvenanceByChatId]);
+  const selectedThreadBlockedErrorCode = useMemo(
+    () =>
+      resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+        chatId,
+        chatProvenanceByChatId,
+        engineConfigById,
+      }),
+    [chatId, chatProvenanceByChatId, engineConfigById],
+  );
   const availableEngineConfigIds = useMemo(
     () => new Set(engineConfigs.map((config) => config.id)),
     [engineConfigs],
@@ -888,14 +975,11 @@ export function ProjectChat() {
     };
   }, [showInlineThreads, syncInlineThreadsHeaderWidth]);
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(
+    inlineThreadsWidthStorage.setItem(
       INLINE_THREADS_WIDTH_STORAGE_KEY,
       String(inlineThreadsWidth),
     );
-  }, [inlineThreadsWidth]);
+  }, [inlineThreadsWidth, inlineThreadsWidthStorage]);
 
   const showThreadsOnlyView =
     viewThreads && !showInlineThreads && !viewSkillsMcpViewer;
@@ -1391,6 +1475,9 @@ export function ProjectChat() {
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
+                  selectedThreadBlockedErrorCode={
+                    selectedThreadBlockedErrorCode
+                  }
                   activeConversationSearchMatchMessageId={
                     activeConversationSearchMatchMessageId
                   }
@@ -1445,6 +1532,7 @@ export function ProjectChat() {
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
+              selectedThreadBlockedErrorCode={selectedThreadBlockedErrorCode}
               activeConversationSearchMatchMessageId={
                 activeConversationSearchMatchMessageId
               }

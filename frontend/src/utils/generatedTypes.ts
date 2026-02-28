@@ -6752,9 +6752,17 @@ const WebsocketMsgLLMConfigUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated),
 });
 
+const ManagedAPIKeysSnapshotSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()).default({}),
+  revision: z.int(),
+  corrupt: z.boolean().default(false),
+  errorCode: z.union([z.string(), z.null()]).default(null),
+  message: z.union([z.string(), z.null()]).default(null),
+});
+
 const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.record(z.string(), z.string()),
+  content: ManagedAPIKeysSnapshotSchema,
   messageType: z
     .literal("LLMApiKeysUpdated")
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),

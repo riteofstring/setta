@@ -88,6 +88,27 @@ def test_read_managed_api_keys_with_status_returns_revisioned_payload() -> None:
         assert result.api_keys == {"OPENAI_API_KEY": "secret"}
 
 
+def test_read_managed_api_keys_with_status_flags_whitespace_only_values_as_corrupt() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '{"revision": 7, "apiKeys": {"OPENAI_API_KEY": "   "}}',
+            encoding="utf-8",
+        )
+
+        result = read_managed_api_keys_with_status(dbe)
+
+        assert result.corrupt is True
+        assert result.revision == 0
+        assert result.error_code == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+        assert result.api_keys == {}
+        assert result.error == "Managed API key values must be non-empty strings."
+
+
 def test_write_managed_api_keys_with_expected_revision_rejects_stale_revision() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)

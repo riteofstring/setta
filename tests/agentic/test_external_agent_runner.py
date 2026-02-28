@@ -1164,99 +1164,169 @@ class TestExternalAgentRunner:
             assert resolved.exists()
             assert resolved == working_dir
 
-    def test_env_whitelist_reads_dotenv(self) -> None:
+    def test_env_whitelist_reads_process_env(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            try:
+                os.environ["OPENAI_API_KEY"] = "secret"
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
+
+                env = runner._build_env(config)
+
+                assert env.get("OPENAI_API_KEY") == "secret"
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+
+    def test_env_whitelist_ignores_whitespace_process_values(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            try:
+                os.environ["OPENAI_API_KEY"] = "   "
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
+
+                env = runner._build_env(config)
+
+                assert "OPENAI_API_KEY" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+
+    def test_env_whitelist_ignores_dotenv_without_managed_or_process_value(self) -> (
+        None
+    ):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
             dbe.dot_env = Path(tmpdir) / ".env"
             dbe.write_dot_env({"OPENAI_API_KEY": "secret"})
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-                envVarWhitelist=["OPENAI_API_KEY"],
-            )
+            previous_openai_key = os.environ.pop("OPENAI_API_KEY", None)
+            try:
+                runner = _build_runner(dbe)
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("OPENAI_API_KEY") == "secret"
+                assert "OPENAI_API_KEY" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
 
     def test_plugin_adapter_env_whitelist_is_applied_in_runtime_env(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env({"FIXTURE_EXTERNAL_AGENT_TOKEN": "secret"})
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Fixture Plugin Adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=[],
-            )
+            previous_plugin_key = os.environ.get("FIXTURE_EXTERNAL_AGENT_TOKEN")
+            try:
+                os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = "secret"
+                websocket_manager = WebsocketManager()
+                frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+                registration = PluginRegisteredExternalAgentAdapter(
+                    adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                    pluginId="setta-fixture-backend-external-agent",
+                    name="Fixture External Agent",
+                    runModes=["sdk"],
+                    command=sys.executable,
+                    args=["-c", "print('fixture')"],
+                    envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                    defaultModel="fixture-model",
+                )
+                runner = ExternalAgentRunner(
+                    dbe,
+                    frontend_sender,
+                    plugin_external_agent_adapters=[registration],
+                )
+                config = ExternalAgentConfig(
+                    name="Fixture Plugin Adapter",
+                    toolType=ExternalAgentToolType.plugin,
+                    pluginAdapterId=registration.adapterId,
+                    runMode=ExternalAgentRunMode.sdk,
+                    envVarWhitelist=[],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+                assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+            finally:
+                if previous_plugin_key is None:
+                    os.environ.pop("FIXTURE_EXTERNAL_AGENT_TOKEN", None)
+                else:
+                    os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = previous_plugin_key
 
     def test_non_plugin_tool_ignores_plugin_adapter_env_whitelist(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env(
-                {
-                    "OPENAI_API_KEY": "openai-secret",
-                    "FIXTURE_EXTERNAL_AGENT_TOKEN": "plugin-secret",
-                }
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.app_server,
-                envVarWhitelist=["OPENAI_API_KEY"],
-            )
+            previous_openai_key = os.environ.get("OPENAI_API_KEY")
+            previous_plugin_key = os.environ.get("FIXTURE_EXTERNAL_AGENT_TOKEN")
+            try:
+                os.environ["OPENAI_API_KEY"] = "openai-secret"
+                os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = "plugin-secret"
+                websocket_manager = WebsocketManager()
+                frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+                registration = PluginRegisteredExternalAgentAdapter(
+                    adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                    pluginId="setta-fixture-backend-external-agent",
+                    name="Fixture External Agent",
+                    runModes=["sdk"],
+                    command=sys.executable,
+                    args=["-c", "print('fixture')"],
+                    envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                    defaultModel="fixture-model",
+                )
+                runner = ExternalAgentRunner(
+                    dbe,
+                    frontend_sender,
+                    plugin_external_agent_adapters=[registration],
+                )
+                config = ExternalAgentConfig(
+                    name="Codex app-server",
+                    toolType=ExternalAgentToolType.codex,
+                    pluginAdapterId=registration.adapterId,
+                    runMode=ExternalAgentRunMode.app_server,
+                    envVarWhitelist=["OPENAI_API_KEY"],
+                )
 
-            env = runner._build_env(config)
+                env = runner._build_env(config)
 
-            assert env.get("OPENAI_API_KEY") == "openai-secret"
-            assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+                assert env.get("OPENAI_API_KEY") == "openai-secret"
+                assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+            finally:
+                if previous_openai_key is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = previous_openai_key
+                if previous_plugin_key is None:
+                    os.environ.pop("FIXTURE_EXTERNAL_AGENT_TOKEN", None)
+                else:
+                    os.environ["FIXTURE_EXTERNAL_AGENT_TOKEN"] = previous_plugin_key
 
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:

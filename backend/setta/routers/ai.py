@@ -28,6 +28,7 @@ from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
     list_agent_runs_by_metadata,
     require_agent_profile,
+    require_engine_config,
 )
 from setta.agentic.transcription_profile_resolver import (
     TranscriptionProfileNotFoundError,
@@ -630,6 +631,17 @@ class TranscriptionErrorDetail(BaseModel):
     errorCode: TranscriptionErrorCode
 
 
+class ChatHydrationErrorCode(str, Enum):
+    engine_config_missing = "engine_config_missing"
+    engine_type_mismatch = "engine_type_mismatch"
+    llm_config_missing = "llm_config_missing"
+
+
+class ChatHydrationErrorDetail(BaseModel):
+    message: str
+    errorCode: ChatHydrationErrorCode
+
+
 class ChatContextUsage(BaseModel):
     contextWindowTokens: int | None = None
     contextUsedTokens: int | None = None
@@ -700,6 +712,20 @@ def _raise_transcription_http_error(
     raise HTTPException(
         status_code=status_code,
         detail=TranscriptionErrorDetail(
+            message=message,
+            errorCode=error_code,
+        ).model_dump(mode="json"),
+    )
+
+
+def _raise_chat_hydration_http_error(
+    *,
+    message: str,
+    error_code: ChatHydrationErrorCode,
+) -> None:
+    raise HTTPException(
+        status_code=409,
+        detail=ChatHydrationErrorDetail(
             message=message,
             errorCode=error_code,
         ).model_dump(mode="json"),
@@ -1276,28 +1302,46 @@ async def route_get_llm_chat(
             state = live_state
     engine_config_id = get_run_engine_config_id(latest_run)
     if not engine_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine config is no longer available.",
+        _raise_chat_hydration_http_error(
+            message="Chat engine config is no longer available.",
+            error_code=ChatHydrationErrorCode.engine_config_missing,
         )
-    resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, engine_config_id
-    )
-    if resolved.engine_config.engineType != EngineType.setta_llm:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
+    try:
+        engine_config = require_engine_config(ctx.state.dbe, engine_config_id)
+    except KeyError:
+        _raise_chat_hydration_http_error(
+            message="Chat engine config is no longer available.",
+            error_code=ChatHydrationErrorCode.engine_config_missing,
         )
-    if resolved.llm_config is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat LLM config is no longer available.",
+    if engine_config.engineType != EngineType.setta_llm:
+        _raise_chat_hydration_http_error(
+            message="Chat engine mismatch; start a new chat.",
+            error_code=ChatHydrationErrorCode.engine_type_mismatch,
+        )
+    llm_config_id = engine_config.settaLlmConfigId
+    if not llm_config_id:
+        default_config_id = ctx.state.agent_runner.config.default_config_id
+        if default_config_id:
+            llm_config_id = default_config_id
+        elif ctx.state.agent_runner.config.configs:
+            llm_config_id = next(iter(ctx.state.agent_runner.config.configs.keys()))
+        else:
+            _raise_chat_hydration_http_error(
+                message="Chat LLM config is no longer available.",
+                error_code=ChatHydrationErrorCode.llm_config_missing,
+            )
+    try:
+        llm_config = ctx.state.agent_runner.config.resolve_config(llm_config_id)
+    except ValueError:
+        _raise_chat_hydration_http_error(
+            message="Chat LLM config is no longer available.",
+            error_code=ChatHydrationErrorCode.llm_config_missing,
         )
     context_usage = resolve_internal_run_context_usage(latest_run)
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
-        llmConfig=resolved.llm_config,
+        llmConfig=llm_config,
         contextUsage=_to_chat_context_usage(context_usage),
     )
 
