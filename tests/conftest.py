@@ -6,6 +6,7 @@ import pytest
 import watchdog.observers
 from watchdog.observers.polling import PollingObserver
 
+from tests.utils.integration_env import seed_env_from_repo_dot_env
 from tests.utils.watchdog_observer import should_force_polling_observer
 
 
@@ -25,6 +26,10 @@ _SETTA_PATH_ENV_VARS = (
     "SETTA_FILES_LOCATION",
     "SETTA_RUNTIME_ROOT",
     "SETTA_AUTH_COOKIE_NAME",
+)
+_INTEGRATION_API_KEY_ENV_VARS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
 )
 
 
@@ -73,6 +78,13 @@ def _guard_setta_home_resolution_to_tmp_roots(
     finally:
         for module, attr in reversed(patched_targets):
             setattr(module, attr, original_resolve_setta_home)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _seed_integration_api_keys_from_repo_dot_env() -> None:
+    # Integration tests resolve provider keys from process env. Seed only the
+    # known provider API key vars from repo .env when they are not already set.
+    seed_env_from_repo_dot_env(_INTEGRATION_API_KEY_ENV_VARS)
 
 
 @pytest.fixture(autouse=True)
