@@ -202,16 +202,6 @@ class ManagedActionExecutor:
                                     else None
                                 ),
                             }
-                            meta_payload["frontendAffinityToken"] = (
-                                action.agentic_context.frontend_affinity_token
-                                if isinstance(
-                                    action.agentic_context.frontend_affinity_token,
-                                    str,
-                                )
-                                and action.agentic_context.frontend_affinity_token.strip()
-                                != ""
-                                else None
-                            )
                             if action.agentic_context.allow_unscoped:
                                 meta_payload["allowUnscoped"] = True
                             if action.share_session_id:

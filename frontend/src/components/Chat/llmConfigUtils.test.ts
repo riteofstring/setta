@@ -30,6 +30,13 @@ const ALL_LLM_CONFIGS = {
 };
 
 describe("buildLLMConfigGroups", () => {
+  it("treats missing api key maps as empty", () => {
+    const groups = buildLLMConfigGroups(ALL_LLM_CONFIGS, undefined);
+
+    const ids = groups.flatMap((group) => group.items.map((item) => item.id));
+    expect(ids).toEqual(["openai-keyless"]);
+  });
+
   it("filters missing API key configs by default", () => {
     const groups = buildLLMConfigGroups(ALL_LLM_CONFIGS, {});
 
