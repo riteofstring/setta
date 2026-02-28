@@ -304,6 +304,7 @@ Other options:
 - `--session ID` selects a specific session.
 - `--latest` selects the newest session.
 - `--server-mode ide|launcher` filters by mode. For `--connect-info`, default mode is `ide` unless explicitly overridden.
+- `--launcher-origin ORIGIN` optionally includes launcher-origin handoff metadata in `--json --connect-info` output (must be an absolute `http(s)` origin).
 - `--json` emits a base64 JSON payload prefixed with `__SETTA_JSON_B64__`.
 - `--list-sessions` lists sessions (requires `--json`).
 - `--delete-session ID` stops and removes the session (local only).
@@ -451,6 +452,7 @@ Run options:
 Success JSON includes:
 - `ok`, `bootstrapUrl`, `workspaceRoot`, `sessionId`
 - `startedNew`, `reusedSession`
+- `sessionServerMode`, `settaHome`, `profile`
 - `openMode`, `workspaceBehavior`, `openWorkspaceSwitcher`
 
 Error JSON includes:
@@ -473,7 +475,8 @@ Options:
 - `--open-mode {browser,chrome-app}` default launcher mode (optional; omitted preserves existing metadata)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
-- `--no-install-artifacts` updates launcher metadata only, without writing platform artifacts
+- `--clear-artifact-options` clears previously stored launcher artifact options
+- `--install-artifacts` / `--no-install-artifacts` controls managed platform artifact installation; omit both to preserve current behavior
 - `--json` emits machine-readable payload
 
 The metadata stores:

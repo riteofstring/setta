@@ -69,7 +69,6 @@
 ## Plans
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
-- `plans/desktop-launcher-remaining-work.md` – canonical desktop launcher implementation and release checklist.
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
 - `plans/ralph-mode.md` – planning notes for ralph mode.

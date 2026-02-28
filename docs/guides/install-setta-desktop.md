@@ -27,9 +27,9 @@ The bootstrap chain is:
 
 ## Quickstarts
 
-- macOS: [install-setta-desktop-macos.md](/Users/kevin/Documents/AppDevelopment/setta.desktop-launch/docs/guides/install-setta-desktop-macos.md)
-- Windows: [install-setta-desktop-windows.md](/Users/kevin/Documents/AppDevelopment/setta.desktop-launch/docs/guides/install-setta-desktop-windows.md)
-- Linux: [install-setta-desktop-linux.md](/Users/kevin/Documents/AppDevelopment/setta.desktop-launch/docs/guides/install-setta-desktop-linux.md)
+- macOS: [install-setta-desktop-macos.md](./install-setta-desktop-macos.md)
+- Windows: [install-setta-desktop-windows.md](./install-setta-desktop-windows.md)
+- Linux: [install-setta-desktop-linux.md](./install-setta-desktop-linux.md)
 
 ## Troubleshooting Matrix
 
