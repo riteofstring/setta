@@ -1,34 +1,19 @@
 import os
+import tempfile
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from setta import trusted_frontend_origins as trusted_frontend_origins_module
 from setta.auth.cookies import auth_cookie_name
 from setta.auth import session as auth_session
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.middleware import AuthMiddleware
 from setta.sessions import SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
-from setta.trusted_frontend_origins import (
-    TrustedFrontendOriginStore,
-    trust_frontend_origin,
-)
 from setta.utils.constants import C
-
-
-@pytest.fixture(autouse=True)
-def isolated_trusted_frontend_origins_store(tmp_path, monkeypatch) -> None:
-    store = TrustedFrontendOriginStore(
-        storage_path=tmp_path / "trusted_frontend_origins.json"
-    )
-    monkeypatch.setattr(
-        trusted_frontend_origins_module,
-        "_TRUSTED_FRONTEND_ORIGIN_STORE",
-        store,
-    )
 
 
 @pytest.fixture
@@ -129,32 +114,3 @@ def test_auth_cookie_not_refreshed_on_non_api_route(auth_env) -> None:
     cookie_header = response.headers.get("set-cookie")
     if cookie_header is not None:
         assert f"{cookie_name}=" not in cookie_header
-
-
-def test_auth_cookie_refresh_extends_trusted_origin_expiry(auth_env) -> None:
-    session, secret, client = auth_env
-    cookie_name = auth_cookie_name(session.id)
-    seconds_until_exp = max(1, C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS - 30)
-    issued_at = datetime.now(timezone.utc) - timedelta(
-        seconds=C.AUTH_COOKIE_MAX_AGE_SECONDS - seconds_until_exp
-    )
-    old_token = AUTH_COOKIE_MANAGER.mint(session.id, secret, now=issued_at)
-    old_payload = AUTH_COOKIE_MANAGER.validate(old_token, secret)
-    origin = "http://127.0.0.1:61234"
-    trust_frontend_origin(
-        origin,
-        session_id=session.id,
-        exp=old_payload.exp,
-        now=old_payload.exp - 1,
-    )
-
-    client.cookies.set(cookie_name, old_token)
-    response = client.get("/api/secure", headers={"origin": origin})
-
-    assert response.status_code == 200
-    store = trusted_frontend_origins_module._TRUSTED_FRONTEND_ORIGIN_STORE
-    assert isinstance(store, TrustedFrontendOriginStore)
-    assert (
-        store.is_trusted(session_id=session.id, origin=origin, now=old_payload.exp + 1)
-        is True
-    )

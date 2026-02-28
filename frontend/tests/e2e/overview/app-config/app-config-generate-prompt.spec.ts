@@ -157,7 +157,10 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        OPENAI_API_KEY: "pw-key",
+        apiKeys: {
+          OPENAI_API_KEY: "pw-key",
+        },
+        revision: 1,
       }),
     });
   });
@@ -323,7 +326,10 @@ test("prompt-builder mode surfaces backend hidden-generation error detail", asyn
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        OPENAI_API_KEY: "pw-key",
+        apiKeys: {
+          OPENAI_API_KEY: "pw-key",
+        },
+        revision: 1,
       }),
     });
   });

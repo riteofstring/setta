@@ -1,13 +1,6 @@
 from typing import Annotated, AsyncGenerator
 
-from fastapi import (
-    Depends,
-    HTTPException,
-    Request,
-    WebSocket,
-    WebSocketException,
-    status,
-)
+from fastapi import Depends, HTTPException, Request, WebSocket, status
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from setta.runtime.context import RuntimeContext
@@ -20,17 +13,6 @@ def get_app_state_from_request(request: Request) -> SettaFastAPIState:
 
 def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
     return websocket.app.state.setta
-
-
-def get_app_state_from_connection(
-    request: Request = None,
-    websocket: WebSocket = None,
-) -> SettaFastAPIState:
-    if request is not None:
-        return get_app_state_from_request(request)
-    if websocket is not None:
-        return get_app_state_from_websocket(websocket)
-    raise KeyError("Missing request/websocket for app state dependency.")
 
 
 async def get_ready_app_state_from_request(request: Request) -> SettaFastAPIState:
@@ -77,64 +59,13 @@ def maybe_get_share_session_id_from_request(request: Request) -> str | None:
 
 
 def require_ide_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_connection),
-    websocket: WebSocket = None,
-) -> None:
-    require_not_deployment_mode(state, websocket=websocket)
-    if getattr(state, "launcher_mode", False):
-        _raise_mode_forbidden(
-            websocket=websocket,
-            detail="Launcher mode does not allow this endpoint.",
-        )
-
-
-def require_not_deployment_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_connection),
-    websocket: WebSocket = None,
+    state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
     if state.deployment_mode:
-        _raise_mode_forbidden(
-            websocket=websocket,
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Deployment mode does not allow this endpoint.",
         )
-
-
-def require_full_ide_runtime(
-    state: SettaFastAPIState = Depends(get_app_state_from_connection),
-    websocket: WebSocket = None,
-) -> None:
-    require_ide_mode(state, websocket=websocket)
-
-
-def require_not_launcher_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_connection),
-    websocket: WebSocket = None,
-) -> None:
-    if getattr(state, "launcher_mode", False):
-        _raise_mode_forbidden(
-            websocket=websocket,
-            detail="Launcher mode does not allow this endpoint.",
-        )
-
-
-def require_launcher_mode(
-    state: SettaFastAPIState = Depends(get_app_state_from_connection),
-    websocket: WebSocket = None,
-) -> None:
-    if not state.launcher_mode:
-        _raise_mode_forbidden(
-            websocket=websocket,
-            detail="Launcher mode does not allow this endpoint.",
-        )
-
-
-def _raise_mode_forbidden(*, websocket: WebSocket | None, detail: str) -> None:
-    if websocket is not None:
-        raise WebSocketException(code=4403, reason=detail)
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=detail,
-    )
 
 
 def require_share_session_id(

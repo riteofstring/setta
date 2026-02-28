@@ -61,6 +61,32 @@
   }
 }
 
+.top-bottom-fade {
+  position: relative;
+  overflow-y: auto;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 18%,
+    black 82%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 18%,
+    black 82%,
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  scrollbar-width: none;
+}
+
+.top-bottom-fade::-webkit-scrollbar {
+  display: none;
+}
+
 .setta-codemirror-tooltips .cm-tooltip:has(.cm-tooltip-lint) {
   padding: 0;
   border: 0;

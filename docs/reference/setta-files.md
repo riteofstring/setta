@@ -157,7 +157,7 @@ In IDE mode, the launcher UI uses:
   {
     "settaHome": "...",
     "globalSettaFilesBase": "...",
-    "activeSettaFilesLocation": "local|global",
+    "activeSettaFilesLocation": "local|global|custom",
     "llmConfigPath": ".../setta_files/llm_config.json"
   }
   ```
