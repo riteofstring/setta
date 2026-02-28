@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
@@ -15,7 +15,6 @@ from setta.types.agentic import (
     TranscriptionProfileList,
 )
 from setta.types.artifact_messages import UpdateArtifactMsgContent
-from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
@@ -37,6 +36,7 @@ from setta.types.listener import (
 )
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
@@ -45,7 +45,6 @@ from setta.types.prompt import PromptTemplateList
 
 class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
-    FrontendIdentity = "FrontendIdentity"
     LSPDiagnostics = "LSPDiagnostics"
     NameValidationErrors = "NameValidationErrors"
     TerminalMetadata = "TerminalMetadata"
@@ -62,7 +61,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
-    UISettingReveal = "UISettingReveal"
     AgentProfilesUpdated = "AgentProfilesUpdated"
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
     ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
@@ -74,7 +72,6 @@ class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
     RealtimeDependencyEvent = "RealtimeDependencyEvent"
-    UISettingRevealResult = "UISettingRevealResult"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -131,17 +128,6 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
         WebsocketMsgTypeForFrontend.AllConnections
-    )
-
-
-class FrontendIdentityContent(BaseModel):
-    websocketId: str
-
-
-class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):
-    content: FrontendIdentityContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.FrontendIdentity] = (
-        WebsocketMsgTypeForFrontend.FrontendIdentity
     )
 
 
@@ -244,7 +230,7 @@ class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
 
 
 class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
-    content: APIKeys
+    content: ManagedAPIKeysSnapshot
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
     )
@@ -308,64 +294,6 @@ class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
     content: AIFollowToolResultUpdateContent
     messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
         WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
-    )
-
-
-class UISettingRevealActivationStep(BaseModel):
-    type: Literal[
-        "project_ai_settings_accordion_item",
-        "run_instructions_accordion_item",
-    ]
-    itemValue: str
-
-
-class UISettingRevealTarget(BaseModel):
-    settingId: str
-    side: Literal["left", "right"]
-    overviewTabKey: str | None = None
-    uiEditorTabName: str | None = None
-    pluginId: str | None = None
-    paneId: str | None = None
-    strategy: Literal["dom_anchor", "plugin_handler"]
-    anchorId: str | None = None
-    pluginRevealKey: str | None = None
-    revealActivationSteps: list[UISettingRevealActivationStep] = Field(
-        default_factory=list
-    )
-
-
-class UISettingRevealContent(BaseModel):
-    projectConfigId: ID
-    chatId: ID | None = None
-    reveals: list[UISettingRevealTarget]
-    durationMs: int = 3000
-    requestId: str
-
-
-class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
-    content: UISettingRevealContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
-        WebsocketMsgTypeForFrontend.UISettingReveal
-    )
-
-
-class UISettingRevealResultStatus(BaseModel):
-    settingId: str
-    status: Literal["revealed", "failed"]
-    errorCode: str | None = None
-    errorMessage: str | None = None
-
-
-class UISettingRevealResultContent(BaseModel):
-    projectConfigId: ID
-    requestId: str
-    statuses: list[UISettingRevealResultStatus]
-
-
-class WebsocketMsgUISettingRevealResult(BackendWebsocketMsg):
-    content: UISettingRevealResultContent
-    messageType: Literal[WebsocketMsgTypeForBackend.UISettingRevealResult] = (
-        WebsocketMsgTypeForBackend.UISettingRevealResult
     )
 
 

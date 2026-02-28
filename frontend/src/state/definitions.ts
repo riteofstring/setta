@@ -30,7 +30,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  ChatDictationMode,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -674,6 +673,11 @@ export type ChatDetails = {
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
   llmConfig: LLMConfig | null;
+  contextUsage: {
+    contextWindowTokens: number | null;
+    contextUsedTokens: number | null;
+    estimated: boolean;
+  } | null;
 };
 
 export type ChatBranchInfo = {
@@ -686,12 +690,18 @@ export type ChatBranchInfo = {
 
 type ZustandAIStore = {
   apiKeys: APIKeys;
+  apiKeysRevision: number;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
+  projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
-  viewHistory: boolean;
+  interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
+  viewThreads: boolean;
+  projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
+  projectChatActivityAccordionOpenByDefault: boolean;
+  projectChatActivityChildrenOpenByDefault: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -723,7 +733,7 @@ type ZustandAIStore = {
   transcriptionProfilesLoadError: string | null;
   transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: ChatDictationMode;
+  projectChatDictationMode: "auto" | "browser" | "provider";
   projectChatTranscriptionProfileId: string | null;
 };
 
@@ -734,12 +744,18 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       () => ({
         // State
         apiKeys: {},
+        apiKeysRevision: 0,
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,
+        projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
-        viewHistory: false,
+        interruptedAssistantMessageIdsByChatId: {},
+        viewThreads: false,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+        projectChatActivityAccordionOpenByDefault: false,
+        projectChatActivityChildrenOpenByDefault: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -776,11 +792,35 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       }),
       {
         name: "setta_ai_data",
+        merge: (persistedState, currentState) => {
+          const persisted =
+            (persistedState as Partial<
+              ZustandAIStore & { viewHistory?: boolean }
+            > | null) ?? {};
+          const merged = {
+            ...currentState,
+            ...persisted,
+          };
+          if (
+            persisted.viewThreads === undefined &&
+            typeof persisted.viewHistory === "boolean"
+          ) {
+            merged.viewThreads = persisted.viewHistory;
+          }
+          return merged;
+        },
         partialize: (state) => ({
-          viewHistory: state.viewHistory,
+          viewThreads: state.viewThreads,
+          projectChatThreadsExplicitlyClosedAtLargeWidth:
+            state.projectChatThreadsExplicitlyClosedAtLargeWidth,
+          projectChatActivityAccordionOpenByDefault:
+            state.projectChatActivityAccordionOpenByDefault,
+          projectChatActivityChildrenOpenByDefault:
+            state.projectChatActivityChildrenOpenByDefault,
           projectChatDictationMode: state.projectChatDictationMode,
           projectChatTranscriptionProfileId:
             state.projectChatTranscriptionProfileId,
+          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
         }),
         storage: getPersistStorage(),
       },
@@ -890,8 +930,10 @@ type ZustandLocalStorage = {
   overviewProjectConfigOrder: string[];
   homeWorkspacePaneVis: boolean;
   homeWorkspacePaneWidth: number;
+  homeWorkspacePaneTrueWidth: number;
   homeSelectedProjectPaneVis: boolean;
   homeSelectedProjectPaneWidth: number;
+  homeSelectedProjectPaneTrueWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -921,6 +963,23 @@ type ZustandLocalStorage = {
     string,
     Array<string>
   >;
+  viewedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  projectChatThreadGroupsByProjectConfigId: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      collapsed: boolean;
+      pinned?: boolean;
+    }>
+  >;
+  projectChatThreadAssignmentsByProjectConfigId: Record<
+    string,
+    Record<string, string>
+  >;
+  projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
+  pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -939,8 +998,10 @@ export const useLocalStorage = createWithEqualityFn(
       overviewProjectConfigOrder: [],
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: 320,
+      homeWorkspacePaneTrueWidth: 320,
       homeSelectedProjectPaneVis: true,
-      homeSelectedProjectPaneWidth: 320,
+      homeSelectedProjectPaneWidth: 280,
+      homeSelectedProjectPaneTrueWidth: 280,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -964,6 +1025,12 @@ export const useLocalStorage = createWithEqualityFn(
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
+      viewedProjectChatThreadIdsByProjectConfigId: {},
+      projectChatThreadGroupsByProjectConfigId: {},
+      projectChatThreadAssignmentsByProjectConfigId: {},
+      projectChatThreadOrderByProjectConfigId: {},
+      pinnedProjectChatThreadIdsByProjectConfigId: {},
+      trashedProjectChatThreadIdsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -974,11 +1041,6 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
-        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
-        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
-        delete (merged as Record<string, unknown>).homeWorkspacePaneTrueWidth;
-        delete (merged as Record<string, unknown>)
-          .homeSelectedProjectPaneTrueWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -1001,14 +1063,66 @@ export const useLocalStorage = createWithEqualityFn(
         if (typeof merged.homeWorkspacePaneWidth !== "number") {
           merged.homeWorkspacePaneWidth = 320;
         }
+        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
+          merged.homeWorkspacePaneTrueWidth = 320;
+        }
         if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
           merged.homeSelectedProjectPaneVis = true;
         }
         if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
-          merged.homeSelectedProjectPaneWidth = 320;
+          merged.homeSelectedProjectPaneWidth = 280;
+        }
+        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
+          merged.homeSelectedProjectPaneTrueWidth = 280;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
+        }
+        if (
+          !merged.viewedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.viewedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.viewedProjectChatThreadIdsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadGroupsByProjectConfigId ||
+          typeof merged.projectChatThreadGroupsByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatThreadGroupsByProjectConfigId)
+        ) {
+          merged.projectChatThreadGroupsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadAssignmentsByProjectConfigId ||
+          typeof merged.projectChatThreadAssignmentsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
+        ) {
+          merged.projectChatThreadAssignmentsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadOrderByProjectConfigId ||
+          typeof merged.projectChatThreadOrderByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatThreadOrderByProjectConfigId)
+        ) {
+          merged.projectChatThreadOrderByProjectConfigId = {};
+        }
+        if (
+          !merged.pinnedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.pinnedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.pinnedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.pinnedProjectChatThreadIdsByProjectConfigId = {};
+        }
+        if (
+          !merged.trashedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.trashedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.trashedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
 
         return merged;

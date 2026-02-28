@@ -311,14 +311,8 @@ class ChatStreamEmitterClient:
 
 
 class ChatToolRunnerClient:
-    def __init__(
-        self,
-        project_manager: RouterEndpointAPI,
-        *,
-        frontend_websocket_id: str | None = None,
-    ) -> None:
+    def __init__(self, project_manager: RouterEndpointAPI) -> None:
         self._project_manager = project_manager
-        self._frontend_websocket_id = frontend_websocket_id
 
     async def run(
         self,
@@ -326,18 +320,12 @@ class ChatToolRunnerClient:
         chat_id: ID,
         section_id: ID,
         tool_calls: list[ToolCall],
-        frontend_websocket_id: str | None = None,
     ) -> list[ToolChatMessage]:
         payload: dict[str, object] = {
             "chatId": chat_id,
             "sectionId": section_id,
             "toolCalls": tool_calls,
         }
-        resolved_frontend_websocket_id = frontend_websocket_id
-        if resolved_frontend_websocket_id is None:
-            resolved_frontend_websocket_id = self._frontend_websocket_id
-        if resolved_frontend_websocket_id is not None:
-            payload["frontendWebsocketId"] = resolved_frontend_websocket_id
         return _coerce_tool_messages(await self._project_manager.run_mcp_tools(payload))
 
 
@@ -415,10 +403,7 @@ class ChatSession:
             raise KeyError("No chat send event for section")
         history = ChatHistoryClient(ctx.project_manager)
         stream = ChatStreamEmitterClient(ctx.project_manager)
-        tools = ChatToolRunnerClient(
-            ctx.project_manager,
-            frontend_websocket_id=ctx.frontend_websocket_id,
-        )
+        tools = ChatToolRunnerClient(ctx.project_manager)
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
         content = [MessageTextContent(text=resolved_event.text)]

@@ -136,35 +136,3 @@ class TestChatToolkitListenerClient:
 
         assert messages
         assert isinstance(messages[0], ToolChatMessage)
-
-    async def test_tool_runner_client_forwards_frontend_websocket_id(self) -> None:
-        chat_id = ID("chat-1")
-        section_id = ID("section-1")
-        captured_payload: dict[str, object] = {}
-
-        async def router_caller(endpoint_name: str, payload: object) -> object:
-            if endpoint_name != "route_run_mcp_tools":
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
-            if not isinstance(payload, dict):
-                raise TypeError("payload must be a dict")
-            captured_payload.update(payload)
-            return []
-
-        api = RouterEndpointAPI(router_caller)
-        client = ChatToolRunnerClient(
-            api,
-            frontend_websocket_id="frontend-from-context",
-        )
-        tool_call = ToolCallBuilder.from_name_and_args(
-            name="setta__list_mcp_tools",
-            arguments={},
-            tool_call_id="tool-call-1",
-        )
-
-        await client.run(
-            chat_id=chat_id,
-            section_id=section_id,
-            tool_calls=[tool_call],
-        )
-
-        assert captured_payload.get("frontendWebsocketId") == "frontend-from-context"

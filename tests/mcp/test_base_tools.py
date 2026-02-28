@@ -2,16 +2,20 @@ from types import SimpleNamespace
 
 import pytest
 from mcp.server.fastmcp.server import Context
+from setta.mcp.client import MultiMCPClient
 from setta.mcp.tools.base_tools import (
     getInstalledPythonPackages,
+    get_mcp_server_runtime_status,
     getProjectConfigNamesAndIds,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.types.llm_config import MCPServerConfig
 
 from tests.utils.manager_fixture import (
     real_project_manager,
     real_settings_manager,
 )
+
 
 @pytest.mark.asyncio
 class TestGetProjectConfigNamesAndIds:
@@ -54,3 +58,37 @@ class TestGetInstalledPythonPackages:
             name, version = package.split("=", 1)
             assert name.strip()
             assert version.strip()
+
+
+class TestGetMCPServerRuntimeStatus:
+    def test_returns_statuses_from_multi_mcp_client_without_crashing(self) -> None:
+        client = MultiMCPClient(
+            {
+                "setta": MCPServerConfig(
+                    transport="sse",
+                    url="http://127.0.0.1:8000/mcp",
+                ),
+                "filesystem": MCPServerConfig(
+                    transport="stdio",
+                    command="npx",
+                    args=["@modelcontextprotocol/server-filesystem"],
+                ),
+            }
+        )
+        state = SimpleNamespace(mcp_client=client)
+        ctx = Context(fastmcp=SimpleNamespace(state=state))
+
+        response = get_mcp_server_runtime_status(ctx=ctx)
+        payload = response.model_dump()
+        servers = payload.get("servers")
+        assert isinstance(servers, list)
+        if not isinstance(servers, list):
+            raise AssertionError("Expected servers list in runtime status response.")
+        assert len(servers) == 2
+        setta_status = next(
+            (entry for entry in servers if entry["serverId"] == "setta"), None
+        )
+        assert setta_status is not None
+        assert setta_status["toolCount"] == 0
+        assert setta_status["lastError"] is None
+        assert setta_status["missingEnvVar"] is None
