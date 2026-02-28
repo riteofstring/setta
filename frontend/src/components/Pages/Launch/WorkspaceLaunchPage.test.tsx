@@ -35,8 +35,8 @@ describe("WorkspaceLaunchPage launch error helpers", () => {
   it("maps outdated settings project startup tracebacks to migration guidance", () => {
     const rawMessage = [
       "Traceback ...",
-      "File \"/tmp/site-packages/setta/project_state/settings_project.py\", line 625",
-      "raise KeyError(\"Missing settings section pluginSectionDefault.\")",
+      'File "/tmp/site-packages/setta/project_state/settings_project.py", line 625',
+      'raise KeyError("Missing settings section pluginSectionDefault.")',
       "KeyError: 'Missing settings section pluginSectionDefault.'",
     ].join("\n");
 

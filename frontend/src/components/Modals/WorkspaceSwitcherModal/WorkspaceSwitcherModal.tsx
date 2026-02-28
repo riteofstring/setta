@@ -84,9 +84,8 @@ export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const serverMode = useServerMode((state) => state.mode);
   const modeResolved = useServerMode((state) => state.modeResolved);
-  const canManageDesktopLauncher = resolveServerModeCapabilities(
-    serverMode,
-  ).canManageDesktopLauncher;
+  const canManageDesktopLauncher =
+    resolveServerModeCapabilities(serverMode).canManageDesktopLauncher;
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [settaFilesLocation, setSettaFilesLocation] =

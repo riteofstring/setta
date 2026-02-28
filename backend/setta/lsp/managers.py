@@ -21,9 +21,7 @@ from .writer import LanguageServerWriter
 
 LSP_SHUTDOWN_TIMEOUT_SECONDS = 3
 logger = logging.getLogger(__name__)
-BASEDPYRIGHT_LANGSERVER_ENTRYPOINT = (
-    "from basedpyright.langserver import main; main()"
-)
+BASEDPYRIGHT_LANGSERVER_ENTRYPOINT = "from basedpyright.langserver import main; main()"
 
 
 def _dedupe_by_identity(values):
