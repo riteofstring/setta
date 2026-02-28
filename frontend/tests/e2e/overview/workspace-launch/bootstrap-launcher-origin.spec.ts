@@ -490,11 +490,44 @@ test("launch handoff trusts launched workspace origin for dynamic CORS launch-in
 
     const launchResult = await page.evaluate(
       async ({ backendOrigin, launchWorkspaceRootValue }) => {
+        const intentResponse = await fetch(
+          `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              launchRequest: { workspaceRoot: launchWorkspaceRootValue },
+              returnUrl: `${window.location.origin}/home`,
+            }),
+          },
+        );
+        const intentPayload = (await intentResponse.json()) as {
+          ok?: boolean;
+          launchIntentToken?: string | null;
+          error?: { message?: string };
+        };
+        if (
+          !intentResponse.ok ||
+          intentPayload.ok !== true ||
+          typeof intentPayload.launchIntentToken !== "string"
+        ) {
+          return {
+            status: intentResponse.status,
+            ok: false,
+            bootstrapUrlFragment: null,
+            error: intentPayload.error?.message ?? "missing launch intent token",
+            stage: "intent",
+          };
+        }
+
         const response = await fetch(`${backendOrigin}/api/launch`, {
           method: "POST",
           credentials: "include",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ workspaceRoot: launchWorkspaceRootValue }),
+          body: JSON.stringify({
+            launchIntentToken: intentPayload.launchIntentToken,
+          }),
         });
         const payload = (await response.json()) as {
           ok?: boolean;
@@ -509,6 +542,7 @@ test("launch handoff trusts launched workspace origin for dynamic CORS launch-in
               ? payload.bootstrapUrlFragment
               : null,
           error: payload.error?.message ?? null,
+          stage: "launch",
         };
       },
       {
@@ -521,7 +555,7 @@ test("launch handoff trusts launched workspace origin for dynamic CORS launch-in
     expect(launchResult.bootstrapUrlFragment).not.toBeNull();
     if (launchResult.bootstrapUrlFragment === null) {
       throw new Error(
-        `Launch failed: ${launchResult.error ?? "missing bootstrap"}`,
+        `Launch failed (${launchResult.stage}): ${launchResult.error ?? "missing bootstrap"}`,
       );
     }
     const launchedOrigin = new URL(launchResult.bootstrapUrlFragment).origin;

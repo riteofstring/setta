@@ -201,7 +201,9 @@ test("home new config opens project ai chat first", async ({ page }) => {
   await ensureAppReady(page);
   await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
 
-  const newConfigButton = page.getByRole("button", { name: "New Config" });
+  const newConfigButton = page.getByRole("button", {
+    name: /New (Project|Config)/,
+  });
   await expect(newConfigButton).toBeVisible();
   await newConfigButton.click();
 

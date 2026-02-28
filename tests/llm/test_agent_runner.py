@@ -1393,6 +1393,14 @@ class TestAgentRunner:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe, [ProjectConfig()])
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
             config = AllLLMConfigs(
                 configs={
                     "primary": LLMConfig(

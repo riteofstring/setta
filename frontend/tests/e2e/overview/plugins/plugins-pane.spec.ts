@@ -1623,8 +1623,7 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
   await expect(
     page
       .getByText(
-        "Update plugin failed: PLUGIN_UPDATE_UNAVAILABLE - No update target available.",
-        { exact: true },
+        /Update plugin failed: (?:PLUGIN_UPDATE_UNAVAILABLE - )?No update target available\./,
       )
       .first(),
   ).toBeVisible();

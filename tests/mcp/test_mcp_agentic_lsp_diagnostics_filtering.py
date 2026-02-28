@@ -225,7 +225,11 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> No
     state = type(
         "_State",
         (),
-        {"project_manager_switcher": switcher, "dbe": dbe},
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
     )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
@@ -275,7 +279,11 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_headers(tmp_path) ->
     state = type(
         "_State",
         (),
-        {"project_manager_switcher": switcher, "dbe": dbe},
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
     )()
     app = FastAPI()
     mcp_server = SettaFastMCP(

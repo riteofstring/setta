@@ -192,7 +192,15 @@ async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path)
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -292,7 +300,15 @@ async def test_mcp_agentic_scope_cache_does_not_clear_all_entries_when_full(
     switcher = _StrictProjectManagerSwitcher(project_state.projectConfig.id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,

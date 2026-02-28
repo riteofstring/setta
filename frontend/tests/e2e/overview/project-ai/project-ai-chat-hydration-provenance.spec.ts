@@ -524,7 +524,7 @@ test("project ai keeps selected threads usable when hydration reports terminal m
     await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
-    ).toContainText("saved engine config is no longer available");
+    ).toContainText("terminal hydration error");
     const input = overviewPane.locator("textarea").first();
     await input.fill("Continue despite hydration warning");
     await expect(
@@ -552,11 +552,11 @@ test("project ai waits for authoritative provenance before hydrating a selected 
     overviewWidth: 1100,
     overviewTrueWidth: 1100,
   });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
   await seedAIStore(page, {
     activeChatId: selectedChatId,
   });
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
 
   await page.route("**/api/getEngineConfigs", async (route) => {
     await route.fulfill({

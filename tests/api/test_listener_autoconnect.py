@@ -39,6 +39,9 @@ def test_autoconnect_requires_env_opt_in(monkeypatch) -> None:
             monkeypatch.delenv("SETTA_LISTENER_AUTOCONNECT", raising=False)
             monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
             monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+            monkeypatch.setattr(
+                C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
+            )
             monkeypatch.chdir(workspace_root)
 
             listener = SettaListener(project_config_id=ID("proj-1"))
@@ -73,6 +76,9 @@ def test_autoconnect_skips_when_explicit_host_port_provided(monkeypatch) -> None
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
             monkeypatch.setattr(C, "HOST", "example.com")
             monkeypatch.setattr(C, "PORT", 9001)
+            monkeypatch.setattr(
+                C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
+            )
             monkeypatch.chdir(workspace_root)
 
             listener = SettaListener(
@@ -111,6 +117,9 @@ def test_autoconnect_can_be_disabled(monkeypatch) -> None:
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "0")
             monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
             monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+            monkeypatch.setattr(
+                C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
+            )
             monkeypatch.chdir(workspace_root)
 
             listener = SettaListener(project_config_id=ID("proj-1"))
@@ -145,6 +154,9 @@ def test_autoconnect_can_be_forced(monkeypatch) -> None:
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
             monkeypatch.setattr(C, "HOST", "example.com")
             monkeypatch.setattr(C, "PORT", 9001)
+            monkeypatch.setattr(
+                C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
+            )
             monkeypatch.chdir(workspace_root)
 
             listener = SettaListener(project_config_id=ID("proj-1"))

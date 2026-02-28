@@ -80,7 +80,7 @@ test.describe.serial("chat branching", () => {
         .click();
 
       const historyEntry = reloadedPane
-        .locator("div.group\\/threaditem")
+        .getByTestId("project-chat-thread-entry")
         .filter({ hasText: "Original message" })
         .first();
       await expect(historyEntry).toBeVisible();

@@ -7,13 +7,31 @@ test("backend logs pane supports column resize handles and copy feedback", async
   await setOverviewTab(page, "BackendLogs");
   await ensureAppReady(page);
 
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const readApiKeysRevision = async (): Promise<number> => {
+    const response = await page.request.get(`${backendOrigin}/api/llm/apiKeys`);
+    if (!response.ok()) {
+      throw new Error(
+        `Failed to load api key revision (${response.status()}).`,
+      );
+    }
+    const payload = (await response.json()) as { revision?: unknown };
+    if (typeof payload.revision !== "number") {
+      throw new Error("Missing api key revision in /api/llm/apiKeys response.");
+    }
+    return payload.revision;
+  };
+
+  const firstRevision = await readApiKeysRevision();
   await postBackend(page, "/llm/apiKeys", {
     apiKeys: { SETTA_E2E_LOG_KEY: "one" },
-    expectedRevision: 0,
+    expectedRevision: firstRevision,
   });
+  const secondRevision = await readApiKeysRevision();
   await postBackend(page, "/llm/apiKeys", {
     apiKeys: { SETTA_E2E_LOG_KEY: "two" },
-    expectedRevision: 1,
+    expectedRevision: secondRevision,
   });
 
   const rows = page.getByTestId("backend-log-row");
