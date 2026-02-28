@@ -40,6 +40,7 @@ from setta.routers import (
     code_info_router,
     git_router,
     launch_router,
+    launcher_home_router,
     listener_router,
     llm_router,
     lsp_router,
@@ -83,7 +84,7 @@ async def lifespan(app: FastAPI):
             share_deployment_root=deployment_root,
         )
     else:
-        app.state.setta = SettaFastAPIState(app)
+        app.state.setta = SettaFastAPIState(app, launcher_mode=C.LAUNCHER_MODE)
 
     if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
@@ -158,6 +159,7 @@ if not (C.SHARE_MODE or C.APP_MODE):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
+    allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -186,6 +188,7 @@ app.include_router(attachments_router, **http_router_kwargs)
 app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
 app.include_router(launch_router, **http_router_kwargs)
+app.include_router(launcher_home_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)

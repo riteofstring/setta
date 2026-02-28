@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import subprocess
 import socket
@@ -58,6 +60,7 @@ def test_parse_session_list_parses_valid_payload() -> None:
                 "port": "61234",
                 "pid": 123,
                 "startedAt": "2025-01-01T00:00:00",
+                "serverMode": "ide",
             }
         ]
     }
@@ -68,6 +71,66 @@ def test_parse_session_list_parses_valid_payload() -> None:
     assert session.port == 61234
     assert session.pid == 123
     assert session.started_at == datetime.fromisoformat("2025-01-01T00:00:00")
+    assert session.server_mode == "ide"
+
+
+def test_parse_session_list_rejects_invalid_server_mode() -> None:
+    payload = {
+        "sessions": [
+            {
+                "id": "session-1",
+                "workspacePath": "/tmp/work",
+                "workspacePathCanonical": "/tmp/work",
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 123,
+                "startedAt": "2025-01-01T00:00:00",
+                "serverMode": "share",
+            }
+        ]
+    }
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_common.parse_session_list(payload)
+    assert excinfo.value.code == "RemoteSessionList"
+
+
+def test_fetch_remote_sessions_forwards_server_mode_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, str | None] = {"setta_args": None}
+
+    def fake_run_remote_setta_command(*args, **_kwargs):
+        captured["setta_args"] = args[5]
+        encoded = base64.b64encode(
+            json.dumps({"sessions": []}).encode("utf-8")
+        ).decode("ascii")
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=f"{ssh_common.CONNECT_INFO_JSON_PREFIX}{encoded}\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        ssh_common,
+        "run_remote_setta_command",
+        fake_run_remote_setta_command,
+    )
+
+    sessions = ssh_common.fetch_remote_sessions(
+        "user@host",
+        [],
+        "bash",
+        "/tmp/work",
+        "setta",
+        "",
+        ssh_prefix=["ssh"],
+        server_mode="ide",
+    )
+
+    assert sessions == []
+    assert captured["setta_args"] is not None
+    assert "--server-mode ide" in captured["setta_args"]
 
 
 def test_is_safe_remote_path_allows_spaces_and_rejects_control_chars() -> None:

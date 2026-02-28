@@ -124,10 +124,7 @@ describe("AI resource load guards", () => {
         status: 200,
         hasResponse: true,
         data: {
-          apiKeys: {
-            OPENAI_API_KEY: "pw-key",
-          },
-          revision: 2,
+          OPENAI_API_KEY: "pw-key",
         },
       };
     });
@@ -142,7 +139,6 @@ describe("AI resource load guards", () => {
     const state = useAIStore.getState();
     expect(state.apiKeysInitialLoadComplete).toBe(true);
     expect(state.apiKeysLoadError).toBeNull();
-    expect(state.apiKeysRevision).toBe(2);
   });
 
   it("deduplicates in-flight agent run loads", async () => {

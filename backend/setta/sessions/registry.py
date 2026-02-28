@@ -7,6 +7,7 @@ import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import psutil
 from pydantic import BaseModel, Field, ValidationError
@@ -34,6 +35,7 @@ class SessionMetadata(BaseModel):
     runtimeRoot: str | None = None
     settaHome: str | None = None
     profile: str | None = None
+    serverMode: Literal["ide", "launcher"] = "ide"
 
 
 class SessionRegistry:
@@ -74,6 +76,7 @@ class SessionRegistry:
         runtime_root: str | None = None,
         setta_home: str | None = None,
         profile: str | None = None,
+        server_mode: Literal["ide", "launcher"] = "ide",
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
         display_workspace = workspace_display_path or str(workspace_path)
@@ -103,6 +106,7 @@ class SessionRegistry:
             runtimeRoot=runtime_root,
             settaHome=setta_home,
             profile=profile,
+            serverMode=server_mode,
         )
         self._write_metadata(metadata)
         return metadata
@@ -147,6 +151,23 @@ class SessionRegistry:
             session
             for session in sessions
             if Path(session.workspacePathCanonical).resolve() == canonical_workspace
+        ]
+
+    def find_sessions_by_workspace_and_mode(
+        self,
+        workspace_path: Path | str,
+        server_mode: Literal["ide", "launcher"],
+        prune_stale: bool = True,
+        track_suspicious: bool = False,
+    ) -> list[SessionMetadata]:
+        return [
+            session
+            for session in self.find_sessions_by_workspace(
+                workspace_path=workspace_path,
+                prune_stale=prune_stale,
+                track_suspicious=track_suspicious,
+            )
+            if session.serverMode == server_mode
         ]
 
     def delete_session(self, session_id: str) -> None:

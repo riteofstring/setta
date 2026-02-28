@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
+import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
 
 describe("projectChatStarterPrompts (perf)", () => {
   it("builds starter prompts quickly", () => {
     const start = performance.now();
     for (let index = 0; index < 20_000; index += 1) {
-      buildCreateProjectStarterPrompt(index % 2 === 0);
+      buildDesignFirstFigmaStarterPrompt();
     }
     const elapsedMs = performance.now() - start;
 
