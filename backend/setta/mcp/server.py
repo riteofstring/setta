@@ -787,7 +787,9 @@ class SettaFastMCP(FastMCP):
                 return None
             normalized = value.strip()
             if normalized == "":
-                return None
+                raise TypeError(
+                    "frontendWebsocketId must be a non-empty string when provided."
+                )
             return normalized
 
         meta = ctx.request_context.meta

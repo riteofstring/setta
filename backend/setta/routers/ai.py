@@ -36,6 +36,7 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.frontend_websocket_id import require_frontend_websocket_id
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
     AgentProfile,
@@ -477,18 +478,6 @@ def _normalize_reference_image_inputs(
     )
 
 
-def _normalize_frontend_websocket_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        raise HTTPException(
-            status_code=400,
-            detail="frontendWebsocketId must be a non-empty string when provided.",
-        )
-    return normalized
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -759,7 +748,7 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
-    normalized_frontend_websocket_id = _normalize_frontend_websocket_id(
+    normalized_frontend_websocket_id = require_frontend_websocket_id(
         x.frontendWebsocketId
     )
     if resolved.engine_config.engineType == EngineType.setta_llm:

@@ -96,7 +96,15 @@ export type UISettingRevealExecutionContext = {
 
 let revealMutationLock: Promise<void> = Promise.resolve();
 let revealMutationSequence = 0;
-let latestRevealMutationLeaseId = 0;
+let revealMutationOwnerForOverviewVis: number | null = null;
+let revealMutationOwnerForOverviewTab: number | null = null;
+let revealMutationOwnerForUiEditorVis: number | null = null;
+const revealMutationOwnerByUiEditorTabSectionType = new Map<string, number>();
+const revealMutationOwnerByRunInstructionsProjectConfigId = new Map<
+  string,
+  number
+>();
+const revealMutationOwnerByProjectAiProjectConfigId = new Map<string, number>();
 
 function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
@@ -191,90 +199,94 @@ async function revealSingleSetting({
     return mutationResult.status;
   }
   const mutationLease = mutationResult.lease;
-  const deadlineMs = Date.now() + durationMs;
+  try {
+    const deadlineMs = Date.now() + durationMs;
 
-  let pluginRevealErrorMessage: string | null = null;
-  if (target.strategy === "plugin_handler") {
-    const pluginRevealResult = await revealWithPluginHandler(
-      target,
+    let pluginRevealErrorMessage: string | null = null;
+    if (target.strategy === "plugin_handler") {
+      const pluginRevealResult = await revealWithPluginHandler(
+        target,
+        deadlineMs,
+        executionContext,
+      );
+      const postPluginRevealMismatch =
+        resolveRevealExecutionMismatch(executionContext);
+      if (postPluginRevealMismatch !== null) {
+        await rollbackRevealMutationLease(mutationLease);
+        return buildExecutionContextMismatchStatus(
+          target.settingId,
+          postPluginRevealMismatch.message,
+        );
+      }
+      if (pluginRevealResult.ok) {
+        return {
+          settingId: target.settingId,
+          status: "revealed",
+          errorCode: null,
+          errorMessage: null,
+        };
+      }
+      pluginRevealErrorMessage = pluginRevealResult.errorMessage;
+    }
+
+    if (target.anchorId === null || target.anchorId === undefined) {
+      return {
+        settingId: target.settingId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: pluginRevealErrorMessage
+          ? `${pluginRevealErrorMessage} No fallback anchorId is available.`
+          : `Setting ${target.settingId} is missing a reveal anchorId.`,
+      };
+    }
+
+    const remainingMsForAnchor = deadlineMs - Date.now();
+    if (remainingMsForAnchor <= 0) {
+      return {
+        settingId: target.settingId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: pluginRevealErrorMessage
+          ? `${pluginRevealErrorMessage} Reveal deadline exceeded before fallback anchor lookup.`
+          : `Reveal deadline exceeded before locating anchor for ${target.settingId}.`,
+      };
+    }
+    const anchorElement = await waitForAnchorElement({
+      side: target.side,
+      anchorId: target.anchorId,
       deadlineMs,
       executionContext,
-    );
-    const postPluginRevealMismatch =
+    });
+    const postAnchorLookupMismatch =
       resolveRevealExecutionMismatch(executionContext);
-    if (postPluginRevealMismatch !== null) {
+    if (postAnchorLookupMismatch !== null) {
       await rollbackRevealMutationLease(mutationLease);
       return buildExecutionContextMismatchStatus(
         target.settingId,
-        postPluginRevealMismatch.message,
+        postAnchorLookupMismatch.message,
       );
     }
-    if (pluginRevealResult.ok) {
+    if (!anchorElement) {
       return {
         settingId: target.settingId,
-        status: "revealed",
-        errorCode: null,
-        errorMessage: null,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: pluginRevealErrorMessage
+          ? `${pluginRevealErrorMessage} Fallback anchor was not found.`
+          : `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
       };
     }
-    pluginRevealErrorMessage = pluginRevealResult.errorMessage;
-  }
-
-  if (target.anchorId === null || target.anchorId === undefined) {
+    scrollIntoView(anchorElement);
+    applyHighlight(anchorElement, durationMs);
     return {
       settingId: target.settingId,
-      status: "failed",
-      errorCode: "mutation_failed",
-      errorMessage: pluginRevealErrorMessage
-        ? `${pluginRevealErrorMessage} No fallback anchorId is available.`
-        : `Setting ${target.settingId} is missing a reveal anchorId.`,
+      status: "revealed",
+      errorCode: null,
+      errorMessage: null,
     };
+  } finally {
+    await finalizeRevealMutationLease(mutationLease);
   }
-
-  const remainingMsForAnchor = deadlineMs - Date.now();
-  if (remainingMsForAnchor <= 0) {
-    return {
-      settingId: target.settingId,
-      status: "failed",
-      errorCode: "mutation_failed",
-      errorMessage: pluginRevealErrorMessage
-        ? `${pluginRevealErrorMessage} Reveal deadline exceeded before fallback anchor lookup.`
-        : `Reveal deadline exceeded before locating anchor for ${target.settingId}.`,
-    };
-  }
-  const anchorElement = await waitForAnchorElement({
-    side: target.side,
-    anchorId: target.anchorId,
-    deadlineMs,
-    executionContext,
-  });
-  const postAnchorLookupMismatch =
-    resolveRevealExecutionMismatch(executionContext);
-  if (postAnchorLookupMismatch !== null) {
-    await rollbackRevealMutationLease(mutationLease);
-    return buildExecutionContextMismatchStatus(
-      target.settingId,
-      postAnchorLookupMismatch.message,
-    );
-  }
-  if (!anchorElement) {
-    return {
-      settingId: target.settingId,
-      status: "failed",
-      errorCode: "mutation_failed",
-      errorMessage: pluginRevealErrorMessage
-        ? `${pluginRevealErrorMessage} Fallback anchor was not found.`
-        : `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
-    };
-  }
-  scrollIntoView(anchorElement);
-  applyHighlight(anchorElement, durationMs);
-  return {
-    settingId: target.settingId,
-    status: "revealed",
-    errorCode: null,
-    errorMessage: null,
-  };
 }
 
 async function applyRevealMutationsWithLease({
@@ -365,12 +377,15 @@ async function rollbackRevealMutationLease(
   mutationLease: RevealMutationLease,
 ): Promise<void> {
   await runWithRevealMutationLock(() => {
-    if (latestRevealMutationLeaseId !== mutationLease.leaseId) {
-      return;
-    }
     restoreRevealLocalStorageSnapshotIfOwned(mutationLease);
-    revealMutationSequence += 1;
-    latestRevealMutationLeaseId = revealMutationSequence;
+  });
+}
+
+async function finalizeRevealMutationLease(
+  mutationLease: RevealMutationLease,
+): Promise<void> {
+  await runWithRevealMutationLock(() => {
+    clearRevealMutationOwnershipForLease(mutationLease);
   });
 }
 
@@ -386,7 +401,7 @@ function registerRevealMutationLease(
     postMutationSnapshot,
     mutationDiff,
   };
-  latestRevealMutationLeaseId = lease.leaseId;
+  recordRevealMutationOwnership(lease);
   return lease;
 }
 
@@ -407,14 +422,94 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   };
 }
 
+function recordRevealMutationOwnership({
+  leaseId,
+  mutationDiff,
+}: RevealMutationLease): void {
+  if (mutationDiff.touchedOverviewVis) {
+    revealMutationOwnerForOverviewVis = leaseId;
+  }
+  if (mutationDiff.touchedOverviewTab) {
+    revealMutationOwnerForOverviewTab = leaseId;
+  }
+  if (mutationDiff.touchedUiEditorVis) {
+    revealMutationOwnerForUiEditorVis = leaseId;
+  }
+  for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
+    revealMutationOwnerByUiEditorTabSectionType.set(sectionType, leaseId);
+  }
+  for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
+    revealMutationOwnerByRunInstructionsProjectConfigId.set(
+      projectConfigId,
+      leaseId,
+    );
+  }
+  for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
+    revealMutationOwnerByProjectAiProjectConfigId.set(projectConfigId, leaseId);
+  }
+}
+
+function clearRevealMutationOwnershipForLease({
+  leaseId,
+  mutationDiff,
+}: RevealMutationLease): void {
+  if (
+    mutationDiff.touchedOverviewVis &&
+    revealMutationOwnerForOverviewVis === leaseId
+  ) {
+    revealMutationOwnerForOverviewVis = null;
+  }
+  if (
+    mutationDiff.touchedOverviewTab &&
+    revealMutationOwnerForOverviewTab === leaseId
+  ) {
+    revealMutationOwnerForOverviewTab = null;
+  }
+  if (
+    mutationDiff.touchedUiEditorVis &&
+    revealMutationOwnerForUiEditorVis === leaseId
+  ) {
+    revealMutationOwnerForUiEditorVis = null;
+  }
+  for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
+    if (
+      revealMutationOwnerByUiEditorTabSectionType.get(sectionType) !== leaseId
+    ) {
+      continue;
+    }
+    revealMutationOwnerByUiEditorTabSectionType.delete(sectionType);
+  }
+  for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
+    if (
+      revealMutationOwnerByRunInstructionsProjectConfigId.get(
+        projectConfigId,
+      ) !== leaseId
+    ) {
+      continue;
+    }
+    revealMutationOwnerByRunInstructionsProjectConfigId.delete(projectConfigId);
+  }
+  for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
+    if (
+      revealMutationOwnerByProjectAiProjectConfigId.get(projectConfigId) !==
+      leaseId
+    ) {
+      continue;
+    }
+    revealMutationOwnerByProjectAiProjectConfigId.delete(projectConfigId);
+  }
+}
+
 function restoreRevealLocalStorageSnapshotIfOwned({
   snapshot,
   postMutationSnapshot,
   mutationDiff,
+  leaseId,
 }: {
   snapshot: RevealLocalStorageSnapshot;
   postMutationSnapshot: RevealLocalStorageSnapshot;
   mutationDiff: RevealMutationDiff;
+  leaseId?: number;
 }): void {
   useLocalStorage.setState((state) => {
     const nextState: Partial<typeof state> = {};
@@ -422,6 +517,7 @@ function restoreRevealLocalStorageSnapshotIfOwned({
 
     if (
       mutationDiff.touchedOverviewVis &&
+      isRevealMutationOwnerMatch(revealMutationOwnerForOverviewVis, leaseId) &&
       state.overviewVis === postMutationSnapshot.overviewVis
     ) {
       nextState.overviewVis = snapshot.overviewVis;
@@ -429,6 +525,7 @@ function restoreRevealLocalStorageSnapshotIfOwned({
     }
     if (
       mutationDiff.touchedOverviewTab &&
+      isRevealMutationOwnerMatch(revealMutationOwnerForOverviewTab, leaseId) &&
       state.overviewTab === postMutationSnapshot.overviewTab
     ) {
       nextState.overviewTab = snapshot.overviewTab;
@@ -436,6 +533,7 @@ function restoreRevealLocalStorageSnapshotIfOwned({
     }
     if (
       mutationDiff.touchedUiEditorVis &&
+      isRevealMutationOwnerMatch(revealMutationOwnerForUiEditorVis, leaseId) &&
       state.uiEditorVis === postMutationSnapshot.uiEditorVis
     ) {
       nextState.uiEditorVis = snapshot.uiEditorVis;
@@ -444,6 +542,14 @@ function restoreRevealLocalStorageSnapshotIfOwned({
 
     let nextUiEditorTab: typeof state.uiEditorTab | null = null;
     for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
+      if (
+        !isRevealMutationOwnerMatch(
+          revealMutationOwnerByUiEditorTabSectionType.get(sectionType),
+          leaseId,
+        )
+      ) {
+        continue;
+      }
       const currentTab = state.uiEditorTab[sectionType];
       const postMutationTab = postMutationSnapshot.uiEditorTab[sectionType];
       if (currentTab !== postMutationTab) {
@@ -469,6 +575,11 @@ function restoreRevealLocalStorageSnapshotIfOwned({
         snapshotRecord:
           snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
         recordKey: projectConfigId,
+        ownerLeaseId:
+          revealMutationOwnerByRunInstructionsProjectConfigId.get(
+            projectConfigId,
+          ),
+        leaseId,
         ensureMutableRecord: () => {
           if (nextRunInstructions === null) {
             nextRunInstructions = cloneStringArrayRecord(
@@ -497,6 +608,9 @@ function restoreRevealLocalStorageSnapshotIfOwned({
         snapshotRecord:
           snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
         recordKey: projectConfigId,
+        ownerLeaseId:
+          revealMutationOwnerByProjectAiProjectConfigId.get(projectConfigId),
+        leaseId,
         ensureMutableRecord: () => {
           if (nextProjectAiSettings === null) {
             nextProjectAiSettings = cloneStringArrayRecord(
@@ -522,19 +636,36 @@ function restoreRevealLocalStorageSnapshotIfOwned({
   });
 }
 
+function isRevealMutationOwnerMatch(
+  ownerLeaseId: number | undefined | null,
+  leaseId: number | undefined,
+): boolean {
+  if (leaseId === undefined) {
+    return true;
+  }
+  return ownerLeaseId === leaseId;
+}
+
 function revertStringArrayRecordEntryIfOwned({
   currentRecord,
   postMutationRecord,
   snapshotRecord,
   recordKey,
+  ownerLeaseId,
+  leaseId,
   ensureMutableRecord,
 }: {
   currentRecord: Record<string, Array<string>>;
   postMutationRecord: Record<string, Array<string>>;
   snapshotRecord: Record<string, Array<string>>;
   recordKey: string;
+  ownerLeaseId: number | undefined;
+  leaseId: number | undefined;
   ensureMutableRecord: () => Record<string, Array<string>>;
 }): boolean {
+  if (!isRevealMutationOwnerMatch(ownerLeaseId, leaseId)) {
+    return false;
+  }
   const currentEntry = currentRecord[recordKey];
   const postMutationEntry = postMutationRecord[recordKey];
   if (!areOptionalStringArraysEqual(currentEntry, postMutationEntry)) {

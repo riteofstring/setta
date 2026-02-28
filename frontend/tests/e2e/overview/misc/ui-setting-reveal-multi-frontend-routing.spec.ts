@@ -316,44 +316,38 @@ test("reveal_ui_setting accepts share-scoped calls that include frontend affinit
   }
 });
 
-test("share-scoped reveal_ui_setting fails when origin affinity is missing", async ({
+test("share-scoped reveal_ui_setting rejects whitespace frontend affinity ids at ingress", async ({
   page,
 }) => {
   await setOverviewTab(page, "Overview");
-  await installFrontendIdentityCapture(page);
   const projectContext = await openIsolatedProject(page);
-  const pageOneUrl = page.url();
-  await waitForFrontendIdentity(page);
-
-  const secondPage = await page.context().newPage();
-  await setOverviewTab(secondPage, "Overview");
-  await installFrontendIdentityCapture(secondPage);
-  await secondPage.goto(pageOneUrl, { waitUntil: "domcontentloaded" });
-  await waitForFrontendIdentity(secondPage);
 
   try {
-    const revealResult = await callMcpTool<RevealUISettingResult>(
-      page,
-      projectContext.projectConfigId,
-      "reveal_ui_setting",
+    const response = await page.request.post(
+      `${BACKEND_ORIGIN}/__setta__/tools/call`,
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
-        durationMs: 1200,
+        data: {
+          tool: "reveal_ui_setting",
+          arguments: {
+            settingId: WATCH_CODE_ENABLED_SETTING_ID,
+            durationMs: 1200,
+          },
+          agenticContext: {
+            projectConfigId: projectContext.projectConfigId,
+            frontendWebsocketId: "   ",
+            allowUnscoped: true,
+            shareSessionId: "share-session-e2e",
+          },
+        },
+        timeout: 15000,
       },
-      "   ",
-      "share-session-e2e",
     );
-    expect(revealResult.emittedRevealCount).toBe(0);
-    expect(revealResult.statuses[0]?.status).toBe("failed");
-    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
-    expect(revealResult.statuses[0]?.error?.message).toContain(
-      "multiple frontends are connected",
-    );
-    expect(revealResult.statuses[0]?.error?.message).toContain(
-      "frontendWebsocketId",
+    expect(response.status()).toBe(422);
+    const responseText = await response.text();
+    expect(responseText).toContain(
+      "frontendWebsocketId must be a non-empty string when provided.",
     );
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
-    await secondPage.close();
   }
 });

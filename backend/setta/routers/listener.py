@@ -4,6 +4,7 @@ from setta.agentic.engine_resolver import resolve_engine_config
 from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit import ChatHistory, ToolRunner
 from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.frontend_websocket_id import require_frontend_websocket_id
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import EngineType
 from setta.types.chat import Chat, ChatMetadata
@@ -28,18 +29,6 @@ router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
 
 def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:
     return ChatHistory(AgentRunChatStore(ctx.state.dbe))
-
-
-def _normalize_frontend_websocket_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        raise HTTPException(
-            status_code=400,
-            detail="frontendWebsocketId must be a non-empty string when provided.",
-        )
-    return normalized
 
 
 def _resolve_engine_llm_config(
@@ -158,7 +147,7 @@ async def route_run_mcp_tools(
     if project_config_id is None:
         raise KeyError(f"Chat {x.chatId} missing project config id")
     server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
-    frontend_websocket_id = _normalize_frontend_websocket_id(x.frontendWebsocketId)
+    frontend_websocket_id = require_frontend_websocket_id(x.frontendWebsocketId)
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),

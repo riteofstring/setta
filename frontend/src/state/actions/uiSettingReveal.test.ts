@@ -534,6 +534,156 @@ describe("receiveUISettingReveal", () => {
     expect(state.overviewTab).toBe("Overview");
   });
 
+  it("rolls back a failed older reveal without clobbering a newer non-overlapping reveal", async () => {
+    const rightAnchorId = "core.code.section_variants";
+    const rightAnchor = createFakeAnchor(rightAnchorId);
+    const leftPaneRoot = {
+      querySelector: vi.fn(() => null),
+    } as unknown as HTMLElement;
+    const rightPaneRoot = createFakePaneRoot(rightAnchor, rightAnchorId);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return leftPaneRoot;
+        }
+        if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+          return rightPaneRoot;
+        }
+        return null;
+      }),
+    };
+    setActiveSectionType(SectionTypeEnum.Code);
+
+    let requestAContextActive = true;
+    const requestAPromise = receiveUISettingReveal(
+      createRevealContent({ projectConfigId: "project-active" }),
+      {
+        requestId: "request-concurrent-a-non-overlap",
+        requestedProjectConfigId: "project-active",
+        socketGeneration: 1,
+        isSocketGenerationActive: () => requestAContextActive,
+      },
+    );
+    await vi.advanceTimersByTimeAsync(80);
+
+    const requestBStatuses = await receiveUISettingReveal(
+      createRevealContent({
+        projectConfigId: "project-active",
+        reveals: [
+          createRevealTarget({
+            settingId: rightAnchorId,
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: rightAnchorId,
+          }),
+        ],
+      }),
+    );
+    expect(requestBStatuses[0]?.status).toBe("revealed");
+
+    requestAContextActive = false;
+    await vi.runAllTimersAsync();
+    const requestAStatuses = await requestAPromise;
+
+    expect(requestAStatuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-concurrent-a-non-overlap completed.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(false);
+    expect(state.overviewTab).toBe("Overview");
+    expect(state.uiEditorVis).toBe(true);
+    expect(state.uiEditorTab[SectionTypeEnum.Code]).toBe(
+      "SectionVariantsConfig",
+    );
+  });
+
+  it("keeps overlapping pane keys owned by a newer reveal when an older reveal rolls back", async () => {
+    const leftWatchCodeAnchorId = "core.watch_code.enabled";
+    const leftRunInstructionsAnchorId =
+      "core.run_instructions.python_codegen_enabled";
+    const leftRunInstructionsAnchor = createFakeAnchor(
+      leftRunInstructionsAnchorId,
+    );
+    const leftPaneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector === `[data-setting-anchor="${leftRunInstructionsAnchorId}"]`
+        ) {
+          return leftRunInstructionsAnchor;
+        }
+        if (selector === `[data-setting-anchor="${leftWatchCodeAnchorId}"]`) {
+          return null;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return leftPaneRoot;
+        }
+        return null;
+      }),
+    };
+
+    let requestAContextActive = true;
+    const requestAPromise = receiveUISettingReveal(createRevealContent({}), {
+      requestId: "request-concurrent-a-overlap",
+      requestedProjectConfigId: "project-1",
+      socketGeneration: 1,
+      isSocketGenerationActive: () => requestAContextActive,
+    });
+    await vi.advanceTimersByTimeAsync(80);
+
+    const requestBStatuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: leftRunInstructionsAnchorId,
+            side: "left",
+            overviewTabKey: "RunInstructions",
+            anchorId: leftRunInstructionsAnchorId,
+          }),
+        ],
+      }),
+    );
+    expect(requestBStatuses[0]?.status).toBe("revealed");
+
+    requestAContextActive = false;
+    await vi.runAllTimersAsync();
+    const requestAStatuses = await requestAPromise;
+
+    expect(requestAStatuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: websocket generation changed before request request-concurrent-a-overlap completed.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(true);
+    expect(state.overviewTab).toBe("RunInstructions");
+  });
+
   it("preserves manual pane changes during project-switch rollback", async () => {
     const anchor = createFakeAnchor("core.watch_code.enabled");
     const startMs = Date.now();

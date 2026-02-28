@@ -839,3 +839,189 @@ async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> No
     assert (
         "Invalid patches payload" in malformed_stream_patch_payload["detail"]["message"]
     )
+
+
+@pytest.mark.asyncio
+async def test_tools_call_rejects_whitespace_only_frontend_websocket_id(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "search_mcp_tools",
+                "arguments": {"query": "setting"},
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "frontendWebsocketId": "   ",
+                    "allowUnscoped": True,
+                },
+            },
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    detail = payload.get("detail")
+    assert isinstance(detail, list) and detail
+    first_error = detail[0]
+    assert first_error["loc"] == ["body", "agenticContext", "frontendWebsocketId"]
+    assert "frontendWebsocketId must be a non-empty string" in first_error["msg"]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_trims_frontend_websocket_id_in_agentic_context(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    class _CaptureFrontendWebsocketIdTool:
+        async def run(
+            self,
+            _arguments,
+            *,
+            context,
+            convert_result,  # noqa: ARG002
+        ):
+            meta = context.request_context.meta
+            if meta is None:
+                raise AssertionError("Expected agentic context metadata.")
+            return ([], {"frontendWebsocketId": meta.frontendWebsocketId})
+
+    original_get_tool = state.mcp_server.get_tool
+
+    def _patched_get_tool(name: str):
+        if name == "capture_frontend_websocket_id":
+            return _CaptureFrontendWebsocketIdTool()
+        return original_get_tool(name)
+
+    monkeypatch.setattr(state.mcp_server, "get_tool", _patched_get_tool)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "capture_frontend_websocket_id",
+                "arguments": {},
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "frontendWebsocketId": "  frontend-trimmed  ",
+                    "allowUnscoped": True,
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is False
+    assert payload["structuredContent"]["frontendWebsocketId"] == "frontend-trimmed"

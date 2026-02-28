@@ -7,11 +7,14 @@ from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
+from setta.routers.frontend_websocket_id import (
+    validate_frontend_websocket_id_for_model,
+)
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
@@ -39,6 +42,11 @@ class MCPToolCallAgenticContext(BaseModel):
     frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     shareSessionId: str | None = None
+
+    @field_validator("frontendWebsocketId")
+    @classmethod
+    def _normalize_frontend_websocket_id(cls, value: str | None) -> str | None:
+        return validate_frontend_websocket_id_for_model(value)
 
 
 @router.post(Route.TOOLS_CALL)
