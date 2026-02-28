@@ -119,3 +119,18 @@ def _setta_home_tmp(
     from setta.utils.paths import clear_setta_paths_cache
 
     clear_setta_paths_cache()
+
+
+@pytest.fixture(autouse=True)
+def _workspace_root_tmp(
+    _setta_home_tmp: None,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Ensure default workspace-scoped writes always land in pytest temp roots,
+    # never in the repository checkout.
+    workspace_root = tmp_path_factory.mktemp("setta_workspace")
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+    from setta.utils.paths import clear_setta_paths_cache
+
+    clear_setta_paths_cache()

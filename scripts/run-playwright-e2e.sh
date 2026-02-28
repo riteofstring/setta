@@ -126,22 +126,16 @@ fi
 
 SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN:-http://${SETTA_HOST}:${SETTA_PORT}}"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://${SETTA_DEV_FRONTEND_HOST}:${SETTA_DEV_FRONTEND_PORT}}"
-SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT:-}"
-TEMP_WORKSPACE_ROOT=""
-if [[ -z "${SETTA_WORKSPACE_ROOT}" ]]; then
-  TEMP_WORKSPACE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-XXXXXX")"
-  SETTA_WORKSPACE_ROOT="${TEMP_WORKSPACE_ROOT}"
-fi
+# Always run e2e in a disposable workspace root to avoid mutating real paths.
+TEMP_WORKSPACE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-XXXXXX")"
+SETTA_WORKSPACE_ROOT="${TEMP_WORKSPACE_ROOT}"
 mkdir -p "${SETTA_WORKSPACE_ROOT}"
 export SETTA_WORKSPACE_ROOT
 export SETTA_DEV_FRONTEND_HOST
-SETTA_HOME="${SETTA_HOME:-}"
-TEMP_SETTA_HOME=""
-if [[ -z "${SETTA_HOME}" ]]; then
-  TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
-  mkdir -p "${SETTA_HOME}"
-fi
+# Always run e2e with a disposable SETTA_HOME to avoid touching user config.
+TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
+SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
+mkdir -p "${SETTA_HOME}"
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
