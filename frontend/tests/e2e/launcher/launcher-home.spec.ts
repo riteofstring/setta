@@ -32,6 +32,7 @@ type ListDirectoryRequest = {
 type LauncherHomeMockOptions = {
   delayedLoadMoreGate?: Promise<void>;
   projectsListingTruncated?: boolean;
+  openWorkspaceErrorMessage?: string;
 };
 
 function createRouteGate(): { wait: Promise<void>; release: () => void } {
@@ -357,6 +358,18 @@ async function installLauncherHomeMocks(
         settaHome: payload.settaHome ?? null,
       };
 
+      if (options?.openWorkspaceErrorMessage) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            error: { message: options.openWorkspaceErrorMessage },
+          }),
+        });
+        return;
+      }
+
       const queryValue = payload.createIfMissing ? "created" : "opened";
       const bootstrapUrl = `${FRONTEND_BASE_URL}/home?launcherMock=${queryValue}`;
       await route.fulfill({
@@ -520,9 +533,9 @@ test("launcher directory picker shows explicit truncation when backend caps scan
     .first()
     .click();
 
-  await expect(
-    page.getByTestId("launcher-directory-truncated"),
-  ).toContainText("Directory results are truncated");
+  await expect(page.getByTestId("launcher-directory-truncated")).toContainText(
+    "Directory results are truncated",
+  );
   await expect(page.getByTestId("launcher-directory-load-more")).toHaveCount(0);
 });
 
@@ -571,6 +584,36 @@ test("launcher home creates and opens a new project folder", async ({
   expect(mocks.getLastOpenRequest()).toEqual({
     workspaceRoot: "/Users/demo/fresh-app",
     createIfMissing: true,
+    settaHome: null,
+  });
+});
+
+test("launcher home keeps recent workspace state when open request fails", async ({
+  page,
+}) => {
+  const mocks = await installLauncherHomeMocks(page, {
+    openWorkspaceErrorMessage: "store unavailable",
+  });
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Launcher Home")).toBeVisible();
+  await page
+    .getByTestId("launcher-recent-list")
+    .getByRole("button", { name: "Open" })
+    .first()
+    .click();
+
+  await expect(page).toHaveURL(HOME_URL);
+  await expect(page.getByText("store unavailable")).toBeVisible();
+  await expect(
+    page.getByTestId("launcher-recent-list").getByRole("button", {
+      name: "/Users/demo/projects/alpha",
+    }),
+  ).toBeVisible();
+  expect(mocks.getLastOpenRequest()).toEqual({
+    workspaceRoot: "/Users/demo/projects/alpha",
+    createIfMissing: false,
     settaHome: null,
   });
 });

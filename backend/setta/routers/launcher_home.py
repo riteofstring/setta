@@ -474,22 +474,6 @@ def route_open_launcher_workspace(
             error=LauncherHomeErrorPayload(code="BadRequest", message=str(exc)),
         )
 
-    try:
-        update_launcher_last_used_workspace_if_installed(
-            setta_home=result.paths.setta_home,
-            workspace_root=result.paths.workspace_root,
-        )
-    except (LauncherMetadataError, OSError):
-        pass
-
-    try:
-        upsert_recent_workspace(
-            setta_home=result.paths.setta_home,
-            workspace_root=result.paths.workspace_root,
-        )
-    except LauncherWorkspaceStoreError:
-        pass
-
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
     bootstrap_url_fragment, _ = build_bootstrap_urls(
@@ -521,9 +505,16 @@ def route_open_launcher_workspace(
     except TrustedFrontendOriginStoreError as exc:
         if result.started_new:
             try:
+                pid_create_time = getattr(result.session, "pidCreateTime", None)
+                if pid_create_time is None:
+                    raise LocalSessionRollbackError(
+                        "Missing pidCreateTime for newly started local session "
+                        f"{result.session.id}."
+                    )
                 rollback_started_local_session(
                     session_id=result.session.id,
                     pid=result.session.pid,
+                    pid_create_time=pid_create_time,
                     registry=result.registry,
                 )
             except LocalSessionRollbackError as rollback_exc:
@@ -545,6 +536,21 @@ def route_open_launcher_workspace(
                 message=str(exc),
             ),
         )
+    try:
+        update_launcher_last_used_workspace_if_installed(
+            setta_home=result.paths.setta_home,
+            workspace_root=result.paths.workspace_root,
+        )
+    except (LauncherMetadataError, OSError):
+        pass
+
+    try:
+        upsert_recent_workspace(
+            setta_home=result.paths.setta_home,
+            workspace_root=result.paths.workspace_root,
+        )
+    except LauncherWorkspaceStoreError:
+        pass
 
     return LauncherOpenWorkspaceResponse(
         ok=True,

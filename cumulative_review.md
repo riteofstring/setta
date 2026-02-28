@@ -225,3 +225,11 @@
 - Removed inert origin-regex policy surface by deleting `FRONTEND_ORIGIN_REGEX` plumbing and CORS regex wiring; trusted-origin decisions now flow only through explicit configured origins plus session-scoped trusted-origin storage.
 - Added/updated backend unit/integration and Playwright coverage for launch-token contract enforcement, local/remote rollback error typing, SSH tunnel rollback invariants, and trusted-origin policy behavior.
 - Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+
+## 2026-02-27 13:37:27 PST
+
+- Implemented review-driven launch/session correctness fixes with no backward-compatibility shim: local rollback now requires PID identity (`pid` + `pidCreateTime`) and fails closed before metadata deletion on identity mismatch.
+- Added shared PID identity helpers and reused them across local rollback and SSH tunnel PID create-time checks to keep process-ownership validation consistent.
+- Reordered launcher-state persistence to be commit-after-trust: `lastUsedWorkspace` and launcher recents now persist only after trusted-origin persistence succeeds; trust-failure paths perform rollback/error handling without launcher-state writes.
+- Extended tests across unit/integration/e2e for PID-identity rollback failures, trust-failure no-persist invariants, and success-path commit ordering; updated launcher-home Playwright coverage for open-failure UX behavior.
+- Ran requested cleanup workflow: root `pnpm gcf` failed due missing root importer manifest, then `pnpm -C frontend gcf` completed successfully.

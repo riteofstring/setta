@@ -416,15 +416,6 @@ def execute_launch_request(
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
 
-    try:
-        update_launcher_last_used_workspace_if_installed(
-            setta_home=result.paths.setta_home,
-            workspace_root=result.paths.workspace_root,
-        )
-    except (LauncherMetadataError, OSError):
-        # Workspace launches should continue even if launcher metadata is malformed.
-        pass
-
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
     bootstrap_url_fragment, _ = build_bootstrap_urls(
@@ -450,9 +441,16 @@ def execute_launch_request(
     except TrustedFrontendOriginStoreError as exc:
         if result.started_new:
             try:
+                pid_create_time = getattr(result.session, "pidCreateTime", None)
+                if pid_create_time is None:
+                    raise LocalSessionRollbackError(
+                        "Missing pidCreateTime for newly started local session "
+                        f"{result.session.id}."
+                    )
                 _rollback_started_local_session(
                     session_id=result.session.id,
                     pid=result.session.pid,
+                    pid_create_time=pid_create_time,
                     registry=result.registry,
                 )
             except LocalSessionRollbackError as rollback_exc:
@@ -476,6 +474,14 @@ def execute_launch_request(
                 message=str(exc),
             ),
         )
+    try:
+        update_launcher_last_used_workspace_if_installed(
+            setta_home=result.paths.setta_home,
+            workspace_root=result.paths.workspace_root,
+        )
+    except (LauncherMetadataError, OSError):
+        # Workspace launches should continue even if launcher metadata is malformed.
+        pass
     session_info = LaunchSessionInfo(
         id=result.session.id,
         workspacePath=result.session.workspacePath,

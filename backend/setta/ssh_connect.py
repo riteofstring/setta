@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import math
 import os
 import shlex
 import subprocess
@@ -38,6 +37,7 @@ from setta.ssh_common import (
 )
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths
+from setta.utils.pid_identity import pid_matches_create_time
 
 logger = logging.getLogger(__name__)
 
@@ -544,39 +544,23 @@ def _is_pid_alive(pid: int) -> bool:
 
 
 def _pid_matches_create_time(pid: int, expected_create_time: float) -> bool:
-    if pid <= 0:
-        return False
-    if not _is_pid_alive(pid):
-        return False
-    try:
-        proc = psutil.Process(pid)
-    except (psutil.NoSuchProcess, psutil.ZombieProcess):
-        return False
-    try:
-        actual = proc.create_time()
-    except psutil.Error:
-        return False
-    return math.isclose(actual, expected_create_time, rel_tol=0.0, abs_tol=0.01)
+    return pid_matches_create_time(
+        pid=pid,
+        expected_create_time=expected_create_time,
+    )
 
 
 def _stop_pid(pid: int, *, expected_create_time: float | None = None) -> None:
     if pid <= 0:
         return
+    if expected_create_time is not None and not _pid_matches_create_time(
+        pid, expected_create_time
+    ):
+        return
     try:
         proc = psutil.Process(pid)
     except (psutil.NoSuchProcess, psutil.ZombieProcess):
         return
-    if expected_create_time is not None:
-        try:
-            if not math.isclose(
-                proc.create_time(),
-                expected_create_time,
-                rel_tol=0.0,
-                abs_tol=0.01,
-            ):
-                return
-        except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.Error):
-            return
     try:
         proc.terminate()
     except (
