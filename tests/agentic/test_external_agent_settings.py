@@ -281,6 +281,50 @@ args = ["pencil-mcp.js"]
                 mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
             )
 
+    def test_build_codex_settings_file_preserves_dotted_mcp_server_ids(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers."foo.bar"]
+url = "http://localhost:1234"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-dotted-id",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            if not isinstance(mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            dotted_server = mcp_servers.get("foo.bar")
+            assert isinstance(dotted_server, dict)
+            if isinstance(dotted_server, dict):
+                assert dotted_server.get("url") == "http://localhost:1234"
+
     def test_build_codex_settings_file_rejects_conflicting_snake_and_camel_mcp_keys(
         self,
     ) -> None:

@@ -7,6 +7,7 @@ from setta.database.db_objs import DBE
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+    MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     llm_api_keys_path,
     read_managed_api_keys,
     read_managed_api_keys_with_status,
@@ -132,3 +133,39 @@ def test_write_managed_api_keys_with_expected_revision_rejects_stale_revision() 
         assert persisted.corrupt is False
         assert persisted.revision == 2
         assert persisted.api_keys == {"OPENAI_API_KEY": "existing"}
+
+
+def test_read_managed_api_keys_with_status_reports_unavailable_store() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.mkdir()
+
+        result = read_managed_api_keys_with_status(dbe)
+
+        assert result.corrupt is False
+        assert result.revision == 0
+        assert result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+        assert result.api_keys == {}
+        assert isinstance(result.error, str)
+
+
+def test_write_managed_api_keys_with_expected_revision_reports_unavailable_store() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.mkdir()
+
+        result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "next"},
+            expected_revision=0,
+        )
+
+        assert result.status == "store_unavailable"
+        assert result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+        assert result.revision == 0

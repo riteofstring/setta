@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -6,6 +6,39 @@ import {
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
+
+async function seedAIStore(
+  page: Page,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  await page.addInitScript((nextState) => {
+    const key = "setta_ai_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = window.localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as {
+          state?: unknown;
+          version?: unknown;
+        };
+        payload = {
+          state:
+            parsed && typeof parsed.state === "object" && parsed.state !== null
+              ? (parsed.state as Record<string, unknown>)
+              : {},
+          version: typeof parsed?.version === "number" ? parsed.version : 0,
+        };
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, ...nextState };
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  }, patch);
+}
 
 test("project ai hydrates external threads via external provenance endpoint", async ({
   page,
@@ -807,6 +840,284 @@ test("project ai shows context unavailable when backend context telemetry is mis
       overviewPane.getByText("No context telemetry available.").first(),
     ).toBeVisible();
     await expect(overviewPane.getByLabel("context unavailable")).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai blocks stale selected chat ids that have no provenance", async ({
+  page,
+}) => {
+  const staleChatId = "pw-stale-selected-chat";
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await seedAIStore(page, {
+    activeChatId: staleChatId,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    llmHydrateCalls += 1;
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("missing required provenance");
+    await expect(overviewPane.locator('button[type="submit"]').first()).toBeDisabled();
+    await page.waitForTimeout(400);
+    expect(llmHydrateCalls).toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai hydrates selected threads when engine config cache is unavailable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const chatId = "pw-hydrate-unknown-engine-cache";
+  let llmHydrateCalls = 0;
+  let engineConfigCalls = 0;
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    engineConfigCalls += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "engine config load failed" }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-llm-cache-unknown",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-10T00:00:00Z",
+          finishedAt: "2026-04-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "seed-user",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate me" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Hydrate despite cache miss",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-hydrated",
+            role: "assistant",
+            content: [{ type: "text", text: "Hydrated with unknown cache." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    allowExpectedApiError(page, {
+      path: "/api/getEngineConfigs",
+      statuses: [500],
+      count: 4,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadEntry = overviewPane
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Hydrate despite cache miss" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await expect.poll(() => engineConfigCalls).toBeGreaterThan(0);
+    await expect(
+      overviewPane.getByText("Hydrated with unknown cache.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai thread history excludes runs from other projects", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-project-local",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-10T00:00:00Z",
+          finishedAt: "2026-04-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "chat-local",
+            engineConfigId: "engine-config-llm",
+            messages: [],
+          },
+          outputs: { name: "Local project thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: "run-project-foreign",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-11T00:00:00Z",
+          finishedAt: "2026-04-11T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: "foreign-project-id",
+            chatId: "chat-foreign",
+            engineConfigId: "engine-config-llm",
+            messages: [],
+          },
+          outputs: { name: "Foreign project thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const threadsPanel = page
+      .locator("#OverviewPane")
+      .getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+    await expect(threadsPanel.getByText("Local project thread")).toBeVisible();
+    await expect(threadsPanel.getByText("Foreign project thread")).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

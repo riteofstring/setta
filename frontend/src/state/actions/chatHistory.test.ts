@@ -19,6 +19,7 @@ function buildRun({
   outputName,
   nameSource,
   sectionId,
+  projectConfigId,
   runType,
   engineConfigId,
   status,
@@ -31,6 +32,7 @@ function buildRun({
   outputName?: string;
   nameSource?: string;
   sectionId?: string;
+  projectConfigId?: string | null;
   runType?: "llm_chat" | "external_agent" | "scriptable_chat";
   engineConfigId?: string | null;
   status?: AgentRunStatusEnum;
@@ -48,6 +50,7 @@ function buildRun({
       branchParentChatId,
       branchFromMessageId,
       sectionId,
+      projectConfigId,
       engineConfigId,
       messages: [
         {
@@ -190,6 +193,28 @@ describe("chatHistory", () => {
     expect(unscopedEntries[0]?.chatId).toBe("project-chat");
   });
 
+  it("filters history entries to the active project when projectConfigId is provided", () => {
+    const runs = [
+      buildRun({
+        chatId: "project-a-chat",
+        messageText: "Scoped to A",
+        projectConfigId: "project-a",
+      }),
+      buildRun({
+        chatId: "project-b-chat",
+        messageText: "Scoped to B",
+        projectConfigId: "project-b",
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs, {
+      projectConfigId: "project-a",
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.chatId).toBe("project-a-chat");
+  });
+
   it("exposes run metadata for each history entry", () => {
     const runs = [
       buildRun({
@@ -289,6 +314,31 @@ describe("chatHistory", () => {
     expect(provenanceByChatId.get("chat-latest")).toEqual({
       runType: "external_agent",
       engineConfigId: "engine-b",
+    });
+  });
+
+  it("filters provenance to the active project when projectConfigId is provided", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-project-a",
+        messageText: "A",
+        projectConfigId: "project-a",
+      }),
+      buildRun({
+        chatId: "chat-project-b",
+        messageText: "B",
+        projectConfigId: "project-b",
+      }),
+    ];
+
+    const provenanceByChatId = buildChatProvenanceByChatId(runs, {
+      projectConfigId: "project-b",
+    });
+
+    expect(provenanceByChatId.has("chat-project-a")).toBe(false);
+    expect(provenanceByChatId.get("chat-project-b")).toEqual({
+      runType: "llm_chat",
+      engineConfigId: null,
     });
   });
 });

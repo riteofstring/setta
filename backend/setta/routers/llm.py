@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+    MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     read_managed_api_keys_with_status,
     write_managed_api_keys_with_expected_revision,
 )
@@ -61,6 +62,15 @@ async def route_get_llm_api_keys(
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
     read_result = read_managed_api_keys_with_status(ctx.state.dbe)
+    if read_result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
+        error_payload = ManagedAPIKeysErrorResponse(
+            errorCode=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+            message=read_result.error or "Managed API key store is unavailable.",
+            revision=0,
+        )
+        raise HTTPException(
+            status_code=503, detail=error_payload.model_dump(mode="json")
+        )
     if read_result.corrupt:
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
@@ -96,6 +106,15 @@ async def route_set_llm_api_keys(
         )
         raise HTTPException(
             status_code=409, detail=error_payload.model_dump(mode="json")
+        )
+    if write_attempt.status == "store_unavailable":
+        error_payload = ManagedAPIKeysErrorResponse(
+            errorCode=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+            message=write_attempt.error or "Managed API key store is unavailable.",
+            revision=0,
+        )
+        raise HTTPException(
+            status_code=503, detail=error_payload.model_dump(mode="json")
         )
     if write_attempt.status == "revision_conflict":
         error_payload = ManagedAPIKeysErrorResponse(

@@ -10,6 +10,7 @@ from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
+    MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     llm_api_keys_path,
     read_managed_api_keys,
 )
@@ -290,6 +291,58 @@ async def test_llm_api_keys_get_route_returns_typed_corruption_error(
     if not isinstance(exc_info.value.detail, dict):
         raise AssertionError("Expected typed corruption detail payload.")
     assert exc_info.value.detail.get("errorCode") == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    assert exc_info.value.detail.get("revision") == 0
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_get_route_returns_unavailable_error_for_io_failures(
+    state_env: SettaFastAPIState,
+) -> None:
+    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
+    managed_keys_path.mkdir()
+
+    with runtime_context(state_env) as runtime_ctx:
+        with pytest.raises(HTTPException) as exc_info:
+            await route_get_llm_api_keys(runtime_ctx)
+
+    assert exc_info.value.status_code == 503
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected typed unavailable detail payload.")
+    assert (
+        exc_info.value.detail.get("errorCode")
+        == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    )
+    assert exc_info.value.detail.get("revision") == 0
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_set_route_returns_unavailable_error_for_io_failures(
+    state_env: SettaFastAPIState,
+) -> None:
+    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
+    managed_keys_path.mkdir()
+
+    with runtime_context(state_env) as runtime_ctx:
+        with pytest.raises(HTTPException) as exc_info:
+            await route_set_llm_api_keys(
+                UpdateAPIKeysRequest(
+                    apiKeys={"OPENAI_API_KEY": "secret"},
+                    expectedRevision=0,
+                ),
+                runtime_ctx,
+            )
+
+    assert exc_info.value.status_code == 503
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected typed unavailable detail payload.")
+    assert (
+        exc_info.value.detail.get("errorCode")
+        == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    )
     assert exc_info.value.detail.get("revision") == 0
 
 

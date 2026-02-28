@@ -184,7 +184,7 @@ describe("project chat thread storage helpers", () => {
     expect(groups[0]?.name).toBe("Backlog");
   });
 
-  it("allows renaming groups to duplicate titles", () => {
+  it("rejects renaming groups to duplicate titles", () => {
     const alphaId = createProjectChatThreadGroup("project-a", "Alpha");
     const betaId = createProjectChatThreadGroup("project-a", "Beta");
     if (!alphaId || !betaId) {
@@ -192,12 +192,12 @@ describe("project chat thread storage helpers", () => {
     }
 
     const renamed = renameProjectChatThreadGroup("project-a", betaId, "Alpha");
-    expect(renamed).toBe(true);
+    expect(renamed).toBe(false);
     const groups =
       useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
         "project-a"
       ] ?? [];
-    expect(groups[1]?.name).toBe("Alpha");
+    expect(groups[1]?.name).toBe("Beta");
   });
 
   it("toggles pinned state for project thread groups", () => {

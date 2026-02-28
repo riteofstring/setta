@@ -143,17 +143,31 @@ describe("resolveProjectChatEngineConfigIdForSelectedChat", () => {
 });
 
 describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
-  it("returns null when no chat is selected", () => {
-    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("returns compatible when no chat is selected", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: null,
       chatProvenanceByChatId: new Map(),
       engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
     });
-    expect(blocked).toBeNull();
+    expect(result).toEqual({ status: "compatible" });
   });
 
-  it("blocks when selected chat has missing engine metadata", () => {
-    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("blocks when selected chat has missing provenance", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map(),
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+    });
+    expect(result).toEqual({
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    });
+  });
+
+  it("blocks when selected chat has missing engine metadata in provenance", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       chatProvenanceByChatId: new Map([
         [
@@ -165,12 +179,34 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
         ],
       ]),
       engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
     });
-    expect(blocked).toBe("engine_config_missing");
+    expect(result).toEqual({
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    });
+  });
+
+  it("returns unknown when local engine cache is not authoritative", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      chatProvenanceByChatId: new Map([
+        [
+          "chat-1",
+          {
+            runType: "llm_chat",
+            engineConfigId: "engine-llm",
+          },
+        ],
+      ]),
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: false,
+    });
+    expect(result).toEqual({ status: "unknown" });
   });
 
   it("blocks when selected chat run type mismatches persisted engine type", () => {
-    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       chatProvenanceByChatId: new Map([
         [
@@ -193,12 +229,16 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      engineConfigsAuthoritative: true,
     });
-    expect(blocked).toBe("engine_type_mismatch");
+    expect(result).toEqual({
+      status: "blocked",
+      errorCode: "engine_type_mismatch",
+    });
   });
 
-  it("returns null when selected chat provenance is available and compatible", () => {
-    const blocked = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+  it("returns compatible when selected chat provenance is available and compatible", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       chatProvenanceByChatId: new Map([
         [
@@ -221,7 +261,8 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
           },
         ],
       ]),
+      engineConfigsAuthoritative: true,
     });
-    expect(blocked).toBeNull();
+    expect(result).toEqual({ status: "compatible" });
   });
 });

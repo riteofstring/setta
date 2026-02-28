@@ -28,7 +28,6 @@ import {
 import { addTemporaryNotification } from "state/actions/notifications";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
-import { isProviderTranscriptionUnsupportedModelError } from "utils/transcriptionErrors";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -47,6 +46,12 @@ import {
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
+import {
+  type DictationProviderFailureClass,
+  type DictationProviderFailurePhase,
+  classifyProviderDictationFailureClass,
+  shouldFallbackToBrowserAfterProviderFailure,
+} from "./dictationPolicy";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
@@ -1661,10 +1666,40 @@ export const ChatInput = memo(function ChatInput({
     [canBrowserDictate, startBrowserDictation],
   );
 
+  const maybeFallbackForProviderFailure = useCallback(
+    ({
+      phase,
+      failureClass,
+      allowBrowserFallback,
+    }: {
+      phase: DictationProviderFailurePhase;
+      failureClass: DictationProviderFailureClass;
+      allowBrowserFallback: boolean;
+    }): boolean => {
+      if (
+        !shouldFallbackToBrowserAfterProviderFailure({
+          mode: dictationMode,
+          phase,
+          failureClass,
+        })
+      ) {
+        return false;
+      }
+      return maybeFallbackToBrowserDictation(allowBrowserFallback);
+    },
+    [dictationMode, maybeFallbackToBrowserDictation],
+  );
+
   const startProviderDictation = useCallback(
     async (allowBrowserFallback: boolean) => {
       if (!canProviderDictate || !onProviderDictationTranscribe) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+        if (
+          maybeFallbackForProviderFailure({
+            phase: "capture_start",
+            failureClass: "unknown",
+            allowBrowserFallback,
+          })
+        ) {
           return;
         }
         setDictationState("error");
@@ -1676,7 +1711,13 @@ export const ChatInput = memo(function ChatInput({
         !navigator.mediaDevices?.getUserMedia ||
         typeof MediaRecorder === "undefined"
       ) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+        if (
+          maybeFallbackForProviderFailure({
+            phase: "capture_start",
+            failureClass: "unknown",
+            allowBrowserFallback,
+          })
+        ) {
           return;
         }
         setDictationState("error");
@@ -1698,7 +1739,13 @@ export const ChatInput = memo(function ChatInput({
             : new MediaRecorder(stream);
         } catch {
           cleanupProviderCapture();
-          if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+          if (
+            maybeFallbackForProviderFailure({
+              phase: "capture_start",
+              failureClass: "unknown",
+              allowBrowserFallback,
+            })
+          ) {
             return;
           }
           setDictationState("error");
@@ -1715,6 +1762,15 @@ export const ChatInput = memo(function ChatInput({
         };
         recorder.onerror = () => {
           cleanupProviderCapture();
+          if (
+            maybeFallbackForProviderFailure({
+              phase: "capture_runtime",
+              failureClass: "unknown",
+              allowBrowserFallback,
+            })
+          ) {
+            return;
+          }
           setDictationState("error");
           setDictationFeedback("Microphone input failed.");
         };
@@ -1759,9 +1815,13 @@ export const ChatInput = memo(function ChatInput({
               setDictationState("idle");
               setDictationFeedback(null);
             } catch (error) {
+              const failureClass = classifyProviderDictationFailureClass(error);
               if (
-                isProviderTranscriptionUnsupportedModelError(error) &&
-                maybeFallbackToBrowserDictation(allowBrowserFallback)
+                maybeFallbackForProviderFailure({
+                  phase: "transcription",
+                  failureClass,
+                  allowBrowserFallback,
+                })
               ) {
                 return;
               }
@@ -1779,7 +1839,13 @@ export const ChatInput = memo(function ChatInput({
         recorder.start();
       } catch {
         cleanupProviderCapture();
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+        if (
+          maybeFallbackForProviderFailure({
+            phase: "capture_start",
+            failureClass: "unknown",
+            allowBrowserFallback,
+          })
+        ) {
           return;
         }
         setDictationState("error");
@@ -1790,7 +1856,7 @@ export const ChatInput = memo(function ChatInput({
       canProviderDictate,
       cleanupProviderCapture,
       insertTranscript,
-      maybeFallbackToBrowserDictation,
+      maybeFallbackForProviderFailure,
       onProviderDictationTranscribe,
     ],
   );

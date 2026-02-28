@@ -1,4 +1,5 @@
 import json
+import re
 import tomllib
 from copy import deepcopy
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ _CLAUDE_SETTINGS_LOCAL = "settings.local.json"
 _CODEX_CONFIG_NAME = "config.toml"
 _OPENCODE_CONFIG_NAME = "opencode.json"
 _CODEX_MCP_IMPORTED_AT_KEY = "codexMcpImportedAt"
+_TOML_BARE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 @dataclass(frozen=True)
@@ -629,12 +631,12 @@ def _emit_toml_table(lines: list[str], path: list[str], table: dict[str, Any]) -
         else:
             scalar_items[str(key)] = value
     if path:
-        lines.append(f"[{'.'.join(path)}]")
+        lines.append(f"[{'.'.join(_dump_toml_key(segment) for segment in path)}]")
     for key in sorted(scalar_items.keys()):
         value = scalar_items[key]
         if value is None:
             continue
-        lines.append(f"{key} = {_dump_toml_value(value)}")
+        lines.append(f"{_dump_toml_key(key)} = {_dump_toml_value(value)}")
     for key in sorted(nested_tables.keys()):
         if lines and lines[-1] != "":
             lines.append("")
@@ -656,9 +658,16 @@ def _dump_toml_value(value: Any) -> str:
     return json.dumps(str(value))
 
 
+def _dump_toml_key(value: str) -> str:
+    if _TOML_BARE_KEY_RE.fullmatch(value):
+        return value
+    return json.dumps(value)
+
+
 def _dump_inline_toml_table(value: dict[str, Any]) -> str:
     items = ", ".join(
-        f"{key} = {_dump_toml_value(item)}" for key, item in value.items()
+        f"{_dump_toml_key(str(key))} = {_dump_toml_value(item)}"
+        for key, item in value.items()
     )
     return f"{{ {items} }}"
 

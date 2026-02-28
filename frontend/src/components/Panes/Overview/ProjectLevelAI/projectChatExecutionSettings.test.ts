@@ -44,6 +44,12 @@ describe("getDefaultProjectChatPermissionMode", () => {
 
 describe("getProjectChatBlockedReasonMessage", () => {
   it("returns deterministic blocked copy for each hydration error code", () => {
+    expect(getProjectChatBlockedReasonMessage("chat_not_found")).toContain(
+      "no longer exists",
+    );
+    expect(
+      getProjectChatBlockedReasonMessage("chat_provenance_missing"),
+    ).toContain("missing required provenance");
     expect(
       getProjectChatBlockedReasonMessage("engine_config_missing"),
     ).toContain("engine config is no longer available");
@@ -53,6 +59,9 @@ describe("getProjectChatBlockedReasonMessage", () => {
     expect(getProjectChatBlockedReasonMessage("llm_config_missing")).toContain(
       "LLM config is no longer available",
     );
+    expect(
+      getProjectChatBlockedReasonMessage("terminal_hydration_failure"),
+    ).toContain("terminal hydration error");
   });
 });
 
@@ -536,9 +545,8 @@ describe("buildProjectChatSubmittedMessageHistory", () => {
     ]);
   });
 
-  it("falls back to unscoped runs when scoped project runs are absent", () => {
-    // Legacy runs with a null project id should still seed history when no
-    // runs are associated to the active project id.
+  it("does not include unscoped runs when scoped project runs are absent", () => {
+    // Project-level history is strictly scoped to the active project id.
     const prompts = buildProjectChatSubmittedMessageHistory({
       projectConfigId: "project-missing",
       activeMessages: [],
@@ -565,7 +573,7 @@ describe("buildProjectChatSubmittedMessageHistory", () => {
       ],
     });
 
-    expect(prompts).toEqual(["Fallback prompt"]);
+    expect(prompts).toEqual([]);
   });
 
   it("deduplicates prompts while preserving first-seen ordering", () => {

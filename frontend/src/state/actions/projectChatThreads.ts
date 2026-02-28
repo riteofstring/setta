@@ -50,6 +50,19 @@ function normalizeGroupName(groupName: string): string | null {
   return compact;
 }
 
+function findGroupByNormalizedName(
+  groups: Array<StoredThreadGroup>,
+  normalizedGroupName: string,
+): StoredThreadGroup | null {
+  const normalizedLowerName = normalizedGroupName.toLowerCase();
+  for (const group of groups) {
+    if (group.name.toLowerCase() === normalizedLowerName) {
+      return group;
+    }
+  }
+  return null;
+}
+
 function normalizeGroupIds(groupIds: Array<string>): Array<string> {
   const seen = new Set<string>();
   const normalized: Array<string> = [];
@@ -263,9 +276,7 @@ export function createProjectChatThreadGroup(
     useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
       resolvedProjectConfigId
     ] ?? [];
-  const existing = existingGroups.find(
-    (group) => group.name.toLowerCase() === resolvedGroupName.toLowerCase(),
-  );
+  const existing = findGroupByNormalizedName(existingGroups, resolvedGroupName);
   if (existing) {
     return existing.id;
   }
@@ -314,6 +325,13 @@ export function renameProjectChatThreadGroup(
     }
     if (target.name === resolvedGroupName) {
       didRename = true;
+      return state;
+    }
+    const conflictingGroup = findGroupByNormalizedName(
+      groups,
+      resolvedGroupName,
+    );
+    if (conflictingGroup && conflictingGroup.id !== resolvedGroupId) {
       return state;
     }
     didRename = true;

@@ -10,7 +10,10 @@ from pathlib import Path
 
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import read_managed_api_keys_with_status
+from setta.llm.api_keys import (
+    MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+    read_managed_api_keys_with_status,
+)
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -309,6 +312,11 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
         corruption_issue = (
             "Managed LLM API key store is corrupt; "
             "open LLM settings and save API keys to repair."
+        )
+    elif managed_api_keys_result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
+        corruption_issue = (
+            "Managed LLM API key store is unavailable; "
+            "check filesystem path and permissions."
         )
     return _EnvStatusResult(
         status=ExternalAgentEnvVarStatus(present=present, missing=missing),

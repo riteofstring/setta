@@ -319,4 +319,28 @@ describe("mutateAndSaveLLMApiKeys", () => {
     expect(state.apiKeysRevision).toBe(9);
     expect(state.apiKeysLoadError).toBe("Managed API key store is corrupt.");
   });
+
+  it("surfaces websocket unavailable-store snapshots as load errors", () => {
+    useAIStore.setState({
+      apiKeys: { OPENAI_API_KEY: "old" },
+      apiKeysRevision: 3,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: null,
+    });
+
+    receiveLLMApiKeysSnapshotUpdate({
+      apiKeys: {},
+      revision: 4,
+      corrupt: false,
+      errorCode: "managed_api_keys_store_unavailable",
+      message: "Managed API key store is unavailable.",
+    });
+
+    const state = useAIStore.getState();
+    expect(state.apiKeys).toEqual({});
+    expect(state.apiKeysRevision).toBe(4);
+    expect(state.apiKeysLoadError).toBe(
+      "Managed API key store is unavailable.",
+    );
+  });
 });

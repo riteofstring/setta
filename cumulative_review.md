@@ -280,3 +280,21 @@
 - Frontend targeted Vitest: `77 passed` (`safeLocalStorage`, API-key websocket/snapshot reducers, hydration outcome typing, project-chat blocked-mode helpers).
 - Playwright targeted e2e: `5 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts`).
 - CDP visual verification: blocked-thread banner and disabled composer/send controls confirmed in Project AI chat.
+
+## 2026-02-26 10:24:46 PST
+
+### Consolidated Findings
+- Repository cleanup/generation needed to be rerun from workspace package context (`frontend/`) for this worktree.
+- Consolidated review history is maintained in `cumulative_review.md`; top-level `review*.md` files are transient inputs and should be removed after consolidation.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Ran `pnpm -C frontend gcf` to regenerate, prune, and format generated/frontend/backend artifacts.
+- Appended this cumulative review entry as the canonical top-level review record.
+- Removed top-level review docs (`review1.md`, `review2.md`, `review3.md`) from the workspace.
+
+### UX/DX Before -> After
+- Review records: multiple transient top-level review files -> single cumulative audit trail in `cumulative_review.md`.
+- Cleanup workflow: stale generated/pruned state risk -> synchronized generated outputs and formatting after `gcf`.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).

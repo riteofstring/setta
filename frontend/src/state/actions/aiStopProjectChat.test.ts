@@ -974,7 +974,12 @@ describe("stopProjectChatResponse", () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 404,
       hasResponse: true,
-      data: { detail: "Chat not found" },
+      data: {
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found",
+        },
+      },
     });
 
     const outcome = await getLLMChatHydrationOutcome("chat-missing");
@@ -982,7 +987,7 @@ describe("stopProjectChatResponse", () => {
     expect(outcome).toEqual({
       outcome: "terminal_failure",
       status: 404,
-      errorCode: null,
+      errorCode: "chat_not_found",
     });
   });
 
@@ -1020,6 +1025,22 @@ describe("stopProjectChatResponse", () => {
       outcome: "transient_failure",
       status: 500,
       errorCode: null,
+    });
+  });
+
+  it("maps terminal hydration failures without typed codes to a generic blocked code", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 409,
+      hasResponse: true,
+      data: { detail: "Terminal failure without typed code" },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-terminal-unknown");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "terminal_hydration_failure",
     });
   });
 });

@@ -122,13 +122,22 @@ function resolveProjectChatRunType(
 export function getProjectChatBlockedReasonMessage(
   errorCode: ProjectChatBlockedErrorCode,
 ): string {
+  if (errorCode === "chat_not_found") {
+    return "This thread no longer exists. Start a new chat.";
+  }
+  if (errorCode === "chat_provenance_missing") {
+    return "This thread is missing required provenance metadata. Start a new chat.";
+  }
   if (errorCode === "engine_config_missing") {
     return "This thread's engine config is no longer available. Start a new chat after selecting a valid engine.";
   }
   if (errorCode === "engine_type_mismatch") {
     return "This thread's engine type no longer matches its saved provenance. Start a new chat.";
   }
-  return "This thread's LLM config is no longer available. Start a new chat after choosing a valid model.";
+  if (errorCode === "llm_config_missing") {
+    return "This thread's LLM config is no longer available. Start a new chat after choosing a valid model.";
+  }
+  return "This thread can't be resumed due to a terminal hydration error. Start a new chat.";
 }
 
 export function resolveProjectChatHydrationRunType({
@@ -613,9 +622,11 @@ function useHasPythonInWorkspaceRoot(
 
 function toSortedProjectHistoryEntries(
   runs: Array<AgentRun>,
+  projectConfigId: string,
   compatibility: ChatHistoryCompatibility | null,
 ): Array<ProjectChatHistoryEntry> {
   return buildChatHistoryEntries(runs, {
+    projectConfigId,
     unscopedOnly: true,
     compatibility,
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
@@ -777,13 +788,9 @@ export function buildProjectChatSubmittedMessageHistory({
   projectConfigId: string;
   activeMessages: Array<BaseChatMessageUnion>;
 }): Array<string> {
-  const scopedRuns = runs.filter(
+  const candidateRuns = runs.filter(
     (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
   );
-  const fallbackRuns = runs.filter(
-    (run) => getRunInputString(run, "projectConfigId") === null,
-  );
-  const candidateRuns = scopedRuns.length > 0 ? scopedRuns : fallbackRuns;
   const latestRunByChatId = new Map<string, LatestRunByChat>();
 
   for (const run of candidateRuns) {
@@ -982,6 +989,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const chatRunTypeByChatId = useMemo(() => {
     const runTypeByChatId = new Map<string, ChatRunType>();
     const provenanceByChatId = buildChatProvenanceByChatId(agentRuns, {
+      projectConfigId,
       unscopedOnly: true,
       compatibility: null,
     });
@@ -1292,16 +1300,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
     const currentChatId = typeof chatId === "string" ? chatId : null;
-    const allRuns = useAIStore.getState().agentRuns;
-    const scopedRuns = allRuns.filter(
-      (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
-    );
-    const fallbackRuns = allRuns.filter(
-      (run) => getRunInputString(run, "projectConfigId") === null,
-    );
-    const candidateRuns = scopedRuns.length > 0 ? scopedRuns : fallbackRuns;
     const latestEntry = toSortedProjectHistoryEntries(
-      candidateRuns,
+      useAIStore.getState().agentRuns,
+      projectConfigId,
       historyCompatibility,
     ).find((entry) => entry.chatId !== currentChatId);
     if (!latestEntry) {

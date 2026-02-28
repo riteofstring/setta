@@ -148,6 +148,8 @@ const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
 const MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE =
   "managed_api_keys_revision_conflict";
 const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
+const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
+  "managed_api_keys_store_unavailable";
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
 type ManagedAPIKeysSnapshotPayload = {
@@ -624,13 +626,20 @@ export function receiveLLMApiKeysSnapshotUpdate(
   const isCorrupt =
     payload.corrupt === true ||
     payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable =
+    payload.errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  let apiKeysLoadError: string | null = null;
+  if (isCorrupt) {
+    apiKeysLoadError = payload.message ?? "Managed API key store is corrupt.";
+  } else if (isUnavailable) {
+    apiKeysLoadError =
+      payload.message ?? "Managed API key store is unavailable.";
+  }
   useAIStore.setState({
     apiKeys: payload.apiKeys,
     apiKeysRevision: payload.revision,
     apiKeysInitialLoadComplete: true,
-    apiKeysLoadError: isCorrupt
-      ? payload.message ?? "Managed API key store is corrupt."
-      : null,
+    apiKeysLoadError,
   });
 }
 
@@ -716,6 +725,17 @@ async function persistLLMApiKeysMutation(
           getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
       });
       continue;
+    }
+    if (
+      res.status === 503 &&
+      errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    ) {
+      useAIStore.setState({
+        apiKeysInitialLoadComplete: true,
+        apiKeysLoadError:
+          getErrorDetail(res.data) ?? "Managed API key store is unavailable.",
+      });
+      return false;
     }
     useAIStore.setState({
       apiKeysInitialLoadComplete: true,
@@ -1771,9 +1791,12 @@ export type ChatHydrationOutcomeType =
   | "terminal_failure";
 
 export type ChatHydrationErrorCode =
+  | "chat_not_found"
+  | "chat_provenance_missing"
   | "engine_config_missing"
   | "engine_type_mismatch"
-  | "llm_config_missing";
+  | "llm_config_missing"
+  | "terminal_hydration_failure";
 
 type ChatHydrationOutcome = {
   outcome: ChatHydrationOutcomeType;
@@ -1784,6 +1807,12 @@ type ChatHydrationOutcome = {
 function parseChatHydrationErrorCode(
   value: string | null,
 ): ChatHydrationErrorCode | null {
+  if (value === "chat_not_found") {
+    return "chat_not_found";
+  }
+  if (value === "chat_provenance_missing") {
+    return "chat_provenance_missing";
+  }
   if (value === "engine_config_missing") {
     return "engine_config_missing";
   }
@@ -1809,10 +1838,17 @@ function buildChatHydrationFailureOutcome(response: {
   status: number | undefined;
   data: unknown;
 }): ChatHydrationOutcome {
+  const outcome = classifyChatHydrationOutcomeType(response.status);
+  const parsedErrorCode = parseChatHydrationErrorCode(
+    getErrorCode(response.data),
+  );
   return {
-    outcome: classifyChatHydrationOutcomeType(response.status),
+    outcome,
     status: response.status,
-    errorCode: parseChatHydrationErrorCode(getErrorCode(response.data)),
+    errorCode:
+      outcome === "terminal_failure"
+        ? parsedErrorCode ?? "terminal_hydration_failure"
+        : parsedErrorCode,
   };
 }
 

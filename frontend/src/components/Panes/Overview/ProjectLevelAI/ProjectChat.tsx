@@ -2,6 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
+import { getProjectDictationModeOptionLabel } from "components/Chat/dictationPolicy";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -142,11 +143,25 @@ type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
     }
   >;
   engineConfigById: Map<string, EngineConfig>;
+  engineConfigsAuthoritative: boolean;
 };
 
 type ProjectChatThreadBlockedErrorCode =
+  | "chat_provenance_missing"
   | "engine_config_missing"
   | "engine_type_mismatch";
+
+type ProjectChatThreadCompatibilityResult =
+  | {
+      status: "compatible";
+    }
+  | {
+      status: "unknown";
+    }
+  | {
+      status: "blocked";
+      errorCode: ProjectChatThreadBlockedErrorCode;
+    };
 
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
@@ -225,22 +240,35 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatId,
   chatProvenanceByChatId,
   engineConfigById,
-}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadBlockedErrorCode | null {
+  engineConfigsAuthoritative,
+}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
   const resolvedChatId = chatId?.trim() ?? "";
   if (!resolvedChatId) {
-    return null;
+    return { status: "compatible" };
   }
   const provenance = chatProvenanceByChatId.get(resolvedChatId);
   if (!provenance) {
-    return null;
+    return {
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    };
   }
   const requiredEngineConfigId = provenance.engineConfigId;
   if (!requiredEngineConfigId) {
-    return "engine_config_missing";
+    return {
+      status: "blocked",
+      errorCode: "chat_provenance_missing",
+    };
   }
   const requiredEngine = engineConfigById.get(requiredEngineConfigId);
   if (!requiredEngine) {
-    return "engine_config_missing";
+    if (!engineConfigsAuthoritative) {
+      return { status: "unknown" };
+    }
+    return {
+      status: "blocked",
+      errorCode: "engine_config_missing",
+    };
   }
   if (
     !isSelectedChatRunTypeCompatibleWithEngineType({
@@ -248,9 +276,12 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       engineType: requiredEngine.engineType,
     })
   ) {
-    return "engine_type_mismatch";
+    return {
+      status: "blocked",
+      errorCode: "engine_type_mismatch",
+    };
   }
-  return null;
+  return { status: "compatible" };
 }
 
 export function ProjectChat() {
@@ -310,6 +341,7 @@ export function ProjectChat() {
     externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
+    engineConfigsLoadError,
     transcriptionProfiles,
     transcriptionProfilesInitialLoadComplete,
     projectChatDictationMode,
@@ -332,6 +364,7 @@ export function ProjectChat() {
       externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      engineConfigsLoadError: x.engineConfigsLoadError,
       transcriptionProfiles: x.transcriptionProfiles,
       transcriptionProfilesInitialLoadComplete:
         x.transcriptionProfilesInitialLoadComplete,
@@ -573,10 +606,11 @@ export function ProjectChat() {
   const chatHistoryEntries = useMemo(
     () =>
       buildChatHistoryEntries(agentRuns, {
+        projectConfigId,
         unscopedOnly: true,
         compatibility: historyCompatibility,
       }),
-    [agentRuns, historyCompatibility],
+    [agentRuns, historyCompatibility, projectConfigId],
   );
   const chatHistoryEntriesById = useMemo(() => {
     const entriesById = new Map<string, (typeof chatHistoryEntries)[number]>();
@@ -588,10 +622,11 @@ export function ProjectChat() {
   const chatProvenanceByChatId = useMemo(
     () =>
       buildChatProvenanceByChatId(agentRuns, {
+        projectConfigId,
         unscopedOnly: true,
         compatibility: null,
       }),
-    [agentRuns],
+    [agentRuns, projectConfigId],
   );
   const chatEngineConfigByChatId = useMemo(() => {
     const nextByChatId = new Map<string, string | null>();
@@ -600,15 +635,27 @@ export function ProjectChat() {
     }
     return nextByChatId;
   }, [chatProvenanceByChatId]);
-  const selectedThreadBlockedErrorCode = useMemo(
+  const selectedThreadCompatibility = useMemo(
     () =>
       resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
         chatId,
         chatProvenanceByChatId,
         engineConfigById,
+        engineConfigsAuthoritative:
+          engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
       }),
-    [chatId, chatProvenanceByChatId, engineConfigById],
+    [
+      chatId,
+      chatProvenanceByChatId,
+      engineConfigById,
+      engineConfigsInitialLoadComplete,
+      engineConfigsLoadError,
+    ],
   );
+  const selectedThreadBlockedErrorCode =
+    selectedThreadCompatibility.status === "blocked"
+      ? selectedThreadCompatibility.errorCode
+      : null;
   const availableEngineConfigIds = useMemo(
     () => new Set(engineConfigs.map((config) => config.id)),
     [engineConfigs],
@@ -1666,17 +1713,24 @@ function ProjectAISettingsPopover({
         items: [
           {
             id: "auto",
-            name: "Auto (provider, then browser/OS)",
+            name: getProjectDictationModeOptionLabel({
+              mode: "auto",
+              providerModeAvailable,
+            }),
           },
           {
             id: "provider",
-            name: providerModeAvailable
-              ? "Always provider"
-              : "Always provider (requires transcription profile)",
+            name: getProjectDictationModeOptionLabel({
+              mode: "provider",
+              providerModeAvailable,
+            }),
           },
           {
             id: "browser",
-            name: "Always browser / OS",
+            name: getProjectDictationModeOptionLabel({
+              mode: "browser",
+              providerModeAvailable,
+            }),
           },
         ],
       },

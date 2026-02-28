@@ -230,10 +230,12 @@ function getHistoryPlaceholderText(
 
 function toSortedHistoryEntries(
   runs: Array<AgentRun>,
+  projectConfigId: string,
   sectionId: string,
   compatibility: ChatHistoryCompatibility | null,
 ): Array<ChatSectionHistoryEntry> {
   return buildChatHistoryEntries(runs, {
+    projectConfigId,
     sectionId,
     compatibility,
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
@@ -1028,11 +1030,13 @@ function ChatSectionHistoryList({
 }
 
 function ManagedChatHistoryPanel({
+  projectConfigId,
   sectionId,
   activeChatId,
   historyCompatibility,
   onSelect,
 }: {
+  projectConfigId: string;
   sectionId: string;
   activeChatId: string | null;
   historyCompatibility: ChatHistoryCompatibility | null;
@@ -1048,8 +1052,14 @@ function ManagedChatHistoryPanel({
       shallow,
     );
   const sectionHistoryEntries = useMemo(
-    () => toSortedHistoryEntries(agentRuns, sectionId, historyCompatibility),
-    [agentRuns, historyCompatibility, sectionId],
+    () =>
+      toSortedHistoryEntries(
+        agentRuns,
+        projectConfigId,
+        sectionId,
+        historyCompatibility,
+      ),
+    [agentRuns, historyCompatibility, projectConfigId, sectionId],
   );
   const hasRunningHistoryEntry = useMemo(
     () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
@@ -1675,6 +1685,7 @@ function ManagedChatArea({
     await loadAgentRuns();
     const latestEntry = toSortedHistoryEntries(
       useAIStore.getState().agentRuns,
+      projectConfigId,
       sectionId,
       historyCompatibility,
     ).find((entry) => entry.chatId !== chatId);
@@ -1684,7 +1695,7 @@ function ManagedChatArea({
     setChatId(latestEntry.chatId);
     setShowHistory(false);
     return true;
-  }, [chatId, historyCompatibility, sectionId, setChatId]);
+  }, [chatId, historyCompatibility, projectConfigId, sectionId, setChatId]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
@@ -1805,6 +1816,7 @@ function ManagedChatArea({
           data-chat-width-shell="true"
         >
           <ManagedChatHistoryPanel
+            projectConfigId={projectConfigId}
             sectionId={sectionId}
             activeChatId={chatId}
             historyCompatibility={historyCompatibility}

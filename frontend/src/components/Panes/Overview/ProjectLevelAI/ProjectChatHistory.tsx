@@ -235,10 +235,11 @@ export function ProjectChatHistory({
 
   const historyEntries = useMemo(() => {
     return buildChatHistoryEntries(agentRuns, {
+      projectConfigId,
       unscopedOnly: true,
       compatibility,
     });
-  }, [agentRuns, compatibility]);
+  }, [agentRuns, compatibility, projectConfigId]);
   const displayEntries = useMemo(() => {
     if (!draftThread || !draftThread.chatId) {
       return historyEntries;

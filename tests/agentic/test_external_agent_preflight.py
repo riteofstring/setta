@@ -197,6 +197,28 @@ class TestExternalAgentPreflight:
                 for issue in status.issues
             )
 
+    def test_env_var_status_reports_unavailable_managed_api_key_store(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_missing = "SETTA_TEST_ENV_MISSING"
+            path = llm_api_keys_path(dbe)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.mkdir()
+            config = self._build_config(
+                run_mode=ExternalAgentRunMode.app_server,
+                command_path="definitely_not_a_codex_executable",
+                env_vars=[key_missing],
+            )
+
+            status = build_external_agent_preflight_status(dbe, config)
+
+            assert status.envVars.present == []
+            assert status.envVars.missing == [key_missing]
+            assert any(
+                "Managed LLM API key store is unavailable" in issue
+                for issue in status.issues
+            )
+
     def test_server_run_mode_marked_unsupported(self) -> None:
         with _temp_cwd() as tmp:
             dbe = DBE(tmp / "setta_files")

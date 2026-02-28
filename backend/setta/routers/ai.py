@@ -632,6 +632,8 @@ class TranscriptionErrorDetail(BaseModel):
 
 
 class ChatHydrationErrorCode(str, Enum):
+    chat_not_found = "chat_not_found"
+    chat_provenance_missing = "chat_provenance_missing"
     engine_config_missing = "engine_config_missing"
     engine_type_mismatch = "engine_type_mismatch"
     llm_config_missing = "llm_config_missing"
@@ -720,11 +722,12 @@ def _raise_transcription_http_error(
 
 def _raise_chat_hydration_http_error(
     *,
+    status_code: int = 409,
     message: str,
     error_code: ChatHydrationErrorCode,
 ) -> None:
     raise HTTPException(
-        status_code=409,
+        status_code=status_code,
         detail=ChatHydrationErrorDetail(
             message=message,
             errorCode=error_code,
@@ -1294,7 +1297,11 @@ async def route_get_llm_chat(
     )
     latest_run = _select_latest_run(runs)
     if latest_run is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        _raise_chat_hydration_http_error(
+            status_code=404,
+            message="Chat not found.",
+            error_code=ChatHydrationErrorCode.chat_not_found,
+        )
     state = build_chat_state_from_run(latest_run)
     if latest_run.status == AgentRunStatus.running:
         live_state = ctx.state.agent_runner.get_live_chat_state(latest_run.id)
@@ -1303,8 +1310,8 @@ async def route_get_llm_chat(
     engine_config_id = get_run_engine_config_id(latest_run)
     if not engine_config_id:
         _raise_chat_hydration_http_error(
-            message="Chat engine config is no longer available.",
-            error_code=ChatHydrationErrorCode.engine_config_missing,
+            message="Chat provenance is incomplete; start a new chat.",
+            error_code=ChatHydrationErrorCode.chat_provenance_missing,
         )
     try:
         engine_config = require_engine_config(ctx.state.dbe, engine_config_id)
@@ -1320,16 +1327,10 @@ async def route_get_llm_chat(
         )
     llm_config_id = engine_config.settaLlmConfigId
     if not llm_config_id:
-        default_config_id = ctx.state.agent_runner.config.default_config_id
-        if default_config_id:
-            llm_config_id = default_config_id
-        elif ctx.state.agent_runner.config.configs:
-            llm_config_id = next(iter(ctx.state.agent_runner.config.configs.keys()))
-        else:
-            _raise_chat_hydration_http_error(
-                message="Chat LLM config is no longer available.",
-                error_code=ChatHydrationErrorCode.llm_config_missing,
-            )
+        _raise_chat_hydration_http_error(
+            message="Chat LLM config is no longer available.",
+            error_code=ChatHydrationErrorCode.llm_config_missing,
+        )
     try:
         llm_config = ctx.state.agent_runner.config.resolve_config(llm_config_id)
     except ValueError:

@@ -690,8 +690,37 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 409
             _assert_chat_hydration_http_error(
                 exc.value,
-                message="Chat engine config is no longer available.",
-                error_code="engine_config_missing",
+                message="Chat provenance is incomplete; start a new chat.",
+                error_code="chat_provenance_missing",
+            )
+
+    async def test_get_llm_chat_missing_run_returns_typed_not_found_error(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_chat(
+                        GetLLMChatRequest(
+                            chatId=ID("missing-llm-chat"),
+                            projectConfigId=ID("project-missing-llm-chat"),
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat not found.",
+                error_code="chat_not_found",
             )
 
     async def test_get_llm_chat_returns_typed_error_when_engine_type_mismatches(
@@ -776,6 +805,63 @@ class TestAgentRunChatRoutes:
             )
             chat_id = ID("chat-missing-llm-config")
             project_config_id = ID("project-missing-llm-config")
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[
+                    UserChatMessage(content=[MessageTextContent(text="Hello")])
+                ],
+                output_messages=[
+                    AssistantChatMessage(content=[MessageTextContent(text="Done")])
+                ],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_chat(
+                        GetLLMChatRequest(
+                            chatId=chat_id,
+                            projectConfigId=project_config_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            _assert_chat_hydration_http_error(
+                exc.value,
+                message="Chat LLM config is no longer available.",
+                error_code="llm_config_missing",
+            )
+
+    async def test_get_llm_chat_returns_typed_error_without_llm_binding_fallback(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-without-llm-binding")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=engine_config_id,
+                        name="Unbound LLM Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId=None,
+                    )
+                ],
+            )
+            chat_id = ID("chat-unbound-llm-config")
+            project_config_id = ID("project-unbound-llm-config")
             run = _build_run(
                 chat_id=chat_id,
                 project_config_id=project_config_id,

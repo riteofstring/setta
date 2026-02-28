@@ -13,6 +13,7 @@ from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 
 LLM_API_KEYS_FILENAME = "llm_api_keys.json"
 MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt"
+MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE = "managed_api_keys_store_unavailable"
 MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE = "managed_api_keys_revision_conflict"
 _MANAGED_API_KEYS_STORE_FIELDS = {"revision", "apiKeys"}
 
@@ -28,11 +29,17 @@ class ManagedAPIKeysReadResult:
 
 @dataclass(frozen=True)
 class ManagedAPIKeysWriteAttempt:
-    status: Literal["success", "revision_conflict", "corrupt_store"]
+    status: Literal[
+        "success", "revision_conflict", "corrupt_store", "store_unavailable"
+    ]
     api_keys: APIKeys
     revision: int
     error_code: str | None = None
     error: str | None = None
+
+
+class ManagedAPIKeysStoreUnavailableError(RuntimeError):
+    """Managed API key storage is currently unreadable due to I/O failure."""
 
 
 def llm_api_keys_path(dbe: DBE) -> Path:
@@ -182,7 +189,9 @@ def _read_managed_api_keys_raw_payload_from_disk(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ValueError(f"Failed to read managed API key store: {exc}") from exc
+        raise ManagedAPIKeysStoreUnavailableError(
+            f"Failed to read managed API key store: {exc}"
+        ) from exc
 
 
 def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
@@ -193,8 +202,8 @@ def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
         return ManagedAPIKeysReadResult(
             api_keys={},
             revision=0,
-            corrupt=True,
-            error_code=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+            corrupt=False,
+            error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
             error=f"Failed to read managed API key store: {exc}",
         )
     return _parse_managed_api_keys_raw_payload(raw_payload)
@@ -202,6 +211,10 @@ def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
 
 def read_managed_api_keys(dbe: DBE) -> APIKeys:
     result = read_managed_api_keys_with_status(dbe)
+    if result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
+        if result.error is None:
+            raise ValueError("Managed API key store is unavailable.")
+        raise ValueError(result.error)
     if result.corrupt:
         if result.error is None:
             raise ValueError("Managed API key store is corrupt.")
@@ -216,6 +229,8 @@ def write_managed_api_keys(dbe: DBE, payload: APIKeys) -> APIKeys:
         try:
             raw_payload = _read_managed_api_keys_raw_payload_from_disk(path)
             read_result = _parse_managed_api_keys_raw_payload(raw_payload)
+        except ManagedAPIKeysStoreUnavailableError as exc:
+            raise ValueError(str(exc)) from exc
         except ValueError:
             read_result = ManagedAPIKeysReadResult(
                 api_keys={},
@@ -244,6 +259,14 @@ def write_managed_api_keys_with_expected_revision(
     with dbe.get_file_lock(path):
         try:
             raw_payload = _read_managed_api_keys_raw_payload_from_disk(path)
+        except ManagedAPIKeysStoreUnavailableError as exc:
+            return ManagedAPIKeysWriteAttempt(
+                status="store_unavailable",
+                api_keys={},
+                revision=0,
+                error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+                error=str(exc),
+            )
         except ValueError as exc:
             return ManagedAPIKeysWriteAttempt(
                 status="corrupt_store",

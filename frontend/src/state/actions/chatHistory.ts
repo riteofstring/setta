@@ -36,6 +36,7 @@ type BuildChatHistoryEntriesOptions = {
   sectionId?: string | null;
   unscopedOnly?: boolean;
   compatibility?: ChatHistoryCompatibility | null;
+  projectConfigId?: string | null;
 };
 
 export function buildChatHistoryEntries(
@@ -84,11 +85,15 @@ function collectChatRunSummaries(
   includeBranchChats: boolean,
 ): Map<string, ChatRunSummary> {
   const sectionId = normalizeRunSectionId(options.sectionId ?? null);
+  const projectConfigId = normalizeProjectConfigId(
+    options.projectConfigId ?? null,
+  );
   const unscopedOnly = options.unscopedOnly === true;
   const compatibility = options.compatibility ?? null;
   const branchChatIds = includeBranchChats
     ? new Set<string>()
     : collectBranchChatIds(runs, {
+        projectConfigId,
         sectionId,
         unscopedOnly,
         compatibility,
@@ -97,6 +102,7 @@ function collectChatRunSummaries(
   for (const run of runs) {
     if (
       !shouldCollectRunForChatSummary(run, {
+        projectConfigId,
         sectionId,
         unscopedOnly,
         compatibility,
@@ -144,6 +150,7 @@ function collectChatRunSummaries(
 function shouldCollectRunForChatSummary(
   run: AgentRun,
   options: {
+    projectConfigId: string | null;
     sectionId: string | null;
     unscopedOnly: boolean;
     compatibility: ChatHistoryCompatibility | null;
@@ -153,6 +160,12 @@ function shouldCollectRunForChatSummary(
     return false;
   }
   if (!isRunCompatibleWithHistoryFilter(run, options.compatibility)) {
+    return false;
+  }
+  if (
+    options.projectConfigId !== null &&
+    getRunInputString(run, "projectConfigId") !== options.projectConfigId
+  ) {
     return false;
   }
   if (options.unscopedOnly && getRunSectionId(run) !== null) {
@@ -167,6 +180,7 @@ function shouldCollectRunForChatSummary(
 function collectBranchChatIds(
   runs: Array<AgentRun>,
   options: {
+    projectConfigId: string | null;
     sectionId: string | null;
     unscopedOnly: boolean;
     compatibility: ChatHistoryCompatibility | null;
@@ -189,6 +203,17 @@ function collectBranchChatIds(
 }
 
 function normalizeRunSectionId(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+function normalizeProjectConfigId(value: string | null): string | null {
   if (!value) {
     return null;
   }
