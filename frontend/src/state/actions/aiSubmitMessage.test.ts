@@ -296,7 +296,7 @@ describe("submitMessage", () => {
     expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 
-  it("syncs chat provenance and refreshes agent runs after successful submit hydration", async () => {
+  it("refreshes agent runs after successful submit hydration", async () => {
     const returnedChatId = "chat-submit-provenance-sync";
     mockedRouteGetLLMResponse.mockResolvedValue({
       status: 200,
@@ -362,10 +362,12 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     await expect.poll(() => mockedRouteGetAgentRuns.mock.calls.length).toBe(1);
-    const state = useAIStore.getState();
-    expect(state.chatProvenanceByChatId[returnedChatId]).toEqual({
-      runType: "llm_chat",
-      engineConfigId: "engine-primary",
-    });
+    await expect
+      .poll(() =>
+        useAIStore
+          .getState()
+          .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
+      )
+      .toBe(true);
   });
 });

@@ -4,6 +4,7 @@ import {
   resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
 } from "./ProjectChat";
+import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {
   it("defaults to chat-only on initial narrow layouts", () => {
@@ -287,5 +288,24 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({ status: "compatible" });
+  });
+});
+
+describe("resolveProjectChatHydrationAuthority", () => {
+  it("keeps hydration authority unknown when selected provenance is missing and run metadata is non-authoritative", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-1",
+      selectedScopedChatProvenance: { status: "missing" },
+      chatProvenanceAuthoritative: false,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+      engineType: "setta_llm",
+    });
+
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
   });
 });

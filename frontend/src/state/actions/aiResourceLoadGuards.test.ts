@@ -253,6 +253,55 @@ describe("AI resource load guards", () => {
     }
   });
 
+  it("downgrades ready authority after transient agent-runs refresh failures", async () => {
+    vi.useFakeTimers();
+    try {
+      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+        .route_get_agent_runs as unknown as vi.Mock;
+      route_get_agent_runs.mockReset();
+      let callCount = 0;
+      route_get_agent_runs.mockImplementation(async () => {
+        callCount += 1;
+        if (callCount === 1) {
+          return {
+            status: 500,
+            hasResponse: true,
+            data: { detail: "failed after ready" },
+          };
+        }
+        return {
+          status: 200,
+          hasResponse: true,
+          data: [],
+        };
+      });
+
+      useAIStore.setState({
+        agentRunsAuthorityState: "ready",
+        agentRunsInitialLoadComplete: true,
+        agentRunsLoadError: null,
+      });
+
+      await loadAgentRuns();
+
+      let state = useAIStore.getState();
+      expect(callCount).toBe(1);
+      expect(state.agentRunsAuthorityState).toBe("transient_error");
+      expect(state.agentRunsInitialLoadComplete).toBe(false);
+      expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
+
+      await vi.advanceTimersByTimeAsync(350);
+
+      state = useAIStore.getState();
+      expect(callCount).toBe(2);
+      expect(state.agentRunsAuthorityState).toBe("ready");
+      expect(state.agentRunsInitialLoadComplete).toBe(true);
+      expect(state.agentRunsLoadError).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("marks agent-runs authority as terminal after bounded retry exhaustion", async () => {
     vi.useFakeTimers();
     try {

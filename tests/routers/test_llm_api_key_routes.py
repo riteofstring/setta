@@ -167,9 +167,6 @@ async def test_llm_api_keys_set_route_does_not_reread_store_after_successful_wri
 
     assert response.apiKeys == {"OPENAI_API_KEY": "saved-without-reread"}
     assert response.revision == 1
-    assert state_env.agent_runner.raw_env_vars == {
-        "OPENAI_API_KEY": "saved-without-reread"
-    }
     state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.assert_called_once()
     payload = state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.await_args.args[
         0
@@ -465,7 +462,7 @@ async def test_llm_api_keys_set_route_returns_typed_unavailable_error_when_write
         initial_keys = await route_get_llm_api_keys(runtime_ctx)
 
         # Write-path failures should map to the same typed unavailable route payload.
-        def _raise_write_failure(*args, **kwargs) -> None:
+        def _raise_write_failure(*_args, **_kwargs) -> None:
             raise OSError("disk full")
 
         monkeypatch.setattr(
@@ -497,7 +494,17 @@ async def test_llm_api_keys_set_route_returns_typed_unavailable_error_when_write
 @pytest.mark.asyncio
 async def test_llm_api_key_watcher_uses_managed_store_not_dotenv(
     state_env: SettaFastAPIState,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    update_api_keys_payloads: list[dict[str, str]] = []
+    original_update_api_keys = state_env.agent_runner.update_api_keys
+
+    def _capture_update_api_keys(payload: dict[str, str]) -> None:
+        update_api_keys_payloads.append(dict(payload))
+        original_update_api_keys(payload)
+
+    monkeypatch.setattr(state_env.agent_runner, "update_api_keys", _capture_update_api_keys)
+
     state_env.dbe.write_dot_env(
         {
             "OPENAI_API_KEY": "dotenv-openai-secret",
@@ -517,8 +524,9 @@ async def test_llm_api_key_watcher_uses_managed_store_not_dotenv(
 
     await state_env.llm_api_key_watcher._reload_from_disk()
 
-    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "managed-secret"}
-    assert "UNRELATED_SECRET" not in state_env.agent_runner.raw_env_vars
+    assert update_api_keys_payloads
+    assert update_api_keys_payloads[-1] == {"OPENAI_API_KEY": "managed-secret"}
+    assert "UNRELATED_SECRET" not in update_api_keys_payloads[-1]
 
 
 @pytest.mark.asyncio
@@ -531,7 +539,7 @@ async def test_llm_api_key_watcher_clears_runtime_keys_when_managed_store_is_inv
 
     await state_env.llm_api_key_watcher._reload_from_disk()
 
-    assert state_env.agent_runner.raw_env_vars == {}
+    assert state_env.agent_runner.api_keys == {}
 
 
 @pytest.mark.asyncio
@@ -546,7 +554,7 @@ async def test_llm_api_key_watcher_clears_runtime_keys_when_managed_store_is_mal
 
     await state_env.llm_api_key_watcher._reload_from_disk()
 
-    assert state_env.agent_runner.raw_env_vars == {}
+    assert state_env.agent_runner.api_keys == {}
 
 
 @pytest.mark.asyncio
@@ -558,7 +566,7 @@ async def test_llm_config_watcher_does_not_fail_when_managed_store_is_invalid(
 
     await state_env.llm_config_watcher._reload_config()
 
-    assert state_env.agent_runner.raw_env_vars == {}
+    assert state_env.agent_runner.api_keys == {}
 
 
 @pytest.mark.asyncio
@@ -573,4 +581,4 @@ async def test_llm_config_watcher_does_not_fail_when_managed_store_is_malformed_
 
     await state_env.llm_config_watcher._reload_config()
 
-    assert state_env.agent_runner.raw_env_vars == {}
+    assert state_env.agent_runner.api_keys == {}

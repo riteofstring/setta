@@ -625,10 +625,6 @@ function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
     case "disabled":
     case "unknown":
       return value;
-    case "available":
-      return "connected";
-    case "unavailable":
-      return "error";
     default:
       return "unknown";
   }

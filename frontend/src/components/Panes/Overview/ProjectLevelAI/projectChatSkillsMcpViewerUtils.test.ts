@@ -354,6 +354,26 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
   });
 
+  it("treats non-canonical runtime server states as unknown", () => {
+    const runtimeStatuses = toRuntimeStatusByServerId([
+      {
+        serverId: "legacy-state-server",
+        source: "setta_mcp",
+        state: "available",
+        lastError: null,
+        missingEnvVar: null,
+        toolCount: 3,
+      },
+    ]);
+
+    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.state).toBe(
+      "unknown",
+    );
+    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.quickInfo).toBe(
+      "Unknown: 3 tools",
+    );
+  });
+
   it("keeps statuses distinct when server ids collide across sources", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {

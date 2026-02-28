@@ -431,12 +431,6 @@ export function ProjectChat() {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, effectiveEngineConfig]);
-  const selectedLLMConfig = useMemo(() => {
-    if (!selectedLLMConfigId || !allLLMConfigs) {
-      return null;
-    }
-    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
-  }, [allLLMConfigs, selectedLLMConfigId]);
   const selectedTranscriptionProfile = useMemo(() => {
     if (!projectChatTranscriptionProfileId) {
       return null;

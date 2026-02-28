@@ -24,7 +24,6 @@ import {
 } from "state/appSpecPatchStreaming";
 import {
   ChatDetails,
-  ChatRunProvenance,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
@@ -135,7 +134,6 @@ import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
-import { buildChatProvenanceByChatId } from "./chatHistory";
 import {
   mergeChatMessages,
   reconcileHydratedChatMessages,
@@ -184,46 +182,7 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-function buildChatProvenanceRecordFromRuns(
-  runs: Array<AgentRun>,
-): Record<string, ChatRunProvenance> {
-  const provenanceByChatId = buildChatProvenanceByChatId(runs);
-  const next: Record<string, ChatRunProvenance> = {};
-  for (const [chatId, provenance] of provenanceByChatId.entries()) {
-    next[chatId] = provenance;
-  }
-  return next;
-}
-
-function upsertChatProvenanceForChat(
-  chatId: string,
-  provenance: ChatRunProvenance,
-): void {
-  const resolvedChatId = chatId.trim();
-  if (!resolvedChatId) {
-    return;
-  }
-  useAIStore.setState((state) => ({
-    chatProvenanceByChatId: {
-      ...state.chatProvenanceByChatId,
-      [resolvedChatId]: provenance,
-    },
-  }));
-}
-
-function syncChatProvenanceAfterSubmit({
-  chatId,
-  engineConfigId,
-  isExternalEngine,
-}: {
-  chatId: string;
-  engineConfigId: string;
-  isExternalEngine: boolean;
-}): void {
-  upsertChatProvenanceForChat(chatId, {
-    runType: isExternalEngine ? "external_agent" : "llm_chat",
-    engineConfigId,
-  });
+function refreshAgentRunsAfterSubmit(): void {
   void loadAgentRuns();
 }
 
@@ -739,7 +698,6 @@ function applyManagedApiKeysWriteFailure({
   fallbackAuthoritative: boolean;
 }): {
   shouldRetryCorruptWrite: boolean;
-  isUnavailable: boolean;
 } {
   const errorDetails = resolveManagedApiKeysErrorDetails(payload);
   if (errorDetails.isCorrupt) {
@@ -753,7 +711,6 @@ function applyManagedApiKeysWriteFailure({
     }));
     return {
       shouldRetryCorruptWrite: errorDetails.revision !== null,
-      isUnavailable: false,
     };
   }
   if (errorDetails.isUnavailable) {
@@ -764,14 +721,14 @@ function applyManagedApiKeysWriteFailure({
       apiKeysLoadError:
         errorDetails.detail ?? "Managed API key store is unavailable.",
     });
-    return { shouldRetryCorruptWrite: false, isUnavailable: true };
+    return { shouldRetryCorruptWrite: false };
   }
   useAIStore.setState({
     apiKeysAuthoritative: fallbackAuthoritative,
     apiKeysInitialLoadComplete: true,
     apiKeysLoadError: errorDetails.detail ?? fallbackMessage,
   });
-  return { shouldRetryCorruptWrite: false, isUnavailable: false };
+  return { shouldRetryCorruptWrite: false };
 }
 
 export async function loadLLMApiKeys() {
@@ -997,12 +954,11 @@ export async function loadAgentRuns() {
     clearScheduledAgentRunsRetry();
   }
   const currentAuthorityState = currentState.agentRunsAuthorityState;
-  const shouldUseRetryFlow = currentAuthorityState !== "ready";
   if (currentAuthorityState === "terminal_error") {
     agentRunsTransientFailureCount = 0;
     clearScheduledAgentRunsRetry();
   }
-  if (shouldUseRetryFlow) {
+  if (currentAuthorityState !== "ready") {
     useAIStore.setState({
       agentRunsAuthorityState: "loading",
       agentRunsInitialLoadComplete: false,
@@ -1013,13 +969,6 @@ export async function loadAgentRuns() {
     if (res200(res)) {
       receiveAgentRunsUpdate(res.data);
     } else {
-      if (!shouldUseRetryFlow) {
-        useAIStore.setState({
-          agentRunsInitialLoadComplete: true,
-          agentRunsLoadError: "Failed to load agent runs",
-        });
-        return;
-      }
       agentRunsTransientFailureCount += 1;
       if (agentRunsTransientFailureCount <= AGENT_RUNS_RETRY_DELAYS_MS.length) {
         useAIStore.setState({
@@ -1050,7 +999,6 @@ function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   agentRunsTransientFailureCount = 0;
   useAIStore.setState({
     agentRuns: payload,
-    chatProvenanceByChatId: buildChatProvenanceRecordFromRuns(payload),
     agentRunsAuthorityState: "ready",
     agentRunsInitialLoadComplete: true,
     agentRunsLoadError: null,
@@ -2335,11 +2283,7 @@ export async function submitMessage(
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
-        syncChatProvenanceAfterSubmit({
-          chatId: returnedChatId,
-          engineConfigId,
-          isExternalEngine,
-        });
+        refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
           await getExternalAgentChat(
             returnedChatId,
@@ -2482,11 +2426,7 @@ export async function submitEditedMessage({
     }
     const returnedChatId = res.data ?? null;
     if (returnedChatId) {
-      syncChatProvenanceAfterSubmit({
-        chatId: returnedChatId,
-        engineConfigId: resolvedEngineConfigId,
-        isExternalEngine,
-      });
+      refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {
         await getExternalAgentChat(
           returnedChatId,

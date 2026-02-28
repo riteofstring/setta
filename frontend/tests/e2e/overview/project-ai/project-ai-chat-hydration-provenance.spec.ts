@@ -1455,12 +1455,215 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
   }
 });
 
+test("project ai keeps composer usable when post-ready agent-runs refresh fails once after submit", async ({
+  page,
+}) => {
+  const chatId = "pw-post-ready-transient-refresh";
+  let llmSubmitCalls = 0;
+  let llmHydrateCalls = 0;
+  let agentRunsCalls = 0;
+  let reloadStarted = false;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        apiKeys: {
+          OPENAI_API_KEY: "pw-openai-key",
+        },
+        revision: 1,
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    if (!reloadStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
+    agentRunsCalls += 1;
+    if (agentRunsCalls === 2) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "transient metadata refresh failure" }),
+      });
+      return;
+    }
+    if (agentRunsCalls >= 3) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-post-ready-transient-refresh",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-07-20T00:00:00Z",
+            finishedAt: "2026-07-20T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId,
+              engineConfigId: "engine-config-llm",
+              messages: [
+                {
+                  id: "post-ready-user-1",
+                  role: "user",
+                  content: [{ type: "text", text: "Start a chat thread" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {
+              name: "Post-ready transient refresh",
+              nameSource: "llm",
+            },
+            toolCalls: [],
+            cost: null,
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    llmSubmitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(chatId),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `assistant-post-ready-${llmHydrateCalls}`,
+            role: "assistant",
+            content: [
+              { type: "text", text: "Hydrated after transient refresh." },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    allowExpectedApiError(page, {
+      path: "/api/getAgentRuns",
+      statuses: [500],
+      count: 1,
+    });
+    reloadStarted = true;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+    const input = overviewPane.locator("textarea").first();
+    const submitButton = overviewPane.locator('button[type="submit"]').first();
+    await expect(input).toBeVisible();
+
+    await input.fill("Trigger post-ready refresh failure.");
+    await expect(submitButton).toBeEnabled();
+    await input.press("Enter");
+
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => agentRunsCalls).toBeGreaterThanOrEqual(2);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+
+    await input.fill("Second message should still submit.");
+    await expect(submitButton).toBeEnabled();
+    await input.press("Enter");
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(2);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai retries transient metadata failures and hydrates after authority recovery", async ({
   page,
 }) => {
   const staleChatId = "pw-stale-selected-chat-non-authoritative";
   let llmHydrateCalls = 0;
   let agentRunsCalls = 0;
+  let reloadStarted = false;
   await page.setViewportSize({ width: 1480, height: 920 });
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
@@ -1487,6 +1690,14 @@ test("project ai retries transient metadata failures and hydrates after authorit
     });
   });
   await page.route("**/api/getAgentRuns", async (route) => {
+    if (!reloadStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
     agentRunsCalls += 1;
     if (agentRunsCalls === 1) {
       await route.fulfill({
@@ -1582,6 +1793,7 @@ test("project ai retries transient metadata failures and hydrates after authorit
       statuses: [500],
       count: 1,
     });
+    reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = page.locator("#OverviewPane");

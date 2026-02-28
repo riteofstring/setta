@@ -519,3 +519,22 @@
 - Frontend targeted Vitest: `21 passed` (`projectChatSkillsMcpViewerUtils.test.ts`, `projectChatSkillsMcpViewerUtils.perf.test.ts`, `ProjectChatSkillsMcpViewer.test.ts`).
 - Targeted Playwright e2e: `14 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts`).
 - CDP visual check: done (Skills/MCP viewer rendered `ACTIVE CUSTOM SETTA_FILES ROOT` under runtime-status custom location payload).
+
+## 2026-02-27 11:49:04 PST
+
+### Consolidated Findings
+- Top-level `review*.md` files were temporary reviewer inputs and should not remain in the repository after consolidation.
+- Final repo hygiene checkpoint was needed before commit to keep generated/cleanup outputs in sync.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Ran `pnpm -C frontend gcf` to execute generation, cleanup, and formatting workflows from the package context.
+- Appended this cumulative record entry with a timestamped heading.
+- Removed all top-level `review*.md` files from the worktree.
+
+### UX/DX Before -> After
+- Review artifact handling: temporary review files persisted at repo root -> review outcomes now preserved only in `cumulative_review.md`.
+- Finalization flow: cleanup status implicit before commit -> explicit `gcf` checkpoint recorded in cumulative history.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `find . -maxdepth 1 -type f -name 'review*.md'`: no matches after cleanup.
