@@ -394,6 +394,7 @@ from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
     ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
     ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
@@ -424,6 +425,7 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -450,8 +452,47 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _assert_ui_setting_expected_old_value_matches(
+    *,
+    setting_id: str,
+    expected_old_value: object | None,
+    observed_old_value: object,
+) -> None:
+    if expected_old_value is None:
+        return
+    if expected_old_value == observed_old_value:
+        return
+    raise UISettingExpectedOldValueMismatchError(
+        setting_id=setting_id,
+        expected_old_value=expected_old_value,
+        observed_old_value=observed_old_value,
+    )
+
+
+def _is_ui_setting_compare_and_set_noop(
+    *,
+    setting_id: str,
+    expected_old_value: object | None,
+    observed_old_value: object,
+    requested_new_value: object,
+) -> bool:
+    _assert_ui_setting_expected_old_value_matches(
+        setting_id=setting_id,
+        expected_old_value=expected_old_value,
+        observed_old_value=observed_old_value,
+    )
+    return observed_old_value == requested_new_value
+
+
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
+_DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
+    "key": "root",
+    "type": "Stack",
+    "props": {},
+    "children": [],
+}
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -2236,14 +2277,29 @@ class BaseProjectManager(ABC):
         """Update the codegen targets for a project configuration."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._apply_project_config_codegen_targets(
+            project_state=project_state,
+            codegen_targets=x.codegenTargets,
+        )
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
+
+    def _apply_project_config_codegen_targets(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        codegen_targets: list[ProjectCodegenTarget],
+    ) -> None:
         seen_languages: set[str] = set()
-        for target in x.codegenTargets:
+        for target in codegen_targets:
             if target.language in seen_languages:
                 raise ValueError(
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
-        self._resolve_plugin_codegen_targets(x.codegenTargets)
+        self._resolve_plugin_codegen_targets(codegen_targets)
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2252,7 +2308,7 @@ class BaseProjectManager(ABC):
         prev_metadata_enabled = bool(
             prev_python_target and prev_python_target.generateMetadata
         )
-        project_state.projectConfig.codegenTargets = x.codegenTargets
+        project_state.projectConfig.codegenTargets = codegen_targets
         next_python_target = get_python_codegen_target(project_state.projectConfig)
         next_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2304,10 +2360,70 @@ class BaseProjectManager(ABC):
                     SectionType.GenPythonMetadata,
                     Position(),
                 )
+
+    @enqueue_method
+    async def compare_and_set_python_codegen_enabled(
+        self,
+        project_config_id: ID,
+        enabled: bool,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(project_config_id)
+        old_value = project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.run_instructions.python_codegen_enabled",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        existing_targets = list(project_state.projectConfig.codegenTargets)
+        python_target: ProjectCodegenPythonTarget | None = None
+        for target in existing_targets:
+            if target.language == ProjectCodegenLanguage.python:
+                if not isinstance(target, ProjectCodegenPythonTarget):
+                    raise ValueError(
+                        "Project config has invalid python codegen target type."
+                    )
+                python_target = target
+                continue
+            if not isinstance(target, ProjectCodegenPluginTarget):
+                raise ValueError(
+                    "Project config has invalid plugin codegen target type: "
+                    f"{target.language}."
+                )
+        if old_value == enabled:
+            return old_value, old_value
+        next_targets: list[ProjectCodegenTarget]
+        if enabled:
+            next_targets = [
+                *existing_targets,
+                python_target
+                if python_target is not None
+                else ProjectCodegenPythonTarget(),
+            ]
+        else:
+            next_targets = [
+                target
+                for target in existing_targets
+                if target.language != ProjectCodegenLanguage.python
+            ]
+        self.add_new_history_entry()
+        self._apply_project_config_codegen_targets(
+            project_state=project_state,
+            codegen_targets=next_targets,
+        )
         await self.update_and_broadcast_project_state(
             project_state,
             validate_name_rules=False,
         )
+        new_value = project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
+        return old_value, new_value
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(access_type="structural")
@@ -2432,6 +2548,191 @@ class BaseProjectManager(ABC):
             appDefinition=app_definition,
         )
 
+    @staticmethod
+    def _resolve_app_spec_path_or_default(app_definition: AppDefinition) -> str:
+        if (
+            isinstance(app_definition.appSpecPath, str)
+            and app_definition.appSpecPath.strip() != ""
+        ):
+            return app_definition.appSpecPath
+        return default_app_spec_path()
+
+    @staticmethod
+    def _resolve_app_theme_mode(app_definition: AppDefinition) -> str:
+        theme = app_definition.theme
+        if isinstance(theme, dict):
+            mode = theme.get("mode")
+            if mode in {"auto", "dark", "light"}:
+                return mode
+        return "auto"
+
+    def _resolve_current_app_spec_for_metadata_update(
+        self,
+        *,
+        app_definition: AppDefinition,
+    ) -> tuple[str, JSONValue]:
+        target_path = self._resolve_app_spec_path_or_default(app_definition)
+        normalized_path = normalize_app_spec_path(self.dbe, target_path)
+        current_app_spec = read_app_spec(self.dbe, normalized_path)
+        if current_app_spec is None:
+            current_app_spec = copy.deepcopy(_DEFAULT_MINIMAL_APP_SPEC)
+        return normalized_path, current_app_spec
+
+    async def _commit_app_definition_metadata_update(
+        self,
+        *,
+        updated_definition: AppDefinition,
+        app_spec: JSONValue,
+        app_spec_path: str,
+    ) -> None:
+        project_state = self._get_default_project_state()
+        validate_app_theme_or_raise(updated_definition.theme)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            app_spec,
+            catalog_id=updated_definition.catalogId,
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
+        )
+        self.project_state_backend = self.project_state_backend.model_copy(
+            update={"appDefinition": updated_definition}
+        )
+        write_app_spec(self.dbe, app_spec_path, app_spec)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def compare_and_set_app_definition_catalog_id(
+        self,
+        *,
+        catalog_id: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = app_definition.catalogId
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.app.catalog_id",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=catalog_id,
+        ):
+            return old_value, old_value
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "catalogId": catalog_id}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, updated_definition.catalogId
+
+    @enqueue_method
+    async def compare_and_set_app_definition_spec_version(
+        self,
+        *,
+        app_spec_version: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = app_definition.appSpecVersion
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.app.spec_version",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=app_spec_version,
+        ):
+            return old_value, old_value
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, updated_definition.appSpecVersion
+
+    @enqueue_method
+    async def compare_and_set_app_definition_spec_path(
+        self,
+        *,
+        app_spec_path: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = self._resolve_app_spec_path_or_default(app_definition)
+        normalized_path = normalize_app_spec_path(self.dbe, app_spec_path)
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.app.spec_path",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=normalized_path,
+        ):
+            return old_value, old_value
+        _, current_app_spec = self._resolve_current_app_spec_for_metadata_update(
+            app_definition=app_definition
+        )
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, normalized_path
+
+    @enqueue_method
+    async def compare_and_set_app_definition_theme_mode(
+        self,
+        *,
+        theme_mode: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = self._resolve_app_theme_mode(app_definition)
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.app.theme_mode",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=theme_mode,
+        ):
+            return old_value, old_value
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        theme_payload: dict[str, JSONValue]
+        if isinstance(app_definition.theme, dict):
+            theme_payload = dict(app_definition.theme)
+        else:
+            theme_payload = {}
+        theme_payload["mode"] = theme_mode
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "theme": theme_payload}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, self._resolve_app_theme_mode(updated_definition)
+
     @enqueue_method
     @project_state_tool(access_type="structural")
     async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
@@ -2439,6 +2740,27 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_show_param_display_names(
+        self,
+        x: SetShowParamDisplayNamesRequest,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_value = project_state.projectConfig.showParamDisplayNames
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.project.show_param_display_names",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=x.showParamDisplayNames,
+        ):
+            return old_value, old_value
+        project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return old_value, project_state.projectConfig.showParamDisplayNames
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -2450,6 +2772,29 @@ class BaseProjectManager(ABC):
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_enabled(
+        self,
+        x: SetWatchCodeEnabledRequest,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_value = project_state.projectConfig.watchCodeEnabled
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.watch_code.enabled",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+            requested_new_value=x.enabled,
+        ):
+            return old_value, old_value
+        project_state.projectConfig.watchCodeEnabled = x.enabled
+        if x.enabled and not old_value:
+            self.watch_code_manager.baseline_on_enable(project_state)
+        await self.update_and_broadcast_project_state(project_state)
+        return old_value, project_state.projectConfig.watchCodeEnabled
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -2468,6 +2813,80 @@ class BaseProjectManager(ABC):
                 project_state, previous_snapshot
             )
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_folders(
+        self,
+        x: SetWatchCodeInputsRequest,
+        *,
+        expected_old_value: list[dict[str, object]] | None = None,
+    ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in project_state.projectConfig.watchCodeFolders
+        ]
+        next_folders = normalize_watch_code_folders(x.watchCodeFolders)
+        new_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in next_folders
+        ]
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.watch_code.folders",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_folders,
+            requested_new_value=new_folders,
+        ):
+            return old_folders, old_folders
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFolders = next_folders
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+        updated_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in project_state.projectConfig.watchCodeFolders
+        ]
+        return old_folders, updated_folders
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_files(
+        self,
+        x: SetWatchCodeInputsRequest,
+        *,
+        expected_old_value: list[str] | None = None,
+    ) -> tuple[list[str], list[str]]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_files = list(project_state.projectConfig.watchCodeFiles)
+        next_files = normalize_watch_code_files(x.watchCodeFiles)
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.watch_code.files",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_files,
+            requested_new_value=next_files,
+        ):
+            return old_files, old_files
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFiles = next_files
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+        return old_files, list(project_state.projectConfig.watchCodeFiles)
 
     @enqueue_method
     async def apply_watch_code_file_update(
@@ -3745,6 +4164,38 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
                 self._plugin_codegen_output_root(new_name)
             )
+
+    @enqueue_method
+    async def compare_and_set_project_config_name(
+        self,
+        projectConfigId: ID,
+        newName: str,
+        *,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        old_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        if _is_ui_setting_compare_and_set_noop(
+            setting_id="core.project.name",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_name,
+            requested_new_value=newName,
+        ):
+            return old_name, old_name
+        previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
+            projectConfigId,
+            self._plugin_codegen_output_root(old_name),
+        )
+        set_project_config_name(self.project_state_backend, projectConfigId, newName)
+        new_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        if previous_output_root.exists() and old_name != new_name:
+            shutil.rmtree(previous_output_root)
+        if projectConfigId in self._plugin_codegen_output_root_by_project_config:
+            self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
+                self._plugin_codegen_output_root(new_name)
+            )
+        await self.broadcast_all_project_metadata()
+        self.perform_manual_save()
+        return old_name, new_name
 
     @enqueue_method
     async def delete_section_variant_or_ask(self, x: DeleteSectionVariantOrAskRequest):

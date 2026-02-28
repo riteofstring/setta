@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tools.file_read import read_file_range
 
 
@@ -55,8 +56,20 @@ class TestReadFileRangeTool:
         with pytest.raises(FileNotFoundError):
             read_file_range(path="missing.txt", workspace_root=self.workspace_root)
 
+    def test_non_utf8_file_raises_invalid_tool_arguments(self) -> None:
+        non_utf8_path = self.workspace_root / "binary.dat"
+        non_utf8_path.write_bytes(b"\xff\xfe\xfa")
+
+        with pytest.raises(
+            InvalidToolArgumentsError, match="File is not UTF-8 encoded"
+        ):
+            read_file_range(
+                path=str(non_utf8_path),
+                workspace_root=self.workspace_root,
+            )
+
     def test_rejects_relative_escape_outside_workspace_root(self) -> None:
-        with pytest.raises(ValueError, match="within the project root"):
+        with pytest.raises(InvalidToolArgumentsError, match="within the project root"):
             read_file_range(path="../outside.txt", workspace_root=self.workspace_root)
 
     def test_rejects_absolute_path_outside_workspace_root(self) -> None:
@@ -64,7 +77,9 @@ class TestReadFileRangeTool:
             outside_file = Path(outside_dir) / "outside.txt"
             outside_file.write_text("nope", encoding="utf-8")
 
-            with pytest.raises(ValueError, match="within the project root"):
+            with pytest.raises(
+                InvalidToolArgumentsError, match="within the project root"
+            ):
                 read_file_range(
                     path=str(outside_file),
                     workspace_root=self.workspace_root,
