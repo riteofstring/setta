@@ -5,12 +5,30 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta import trusted_frontend_origins as trusted_frontend_origins_module
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.middleware import AuthMiddleware
 from setta.routers.bootstrap import router as bootstrap_router
 from setta.sessions import SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStore,
+    is_trusted_frontend_origin,
+)
 from setta.utils.constants import C
+from setta.utils.launcher_origin_handoff import mint_launcher_origin_handoff_proof
+
+
+@pytest.fixture(autouse=True)
+def isolated_trusted_frontend_origins_store(tmp_path, monkeypatch) -> None:
+    store = TrustedFrontendOriginStore(
+        storage_path=tmp_path / "trusted_frontend_origins.json"
+    )
+    monkeypatch.setattr(
+        trusted_frontend_origins_module,
+        "_TRUSTED_FRONTEND_ORIGIN_STORE",
+        store,
+    )
 
 
 @pytest.fixture
@@ -63,6 +81,50 @@ def test_bootstrap_token_sets_cookie_for_protected_route(
     assert response.json() == {"ok": True}
 
 
+def test_bootstrap_consume_returns_verified_launcher_origin(bootstrap_client) -> None:
+    client, session, secret = bootstrap_client
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    launcher_origin = "http://127.0.0.1:9001"
+    launcher_origin_proof = mint_launcher_origin_handoff_proof(
+        session_id=session.id,
+        launcher_origin=launcher_origin,
+        secret=secret,
+    )
+
+    response = client.post(
+        "/__setta__/bootstrap/consume",
+        json={
+            "token": token,
+            "launcherOrigin": launcher_origin,
+            "launcherOriginProof": launcher_origin_proof,
+        },
+    )
+
+    response.raise_for_status()
+    assert response.json() == {"status": "ok", "launcherOrigin": launcher_origin}
+    assert is_trusted_frontend_origin(launcher_origin) is True
+
+
+def test_bootstrap_consume_ignores_invalid_launcher_origin_proof(
+    bootstrap_client,
+) -> None:
+    client, session, secret = bootstrap_client
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+
+    response = client.post(
+        "/__setta__/bootstrap/consume",
+        json={
+            "token": token,
+            "launcherOrigin": "http://127.0.0.1:9001",
+            "launcherOriginProof": "invalid-proof",
+        },
+    )
+
+    response.raise_for_status()
+    assert response.json() == {"status": "ok"}
+    assert is_trusted_frontend_origin("http://127.0.0.1:9001") is False
+
+
 def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:
     client, _, _ = bootstrap_client
     response = client.get(
@@ -82,21 +144,22 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
     response.raise_for_status()
     html = response.text
 
-    assert (
-        'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";'
-        in html
-    )
+    assert 'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";' in html
     assert "localStorage.setItem(workspaceHistoryHandoffKey, trimmed);" in html
 
     assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
-    assert (
-        "const launcherOriginStorage = localStorage;" in html
-        or "const launcherOriginStorage = sessionStorage;" in html
-    )
+    assert "const launcherOriginStorage = sessionStorage;" in html
     assert 'hashParams.get("lo")' in html
-    assert 'url.protocol !== "http:"' in html
-    assert 'url.protocol !== "https:"' in html
-    assert "launcherOriginStorage.setItem(launcherOriginKey, url.origin);" in html
+    assert 'hashParams.get("lop")' in html
+    assert 'hashParams.get("osw")' in html
+    assert (
+        'const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";'
+        in html
+    )
+    assert 'redirect.searchParams.set(openWorkspaceSwitcherQueryParam, "1");' in html
+    assert "consumeBody.launcherOrigin = launcherOriginHandoff.origin;" in html
+    assert "consumeBody.launcherOriginProof = launcherOriginHandoff.proof;" in html
+    assert "launcherOriginStorage.setItem(launcherOriginKey, trimmed);" in html
 
 
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
@@ -106,7 +169,7 @@ def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
     assert response.json() == {"detail": "Unauthorized"}
 
 
-def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -> None:
+def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch) -> None:
     from setta.routers import bootstrap as bootstrap_module
 
     monkeypatch.setattr(bootstrap_module, "IS_DEV_MODE", "1")
@@ -122,10 +185,6 @@ def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -
         response.raise_for_status()
         html = response.text
 
-    expected_prefix = (
-        f'const redirectUrl = "http://127.0.0.1:{bootstrap_module.C.DEV_MODE_FRONTEND_PORT}/'
-    )
+    expected_prefix = f'const redirectUrl = "http://127.0.0.1:{bootstrap_module.C.DEV_MODE_FRONTEND_PORT}/'
     assert expected_prefix in html
-    assert (
-        "__setta_backend_origin=https%3A%2F%2Fbackend.example%3A61234" in html
-    )
+    assert "__setta_backend_origin=https%3A%2F%2Fbackend.example%3A61234" in html

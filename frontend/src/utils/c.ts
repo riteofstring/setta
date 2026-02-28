@@ -40,6 +40,8 @@ export class C {
   static EDGE_OUTPUT_BASE_LABEL = "value";
   static GEN_CODE_SEPARATOR_NEWLINES = 2;
   static HOST = "127.0.0.1";
+  static LAUNCHER_MODE = false;
+  static LAUNCH_INTENT_TOKEN_TTL_SECONDS = 300;
   static LLM_TEXT = "text";
   static LLM_THINKING = "thinking";
   static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";

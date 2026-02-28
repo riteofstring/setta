@@ -52,6 +52,23 @@ describe("initializeServerMode", () => {
     });
   });
 
+  it("accepts launcher mode from backend response", async () => {
+    vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { mode: "launcher" },
+    });
+
+    const mode = await initializeServerMode();
+
+    expect(mode).toBe("launcher");
+    expect(useServerMode.getState()).toEqual({
+      mode: "launcher",
+      modeResolved: true,
+      modeError: null,
+    });
+  });
+
   it("stores an error when the request fails", async () => {
     vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
       status: 500,

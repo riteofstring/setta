@@ -42,6 +42,7 @@ def test_wait_for_remote_session_uses_shared_wait_helper_and_selects_latest(
         port=61234,
         pid=1,
         started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
     )
     newer_session = start.RemoteSessionSummary(
         id="newer",
@@ -51,6 +52,7 @@ def test_wait_for_remote_session_uses_shared_wait_helper_and_selects_latest(
         port=61235,
         pid=2,
         started_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        server_mode="ide",
     )
 
     # Ensure start.py delegates polling to the shared ssh_common helper.

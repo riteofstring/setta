@@ -11,8 +11,6 @@ export const NAVBAR_HEIGHT = 36;
 export const PaneNameEnum = {
   overview: "overview",
   uiEditor: "uiEditor",
-  homeWorkspace: "homeWorkspace",
-  homeSelectedProject: "homeSelectedProject",
 } as const;
 
 export type PaneName = ObjectValues<typeof PaneNameEnum>;

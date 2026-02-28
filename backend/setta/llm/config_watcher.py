@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
-from setta.llm.api_key_runtime_sync import sync_managed_api_keys_to_runtime
 from setta.llm.config import load_llm_config
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
@@ -74,13 +73,6 @@ class LLMConfigWatcher:
         await self.websocket_msg_handler.broadcast_llm_config_update(
             self.agent_runner.config
         )
-        await sync_managed_api_keys_to_runtime(
-            dbe=self.dbe,
-            agent_runner=self.agent_runner,
-            websocket_msg_handler=self.websocket_msg_handler,
-            logger=logger,
-            log_label="llm-api-keys-parse",
-            corruption_message=(
-                "Failed to parse llm_api_keys.json; applying empty API keys snapshot"
-            ),
+        await self.websocket_msg_handler.broadcast_llm_api_keys_update(
+            self.agent_runner.api_keys
         )

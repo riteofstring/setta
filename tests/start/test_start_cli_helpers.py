@@ -16,6 +16,7 @@ from setta.start import (
     _load_json_payload,
     _normalize_base_url,
     _normalize_tool_name,
+    _resolve_session_selection_server_mode,
     _resolve_remote_workspace,
     _strip_cookie_header_prefix,
 )
@@ -161,3 +162,51 @@ def test_resolve_remote_workspace_adds_hint_for_local_tilde_expansion(monkeypatc
     message = str(excinfo.value)
     assert "expanded '~'" in message
     assert "--workspace" in message
+
+
+def test_resolve_session_selection_server_mode_defaults() -> None:
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="status-connect",
+            requested_server_mode=None,
+        )
+        == "ide"
+    )
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="stop",
+            requested_server_mode=None,
+        )
+        == "ide"
+    )
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="auth",
+            requested_server_mode=None,
+        )
+        == "ide"
+    )
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="api-auto-auth",
+            requested_server_mode=None,
+        )
+        == "ide"
+    )
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="status-list",
+            requested_server_mode=None,
+        )
+        is None
+    )
+
+
+def test_resolve_session_selection_server_mode_honors_override() -> None:
+    assert (
+        _resolve_session_selection_server_mode(
+            selector="auth",
+            requested_server_mode="launcher",
+        )
+        == "launcher"
+    )
