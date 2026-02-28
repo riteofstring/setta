@@ -613,59 +613,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function extractRuntimeStatusEntriesFromStructuredContent(
-  value: unknown,
-): unknown[] | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const servers = value.servers;
-  if (!Array.isArray(servers)) {
-    return null;
-  }
-  return servers;
-}
-
-function extractRuntimeStatusEntriesFromContent(
-  value: unknown,
-): unknown[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  for (const contentEntry of value) {
-    if (!isRecord(contentEntry)) {
-      continue;
-    }
-    const text = contentEntry.text;
-    if (typeof text !== "string" || text.trim().length === 0) {
-      continue;
-    }
-    try {
-      const parsed = JSON.parse(text);
-      const statusEntries =
-        extractRuntimeStatusEntriesFromStructuredContent(parsed);
-      if (statusEntries) {
-        return statusEntries;
-      }
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-function extractRuntimeStatusEntriesFromCallResult(
-  callResult: Record<string, unknown>,
-): unknown[] | null {
-  return (
-    extractRuntimeStatusEntriesFromStructuredContent(
-      callResult.structuredContent,
-    ) ??
-    extractRuntimeStatusEntriesFromContent(callResult.content) ??
-    null
-  );
-}
-
 function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
   if (typeof value !== "string") {
     return "unknown";
@@ -730,72 +677,6 @@ function normalizeRuntimeServerQuickInfo({
     return `Disabled: ${detailSuffix}`;
   }
   return `Unknown: ${detailSuffix}`;
-}
-
-function parseRuntimeServerStatusEntry(
-  value: unknown,
-): [string, McpRuntimeServerStatus] | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const serverIdRaw = value.serverId;
-  if (typeof serverIdRaw !== "string" || serverIdRaw.trim().length === 0) {
-    return null;
-  }
-  const quickInfoRaw = value.quickInfo;
-  const issueRaw = value.issue;
-  const registeredToolCountRaw = value.registeredToolCount;
-  const registeredToolCount =
-    typeof registeredToolCountRaw === "number" &&
-    Number.isFinite(registeredToolCountRaw) &&
-    registeredToolCountRaw >= 0
-      ? registeredToolCountRaw
-      : 0;
-  const issue =
-    typeof issueRaw === "string" && issueRaw.trim().length > 0
-      ? issueRaw
-      : null;
-  const missingEnvVar = null;
-  const state = normalizeRuntimeServerState(value.state);
-  const quickInfo =
-    typeof quickInfoRaw === "string" && quickInfoRaw.trim().length > 0
-      ? quickInfoRaw
-      : normalizeRuntimeServerQuickInfo({
-          state,
-          quickInfo: null,
-          issue,
-          missingEnvVar,
-          registeredToolCount,
-        });
-  return [
-    serverIdRaw,
-    {
-      state,
-      quickInfo,
-      registeredToolCount,
-      issue,
-      missingEnvVar,
-    },
-  ];
-}
-
-export function parseMcpServerRuntimeStatuses(
-  callResult: Record<string, unknown>,
-): Record<string, McpRuntimeServerStatus> | null {
-  const rawEntries = extractRuntimeStatusEntriesFromCallResult(callResult);
-  if (!rawEntries) {
-    return null;
-  }
-  const statuses: Record<string, McpRuntimeServerStatus> = {};
-  for (const rawEntry of rawEntries) {
-    const parsedEntry = parseRuntimeServerStatusEntry(rawEntry);
-    if (!parsedEntry) {
-      return null;
-    }
-    const [serverId, status] = parsedEntry;
-    statuses[serverId] = status;
-  }
-  return statuses;
 }
 
 export function toRuntimeStatusByServerId(

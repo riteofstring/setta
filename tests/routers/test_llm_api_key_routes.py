@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 import pytest
 import pytest_asyncio
 
+import setta.llm.api_keys as api_keys_module
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
@@ -440,6 +441,44 @@ async def test_llm_api_keys_set_route_returns_unavailable_error_for_io_failures(
                 UpdateAPIKeysRequest(
                     apiKeys={"OPENAI_API_KEY": "secret"},
                     expectedRevision=0,
+                ),
+                runtime_ctx,
+            )
+
+    assert exc_info.value.status_code == 503
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected typed unavailable detail payload.")
+    assert (
+        exc_info.value.detail.get("errorCode")
+        == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+    )
+    assert exc_info.value.detail.get("revision") == 0
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_set_route_returns_typed_unavailable_error_when_write_fails(
+    state_env: SettaFastAPIState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with runtime_context(state_env) as runtime_ctx:
+        initial_keys = await route_get_llm_api_keys(runtime_ctx)
+
+        # Write-path failures should map to the same typed unavailable route payload.
+        def _raise_write_failure(*args, **kwargs) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(
+            api_keys_module,
+            "_write_managed_api_keys_store_payload",
+            _raise_write_failure,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await route_set_llm_api_keys(
+                UpdateAPIKeysRequest(
+                    apiKeys={"OPENAI_API_KEY": "secret"},
+                    expectedRevision=initial_keys.revision,
                 ),
                 runtime_ctx,
             )

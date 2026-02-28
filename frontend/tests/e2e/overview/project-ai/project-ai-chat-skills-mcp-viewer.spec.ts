@@ -173,7 +173,9 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
     .toBe("true");
   await expect(page.getByText(/setta_files\/llm_config\.json/)).toBeVisible();
   await expect(
-    page.getByText(/Active (local|global) setta_files/),
+    page.getByText(
+      /Active (local|global) setta_files|Active custom setta_files root/,
+    ),
   ).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
@@ -314,6 +316,82 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
   expect(quickInfos).toContain(
     "Error: authorization failed | 0 tools",
   );
+});
+
+test("project ai chat shows custom setta_files label from runtime status endpoint", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::placeholder",
+        content: "# Placeholder",
+      }),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "/tmp/workspace/setta_files_dev/llm_config.json",
+        activeSettaFilesLocation: "custom",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 1,
+          },
+        ],
+        externalServers: [],
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsMcpViewer(page);
+
+  await expect(page.getByText("Active custom setta_files root")).toBeVisible();
 });
 
 test("skills/mcp view keeps inline threads visible when threads are open", async ({

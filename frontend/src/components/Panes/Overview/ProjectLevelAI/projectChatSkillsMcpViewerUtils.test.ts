@@ -12,7 +12,6 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
-  parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
@@ -222,91 +221,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[1]?.servers[0]?.serverId).toBe("codex-remote");
   });
 
-  it("normalizes legacy per-server MCP runtime statuses from structured content", () => {
-    const statuses = parseMcpServerRuntimeStatuses({
-      structuredContent: {
-        servers: [
-          {
-            serverId: "figma-desktop",
-            state: "available",
-            quickInfo: "Connected",
-            registeredToolCount: 8,
-            issue: null,
-          },
-          {
-            serverId: "pencil",
-            state: "unavailable",
-            quickInfo: "Unavailable: command not found",
-            registeredToolCount: 0,
-            issue: "command not found",
-          },
-        ],
-      },
-    });
-
-    expect(statuses).toEqual({
-      "figma-desktop": {
-        state: "connected",
-        quickInfo: "Connected",
-        registeredToolCount: 8,
-        issue: null,
-        missingEnvVar: null,
-      },
-      pencil: {
-        state: "error",
-        quickInfo: "Unavailable: command not found",
-        registeredToolCount: 0,
-        issue: "command not found",
-        missingEnvVar: null,
-      },
-    });
-  });
-
-  it("parses per-server MCP runtime statuses from text content payloads", () => {
-    const statuses = parseMcpServerRuntimeStatuses({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            servers: [
-              {
-                serverId: "playwriter",
-                state: "retrying",
-                quickInfo: "Retrying connection",
-                registeredToolCount: 0,
-                issue: "timeout",
-              },
-            ],
-          }),
-        },
-      ],
-    });
-
-    expect(statuses).toEqual({
-      playwriter: {
-        state: "retrying",
-        quickInfo: "Retrying connection",
-        registeredToolCount: 0,
-        issue: "timeout",
-        missingEnvVar: null,
-      },
-    });
-  });
-
-  it("returns null for malformed MCP runtime status payloads", () => {
-    const statuses = parseMcpServerRuntimeStatuses({
-      structuredContent: {
-        servers: [
-          {
-            state: "available",
-          },
-        ],
-      },
-    });
-
-    expect(statuses).toBeNull();
-  });
-
   it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
@@ -443,7 +357,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("keeps statuses distinct when server ids collide across sources", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
-        serverId: "setta",
+        serverId: "shared",
         source: "setta_mcp",
         state: "connected",
         lastError: null,
@@ -451,17 +365,21 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         toolCount: 4,
       },
       {
-        serverId: "setta",
-        source: "external_agent",
+        serverId: "shared",
+        source: "external_runtime",
         state: "error",
         lastError: "auth failed",
         missingEnvVar: null,
         toolCount: 0,
       },
     ]);
+    expect(Object.keys(runtimeStatuses).sort()).toEqual([
+      "external_runtime:shared",
+      "setta_mcp:shared",
+    ]);
 
     const settaSourceStatus = resolveMcpServerStatus({
-      serverId: "setta",
+      serverId: "shared",
       source: "setta_mcp",
       endpoint: "http://127.0.0.1:8000/mcp",
       runtimeStatusByServerId: runtimeStatuses,
@@ -469,8 +387,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       runtimeStatusError: null,
     });
     const externalSourceStatus = resolveMcpServerStatus({
-      serverId: "setta",
-      source: "external_agent",
+      serverId: "shared",
+      source: "external_runtime",
       endpoint: "https://api.example.dev/mcp",
       runtimeStatusByServerId: runtimeStatuses,
       runtimeStatusLoading: false,

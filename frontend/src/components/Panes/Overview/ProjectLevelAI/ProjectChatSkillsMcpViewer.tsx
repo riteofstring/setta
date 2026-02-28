@@ -222,7 +222,7 @@ function normalizeAgentNativeSlashCommandsStatus(
   }
 }
 
-function parseAgentNativeSlashCommandsStorage(
+export function parseAgentNativeSlashCommandsStorage(
   rawStorageValue: string | null,
 ): Record<string, AgentNativeSlashCommandsEntry> {
   if (!rawStorageValue) {
@@ -236,17 +236,6 @@ function parseAgentNativeSlashCommandsStorage(
     const normalized: Record<string, AgentNativeSlashCommandsEntry> = {};
     for (const [engineId, rawEntry] of Object.entries(parsed)) {
       if (!engineId.trim()) {
-        continue;
-      }
-      if (Array.isArray(rawEntry)) {
-        const commands = normalizeSlashCommandList(rawEntry);
-        if (commands.length > 0) {
-          normalized[engineId] = {
-            commands,
-            status: "available",
-            statusDetail: null,
-          };
-        }
         continue;
       }
       if (!isRecord(rawEntry)) {

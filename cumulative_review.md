@@ -490,3 +490,32 @@
 - Backend targeted pytest: `58 passed` (`tests/llm/test_config.py`, `tests/agentic/test_external_agent_settings.py`).
 - Frontend targeted Vitest: `23 passed` (`src/state/actions/aiTranscribeChatAudio.test.ts`, `src/utils/transcriptionErrors.test.ts`, `src/components/Chat/dictationPolicy.test.ts`).
 - Targeted Playwright e2e: `1 passed` (`frontend/tests/e2e/chat/chat-dictation-fallback.spec.ts`, grep: `chat section falls back to browser dictation when provider transcription stop returns no delta`).
+
+## 2026-02-27 11:02:43 PST
+
+### Consolidated Findings
+- Managed API-key CAS write paths could still leak untyped filesystem failures during save/repair writes.
+- MCP runtime status route and setta-home route exposed different `activeSettaFilesLocation` semantics for custom `setta_files` roots.
+- Frontend Skills/MCP utilities retained legacy runtime-status parser code paths that were no longer used at runtime.
+- Skills/MCP local storage hydration still accepted a legacy array-shaped payload for agent-native slash commands.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Hardened managed API-key write-path error mapping to return typed `store_unavailable` outcomes for all write branches.
+- Unified backend `activeSettaFilesLocation` normalization (`None -> "custom"`) and reused it across both status endpoints.
+- Removed legacy MCP runtime-status parser functions and kept typed runtime mapper resolution as the only active path.
+- Removed legacy array-shape slash-command hydration fallback and kept canonical object-shape hydration only.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for these behaviors.
+- Ran cleanup/generation via package-context `pnpm -C frontend gcf`.
+
+### UX/DX Before -> After
+- API-key save failures: generic/untyped write-path failures possible -> deterministic typed unavailable contract across read/write/repair paths.
+- Custom root labeling: route-dependent semantics -> consistent "custom" provenance across status endpoints and MCP viewer labels.
+- Runtime status parsing: dead compatibility path in production module -> single typed runtime ingestion path aligned with runtime behavior.
+- Slash command hydration: dual storage semantics -> one canonical persisted shape with clearer failure/debug behavior.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `37 passed` (`tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`, `tests/routers/test_mcp_server_runtime_status_route.py`).
+- Frontend targeted Vitest: `21 passed` (`projectChatSkillsMcpViewerUtils.test.ts`, `projectChatSkillsMcpViewerUtils.perf.test.ts`, `ProjectChatSkillsMcpViewer.test.ts`).
+- Targeted Playwright e2e: `14 passed` (`frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts`).
+- CDP visual check: done (Skills/MCP viewer rendered `ACTIVE CUSTOM SETTA_FILES ROOT` under runtime-status custom location payload).

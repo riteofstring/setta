@@ -182,6 +182,72 @@ def test_write_managed_api_keys_with_expected_revision_reports_corrupt_malformed
         assert result.revision == 0
 
 
+def test_write_managed_api_keys_with_expected_revision_reports_unavailable_store_when_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '{"revision": 2, "apiKeys": {"OPENAI_API_KEY": "existing"}}',
+            encoding="utf-8",
+        )
+
+        # Write-path I/O failures must return the typed unavailable contract.
+        def _raise_write_failure(*args, **kwargs) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(
+            api_keys_module,
+            "_write_managed_api_keys_store_payload",
+            _raise_write_failure,
+        )
+
+        result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "next"},
+            expected_revision=2,
+        )
+
+        assert result.status == "store_unavailable"
+        assert result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+        assert result.revision == 0
+
+
+def test_write_managed_api_keys_with_expected_revision_reports_unavailable_store_when_corrupt_repair_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '{"revision": 2, "apiKeys": {"OPENAI_API_KEY": "secret"',
+            encoding="utf-8",
+        )
+
+        # Corrupt-store repair writes must use the same typed unavailable contract.
+        def _raise_write_failure(*args, **kwargs) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(
+            api_keys_module,
+            "_write_managed_api_keys_store_payload",
+            _raise_write_failure,
+        )
+
+        result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "repaired"},
+            expected_revision=0,
+        )
+
+        assert result.status == "store_unavailable"
+        assert result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
+        assert result.revision == 0
+
+
 def test_read_managed_api_keys_with_status_reports_unavailable_store() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)

@@ -174,17 +174,22 @@ def _write_managed_api_keys_store_payload(
 ) -> None:
     payload = {"revision": revision, "apiKeys": api_keys}
     serialized_payload = json.dumps(payload, indent=2, sort_keys=True)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        dir=path.parent,
-        delete=False,
-        suffix=".tmp",
-        encoding="utf-8",
-    ) as tmp_file:
-        tmp_file.write(serialized_payload)
-        tmp_path = Path(tmp_file.name)
-    tmp_path.replace(path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=path.parent,
+            delete=False,
+            suffix=".tmp",
+            encoding="utf-8",
+        ) as tmp_file:
+            tmp_file.write(serialized_payload)
+            tmp_path = Path(tmp_file.name)
+        tmp_path.replace(path)
+    except OSError as exc:
+        raise ManagedAPIKeysStoreUnavailableError(
+            f"Failed to write managed API key store: {exc}"
+        ) from exc
 
 
 def _read_managed_api_keys_raw_payload_from_disk(path: Path) -> str | None:
@@ -249,26 +254,32 @@ def write_managed_api_keys_with_expected_revision(
     *,
     expected_revision: int,
 ) -> ManagedAPIKeysWriteAttempt:
+    def _store_unavailable_result(error: Exception) -> ManagedAPIKeysWriteAttempt:
+        return ManagedAPIKeysWriteAttempt(
+            status="store_unavailable",
+            api_keys={},
+            revision=0,
+            error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+            error=str(error),
+        )
+
     normalized = _normalize_api_key_write_payload(payload)
     path = llm_api_keys_path(dbe)
     with dbe.get_file_lock(path):
         try:
             raw_payload = _read_managed_api_keys_raw_payload_from_disk(path)
         except ManagedAPIKeysStoreUnavailableError as exc:
-            return ManagedAPIKeysWriteAttempt(
-                status="store_unavailable",
-                api_keys={},
-                revision=0,
-                error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
-                error=str(exc),
-            )
+            return _store_unavailable_result(exc)
         except ManagedAPIKeysStoreCorruptError as exc:
             if expected_revision == 0:
-                _write_managed_api_keys_store_payload(
-                    path,
-                    revision=1,
-                    api_keys=normalized,
-                )
+                try:
+                    _write_managed_api_keys_store_payload(
+                        path,
+                        revision=1,
+                        api_keys=normalized,
+                    )
+                except (ManagedAPIKeysStoreUnavailableError, OSError) as write_exc:
+                    return _store_unavailable_result(write_exc)
                 return ManagedAPIKeysWriteAttempt(
                     status="success",
                     api_keys=normalized,
@@ -291,7 +302,14 @@ def write_managed_api_keys_with_expected_revision(
                     error_code=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
                     error=read_result.error,
                 )
-            _write_managed_api_keys_store_payload(path, revision=1, api_keys=normalized)
+            try:
+                _write_managed_api_keys_store_payload(
+                    path,
+                    revision=1,
+                    api_keys=normalized,
+                )
+            except (ManagedAPIKeysStoreUnavailableError, OSError) as write_exc:
+                return _store_unavailable_result(write_exc)
             return ManagedAPIKeysWriteAttempt(
                 status="success",
                 api_keys=normalized,
@@ -309,11 +327,14 @@ def write_managed_api_keys_with_expected_revision(
                 ),
             )
         next_revision = read_result.revision + 1
-        _write_managed_api_keys_store_payload(
-            path,
-            revision=next_revision,
-            api_keys=normalized,
-        )
+        try:
+            _write_managed_api_keys_store_payload(
+                path,
+                revision=next_revision,
+                api_keys=normalized,
+            )
+        except (ManagedAPIKeysStoreUnavailableError, OSError) as write_exc:
+            return _store_unavailable_result(write_exc)
         return ManagedAPIKeysWriteAttempt(
             status="success",
             api_keys=normalized,
