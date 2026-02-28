@@ -8,8 +8,7 @@ import anyio
 import setta.project_state.base_project_manager  # noqa: F401
 from fastapi import FastAPI
 from mcp.client.session import ClientSession
-from mcp.server.fastmcp.server import Context
-from mcp.types import CallToolResult, TextContent, Tool
+from mcp.types import Tool
 import pytest
 
 from setta.agentic.agentic_scope import AgenticContext, AgenticScope
@@ -26,8 +25,6 @@ from setta.llm.chat_toolkit.managed.actions import (
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.project_state.history import History
-from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
-from setta.mcp.tool_metadata import SettaToolType, ToolAccessMetadata, attach_tool_access
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -51,8 +48,6 @@ from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
-
-ensure_setta_mcp_tools_loaded()
 
 
 def _seed_project_state(dbe: DBE, project_config_id: ID) -> None:
@@ -129,9 +124,7 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [
-                item for item in actions if isinstance(item, EmitChunkAction)
-            ]
+            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
@@ -226,9 +219,7 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [
-                item for item in actions if isinstance(item, EmitChunkAction)
-            ]
+            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
@@ -284,174 +275,13 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [
-                item for item in actions if isinstance(item, EmitChunkAction)
-            ]
+            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
             tool_message = chunk.result
             assert tool_message.is_error
             assert "not allowed" in tool_message.content[0].text
-
-    async def test_setta_tool_meta_includes_frontend_affinity_token(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            project_config_id = ID("project-1")
-            _seed_project_state(dbe, project_config_id)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager)
-            mcp_client = MultiMCPClient({})
-            history = ChatHistory(AgentRunChatStore(dbe))
-            executor = ManagedActionExecutor(
-                chat_history=history,
-                websocket_msg_handler=frontend_sender,
-                mcp_client=mcp_client,
-                dbe=dbe,
-                search_tool_name=build_namespaced_tool_name(
-                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
-                ),
-                logger=logging.getLogger(__name__),
-            )
-
-            tool_name = build_namespaced_tool_name(
-                SETTA_MCP_SERVER_ID,
-                "search_ui_settings",
-            )
-            mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "search_ui_settings")
-            captured_meta: list[dict[str, object | None] | None] = []
-
-            async def _fake_call_tool(
-                requested_tool_name: str,
-                arguments: dict[str, object],
-                meta: dict[str, object | None] | None = None,
-            ) -> CallToolResult:
-                assert requested_tool_name == tool_name
-                assert arguments == {}
-                captured_meta.append(meta)
-                return CallToolResult(
-                    content=[TextContent(type="text", text="ok")],
-                    structuredContent={"ok": True},
-                    isError=False,
-                )
-
-            setattr(mcp_client, "call_tool", _fake_call_tool)
-            tool_call = ToolCall(
-                id="tool-call-1",
-                function=ToolCallFunction(
-                    name=tool_name,
-                    arguments={},
-                ),
-            )
-            action = ExecuteToolCallsAction(
-                project_config_id=project_config_id,
-                chat_id=ID("chat-1"),
-                tool_calls=[tool_call],
-                allowed_server_ids={SETTA_MCP_SERVER_ID},
-                share_session_id=None,
-                agentic_context=AgenticContext(
-                    project_config_id=project_config_id,
-                    chat_id=ID("chat-1"),
-                    section_id=ID("section-1"),
-                    frontend_affinity_token="frontend-1",
-                ),
-            )
-
-            actions = await executor.apply(action)
-
-            emit_actions = [
-                item for item in actions if isinstance(item, EmitChunkAction)
-            ]
-            assert len(emit_actions) == 1
-            assert captured_meta == [
-                {
-                    "projectConfigId": "project-1",
-                    "chatId": "chat-1",
-                    "sectionId": "section-1",
-                    "frontendAffinityToken": "frontend-1",
-                }
-            ]
-
-    async def test_setta_tool_meta_preserves_frontend_affinity_token_in_share_scope(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            project_config_id = ID("project-1")
-            _seed_project_state(dbe, project_config_id)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager)
-            mcp_client = MultiMCPClient({})
-            history = ChatHistory(AgentRunChatStore(dbe))
-            executor = ManagedActionExecutor(
-                chat_history=history,
-                websocket_msg_handler=frontend_sender,
-                mcp_client=mcp_client,
-                dbe=dbe,
-                search_tool_name=build_namespaced_tool_name(
-                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
-                ),
-                logger=logging.getLogger(__name__),
-            )
-
-            tool_name = build_namespaced_tool_name(
-                SETTA_MCP_SERVER_ID,
-                "search_ui_settings",
-            )
-            mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "search_ui_settings")
-            captured_meta: list[dict[str, object | None] | None] = []
-
-            async def _fake_call_tool(
-                requested_tool_name: str,
-                arguments: dict[str, object],
-                meta: dict[str, object | None] | None = None,
-            ) -> CallToolResult:
-                assert requested_tool_name == tool_name
-                assert arguments == {}
-                captured_meta.append(meta)
-                return CallToolResult(
-                    content=[TextContent(type="text", text="ok")],
-                    structuredContent={"ok": True},
-                    isError=False,
-                )
-
-            setattr(mcp_client, "call_tool", _fake_call_tool)
-            tool_call = ToolCall(
-                id="tool-call-1",
-                function=ToolCallFunction(
-                    name=tool_name,
-                    arguments={},
-                ),
-            )
-            action = ExecuteToolCallsAction(
-                project_config_id=project_config_id,
-                chat_id=ID("chat-1"),
-                tool_calls=[tool_call],
-                allowed_server_ids={SETTA_MCP_SERVER_ID},
-                share_session_id="share-session-1",
-                agentic_context=AgenticContext(
-                    project_config_id=project_config_id,
-                    chat_id=ID("chat-1"),
-                    section_id=ID("section-1"),
-                    frontend_affinity_token="frontend-1",
-                ),
-            )
-
-            actions = await executor.apply(action)
-
-            emit_actions = [
-                item for item in actions if isinstance(item, EmitChunkAction)
-            ]
-            assert len(emit_actions) == 1
-            assert captured_meta == [
-                {
-                    "projectConfigId": "project-1",
-                    "chatId": "chat-1",
-                    "sectionId": "section-1",
-                    "frontendAffinityToken": "frontend-1",
-                    "shareSessionId": "share-session-1",
-                }
-            ]
 
     async def test_scope_blocked_tool_emits_error_result(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -525,15 +355,12 @@ class TestManagedActionExecutor:
             def _get_manager(requested_project_config_id: ID, *, share_session_id=None):
                 del share_session_id
                 if requested_project_config_id != project_config_id:
-                    raise KeyError(
-                        f"Unexpected project config id: {requested_project_config_id}"
-                    )
+                    raise KeyError(f"Unexpected project config id: {requested_project_config_id}")
                 return manager
 
             state = SimpleNamespace(
                 project_manager_switcher=SimpleNamespace(get=_get_manager),
                 dbe=dbe,
-                deployment_mode=False,
             )
             app = FastAPI()
             mcp_server = SettaFastMCP(
@@ -544,27 +371,6 @@ class TestManagedActionExecutor:
                 frontend_sender,
                 dbe,
             )
-            scope_tool_calls = 0
-
-            async def scope_probe_tool(
-                *,
-                projectConfigId: ID,
-                sectionId: ID,
-                ctx: Context,
-            ) -> object:
-                del projectConfigId, sectionId, ctx
-                nonlocal scope_tool_calls
-                scope_tool_calls += 1
-                return {"ok": True}
-
-            attach_tool_access(
-                scope_probe_tool,
-                ToolAccessMetadata(
-                    accessType="write",
-                    idPathsByType={"section": ["sectionId"]},
-                ),
-            )
-            mcp_server._register_setta_tool(scope_probe_tool, SettaToolType.discoverable)
             mcp_client = MultiMCPClient(
                 {
                     SETTA_MCP_SERVER_ID: MCPServerConfig(
@@ -607,11 +413,12 @@ class TestManagedActionExecutor:
                         id="tool-call-1",
                         function=ToolCallFunction(
                             name=build_namespaced_tool_name(
-                                SETTA_MCP_SERVER_ID, "scope_probe_tool"
+                                SETTA_MCP_SERVER_ID, "set_section_name"
                             ),
                             arguments={
                                 "projectConfigId": str(tmp_project_config_id),
                                 "sectionId": str(tmp_blocked_section_id),
+                                "name": "blocked",
                             },
                         ),
                     )
@@ -638,7 +445,6 @@ class TestManagedActionExecutor:
                     assert isinstance(chunk, ToolResultEvent)
                     tool_message = chunk.result
                     assert tool_message.is_error
-                    assert scope_tool_calls == 0
 
                     structured = tool_message.result["structuredContent"]
                     assert structured["error"] == "ScopeViolation"

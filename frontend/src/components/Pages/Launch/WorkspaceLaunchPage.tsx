@@ -49,6 +49,25 @@ function formatElapsedMs(ms: number): string {
   return `${Math.round(seconds)}s`;
 }
 
+export function resolveWorkspaceLaunchReturnUrl(
+  rawReturnUrl: string | null | undefined,
+  baseHref: string,
+): string {
+  const fallback = new URL(HOME_ROUTER_PATH, baseHref).toString();
+  if (!rawReturnUrl) {
+    return fallback;
+  }
+  try {
+    const parsed = new URL(rawReturnUrl, baseHref);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return fallback;
+    }
+    return parsed.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 export function WorkspaceLaunchPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<LaunchPhase>({ status: "idle" });
@@ -70,25 +89,33 @@ export function WorkspaceLaunchPage() {
 
   useEffect(() => {
     const pending = readPendingWorkspaceLaunch();
+    const defaultReturnUrl =
+      typeof window !== "undefined"
+        ? resolveWorkspaceLaunchReturnUrl(null, window.location.href)
+        : HOME_ROUTER_PATH;
     if (!pending) {
       setPhase({
         status: "error",
         message: "Missing pending workspace launch request.",
-        returnUrl:
-          typeof window !== "undefined"
-            ? new URL(HOME_ROUTER_PATH, window.location.href).toString()
-            : HOME_ROUTER_PATH,
+        returnUrl: defaultReturnUrl,
         workspaceRoot: "",
         sshTarget: null,
       });
       return;
     }
+    const pendingReturnUrl =
+      typeof window !== "undefined"
+        ? resolveWorkspaceLaunchReturnUrl(
+            pending.returnUrl,
+            window.location.href,
+          )
+        : pending.returnUrl;
 
     let isMounted = true;
     setPhase({
       status: "loading",
       startedAt: pending.requestedAt,
-      returnUrl: pending.returnUrl,
+      returnUrl: pendingReturnUrl,
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pending.request.sshTarget ?? null,
     });
@@ -112,17 +139,24 @@ export function WorkspaceLaunchPage() {
             (res.status
               ? `Launch failed (HTTP ${res.status}). Please try again.`
               : "Launch failed. Please try again."),
-          returnUrl: pending.returnUrl,
+          returnUrl: pendingReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
         return;
       }
+      const responseReturnUrl =
+        typeof window !== "undefined"
+          ? resolveWorkspaceLaunchReturnUrl(
+              res.data.returnUrl ?? pendingReturnUrl,
+              window.location.href,
+            )
+          : pendingReturnUrl;
       if (!res.data.ok) {
         setPhase({
           status: "error",
           message: res.data.error?.message ?? "Launch failed.",
-          returnUrl: pending.returnUrl,
+          returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
@@ -132,7 +166,7 @@ export function WorkspaceLaunchPage() {
         setPhase({
           status: "error",
           message: "Launch succeeded but no bootstrap URL was returned.",
-          returnUrl: pending.returnUrl,
+          returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
@@ -225,6 +259,23 @@ export function WorkspaceLaunchPage() {
     clearPendingWorkspaceLaunch();
     try {
       const url = new URL(returnUrl, window.location.href);
+      const allowedOrigins = new Set<string>([
+        window.location.origin,
+        C_ADDRESSES.BACKEND_ORIGIN,
+        C_ADDRESSES.LAUNCHER_ORIGIN,
+      ]);
+      if (!allowedOrigins.has(url.origin)) {
+        throw new Error("Disallowed return URL origin.");
+      }
+      const isBackendOrLauncherHomeReturn =
+        url.pathname === HOME_ROUTER_PATH &&
+        (url.origin === C_ADDRESSES.BACKEND_ORIGIN ||
+          url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
+      if (isBackendOrLauncherHomeReturn) {
+        requestOpenWorkspaceSwitcherOnNextMount();
+        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+        return;
+      }
       if (url.origin === window.location.origin) {
         requestOpenWorkspaceSwitcherOnNextMount();
         navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
