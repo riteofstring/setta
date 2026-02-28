@@ -9,11 +9,11 @@ from setta.project_state.project_manager_types import (
     RunStatusResponse,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextNonLauncherAPIRouter
 from setta.run_manager import DetachedRunSpec
 from setta.types.routes import Route
 
-router = SettaProjectContextAPIRouter()
+router = SettaProjectContextNonLauncherAPIRouter()
 
 
 @router.post(Route.RUN_DETACHED)

@@ -124,10 +124,7 @@ describe("AI resource load guards", () => {
         status: 200,
         hasResponse: true,
         data: {
-          apiKeys: {
-            OPENAI_API_KEY: "pw-key",
-          },
-          revision: 2,
+          OPENAI_API_KEY: "pw-key",
         },
       };
     });
@@ -142,38 +139,6 @@ describe("AI resource load guards", () => {
     const state = useAIStore.getState();
     expect(state.apiKeysInitialLoadComplete).toBe(true);
     expect(state.apiKeysLoadError).toBeNull();
-    expect(state.apiKeysRevision).toBe(2);
-    expect(state.apiKeysAuthoritative).toBe(true);
-  });
-
-  it("marks api keys non-authoritative on unavailable-store errors", async () => {
-    useAIStore.setState({
-      apiKeys: { OPENAI_API_KEY: "stale-local-key" },
-      apiKeysRevision: 7,
-      apiKeysAuthoritative: true,
-    });
-    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llm_api_keys as unknown as vi.Mock;
-    route_get_llm_api_keys.mockResolvedValue({
-      status: 503,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "managed_api_keys_store_unavailable",
-          message: "Managed API key store is unavailable.",
-          revision: 7,
-        },
-      },
-    });
-
-    await loadLLMApiKeys();
-
-    const state = useAIStore.getState();
-    expect(state.apiKeys).toEqual({});
-    expect(state.apiKeysAuthoritative).toBe(false);
-    expect(state.apiKeysLoadError).toBe(
-      "Managed API key store is unavailable.",
-    );
   });
 
   it("deduplicates in-flight agent run loads", async () => {

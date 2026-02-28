@@ -20,6 +20,7 @@ from setta.types.agentic import (
     TranscriptionProfileList,
 )
 from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
@@ -31,7 +32,6 @@ from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import SettaLspDiagnosticsPayload
-from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import (
     SettaBackendLogEvent,
@@ -383,7 +383,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
 
     async def broadcast_llm_api_keys_update(
         self,
-        payload: ManagedAPIKeysSnapshot,
+        payload: APIKeys,
         *,
         share_session_id: str | None = None,
     ):
