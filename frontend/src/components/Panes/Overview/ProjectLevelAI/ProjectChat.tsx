@@ -35,6 +35,10 @@ import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
+import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
 import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
@@ -67,6 +71,7 @@ import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
+  type SelectedChatHydrationProvenanceStatus,
 } from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
@@ -665,6 +670,16 @@ export function ProjectChat() {
     }
     return nextByChatId;
   }, [chatProvenanceByChatIdMap]);
+  const selectedChatRunType = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return null;
+    }
+    const normalizedChatId = chatId.trim();
+    if (!normalizedChatId) {
+      return null;
+    }
+    return chatProvenanceByChatIdMap.get(normalizedChatId)?.runType ?? null;
+  }, [chatId, chatProvenanceByChatIdMap]);
   const selectedThreadCompatibility = useMemo(
     () =>
       resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
@@ -690,6 +705,79 @@ export function ProjectChat() {
     selectedThreadCompatibility.status === "blocked"
       ? selectedThreadCompatibility.errorCode
       : null;
+  const selectedChatHydrationProvenanceStatus =
+    useMemo<SelectedChatHydrationProvenanceStatus>(() => {
+      if (typeof chatId !== "string" || !chatId.trim()) {
+        return "ready";
+      }
+      return selectedThreadCompatibility.status === "unknown"
+        ? "unknown"
+        : "ready";
+    }, [chatId, selectedThreadCompatibility.status]);
+  const selectedChatRunWatermark = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return 0;
+    }
+    const normalizedChatId = chatId.trim();
+    if (!normalizedChatId) {
+      return 0;
+    }
+    let nextWatermark = 0;
+    for (const run of agentRuns) {
+      if (getRunInputString(run, "chatId") !== normalizedChatId) {
+        continue;
+      }
+      nextWatermark = Math.max(nextWatermark, getRunLastUpdatedMs(run));
+    }
+    return nextWatermark;
+  }, [agentRuns, chatId]);
+  const selectedChatHydrationMetadataRevision = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return "no-selected-chat";
+    }
+    const normalizedChatId = chatId.trim();
+    if (!normalizedChatId) {
+      return "no-selected-chat";
+    }
+    const selectedProvenance =
+      chatProvenanceByChatIdMap.get(normalizedChatId) ?? null;
+    const selectedProvenanceEngineConfigId =
+      selectedProvenance?.engineConfigId ?? null;
+    const selectedProvenanceEngineConfig = selectedProvenanceEngineConfigId
+      ? engineConfigById.get(selectedProvenanceEngineConfigId) ?? null
+      : null;
+    const selectedEngineRevision = selectedProvenanceEngineConfig
+      ? [
+          selectedProvenanceEngineConfig.id,
+          selectedProvenanceEngineConfig.engineType,
+          selectedProvenanceEngineConfig.settaLlmConfigId ?? "",
+          selectedProvenanceEngineConfig.externalAgentConfigId ?? "",
+        ].join(":")
+      : "missing_engine_config";
+    return [
+      selectedChatHydrationProvenanceStatus,
+      selectedThreadCompatibility.status,
+      selectedProvenance?.runType ?? "missing_run_type",
+      selectedProvenanceEngineConfigId ?? "missing_engine_config_id",
+      selectedEngineRevision,
+      selectedChatRunWatermark,
+      agentRunsInitialLoadComplete ? "runs_ready" : "runs_loading",
+      agentRunsLoadError ?? "runs_ok",
+      engineConfigsInitialLoadComplete ? "engines_ready" : "engines_loading",
+      engineConfigsLoadError ?? "engines_ok",
+    ].join("|");
+  }, [
+    agentRunsInitialLoadComplete,
+    agentRunsLoadError,
+    chatId,
+    chatProvenanceByChatIdMap,
+    engineConfigById,
+    engineConfigsInitialLoadComplete,
+    engineConfigsLoadError,
+    selectedChatHydrationProvenanceStatus,
+    selectedChatRunWatermark,
+    selectedThreadCompatibility.status,
+  ]);
   const availableEngineConfigIds = useMemo(
     () => new Set(engineConfigs.map((config) => config.id)),
     [engineConfigs],
@@ -1539,6 +1627,13 @@ export function ProjectChat() {
                   chatId={chatId}
                   placeholderText={placeholderText}
                   conversationFilterText={conversationFilterText}
+                  selectedChatRunType={selectedChatRunType}
+                  selectedChatHydrationProvenanceStatus={
+                    selectedChatHydrationProvenanceStatus
+                  }
+                  hydrationMetadataRevision={
+                    selectedChatHydrationMetadataRevision
+                  }
                   thinking={thinking}
                   engineConfigId={effectiveEngineId}
                   engineType={engineType}
@@ -1596,6 +1691,11 @@ export function ProjectChat() {
               chatId={chatId}
               placeholderText={placeholderText}
               conversationFilterText={conversationFilterText}
+              selectedChatRunType={selectedChatRunType}
+              selectedChatHydrationProvenanceStatus={
+                selectedChatHydrationProvenanceStatus
+              }
+              hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
               engineType={engineType}

@@ -35,7 +35,7 @@ export function filterSkills(
   });
 }
 
-type SkillActivityState = "active" | "inactive";
+type SkillActivityState = "active" | "inactive" | "unknown";
 
 type SkillStatus = {
   isApplicable: boolean;
@@ -148,137 +148,10 @@ function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
-const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
-  "activate",
-  "apply",
-  "call",
-  "execute",
-  "invoke",
-  "load",
-  "run",
-  "try",
-  "use",
-  "using",
-  "with",
-]);
-
-const CODEX_SKILL_LIST_CONNECTOR_WORDS = new Set<string>([
-  "and",
-  "or",
-  "plus",
-  "then",
-  "with",
-]);
-
-function isLikelyCodexSkillTokenContext(prefix: string): boolean {
-  const normalizedPrefix = prefix.replace(
-    /\$[A-Za-z0-9][A-Za-z0-9._/-]*/g,
-    " ",
-  );
-  const trimmedPrefix = normalizedPrefix.trimEnd();
-  if (!trimmedPrefix) {
-    return true;
-  }
-  if (/^[>*\-+0-9.)\s:;,\[\]{}!?'"`]+$/.test(trimmedPrefix)) {
-    return true;
-  }
-  const trailingWordMatch = trimmedPrefix
-    .toLowerCase()
-    .match(/([a-z]+)[^a-z]*$/);
-  if (!trailingWordMatch) {
-    return false;
-  }
-  const trailingWord = trailingWordMatch[1];
-  if (!trailingWord) {
-    return false;
-  }
-  return CODEX_SKILL_CONTEXT_VERBS.has(trailingWord);
-}
-
-function isLikelyCodexSkillListContinuation(segment: string): boolean {
-  const normalizedSegment = segment.trim().toLowerCase();
-  if (!normalizedSegment) {
-    return true;
-  }
-  const words = normalizedSegment.match(/[a-z]+/g) ?? [];
-  for (const word of words) {
-    if (!CODEX_SKILL_LIST_CONNECTOR_WORDS.has(word)) {
-      return false;
-    }
-  }
-  const nonWordCharacters = normalizedSegment.replace(/[a-z]+/g, "");
-  return /^[,/:()\[\]{}\-\s]*$/.test(nonWordCharacters);
-}
-
-function extractSkillTokensFromText(value: string): string[] {
-  const tokens: string[] = [];
-  const lines = value.split(/\r?\n/);
-  let inFencedCodeBlock = false;
-  for (const rawLine of lines) {
-    const trimmedLine = rawLine.trimStart();
-    if (trimmedLine.startsWith("```")) {
-      inFencedCodeBlock = !inFencedCodeBlock;
-      continue;
-    }
-    if (inFencedCodeBlock) {
-      continue;
-    }
-    const line = rawLine.replace(/`[^`\n]*`/g, " ");
-    const matches = Array.from(
-      line.matchAll(/(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g),
-    );
-    let lastAcceptedTokenEndIndex: number | null = null;
-    for (const match of matches) {
-      const token = match[2];
-      const tokenPrefix = match[1];
-      const matchIndex = match.index;
-      if (!token || tokenPrefix === undefined || matchIndex === undefined) {
-        continue;
-      }
-      const tokenStartIndex = matchIndex + tokenPrefix.length;
-      const tokenEndIndex = tokenStartIndex + token.length + 1;
-      const prefix = line.slice(0, tokenStartIndex);
-      const hasPerTokenActivationContext =
-        isLikelyCodexSkillTokenContext(prefix);
-      let hasListContinuationContext = false;
-      if (lastAcceptedTokenEndIndex !== null) {
-        const continuationSegment = line.slice(
-          lastAcceptedTokenEndIndex,
-          tokenStartIndex,
-        );
-        hasListContinuationContext =
-          isLikelyCodexSkillListContinuation(continuationSegment);
-      }
-      if (!hasPerTokenActivationContext && !hasListContinuationContext) {
-        continue;
-      }
-      const normalizedToken = token.replace(/[.,:;!?]+$/g, "");
-      if (!normalizedToken) {
-        continue;
-      }
-      tokens.push(normalizedToken);
-      lastAcceptedTokenEndIndex = tokenEndIndex;
-    }
-  }
-  return tokens;
-}
-
-function getMessageTextBlocks(message: BaseChatMessageUnion): string[] {
-  const blocks: string[] = [];
-  for (const block of message.content) {
-    if (!isRecord(block)) {
-      continue;
-    }
-    if (block.type !== "text") {
-      continue;
-    }
-    if (typeof block.text !== "string" || !block.text.trim()) {
-      continue;
-    }
-    blocks.push(block.text);
-  }
-  return blocks;
-}
+type SkillActivityCollection = {
+  activeByName: Map<string, string>;
+  hasStructuredMetadata: boolean;
+};
 
 function stripMcpToolNamespace(toolName: string): string {
   if (!toolName.startsWith("mcp__")) {
@@ -360,37 +233,28 @@ function collectActiveSkillNames({
   engineType: EngineConfig["engineType"] | null;
   externalAgentToolType: string | null;
   messages: BaseChatMessageUnion[] | null;
-}): Map<string, string> {
+}): SkillActivityCollection {
   const activeByName = new Map<string, string>();
+  let hasStructuredMetadata = false;
   if (!messages || messages.length === 0) {
-    return activeByName;
+    return { activeByName, hasStructuredMetadata };
   }
   if (engineType !== EngineTypeEnum.external_agent) {
-    return activeByName;
+    return { activeByName, hasStructuredMetadata };
   }
   if (
     externalAgentToolType !== ExternalAgentToolTypeEnum.codex &&
     externalAgentToolType !== ExternalAgentToolTypeEnum.opencode
   ) {
-    return activeByName;
+    return { activeByName, hasStructuredMetadata };
   }
-  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
-    for (const message of messages) {
-      if (message.role !== "user") {
-        continue;
-      }
-      const textBlocks = getMessageTextBlocks(message);
-      for (const text of textBlocks) {
-        const tokens = extractSkillTokensFromText(text);
-        for (const token of tokens) {
-          activeByName.set(normalizeSkillToken(token), "codex_skill_token");
-        }
-      }
-    }
-    return activeByName;
-  }
+  const activitySource =
+    externalAgentToolType === ExternalAgentToolTypeEnum.codex
+      ? "codex_skill_tool"
+      : "opencode_skill_tool";
   for (const message of messages) {
     if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
+      hasStructuredMetadata = true;
       for (const toolCall of message.tool_calls) {
         const skillName = extractSkillNameFromInvocation({
           toolName: toolCall.function.name,
@@ -399,13 +263,14 @@ function collectActiveSkillNames({
         if (!skillName) {
           continue;
         }
-        activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
+        activeByName.set(normalizeSkillToken(skillName), activitySource);
       }
       continue;
     }
     if (message.role !== "tool") {
       continue;
     }
+    hasStructuredMetadata = true;
     const skillName = extractSkillNameFromInvocation({
       toolName: message.tool_name,
       toolArguments: message.arguments,
@@ -413,9 +278,9 @@ function collectActiveSkillNames({
     if (!skillName) {
       continue;
     }
-    activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
+    activeByName.set(normalizeSkillToken(skillName), activitySource);
   }
-  return activeByName;
+  return { activeByName, hasStructuredMetadata };
 }
 
 function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
@@ -557,11 +422,16 @@ export function buildSkillStatusBySkillId({
     engineType,
     externalAgentToolType,
   });
-  const activeSkillNames = collectActiveSkillNames({
-    engineType,
-    externalAgentToolType,
-    messages,
-  });
+  const requiresStructuredMetadata =
+    engineType === EngineTypeEnum.external_agent &&
+    (externalAgentToolType === ExternalAgentToolTypeEnum.codex ||
+      externalAgentToolType === ExternalAgentToolTypeEnum.opencode);
+  const { activeByName: activeSkillNames, hasStructuredMetadata } =
+    collectActiveSkillNames({
+      engineType,
+      externalAgentToolType,
+      messages,
+    });
   const activeSkillSourcesBySkillId = mapActiveSkillNamesToSkillIds({
     skills,
     activeSkillNames,
@@ -571,12 +441,17 @@ export function buildSkillStatusBySkillId({
     const rootId = getSkillRootId(skill.skillId);
     const isApplicable = applicableRootIdSet.has(rootId);
     const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
+    const activityState: SkillActivityState = activeSource
+      ? "active"
+      : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
+        ? "unknown"
+        : "inactive";
     statusesBySkillId[skill.skillId] = {
       isApplicable,
       applicabilityReason: isApplicable
         ? `Applicable for ${engineLabel}.`
         : `Not applicable for ${engineLabel}.`,
-      activityState: activeSource ? "active" : "inactive",
+      activityState,
       activitySource: activeSource,
     };
   }

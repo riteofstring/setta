@@ -1111,6 +1111,8 @@ export function ProjectChatSkillsMcpViewer({
                             const status = skillStatusBySkillId[skill.skillId];
                             const isApplicable = status?.isApplicable ?? false;
                             const isActive = status?.activityState === "active";
+                            const isActivityUnknown =
+                              status?.activityState === "unknown";
                             return (
                               <button
                                 key={skill.skillId}
@@ -1137,7 +1139,9 @@ export function ProjectChatSkillsMcpViewer({
                                 >
                                   {skill.relativePath}
                                 </span>
-                                {isApplicable || isActive ? (
+                                {isApplicable ||
+                                isActive ||
+                                isActivityUnknown ? (
                                   <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] font-semibold">
                                     {isApplicable ? (
                                       <span
@@ -1157,6 +1161,14 @@ export function ProjectChatSkillsMcpViewer({
                                         }
                                       >
                                         Active
+                                      </span>
+                                    ) : null}
+                                    {isActivityUnknown ? (
+                                      <span
+                                        className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                        title="Skill activity metadata is unavailable for this thread."
+                                      >
+                                        Unknown
                                       </span>
                                     ) : null}
                                   </span>

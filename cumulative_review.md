@@ -330,3 +330,31 @@
 - Targeted Vitest suite: passed (`72 passed`).
 - Targeted backend pytest: passed.
 - Targeted Playwright e2e scenarios for project chat hydration/provenance: passed.
+
+## 2026-02-26 21:36:20 PST
+
+### Consolidated Findings
+- Selected-thread hydration could still proceed before authoritative provenance metadata settled, and stale hydration cache decisions could persist across metadata changes.
+- Hydration merge behavior could retain local-only ghost messages after backend snapshots when streaming was no longer active.
+- Skills/MCP activity detection relied on prompt token heuristics (`$Skill`) instead of structured invocation metadata.
+- Managed API-key write route used a route-local runtime update path instead of the canonical sync-and-broadcast mechanism.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Enforced authoritative selected-thread provenance gating in Project AI hydration, removed selected-thread fallback execution resolution while provenance is unknown, and introduced metadata-revision-driven hydration cache invalidation/trim behavior.
+- Added backend-authoritative hydration reconciliation to replace local message state on hydrate when stream overlays are inactive, while preserving local-only overlays only for active streams.
+- Removed prompt-token skill heuristics and derived skill activity from structured tool metadata only, including explicit `Unknown` activity states when metadata is unavailable.
+- Updated `route_set_llm_api_keys` to use canonical managed-key runtime sync/broadcast immediately after successful writes and event logging.
+- Added/updated targeted backend pytest, frontend Vitest (unit/integration/perf), and Playwright e2e coverage for provenance gating, hydration reconciliation, skills activity derivation, and API-key snapshot propagation.
+
+### UX/DX Before -> After
+- Thread hydration authority: selected historical threads could hydrate from ambiguous state -> hydration now waits for authoritative provenance and reevaluates cleanly on metadata revision changes.
+- Transcript consistency: stale local-only assistant artifacts could survive hydrate -> backend snapshots now deterministically replace inactive-stream state.
+- Skill visibility trust: prompt text could imply false skill activity -> skill indicators now reflect actual structured tool activity or explicit unknown state.
+- API-key propagation path: runtime updates were split between route-local and canonical sync flows -> one canonical sync+broadcast path now drives runtime and websocket snapshots.
+
+### Verification
+- `pnpm gcf` equivalent run in package context (`source activate.sh && cd frontend && pnpm gcf`): completed successfully (`exit 0`).
+- Frontend targeted Vitest suites for updated hydration/merge/skills paths: passed.
+- Backend targeted pytest (`tests/routers/test_llm_api_key_routes.py`): passed.
+- Targeted Playwright e2e for Project AI hydration provenance and skills viewer paths: passed.
+- CDP visual verification: Project AI settings and Skills/MCP viewer flows validated.

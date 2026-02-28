@@ -329,9 +329,362 @@ test("project ai blocks selected threads when persisted engine config is missing
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toContainText("engine config is no longer available");
-    await expect(overviewPane.locator('button[type="submit"]').first()).toBeDisabled();
+    await expect(
+      overviewPane.locator('button[type="submit"]').first(),
+    ).toBeDisabled();
     await page.waitForTimeout(500);
     expect(llmSubmitCalls).toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai waits for authoritative provenance before hydrating a selected thread", async ({
+  page,
+}) => {
+  const selectedChatId = "pw-selected-unknown-provenance";
+  let llmHydrateCalls = 0;
+  let externalHydrateCalls = 0;
+  let releaseAgentRuns: (() => void) | null = null;
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await seedAIStore(page, {
+    activeChatId: selectedChatId,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-llm-fallback",
+          name: "Fallback LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+        {
+          id: "engine-external-authoritative",
+          name: "Authoritative External",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-authoritative",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    if (releaseAgentRuns === null) {
+      await new Promise<void>((resolve) => {
+        releaseAgentRuns = resolve;
+      });
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-selected-unknown-provenance",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-05-10T00:00:00Z",
+          finishedAt: "2026-05-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: selectedChatId,
+            engineConfigId: "engine-external-authoritative",
+            messages: [
+              {
+                id: "selected-chat-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Resume selected thread" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Selected unknown provenance thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      externalHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "selected-chat-assistant",
+            role: "assistant",
+            content: [
+              { type: "text", text: "Hydrated after provenance ready." },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+
+    await page.waitForTimeout(600);
+    expect(llmHydrateCalls).toBe(0);
+    expect(externalHydrateCalls).toBe(0);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+
+    if (!releaseAgentRuns) {
+      throw new Error("Expected delayed getAgentRuns request to initialize.");
+    }
+    releaseAgentRuns();
+
+    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(0);
+    expect(llmHydrateCalls).toBe(0);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(
+          async ({ activeChatId }) => {
+            const { useAIStore } = await import("/src/state/definitions.ts");
+            const messages =
+              useAIStore.getState().chatDetails[activeChatId]?.messages;
+            return (
+              messages?.some((message) =>
+                message.content?.some(
+                  (entry) =>
+                    entry.type === "text" &&
+                    entry.text === "Hydrated after provenance ready.",
+                ),
+              ) ?? false
+            );
+          },
+          { activeChatId: selectedChatId },
+        );
+      })
+      .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai rehydrates after metadata revision changes clear a terminal hydration decision", async ({
+  page,
+}) => {
+  const chatId = "pw-hydration-metadata-refresh";
+  let externalHydrateCalls = 0;
+  let agentRunsCalls = 0;
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-refresh-external",
+          name: "Refresh External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-refresh",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    agentRunsCalls += 1;
+    const finishedAt =
+      agentRunsCalls === 1 ? "2026-06-10T00:00:01Z" : "2026-06-10T00:00:05Z";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-hydration-metadata-refresh",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-10T00:00:00Z",
+          finishedAt,
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-refresh-external",
+            messages: [
+              {
+                id: "refresh-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Resume this thread" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Metadata refresh thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      externalHydrateCalls += 1;
+      if (externalHydrateCalls === 1) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              errorCode: "engine_config_missing",
+              message: "Chat engine config is no longer available.",
+            },
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "refresh-assistant-1",
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "Recovered after metadata update.",
+                },
+              ],
+            },
+          ],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+    const threadEntry = overviewPane
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Metadata refresh thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+
+    allowExpectedApiError(page, {
+      path: "/api/getExternalAgentChat",
+      method: "POST",
+      statuses: [409],
+      count: 1,
+    });
+    await threadEntry.click();
+
+    await expect.poll(() => externalHydrateCalls).toBe(1);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("engine config is no longer available");
+
+    await page.evaluate(async () => {
+      const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
+      await loadAgentRuns();
+    });
+
+    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(1);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+    await expect(
+      overviewPane.getByText("Recovered after metadata update.").first(),
+    ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -914,7 +1267,9 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toContainText("missing required provenance");
-    await expect(overviewPane.locator('button[type="submit"]').first()).toBeDisabled();
+    await expect(
+      overviewPane.locator('button[type="submit"]').first(),
+    ).toBeDisabled();
     await page.waitForTimeout(400);
     expect(llmHydrateCalls).toBe(0);
   } finally {
@@ -1228,7 +1583,9 @@ test("project ai thread history excludes runs from other projects", async ({
       .getByTestId("project-chat-threads-panel");
     await expect(threadsPanel).toBeVisible();
     await expect(threadsPanel.getByText("Local project thread")).toBeVisible();
-    await expect(threadsPanel.getByText("Foreign project thread")).toHaveCount(0);
+    await expect(threadsPanel.getByText("Foreign project thread")).toHaveCount(
+      0,
+    );
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

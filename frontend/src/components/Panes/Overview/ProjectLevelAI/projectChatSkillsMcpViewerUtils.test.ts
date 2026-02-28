@@ -7,6 +7,7 @@ import {
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
+  buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
@@ -81,6 +82,85 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "user_codex_skills::frontend-design",
     ]);
     expect(groups[1]?.rootPath).toBe("/workspace/skills");
+  });
+
+  it("keeps codex skill activity unknown when only prompt text references a skill token", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::frontend-design",
+          name: "frontend-design",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "frontend-design",
+          description: "Create polished frontend interfaces.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Please use $frontend-design for this task.",
+            },
+          ],
+          attachments: [],
+        },
+      ],
+    });
+
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activityState,
+    ).toBe("unknown");
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activitySource,
+    ).toBeNull();
+  });
+
+  it("marks codex skills active when structured skill tool invocations exist", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::frontend-design",
+          name: "frontend-design",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "frontend-design",
+          description: "Create polished frontend interfaces.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/frontend-design",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activityState,
+    ).toBe("active");
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activitySource,
+    ).toBe("codex_skill_tool");
   });
 
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {

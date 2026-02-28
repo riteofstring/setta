@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from fastapi import FastAPI, HTTPException
 import pytest
@@ -112,6 +113,34 @@ async def test_llm_api_keys_routes_return_unreferenced_keys(
 
     # Runtime provider execution still uses the filtered key map.
     assert state_env.agent_runner.api_keys == {}
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_set_route_broadcasts_snapshot_immediately(
+    state_env: SettaFastAPIState,
+) -> None:
+    # Successful writes should publish revisioned key snapshots without waiting
+    # for file-watcher callbacks.
+    state_env.wmh_frontend_sender.broadcast_llm_api_keys_update = AsyncMock()
+
+    with runtime_context(state_env) as runtime_ctx:
+        initial_keys = await route_get_llm_api_keys(runtime_ctx)
+        response = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "immediate-secret"},
+                expectedRevision=initial_keys.revision,
+            ),
+            runtime_ctx,
+        )
+
+    assert state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.await_count >= 1
+    payload = (
+        state_env.wmh_frontend_sender.broadcast_llm_api_keys_update.await_args_list[
+            -1
+        ].args[0]
+    )
+    assert payload.revision == response.revision
+    assert payload.apiKeys == {"OPENAI_API_KEY": "immediate-secret"}
 
 
 @pytest.mark.asyncio

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
   buildProjectChatSubmittedMessageHistory,
+  clearProjectChatHydrationCacheEntriesForChat,
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
   PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
@@ -23,6 +24,7 @@ import {
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
+  trimProjectChatHydrationCache,
 } from "./ProjectChatCore";
 
 describe("getDefaultProjectChatPermissionMode", () => {
@@ -78,24 +80,37 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
 });
 
 describe("resolveProjectChatHydrationRunType", () => {
-  it("uses selected chat run type when a chat is selected", () => {
+  it("uses selected chat run type when provenance is ready", () => {
     expect(
       resolveProjectChatHydrationRunType({
         chatId: "chat-1",
         selectedChatRunType: "external_agent",
+        selectedChatHydrationProvenanceStatus: "ready",
         engineType: EngineTypeEnum.setta_llm,
       }),
     ).toBe("external_agent");
   });
 
-  it("falls back to selected engine run type when chat provenance is missing", () => {
+  it("returns null when selected thread provenance is not authoritative yet", () => {
     expect(
       resolveProjectChatHydrationRunType({
         chatId: "chat-1",
         selectedChatRunType: null,
+        selectedChatHydrationProvenanceStatus: "unknown",
         engineType: EngineTypeEnum.setta_llm,
       }),
-    ).toBe("llm_chat");
+    ).toBeNull();
+  });
+
+  it("returns null when selected chat has authoritative but missing run provenance", () => {
+    expect(
+      resolveProjectChatHydrationRunType({
+        chatId: "chat-1",
+        selectedChatRunType: null,
+        selectedChatHydrationProvenanceStatus: "ready",
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toBeNull();
   });
 
   it("returns null when no chat and no engine type are selected", () => {
@@ -103,35 +118,125 @@ describe("resolveProjectChatHydrationRunType", () => {
       resolveProjectChatHydrationRunType({
         chatId: undefined,
         selectedChatRunType: null,
+        selectedChatHydrationProvenanceStatus: "ready",
         engineType: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("uses engine type for non-selected draft chats", () => {
+    expect(
+      resolveProjectChatHydrationRunType({
+        chatId: undefined,
+        selectedChatRunType: null,
+        selectedChatHydrationProvenanceStatus: "ready",
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toBe("llm_chat");
+  });
+});
+
+describe("buildProjectChatHydrationCacheKey", () => {
+  it("includes chat id, run provenance, and metadata revision", () => {
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: "external_agent",
+        hydrationMetadataRevision: "rev-1",
+      }),
+    ).toBe("chat-1:external_agent:rev-1");
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: "llm_chat",
+        hydrationMetadataRevision: "rev-2",
+      }),
+    ).toBe("chat-1:llm_chat:rev-2");
+  });
+
+  it("returns null for missing cache dimensions", () => {
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: null,
+        hydrationRunType: "llm_chat",
+        hydrationMetadataRevision: "rev-1",
+      }),
+    ).toBeNull();
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: null,
+        hydrationMetadataRevision: "rev-1",
+      }),
+    ).toBeNull();
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: "llm_chat",
+        hydrationMetadataRevision: "",
       }),
     ).toBeNull();
   });
 });
 
-describe("buildProjectChatHydrationCacheKey", () => {
-  it("includes chat id and resolved run provenance", () => {
+describe("hydration cache lifecycle helpers", () => {
+  it("clears stale entries for the selected chat while preserving the active key", () => {
+    const cache = {
+      "chat-a:llm_chat:rev-1": {
+        status: "terminal_failure",
+        timerId: null,
+        attempt: 1,
+        lastTouchedAt: 1,
+      },
+      "chat-a:llm_chat:rev-2": {
+        status: "in_flight",
+        timerId: null,
+        attempt: 2,
+        lastTouchedAt: 2,
+      },
+      "chat-b:llm_chat:rev-1": {
+        status: "succeeded",
+        timerId: null,
+        attempt: 0,
+        lastTouchedAt: 3,
+      },
+    };
     expect(
-      buildProjectChatHydrationCacheKey({
-        chatId: "chat-1",
-        hydrationRunType: "external_agent",
+      clearProjectChatHydrationCacheEntriesForChat({
+        cache,
+        chatId: "chat-a",
+        keepCacheKey: "chat-a:llm_chat:rev-2",
       }),
-    ).toBe("chat-1:external_agent");
-    expect(
-      buildProjectChatHydrationCacheKey({
-        chatId: "chat-1",
-        hydrationRunType: null,
-      }),
-    ).toBe("chat-1:llm_chat");
+    ).toEqual(["chat-a:llm_chat:rev-1"]);
   });
 
-  it("returns null for missing chat id", () => {
+  it("trims least-recently-touched entries when cache size exceeds a bound", () => {
+    const cache = {
+      "chat-a:llm_chat:rev-1": {
+        status: "succeeded",
+        timerId: null,
+        attempt: 0,
+        lastTouchedAt: 10,
+      },
+      "chat-b:llm_chat:rev-1": {
+        status: "failed",
+        timerId: null,
+        attempt: 1,
+        lastTouchedAt: 20,
+      },
+      "chat-c:llm_chat:rev-1": {
+        status: "terminal_failure",
+        timerId: null,
+        attempt: 1,
+        lastTouchedAt: 30,
+      },
+    };
     expect(
-      buildProjectChatHydrationCacheKey({
-        chatId: null,
-        hydrationRunType: "llm_chat",
+      trimProjectChatHydrationCache({
+        cache,
+        maxEntries: 2,
       }),
-    ).toBeNull();
+    ).toEqual(["chat-a:llm_chat:rev-1"]);
   });
 });
 

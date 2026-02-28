@@ -136,7 +136,10 @@ import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
 import { buildChatProvenanceByChatId } from "./chatHistory";
-import { mergeChatMessages } from "./chatMergeUtils";
+import {
+  mergeChatMessages,
+  reconcileHydratedChatMessages,
+} from "./chatMergeUtils";
 
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -1755,11 +1758,11 @@ function mergeChatSectionState(
   },
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
-  // Treat backend order as canonical, but keep any more-complete local copies.
-  const mergedMessages = mergeChatMessages(
-    incoming.messages ?? [],
-    currentState.messages ?? [],
-  );
+  const mergedMessages = reconcileHydratedChatMessages({
+    backendMessages: incoming.messages ?? [],
+    localMessages: currentState.messages ?? [],
+    preserveLocalOnlyMessages: preserveWaitingForResponse,
+  });
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
     : Boolean(incoming.waitingForResponse);
@@ -1925,11 +1928,11 @@ function applyLLMChatHydrationSuccess({
     const nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
-    // Treat backend order as canonical, but keep any more-complete local copies.
-    const nextMessages = mergeChatMessages(
-      messages,
-      existingDetails?.messages ?? [],
-    );
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -1984,11 +1987,11 @@ function applyExternalChatHydrationSuccess({
     const nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
-    // Treat backend order as canonical, but keep any more-complete local copies.
-    const nextMessages = mergeChatMessages(
-      messages,
-      existingDetails?.messages ?? [],
-    );
+    const nextMessages = reconcileHydratedChatMessages({
+      backendMessages: messages,
+      localMessages: existingDetails?.messages ?? [],
+      preserveLocalOnlyMessages: preserveWaitingForResponse,
+    });
     return {
       chatDetails: {
         ...state.chatDetails,

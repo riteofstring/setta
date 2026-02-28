@@ -50,7 +50,6 @@ import {
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
   buildChatHistoryEntries,
-  buildChatProvenanceByChatId,
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
@@ -93,6 +92,7 @@ const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
 type ProjectChatBlockedErrorCode = ChatHydrationErrorCode;
+export type SelectedChatHydrationProvenanceStatus = "ready" | "unknown";
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -143,14 +143,19 @@ export function getProjectChatBlockedReasonMessage(
 export function resolveProjectChatHydrationRunType({
   chatId,
   selectedChatRunType,
+  selectedChatHydrationProvenanceStatus,
   engineType,
 }: {
   chatId: string | null | undefined;
   selectedChatRunType: ChatRunType | null;
+  selectedChatHydrationProvenanceStatus: SelectedChatHydrationProvenanceStatus;
   engineType: EngineTypeEnum | null;
 }): ChatRunType | null {
   const normalizedChatId = chatId?.trim() ?? "";
-  if (normalizedChatId && selectedChatRunType) {
+  if (normalizedChatId) {
+    if (selectedChatHydrationProvenanceStatus !== "ready") {
+      return null;
+    }
     return selectedChatRunType;
   }
   return resolveProjectChatRunType(engineType);
@@ -159,16 +164,21 @@ export function resolveProjectChatHydrationRunType({
 export function buildProjectChatHydrationCacheKey({
   chatId,
   hydrationRunType,
+  hydrationMetadataRevision,
 }: {
   chatId: string | null | undefined;
   hydrationRunType: ChatRunType | null;
+  hydrationMetadataRevision: string;
 }): string | null {
   const normalizedChatId = chatId?.trim() ?? "";
-  if (!normalizedChatId) {
+  if (!normalizedChatId || !hydrationRunType) {
     return null;
   }
-  const resolvedRunType = hydrationRunType ?? "llm_chat";
-  return `${normalizedChatId}:${resolvedRunType}`;
+  const normalizedRevision = hydrationMetadataRevision.trim();
+  if (!normalizedRevision) {
+    return null;
+  }
+  return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
 }
 
 type ProjectChatHydrationRetryStatus =
@@ -178,9 +188,17 @@ type ProjectChatHydrationRetryStatus =
   | "retry_scheduled"
   | "terminal_failure";
 
+type ProjectChatHydrationRetryEntry = {
+  status: ProjectChatHydrationRetryStatus;
+  timerId: ReturnType<typeof setTimeout> | null;
+  attempt: number;
+  lastTouchedAt: number;
+};
+
 const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
 const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
 export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
 
 type ProjectChatHydrationRetryDecision =
   | { type: "success" }
@@ -250,6 +268,79 @@ export function shouldSkipProjectChatHydration(
     return true;
   }
   return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
+}
+
+function buildProjectChatHydrationChatKeyPrefix(chatId: string): string {
+  return `${chatId.trim()}:`;
+}
+
+export function clearProjectChatHydrationCacheEntriesForChat({
+  cache,
+  chatId,
+  keepCacheKey,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  chatId: string;
+  keepCacheKey: string | null;
+}): string[] {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return [];
+  }
+  const keyPrefix = buildProjectChatHydrationChatKeyPrefix(normalizedChatId);
+  const removedCacheKeys: string[] = [];
+  for (const cacheKey of Object.keys(cache)) {
+    if (!cacheKey.startsWith(keyPrefix)) {
+      continue;
+    }
+    if (keepCacheKey !== null && cacheKey === keepCacheKey) {
+      continue;
+    }
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
+}
+
+function touchProjectChatHydrationRetryEntry(
+  entry: ProjectChatHydrationRetryEntry,
+): void {
+  entry.lastTouchedAt = Date.now();
+}
+
+export function trimProjectChatHydrationCache({
+  cache,
+  maxEntries = PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  maxEntries?: number;
+}): string[] {
+  const cacheKeys = Object.keys(cache);
+  if (cacheKeys.length <= maxEntries) {
+    return [];
+  }
+  const removableEntries = cacheKeys
+    .filter((cacheKey) => cache[cacheKey]?.timerId === null)
+    .sort((leftKey, rightKey) => {
+      const leftEntry = cache[leftKey];
+      const rightEntry = cache[rightKey];
+      const leftLastTouchedAt = leftEntry?.lastTouchedAt ?? 0;
+      const rightLastTouchedAt = rightEntry?.lastTouchedAt ?? 0;
+      return leftLastTouchedAt - rightLastTouchedAt;
+    });
+  const overflowCount = cacheKeys.length - maxEntries;
+  const removedCacheKeys: string[] = [];
+  for (let index = 0; index < removableEntries.length; index += 1) {
+    if (removedCacheKeys.length >= overflowCount) {
+      break;
+    }
+    const cacheKey = removableEntries[index];
+    if (cache[cacheKey] === undefined) {
+      continue;
+    }
+    delete cache[cacheKey];
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
 }
 
 type ProjectChatContextUsage = ReturnType<
@@ -865,6 +956,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   conversationFilterText,
   activeConversationSearchMatchMessageId = null,
   selectedThreadBlockedErrorCode = null,
+  selectedChatRunType,
+  selectedChatHydrationProvenanceStatus,
+  hydrationMetadataRevision,
   thinking,
   engineConfigId,
   engineType,
@@ -886,6 +980,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   conversationFilterText: string;
   activeConversationSearchMatchMessageId?: string | null;
   selectedThreadBlockedErrorCode?: ProjectChatBlockedErrorCode | null;
+  selectedChatRunType: ChatRunType | null;
+  selectedChatHydrationProvenanceStatus: SelectedChatHydrationProvenanceStatus;
+  hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
   engineType: EngineTypeEnum | null;
@@ -986,32 +1083,20 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const chatRunTypeByChatId = useMemo(() => {
-    const runTypeByChatId = new Map<string, ChatRunType>();
-    const provenanceByChatId = buildChatProvenanceByChatId(agentRuns, {
-      projectConfigId,
-      unscopedOnly: true,
-      compatibility: null,
-    });
-    for (const [runChatId, provenance] of provenanceByChatId.entries()) {
-      runTypeByChatId.set(runChatId, provenance.runType);
-    }
-    return runTypeByChatId;
-  }, [agentRuns]);
-  const selectedChatRunType = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return null;
-    }
-    return chatRunTypeByChatId.get(chatId) ?? null;
-  }, [chatId, chatRunTypeByChatId]);
   const hydrationRunType = useMemo(
     () =>
       resolveProjectChatHydrationRunType({
         chatId,
         selectedChatRunType,
+        selectedChatHydrationProvenanceStatus,
         engineType,
       }),
-    [chatId, engineType, selectedChatRunType],
+    [
+      chatId,
+      engineType,
+      selectedChatRunType,
+      selectedChatHydrationProvenanceStatus,
+    ],
   );
   const {
     contextWindowTokens,
@@ -1086,14 +1171,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
-    Record<
-      string,
-      {
-        status: ProjectChatHydrationRetryStatus;
-        timerId: ReturnType<typeof setTimeout> | null;
-        attempt: number;
-      }
-    >
+    Record<string, ProjectChatHydrationRetryEntry>
   >({});
   const createProjectStarterPrompt = useMemo(
     () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
@@ -1130,7 +1208,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   useEffect(() => {
     setHydrationBlockedErrorCode(null);
-  }, [chatId, hydrationRunType]);
+  }, [chatId, hydrationMetadataRevision, hydrationRunType]);
 
   const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
     const state = hydrationStatusByKeyRef.current[cacheKey];
@@ -1142,6 +1220,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (state.status === "retry_scheduled") {
       state.status = "failed";
     }
+    touchProjectChatHydrationRetryEntry(state);
   }, []);
 
   const clearAllHydrationRetryTimers = useCallback(() => {
@@ -1168,6 +1247,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (typeof chatId !== "string") {
       return;
     }
+    if (selectedChatHydrationProvenanceStatus !== "ready") {
+      return;
+    }
     if (selectedThreadBlockedErrorCode !== null) {
       return;
     }
@@ -1177,11 +1259,24 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const cacheKey = buildProjectChatHydrationCacheKey({
       chatId,
       hydrationRunType,
+      hydrationMetadataRevision,
     });
     if (!cacheKey) {
       return;
     }
+    const staleCacheKeys = clearProjectChatHydrationCacheEntriesForChat({
+      cache: hydrationStatusByKeyRef.current,
+      chatId,
+      keepCacheKey: cacheKey,
+    });
+    for (const staleCacheKey of staleCacheKeys) {
+      clearHydrationRetryTimer(staleCacheKey);
+      delete hydrationStatusByKeyRef.current[staleCacheKey];
+    }
     const retryState = hydrationStatusByKeyRef.current[cacheKey];
+    if (retryState) {
+      touchProjectChatHydrationRetryEntry(retryState);
+    }
     if (
       shouldSkipProjectChatHydration(
         retryState
@@ -1205,7 +1300,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           status: "failed",
           timerId: null,
           attempt: 0,
+          lastTouchedAt: Date.now(),
         });
+      touchProjectChatHydrationRetryEntry(state);
       state.status = "in_flight";
       const hydrationOutcome =
         hydrationRunType === "external_agent"
@@ -1221,13 +1318,21 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (retryDecision.type === "success") {
         setHydrationBlockedErrorCode(null);
         state.status = "succeeded";
+        touchProjectChatHydrationRetryEntry(state);
         clearHydrationRetryTimer(cacheKey);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
         return;
       }
       if (retryDecision.type === "terminal_failure") {
         setHydrationBlockedErrorCode(hydrationOutcome.errorCode);
         clearHydrationRetryTimer(cacheKey);
         state.status = "terminal_failure";
+        touchProjectChatHydrationRetryEntry(state);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
         return;
       }
       setHydrationBlockedErrorCode(null);
@@ -1235,9 +1340,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       state.attempt = retryDecision.nextAttempt;
       if (retryDecision.type === "transient_exhausted") {
         state.status = "failed";
+        touchProjectChatHydrationRetryEntry(state);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
         return;
       }
       state.status = "retry_scheduled";
+      touchProjectChatHydrationRetryEntry(state);
       state.timerId = globalThis.setTimeout(() => {
         if (cancelled) {
           return;
@@ -1248,6 +1358,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         }
         retryStateForKey.timerId = null;
         retryStateForKey.status = "failed";
+        touchProjectChatHydrationRetryEntry(retryStateForKey);
         void hydrateChat();
       }, retryDecision.delayMs);
     };
@@ -1258,12 +1369,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       const state = hydrationStatusByKeyRef.current[cacheKey];
       if (state?.status === "in_flight") {
         state.status = "failed";
+        touchProjectChatHydrationRetryEntry(state);
       }
     };
   }, [
     chatId,
     clearHydrationRetryTimer,
+    hydrationMetadataRevision,
     hydrationRunType,
+    selectedChatHydrationProvenanceStatus,
     selectedThreadBlockedErrorCode,
     waitingForResponse,
   ]);
