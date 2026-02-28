@@ -240,6 +240,9 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 continue
 
             if isinstance(message, ResultMessage):
+                raw_payload = _build_result_message_payload(message)
+                if raw_payload is not None:
+                    yield ExternalAgentStreamEvent(raw=raw_payload)
                 continue
 
         handle.return_code = 0
@@ -610,6 +613,18 @@ def _build_raw_sdk_message_payload(message: Any) -> dict[str, Any] | None:
     if payload is None:
         return None
     return {"type": "system_message", "message": payload}
+
+
+def _build_result_message_payload(message: ResultMessage) -> dict[str, Any] | None:
+    if hasattr(message, "model_dump"):
+        dumped = message.model_dump()
+        if isinstance(dumped, dict):
+            return {"type": "result_message", "message": dumped}
+    if hasattr(message, "dict"):
+        dumped = message.dict()
+        if isinstance(dumped, dict):
+            return {"type": "result_message", "message": dumped}
+    return None
 
 
 def _maybe_set_session_id(

@@ -239,6 +239,17 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
                                         yield event
                 if method in {"turn/completed", "turn/failed"}:
                     params = payload.get("params")
+                    token_usage_payload = await self._read_thread_token_usage(
+                        state,
+                        handle,
+                    )
+                    if token_usage_payload is not None:
+                        yield ExternalAgentStreamEvent(
+                            raw={
+                                "method": "thread/tokenUsage/read",
+                                "result": token_usage_payload,
+                            }
+                        )
                     if method == "turn/failed":
                         handle.return_code = 1
                         break
@@ -654,6 +665,30 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             return
         handle.external_title = preview
         handle.external_title_kind = "codex_thread_preview"
+
+    async def _read_thread_token_usage(
+        self,
+        state: _CodexAppServerState,
+        handle: ExternalAgentRunHandle,
+    ) -> dict[str, Any] | None:
+        params: dict[str, Any] = {}
+        thread_id = handle.thread_id or state.thread_id
+        if thread_id:
+            params["threadId"] = thread_id
+        try:
+            return await self._send_request(
+                state,
+                "thread/tokenUsage/read",
+                params,
+                timeout_seconds=_MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            logger.debug(
+                "Codex thread token-usage request failed (run_id=%s): %s",
+                handle.run_id,
+                exc,
+            )
+            return None
 
 
 class _CodexAppServerEventParser:
