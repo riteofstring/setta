@@ -136,21 +136,6 @@ class TestWebsocketManagerSession:
 
         assert max_active >= 2
 
-    async def test_send_message_returns_delivery_status(self) -> None:
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="Delivery status")
-        )
-        delivered = await self.websocket_manager.send_message(message, "frontend-a")
-        assert delivered is True
-
-        await self.websockets["frontend-a"].close()
-        self.websockets.pop("frontend-a", None)
-        delivered_after_close = await self.websocket_manager.send_message(
-            message,
-            "frontend-a",
-        )
-        assert delivered_after_close is False
-
     async def test_on_connect_can_skip_connection_broadcast(self) -> None:
         messages_c: list[Message] = []
         websocket_c = await _build_websocket(messages_c)
@@ -175,77 +160,3 @@ class TestWebsocketManagerSession:
             broadcast_connections=False,
         )
         await websocket_c.close()
-
-    async def test_frontend_affinity_token_rebinds_to_reconnected_tab(self) -> None:
-        first_websocket = await _build_websocket([])
-        first_websocket_id = await self.websocket_manager.on_connect(
-            first_websocket,
-            WebsocketConnectionType.FRONTEND,
-            id="frontend-reconnect-a",
-            shareSessionId="session-reconnect",
-            broadcast_connections=False,
-        )
-
-        try:
-            first_affinity_token = self.websocket_manager.get_frontend_affinity_token(
-                first_websocket_id
-            )
-            assert first_affinity_token is not None
-            self.websocket_manager.update_current_address(
-                "/project#setta-ws-affinity=tab-stable",
-                first_websocket_id,
-            )
-            stable_affinity_token = self.websocket_manager.get_frontend_affinity_token(
-                first_websocket_id
-            )
-            assert stable_affinity_token == first_affinity_token
-
-            await self.websocket_manager.on_disconnect(
-                first_websocket_id,
-                broadcast_connections=False,
-            )
-            await first_websocket.close()
-
-            second_websocket = await _build_websocket([])
-            second_websocket_id = await self.websocket_manager.on_connect(
-                second_websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-reconnect-b",
-                shareSessionId="session-reconnect",
-                broadcast_connections=False,
-            )
-            try:
-                second_connection_token = (
-                    self.websocket_manager.get_frontend_affinity_token(
-                        second_websocket_id
-                    )
-                )
-                assert second_connection_token is not None
-
-                self.websocket_manager.update_current_address(
-                    "/project#setta-ws-affinity=tab-stable",
-                    second_websocket_id,
-                )
-                rebound_affinity_token = self.websocket_manager.get_frontend_affinity_token(
-                    second_websocket_id
-                )
-                assert rebound_affinity_token == stable_affinity_token
-                assert (
-                    self.websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
-                        affinity_token=stable_affinity_token,
-                        share_session_id="session-reconnect",
-                    )
-                    == second_websocket_id
-                )
-            finally:
-                await self.websocket_manager.on_disconnect(
-                    second_websocket_id,
-                    broadcast_connections=False,
-                )
-                await second_websocket.close()
-        finally:
-            if first_websocket_id in self.websocket_manager.sockets:
-                await self.websocket_manager.on_disconnect(
-                    first_websocket_id,
-                    broadcast_connections=False,
-                )

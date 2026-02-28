@@ -1,9 +1,22 @@
 from typing import Any, Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from setta.logging.project_id_route import ProjectIdContextRoute
+from setta.routers.dependencies import (
+    require_full_ide_runtime,
+    require_not_launcher_mode,
+)
 from setta.types.routes import Route
+
+
+def _prepend_router_dependency(
+    dependencies: list[Any] | None,
+    dependency: Any,
+) -> list[Any]:
+    if dependencies is None:
+        return [dependency]
+    return [dependency, *dependencies]
 
 
 class SettaAPIRouter(APIRouter):
@@ -65,4 +78,62 @@ class SettaProjectContextAPIRouter(SettaAPIRouter):
             route,
             "__setta_project_context_body_key__",
             self._setta_project_context_body_key,
+        )
+
+
+class SettaFullRuntimeAPIRouter(SettaAPIRouter):
+    def __init__(self, **kwargs: Any) -> None:
+        dependencies = _prepend_router_dependency(
+            kwargs.pop("dependencies", None),
+            Depends(require_full_ide_runtime),
+        )
+        super().__init__(dependencies=dependencies, **kwargs)
+
+
+class SettaProjectContextFullRuntimeAPIRouter(SettaProjectContextAPIRouter):
+    def __init__(
+        self,
+        *,
+        require_project_context_by_default: bool = False,
+        project_context_body_key: str = "projectConfigId",
+        **kwargs: Any,
+    ) -> None:
+        dependencies = _prepend_router_dependency(
+            kwargs.pop("dependencies", None),
+            Depends(require_full_ide_runtime),
+        )
+        super().__init__(
+            require_project_context_by_default=require_project_context_by_default,
+            project_context_body_key=project_context_body_key,
+            dependencies=dependencies,
+            **kwargs,
+        )
+
+
+class SettaNonLauncherAPIRouter(SettaAPIRouter):
+    def __init__(self, **kwargs: Any) -> None:
+        dependencies = _prepend_router_dependency(
+            kwargs.pop("dependencies", None),
+            Depends(require_not_launcher_mode),
+        )
+        super().__init__(dependencies=dependencies, **kwargs)
+
+
+class SettaProjectContextNonLauncherAPIRouter(SettaProjectContextAPIRouter):
+    def __init__(
+        self,
+        *,
+        require_project_context_by_default: bool = False,
+        project_context_body_key: str = "projectConfigId",
+        **kwargs: Any,
+    ) -> None:
+        dependencies = _prepend_router_dependency(
+            kwargs.pop("dependencies", None),
+            Depends(require_not_launcher_mode),
+        )
+        super().__init__(
+            require_project_context_by_default=require_project_context_by_default,
+            project_context_body_key=project_context_body_key,
+            dependencies=dependencies,
+            **kwargs,
         )
