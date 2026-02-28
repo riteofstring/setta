@@ -22,20 +22,6 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - Derived metadata comes from the tool name: `_derive_search_tags` expands common synonyms (for example `create` -> `add`, `new`, `insert`) and `_derive_search_category` matches token keywords (for example `terminal`, `chat`, `params`) to a category.
 - During registration we merge explicit and derived tags, normalize them to lowercase, and prefer the explicit category when provided. The final values are stored on the MCP tool annotations and returned in `search_mcp_tools` results.
 
-## UI setting tools and reveal flow
-- Setta now exposes UI-setting tools as discoverable MCP tools:
-  - `search_ui_settings(query, limit, sourceFilter, projectConfigId?)`
-  - `get_ui_setting_value(settingId, projectConfigId?)`
-  - `set_ui_setting_value(settingId, value, revealAfterSet, durationMs, projectConfigId?)`
-  - `reveal_ui_setting(settingId, sectionIdToActivate, durationMs, projectConfigId?)`
-- Canonical setting ids are stable:
-  - Core settings: `core.*` (for example `core.watch_code.enabled`)
-  - Plugin settings: `plugin::<pluginId>::<localSettingId>`
-- `set_ui_setting_value` validates input against each setting’s `valueSchema`, enforces read-only/writable semantics, and performs compare-and-set style writes (`expected_old_value`) to avoid stale clobbers.
-- `reveal_ui_setting` (and `set_ui_setting_value(..., revealAfterSet=true)`) dispatches a `UISettingReveal` websocket message to a selected frontend and waits for a `UISettingRevealResult` acknowledgement.
-- Right-pane reveals require section context. If no section is active, pass `sectionIdToActivate`; otherwise reveal returns a structured failure instead of guessing.
-- Reveal failures and validation issues are surfaced as typed UI-setting error codes (`setting_not_found`, `setting_read_only`, `invalid_value_type`, `invalid_value_range_or_enum`, `plugin_unavailable`, `mutation_failed`).
-
 ## Agentic context + scope enforcement
 Most Setta MCP tools are scope-enforced by default. Calls that lack agentic
 context return a `CallToolResult` error with `structuredContent.error="ScopeViolation"`
@@ -45,14 +31,12 @@ Agentic context inputs:
 - Required: `projectConfigId`.
 - Required unless unscoped: `sectionId` (the Chat section id).
 - Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
-- Optional: `frontendAffinityToken` (used to route UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
 - Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
 
 Ways to provide agentic context:
-- MCP meta (`projectConfigId`, `chatId`, `sectionId`, `frontendAffinityToken`, `allowUnscoped`).
+- MCP meta (`projectConfigId`, `chatId`, `sectionId`, `allowUnscoped`).
 - Request headers (`x-setta-project-config-id`, `x-setta-chat-id`,
-  `x-setta-section-id`, `x-setta-frontend-affinity-token`,
-  `x-setta-allow-unscoped`).
+  `x-setta-section-id`, `x-setta-allow-unscoped`).
 - `/__setta__/tools/call` request body (`agenticContext` object).
 - Persistent sessions can also call the init tool `set_agentic_context` once per
   session.
@@ -68,14 +52,6 @@ Tool enforcement details:
   and `search_mcp_tools`); keep this set intentionally small.
 - Some tool results are scope-filtered instead of blocked (for example project
   state summaries and LSP diagnostics).
-
-## Frontend affinity routing
-- On websocket connect, each frontend receives a `FrontendIdentity` message with a `frontendAffinityToken`.
-- The app includes that token when creating AI runs (`/getLLMResponse`) and MCP tool calls (`/__setta__/tools/call`) so reveal-capable tools can target the correct frontend.
-- In IDE mode, reveal routing is strict:
-  - If exactly one eligible frontend is connected, reveal can proceed without an explicit token.
-  - If multiple eligible frontends are connected and no affinity token resolves, reveal fails closed with an ambiguity error.
-- In share/app mode, routing is additionally constrained by the active `shareSessionId`.
 
 ## MCP client (`backend/setta/mcp/client.py`)
 - `MultiMCPClient` maintains a `ClientSession` per configured MCP server (SSE, Streamable HTTP, or stdio). Once connected it calls `list_tools()`, converts each tool into an OpenAI-compatible definition, and splits the cache into `init_tool_definitions` and `discoverable_tool_definitions` based on `SettaToolType` when available.

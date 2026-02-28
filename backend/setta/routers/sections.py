@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaNonLauncherAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename
 from setta.utils.paths import (
@@ -13,7 +13,7 @@ from setta.utils.paths import (
     resolve_workspace_child_path,
 )
 
-router = SettaNonLauncherAPIRouter()
+router = SettaAPIRouter()
 
 
 class NewJSONVersionNameRequest(BaseModel):

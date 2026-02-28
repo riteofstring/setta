@@ -153,9 +153,7 @@ class TestGitRoutes:
         self,
     ) -> None:
         # Truncated stream parsing must not include partial trailing tokens.
-        trimmed = _trim_to_last_complete_nul_record(
-            "?? a.txt\0 M b.txt\0?? partial"
-        )
+        trimmed = _trim_to_last_complete_nul_record("?? a.txt\0 M b.txt\0?? partial")
 
         assert trimmed == "?? a.txt\0 M b.txt\0"
 
@@ -163,9 +161,7 @@ class TestGitRoutes:
         self,
     ) -> None:
         assert (
-            _parse_porcelain_head_branch(
-                "# branch.oid abc123\0# branch.head main\0"
-            )
+            _parse_porcelain_head_branch("# branch.oid abc123\0# branch.head main\0")
             == "main"
         )
         assert (
@@ -501,7 +497,9 @@ class TestGitRoutes:
             status_res = route_get_git_status(ctx)
 
         assert status_res.repo.isGitRepo is True
-        expected_head_commit = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        expected_head_commit = _run_git(
+            self._workspace_root, ["rev-parse", "HEAD"]
+        ).strip()
         assert status_res.repo.headCommit == expected_head_commit
         assert any(
             args
@@ -631,10 +629,185 @@ class TestGitRoutes:
                 ctx,
             )
 
-        head_commit = next((commit for commit in log.commits if commit.hash == head), None)
+        head_commit = next(
+            (commit for commit in log.commits if commit.hash == head), None
+        )
         assert head_commit is not None
         assert "feature,comma" in head_commit.decorations
         assert "tag: release,1" in head_commit.decorations
+
+    async def test_log_falls_back_when_decorate_atom_is_unexpanded(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        branch = _run_git(
+            self._workspace_root, ["rev-parse", "--abbrev-ref", "HEAD"]
+        ).strip()
+        original_run_git = git_router.run_git
+
+        def fallback_decorations_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
+            if args == ["rev-parse", "--abbrev-ref", "HEAD", "HEAD"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{branch}\n{head}\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args[:4] == ["rev-parse", "--verify", "--quiet", "HEAD"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{head}\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "log":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"{head}\0\0A\0a@example.com\0"
+                        "1700000000\0add tracked\0"
+                        "%(decorate:prefix=,suffix=,separator=\x1d)\0\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "for-each-ref":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"{head}\0\0refs/heads/{branch}\0\0\n"
+                        f"{head}\0\0refs/tags/release,1\0\0\n"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", fallback_decorations_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            log = route_get_git_log(
+                GetGitLogRequest(rev="", pageSize=20, offset=0, allRefs=True),
+                ctx,
+            )
+
+        head_commit = next(
+            (commit for commit in log.commits if commit.hash == head), None
+        )
+        assert head_commit is not None
+        assert f"HEAD -> {branch}" in head_commit.decorations
+        assert branch in head_commit.decorations
+        assert "tag: release,1" in head_commit.decorations
+        assert "%(decorate:prefix=,suffix=,separator=" not in head_commit.decorations
+        assert ")" not in head_commit.decorations
+
+    async def test_log_preserves_sanitized_decorations_when_fallback_is_truncated(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        branch = _run_git(
+            self._workspace_root, ["rev-parse", "--abbrev-ref", "HEAD"]
+        ).strip()
+        original_run_git = git_router.run_git
+
+        def truncated_fallback_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
+            if args == ["rev-parse", "--abbrev-ref", "HEAD", "HEAD"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{branch}\n{head}\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "log":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"{head}\0\0A\0a@example.com\0"
+                        "1700000000\0add tracked\0"
+                        "%(decorate:prefix=,suffix=,separator=\x1d)\x1d"
+                        "feature/local\0\0"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "for-each-ref":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{head}\0\0refs/heads/{branch}\0\0\n",
+                    stderr="",
+                    stdout_truncated=True,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", truncated_fallback_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            log = route_get_git_log(
+                GetGitLogRequest(rev="", pageSize=20, offset=0, allRefs=True),
+                ctx,
+            )
+
+        head_commit = next(
+            (commit for commit in log.commits if commit.hash == head), None
+        )
+        assert head_commit is not None
+        assert "feature/local" in head_commit.decorations
+        assert "%(decorate:prefix=,suffix=,separator=" not in head_commit.decorations
+        assert ")" not in head_commit.decorations
 
     async def test_log_parses_subjects_with_ascii_field_separator_bytes(self) -> None:
         # NUL-safe parsing must not drop commits whose subjects contain older separator bytes.
@@ -653,7 +826,8 @@ class TestGitRoutes:
             )
 
         matching_commit = next(
-            (commit for commit in log.commits if commit.subject == special_subject), None
+            (commit for commit in log.commits if commit.subject == special_subject),
+            None,
         )
         assert matching_commit is not None
 

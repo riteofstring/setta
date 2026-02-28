@@ -10,6 +10,7 @@ from urllib.request import urlopen
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -24,7 +25,6 @@ from setta.lsp.managers import (
 from setta.middleware import (
     AuthMiddleware,
     LoggingContextMiddleware,
-    SettaCORSMiddleware,
     bind_request_logging_context,
 )
 from setta.routers import (
@@ -40,7 +40,6 @@ from setta.routers import (
     code_info_router,
     git_router,
     launch_router,
-    launcher_home_router,
     listener_router,
     llm_router,
     lsp_router,
@@ -84,7 +83,7 @@ async def lifespan(app: FastAPI):
             share_deployment_root=deployment_root,
         )
     else:
-        app.state.setta = SettaFastAPIState(app, launcher_mode=C.LAUNCHER_MODE)
+        app.state.setta = SettaFastAPIState(app)
 
     if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
@@ -157,7 +156,7 @@ if not (C.SHARE_MODE or C.APP_MODE):
     app.add_middleware(AuthMiddleware)
 # Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
-    SettaCORSMiddleware,
+    CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
@@ -187,7 +186,6 @@ app.include_router(attachments_router, **http_router_kwargs)
 app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
 app.include_router(launch_router, **http_router_kwargs)
-app.include_router(launcher_home_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)

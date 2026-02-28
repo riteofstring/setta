@@ -11,7 +11,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from setta.launch import LaunchError
 from setta.utils.network import format_host_for_ssh_tunnel
@@ -29,7 +29,6 @@ class RemoteSessionSummary:
     port: int
     pid: int
     started_at: datetime
-    server_mode: Literal["ide", "launcher"]
 
 
 def ssh_command_prefix(*, batch_mode: bool) -> list[str]:
@@ -136,7 +135,6 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
                 "port",
                 "pid",
                 "startedAt",
-                "serverMode",
             )
             if key not in session
         ]
@@ -185,12 +183,6 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
                 "RemoteSessionList",
                 "Remote sessions payload has invalid startedAt values.",
             ) from exc
-        server_mode = session.get("serverMode")
-        if server_mode not in ("ide", "launcher"):
-            raise LaunchError(
-                "RemoteSessionList",
-                "Remote sessions payload has invalid serverMode values.",
-            )
         workspace_path = session.get("workspacePath")
         if not isinstance(workspace_path, str) or not workspace_path.strip():
             raise LaunchError(
@@ -215,7 +207,6 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
                 port=port,
                 pid=pid,
                 started_at=started_at,
-                server_mode=server_mode,
             )
         )
     return sessions
@@ -477,23 +468,16 @@ def fetch_remote_sessions(
     setta_files_args: str,
     *,
     ssh_prefix: list[str],
-    server_mode: Literal["ide", "launcher"] | None = None,
 ) -> list[RemoteSessionSummary]:
     quoted_workspace = shlex.quote(workspace)
     root_prefix = f"{setta_files_args} " if setta_files_args else ""
-    server_mode_arg = ""
-    if server_mode is not None:
-        server_mode_arg = f" --server-mode {server_mode}"
     result = run_remote_setta_command(
         ssh_target,
         ssh_args,
         shell,
         workspace,
         setta_command,
-        (
-            f"{root_prefix}status --list-sessions --json --workspace {quoted_workspace}"
-            f"{server_mode_arg}"
-        ),
+        f"{root_prefix}status --list-sessions --json --workspace {quoted_workspace}",
         ssh_prefix=ssh_prefix,
     )
     if result.returncode != 0:
@@ -519,7 +503,6 @@ def wait_for_remote_sessions(
     setta_files_location: str | None,
     setta_files_root: str | None = None,
     runtime_root: str | None = None,
-    server_mode: Literal["ide", "launcher"] | None = None,
 ) -> list[RemoteSessionSummary]:
     deadline = time.monotonic() + timeout_seconds
     remote_logs_dir = resolve_remote_logs_dir(
@@ -537,7 +520,6 @@ def wait_for_remote_sessions(
             setta_command,
             setta_files_args,
             ssh_prefix=ssh_prefix,
-            server_mode=server_mode,
         )
         if sessions:
             return sessions
@@ -559,7 +541,6 @@ def fetch_remote_connect_info(
     *,
     session_id: str,
     ssh_prefix: list[str],
-    launcher_origin: str | None = None,
 ) -> dict[str, Any]:
     quoted_workspace = shlex.quote(workspace)
     root_prefix = f"{setta_files_args} " if setta_files_args else ""
@@ -567,8 +548,6 @@ def fetch_remote_connect_info(
         f"{root_prefix}status --connect-info --json --workspace {quoted_workspace}"
         f" --session {shlex.quote(session_id)}"
     )
-    if launcher_origin is not None:
-        args = f"{args} --launcher-origin {shlex.quote(launcher_origin)}"
     result = run_remote_setta_command(
         ssh_target,
         ssh_args,

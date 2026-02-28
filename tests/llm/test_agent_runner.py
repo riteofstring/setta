@@ -979,14 +979,12 @@ class TestAgentRunner:
                     "chatId": "chat-1",
                     "sectionId": str(chat_section_id),
                     "thinking": True,
-                    "frontendAffinityToken": "  frontend-1  ",
                 },
             )
             assert override_context.project_config_id == second_config.id
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
-            assert override_context.agentic_context.frontend_affinity_token == "frontend-1"
 
     def test_context_caches_completion_guard_toggle_for_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1070,16 +1068,6 @@ class TestAgentRunner:
                 runner._build_context(
                     profile,
                     inputs={"thinking": "yes", "allowUnscoped": True},
-                )
-            with pytest.raises(TypeError):
-                runner._build_context(
-                    profile,
-                    inputs={"frontendAffinityToken": 123, "allowUnscoped": True},
-                )
-            with pytest.raises(ValueError):
-                runner._build_context(
-                    profile,
-                    inputs={"frontendAffinityToken": "   ", "allowUnscoped": True},
                 )
 
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
