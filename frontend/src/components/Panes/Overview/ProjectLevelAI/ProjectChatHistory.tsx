@@ -45,6 +45,7 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
+  canUndoLastProjectChatThreadStorageMutation,
   createProjectChatThreadGroup,
   deleteProjectChatThread,
   deleteProjectChatThreadGroup,
@@ -100,9 +101,9 @@ export function getProjectChatDeleteRecoveryTooltipContent(
   target: "thread" | "group",
 ): string {
   if (target === "group") {
-    return "Delete this group and move its chats to Ungrouped. Use Restore Delete in the toolbar to undo.";
+    return "Delete this group and move its chats to Ungrouped. Use Undo Delete in the toolbar to undo.";
   }
-  return "Remove this chat from history. Use Restore Delete in the toolbar to undo.";
+  return "Remove this chat from history. Use Undo Delete in the toolbar to undo.";
 }
 
 type ThreadGroup = {
@@ -1150,6 +1151,8 @@ export function ProjectChatHistory({
   const handleRestoreDeletedThreadOrGroup = useCallback(() => {
     undoLastProjectChatThreadStorageMutation(projectConfigId);
   }, [projectConfigId]);
+  const canUndoDeletedThreadOrGroup =
+    canUndoLastProjectChatThreadStorageMutation(projectConfigId);
 
   const panelClasses = inline
     ? "flex h-full min-h-0 w-full min-w-0 flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
@@ -1183,9 +1186,9 @@ export function ProjectChatHistory({
   const restoreThreadMutationTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
-        title: "Restore last thread delete",
+        title: "Undo last thread delete",
         content:
-          "Restore the most recently deleted thread or thread group in this project.",
+          "Undo the most recently deleted thread or thread group in this project.",
       }),
     [],
   );
@@ -1269,14 +1272,15 @@ export function ProjectChatHistory({
       </button>
       <button
         type="button"
-        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-        aria-label="Restore Delete"
+        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500"
+        aria-label="Undo Delete"
         onClick={handleRestoreDeletedThreadOrGroup}
+        disabled={!canUndoDeletedThreadOrGroup}
         data-testid="project-chat-thread-restore-last-delete-button"
         {...restoreThreadMutationTooltipHandlers}
       >
         <MdRestore size={14} />
-        <span className="hidden @[26rem]:inline">Restore Delete</span>
+        <span className="hidden @[26rem]:inline">Undo Delete</span>
       </button>
       <button
         type="button"

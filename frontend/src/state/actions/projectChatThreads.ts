@@ -204,6 +204,26 @@ export function undoLastProjectChatThreadStorageMutation(
   return true;
 }
 
+export function canUndoLastProjectChatThreadStorageMutation(
+  projectConfigId: string,
+): boolean {
+  const resolvedProjectConfigId = normalizeProjectConfigId(projectConfigId);
+  if (!resolvedProjectConfigId) {
+    return false;
+  }
+  for (
+    let index = projectChatThreadStorageUndoStack.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const entry = projectChatThreadStorageUndoStack[index];
+    if (entry?.projectConfigId === resolvedProjectConfigId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function clearProjectChatThreadStorageUndoStackForTests() {
   projectChatThreadStorageUndoStack.length = 0;
 }

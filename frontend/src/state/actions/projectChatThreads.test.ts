@@ -2,6 +2,7 @@ import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  canUndoLastProjectChatThreadStorageMutation,
   clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
   deleteProjectChatThread,
@@ -342,6 +343,36 @@ describe("project chat thread storage helpers", () => {
         "project-a"
       ]?.["chat-1"],
     ).toBe(groupId);
+  });
+
+  it("reports when a project has a thread storage mutation to undo", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+    const deleted = deleteProjectChatThreadGroup("project-a", groupId);
+    expect(deleted).toBe(true);
+
+    expect(canUndoLastProjectChatThreadStorageMutation("project-a")).toBe(true);
+    expect(canUndoLastProjectChatThreadStorageMutation("project-b")).toBe(
+      false,
+    );
+  });
+
+  it("reports false after undo consumes the pending thread mutation", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+    const deleted = deleteProjectChatThreadGroup("project-a", groupId);
+    expect(deleted).toBe(true);
+
+    const restored = undoLastProjectChatThreadStorageMutation("project-a");
+    expect(restored).toBe(true);
+
+    expect(canUndoLastProjectChatThreadStorageMutation("project-a")).toBe(
+      false,
+    );
   });
 
   it("returns false when there is no thread storage mutation to undo", () => {

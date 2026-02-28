@@ -127,6 +127,8 @@ test("project ai threads restore deleted thread and group via explicit restore a
       .getByTestId("project-chat-thread-restore-last-delete-button")
       .first();
     await expect(restoreButton).toBeVisible();
+    await expect(restoreButton).toBeDisabled();
+    await expect(restoreButton).toHaveAttribute("aria-label", "Undo Delete");
 
     await expect(
       threadsPanel.getByTestId("project-chat-thread-entry").first(),
@@ -156,9 +158,11 @@ test("project ai threads restore deleted thread and group via explicit restore a
     await expect(page.getByText("Press Cmd/Ctrl+Z to undo.")).toHaveCount(0);
     await deleteThreadButton.click();
     await expect(threadEntries).toHaveCount(initialThreadCount - 1);
+    await expect(restoreButton).toBeEnabled();
 
     await restoreButton.click();
     await expect(threadEntries).toHaveCount(initialThreadCount);
+    await expect(restoreButton).toBeDisabled();
 
     await restoreGroupRow
       .getByTestId("project-chat-thread-group-select")
@@ -174,6 +178,7 @@ test("project ai threads restore deleted thread and group via explicit restore a
         .getByTestId("project-chat-thread-group-row")
         .filter({ hasText: "Restore Group" }),
     ).toHaveCount(0);
+    await expect(restoreButton).toBeEnabled();
 
     await restoreButton.click();
     await expect(
@@ -181,6 +186,7 @@ test("project ai threads restore deleted thread and group via explicit restore a
         .getByTestId("project-chat-thread-group-row")
         .filter({ hasText: "Restore Group" }),
     ).toHaveCount(1);
+    await expect(restoreButton).toBeDisabled();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
