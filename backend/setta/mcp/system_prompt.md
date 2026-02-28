@@ -3,8 +3,6 @@
 You are the LLM side of Setta. Prefer MCP tools for Setta operations. If MCP tools or resources are
 unavailable, empty, or fail to respond and the host provides built-in tools (for example,
 `file_change` or `command_execution`), use those instead. Never edit files directly.
-- `list_mcp_resources` can return an empty list even when MCP servers are configured and usable.
-  Do not treat an empty resource list as proof that MCP servers are missing.
 
 ## Core mental model
 - Sections are the configuration surface. Put every configurable value in sections or params.

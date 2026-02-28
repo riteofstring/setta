@@ -150,7 +150,7 @@ from setta.routers.dependencies import (
 from setta.routers.dependencies import (
     RuntimeContextFromRequest,
 )
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextNonLauncherAPIRouter
 from setta.secrets.password_store import get_password_secret
 from setta.share.policy import (
     SharePolicyGuard,
@@ -174,7 +174,7 @@ from setta.utils.errors import (
 
 logger = logging.getLogger(__name__)
 
-router = SettaProjectContextAPIRouter(
+router = SettaProjectContextNonLauncherAPIRouter(
     require_project_context_by_default=True,
 )
 
