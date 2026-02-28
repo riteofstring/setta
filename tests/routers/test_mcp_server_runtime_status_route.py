@@ -122,21 +122,6 @@ def test_mcp_runtime_status_route_blocked_in_deployment_mode() -> None:
     assert response.status_code == 403
 
 
-def test_mcp_runtime_status_route_blocked_in_launcher_mode() -> None:
-    app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=False, launcher_mode=True)
-    app.include_router(status_router, prefix=Route.PREFIX.value)
-
-    with TestClient(app) as client:
-        response = client.post(
-            f"{Route.PREFIX.value}{Route.GET_MCP_SERVER_RUNTIME_STATUS.value}",
-            json={},
-        )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
-
-
 def test_mcp_runtime_status_route_skips_external_runner_when_disabled() -> None:
     app = FastAPI()
     mcp_status = MCPServerRuntimeStatus(

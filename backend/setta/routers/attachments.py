@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from setta.auth.session import load_current_session_secret
 from setta.project_state.artifacts import Artifacts
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaNonLauncherAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.id import ID
 from setta.types.routes import Route
@@ -19,7 +19,7 @@ from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 
-router = SettaNonLauncherAPIRouter()
+router = SettaAPIRouter()
 _TOKEN_MANAGER = AttachmentTokenManager(C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS)
 
 
