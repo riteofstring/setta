@@ -821,6 +821,56 @@ url = "http://127.0.0.1:9900/mcp"
 
             assert "fallback-home-server" not in loaded.mcpServers
 
+    def test_load_codex_mcp_servers_with_empty_codex_home_env_fails_closed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # If CODEX_HOME is present but empty, fallback ~/.codex must not be consulted.
+            root = Path(temp_dir)
+            fallback_home = root / "fallback-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("HOME", str(fallback_home))
+            monkeypatch.setenv("CODEX_HOME", "")
+
+            loaded_servers = codex_config_module.load_codex_mcp_servers_from_config()
+
+            assert loaded_servers == {}
+
+    def test_load_codex_mcp_servers_with_whitespace_codex_home_env_fails_closed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Whitespace-only CODEX_HOME is also authoritative and must fail closed.
+            root = Path(temp_dir)
+            fallback_home = root / "fallback-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("HOME", str(fallback_home))
+            monkeypatch.setenv("CODEX_HOME", "   ")
+
+            loaded_servers = codex_config_module.load_codex_mcp_servers_from_config()
+
+            assert loaded_servers == {}
+
     def test_load_llm_config_retries_bootstrap_after_codex_parse_failure_is_fixed(
         self,
         monkeypatch: pytest.MonkeyPatch,

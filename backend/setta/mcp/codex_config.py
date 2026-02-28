@@ -96,8 +96,11 @@ def canonicalize_codex_mcp_servers_payload(payload: dict[str, Any]) -> bool:
 
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
-    codex_home_config_path = resolve_codex_home_config_path()
-    if codex_home_config_path is not None:
+    codex_home_env = os.environ.get("CODEX_HOME")
+    if isinstance(codex_home_env, str):
+        codex_home_config_path = resolve_codex_home_config_path()
+        if codex_home_config_path is None:
+            return {}
         loaded_from_codex_home = _load_codex_mcp_servers_from_path(
             codex_home_config_path,
             fail_closed=True,

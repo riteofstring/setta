@@ -787,6 +787,106 @@ args = ["mcp"]
                 "http://localhost:8000/mcp/streamable/"
             )
 
+    def test_build_codex_settings_file_runtime_output_read_only_no_edit_keeps_canonical_bytes_unchanged(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # Runtime output should be session-scoped only in read-only/no-edit mode.
+            dbe = _build_dbe(tmpdir)
+            config = ExternalAgentConfig(
+                id="codex-runtime-read-only-no-edit",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                settingsMode=ExternalAgentSettingsMode.read_only,
+                settingsAllowSettaEdits=False,
+            )
+            canonical_path = resolve_codex_settings_path(dbe, config)
+            if canonical_path is None:
+                raise AssertionError("Expected canonical Codex config path")
+            canonical_path.parent.mkdir(parents=True, exist_ok=True)
+            canonical_path.write_text(
+                '# keep-comment\n[mcp_servers.figma-desktop]\ncommand = "figma"\n',
+                encoding="utf-8",
+            )
+            canonical_before = canonical_path.read_text(encoding="utf-8")
+            runtime_output_dir = canonical_path.parent / "sessions" / "chat-1"
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-1"},
+                system_prompt=None,
+                output_dir=runtime_output_dir,
+            )
+
+            assert output_dir == runtime_output_dir
+            assert canonical_path.read_text(encoding="utf-8") == canonical_before
+            runtime_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert runtime_servers.get("setta", {}).get("url") == (
+                "http://localhost:8000/mcp/streamable/"
+            )
+            assert "figma-desktop" in runtime_servers
+
+    def test_build_codex_settings_file_runtime_output_managed_local_no_edit_keeps_existing_canonical_bytes_unchanged(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # Existing managed-local configs must remain byte-identical when edits are disabled.
+            dbe = _build_dbe(tmpdir)
+            config = ExternalAgentConfig(
+                id="codex-runtime-managed-local-no-edit",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                settingsMode=ExternalAgentSettingsMode.managed_local,
+                settingsAllowSettaEdits=False,
+            )
+            canonical_path = resolve_codex_settings_path(dbe, config)
+            if canonical_path is None:
+                raise AssertionError("Expected canonical Codex config path")
+            canonical_path.parent.mkdir(parents=True, exist_ok=True)
+            canonical_path.write_text(
+                '[mcp_servers.workspace-tools]\ntransport = "streamable_http"\nurl = "http://127.0.0.1:9100/mcp"\n',
+                encoding="utf-8",
+            )
+            canonical_before = canonical_path.read_text(encoding="utf-8")
+            runtime_output_dir = canonical_path.parent / "sessions" / "chat-1"
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-1"},
+                system_prompt=None,
+                output_dir=runtime_output_dir,
+            )
+
+            assert output_dir == runtime_output_dir
+            assert canonical_path.read_text(encoding="utf-8") == canonical_before
+            runtime_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert runtime_servers.get("setta", {}).get("url") == (
+                "http://localhost:8000/mcp/streamable/"
+            )
+            assert "workspace-tools" in runtime_servers
+
     def test_build_codex_settings_file_runtime_output_keeps_user_removed_servers_removed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

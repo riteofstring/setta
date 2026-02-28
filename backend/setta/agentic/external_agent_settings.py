@@ -148,11 +148,13 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
+    allow_managed_settings_update = _allow_managed_settings_update(config, base_path)
     canonicalize_codex_mcp_servers_payload(payload)
     _bootstrap_codex_mcp_servers_from_user_config(payload, config)
     if (
         output_dir is not None
         and config.settingsMode != ExternalAgentSettingsMode.explicit_path
+        and allow_managed_settings_update
     ):
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -162,7 +164,7 @@ def build_codex_settings_file(
                 f"Failed to persist Codex bootstrap marker to canonical config: {settings_path}"
             ) from exc
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
-    if _allow_managed_settings_update(config, base_path):
+    if allow_managed_settings_update:
         _apply_codex_managed_settings(payload, config, allowlist)
         _apply_codex_auth_settings(payload, config)
         _apply_codex_reasoning_settings(payload)

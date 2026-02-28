@@ -562,3 +562,29 @@
 - Backend module pytest: `119 passed` (`tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`).
 - Backend broader regression subset: `207 passed` (`tests/llm/test_api_keys.py tests/routers/test_llm_api_key_routes.py tests/agentic/test_external_agent_preflight.py tests/agentic/test_external_agent_runner.py tests/mcp/test_base_tools.py tests/routers/test_git_routes.py`).
 - Ruff targeted check: passed for touched Python files.
+
+## 2026-02-27 13:58:47 PST
+
+### Consolidated Findings
+- `CODEX_HOME` authority was not fail-closed for empty/whitespace env values; loader could still import MCP servers from `~/.codex/config.toml`.
+- Runtime Codex session setup could persist canonical config in read-only/no-edit modes, violating settings edit authority and risking startup failures on non-writable canonical files.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated Codex MCP config loading to treat presence of `CODEX_HOME` as authoritative: empty/whitespace values now fail closed (`{}`) and never trigger fallback-home import.
+- Unified runtime canonical-persistence authority with managed settings edit authority in `build_codex_settings_file`; canonical writes are now skipped when edits are disallowed.
+- Added backend unit/integration regression coverage for:
+  - empty/whitespace `CODEX_HOME` fail-closed behavior,
+  - runtime no-edit canonical byte immutability,
+  - runner-level empty-`CODEX_HOME` no-fallback behavior,
+  - runner-level read-only/no-edit startup success with non-writable canonical config.
+- Ran `pnpm -C frontend gcf` to keep generated/cleanup outputs synchronized.
+
+### UX/DX Before -> After
+- `CODEX_HOME` intent: empty env could silently resurrect home MCP servers -> env-key presence now deterministically controls source selection and fails closed when invalid.
+- Read-only/no-edit runtime contract: canonical files could be mutated or block startup on write errors -> canonical files remain untouched and runtime sessions are generated from session output safely.
+- Debuggability: mixed write-authority paths for runtime bootstrap -> single authority gate for canonical write behavior.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `source activate.sh && ruff check backend/setta/mcp/codex_config.py backend/setta/agentic/external_agent_settings.py tests/llm/test_config.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`: passed.
+- `source activate.sh && pytest tests/llm/test_config.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py -q`: `160 passed`.
