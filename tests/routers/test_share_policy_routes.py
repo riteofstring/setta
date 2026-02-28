@@ -168,7 +168,12 @@ def _build_share_deployment_root(
     project_config_name: str,
     deployment_version: str = "v1",
 ) -> Path:
-    root = Path(tmpdir) / "deployments" / project_config_name / deployment_version
+    root = (
+        Path(tmpdir)
+        / "deployments"
+        / project_config_name
+        / deployment_version
+    )
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -434,8 +439,7 @@ class TestSharePolicyRoutes:
             assert ctx.value.status_code == 403
 
             payload = UpdateAPIKeysRequest(
-                apiKeys={"OPENAI_API_KEY": "test-key"},
-                expectedRevision=0,
+                apiKeys={"OPENAI_API_KEY": "test-key"}
             )
             with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
@@ -511,7 +515,9 @@ class TestSharePolicyRoutes:
             )
             with pytest.raises(HTTPException) as ctx:
                 with runtime_context(state, session.id) as runtime_ctx:
-                    await route_create_top_level_section(create_request, runtime_ctx)
+                    await route_create_top_level_section(
+                        create_request, runtime_ctx
+                    )
             assert ctx.value.status_code == 403
             updated_sections = len(
                 state.share_runtime_state.get_session_state(
@@ -538,7 +544,9 @@ class TestSharePolicyRoutes:
                     implType=SectionType.TextBlock,
                 )
                 with pytest.raises(HTTPException) as ctx:
-                    await route_create_top_level_section(create_request, runtime_ctx)
+                    await route_create_top_level_section(
+                        create_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
                 delete_request = DeleteSectionsRequest(
@@ -564,7 +572,9 @@ class TestSharePolicyRoutes:
                     displayName="Display",
                 )
                 with pytest.raises(HTTPException) as ctx:
-                    await route_set_code_obj_display_name(display_request, runtime_ctx)
+                    await route_set_code_obj_display_name(
+                        display_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
                 binding_request = SetCodeFileBindingRequest(
@@ -576,7 +586,9 @@ class TestSharePolicyRoutes:
                     },
                 )
                 with pytest.raises(HTTPException) as ctx:
-                    await route_set_code_file_binding(binding_request, runtime_ctx)
+                    await route_set_code_file_binding(
+                        binding_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
                 rename_request = SetSectionNameRequest(
@@ -1026,14 +1038,18 @@ class TestSharePolicyRoutes:
             )
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
-                    await route_toggle_param_selected(toggle_request, runtime_ctx)
+                    await route_toggle_param_selected(
+                        toggle_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
                 unselect_request = UnselectAllParamsRequest(
                     projectConfigId=project_config_id,
                 )
                 with pytest.raises(HTTPException) as ctx:
-                    await route_unselect_all_params(unselect_request, runtime_ctx)
+                    await route_unselect_all_params(
+                        unselect_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
     async def test_view_mode_routes_blocked_when_variant_changes_allowed(
@@ -1060,7 +1076,9 @@ class TestSharePolicyRoutes:
                 (
                     "toggle_is_editing_view_mode",
                     route_toggle_is_editing_view_mode,
-                    ToggleIsEditingViewModeRequest(projectConfigId=project_config_id),
+                    ToggleIsEditingViewModeRequest(
+                        projectConfigId=project_config_id
+                    ),
                 ),
                 (
                     "toggle_view_mode_user_facing",
@@ -1205,11 +1223,15 @@ class TestSharePolicyRoutes:
             )
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
-                    await route_accept_rename_refactor(accept_request, runtime_ctx)
+                    await route_accept_rename_refactor(
+                        accept_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
                 with pytest.raises(HTTPException) as ctx:
-                    await route_decline_rename_refactor(decline_request, runtime_ctx)
+                    await route_decline_rename_refactor(
+                        decline_request, runtime_ctx
+                    )
                 assert ctx.value.status_code == 403
 
     async def test_terminal_routes_require_share_session_id(self) -> None:

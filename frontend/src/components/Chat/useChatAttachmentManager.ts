@@ -482,13 +482,6 @@ export function useChatAttachmentManager({
     setAttachments([]);
   }, []);
 
-  const replaceAttachments = useCallback(
-    (nextAttachments: ChatFileAttachment[]) => {
-      setAttachments(nextAttachments);
-    },
-    [],
-  );
-
   useEffect(() => {
     return () => {
       if (warningTimeoutRef.current !== null) {
@@ -504,7 +497,6 @@ export function useChatAttachmentManager({
     attachmentInputDisabled,
     attachmentWarning,
     clearAttachments,
-    replaceAttachments,
     fileInputRef,
     handleClearAttachments,
     handleDragEnter,
