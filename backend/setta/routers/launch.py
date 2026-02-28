@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -9,7 +8,11 @@ from pydantic import BaseModel
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER, LAUNCH_INTENT_TOKEN_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.launch import LaunchError, launch_workspace_session
-from setta.launch_intent_store import WorkspaceLaunchIntentStore
+from setta.launch_intent_store import (
+    WorkspaceLaunchIntentStore,
+    WorkspaceLaunchIntentStoreStateError,
+    WorkspaceLaunchIntentStoreUnavailableError,
+)
 from setta.launcher_metadata import (
     LauncherMetadataError,
     update_launcher_last_used_workspace_if_installed,
@@ -19,7 +22,6 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
-from setta.utils.env_vars import PROFILE_ENV
 from setta.utils.launch_request import normalize_setta_files_location_for_launch
 from setta.utils.launcher_origin_handoff import (
     append_launcher_origin_handoff_to_bootstrap_url,
@@ -27,7 +29,7 @@ from setta.utils.launcher_origin_handoff import (
     normalize_launcher_origin,
 )
 from setta.utils.network import build_bootstrap_urls
-from setta.utils.paths import get_setta_paths
+from setta.utils.paths import get_setta_paths_without_profile_env
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
@@ -137,13 +139,27 @@ def route_create_workspace_launch_intent(
         )
     requested_at = int(time.time() * 1000)
     token, exp = LAUNCH_INTENT_TOKEN_MANAGER.mint(session_metadata.id, secret)
-    _store_workspace_launch_intent(
-        token=token,
-        session_id=session_metadata.id,
-        launch_request_payload=launch_request_payload,
-        return_url=return_url,
-        exp=exp,
-    )
+    try:
+        _store_workspace_launch_intent(
+            token=token,
+            session_id=session_metadata.id,
+            launch_request_payload=launch_request_payload,
+            return_url=return_url,
+            exp=exp,
+        )
+    except WorkspaceLaunchIntentStoreUnavailableError as exc:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(
+                code="LaunchIntentStoreUnavailable",
+                message=str(exc),
+            ),
+        )
+    except WorkspaceLaunchIntentStoreStateError as exc:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(code="LaunchIntentStoreInvalid", message=str(exc)),
+        )
     return CreateWorkspaceLaunchIntentResponse(
         ok=True,
         launchIntentToken=token,
@@ -186,6 +202,21 @@ def route_launch(
                 session_id=session_metadata.id,
                 secret=secret,
             )
+        except WorkspaceLaunchIntentStoreUnavailableError as exc:
+            return LaunchResponse(
+                ok=False,
+                returnUrl=return_url,
+                error=LaunchErrorPayload(
+                    code="LaunchIntentStoreUnavailable",
+                    message=str(exc),
+                ),
+            )
+        except WorkspaceLaunchIntentStoreStateError as exc:
+            return LaunchResponse(
+                ok=False,
+                returnUrl=return_url,
+                error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
+            )
         except ValueError as exc:
             return LaunchResponse(
                 ok=False,
@@ -219,18 +250,17 @@ def route_launch(
                 launcher_origin=request_origin,
             )
             remote_bootstrap_url = remote.bootstrap_url_fragment
-            if remote.launcher_origin and remote.launcher_origin_proof:
-                normalized_remote_origin = normalize_launcher_origin(
-                    remote.launcher_origin
-                )
-                if normalized_remote_origin is not None:
-                    remote_bootstrap_url = (
-                        append_launcher_origin_handoff_to_bootstrap_url(
-                            bootstrap_url_fragment=remote_bootstrap_url,
-                            launcher_origin=normalized_remote_origin,
-                            proof=remote.launcher_origin_proof,
-                        )
+            if request_origin is not None:
+                if remote.launcher_origin_proof is None:
+                    raise LaunchError(
+                        "RemoteConnectInfo",
+                        "Remote connect info did not include launcherOriginProof.",
                     )
+                remote_bootstrap_url = append_launcher_origin_handoff_to_bootstrap_url(
+                    bootstrap_url_fragment=remote_bootstrap_url,
+                    launcher_origin=request_origin,
+                    proof=remote.launcher_origin_proof,
+                )
             resolved_workspace_root = remote.session.workspace_path_canonical
             return LaunchResponse(
                 ok=True,
@@ -259,14 +289,7 @@ def route_launch(
         local_setta_home = normalized_setta_home
         local_profile_lookup_home: str | None = None
         if local_setta_home is None:
-            # route_launch should not be influenced by request-time SETTA_PROFILE
-            # mutations. We still read server defaults via get_setta_paths().
-            raw_profile_env = os.environ.pop(PROFILE_ENV, None)
-            try:
-                paths = get_setta_paths()
-            finally:
-                if raw_profile_env is not None:
-                    os.environ[PROFILE_ENV] = raw_profile_env
+            paths = get_setta_paths_without_profile_env()
             local_setta_home = str(paths.setta_home)
             if normalized_profile is not None:
                 local_profile_lookup_home = str(paths.profile_lookup_home)

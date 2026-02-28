@@ -12,7 +12,10 @@ from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.trusted_frontend_origins import trust_frontend_origin
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStoreError,
+    trust_frontend_origin,
+)
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.launcher_origin_handoff import (
@@ -619,11 +622,22 @@ async def route_bootstrap_consume(
                 trusted_launcher_origin = normalized_launcher_origin
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+    auth_cookie_payload = AUTH_COOKIE_MANAGER.validate(auth_cookie, secret)
+    response_payload: dict[str, str] = {"status": "ok"}
+    if trusted_launcher_origin is not None:
+        try:
+            trust_frontend_origin(
+                trusted_launcher_origin,
+                session_id=session_metadata.id,
+                exp=auth_cookie_payload.exp,
+            )
+        except TrustedFrontendOriginStoreError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Trusted frontend origin store unavailable",
+            ) from exc
+        response_payload["launcherOrigin"] = trusted_launcher_origin
     set_auth_cookie(
         response, auth_cookie, session_id=session_metadata.id, request=request
     )
-    response_payload: dict[str, str] = {"status": "ok"}
-    if trusted_launcher_origin is not None:
-        trust_frontend_origin(trusted_launcher_origin)
-        response_payload["launcherOrigin"] = trusted_launcher_origin
     return response_payload

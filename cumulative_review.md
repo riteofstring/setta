@@ -123,3 +123,13 @@
 - Fixed Windows launcher wrapper workspace forwarding by quoting `%~1` in the generated `launcher --workspace` call to preserve paths with spaces.
 - Expanded regression coverage with new/updated pytest and Playwright tests for trusted-origin storage/CORS behavior, launch-intent durability and cross-instance consume races, websocket/route mode guards, and Windows wrapper quoting.
 - Ran `pnpm gcf` in `frontend/` as part of this update.
+
+## 2026-02-26 10:02:03 PST
+
+- Replaced crash-unsafe sentinel lock handling in request-path stores with a shared process-file lock utility and typed store errors, then wired launch-intent and trusted-origin stores to use the same crash-recoverable lock/write path.
+- Enforced session-owned trusted frontend-origin state (`session_id -> origin -> exp`) with no backward-compatibility shim, and made CORS/auth trust checks session-scoped and fail-closed on store read failures.
+- Aligned trusted-origin lifetime with auth lifecycle by refreshing trusted-origin expiry on auth-cookie mint/refresh paths and writing bootstrap trust entries using the minted auth-cookie expiry.
+- Hardened SSH launcher-origin handoff contracts by requiring remote `launcherOrigin` to exactly match the requested origin and requiring `launcherOriginProof` whenever launcher-origin handoff is requested.
+- Removed request-time process-global env mutation from `/launch` by introducing `get_setta_paths_without_profile_env()` and switching launch default-path resolution to the non-mutating path.
+- Added/updated backend pytest coverage for crash recovery, typed store failure mapping, session trust isolation/lifetime refresh, strict SSH origin checks, and launch env isolation, plus Playwright coverage to ensure trusted bootstrap origin does not widen CORS trust to a different origin.
+- Ran `pnpm gcf` in `frontend/` and then validated targeted suites (`pytest` affected backend/auth/router/start tests, Playwright bootstrap launcher-origin spec, and Ruff checks on touched files), all passing.

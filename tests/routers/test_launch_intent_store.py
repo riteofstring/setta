@@ -112,6 +112,25 @@ def test_launch_intent_store_cross_instance_consume_succeeds_once(
     )
 
 
+def test_launch_intent_store_ignores_stale_lock_file(tmp_path: Path) -> None:
+    store = _build_store(tmp_path)
+    lock_path = (tmp_path / "launch_intents.json").with_name("launch_intents.json.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text("stale", encoding="utf-8")
+
+    store.create(
+        token="token-1",
+        session_id="session-1",
+        launch_request_payload={"workspaceRoot": "/tmp/workspace"},
+        return_url="http://localhost/home",
+        exp=120,
+        now=100,
+    )
+
+    stored = store.consume_once(token="token-1", session_id="session-1", now=110)
+    assert stored.return_url == "http://localhost/home"
+
+
 def test_launch_intent_store_threaded_create_prune_no_runtime_errors(
     tmp_path: Path,
 ) -> None:

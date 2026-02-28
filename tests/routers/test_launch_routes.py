@@ -13,7 +13,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from setta.launch import LaunchError
-from setta.launch_intent_store import WorkspaceLaunchIntentStore
+from setta.launch_intent_store import (
+    WorkspaceLaunchIntentStore,
+    WorkspaceLaunchIntentStoreStateError,
+    WorkspaceLaunchIntentStoreUnavailableError,
+)
 from setta.launcher_metadata import LauncherMetadataError
 from setta.routers.launch import (
     CreateWorkspaceLaunchIntentRequest,
@@ -289,6 +293,76 @@ class TestLaunchRoutes:
         assert response.error.code == "InvalidLaunchIntent"
         assert "expired" in response.error.message
 
+    def test_create_launch_intent_returns_typed_store_unavailable_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._store_workspace_launch_intent",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                WorkspaceLaunchIntentStoreUnavailableError("store unavailable")
+            ),
+        )
+
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(workspaceRoot="/tmp/workspace"),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreUnavailable"
+
+    def test_create_launch_intent_returns_typed_store_state_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._store_workspace_launch_intent",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                WorkspaceLaunchIntentStoreStateError("store invalid")
+            ),
+        )
+
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(workspaceRoot="/tmp/workspace"),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreInvalid"
+
+    def test_launch_intent_returns_typed_store_unavailable_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._consume_workspace_launch_intent",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                WorkspaceLaunchIntentStoreUnavailableError("store unavailable")
+            ),
+        )
+
+        response = route_launch(LaunchRequest(launchIntentToken="token"))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreUnavailable"
+
     def test_create_launch_intent_rejects_disallowed_return_url_origin(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -428,7 +502,10 @@ class TestLaunchRoutes:
             "setta.routers.launch.launch_workspace_session",
             fake_launch_workspace_session,
         )
-        monkeypatch.setattr("setta.routers.launch.get_setta_paths", lambda: _Paths())
+        monkeypatch.setattr(
+            "setta.routers.launch.get_setta_paths_without_profile_env",
+            lambda: _Paths(),
+        )
 
         response = route_launch(
             LaunchRequest(
@@ -460,7 +537,10 @@ class TestLaunchRoutes:
             "setta.routers.launch.launch_workspace_session",
             fake_launch_workspace_session,
         )
-        monkeypatch.setattr("setta.routers.launch.get_setta_paths", lambda: _Paths())
+        monkeypatch.setattr(
+            "setta.routers.launch.get_setta_paths_without_profile_env",
+            lambda: _Paths(),
+        )
 
         response = route_launch(
             LaunchRequest(
@@ -473,7 +553,7 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_home"] == str(_Paths.setta_home)
 
-    def test_launch_local_without_profile_hides_profile_env_during_paths_lookup(
+    def test_launch_local_without_profile_does_not_mutate_profile_env(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
@@ -486,7 +566,7 @@ class TestLaunchRoutes:
             setta_home = Path("/tmp/runtime/.setta-development")
             profile_lookup_home = Path("/tmp/lookup/.setta")
 
-        def fake_get_setta_paths() -> _Paths:
+        def fake_get_setta_paths_without_profile_env() -> _Paths:
             captured["profile_env_seen"] = os.environ.get("SETTA_PROFILE")
             return _Paths()
 
@@ -496,7 +576,8 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
         monkeypatch.setattr(
-            "setta.routers.launch.get_setta_paths", fake_get_setta_paths
+            "setta.routers.launch.get_setta_paths_without_profile_env",
+            fake_get_setta_paths_without_profile_env,
         )
 
         response = route_launch(
@@ -509,7 +590,7 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "Captured"
         assert captured["setta_home"] == str(_Paths.setta_home)
-        assert captured["profile_env_seen"] is None
+        assert captured["profile_env_seen"] == "missing-profile"
         assert os.environ.get("SETTA_PROFILE") == "missing-profile"
 
     def test_launch_local_whitespace_profile_is_treated_as_omitted(
@@ -556,7 +637,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
         monkeypatch.setattr(
-            "setta.routers.launch.get_setta_paths",
+            "setta.routers.launch.get_setta_paths_without_profile_env",
             lambda: type(
                 "_Paths",
                 (),
@@ -1170,6 +1251,113 @@ class TestLaunchRoutes:
         assert response.profile == "dev"
         assert response.remoteCmdResolved == "setta"
 
+    def test_launch_over_ssh_requires_remote_launcher_origin_proof(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin="http://launcher.example:7999",
+                launcher_origin_proof=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+
+        with TestClient(app, base_url="http://launcher.example:7999") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.LAUNCH.value}",
+                json={"workspaceRoot": "/requested/workspace", "sshTarget": "user@host"},
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "RemoteConnectInfo"
+
+    def test_launch_over_ssh_uses_request_origin_for_handoff(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin="https://evil.example",
+                launcher_origin_proof="proof",
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+
+        with TestClient(app, base_url="http://launcher.example:7999") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.LAUNCH.value}",
+                json={"workspaceRoot": "/requested/workspace", "sshTarget": "user@host"},
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is True
+        hash_params = parse_qs(urlsplit(payload["bootstrapUrlFragment"]).fragment)
+        assert hash_params.get("lo") == ["http://launcher.example:7999"]
+
     def test_launch_local_does_not_inherit_server_files_location_env(
         self, monkeypatch
     ) -> None:
@@ -1384,7 +1572,8 @@ class TestLaunchRoutes:
                 profile_lookup_home = lookup_home.resolve(strict=False)
 
             monkeypatch.setattr(
-                "setta.routers.launch.get_setta_paths", lambda: _Paths()
+                "setta.routers.launch.get_setta_paths_without_profile_env",
+                lambda: _Paths(),
             )
             monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 

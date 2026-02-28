@@ -248,6 +248,17 @@ def connect_remote_workspace_session(
     remote_launcher_origin_proof = _parse_optional_connect_info_field(
         connect_info, key="launcherOriginProof"
     )
+    if launcher_origin is not None:
+        if remote_launcher_origin != launcher_origin:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info launcherOrigin did not match requested launcher origin.",
+            )
+        if remote_launcher_origin_proof is None:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info did not include launcherOriginProof.",
+            )
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:

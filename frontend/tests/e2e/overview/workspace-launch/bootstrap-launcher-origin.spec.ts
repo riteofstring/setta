@@ -318,6 +318,7 @@ test("bootstrap trusted launcher origin enables dynamic CORS launch-intent calls
 }) => {
   await clearLauncherOrigin(page);
   const originServer = await startOriginTestServer();
+  let secondaryOriginServer: OriginTestServer | null = null;
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT ?? "/tmp/workspace";
 
   try {
@@ -425,7 +426,40 @@ test("bootstrap trusted launcher origin enables dynamic CORS launch-intent calls
     expect(afterTrust.status).toBe(200);
     expect(afterTrust.responseOk).toBe(true);
     expect(afterTrust.hasToken).toBe(true);
+    secondaryOriginServer = await startOriginTestServer();
+    await page.goto(secondaryOriginServer.origin, { waitUntil: "domcontentloaded" });
+
+    const otherOriginAfterTrust = await page.evaluate(
+      async ({ backendOrigin, returnUrl, workspaceRootValue }) => {
+        try {
+          const response = await fetch(
+            `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                launchRequest: { workspaceRoot: workspaceRootValue },
+                returnUrl,
+              }),
+            },
+          );
+          return { ok: true, status: response.status };
+        } catch (error) {
+          return { ok: false, message: String(error) };
+        }
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        returnUrl: `${secondaryOriginServer.origin}/home`,
+        workspaceRootValue: workspaceRoot,
+      },
+    );
+    expect(otherOriginAfterTrust.ok).toBe(false);
   } finally {
     await originServer.close();
+    if (secondaryOriginServer !== null) {
+      await secondaryOriginServer.close();
+    }
   }
 });

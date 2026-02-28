@@ -102,7 +102,11 @@ def test_bootstrap_consume_returns_verified_launcher_origin(bootstrap_client) ->
 
     response.raise_for_status()
     assert response.json() == {"status": "ok", "launcherOrigin": launcher_origin}
-    assert is_trusted_frontend_origin(launcher_origin) is True
+    assert is_trusted_frontend_origin(launcher_origin, session_id=session.id) is True
+    assert (
+        is_trusted_frontend_origin(launcher_origin, session_id="different-session")
+        is False
+    )
 
 
 def test_bootstrap_consume_ignores_invalid_launcher_origin_proof(
@@ -122,7 +126,13 @@ def test_bootstrap_consume_ignores_invalid_launcher_origin_proof(
 
     response.raise_for_status()
     assert response.json() == {"status": "ok"}
-    assert is_trusted_frontend_origin("http://127.0.0.1:9001") is False
+    assert (
+        is_trusted_frontend_origin(
+            "http://127.0.0.1:9001",
+            session_id=session.id,
+        )
+        is False
+    )
 
 
 def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:

@@ -11,7 +11,11 @@ from setta.auth.headers import extract_bearer_token
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
-from setta.trusted_frontend_origins import is_trusted_frontend_origin
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStoreError,
+    is_trusted_frontend_origin,
+    refresh_trusted_frontend_origins_for_session,
+)
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 
@@ -255,6 +259,10 @@ class AuthMiddleware:
                     Route.PREFIX.value
                 ) and _should_refresh_auth_cookie(cookie_payload.exp):
                     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                    _refresh_session_trusted_frontend_origins(
+                        session_id=session_metadata.id,
+                        exp=_minted_auth_cookie_exp(),
+                    )
                     await self.app(
                         scope,
                         receive,
@@ -270,8 +278,12 @@ class AuthMiddleware:
                 await self.app(scope, receive, send)
                 return
 
-        if _should_auto_auth_dev_request(request):
+        if _should_auto_auth_dev_request(request, session_id=session_metadata.id):
             auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+            _refresh_session_trusted_frontend_origins(
+                session_id=session_metadata.id,
+                exp=_minted_auth_cookie_exp(),
+            )
             await self.app(
                 scope,
                 receive,
@@ -291,6 +303,10 @@ class AuthMiddleware:
             )
             if token_payload is not None:
                 auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+                _refresh_session_trusted_frontend_origins(
+                    session_id=session_metadata.id,
+                    exp=_minted_auth_cookie_exp(),
+                )
                 await self.app(
                     scope,
                     receive,
@@ -316,6 +332,18 @@ def _unauthorized_response(request: Request) -> Response:
 def _should_refresh_auth_cookie(exp: int) -> bool:
     timestamp = int(datetime.now(timezone.utc).timestamp())
     return exp - timestamp <= C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS
+
+
+def _minted_auth_cookie_exp() -> int:
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    return timestamp + C.AUTH_COOKIE_MAX_AGE_SECONDS
+
+
+def _refresh_session_trusted_frontend_origins(*, session_id: str, exp: int) -> None:
+    try:
+        refresh_trusted_frontend_origins_for_session(session_id=session_id, exp=exp)
+    except TrustedFrontendOriginStoreError:
+        return
 
 
 def _build_send_with_auth_cookie(
@@ -369,14 +397,14 @@ def _build_auth_cookie_headers(
     ]
 
 
-def _should_auto_auth_dev_request(request: Request) -> bool:
+def _should_auto_auth_dev_request(request: Request, *, session_id: str) -> bool:
     if not IS_DEV_MODE:
         return False
     client = request.client
     if not client or client.host not in {"127.0.0.1", "::1"}:
         return False
     origin = request.headers.get("origin")
-    if origin and is_trusted_frontend_origin(origin):
+    if origin and is_trusted_frontend_origin(origin, session_id=session_id):
         return True
     referer = request.headers.get("referer")
     if not referer:
@@ -385,4 +413,4 @@ def _should_auto_auth_dev_request(request: Request) -> bool:
     if not parsed.scheme or not parsed.netloc:
         return False
     referer_origin = f"{parsed.scheme}://{parsed.netloc}"
-    return is_trusted_frontend_origin(referer_origin)
+    return is_trusted_frontend_origin(referer_origin, session_id=session_id)
