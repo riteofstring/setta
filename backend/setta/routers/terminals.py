@@ -12,10 +12,7 @@ from setta.routers.dependencies import (
     RuntimeContextFromRequest,
     RuntimeContextFromWebsocket,
 )
-from setta.routers.setta_api_router import (
-    SettaNonLauncherAPIRouter,
-    SettaProjectContextNonLauncherAPIRouter,
-)
+from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.share.policy import (
     SharePolicyGuard,
     enforce_share_policy_guard,
@@ -27,8 +24,8 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
-terminals_http_router = SettaProjectContextNonLauncherAPIRouter()
-terminals_ws_router = SettaNonLauncherAPIRouter()
+terminals_http_router = SettaProjectContextAPIRouter()
+terminals_ws_router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
 
 

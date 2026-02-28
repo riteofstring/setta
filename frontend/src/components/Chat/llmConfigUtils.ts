@@ -7,12 +7,13 @@ type LLMConfigGroup = {
 
 export function buildLLMConfigGroups(
   allLLMConfigs: AllLLMConfigs | null,
-  apiKeys: APIKeys,
+  apiKeys: APIKeys | null | undefined,
   options: { includeConfigsWithoutApiKey?: boolean } = {},
 ): Array<LLMConfigGroup> {
   if (!allLLMConfigs) {
     return [];
   }
+  const resolvedApiKeys = apiKeys ?? {};
   const includeConfigsWithoutApiKey =
     options.includeConfigsWithoutApiKey === true;
 
@@ -21,7 +22,7 @@ export function buildLLMConfigGroups(
     if (
       !includeConfigsWithoutApiKey &&
       config.api_key_env &&
-      !(config.api_key_env in apiKeys)
+      !(config.api_key_env in resolvedApiKeys)
     ) {
       continue;
     }

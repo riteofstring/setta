@@ -93,6 +93,7 @@ AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
 # intentionally small because missing context otherwise represents a fail-open risk.
 MCP_UNSCOPED_TOOL_NAMES: set[str] = {
     "getInstalledPythonPackages",
+    "get_mcp_server_runtime_status",
     "getProjectConfigNamesAndIds",
     "get_setta_docs",
     "list_mcp_tools",

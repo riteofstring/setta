@@ -116,7 +116,6 @@ _PLUGIN_MOUNT_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
 
 _MODE_ALLOWED_CAPABILITIES = {
     "ide": PLUGIN_CAPABILITIES_SET,
-    "launcher": PLUGIN_CAPABILITIES_SET,
     "share": frozenset(
         {
             "registerSectionKinds",
@@ -389,7 +388,7 @@ class PluginManager:
         workspace_root: Path,
         setta_files_root: Path,
         setta_home: Path,
-        server_mode: Literal["ide", "share", "app", "launcher"],
+        server_mode: Literal["ide", "share", "app"],
         setta_version: str,
         github_base_url: str | None = None,
         restart_command: str | None = None,
@@ -953,10 +952,10 @@ class PluginManager:
         return entry.plugin_id in self._backend_loaded_plugin_ids
 
     def _should_redact_source_details(self) -> bool:
-        return self.server_mode in {"share", "app"}
+        return self.server_mode != "ide"
 
     def _should_redact_config_details(self) -> bool:
-        return self.server_mode in {"share", "app"}
+        return self.server_mode != "ide"
 
     def _build_redacted_config_descriptor(
         self, entry: DiscoveredPlugin
@@ -1273,7 +1272,7 @@ class PluginManager:
         return route_response.get("body")
 
     def get_restart_capability(self) -> PluginRestartCapability:
-        if self.server_mode in {"share", "app"}:
+        if self.server_mode != "ide":
             return PluginRestartCapability(
                 mode="manual",
                 command=self._restart_command,

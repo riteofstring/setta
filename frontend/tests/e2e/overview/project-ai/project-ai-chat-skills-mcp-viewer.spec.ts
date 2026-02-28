@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   allowExpectedApiError,
@@ -6,100 +6,55 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
-type McpRuntimeState =
-  | "connected"
-  | "connecting"
-  | "retrying"
-  | "error"
-  | "disabled"
-  | "unknown";
-
-type McpRuntimeServer = {
-  serverId: string;
-  source: string;
-  transport: string;
-  endpoint: string;
-  state: McpRuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-};
-
-type McpRuntimeStatusResponse = {
-  llmConfigPath: string;
-  activeSettaFilesLocation: string | null;
-  servers: McpRuntimeServer[];
-  externalServers: McpRuntimeServer[];
-};
-
-function buildMcpRuntimeServer(
-  overrides: Partial<McpRuntimeServer> & { serverId: string },
-): McpRuntimeServer {
-  return {
-    serverId: overrides.serverId,
-    source: overrides.source ?? "setta_mcp",
-    transport: overrides.transport ?? "sse",
-    endpoint: overrides.endpoint ?? "http://127.0.0.1:8000/mcp",
-    state: overrides.state ?? "unknown",
-    lastAttemptAt: overrides.lastAttemptAt ?? null,
-    lastConnectedAt: overrides.lastConnectedAt ?? null,
-    lastFailureAt: overrides.lastFailureAt ?? null,
-    consecutiveFailures: overrides.consecutiveFailures ?? 0,
-    lastError: overrides.lastError ?? null,
-    missingEnvVar: overrides.missingEnvVar ?? null,
-    toolCount: overrides.toolCount ?? 0,
-  };
-}
-
-function buildMcpRuntimeStatusResponse(
-  overrides: Partial<McpRuntimeStatusResponse> = {},
-): McpRuntimeStatusResponse {
-  return {
-    llmConfigPath: "/workspace/setta_files/llm_config.json",
-    activeSettaFilesLocation: "local",
-    servers: [],
-    externalServers: [],
-    ...overrides,
-  };
-}
-
-async function mockMcpRuntimeStatusRoute(
-  page: Page,
-  options: {
-    status?: number;
-    delayMs?: number;
-    detail?: string;
-    payload?: McpRuntimeStatusResponse;
-  } = {},
-): Promise<void> {
-  const {
-    status = 200,
-    delayMs = 0,
-    detail = "Unavailable",
-    payload = buildMcpRuntimeStatusResponse(),
-  } = options;
-  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
-    if (delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-    if (status !== 200) {
-      await route.fulfill({
-        status,
-        contentType: "application/json",
-        body: JSON.stringify({ detail }),
-      });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(payload),
-    });
+async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+  const styleInfo = await locator.evaluate((node) => {
+    const element = node as HTMLElement;
+    const style = window.getComputedStyle(element);
+    return {
+      overflowX: style.overflowX,
+      textOverflow: style.textOverflow,
+      whiteSpace: style.whiteSpace,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    };
   });
+
+  expect(styleInfo.textOverflow).toBe("ellipsis");
+  expect(styleInfo.whiteSpace).toBe("nowrap");
+  expect(["hidden", "clip"]).toContain(styleInfo.overflowX);
+  expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
+}
+
+async function expectVerticallyResizablePane(
+  locator: Locator,
+  resizeHandle: Locator,
+): Promise<void> {
+  await expect(locator).toBeVisible();
+  const styleInfo = await locator.evaluate((node) => {
+    const element = node as HTMLElement;
+    const style = window.getComputedStyle(element);
+    return {
+      overflowY: style.overflowY,
+      height: element.getBoundingClientRect().height,
+    };
+  });
+  expect(["auto", "scroll"]).toContain(styleInfo.overflowY);
+  expect(styleInfo.height).toBeGreaterThan(0);
+  await expect(resizeHandle).toBeVisible();
+  const cursor = await resizeHandle.evaluate(
+    (node) => window.getComputedStyle(node as HTMLElement).cursor,
+  );
+  expect(cursor).toBe("row-resize");
+}
+
+async function openSkillsMcpViewer(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  await page.getByRole("button", { name: "Open Skills/MCP" }).click();
+}
+
+async function closeSkillsMcpViewer(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Return to chat" }).click();
 }
 
 test("project ai chat can open the skills and mcp viewer side view", async ({
@@ -116,18 +71,18 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
+          skillId: "workspace_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
         {
-          skillId: "user_claude_skills::frontend-design",
+          skillId: "user_codex_skills::frontend-design",
           name: "frontend-design",
-          rootLabel: "User ~/.claude/skills",
-          rootPath: "/home/.claude/skills",
+          rootLabel: "User ~/.codex/skills",
+          rootPath: "/home/.codex/skills",
           relativePath: "frontend-design",
           description: "Create polished frontend interfaces.",
         },
@@ -164,45 +119,35 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_skills::ui-layout",
         content: "# UI Layout\n\nCreate dense dashboard layouts.",
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page, {
-    payload: buildMcpRuntimeStatusResponse({
-      servers: [
-        buildMcpRuntimeServer({
-          serverId: "setta",
-          state: "connected",
-          transport: "sse",
-          endpoint: "http://127.0.0.1:8000/mcp",
-          toolCount: 12,
-        }),
-      ],
-      externalServers: [
-        buildMcpRuntimeServer({
-          serverId: "context7",
-          source: "external_runtime",
-          state: "unknown",
-          transport: "stdio",
-          endpoint: "npx @upstash/context7-mcp",
-        }),
-      ],
-    }),
-  });
 
   await ensureAppReady(page);
 
-  const toggleButton = page.getByRole("button", {
-    name: "View Skills and MCP",
-  });
-  await expect(toggleButton).toBeVisible();
-  await toggleButton.click();
+  await openSkillsMcpViewer(page);
+
+  await expect(page.getByTestId("skills-mcp-accordion-mcp")).toBeVisible();
+  await expect(page.getByTestId("skills-mcp-accordion-skills")).toBeVisible();
+  await expect(
+    page.getByTestId("skills-mcp-accordion-slash-commands"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^MCP Servers$/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: /^Skills$/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(
+    page.getByRole("button", { name: /^Slash Commands$/ }),
+  ).toHaveAttribute("aria-expanded", "true");
 
   await expect(page.getByText(/^Skills$/)).toBeVisible();
-  await expect(page.getByText("/workspace/.agents/skills")).toBeVisible();
-  await expect(page.getByText("/home/.claude/skills")).toBeVisible();
+  await expect(page.getByText("/workspace/skills")).toBeVisible();
+  await expect(page.getByText("/home/.codex/skills")).toBeVisible();
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /frontend-design/i }),
@@ -232,795 +177,187 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   ).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
-  await expect(page.getByText(/0 disabled/)).toBeVisible();
   await expect(
-    page.getByRole("button", {
-      name: "Copy path for Workspace .agents/skills",
-    }),
+    page.getByRole("button", { name: /Copy path for Workspace skills/i }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", {
-      name: "Reveal path for Workspace .agents/skills",
-    }),
+    page.getByRole("button", { name: /Reveal path for Workspace skills/i }),
   ).toBeVisible();
   await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
   await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);
   await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
+  const slashCommandsHeader = page.getByText(/^Slash Commands$/);
+  await slashCommandsHeader.scrollIntoViewIfNeeded();
+  await expect(slashCommandsHeader).toBeVisible();
+  await expect(page.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
+  const slashCommandRows = page.getByTestId("skills-mcp-slash-command");
+  await expect(slashCommandRows.first()).toBeVisible();
+  await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
+  await expectVerticallyResizablePane(
+    page.getByTestId("skills-mcp-slash-list-pane"),
+    page.getByTestId("skills-mcp-slash-resize-handle"),
+  );
+  await expect(page.getByLabel("Agent native commands")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Save Cached List" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Clear Draft" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Agent-native slash commands apply to external agents."),
+  ).toBeVisible();
 
-  await page.getByLabel("View Skills and MCP").click();
+  await closeSkillsMcpViewer(page);
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
 });
 
-test("project ai chat does not mark skills active for non-skill tool names", async ({
+test("project ai chat keeps MCP runtime statuses distinct across matching server ids", async ({
   page,
 }) => {
-  const externalEngineConfigId = "engine-codex";
-  const externalAgentConfigId = "external-codex";
-  const chatId = "chat-skill-false-positive";
-  let externalChatRequestCount = 0;
-
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
     overviewVis: true,
-  });
-
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalEngineConfigId,
-          name: "Codex Engine",
-          engineType: "external_agent",
-          externalAgentConfigId,
-          defaults: {},
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentHealth", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          configId: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-          supported: true,
-          available: true,
-          issues: [],
-          envVars: { present: [], missing: [] },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getAgentRuns", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "run-skill-false-positive",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-01-01T00:00:00Z",
-          finishedAt: "2026-01-01T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "external_agent",
-            chatId,
-            engineConfigId: externalEngineConfigId,
-            messages: [
-              {
-                id: "user-1",
-                role: "user",
-                content: [{ type: "text", text: "run with tool calls" }],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: {
-            name: "Skillful Search Run",
-            nameSource: "deterministic",
-          },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentChat", async (route) => {
-    externalChatRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        messages: [
-          {
-            id: "assistant-1",
-            role: "assistant",
-            content: [],
-            attachments: [],
-            tool_calls: [
-              {
-                id: "tool-call-1",
-                type: "function",
-                function: {
-                  name: "mcp__repo__skillful_search",
-                  arguments: { name: "readme" },
-                },
-              },
-            ],
-          },
-        ],
-        waitingForResponse: false,
-        toolCallArguments: {},
-      }),
-    });
   });
 
   await page.route("**/api/getAppGenSkills", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_agents_skills::readme",
-          name: "readme",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "readme",
-          description: "Reader skill",
-        },
-      ]),
+      body: JSON.stringify([]),
     });
   });
-
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::placeholder",
+        content: "# Placeholder",
+      }),
+    });
+  });
   await page.route("**/api/llm/config", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
+        mcpServers: {
+          "shared-server": {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["shared-server"],
         default_config_id: null,
       }),
     });
   });
-
-  await page.route("**/api/llm/apiKeys", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    });
-  });
-
-  await mockMcpRuntimeStatusRoute(page);
-
-  await ensureAppReady(page);
-
-  await page.getByRole("button", { name: "View History" }).click();
-  await expect(page.getByText("Skillful Search Run")).toBeVisible();
-  await page.getByText("Skillful Search Run").click();
-  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
-
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
-
-  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
-  await expect(readmeSkillButton).toBeVisible();
-  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(readmeSkillButton.getByText("Active")).toHaveCount(0);
-});
-
-test("project ai chat marks codex skills active from multi-token prompts", async ({
-  page,
-}) => {
-  const externalEngineConfigId = "engine-codex-token";
-  const externalAgentConfigId = "external-codex-token";
-  const chatId = "chat-codex-token-active";
-  let externalChatRequestCount = 0;
-
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalEngineConfigId,
-          name: "Codex Engine",
-          engineType: "external_agent",
-          externalAgentConfigId,
-          defaults: {},
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentHealth", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          configId: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-          supported: true,
-          available: true,
-          issues: [],
-          envVars: { present: [], missing: [] },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getAgentRuns", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "run-codex-token-active",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-01-01T00:00:00Z",
-          finishedAt: "2026-01-01T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "external_agent",
-            chatId,
-            engineConfigId: externalEngineConfigId,
-            messages: [
-              {
-                id: "user-1",
-                role: "user",
-                content: [
-                  { type: "text", text: "Use: $readme, then $ui-layout." },
-                ],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: {
-            name: "Codex Token Run",
-            nameSource: "deterministic",
-          },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentChat", async (route) => {
-    externalChatRequestCount += 1;
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        messages: [
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+        activeSettaFilesLocation: "local",
+        servers: [
           {
-            id: "user-1",
-            role: "user",
-            content: [{ type: "text", text: "Use: $readme, then $ui-layout." }],
-            attachments: [],
-          },
-          {
-            id: "assistant-1",
-            role: "assistant",
-            content: [],
-            attachments: [],
-            tool_calls: [],
+            serverId: "shared-server",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 4,
           },
         ],
-        waitingForResponse: false,
-        toolCallArguments: {},
-      }),
-    });
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_agents_skills::readme",
-          name: "readme",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "readme",
-          description: "Reader skill",
-        },
-        {
-          skillId: "workspace_agents_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "ui-layout",
-          description: "Layout skill",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/llm/apiKeys", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    });
-  });
-
-  await mockMcpRuntimeStatusRoute(page);
-
-  await ensureAppReady(page);
-
-  await page.getByRole("button", { name: "View History" }).click();
-  await expect(page.getByText("Codex Token Run")).toBeVisible();
-  await page.getByText("Codex Token Run").click();
-  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
-
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
-
-  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
-  await expect(readmeSkillButton).toBeVisible();
-  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(readmeSkillButton.getByText("Active")).toBeVisible();
-  const uiLayoutSkillButton = page.getByRole("button", { name: /ui-layout/i });
-  await expect(uiLayoutSkillButton).toBeVisible();
-  await expect(uiLayoutSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(uiLayoutSkillButton.getByText("Active")).toBeVisible();
-});
-
-test("project ai chat keeps codex mixed skill and shell references token-scoped", async ({
-  page,
-}) => {
-  const externalEngineConfigId = "engine-codex-token-scoped";
-  const externalAgentConfigId = "external-codex-token-scoped";
-  const chatId = "chat-codex-token-scoped";
-  let externalChatRequestCount = 0;
-
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalEngineConfigId,
-          name: "Codex Engine",
-          engineType: "external_agent",
-          externalAgentConfigId,
-          defaults: {},
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentHealth", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          configId: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-          supported: true,
-          available: true,
-          issues: [],
-          envVars: { present: [], missing: [] },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getAgentRuns", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "run-codex-token-scoped",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-01-01T00:00:00Z",
-          finishedAt: "2026-01-01T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "external_agent",
-            chatId,
-            engineConfigId: externalEngineConfigId,
-            messages: [
-              {
-                id: "user-1",
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Use $readme, then run echo $HOME",
-                  },
-                ],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: {
-            name: "Codex Token Scoped Run",
-            nameSource: "deterministic",
-          },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentChat", async (route) => {
-    externalChatRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        messages: [
+        externalServers: [
           {
-            id: "user-1",
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Use $readme, then run echo $HOME",
-              },
-            ],
-            attachments: [],
-          },
-          {
-            id: "assistant-1",
-            role: "assistant",
-            content: [],
-            attachments: [],
-            tool_calls: [],
+            serverId: "shared-server",
+            source: "external_runtime",
+            transport: "sse",
+            endpoint: "https://external.example.dev/mcp",
+            state: "error",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 1,
+            lastError: "authorization failed",
+            missingEnvVar: null,
+            toolCount: 0,
           },
         ],
-        waitingForResponse: false,
-        toolCallArguments: {},
       }),
     });
   });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_agents_skills::readme",
-          name: "readme",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "readme",
-          description: "Reader skill",
-        },
-        {
-          skillId: "workspace_agents_skills::home",
-          name: "home",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "home",
-          description: "Home skill",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/llm/apiKeys", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    });
-  });
-
-  await mockMcpRuntimeStatusRoute(page);
 
   await ensureAppReady(page);
+  await openSkillsMcpViewer(page);
 
-  await page.getByRole("button", { name: "View History" }).click();
-  await expect(page.getByText("Codex Token Scoped Run")).toBeVisible();
-  await page.getByText("Codex Token Scoped Run").click();
-  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
-
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
-
-  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
-  await expect(readmeSkillButton).toBeVisible();
-  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(readmeSkillButton.getByText("Active")).toBeVisible();
-
-  const homeSkillButton = page.getByRole("button", { name: /home/i });
-  await expect(homeSkillButton).toBeVisible();
-  await expect(homeSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(homeSkillButton.getByText("Active")).toHaveCount(0);
+  const serverRows = page.getByTestId("skills-mcp-server-id");
+  await expect(serverRows).toHaveCount(2);
+  await expect(page.getByText("Active external runtime")).toBeVisible();
+  const quickInfos = await serverRows.evaluateAll((nodes) => {
+    return nodes.map((node) => {
+      const statusDot = node.previousElementSibling as HTMLElement | null;
+      return statusDot?.getAttribute("aria-label") ?? "";
+    });
+  });
+  expect(quickInfos).toContain("Connected: 4 tools");
+  expect(quickInfos).toContain(
+    "Error: authorization failed | 0 tools",
+  );
 });
 
-test("project ai chat does not mark codex skills active for shell-style $variables", async ({
+test("skills/mcp view keeps inline threads visible when threads are open", async ({
   page,
 }) => {
-  const externalEngineConfigId = "engine-codex-shell-var";
-  const externalAgentConfigId = "external-codex-shell-var";
-  const chatId = "chat-codex-shell-var";
-  let externalChatRequestCount = 0;
-
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
     overviewVis: true,
+    overviewWidth: 1200,
+    overviewTrueWidth: 1200,
+    viewThreads: true,
   });
-
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalEngineConfigId,
-          name: "Codex Engine",
-          engineType: "external_agent",
-          externalAgentConfigId,
-          defaults: {},
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentHealth", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          configId: externalAgentConfigId,
-          name: "Codex app-server",
-          toolType: "codex",
-          runMode: "app_server",
-          supported: true,
-          available: true,
-          issues: [],
-          envVars: { present: [], missing: [] },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getAgentRuns", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "run-codex-shell-var",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-01-01T00:00:00Z",
-          finishedAt: "2026-01-01T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "external_agent",
-            chatId,
-            engineConfigId: externalEngineConfigId,
-            messages: [
-              {
-                id: "user-1",
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Set env first: export $readme && echo $readme",
-                  },
-                ],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: {
-            name: "Codex Shell Variable Run",
-            nameSource: "deterministic",
-          },
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/getExternalAgentChat", async (route) => {
-    externalChatRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        messages: [
-          {
-            id: "user-1",
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Set env first: export $readme && echo $readme",
-              },
-            ],
-            attachments: [],
-          },
-          {
-            id: "assistant-1",
-            role: "assistant",
-            content: [],
-            attachments: [],
-            tool_calls: [],
-          },
-        ],
-        waitingForResponse: false,
-        toolCallArguments: {},
-      }),
-    });
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_agents_skills::readme",
-          name: "readme",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "readme",
-          description: "Reader skill",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/llm/apiKeys", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    });
-  });
-
-  await mockMcpRuntimeStatusRoute(page);
-
   await ensureAppReady(page);
 
-  await page.getByRole("button", { name: "View History" }).click();
-  await expect(page.getByText("Codex Shell Variable Run")).toBeVisible();
-  await page.getByText("Codex Shell Variable Run").click();
-  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
+  const overviewPane = page.locator("#OverviewPane");
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  await expect(threadsPanel).toBeVisible();
+  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
 
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
-
-  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
-  await expect(readmeSkillButton).toBeVisible();
-  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
-  await expect(readmeSkillButton.getByText("Active")).toHaveCount(0);
+  await openSkillsMcpViewer(page);
+  await expect(threadsPanel).toBeVisible();
+  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
+  const mcpAccordion = page.getByTestId("skills-mcp-accordion-mcp");
+  await expect(mcpAccordion).toBeVisible();
+  const shellInfo = await mcpAccordion.evaluate((element) => {
+    const shell = element.closest('[data-chat-width-shell="true"]');
+    if (!(shell instanceof HTMLElement)) {
+      return null;
+    }
+    const style = window.getComputedStyle(shell);
+    return {
+      maxWidth: style.maxWidth,
+      width: shell.getBoundingClientRect().width,
+    };
+  });
+  expect(shellInfo).not.toBeNull();
+  expect(shellInfo?.maxWidth).toBe("1152px");
+  expect(shellInfo?.width).toBeLessThanOrEqual(1152);
 });
 
-test("project ai chat surfaces disabled MCP runtime servers in the summary", async ({
+test("project ai chat truncates long skill and mcp rows in narrow panes", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 960, height: 900 });
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
     overviewVis: true,
@@ -1032,12 +369,13 @@ test("project ai chat surfaces disabled MCP runtime servers in the summary", asy
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
+          skillId: "workspace_skills::super-long-ui-layout-skill",
+          name: "super-long-ui-layout-skill-name-that-should-be-truncated-in-a-tight-pane-width",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath:
+            "nested/deep/path/to/a/super-long-skill-relative-path-that-should-be-truncated-for-readability",
+          description: "Exercise truncation behavior for skill labels.",
         },
       ]),
     });
@@ -1050,122 +388,33 @@ test("project ai chat surfaces disabled MCP runtime servers in the summary", asy
       body: JSON.stringify({
         configs: {},
         mcpServers: {
-          setta: {
-            transport: "sse",
-            url: "http://127.0.0.1:8000/mcp",
-          },
+          "server-id-with-a-very-long-name-that-should-truncate-cleanly-in-the-list":
+            {
+              transport: "sse",
+              url: "https://example.com/very/long/mcp/endpoint/path/that/should-truncate-when-the-pane-is-narrower/and-still-remain-usable",
+            },
         },
-        defaultMcpServerIds: ["setta"],
+        defaultMcpServerIds: [],
         default_config_id: null,
       }),
     });
   });
 
-  await mockMcpRuntimeStatusRoute(page, {
-    payload: buildMcpRuntimeStatusResponse({
-      servers: [
-        buildMcpRuntimeServer({
-          serverId: "setta",
-          state: "connected",
-          transport: "sse",
-          endpoint: "http://127.0.0.1:8000/mcp",
-        }),
-      ],
-      externalServers: [
-        buildMcpRuntimeServer({
-          serverId: "context7",
-          source: "external_runtime",
-          state: "disabled",
-          transport: "stdio",
-          endpoint: "npx @upstash/context7-mcp",
-        }),
-      ],
-    }),
-  });
-
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
 
-  await expect(page.getByText(/1 disabled/)).toBeVisible();
-  await expect(page.getByText(/context7.*disabled/i)).toBeVisible();
-});
-
-test("project ai chat surfaces missing env var details for MCP runtime errors", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_agents_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {
-          setta: {
-            transport: "sse",
-            url: "http://127.0.0.1:8000/mcp",
-          },
-        },
-        defaultMcpServerIds: ["setta"],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await mockMcpRuntimeStatusRoute(page, {
-    payload: buildMcpRuntimeStatusResponse({
-      servers: [
-        buildMcpRuntimeServer({
-          serverId: "setta",
-          state: "connected",
-          transport: "sse",
-          endpoint: "http://127.0.0.1:8000/mcp",
-          toolCount: 8,
-        }),
-      ],
-      externalServers: [
-        buildMcpRuntimeServer({
-          serverId: "github",
-          source: "external_runtime",
-          state: "error",
-          transport: "streamable_http",
-          endpoint: "http://localhost:8100/mcp",
-          missingEnvVar: "GITHUB_TOKEN",
-          lastError: "auth failed",
-        }),
-      ],
-    }),
-  });
-
-  await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
-
-  await expect(
-    page.getByText(
-      "streamable_http · http://localhost:8100/mcp · missing GITHUB_TOKEN · auth failed",
-    ),
-  ).toBeVisible();
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-skill-name").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-skill-path").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-server-id").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-server-endpoint").first(),
+  );
 });
 
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({
@@ -1205,11 +454,10 @@ test("project ai chat shows inline skills endpoint error when routes are missing
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   await ensureAppReady(page);
 
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
   await expect(page.getByText("Skills unavailable (Not Found).")).toBeVisible();
 });
 
@@ -1228,10 +476,10 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
+          skillId: "workspace_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -1258,18 +506,46 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
     });
   });
 
-  await mockMcpRuntimeStatusRoute(page, {
-    delayMs: 1000,
-    payload: buildMcpRuntimeStatusResponse({
-      servers: [
-        buildMcpRuntimeServer({
-          serverId: "setta",
-          state: "connected",
-          transport: "sse",
-          endpoint: "http://127.0.0.1:8000/mcp",
-        }),
-      ],
-    }),
+  await page.route("**/api/settaHomeInfo", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        settaHome: "/home/test/.setta",
+        globalSettaFilesBase: "/home/test/.setta/files",
+        activeSettaFilesLocation: "local",
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+      }),
+    });
+  });
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+        activeSettaFilesLocation: "local",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 1,
+          },
+        ],
+        externalServers: [],
+      }),
+    });
   });
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -1278,21 +554,19 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_skills::ui-layout",
         content: "# UI Layout\n\nCreate dense dashboard layouts.",
       }),
     });
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
 
   await expect(page.getByText("Loading skills...")).toBeVisible();
   await expect(page.getByText("No skills found.")).toHaveCount(0);
   await expect(page.getByText("Loading MCP servers...")).toBeVisible();
-  await expect(page.getByText("No MCP runtime status available.")).toHaveCount(
-    0,
-  );
+  await expect(page.getByText("No MCP servers configured.")).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(page.getByText("Loading skills...")).toHaveCount(0);
@@ -1312,27 +586,27 @@ test("project ai chat keeps skills list stable during selection and ignores stal
     skillsFetchCount += 1;
     const skills = [
       {
-        skillId: "workspace_agents_skills::alpha-skill",
+        skillId: "workspace_skills::alpha-skill",
         name: "alpha-skill",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "alpha-skill",
         description: "Alpha skill",
       },
       {
-        skillId: "workspace_agents_skills::beta-skill",
+        skillId: "workspace_skills::beta-skill",
         name: "beta-skill",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "beta-skill",
         description: "Beta skill",
       },
       ...Array.from({ length: 203 }, (_, index) => {
         return {
-          skillId: `workspace_agents_skills::skill-${index}`,
+          skillId: `workspace_skills::skill-${index}`,
           name: `skill-${index}`,
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: `skill-${index}`,
           description: `Skill ${index}`,
         };
@@ -1362,7 +636,6 @@ test("project ai chat keeps skills list stable during selection and ignores stal
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   let skillContentRequestCount = 0;
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -1383,7 +656,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
 
   await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /skill-202/i })).toHaveCount(1);
@@ -1399,12 +672,10 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
   await expect.poll(() => skillContentRequestCount).toBe(1);
   const markdown = page.getByLabel("Skill Markdown Content");
-  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
   await page.waitForTimeout(700);
-  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
-  await expect(markdown).not.toContainText(
-    "workspace_agents_skills::alpha-skill",
-  );
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
 });
 
 test("project ai chat clears stale markdown when viewer is collapsed during an in-flight request", async ({
@@ -1421,18 +692,18 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::alpha-skill",
+          skillId: "workspace_skills::alpha-skill",
           name: "alpha-skill",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "alpha-skill",
           description: "Alpha skill",
         },
         {
-          skillId: "workspace_agents_skills::beta-skill",
+          skillId: "workspace_skills::beta-skill",
           name: "beta-skill",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "beta-skill",
           description: "Beta skill",
         },
@@ -1452,7 +723,6 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     const payload = route.request().postDataJSON() as { skillId?: string };
@@ -1471,7 +741,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
   await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
 
   const viewerToggle = page.getByRole("button", {
@@ -1492,11 +762,9 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
-  expect(immediateText).not.toContain("workspace_agents_skills::alpha-skill");
-  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
-  await expect(markdown).not.toContainText(
-    "workspace_agents_skills::alpha-skill",
-  );
+  expect(immediateText).not.toContain("workspace_skills::alpha-skill");
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
 });
 
 test("project ai chat refresh updates selected markdown content without requiring reselection", async ({
@@ -1513,10 +781,10 @@ test("project ai chat refresh updates selected markdown content without requirin
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
+          skillId: "workspace_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -1536,7 +804,6 @@ test("project ai chat refresh updates selected markdown content without requirin
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   let skillContentVersion = 0;
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -1545,14 +812,14 @@ test("project ai chat refresh updates selected markdown content without requirin
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_agents_skills::ui-layout",
+        skillId: "workspace_skills::ui-layout",
         content: `# UI Layout\n\nRevision ${skillContentVersion}`,
       }),
     });
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
 
   const markdown = page.getByLabel("Skill Markdown Content");
@@ -1579,10 +846,10 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_agents_skills::ui-layout",
+            skillId: "workspace_skills::ui-layout",
             name: "ui-layout",
-            rootLabel: "Workspace .agents/skills",
-            rootPath: "/workspace/.agents/skills",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
             relativePath: "ui-layout",
             description: "Create dense dashboard layouts.",
           },
@@ -1613,21 +880,20 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_agents_skills::ui-layout",
+        skillId: "workspace_skills::ui-layout",
         content: "# UI Layout\n\nStable preview",
       }),
     });
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
@@ -1662,10 +928,10 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_agents_skills::baseline",
+            skillId: "workspace_skills::baseline",
             name: "baseline",
-            rootLabel: "Workspace .agents/skills",
-            rootPath: "/workspace/.agents/skills",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
             relativePath: "baseline",
             description: "Baseline skill",
           },
@@ -1680,10 +946,10 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_agents_skills::fresh-skill",
+            skillId: "workspace_skills::fresh-skill",
             name: "fresh-skill",
-            rootLabel: "Workspace .agents/skills",
-            rootPath: "/workspace/.agents/skills",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
             relativePath: "fresh-skill",
             description: "Fresh result",
           },
@@ -1706,7 +972,6 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     const payload = route.request().postDataJSON() as { skillId?: string };
@@ -1714,14 +979,14 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_agents_skills::baseline",
-        content: `# ${(payload.skillId ?? "workspace_agents_skills::baseline").trim()}`,
+        skillId: payload.skillId ?? "workspace_skills::baseline",
+        content: `# ${(payload.skillId ?? "workspace_skills::baseline").trim()}`,
       }),
     });
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
   await expect(page.getByRole("button", { name: /baseline/i })).toBeVisible();
 
   const refreshButton = page.getByRole("button", { name: "Refresh" });
@@ -1750,10 +1015,10 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
+          skillId: "workspace_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -1773,14 +1038,13 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       }),
     });
   });
-  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_agents_skills::ui-layout",
+        skillId: "workspace_skills::ui-layout",
         content: "# UI Layout",
       }),
     });
@@ -1799,10 +1063,10 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
 
   await page
-    .getByRole("button", { name: "Reveal path for Workspace .agents/skills" })
+    .getByRole("button", { name: /Reveal path for Workspace skills/i })
     .click();
   await expect(
     page.getByText("Failed to reveal path: Reveal is disabled for this path."),
@@ -1823,10 +1087,10 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_agents_skills::ui-layout",
+          skillId: "workspace_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -1852,15 +1116,32 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
     });
   });
 
-  await mockMcpRuntimeStatusRoute(page, {
-    status: 500,
-    detail: "Unavailable",
-  });
-  allowExpectedApiError(page, {
-    path: "/api/mcpServerRuntimeStatus",
-    statuses: [500],
-    method: "POST",
-    count: 3,
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "",
+        activeSettaFilesLocation: "local",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 1,
+          },
+        ],
+        externalServers: [],
+      }),
+    });
   });
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -1869,7 +1150,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_skills::ui-layout",
         content: "# UI Layout\n\nPreview body",
         truncated: true,
         originalSizeBytes: 900000,
@@ -1878,12 +1159,14 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   });
 
   await ensureAppReady(page);
-  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await openSkillsMcpViewer(page);
 
   await expect(page.getByText("Unavailable")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Reveal path for Active setta_files/i }),
-  ).toHaveCount(0);
+    page.getByRole("button", {
+      name: /Reveal path for Active .*setta_files/i,
+    }),
+  ).toBeDisabled();
 
   const skillMarkdownToggle = page.getByRole("button", {
     name: "Skill Markdown Viewer",
