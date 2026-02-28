@@ -1784,6 +1784,136 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
   }
 });
 
+test("project ai does not flash missing-provenance banner for in-flight submitted chats", async ({
+  page,
+}) => {
+  const inFlightChatId = "pw-in-flight-missing-provenance";
+  let llmSubmitCalls = 0;
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        apiKeys: {
+          OPENAI_API_KEY: "pw-openai-key",
+        },
+        revision: 1,
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    llmSubmitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(inFlightChatId),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === inFlightChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-in-flight-missing-provenance",
+            role: "assistant",
+            content: [{ type: "text", text: "Still processing response..." }],
+          },
+        ],
+        waitingForResponse: true,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    const overviewPane = page.locator("#OverviewPane");
+    const input = overviewPane.locator("textarea").first();
+    await expect(input).toBeVisible();
+
+    await input.fill("Trigger in-flight provenance gap.");
+    await input.press("Enter");
+
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThanOrEqual(1);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai keeps composer usable when post-ready agent-runs refresh fails once after submit", async ({
   page,
 }) => {

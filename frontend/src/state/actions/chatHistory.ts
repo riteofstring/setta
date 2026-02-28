@@ -223,19 +223,11 @@ function collectChatRunSummaries(
       });
       continue;
     }
-    const nextWaiting = existing.waitingForResponse || waitingForResponse;
-    if (lastUpdatedMs > existing.lastUpdatedMs) {
+    if (lastUpdatedMs >= existing.lastUpdatedMs) {
       grouped.set(runChatId, {
         latestRun: run,
         lastUpdatedMs,
-        waitingForResponse: nextWaiting,
-      });
-      continue;
-    }
-    if (nextWaiting !== existing.waitingForResponse) {
-      grouped.set(runChatId, {
-        ...existing,
-        waitingForResponse: nextWaiting,
+        waitingForResponse,
       });
     }
   }

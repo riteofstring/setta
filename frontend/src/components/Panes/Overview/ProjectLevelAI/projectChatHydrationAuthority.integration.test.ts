@@ -102,4 +102,28 @@ describe("project chat hydration authority integration", () => {
     });
     expect(cacheKey).toBeNull();
   });
+
+  it("keeps hydration unresolved while selected chat is still waiting and provenance has not appeared yet", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-in-flight",
+      selectedScopedChatProvenance: { status: "missing" },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+      selectedChatWaitingForResponse: true,
+      engineType: EngineTypeEnum.setta_llm,
+    });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId: "chat-in-flight",
+      hydrationRunType: authority.hydrationRunType,
+      hydrationMetadataRevision: "rev-in-flight",
+    });
+
+    expect(authority).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
+    expect(cacheKey).toBeNull();
+  });
 });

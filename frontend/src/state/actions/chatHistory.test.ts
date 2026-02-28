@@ -232,6 +232,48 @@ describe("chatHistory", () => {
     expect(entries[0]?.engineConfigId).toBe("engine-external");
   });
 
+  it("uses the latest run status for thread working indicators", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-status",
+        messageText: "Older running",
+        startedAt: "2024-01-01T00:00:00Z",
+        status: AgentRunStatusEnum.running,
+      }),
+      buildRun({
+        chatId: "chat-status",
+        messageText: "Latest completed",
+        startedAt: "2024-01-02T00:00:00Z",
+        status: AgentRunStatusEnum.completed,
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.waitingForResponse).toBe(false);
+  });
+
+  it("prefers later runs when timestamps tie for waiting indicators", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-tie",
+        messageText: "Tie running",
+        startedAt: "2024-01-03T00:00:00Z",
+        status: AgentRunStatusEnum.running,
+      }),
+      buildRun({
+        chatId: "chat-tie",
+        messageText: "Tie completed",
+        startedAt: "2024-01-03T00:00:00Z",
+        status: AgentRunStatusEnum.completed,
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.waitingForResponse).toBe(false);
+  });
+
   it("filters history entries to the selected run type and engine config", () => {
     const runs = [
       buildRun({

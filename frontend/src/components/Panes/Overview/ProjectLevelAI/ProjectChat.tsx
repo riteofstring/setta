@@ -305,6 +305,15 @@ export function ProjectChat() {
     }
     return [];
   });
+  const selectedChatWaitingForResponse = useAIStore((state) => {
+    if (chatId === null) {
+      return Boolean(state.pendingChatDetails?.waitingForResponse);
+    }
+    if (typeof chatId !== "string") {
+      return false;
+    }
+    return Boolean(state.chatDetails[chatId]?.waitingForResponse);
+  });
 
   const {
     apiKeys,
@@ -646,6 +655,7 @@ export function ProjectChat() {
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
+        selectedChatWaitingForResponse,
         engineType,
       }),
     [
@@ -655,6 +665,7 @@ export function ProjectChat() {
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,
+      selectedChatWaitingForResponse,
       engineType,
     ],
   );

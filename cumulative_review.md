@@ -758,3 +758,25 @@
   - `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1 ./scripts/run_backend_tests.sh tests/llm/test_llm_chat_manager_openai_integration.py::TestLLMChatManagerOpenAIIntegration::test_gpt_4o_mini_chat_completion tests/llm/test_llm_chat_manager_anthropic_integration.py::TestLLMChatManagerAnthropicIntegration::test_claude_sonnet_45_chat_completion tests/agentic/test_claude_sdk_adapter_integration.py::TestClaudeSdkAdapterIntegration::test_claude_sdk_persists_usage_with_context_window tests/agentic/test_codex_app_server_adapter_integration.py::TestCodexAppServerAdapterIntegration::test_codex_app_server_persists_usage_with_context_window`
 - Playwright test passed:
   - `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "project ai shows context-left badge for external chats when backend telemetry is complete"`
+
+## 2026-02-27 21:33:39 PST
+
+### Consolidated Findings
+- The thread-list spinner regression was still reproducible in real usage because the selected thread row could remain tied to stale `agentRuns` status even after chat state had already transitioned to not waiting.
+- Existing spinner Playwright coverage validated mocked `getAgentRuns` transitions but did not cover the stale-runs vs live-chat-state mismatch.
+- The transient "missing provenance metadata" warning flash on initial send was tied to not treating pending-chat waiting state as in-flight in the selected-chat authority path.
+
+### Implemented Fixes (Keep It Simple)
+- Updated selected-thread spinner rendering in Project AI thread history to source from live chat waiting state (`chatDetails`/`pendingChatDetails`) for the active row, while leaving non-active thread rows unchanged.
+- Wired pending-chat waiting state into selected-chat waiting detection in `ProjectChat` so hydration authority treats in-flight new chat submits as unknown instead of blocked during the transient metadata window.
+- Added a Playwright regression test that asserts the selected thread spinner stays cleared when live chat state is completed even if `getAgentRuns` still reports running.
+
+### UX/DX Before -> After
+- Active thread spinner behavior: could stay stuck until run polling catches up -> reflects real in-memory chat completion state immediately.
+- Provenance warning timing: could flash during in-flight submit render -> suppressed while the selected chat is actively waiting.
+- Test coverage: only run-list transition assertions -> explicit stale-run/live-state mismatch coverage.
+
+### Verification
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`: `29 passed`.
+- `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "selected thread spinner follows live chat state"`: `1 passed`.
+- `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "does not flash missing-provenance banner"`: `1 passed`.

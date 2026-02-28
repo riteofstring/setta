@@ -39,6 +39,301 @@ async function seedAIStorePersistence(
   }, patch);
 }
 
+test("project ai thread spinner clears when latest run in a chat is completed", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1360, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-chat-spinner-old-running",
+          profileId: null,
+          status: "running",
+          startedAt: "2026-01-01T00:00:00Z",
+          finishedAt: null,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "pw-thread-spinner-chat",
+            engineConfigId: "setta-llm",
+            messages: [
+              {
+                id: "msg-chat-spinner-old-running",
+                role: "user",
+                content: [{ type: "text", text: "Older in progress prompt" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: null,
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: "run-chat-spinner-latest-completed",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-02T00:00:00Z",
+          finishedAt: "2026-01-02T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "pw-thread-spinner-chat",
+            engineConfigId: "setta-llm",
+            messages: [
+              {
+                id: "msg-chat-spinner-latest-completed",
+                role: "user",
+                content: [{ type: "text", text: "Latest completed prompt" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: { name: "Latest completed thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const completedThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Latest completed thread" });
+    await expect(completedThreadEntry).toHaveCount(1);
+    await expect(
+      completedThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai thread spinner clears after polling observes run completion", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1360, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  let getAgentRunsCalls = 0;
+  await page.route("**/api/getAgentRuns", async (route) => {
+    getAgentRunsCalls += 1;
+    if (getAgentRunsCalls === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-chat-spinner-poll-running",
+            profileId: null,
+            status: "running",
+            startedAt: "2026-01-03T00:00:00Z",
+            finishedAt: null,
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "pw-thread-spinner-poll-chat",
+              engineConfigId: "setta-llm",
+              messages: [
+                {
+                  id: "msg-chat-spinner-poll-running",
+                  role: "user",
+                  content: [
+                    { type: "text", text: "Poll spinner thread prompt" },
+                  ],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: { name: "Polled spinner thread", nameSource: "llm" },
+            toolCalls: [],
+            cost: null,
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-chat-spinner-poll-running",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-03T00:00:00Z",
+          finishedAt: "2026-01-03T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "pw-thread-spinner-poll-chat",
+            engineConfigId: "setta-llm",
+            messages: [
+              {
+                id: "msg-chat-spinner-poll-running",
+                role: "user",
+                content: [{ type: "text", text: "Poll spinner thread prompt" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: { name: "Polled spinner thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const polledThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Polled spinner thread" });
+    await expect(polledThreadEntry).toHaveCount(1);
+    await expect(
+      polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(1);
+    await expect.poll(() => getAgentRunsCalls).toBeGreaterThanOrEqual(2);
+    await expect(
+      polledThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai selected thread spinner follows live chat state before agent-runs refresh", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1360, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await seedAIStorePersistence(page, {
+    activeChatId: "pw-thread-live-state-chat",
+    chatDetails: {
+      "pw-thread-live-state-chat": {
+        messages: [
+          {
+            id: "assistant-live-state",
+            role: "assistant",
+            content: [{ type: "text", text: "Done responding." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        toolCallArguments: {},
+        contextUsage: null,
+      },
+    },
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-chat-spinner-live-state-running",
+          profileId: null,
+          status: "running",
+          startedAt: "2026-01-04T00:00:00Z",
+          finishedAt: null,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "pw-thread-live-state-chat",
+            engineConfigId: "setta-llm",
+            messages: [
+              {
+                id: "msg-chat-spinner-live-state-running",
+                role: "user",
+                content: [{ type: "text", text: "Live state prompt" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: { name: "Live state thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const selectedThreadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Live state thread" });
+    await expect(selectedThreadEntry).toHaveCount(1);
+    await expect(
+      selectedThreadEntry.getByTestId("project-chat-thread-working-indicator"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai threads render folder groups and support group drag reorder", async ({
   page,
 }) => {
@@ -970,7 +1265,9 @@ test("project ai chat keeps settings on the top row and wraps conversation searc
   await expect(
     overviewPane.getByRole("heading", { name: "Project AI Chat" }),
   ).toBeVisible();
-  await expect(overviewPane.getByRole("button", { name: "New Chat" })).toBeVisible();
+  await expect(
+    overviewPane.getByRole("button", { name: "New Chat" }),
+  ).toBeVisible();
   await expect(
     overviewPane.getByRole("button", { name: "Project AI Settings" }),
   ).toBeVisible();
@@ -1005,6 +1302,10 @@ test("project ai chat keeps settings on the top row and wraps conversation searc
   if (!headerGeometry) {
     throw new Error("Expected project chat header controls to be measurable.");
   }
-  expect(Math.abs(headerGeometry.newTop - headerGeometry.settingsTop)).toBeLessThanOrEqual(3);
-  expect(headerGeometry.filterTop).toBeGreaterThan(headerGeometry.settingsTop + 6);
+  expect(
+    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
+  ).toBeLessThanOrEqual(3);
+  expect(headerGeometry.filterTop).toBeGreaterThan(
+    headerGeometry.settingsTop + 6,
+  );
 });

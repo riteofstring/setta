@@ -19,6 +19,7 @@ type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
   chatProvenanceAuthoritative: boolean;
   engineConfigById: Map<string, EngineConfig>;
   engineConfigsAuthoritative: boolean;
+  selectedChatWaitingForResponse?: boolean;
 };
 
 type ProjectChatThreadBlockedErrorCode =
@@ -77,12 +78,16 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatProvenanceAuthoritative,
   engineConfigById,
   engineConfigsAuthoritative,
+  selectedChatWaitingForResponse = false,
 }: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
   const resolvedChatId = chatId?.trim() ?? "";
   if (!resolvedChatId) {
     return { status: "compatible" };
   }
   if (selectedScopedChatProvenance.status === "missing") {
+    if (selectedChatWaitingForResponse) {
+      return { status: "unknown" };
+    }
     if (!chatProvenanceAuthoritative) {
       return { status: "unknown" };
     }
@@ -100,6 +105,9 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   const provenance = selectedScopedChatProvenance.provenance;
   const requiredEngineConfigId = provenance.engineConfigId;
   if (!requiredEngineConfigId) {
+    if (selectedChatWaitingForResponse) {
+      return { status: "unknown" };
+    }
     if (!chatProvenanceAuthoritative) {
       return { status: "unknown" };
     }
@@ -150,6 +158,7 @@ export function resolveProjectChatHydrationAuthority({
   chatProvenanceAuthoritative,
   engineConfigById,
   engineConfigsAuthoritative,
+  selectedChatWaitingForResponse = false,
   engineType,
 }: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput & {
   engineType: EngineTypeEnum | null;
@@ -169,6 +178,7 @@ export function resolveProjectChatHydrationAuthority({
       chatProvenanceAuthoritative,
       engineConfigById,
       engineConfigsAuthoritative,
+      selectedChatWaitingForResponse,
     },
   );
   if (compatibility.status === "unknown") {

@@ -88,6 +88,9 @@ const THREAD_GROUP_DND_PREFIX = "project-chat-thread-group::";
 const THREAD_SECTION_DROP_TARGET_PREFIX = "project-chat-thread-section-drop::";
 const THREAD_DROP_TARGET_PREFIX = "project-chat-thread-drop::";
 const GROUP_DRAG_RELEASE_THRESHOLD_PX = 4;
+const PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
+const PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS = 1500;
+const PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
 
 type ThreadPinDomain = "pinned" | "unpinned";
 const PINNED_THREAD_DOMAIN: ThreadPinDomain = "pinned";
@@ -121,6 +124,27 @@ type ThreadDropTarget = {
   placement: ThreadDropPlacement;
   pinDomain: ThreadPinDomain;
 };
+
+function resolveProjectChatHistoryPollIntervalMs({
+  hasLoadError,
+  hasRunningHistoryEntry,
+  selectedChatMissingFromHistory,
+}: {
+  hasLoadError: boolean;
+  hasRunningHistoryEntry: boolean;
+  selectedChatMissingFromHistory: boolean;
+}): number | null {
+  if (selectedChatMissingFromHistory) {
+    return PROJECT_CHAT_HISTORY_MISSING_SELECTED_CHAT_POLL_INTERVAL_MS;
+  }
+  if (hasRunningHistoryEntry) {
+    return PROJECT_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
+  }
+  if (hasLoadError) {
+    return PROJECT_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
+  }
+  return null;
+}
 
 export function ProjectChatHistory({
   chatId,
@@ -164,6 +188,15 @@ export function ProjectChatHistory({
     }),
     shallow,
   );
+  const activeThreadWaitingForResponse = useAIStore((state) => {
+    if (chatId === null) {
+      return Boolean(state.pendingChatDetails?.waitingForResponse);
+    }
+    if (typeof chatId !== "string") {
+      return false;
+    }
+    return Boolean(state.chatDetails[chatId]?.waitingForResponse);
+  });
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [showThreadAgentBadges, setShowThreadAgentBadges] = useState(true);
   const [masterSearchInput, setMasterSearchInput] = useState("");
@@ -228,6 +261,68 @@ export function ProjectChatHistory({
       unscopedOnly: true,
     });
   }, [agentRuns, projectConfigId]);
+  const hasRunningHistoryEntry = useMemo(() => {
+    return historyEntries.some((entry) => entry.waitingForResponse);
+  }, [historyEntries]);
+  const selectedChatMissingFromHistory = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return false;
+    }
+    const normalizedChatId = chatId.trim();
+    if (!normalizedChatId) {
+      return false;
+    }
+    return !historyEntries.some((entry) => entry.chatId === normalizedChatId);
+  }, [chatId, historyEntries]);
+  const historyPollIntervalMs = useMemo(() => {
+    return resolveProjectChatHistoryPollIntervalMs({
+      hasLoadError: Boolean(agentRunsLoadError),
+      hasRunningHistoryEntry,
+      selectedChatMissingFromHistory,
+    });
+  }, [
+    agentRunsLoadError,
+    hasRunningHistoryEntry,
+    selectedChatMissingFromHistory,
+  ]);
+  useEffect(() => {
+    if (historyPollIntervalMs === null) {
+      return;
+    }
+    let intervalId: number | null = null;
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const startPollingIfVisible = () => {
+      clearPollingInterval();
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, historyPollIntervalMs);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
+      void loadAgentRuns();
+      startPollingIfVisible();
+    };
+
+    void loadAgentRuns();
+    startPollingIfVisible();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [historyPollIntervalMs]);
   const displayEntries = useMemo(() => {
     if (!draftThread || !draftThread.chatId) {
       return historyEntries;
@@ -1297,6 +1392,9 @@ export function ProjectChatHistory({
                               threadAgentBadgeLabelByChatId={
                                 threadAgentBadgeLabelByChatId
                               }
+                              activeThreadWaitingForResponse={
+                                activeThreadWaitingForResponse
+                              }
                             />
                           ))}
                         </div>
@@ -1398,6 +1496,9 @@ export function ProjectChatHistory({
                   }
                   showThreadAgentBadges={showThreadAgentBadges}
                   threadAgentBadgeLabelByChatId={threadAgentBadgeLabelByChatId}
+                  activeThreadWaitingForResponse={
+                    activeThreadWaitingForResponse
+                  }
                 />
               ) : null}
             </>
@@ -1448,6 +1549,7 @@ function ThreadGroupFolder({
   activeMasterSearchMatchThreadId,
   showThreadAgentBadges,
   threadAgentBadgeLabelByChatId,
+  activeThreadWaitingForResponse,
 }: {
   section: ThreadGroupSection;
   groupDndId: string;
@@ -1476,6 +1578,7 @@ function ThreadGroupFolder({
   activeMasterSearchMatchThreadId: string | null;
   showThreadAgentBadges: boolean;
   threadAgentBadgeLabelByChatId: Map<string, string>;
+  activeThreadWaitingForResponse: boolean;
 }) {
   const sortable = useThreadGroupSortableItem(
     groupDndId,
@@ -1816,6 +1919,9 @@ function ThreadGroupFolder({
                           threadAgentBadgeLabelByChatId.get(entry.chatId) ??
                           null
                         }
+                        activeThreadWaitingForResponse={
+                          activeThreadWaitingForResponse
+                        }
                         onTogglePinned={onToggleThreadPinned}
                         onDelete={onDeleteThread}
                         onSelect={(selectedEntry) => {
@@ -1878,6 +1984,9 @@ function ThreadGroupFolder({
                           threadAgentBadgeLabelByChatId.get(entry.chatId) ??
                           null
                         }
+                        activeThreadWaitingForResponse={
+                          activeThreadWaitingForResponse
+                        }
                         onTogglePinned={onToggleThreadPinned}
                         onDelete={onDeleteThread}
                         onSelect={(selectedEntry) => {
@@ -1922,6 +2031,7 @@ function ThreadUngroupedFolder({
   activeMasterSearchMatchThreadId,
   showThreadAgentBadges,
   threadAgentBadgeLabelByChatId,
+  activeThreadWaitingForResponse,
   onToggleThreadPinned,
   onDeleteThread,
   onSelectThread,
@@ -1938,6 +2048,7 @@ function ThreadUngroupedFolder({
   activeMasterSearchMatchThreadId: string | null;
   showThreadAgentBadges: boolean;
   threadAgentBadgeLabelByChatId: Map<string, string>;
+  activeThreadWaitingForResponse: boolean;
   onToggleThreadPinned: (threadId: string) => void;
   onDeleteThread: (threadId: string) => void;
   onSelectThread: (entry: ProjectChatHistoryEntry) => void;
@@ -2012,6 +2123,9 @@ function ThreadUngroupedFolder({
                     agentBadgeLabel={
                       threadAgentBadgeLabelByChatId.get(entry.chatId) ?? null
                     }
+                    activeThreadWaitingForResponse={
+                      activeThreadWaitingForResponse
+                    }
                     onTogglePinned={onToggleThreadPinned}
                     onDelete={onDeleteThread}
                     onSelect={(selectedEntry) => {
@@ -2068,6 +2182,9 @@ function ThreadUngroupedFolder({
                     agentBadgeLabel={
                       threadAgentBadgeLabelByChatId.get(entry.chatId) ?? null
                     }
+                    activeThreadWaitingForResponse={
+                      activeThreadWaitingForResponse
+                    }
                     onTogglePinned={onToggleThreadPinned}
                     onDelete={onDeleteThread}
                     onSelect={(selectedEntry) => {
@@ -2106,6 +2223,7 @@ function ThreadEntryLine({
   isDraft,
   showAgentBadges,
   agentBadgeLabel,
+  activeThreadWaitingForResponse,
   onTogglePinned,
   onDelete,
   onSelect,
@@ -2122,6 +2240,7 @@ function ThreadEntryLine({
   isDraft: boolean;
   showAgentBadges: boolean;
   agentBadgeLabel: string | null;
+  activeThreadWaitingForResponse: boolean;
   onTogglePinned: (threadId: string) => void;
   onDelete: (threadId: string) => void;
   onSelect: (entry: ProjectChatHistoryEntry) => void;
@@ -2131,7 +2250,9 @@ function ThreadEntryLine({
     !sortableEnabled || isDraft,
     "vertical",
   );
-  const showWorkingIndicator = entry.waitingForResponse;
+  const showWorkingIndicator = isActive
+    ? activeThreadWaitingForResponse
+    : entry.waitingForResponse;
   const showUnreadIndicator = !showWorkingIndicator && !isViewed;
 
   const rowClassName = isActive
