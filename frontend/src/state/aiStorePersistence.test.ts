@@ -14,7 +14,6 @@ let memoryStorage: Storage;
 
 type PersistedAIStoreSlice = {
   viewThreads?: boolean;
-  viewHistory?: boolean;
   projectChatThreadsExplicitlyClosedAtLargeWidth?: boolean;
   projectChatActivityAccordionOpenByDefault?: boolean;
   projectChatActivityChildrenOpenByDefault?: boolean;
@@ -93,12 +92,31 @@ describe("useAIStore persistence", () => {
     expect(parsed.state.activeChatId).toBeUndefined();
   });
 
-  it("hydrates viewThreads from legacy persisted viewHistory", async () => {
+  it("ignores legacy persisted viewHistory key during hydration", async () => {
+    useAIStore.setState({ viewThreads: false });
     memoryStorage.setItem(
       "setta_ai_data",
       JSON.stringify({
         state: {
           viewHistory: true,
+          projectChatDictationMode: "auto",
+        },
+        version: 0,
+      }),
+    );
+
+    await useAIStore.persist.rehydrate();
+    const state = useAIStore.getState();
+    expect(state.viewThreads).toBe(false);
+  });
+
+  it("hydrates viewThreads from persisted viewThreads only", async () => {
+    useAIStore.setState({ viewThreads: false });
+    memoryStorage.setItem(
+      "setta_ai_data",
+      JSON.stringify({
+        state: {
+          viewThreads: true,
           projectChatDictationMode: "auto",
         },
         version: 0,

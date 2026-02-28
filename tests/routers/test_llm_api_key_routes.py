@@ -300,6 +300,31 @@ async def test_llm_api_keys_route_can_repair_malformed_json_store_payload(
 
 
 @pytest.mark.asyncio
+async def test_llm_api_keys_route_can_repair_invalid_utf8_store_payload(
+    state_env: SettaFastAPIState,
+) -> None:
+    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
+    managed_keys_path.write_bytes(b"\xff\xfe\xfd")
+
+    with runtime_context(state_env) as runtime_ctx:
+        response = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={"OPENAI_API_KEY": "repaired-secret"},
+                expectedRevision=0,
+            ),
+            runtime_ctx,
+        )
+        keys_from_get = await route_get_llm_api_keys(runtime_ctx)
+
+    assert response.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert response.revision == 1
+    assert keys_from_get.apiKeys == {"OPENAI_API_KEY": "repaired-secret"}
+    assert keys_from_get.revision == 1
+    assert read_managed_api_keys(state_env.dbe) == {"OPENAI_API_KEY": "repaired-secret"}
+
+
+@pytest.mark.asyncio
 async def test_llm_api_keys_route_rejects_stale_revision_with_409(
     state_env: SettaFastAPIState,
 ) -> None:
@@ -345,6 +370,26 @@ async def test_llm_api_keys_get_route_returns_typed_corruption_error(
     managed_keys_path = llm_api_keys_path(state_env.dbe)
     managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
     managed_keys_path.write_text('{"OPENAI_API_KEY":"broken"', encoding="utf-8")
+
+    with runtime_context(state_env) as runtime_ctx:
+        with pytest.raises(HTTPException) as exc_info:
+            await route_get_llm_api_keys(runtime_ctx)
+
+    assert exc_info.value.status_code == 409
+    assert isinstance(exc_info.value.detail, dict)
+    if not isinstance(exc_info.value.detail, dict):
+        raise AssertionError("Expected typed corruption detail payload.")
+    assert exc_info.value.detail.get("errorCode") == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+    assert exc_info.value.detail.get("revision") == 0
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_get_route_returns_typed_corruption_error_for_invalid_utf8(
+    state_env: SettaFastAPIState,
+) -> None:
+    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
+    managed_keys_path.write_bytes(b"\xff\xfe")
 
     with runtime_context(state_env) as runtime_ctx:
         with pytest.raises(HTTPException) as exc_info:

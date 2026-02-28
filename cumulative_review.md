@@ -406,3 +406,31 @@
 - Targeted backend pytest sets: passed (`16 passed`, `14 passed`).
 - Targeted Playwright provenance suite: passed (`12 passed`).
 - CDP visual verification: Project AI pane/chat/settings flow checked after hydration-authority consolidation with no visual regression observed.
+
+## 2026-02-27 09:29:11 PST
+
+### Consolidated Findings
+- Managed API-key store reads could surface untyped decode failures and break route/runtime sync guarantees.
+- External-agent preflight availability could be blocked by managed-store unavailability even when required process env vars were already present.
+- Persisted AI store retained a legacy `viewHistory` hydration path alongside canonical `viewThreads`.
+- Dead paths remained in backend/frontend (`iter_codex_config_paths`, `apply_api_key_updates`, chat heuristic modules no longer used by runtime).
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Hardened managed API-key read/write flows to map invalid UTF-8 and malformed payloads to typed corrupt/unavailable contracts, while preserving explicit repair-on-save semantics for `expectedRevision=0`.
+- Updated external-agent preflight issue handling so managed-store-unavailable diagnostics are non-blocking when env requirements are already satisfied and blocking only when unresolved vars remain.
+- Removed legacy `viewHistory` hydration shim and kept canonical `viewThreads` persistence behavior only.
+- Removed dead code paths: backend helpers and unused frontend heuristic modules/tests.
+- Ran `pnpm -C frontend gcf` successfully to regenerate/prune/format after changes.
+
+### UX/DX Before -> After
+- Managed key failures: potential decode exception/500 surfaces -> deterministic typed corruption/unavailable outcomes.
+- Preflight availability: false-negative unavailable states with valid process env -> availability now matches runtime executability.
+- Persisted thread visibility: dual-key hydration ambiguity -> single canonical key behavior.
+- Maintenance surface: unused heuristic/dead helper drift risk -> reduced active code surface and clearer ownership.
+
+### Verification
+- Backend pytest (targeted suites): passed (`64 passed`).
+- Frontend Vitest (targeted suites): passed (`8 passed` + `5 passed`).
+- Playwright targeted e2e (`project ai ignores legacy viewHistory in persisted ai store`): passed (`1 passed`).
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- CDP visual check: completed (validated canonical `setta_ai_data` persistence behavior after project load).

@@ -809,20 +809,11 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         name: "setta_ai_data",
         merge: (persistedState, currentState) => {
           const persisted =
-            (persistedState as Partial<
-              ZustandAIStore & { viewHistory?: boolean }
-            > | null) ?? {};
-          const merged = {
+            (persistedState as Partial<ZustandAIStore> | null) ?? {};
+          return {
             ...currentState,
             ...persisted,
           };
-          if (
-            persisted.viewThreads === undefined &&
-            typeof persisted.viewHistory === "boolean"
-          ) {
-            merged.viewThreads = persisted.viewHistory;
-          }
-          return merged;
         },
         partialize: (state) => ({
           viewThreads: state.viewThreads,

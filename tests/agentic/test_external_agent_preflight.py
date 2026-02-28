@@ -219,6 +219,73 @@ class TestExternalAgentPreflight:
                 for issue in status.issues
             )
 
+    def test_env_var_status_allows_available_preflight_when_process_env_satisfies_requirements_despite_unavailable_store(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_name = "SETTA_TEST_ENV_PRESENT"
+            path = llm_api_keys_path(dbe)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.mkdir()
+            previous_value = os.environ.pop(key_name, None)
+            try:
+                os.environ[key_name] = "token-present"
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="codex",
+                    env_vars=[key_name],
+                )
+                with mock.patch(
+                    "setta.agentic.external_agent_preflight._check_codex_cli",
+                    return_value=("0.0.0", None),
+                ):
+                    status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.supported
+                assert status.available
+                assert status.envVars.present == [key_name]
+                assert status.envVars.missing == []
+                assert any(
+                    "Managed LLM API key store is unavailable" in issue
+                    for issue in status.issues
+                )
+            finally:
+                _restore_env_var(key_name, previous_value)
+
+    def test_env_var_status_marks_unavailable_when_required_env_var_missing_and_managed_store_is_unavailable(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_name = "SETTA_TEST_ENV_MISSING"
+            path = llm_api_keys_path(dbe)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.mkdir()
+            previous_value = os.environ.pop(key_name, None)
+            try:
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="codex",
+                    env_vars=[key_name],
+                )
+                with mock.patch(
+                    "setta.agentic.external_agent_preflight._check_codex_cli",
+                    return_value=("0.0.0", None),
+                ):
+                    status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.supported
+                assert not status.available
+                assert status.envVars.present == []
+                assert status.envVars.missing == [key_name]
+                assert any(
+                    "Managed LLM API key store is unavailable" in issue
+                    for issue in status.issues
+                )
+            finally:
+                _restore_env_var(key_name, previous_value)
+
     def test_server_run_mode_marked_unsupported(self) -> None:
         with _temp_cwd() as tmp:
             dbe = DBE(tmp / "setta_files")

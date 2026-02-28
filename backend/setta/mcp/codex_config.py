@@ -40,22 +40,6 @@ def resolve_default_codex_config_path() -> Path:
     return (Path.home() / ".codex" / "config.toml").resolve(strict=False)
 
 
-def iter_codex_config_paths() -> list[Path]:
-    candidates: list[Path] = []
-    codex_home_config_path = resolve_codex_home_config_path()
-    if codex_home_config_path is not None:
-        candidates.append(codex_home_config_path)
-    candidates.append(resolve_default_codex_config_path())
-    unique_paths: list[Path] = []
-    seen: set[Path] = set()
-    for candidate in candidates:
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        unique_paths.append(candidate)
-    return unique_paths
-
-
 def _resolve_raw_codex_mcp_servers_table(
     payload: dict[str, Any],
     *,

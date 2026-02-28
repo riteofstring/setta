@@ -92,6 +92,11 @@ describe("dictationPolicy", () => {
       code: "missing_api_key",
       status: 400,
     });
+    const unsupportedModel = new ProviderTranscriptionError({
+      message: "Unsupported model",
+      code: "unsupported_model",
+      status: 400,
+    });
     const unknown = new ProviderTranscriptionError({
       message: "Unknown",
       code: "unexpected_code",
@@ -101,8 +106,14 @@ describe("dictationPolicy", () => {
     expect(classifyProviderDictationFailureClass(known)).toBe(
       "missing_api_key",
     );
+    expect(classifyProviderDictationFailureClass(unsupportedModel)).toBe(
+      "unsupported_model",
+    );
     expect(classifyProviderDictationFailureClass(unknown)).toBe("unknown");
     expect(classifyProviderDictationFailureClass(new Error("boom"))).toBe(
+      "unknown",
+    );
+    expect(classifyProviderDictationFailureClass("unsupported_model")).toBe(
       "unknown",
     );
   });

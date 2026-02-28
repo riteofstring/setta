@@ -42,6 +42,10 @@ class ManagedAPIKeysStoreUnavailableError(RuntimeError):
     """Managed API key storage is currently unreadable due to I/O failure."""
 
 
+class ManagedAPIKeysStoreCorruptError(RuntimeError):
+    """Managed API key storage contains an unreadable payload."""
+
+
 def llm_api_keys_path(dbe: DBE) -> Path:
     return dbe.runtime_root / "secrets" / LLM_API_KEYS_FILENAME
 
@@ -188,23 +192,40 @@ def _read_managed_api_keys_raw_payload_from_disk(path: Path) -> str | None:
         return None
     try:
         return path.read_text(encoding="utf-8")
+    except (UnicodeError, ValueError) as exc:
+        raise ManagedAPIKeysStoreCorruptError(
+            f"Managed API key store is not valid UTF-8: {exc}"
+        ) from exc
     except OSError as exc:
         raise ManagedAPIKeysStoreUnavailableError(
             f"Failed to read managed API key store: {exc}"
         ) from exc
 
 
-def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
+def _read_managed_api_keys_raw_payload(dbe: DBE) -> str | None:
     path = llm_api_keys_path(dbe)
+    with dbe.get_file_lock(path):
+        return _read_managed_api_keys_raw_payload_from_disk(path)
+
+
+def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
     try:
-        raw_payload = dbe.read(path)
-    except OSError as exc:
+        raw_payload = _read_managed_api_keys_raw_payload(dbe)
+    except ManagedAPIKeysStoreUnavailableError as exc:
         return ManagedAPIKeysReadResult(
             api_keys={},
             revision=0,
             corrupt=False,
             error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
-            error=f"Failed to read managed API key store: {exc}",
+            error=str(exc),
+        )
+    except ManagedAPIKeysStoreCorruptError as exc:
+        return ManagedAPIKeysReadResult(
+            api_keys={},
+            revision=0,
+            corrupt=True,
+            error_code=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
+            error=str(exc),
         )
     return _parse_managed_api_keys_raw_payload(raw_payload)
 
@@ -231,13 +252,13 @@ def write_managed_api_keys(dbe: DBE, payload: APIKeys) -> APIKeys:
             read_result = _parse_managed_api_keys_raw_payload(raw_payload)
         except ManagedAPIKeysStoreUnavailableError as exc:
             raise ValueError(str(exc)) from exc
-        except ValueError:
+        except ManagedAPIKeysStoreCorruptError as exc:
             read_result = ManagedAPIKeysReadResult(
                 api_keys={},
                 revision=0,
                 corrupt=True,
                 error_code=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
-                error="Managed API key store is corrupt.",
+                error=str(exc),
             )
         next_revision = 1
         if not read_result.corrupt:
@@ -267,7 +288,18 @@ def write_managed_api_keys_with_expected_revision(
                 error_code=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
                 error=str(exc),
             )
-        except ValueError as exc:
+        except ManagedAPIKeysStoreCorruptError as exc:
+            if expected_revision == 0:
+                _write_managed_api_keys_store_payload(
+                    path,
+                    revision=1,
+                    api_keys=normalized,
+                )
+                return ManagedAPIKeysWriteAttempt(
+                    status="success",
+                    api_keys=normalized,
+                    revision=1,
+                )
             return ManagedAPIKeysWriteAttempt(
                 status="corrupt_store",
                 api_keys={},
@@ -313,24 +345,6 @@ def write_managed_api_keys_with_expected_revision(
             api_keys=normalized,
             revision=next_revision,
         )
-
-
-def apply_api_key_updates(
-    existing_keys: APIKeys,
-    updates: APIKeys,
-) -> APIKeys:
-    next_keys = dict(existing_keys)
-    for raw_key, raw_value in updates.items():
-        key = raw_key.strip()
-        if not key:
-            continue
-        value = raw_value.strip()
-        if value == "":
-            if key in next_keys:
-                next_keys.pop(key)
-            continue
-        next_keys[key] = value
-    return next_keys
 
 
 def collect_config_api_key_names(config: AllLLMConfigs) -> set[str]:

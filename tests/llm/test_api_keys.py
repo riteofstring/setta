@@ -43,6 +43,28 @@ def test_read_managed_api_keys_with_status_flags_malformed_json_text_as_corrupt(
         assert "not valid JSON" in result.error
 
 
+def test_read_managed_api_keys_with_status_flags_invalid_utf8_payload_as_corrupt() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Invalid UTF-8 bytes must map to typed corruption status.
+        path.write_bytes(b"\xff\xfe\xfd")
+
+        result = read_managed_api_keys_with_status(dbe)
+
+        assert result.corrupt
+        assert result.revision == 0
+        assert result.error_code == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+        assert result.api_keys == {}
+        assert isinstance(result.error, str)
+        if not isinstance(result.error, str):
+            raise AssertionError("Expected invalid UTF-8 error text")
+        assert "not valid UTF-8" in result.error
+
+
 def test_read_managed_api_keys_raises_value_error_for_malformed_json_text() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
@@ -133,6 +155,26 @@ def test_write_managed_api_keys_with_expected_revision_rejects_stale_revision() 
         assert persisted.corrupt is False
         assert persisted.revision == 2
         assert persisted.api_keys == {"OPENAI_API_KEY": "existing"}
+
+
+def test_write_managed_api_keys_with_expected_revision_reports_corrupt_malformed_store() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        path = llm_api_keys_path(dbe)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"revision": 2, "apiKeys": {"OPENAI_API_KEY": "secret"')
+
+        result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "next"},
+            expected_revision=1,
+        )
+
+        assert result.status == "corrupt_store"
+        assert result.error_code == MANAGED_API_KEYS_CORRUPT_ERROR_CODE
+        assert result.revision == 0
 
 
 def test_read_managed_api_keys_with_status_reports_unavailable_store() -> None:

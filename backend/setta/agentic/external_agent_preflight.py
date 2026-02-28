@@ -44,7 +44,7 @@ _DEFAULT_CLI_TIMEOUT_SECONDS = 5.0
 class _PreflightCacheEntry:
     status: ExternalAgentPreflightStatus
     config_fingerprint: str
-    env_fingerprint: tuple[tuple[str, ...], tuple[str, ...], str | None]
+    env_fingerprint: tuple[tuple[str, ...], tuple[str, ...], str | None, str | None]
     plugin_adapter_fingerprint: str | None
     created_at: float
 
@@ -56,6 +56,7 @@ _PREFLIGHT_CACHE: dict[str, _PreflightCacheEntry] = {}
 class _EnvStatusResult:
     status: ExternalAgentEnvVarStatus
     corruption_issue: str | None = None
+    unavailable_issue: str | None = None
 
 
 def _has_present_env_value(value: str | None) -> bool:
@@ -114,6 +115,13 @@ def build_external_agent_preflight_status(
         return cached
 
     issues: list[str] = []
+    availability_blocking_issues: list[str] = []
+
+    def _add_issue(issue: str, *, availability_blocking: bool = True) -> None:
+        issues.append(issue)
+        if availability_blocking:
+            availability_blocking_issues.append(issue)
+
     supported = _is_run_mode_supported(
         config.toolType,
         config.runMode,
@@ -131,11 +139,16 @@ def build_external_agent_preflight_status(
                 f"{config.pluginAdapterId}"
             )
         if plugin_adapter_resolution_issue is not None:
-            issues.append(plugin_adapter_resolution_issue)
+            _add_issue(plugin_adapter_resolution_issue)
     if env_status_result.corruption_issue is not None:
-        issues.append(env_status_result.corruption_issue)
+        _add_issue(env_status_result.corruption_issue)
+    if env_status_result.unavailable_issue is not None:
+        _add_issue(
+            env_status_result.unavailable_issue,
+            availability_blocking=len(env_status.missing) > 0,
+        )
     if env_status.missing:
-        issues.append(f"Missing env vars: {', '.join(env_status.missing)}")
+        _add_issue(f"Missing env vars: {', '.join(env_status.missing)}")
 
     node_path = None
     node_version = None
@@ -146,36 +159,36 @@ def build_external_agent_preflight_status(
             if config.runMode == ExternalAgentRunMode.sdk:
                 sdk_version, sdk_issue = _check_claude_python_sdk()
                 if sdk_issue:
-                    issues.append(sdk_issue)
+                    _add_issue(sdk_issue)
         elif config.toolType == ExternalAgentToolType.opencode:
             node_path, node_version, node_issue = _check_node(config.commandPath)
             if node_issue:
-                issues.append(node_issue)
+                _add_issue(node_issue)
             node_version_issue = _check_node_version_requirement(
                 config.toolType, node_version
             )
             if node_version_issue:
-                issues.append(node_version_issue)
+                _add_issue(node_version_issue)
 
             sdk_version, sdk_issue = _check_sdk_version(config.toolType)
             if sdk_issue:
-                issues.append(sdk_issue)
+                _add_issue(sdk_issue)
 
             if config.runMode == ExternalAgentRunMode.sdk and not config.baseUrl:
                 cli_version, cli_issue = _check_opencode_cli()
                 if cli_issue:
-                    issues.append(cli_issue)
+                    _add_issue(cli_issue)
     elif (
         config.runMode == ExternalAgentRunMode.app_server
         and config.toolType == ExternalAgentToolType.codex
     ):
         cli_version, cli_issue = _check_codex_cli(config.commandPath)
         if cli_issue:
-            issues.append(cli_issue)
+            _add_issue(cli_issue)
 
     working_dir, working_dir_issue = _resolve_working_dir(config)
     if working_dir_issue:
-        issues.append(working_dir_issue)
+        _add_issue(working_dir_issue)
 
     if (
         config.toolType == ExternalAgentToolType.plugin
@@ -187,18 +200,18 @@ def build_external_agent_preflight_status(
             working_dir=working_dir,
         )
         if command_issue:
-            issues.append(command_issue)
+            _add_issue(command_issue)
 
     base_url_issue = _check_base_url(config)
     if base_url_issue:
-        issues.append(base_url_issue)
+        _add_issue(base_url_issue)
 
     if not supported and plugin_adapter_resolution_issue is None:
-        issues.append(
+        _add_issue(
             f"Run mode {config.runMode.value} not supported for {config.toolType.value}"
         )
 
-    available = supported and len(issues) == 0
+    available = supported and len(availability_blocking_issues) == 0
     status = ExternalAgentPreflightStatus(
         configId=config.id,
         name=config.name,
@@ -308,19 +321,21 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
         and not _has_present_env_value(managed_api_keys.get(name))
     )
     corruption_issue: str | None = None
+    unavailable_issue: str | None = None
     if managed_api_keys_result.corrupt:
         corruption_issue = (
             "Managed LLM API key store is corrupt; "
             "open LLM settings and save API keys to repair."
         )
     elif managed_api_keys_result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
-        corruption_issue = (
+        unavailable_issue = (
             "Managed LLM API key store is unavailable; "
             "check filesystem path and permissions."
         )
     return _EnvStatusResult(
         status=ExternalAgentEnvVarStatus(present=present, missing=missing),
         corruption_issue=corruption_issue,
+        unavailable_issue=unavailable_issue,
     )
 
 
@@ -495,12 +510,13 @@ def _build_config_fingerprint(config: ExternalAgentConfig) -> str:
 
 def _build_env_fingerprint(
     env_status_result: _EnvStatusResult,
-) -> tuple[tuple[str, ...], tuple[str, ...], str | None]:
+) -> tuple[tuple[str, ...], tuple[str, ...], str | None, str | None]:
     env_status = env_status_result.status
     return (
         tuple(env_status.present),
         tuple(env_status.missing),
         env_status_result.corruption_issue,
+        env_status_result.unavailable_issue,
     )
 
 

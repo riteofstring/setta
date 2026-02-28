@@ -394,6 +394,58 @@ test("project ai threads default to chat on narrow resize and remember explicit 
   ).toHaveCount(0);
 });
 
+test("project ai ignores legacy viewHistory in persisted ai store", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 700,
+    overviewTrueWidth: 700,
+  });
+  await seedAIStorePersistence(page, {
+    viewHistory: true,
+    projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+  });
+
+  await ensureAppReady(page);
+
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+  await expect(
+    overviewPane.getByTestId("project-chat-threads-panel"),
+  ).toHaveCount(0);
+
+  await expect
+    .poll(async () => {
+      return await page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_ai_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+        return parsed.state?.viewThreads ?? null;
+      });
+    })
+    .toBe(false);
+  await expect
+    .poll(async () => {
+      return await page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_ai_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+        const state = parsed.state ?? {};
+        return Object.prototype.hasOwnProperty.call(state, "viewHistory");
+      });
+    })
+    .toBe(false);
+});
+
 test("project ai new thread placeholder stays inline, clears when unused, and promotes to a titled thread", async ({
   page,
 }) => {
