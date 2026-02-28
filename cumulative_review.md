@@ -530,3 +530,20 @@
 6. UX after: same-value writes are true no-ops with no persisted side effects.
 7. DX before: concurrency behavior depended on mode-specific affinity stripping and mutation-dependent lease ownership.
 8. DX after: one canonical affinity contract and deterministic lease ownership semantics reduce race debugging overhead.
+
+## 2026-02-26 09:12:21 PST
+
+### Consolidated Findings
+1. Generation/cleanup normalization had not yet been run after the latest backend/frontend reveal and routing fixes.
+2. Top-level `review*.md` files were temporary review inputs and should not remain once findings are consolidated.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Ran `pnpm gcf` in `frontend/` to execute generation, cleanup, pruning, and formatting synchronization.
+2. Recorded this timestamped cumulative review entry to capture the finalized state after cleanup.
+3. Removed top-level `review*.md` files from the workspace.
+
+### UX/DX Before and After
+1. UX before: stale generated/cleanup drift could reappear in downstream builds and reviews.
+2. UX after: generated outputs are aligned with the implemented fixes and cleanup pipeline.
+3. DX before: review context was split across transient top-level docs and cumulative history.
+4. DX after: review history is centralized in `cumulative_review.md` with transient inputs removed.

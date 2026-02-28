@@ -471,6 +471,21 @@ def _assert_ui_setting_expected_old_value_matches(
     )
 
 
+def _is_ui_setting_compare_and_set_noop(
+    *,
+    setting_id: str,
+    expected_old_value: object | None,
+    observed_old_value: object,
+    requested_new_value: object,
+) -> bool:
+    _assert_ui_setting_expected_old_value_matches(
+        setting_id=setting_id,
+        expected_old_value=expected_old_value,
+        observed_old_value=observed_old_value,
+    )
+    return observed_old_value == requested_new_value
+
+
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
@@ -2597,11 +2612,13 @@ class BaseProjectManager(ABC):
     ) -> tuple[str, str]:
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         old_value = app_definition.catalogId
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.app.catalog_id",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=catalog_id,
+        ):
+            return old_value, old_value
         normalized_path, current_app_spec = (
             self._resolve_current_app_spec_for_metadata_update(
                 app_definition=app_definition
@@ -2627,11 +2644,13 @@ class BaseProjectManager(ABC):
     ) -> tuple[str, str]:
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         old_value = app_definition.appSpecVersion
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.app.spec_version",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=app_spec_version,
+        ):
+            return old_value, old_value
         normalized_path, current_app_spec = (
             self._resolve_current_app_spec_for_metadata_update(
                 app_definition=app_definition
@@ -2657,15 +2676,17 @@ class BaseProjectManager(ABC):
     ) -> tuple[str, str]:
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         old_value = self._resolve_app_spec_path_or_default(app_definition)
-        _assert_ui_setting_expected_old_value_matches(
+        normalized_path = normalize_app_spec_path(self.dbe, app_spec_path)
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.app.spec_path",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=normalized_path,
+        ):
+            return old_value, old_value
         _, current_app_spec = self._resolve_current_app_spec_for_metadata_update(
             app_definition=app_definition
         )
-        normalized_path = normalize_app_spec_path(self.dbe, app_spec_path)
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path}
         )
@@ -2686,11 +2707,13 @@ class BaseProjectManager(ABC):
     ) -> tuple[str, str]:
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         old_value = self._resolve_app_theme_mode(app_definition)
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.app.theme_mode",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=theme_mode,
+        ):
+            return old_value, old_value
         normalized_path, current_app_spec = (
             self._resolve_current_app_spec_for_metadata_update(
                 app_definition=app_definition
@@ -2731,11 +2754,13 @@ class BaseProjectManager(ABC):
     ) -> tuple[bool, bool]:
         project_state = self.get_single_config_state(x.projectConfigId)
         old_value = project_state.projectConfig.showParamDisplayNames
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.project.show_param_display_names",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=x.showParamDisplayNames,
+        ):
+            return old_value, old_value
         project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return old_value, project_state.projectConfig.showParamDisplayNames
@@ -2761,11 +2786,13 @@ class BaseProjectManager(ABC):
     ) -> tuple[bool, bool]:
         project_state = self.get_single_config_state(x.projectConfigId)
         old_value = project_state.projectConfig.watchCodeEnabled
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.watch_code.enabled",
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
-        )
+            requested_new_value=x.enabled,
+        ):
+            return old_value, old_value
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not old_value:
             self.watch_code_manager.baseline_on_enable(project_state)
@@ -2806,28 +2833,36 @@ class BaseProjectManager(ABC):
             }
             for folder in project_state.projectConfig.watchCodeFolders
         ]
-        _assert_ui_setting_expected_old_value_matches(
+        next_folders = normalize_watch_code_folders(x.watchCodeFolders)
+        new_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in next_folders
+        ]
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.watch_code.folders",
             expected_old_value=expected_old_value,
             observed_old_value=old_folders,
-        )
+            requested_new_value=new_folders,
+        ):
+            return old_folders, old_folders
         previous_snapshot = build_watch_code_snapshot(project_state)
-        project_state.projectConfig.watchCodeFolders = normalize_watch_code_folders(
-            x.watchCodeFolders
-        )
+        project_state.projectConfig.watchCodeFolders = next_folders
         if project_state.projectConfig.watchCodeEnabled:
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
         await self.update_and_broadcast_project_state(project_state)
-        new_folders = [
+        updated_folders = [
             {
                 "path": folder.path,
                 "recursive": folder.recursive,
             }
             for folder in project_state.projectConfig.watchCodeFolders
         ]
-        return old_folders, new_folders
+        return old_folders, updated_folders
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -2839,15 +2874,16 @@ class BaseProjectManager(ABC):
     ) -> tuple[list[str], list[str]]:
         project_state = self.get_single_config_state(x.projectConfigId)
         old_files = list(project_state.projectConfig.watchCodeFiles)
-        _assert_ui_setting_expected_old_value_matches(
+        next_files = normalize_watch_code_files(x.watchCodeFiles)
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.watch_code.files",
             expected_old_value=expected_old_value,
             observed_old_value=old_files,
-        )
+            requested_new_value=next_files,
+        ):
+            return old_files, old_files
         previous_snapshot = build_watch_code_snapshot(project_state)
-        project_state.projectConfig.watchCodeFiles = normalize_watch_code_files(
-            x.watchCodeFiles
-        )
+        project_state.projectConfig.watchCodeFiles = next_files
         if project_state.projectConfig.watchCodeEnabled:
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
@@ -4141,11 +4177,13 @@ class BaseProjectManager(ABC):
         expected_old_value: str | None = None,
     ) -> tuple[str, str]:
         old_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        _assert_ui_setting_expected_old_value_matches(
+        if _is_ui_setting_compare_and_set_noop(
             setting_id="core.project.name",
             expected_old_value=expected_old_value,
             observed_old_value=old_name,
-        )
+            requested_new_value=newName,
+        ):
+            return old_name, old_name
         previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
             projectConfigId,
             self._plugin_codegen_output_root(old_name),

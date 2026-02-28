@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 import setta.mcp.tools.ui_settings as ui_settings_tools_module
 from setta.agentic.agentic_scope import AgenticContext
+from setta.app.spec_store import default_app_spec_path
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tools.ui_settings import (
     get_ui_setting_value,
@@ -81,9 +82,22 @@ class _RecordingFrontendSender:
         self.connected_frontend_websocket_ids: list[str] = ["frontend-test"]
         self.undeliverable_target_websocket_ids: set[str] = set()
         self.resolved_target_websocket_ids: list[str] = []
+        self.frontend_websocket_id_by_affinity_token: dict[str, str] = {}
         self.skip_reveal_result_resolution = False
         self.override_reveal_statuses: list[UISettingRevealResultStatus] | None = None
         self.override_reveal_project_config_id: ID | None = None
+
+    def resolve_frontend_websocket_id_from_affinity_token(
+        self,
+        *,
+        affinity_token: str,
+        share_session_id: str | None = None,  # noqa: ARG002 - signature parity
+    ) -> str | None:
+        if affinity_token in self.frontend_websocket_id_by_affinity_token:
+            return self.frontend_websocket_id_by_affinity_token[affinity_token]
+        if affinity_token in self.connected_frontend_websocket_ids:
+            return affinity_token
+        return None
 
     def select_frontend_websocket_for_ui_setting_reveal(
         self,
@@ -1185,6 +1199,316 @@ async def test_set_ui_setting_value_python_codegen_enabled_same_value_is_noop(
 
 
 @pytest.mark.asyncio
+async def test_set_ui_setting_value_show_param_display_names_same_value_is_noop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current = await get_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current.error is None
+        assert isinstance(current.value, bool)
+        update_calls = 0
+        original_update = manager._update_and_broadcast_project_state_no_name_validation
+
+        async def _record_update(*args, **kwargs) -> None:
+            nonlocal update_calls
+            update_calls += 1
+            await original_update(*args, **kwargs)
+
+        monkeypatch.setattr(
+            manager,
+            "_update_and_broadcast_project_state_no_name_validation",
+            _record_update,
+        )
+
+        # No-op writes must not emit right-pane update broadcasts.
+        result = await set_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            value=current.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert result.error is None
+        assert result.changed is False
+        assert result.newValue == current.value
+        assert update_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_watch_code_noops_do_not_broadcast_or_rebaseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        update_calls = 0
+        baseline_enable_calls = 0
+        baseline_inputs_calls = 0
+        original_update = manager.update_and_broadcast_project_state
+        original_baseline_on_enable = manager.watch_code_manager.baseline_on_enable
+        original_baseline_for_new_inputs = (
+            manager.watch_code_manager.baseline_for_new_inputs
+        )
+
+        async def _record_update(*args, **kwargs) -> None:
+            nonlocal update_calls
+            update_calls += 1
+            await original_update(*args, **kwargs)
+
+        def _record_baseline_on_enable(*args, **kwargs) -> None:
+            nonlocal baseline_enable_calls
+            baseline_enable_calls += 1
+            original_baseline_on_enable(*args, **kwargs)
+
+        def _record_baseline_for_new_inputs(*args, **kwargs) -> None:
+            nonlocal baseline_inputs_calls
+            baseline_inputs_calls += 1
+            original_baseline_for_new_inputs(*args, **kwargs)
+
+        monkeypatch.setattr(
+            manager, "update_and_broadcast_project_state", _record_update
+        )
+        monkeypatch.setattr(
+            manager.watch_code_manager,
+            "baseline_on_enable",
+            _record_baseline_on_enable,
+        )
+        monkeypatch.setattr(
+            manager.watch_code_manager,
+            "baseline_for_new_inputs",
+            _record_baseline_for_new_inputs,
+        )
+
+        enabled_value = await get_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        folders_value = await get_ui_setting_value(
+            settingId="core.watch_code.folders",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        files_value = await get_ui_setting_value(
+            settingId="core.watch_code.files",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert enabled_value.error is None
+        assert folders_value.error is None
+        assert files_value.error is None
+
+        # Re-writing identical watch-code settings must be side-effect free.
+        enabled_result = await set_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            value=enabled_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        folders_result = await set_ui_setting_value(
+            settingId="core.watch_code.folders",
+            value=folders_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        files_result = await set_ui_setting_value(
+            settingId="core.watch_code.files",
+            value=files_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert enabled_result.error is None
+        assert folders_result.error is None
+        assert files_result.error is None
+        assert enabled_result.changed is False
+        assert folders_result.changed is False
+        assert files_result.changed is False
+        assert update_calls == 0
+        assert baseline_enable_calls == 0
+        assert baseline_inputs_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_project_name_same_value_is_noop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current = await get_ui_setting_value(
+            settingId="core.project.name",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current.error is None
+        assert isinstance(current.value, str)
+        metadata_broadcast_calls = 0
+        manual_save_calls = 0
+        original_broadcast = manager.broadcast_all_project_metadata
+        original_manual_save = manager.perform_manual_save
+
+        async def _record_broadcast() -> None:
+            nonlocal metadata_broadcast_calls
+            metadata_broadcast_calls += 1
+            await original_broadcast()
+
+        def _record_manual_save() -> None:
+            nonlocal manual_save_calls
+            manual_save_calls += 1
+            original_manual_save()
+
+        monkeypatch.setattr(
+            manager, "broadcast_all_project_metadata", _record_broadcast
+        )
+        monkeypatch.setattr(manager, "perform_manual_save", _record_manual_save)
+
+        # No-op project rename should not broadcast metadata or trigger manual save.
+        result = await set_ui_setting_value(
+            settingId="core.project.name",
+            value=current.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert result.error is None
+        assert result.changed is False
+        assert result.newValue == current.value
+        assert metadata_broadcast_calls == 0
+        assert manual_save_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_app_metadata_noops_do_not_materialize_app_definition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        assert manager.project_state_backend.appDefinition is None
+        default_spec_path = default_app_spec_path()
+        assert not (manager.dbe.path / default_spec_path).exists()
+        commit_calls = 0
+        original_commit = manager._commit_app_definition_metadata_update
+
+        async def _record_commit(*args, **kwargs) -> None:
+            nonlocal commit_calls
+            commit_calls += 1
+            await original_commit(*args, **kwargs)
+
+        monkeypatch.setattr(
+            manager,
+            "_commit_app_definition_metadata_update",
+            _record_commit,
+        )
+
+        catalog_value = await get_ui_setting_value(
+            settingId="core.app.catalog_id",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        spec_version_value = await get_ui_setting_value(
+            settingId="core.app.spec_version",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        spec_path_value = await get_ui_setting_value(
+            settingId="core.app.spec_path",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        theme_mode_value = await get_ui_setting_value(
+            settingId="core.app.theme_mode",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert catalog_value.error is None
+        assert spec_version_value.error is None
+        assert spec_path_value.error is None
+        assert theme_mode_value.error is None
+
+        # Same-value app metadata writes must not create appDefinition or app spec files.
+        catalog_result = await set_ui_setting_value(
+            settingId="core.app.catalog_id",
+            value=catalog_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        spec_version_result = await set_ui_setting_value(
+            settingId="core.app.spec_version",
+            value=spec_version_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        spec_path_result = await set_ui_setting_value(
+            settingId="core.app.spec_path",
+            value=spec_path_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        theme_mode_result = await set_ui_setting_value(
+            settingId="core.app.theme_mode",
+            value=theme_mode_value.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert catalog_result.error is None
+        assert spec_version_result.error is None
+        assert spec_path_result.error is None
+        assert theme_mode_result.error is None
+        assert catalog_result.changed is False
+        assert spec_version_result.changed is False
+        assert spec_path_result.changed is False
+        assert theme_mode_result.changed is False
+        assert commit_calls == 0
+        assert manager.project_state_backend.appDefinition is None
+        assert not (manager.dbe.path / default_spec_path).exists()
+
+
+@pytest.mark.asyncio
 async def test_app_spec_path_read_and_write_are_schema_consistent_on_fresh_project() -> (
     None
 ):
@@ -2007,6 +2331,7 @@ async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup(
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-share"]
         manager = project_fixture.manager
         settings_manager = settings_fixture.manager
         required_share_session_id = "share-session-test"
@@ -2027,6 +2352,13 @@ async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup(
                 "projectConfigId": project_config_id,
                 "shareSessionId": required_share_session_id,
             },
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-share-session-propagation"),
+                section_id=None,
+                frontend_websocket_id="frontend-share",
+                allow_unscoped=True,
+            ),
             deployment_mode=True,
         )
 
@@ -2068,6 +2400,7 @@ async def test_ui_setting_tools_prefer_resolved_share_session_id_over_request_me
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-share"]
         manager = project_fixture.manager
         settings_manager = settings_fixture.manager
         resolved_share_session_id = "share-session-resolved"
@@ -2089,6 +2422,13 @@ async def test_ui_setting_tools_prefer_resolved_share_session_id_over_request_me
                 "shareSessionId": "share-session-meta",
             },
             resolved_share_session_id=resolved_share_session_id,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-resolved-share-session"),
+                section_id=None,
+                frontend_websocket_id="frontend-share",
+                allow_unscoped=True,
+            ),
         )
 
         # Resolver-derived share-session scope must override request-meta shareSessionId.
@@ -2498,7 +2838,7 @@ async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_ori
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_fails_when_share_scope_has_multiple_frontends_without_origin() -> (
+async def test_reveal_ui_setting_fails_when_share_scope_is_missing_affinity_token() -> (
     None
 ):
     async with (
@@ -2534,8 +2874,57 @@ async def test_reveal_ui_setting_fails_when_share_scope_has_multiple_frontends_w
         assert result.statuses[0].status == "failed"
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
-        assert "multiple frontends are connected" in result.statuses[0].error.message
-        assert "origin frontend affinity" in result.statuses[0].error.message
+        assert "share scope requires a frontend affinity token" in (
+            result.statuses[0].error.message
+        )
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_when_share_scope_affinity_token_is_invalid() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": "share-session-invalid-token",
+            },
+            resolved_share_session_id="share-session-invalid-token",
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-share-invalid-token"),
+                section_id=None,
+                frontend_websocket_id="invalid-affinity-token",
+                allow_unscoped=True,
+            ),
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "invalid or no longer available" in result.statuses[0].error.message
+        assert "invalid-affinity-token" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
 
 

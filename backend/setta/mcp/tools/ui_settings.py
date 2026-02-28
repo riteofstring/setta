@@ -14,8 +14,9 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tool_setup import setta_tool
 from setta.mcp.ui_settings_context import (
+    FrontendWebsocketAffinityResolution,
     resolve_chat_id_from_ctx,
-    resolve_frontend_websocket_id_from_ctx,
+    resolve_frontend_websocket_affinity_from_ctx,
     resolve_project_config_id_from_ctx,
     resolve_project_manager_from_ctx,
     resolve_section_id_from_ctx,
@@ -444,8 +445,10 @@ def _resolve_share_session_id(ctx: Context) -> str | None:
     return resolve_share_session_id_from_ctx(ctx)
 
 
-def _resolve_frontend_websocket_id(ctx: Context) -> str | None:
-    return resolve_frontend_websocket_id_from_ctx(ctx)
+def _resolve_frontend_websocket_affinity(
+    ctx: Context,
+) -> FrontendWebsocketAffinityResolution:
+    return resolve_frontend_websocket_affinity_from_ctx(ctx)
 
 
 def _resolve_section_id_for_reveal(
@@ -655,7 +658,25 @@ async def _reveal_settings(
     )
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     share_session_id = _resolve_share_session_id(ctx)
-    preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
+    frontend_affinity_resolution = _resolve_frontend_websocket_affinity(ctx)
+    preferred_frontend_websocket_id = frontend_affinity_resolution.frontend_websocket_id
+    if frontend_affinity_resolution.error_message is not None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=frontend_affinity_resolution.error_message,
+                    ),
+                )
+            ],
+        )
     available_frontend_websocket_ids = (
         frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
             share_session_id=share_session_id
@@ -702,8 +723,13 @@ async def _reveal_settings(
         )
         if preferred_frontend_websocket_id is not None:
             no_frontend_message = (
-                "Requested frontend websocket id is unavailable for UI setting reveal: "
-                f"{preferred_frontend_websocket_id}"
+                "Requested frontend affinity token is unavailable for UI setting "
+                f"reveal: {preferred_frontend_websocket_id}"
+            )
+        elif share_session_id is not None:
+            no_frontend_message = (
+                "No connected frontend is available for UI setting reveal in the "
+                "requested share session."
             )
         return RevealUISettingResult(
             requestId=request_id,

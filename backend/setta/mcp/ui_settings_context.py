@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 from mcp.server.fastmcp.server import Context
@@ -28,6 +29,12 @@ def _resolve_agentic_context(ctx: Context) -> AgenticContext | None:
         return resolve_agentic_context(ctx)
     except ValueError:
         return None
+
+
+@dataclass(frozen=True)
+class FrontendWebsocketAffinityResolution:
+    frontend_websocket_id: str | None
+    error_message: str | None = None
 
 
 def resolve_request_meta(ctx: Context) -> dict[str, Any]:
@@ -156,17 +163,73 @@ def _is_share_scope_enabled(ctx: Context) -> bool:
 
 
 def resolve_frontend_websocket_id_from_ctx(ctx: Context) -> str | None:
+    resolution = resolve_frontend_websocket_affinity_from_ctx(ctx)
+    return resolution.frontend_websocket_id
+
+
+def resolve_frontend_websocket_affinity_from_ctx(
+    ctx: Context,
+) -> FrontendWebsocketAffinityResolution:
+    share_session_id = resolve_share_session_id_from_ctx(ctx)
     agentic_context = _resolve_agentic_context(ctx)
+    affinity_token: str | None = None
     if agentic_context is not None:
-        normalized_frontend_websocket_id = _normalize_non_empty_string(
+        affinity_token = _normalize_non_empty_string(
             agentic_context.frontend_websocket_id
         )
-        if normalized_frontend_websocket_id is not None:
-            return normalized_frontend_websocket_id
-    if resolve_share_session_id_from_ctx(ctx) is not None:
-        return None
-    meta = resolve_request_meta(ctx)
-    return _normalize_non_empty_string(meta.get("frontendWebsocketId"))
+    if affinity_token is None and share_session_id is None:
+        meta = resolve_request_meta(ctx)
+        affinity_token = _normalize_non_empty_string(meta.get("frontendWebsocketId"))
+    if affinity_token is None:
+        if share_session_id is not None:
+            return FrontendWebsocketAffinityResolution(
+                frontend_websocket_id=None,
+                error_message=(
+                    "Reveal routing in share scope requires a frontend affinity token."
+                ),
+            )
+        return FrontendWebsocketAffinityResolution(frontend_websocket_id=None)
+    fastmcp = getattr(ctx, "fastmcp", None)
+    if fastmcp is None:
+        return FrontendWebsocketAffinityResolution(
+            frontend_websocket_id=None,
+            error_message="MCP context is missing fastmcp state.",
+        )
+    state = getattr(fastmcp, "state", None)
+    if state is None:
+        return FrontendWebsocketAffinityResolution(
+            frontend_websocket_id=None,
+            error_message="MCP context is missing fastmcp state.",
+        )
+    frontend_sender = getattr(state, "wmh_frontend_sender", None)
+    if frontend_sender is None:
+        return FrontendWebsocketAffinityResolution(
+            frontend_websocket_id=None,
+            error_message="Frontend sender is unavailable for affinity resolution.",
+        )
+    resolve_from_token = getattr(
+        frontend_sender, "resolve_frontend_websocket_id_from_affinity_token", None
+    )
+    if not callable(resolve_from_token):
+        return FrontendWebsocketAffinityResolution(
+            frontend_websocket_id=None,
+            error_message="Frontend affinity resolution is not available.",
+        )
+    resolved_frontend_websocket_id = resolve_from_token(
+        affinity_token=affinity_token,
+        share_session_id=share_session_id,
+    )
+    if resolved_frontend_websocket_id is None:
+        return FrontendWebsocketAffinityResolution(
+            frontend_websocket_id=None,
+            error_message=(
+                "Frontend affinity token is invalid or no longer available for "
+                f"reveal routing: {affinity_token}"
+            ),
+        )
+    return FrontendWebsocketAffinityResolution(
+        frontend_websocket_id=resolved_frontend_websocket_id
+    )
 
 
 def resolve_section_id_from_ctx(

@@ -66,12 +66,34 @@ class _RecordingProjectManagerSwitcher:
         )
 
 
+class _RecordingFrontendSender:
+    def __init__(self) -> None:
+        self._frontend_websocket_ids_by_token: dict[str, str] = {}
+
+    def register_affinity(
+        self,
+        *,
+        affinity_token: str,
+        websocket_id: str,
+    ) -> None:
+        self._frontend_websocket_ids_by_token[affinity_token] = websocket_id
+
+    def resolve_frontend_websocket_id_from_affinity_token(
+        self,
+        *,
+        affinity_token: str,
+        share_session_id: str | None = None,  # noqa: ARG002
+    ) -> str | None:
+        return self._frontend_websocket_ids_by_token.get(affinity_token)
+
+
 def _build_ctx(
     *,
     request_meta: dict[str, object] | None = None,
     agentic_context: AgenticContext | None = None,
     share_session_resolver: Callable[[Context], object] | None = None,
     project_manager_switcher: _RecordingProjectManagerSwitcher | None = None,
+    frontend_sender: _RecordingFrontendSender | None = None,
     deployment_mode: bool = False,
 ) -> Context:
     switcher = (
@@ -81,6 +103,11 @@ def _build_ctx(
     )
     state = SimpleNamespace(
         project_manager_switcher=switcher,
+        wmh_frontend_sender=(
+            frontend_sender
+            if frontend_sender is not None
+            else _RecordingFrontendSender()
+        ),
         deployment_mode=deployment_mode,
     )
     fastmcp = SimpleNamespace(state=state)
@@ -289,11 +316,22 @@ def test_resolve_frontend_websocket_id_matrix(
     request_meta: dict[str, object] = {}
     if meta_frontend_websocket_id is not None:
         request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    frontend_sender = _RecordingFrontendSender()
+    for candidate in [agentic_frontend_websocket_id, meta_frontend_websocket_id]:
+        if isinstance(candidate, str) and candidate.strip() != "":
+            frontend_sender.register_affinity(
+                affinity_token=candidate.strip(),
+                websocket_id=candidate.strip(),
+            )
     agentic_context = _build_agentic_context(
         project_config_id="project-agentic",
         frontend_websocket_id=agentic_frontend_websocket_id,
     )
-    ctx = _build_ctx(request_meta=request_meta, agentic_context=agentic_context)
+    ctx = _build_ctx(
+        request_meta=request_meta,
+        agentic_context=agentic_context,
+        frontend_sender=frontend_sender,
+    )
 
     assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
 
@@ -320,6 +358,13 @@ def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope
     request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
     if meta_frontend_websocket_id is not None:
         request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    frontend_sender = _RecordingFrontendSender()
+    for candidate in [agentic_frontend_websocket_id, meta_frontend_websocket_id]:
+        if isinstance(candidate, str) and candidate.strip() != "":
+            frontend_sender.register_affinity(
+                affinity_token=candidate.strip(),
+                websocket_id=candidate.strip(),
+            )
     agentic_context = _build_agentic_context(
         project_config_id="project-agentic",
         frontend_websocket_id=agentic_frontend_websocket_id,
@@ -328,11 +373,10 @@ def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope
         request_meta=request_meta,
         agentic_context=agentic_context,
         share_session_resolver=lambda _ctx: "share-resolved",
+        frontend_sender=frontend_sender,
     )
 
-    assert (
-        resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
-    )
+    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
 
 
 @pytest.mark.parametrize(

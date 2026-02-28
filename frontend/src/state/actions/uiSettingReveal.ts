@@ -63,9 +63,19 @@ type RevealLocalStorageSnapshot = {
   runInstructionsAccordionOpenValuesByProjectConfigId: LocalStorageState["runInstructionsAccordionOpenValuesByProjectConfigId"];
   projectAiSettingsAccordionOpenValuesByProjectConfigId: LocalStorageState["projectAiSettingsAccordionOpenValuesByProjectConfigId"];
 };
+type RevealMutationDiff = {
+  touchedOverviewVis: boolean;
+  touchedOverviewTab: boolean;
+  touchedUiEditorVis: boolean;
+  touchedUiEditorTabSectionTypes: Set<string>;
+  touchedRunInstructionsProjectConfigIds: Set<string>;
+  touchedProjectAiProjectConfigIds: Set<string>;
+};
 type RevealMutationLease = {
   leaseId: number;
   snapshot: RevealLocalStorageSnapshot;
+  postMutationSnapshot: RevealLocalStorageSnapshot;
+  mutationDiff: RevealMutationDiff;
 };
 type RevealMutationResult =
   | {
@@ -87,6 +97,17 @@ export type UISettingRevealExecutionContext = {
 let revealMutationLock: Promise<void> = Promise.resolve();
 let revealMutationSequence = 0;
 let latestRevealMutationLeaseId = 0;
+
+function createEmptyRevealMutationDiff(): RevealMutationDiff {
+  return {
+    touchedOverviewVis: false,
+    touchedOverviewTab: false,
+    touchedUiEditorVis: false,
+    touchedUiEditorTabSectionTypes: new Set<string>(),
+    touchedRunInstructionsProjectConfigIds: new Set<string>(),
+    touchedProjectAiProjectConfigIds: new Set<string>(),
+  };
+}
 
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
@@ -277,7 +298,8 @@ async function applyRevealMutationsWithLease({
       };
     }
     const snapshot = captureRevealLocalStorageSnapshot();
-    const opened = openPaneForRevealTarget(target);
+    const mutationDiff = createEmptyRevealMutationDiff();
+    const opened = openPaneForRevealTarget(target, mutationDiff);
     if (!opened.ok) {
       return {
         ok: false,
@@ -291,7 +313,12 @@ async function applyRevealMutationsWithLease({
     }
     const postPaneMismatch = resolveRevealExecutionMismatch(executionContext);
     if (postPaneMismatch !== null) {
-      restoreRevealLocalStorageSnapshot(snapshot);
+      const postMutationSnapshot = captureRevealLocalStorageSnapshot();
+      restoreRevealLocalStorageSnapshotIfOwned({
+        snapshot,
+        postMutationSnapshot,
+        mutationDiff,
+      });
       return {
         ok: false,
         status: buildExecutionContextMismatchStatus(
@@ -303,11 +330,17 @@ async function applyRevealMutationsWithLease({
     applyRevealActivationSteps({
       target,
       fallbackProjectConfigId,
+      mutationDiff,
     });
     const postActivationMismatch =
       resolveRevealExecutionMismatch(executionContext);
     if (postActivationMismatch !== null) {
-      restoreRevealLocalStorageSnapshot(snapshot);
+      const postMutationSnapshot = captureRevealLocalStorageSnapshot();
+      restoreRevealLocalStorageSnapshotIfOwned({
+        snapshot,
+        postMutationSnapshot,
+        mutationDiff,
+      });
       return {
         ok: false,
         status: buildExecutionContextMismatchStatus(
@@ -316,9 +349,14 @@ async function applyRevealMutationsWithLease({
         ),
       };
     }
+    const postMutationSnapshot = captureRevealLocalStorageSnapshot();
     return {
       ok: true,
-      lease: registerRevealMutationLease(snapshot),
+      lease: registerRevealMutationLease(
+        snapshot,
+        postMutationSnapshot,
+        mutationDiff,
+      ),
     };
   });
 }
@@ -330,7 +368,7 @@ async function rollbackRevealMutationLease(
     if (latestRevealMutationLeaseId !== mutationLease.leaseId) {
       return;
     }
-    restoreRevealLocalStorageSnapshot(mutationLease.snapshot);
+    restoreRevealLocalStorageSnapshotIfOwned(mutationLease);
     revealMutationSequence += 1;
     latestRevealMutationLeaseId = revealMutationSequence;
   });
@@ -338,11 +376,15 @@ async function rollbackRevealMutationLease(
 
 function registerRevealMutationLease(
   snapshot: RevealLocalStorageSnapshot,
+  postMutationSnapshot: RevealLocalStorageSnapshot,
+  mutationDiff: RevealMutationDiff,
 ): RevealMutationLease {
   revealMutationSequence += 1;
   const lease = {
     leaseId: revealMutationSequence,
     snapshot,
+    postMutationSnapshot,
+    mutationDiff,
   };
   latestRevealMutationLeaseId = lease.leaseId;
   return lease;
@@ -365,22 +407,147 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   };
 }
 
-function restoreRevealLocalStorageSnapshot(
-  snapshot: RevealLocalStorageSnapshot,
-): void {
-  useLocalStorage.setState({
-    overviewVis: snapshot.overviewVis,
-    overviewTab: snapshot.overviewTab,
-    uiEditorVis: snapshot.uiEditorVis,
-    uiEditorTab: { ...snapshot.uiEditorTab },
-    runInstructionsAccordionOpenValuesByProjectConfigId: cloneStringArrayRecord(
-      snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
-    ),
-    projectAiSettingsAccordionOpenValuesByProjectConfigId:
-      cloneStringArrayRecord(
-        snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-      ),
+function restoreRevealLocalStorageSnapshotIfOwned({
+  snapshot,
+  postMutationSnapshot,
+  mutationDiff,
+}: {
+  snapshot: RevealLocalStorageSnapshot;
+  postMutationSnapshot: RevealLocalStorageSnapshot;
+  mutationDiff: RevealMutationDiff;
+}): void {
+  useLocalStorage.setState((state) => {
+    const nextState: Partial<typeof state> = {};
+    let changed = false;
+
+    if (
+      mutationDiff.touchedOverviewVis &&
+      state.overviewVis === postMutationSnapshot.overviewVis
+    ) {
+      nextState.overviewVis = snapshot.overviewVis;
+      changed = true;
+    }
+    if (
+      mutationDiff.touchedOverviewTab &&
+      state.overviewTab === postMutationSnapshot.overviewTab
+    ) {
+      nextState.overviewTab = snapshot.overviewTab;
+      changed = true;
+    }
+    if (
+      mutationDiff.touchedUiEditorVis &&
+      state.uiEditorVis === postMutationSnapshot.uiEditorVis
+    ) {
+      nextState.uiEditorVis = snapshot.uiEditorVis;
+      changed = true;
+    }
+
+    let nextUiEditorTab: typeof state.uiEditorTab | null = null;
+    for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
+      const currentTab = state.uiEditorTab[sectionType];
+      const postMutationTab = postMutationSnapshot.uiEditorTab[sectionType];
+      if (currentTab !== postMutationTab) {
+        continue;
+      }
+      if (nextUiEditorTab === null) {
+        nextUiEditorTab = { ...state.uiEditorTab };
+      }
+      nextUiEditorTab[sectionType] = snapshot.uiEditorTab[sectionType];
+      changed = true;
+    }
+    if (nextUiEditorTab !== null) {
+      nextState.uiEditorTab = nextUiEditorTab;
+    }
+
+    let nextRunInstructions: Record<string, Array<string>> | null = null;
+    for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
+      const didRevert = revertStringArrayRecordEntryIfOwned({
+        currentRecord:
+          state.runInstructionsAccordionOpenValuesByProjectConfigId,
+        postMutationRecord:
+          postMutationSnapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
+        snapshotRecord:
+          snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
+        recordKey: projectConfigId,
+        ensureMutableRecord: () => {
+          if (nextRunInstructions === null) {
+            nextRunInstructions = cloneStringArrayRecord(
+              state.runInstructionsAccordionOpenValuesByProjectConfigId,
+            );
+          }
+          return nextRunInstructions;
+        },
+      });
+      if (didRevert) {
+        changed = true;
+      }
+    }
+    if (nextRunInstructions !== null) {
+      nextState.runInstructionsAccordionOpenValuesByProjectConfigId =
+        nextRunInstructions;
+    }
+
+    let nextProjectAiSettings: Record<string, Array<string>> | null = null;
+    for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
+      const didRevert = revertStringArrayRecordEntryIfOwned({
+        currentRecord:
+          state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+        postMutationRecord:
+          postMutationSnapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+        snapshotRecord:
+          snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+        recordKey: projectConfigId,
+        ensureMutableRecord: () => {
+          if (nextProjectAiSettings === null) {
+            nextProjectAiSettings = cloneStringArrayRecord(
+              state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+            );
+          }
+          return nextProjectAiSettings;
+        },
+      });
+      if (didRevert) {
+        changed = true;
+      }
+    }
+    if (nextProjectAiSettings !== null) {
+      nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId =
+        nextProjectAiSettings;
+    }
+
+    if (!changed) {
+      return state;
+    }
+    return nextState;
   });
+}
+
+function revertStringArrayRecordEntryIfOwned({
+  currentRecord,
+  postMutationRecord,
+  snapshotRecord,
+  recordKey,
+  ensureMutableRecord,
+}: {
+  currentRecord: Record<string, Array<string>>;
+  postMutationRecord: Record<string, Array<string>>;
+  snapshotRecord: Record<string, Array<string>>;
+  recordKey: string;
+  ensureMutableRecord: () => Record<string, Array<string>>;
+}): boolean {
+  const currentEntry = currentRecord[recordKey];
+  const postMutationEntry = postMutationRecord[recordKey];
+  if (!areOptionalStringArraysEqual(currentEntry, postMutationEntry)) {
+    return false;
+  }
+  const mutableRecord = ensureMutableRecord();
+  const snapshotEntry = snapshotRecord[recordKey];
+  if (snapshotEntry === undefined) {
+    delete mutableRecord[recordKey];
+    return true;
+  }
+  mutableRecord[recordKey] = [...snapshotEntry];
+  return true;
 }
 
 function cloneStringArrayRecord(
@@ -413,6 +580,7 @@ async function runWithRevealMutationLock<T>(
 
 function openPaneForRevealTarget(
   target: UISettingRevealTarget,
+  mutationDiff: RevealMutationDiff,
 ): OpenPaneResult {
   if (target.side === "left") {
     const overviewTab = target.overviewTabKey;
@@ -426,6 +594,8 @@ function openPaneForRevealTarget(
       overviewVis: true,
       overviewTab: overviewTab as OverviewTabKey,
     });
+    mutationDiff.touchedOverviewVis = true;
+    mutationDiff.touchedOverviewTab = true;
     return { ok: true };
   }
 
@@ -462,6 +632,8 @@ function openPaneForRevealTarget(
       [sectionType]: requestedTab,
     },
   }));
+  mutationDiff.touchedUiEditorVis = true;
+  mutationDiff.touchedUiEditorTabSectionTypes.add(sectionType);
   return { ok: true };
 }
 
@@ -534,9 +706,11 @@ async function revealWithPluginHandler(
 function applyRevealActivationSteps({
   target,
   fallbackProjectConfigId,
+  mutationDiff,
 }: {
   target: UISettingRevealTarget;
   fallbackProjectConfigId: string;
+  mutationDiff: RevealMutationDiff;
 }): void {
   const activationSteps = target.revealActivationSteps;
   if (!Array.isArray(activationSteps) || activationSteps.length === 0) {
@@ -600,12 +774,14 @@ function applyRevealActivationSteps({
         ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
         [projectConfigId]: nextRunInstructionsOpenValues,
       };
+      mutationDiff.touchedRunInstructionsProjectConfigIds.add(projectConfigId);
     }
     if (projectAiChanged) {
       nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId = {
         ...state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
         [projectConfigId]: nextProjectAiOpenValues,
       };
+      mutationDiff.touchedProjectAiProjectConfigIds.add(projectConfigId);
     }
     return nextState;
   });
@@ -629,6 +805,16 @@ function areStringArraysEqual(
     return false;
   }
   return left.every((value, index) => value === right[index]);
+}
+
+function areOptionalStringArraysEqual(
+  left: Array<string> | undefined,
+  right: Array<string> | undefined,
+): boolean {
+  if (left === undefined || right === undefined) {
+    return left === right;
+  }
+  return areStringArraysEqual(left, right);
 }
 
 function getActiveSectionType(): SectionType | null {

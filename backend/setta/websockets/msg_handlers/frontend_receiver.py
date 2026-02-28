@@ -142,8 +142,17 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
     async def on_connect(self, _websocket_id: str):
         if self.share_mode:
             self.require_share_session_id(_websocket_id)
+        frontend_affinity_token = self.websocket_manager.get_frontend_affinity_token(
+            _websocket_id
+        )
+        if frontend_affinity_token is None:
+            raise KeyError(
+                f"Missing frontend affinity token for websocket {_websocket_id}"
+            )
         await self.websocket_manager.send_message(
-            WebsocketMsgFrontendIdentity(content={"websocketId": _websocket_id}),
+            WebsocketMsgFrontendIdentity(
+                content={"websocketId": frontend_affinity_token}
+            ),
             _websocket_id,
         )
         if self.share_mode:

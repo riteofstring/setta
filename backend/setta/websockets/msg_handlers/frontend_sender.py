@@ -166,6 +166,18 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ) -> list[str]:
         return self._list_frontend_websocket_ids(share_session_id=share_session_id)
 
+    def resolve_frontend_websocket_id_from_affinity_token(
+        self,
+        *,
+        affinity_token: str,
+        share_session_id: str | None = None,
+    ) -> str | None:
+        resolved_share_session_id = self._resolve_share_session_id(share_session_id)
+        return self.websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+            affinity_token=affinity_token,
+            share_session_id=resolved_share_session_id,
+        )
+
     async def _broadcast_frontend(
         self,
         message,

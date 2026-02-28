@@ -328,7 +328,7 @@ describe("openWebSocket", () => {
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 
-  it("updates frontend websocket affinity id from AllConnections payloads", async () => {
+  it("does not set frontend websocket affinity from AllConnections payloads", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
@@ -363,7 +363,7 @@ describe("openWebSocket", () => {
       }),
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-origin");
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
   });
 
   it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
@@ -452,15 +452,14 @@ describe("openWebSocket", () => {
     expect(getFrontendWebsocketAffinityId()).toBeNull();
   });
 
-  it("repopulates affinity from active-socket AllConnections after replacement clear", async () => {
+  it("repopulates affinity from active-socket FrontendIdentity after replacement clear", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
-    const {
-      buildFrontendAffinityCurrentAddress,
-      getFrontendWebsocketAffinityId,
-    } = await import("state/actions/frontendWebsocketAffinity");
+    const { getFrontendWebsocketAffinityId } = await import(
+      "state/actions/frontendWebsocketAffinity"
+    );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
@@ -489,19 +488,12 @@ describe("openWebSocket", () => {
 
     await secondSocket.emit("message", {
       data: JSON.stringify({
-        id: "msg-second-all-connections",
-        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
-        content: [
-          {
-            id: "frontend-second",
-            connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-            currentAddress: buildFrontendAffinityCurrentAddress("/project"),
-            shareSessionId: "share-session-replacement",
-          },
-        ],
+        id: "msg-second-identity",
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        content: { websocketId: "frontend-second-token" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-second");
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-second-token");
   });
 
   it("reconnects once after an active-socket transport error followed by close", async () => {

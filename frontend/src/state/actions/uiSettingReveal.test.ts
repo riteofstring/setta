@@ -534,6 +534,66 @@ describe("receiveUISettingReveal", () => {
     expect(state.overviewTab).toBe("Overview");
   });
 
+  it("preserves manual pane changes during project-switch rollback", async () => {
+    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const startMs = Date.now();
+    const paneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          Date.now() - startMs >= 300
+        ) {
+          return anchor;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+    window.setTimeout(() => {
+      useLocalStorage.setState({
+        overviewVis: false,
+        overviewTab: "RunInstructions",
+      });
+      useProjectState.setState((state) => {
+        state.projectConfig.id = "project-switched";
+      });
+    }, 120);
+
+    const statusesPromise = receiveUISettingReveal(createRevealContent({}), {
+      requestId: "request-pane-project-switch-rollback-manual-preserve",
+      requestedProjectConfigId: "project-1",
+      socketGeneration: 1,
+      isSocketGenerationActive: () => true,
+    });
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: requested project project-1 but active project is project-switched.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(false);
+    expect(state.overviewTab).toBe("RunInstructions");
+  });
+
   it("rolls back activation-step mutations when execution context flips after activation", async () => {
     const statuses = await receiveUISettingReveal(
       createRevealContent({
@@ -580,6 +640,88 @@ describe("receiveUISettingReveal", () => {
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toBeUndefined();
+  });
+
+  it("preserves manual activation-step changes during project-switch rollback", async () => {
+    const anchor = createFakeAnchor(
+      "core.run_instructions.python_codegen_enabled",
+    );
+    const startMs = Date.now();
+    const paneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector ===
+            '[data-setting-anchor="core.run_instructions.python_codegen_enabled"]' &&
+          Date.now() - startMs >= 300
+        ) {
+          return anchor;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+    window.setTimeout(() => {
+      useLocalStorage.setState({
+        runInstructionsAccordionOpenValuesByProjectConfigId: {
+          "project-1": ["manual-run-instructions-open-item"],
+        },
+      });
+      useProjectState.setState((state) => {
+        state.projectConfig.id = "project-switched";
+      });
+    }, 120);
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.run_instructions.python_codegen_enabled",
+            overviewTabKey: "RunInstructions",
+            anchorId: "core.run_instructions.python_codegen_enabled",
+            revealActivationSteps: [
+              {
+                type: "run_instructions_accordion_item",
+                itemValue: "run-instructions-codegen-targets",
+              },
+            ],
+          }),
+        ],
+      }),
+      {
+        requestId: "request-activation-project-switch-rollback-manual-preserve",
+        requestedProjectConfigId: "project-1",
+        socketGeneration: 1,
+        isSocketGenerationActive: () => true,
+      },
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.run_instructions.python_codegen_enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: requested project project-1 but active project is project-switched.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
+    ).toEqual(["manual-run-instructions-open-item"]);
   });
 
   it("fails when project switches during async anchor lookup", async () => {
@@ -637,6 +779,90 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
+  });
+
+  it("keeps other-project local accordion state when rollback runs after project switch", async () => {
+    const anchor = createFakeAnchor(
+      "core.run_instructions.python_codegen_enabled",
+    );
+    const startMs = Date.now();
+    const paneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector ===
+            '[data-setting-anchor="core.run_instructions.python_codegen_enabled"]' &&
+          Date.now() - startMs >= 300
+        ) {
+          return anchor;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+    window.setTimeout(() => {
+      useProjectState.setState((state) => {
+        state.projectConfig.id = "project-switched";
+      });
+      useLocalStorage.setState({
+        runInstructionsAccordionOpenValuesByProjectConfigId: {
+          "project-switched": ["manual-project-switched-open-item"],
+        },
+      });
+    }, 120);
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.run_instructions.python_codegen_enabled",
+            overviewTabKey: "RunInstructions",
+            anchorId: "core.run_instructions.python_codegen_enabled",
+            revealActivationSteps: [
+              {
+                type: "run_instructions_accordion_item",
+                itemValue: "run-instructions-codegen-targets",
+              },
+            ],
+          }),
+        ],
+      }),
+      {
+        requestId: "request-project-switch-activation",
+        requestedProjectConfigId: "project-1",
+        socketGeneration: 1,
+        isSocketGenerationActive: () => true,
+      },
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.run_instructions.python_codegen_enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal execution context mismatch: requested project project-1 but active project is project-switched.",
+      },
+    ]);
+    const state = useLocalStorage.getState();
+    expect(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        "project-switched"
+      ],
+    ).toEqual(["manual-project-switched-open-item"]);
   });
 
   it("fails fast when right-pane tab is unsupported for the active section type", async () => {

@@ -178,7 +178,14 @@ async def test_frontend_receiver_on_connect_sends_frontend_identity_message() ->
             payload = json.loads(sent_messages[0])
             typed_payload = WebsocketMsgFrontendIdentity.model_validate(payload)
             assert typed_payload.messageType == "FrontendIdentity"
-            assert typed_payload.content.websocketId == frontend_id
+            assert typed_payload.content.websocketId != frontend_id
+            resolved_websocket_id = (
+                websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                    affinity_token=typed_payload.content.websocketId,
+                    share_session_id="session-a",
+                )
+            )
+            assert resolved_websocket_id == frontend_id
         finally:
             await frontend_socket.close()
 
@@ -223,6 +230,43 @@ async def test_frontend_receiver_rebroadcasts_connections_after_current_address_
         await receiver.process_json_str(message.model_dump_json(), frontend_id)
         assert websocket_manager.sockets[frontend_id].currentAddress == "/updated-path"
         assert broadcast_calls == 1
+    finally:
+        await frontend_socket.close()
+
+
+@pytest.mark.asyncio
+async def test_websocket_manager_affinity_token_resolution_is_share_session_bound() -> (
+    None
+):
+    websocket_manager = WebsocketManager()
+    frontend_messages: list[Message] = []
+    frontend_socket = await _build_websocket(frontend_messages)
+    frontend_id = await websocket_manager.on_connect(
+        frontend_socket,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-share-boundary",
+        shareSessionId="session-a",
+        broadcast_connections=False,
+    )
+    try:
+        affinity_token = websocket_manager.get_frontend_affinity_token(frontend_id)
+        assert isinstance(affinity_token, str)
+        assert affinity_token.strip() != ""
+        # Token resolution must stay bound to the originating share session.
+        assert (
+            websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                affinity_token=affinity_token,
+                share_session_id="session-a",
+            )
+            == frontend_id
+        )
+        assert (
+            websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                affinity_token=affinity_token,
+                share_session_id="session-b",
+            )
+            is None
+        )
     finally:
         await frontend_socket.close()
 

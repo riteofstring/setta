@@ -28,7 +28,7 @@ describe("frontendWebsocketAffinity", () => {
     expect(other).not.toBe(first);
   });
 
-  it("stores websocket id when exactly one matching frontend connection exists", () => {
+  it("does not derive affinity from AllConnections snapshots", () => {
     const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
     updateFrontendWebsocketAffinity({
       connections: [
@@ -43,7 +43,7 @@ describe("frontendWebsocketAffinity", () => {
       shareSessionId: null,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-1");
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
   });
 
   it("clears websocket affinity when no unique matching connection exists", () => {
@@ -91,10 +91,8 @@ describe("frontendWebsocketAffinity", () => {
     expect(getFrontendWebsocketAffinityId()).toBeNull();
   });
 
-  it("repopulates affinity when active generation receives a valid snapshot", () => {
+  it("keeps affinity empty until FrontendIdentity arrives for the active generation", () => {
     const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
-    setActiveFrontendWebsocketAffinityGeneration(1);
-    setFrontendWebsocketAffinityId("frontend-old", 1);
     setActiveFrontendWebsocketAffinityGeneration(2);
     updateFrontendWebsocketAffinity({
       connections: [
@@ -110,6 +108,8 @@ describe("frontendWebsocketAffinity", () => {
       socketGeneration: 2,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-new");
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    setFrontendWebsocketAffinityId("affinity-token", 2);
+    expect(getFrontendWebsocketAffinityId()).toBe("affinity-token");
   });
 });

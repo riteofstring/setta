@@ -50,7 +50,7 @@ export function updateFrontendWebsocketAffinity({
     setAffinityId(null);
     return;
   }
-  const matchingFrontendConnections = connections.filter((connection) => {
+  const hasMatchingFrontendConnection = connections.some((connection) => {
     if (connection.connectionType !== WebsocketConnectionTypeEnum.FRONTEND) {
       return false;
     }
@@ -59,11 +59,12 @@ export function updateFrontendWebsocketAffinity({
     }
     return connection.shareSessionId === shareSessionId;
   });
-  if (matchingFrontendConnections.length !== 1) {
+  if (!hasMatchingFrontendConnection) {
     setAffinityId(null);
     return;
   }
-  setAffinityId(matchingFrontendConnections[0]?.id ?? null);
+  // AllConnections snapshots expose websocket ids, not affinity capability tokens.
+  // Keep waiting for FrontendIdentity to provide the token bound to this socket.
 }
 
 export function setFrontendWebsocketAffinityId(
