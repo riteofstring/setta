@@ -655,7 +655,6 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=ID("project-policy"),
                         allowUnscoped=True,
-                        frontendAffinityToken="  frontend-managed  ",
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                         appGenerationMode="json_render",
@@ -680,94 +679,7 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
             assert "skillsEnabled" not in captured_inputs
-
-    async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            captured: dict[str, object] = {}
-
-            def _capture_start_run(profile, inputs, **_kwargs):
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id, inputs=inputs)
-
-            monkeypatch.setattr(runner, "start_run", _capture_start_run)
-
-            with runtime_context(state, share_session_id="share-session-1") as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new project.")],
-                        ),
-                        engineConfigId=engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=ID("project-policy"),
-                        allowUnscoped=True,
-                        frontendAffinityToken="frontend-managed",
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
-
-    async def test_get_llm_response_rejects_whitespace_only_frontend_affinity_token(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-
-            with runtime_context(state) as ctx:
-                # Ingress should fail fast on malformed affinity values.
-                with pytest.raises(HTTPException) as exc_info:
-                    await route_get_llm_response(
-                        GetLLMResponseRequest(
-                            chatId=None,
-                            message=UserChatMessage(
-                                content=[
-                                    MessageTextContent(text="Create a new project.")
-                                ],
-                            ),
-                            engineConfigId=engine_config_id,
-                            agentProfileId=None,
-                            thinking=False,
-                            projectConfigId=ID("project-policy"),
-                            allowUnscoped=True,
-                            frontendAffinityToken="   ",
-                            permissionMode=ChatPermissionMode.yolo,
-                            searchEnabled=False,
-                        ),
-                        ctx,
-                    )
-            assert exc_info.value.status_code == 400
-            assert "frontendAffinityToken" in str(exc_info.value.detail)
 
     async def test_get_llm_response_includes_execution_policy_for_external_runner(
         self,
@@ -863,7 +775,6 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=project_config.id,
                         allowUnscoped=True,
-                        frontendAffinityToken="  frontend-external  ",
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
                     ),
@@ -875,7 +786,6 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendAffinityToken") == "frontend-external"
             assert "skillsEnabled" not in captured_inputs
             assert captured_inputs.get("approvalPolicy") == "on-request"
             system_prompt = captured_inputs.get("systemPrompt")
@@ -885,98 +795,6 @@ class TestAgentRunChatRoutes:
             assert (
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
-
-    async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_external_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(
-                    profile_id=profile.id if profile else None, inputs=inputs
-                )
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-
-            with runtime_context(state, share_session_id="share-session-1") as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        frontendAffinityToken="frontend-external",
-                        permissionMode=ChatPermissionMode.minimal,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("frontendAffinityToken") == "frontend-external"
 
     async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
         self,

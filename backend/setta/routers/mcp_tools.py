@@ -1,25 +1,21 @@
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError
 
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
-from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
-from setta.routers.frontend_affinity_token import (
-    validate_frontend_affinity_token_for_model,
-)
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.setta_api_router import SettaFullRuntimeAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaFullRuntimeAPIRouter()
 
 
 class _MCPToolsCallSession:
@@ -39,14 +35,8 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
-    frontendAffinityToken: str | None = None
     allowUnscoped: bool = False
     shareSessionId: str | None = None
-
-    @field_validator("frontendAffinityToken")
-    @classmethod
-    def _normalize_frontend_affinity_token(cls, value: str | None) -> str | None:
-        return validate_frontend_affinity_token_for_model(value)
 
 
 @router.post(Route.TOOLS_CALL)
@@ -100,33 +90,12 @@ async def route_call_mcp_tool(
             status_code=status.HTTP_409_CONFLICT,
             detail=exc.error.model_dump(by_alias=True, exclude_none=True),
         ) from exc
-    except InvalidToolArgumentsError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "InvalidToolArguments",
-                "message": str(exc),
-            },
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "ToolError", "message": str(exc)},
-        ) from exc
     except ToolError as exc:
         cause = exc.__cause__
         if isinstance(cause, ValidationError):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=cause.errors(),
-            ) from exc
-        if isinstance(cause, InvalidToolArgumentsError):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "InvalidToolArguments",
-                    "message": str(cause),
-                },
             ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
