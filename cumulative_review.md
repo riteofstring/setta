@@ -169,3 +169,4 @@
 - Simplified workspace switcher handoff flow by always persisting pending launch state locally before navigating to `/launching`, and fixed launch-page back navigation to reopen the local switcher for backend/launcher `/home` return targets.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/trust contracts, truncation behavior, endpoint-origin policy, release installer-version resolver, and SSH launcher-origin handoff expectations.
 - Ran cleanup with `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repo layout) and then validated targeted backend/frontend/Playwright suites in this workstream.
+
