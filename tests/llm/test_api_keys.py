@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+import setta.llm.api_keys as api_keys_module
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
@@ -19,6 +20,10 @@ def _build_dbe(tmpdir: str) -> DBE:
     root = Path(tmpdir) / "setta_files"
     root.mkdir(parents=True, exist_ok=True)
     return DBE(root)
+
+
+def test_write_managed_api_keys_legacy_entrypoint_removed() -> None:
+    assert not hasattr(api_keys_module, "write_managed_api_keys")
 
 
 def test_read_managed_api_keys_with_status_flags_malformed_json_text_as_corrupt() -> (

@@ -140,12 +140,16 @@ def build_external_agent_preflight_status(
             )
         if plugin_adapter_resolution_issue is not None:
             _add_issue(plugin_adapter_resolution_issue)
+    managed_store_issue_blocks = _is_managed_store_issue_blocking(env_status)
     if env_status_result.corruption_issue is not None:
-        _add_issue(env_status_result.corruption_issue)
+        _add_issue(
+            env_status_result.corruption_issue,
+            availability_blocking=managed_store_issue_blocks,
+        )
     if env_status_result.unavailable_issue is not None:
         _add_issue(
             env_status_result.unavailable_issue,
-            availability_blocking=len(env_status.missing) > 0,
+            availability_blocking=managed_store_issue_blocks,
         )
     if env_status.missing:
         _add_issue(f"Missing env vars: {', '.join(env_status.missing)}")
@@ -254,6 +258,10 @@ def _is_run_mode_supported(
             return False
         return run_mode.value in plugin_adapter.runModes
     return False
+
+
+def _is_managed_store_issue_blocking(env_status: ExternalAgentEnvVarStatus) -> bool:
+    return len(env_status.missing) > 0
 
 
 def _build_plugin_adapter_map(

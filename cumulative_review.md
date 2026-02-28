@@ -434,3 +434,31 @@
 - Playwright targeted e2e (`project ai ignores legacy viewHistory in persisted ai store`): passed (`1 passed`).
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 - CDP visual check: completed (validated canonical `setta_ai_data` persistence behavior after project load).
+
+## 2026-02-27 09:49:25 PST
+
+### Consolidated Findings
+- Codex MCP parsing still accepted non-string scalar fields by coercing or defaulting values instead of rejecting malformed typed input.
+- External-agent preflight availability still diverged from runtime executability for managed key-store corruption cases.
+- Managed API-key persistence still exposed a parallel non-CAS write contract.
+- Frontend dictation code retained an orphan session-handler implementation that was not used at runtime.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Enforced strict scalar typing for Codex MCP server fields (`transport`, `command`, `url`, `cwd`, `encoding`) and skipped invalid servers with explicit parse warnings.
+- Unified managed-store issue gating in external-agent preflight so corruption/unavailable diagnostics remain visible but only block availability when required env vars are unresolved.
+- Removed legacy `write_managed_api_keys` and kept CAS-only writes via `write_managed_api_keys_with_expected_revision`.
+- Removed dead frontend hook implementation from `useProviderTranscriptionSessionHandlers.ts` while preserving active helper behavior.
+- Added/updated regression tests for strict Codex scalar rejection, Codex bootstrap marker behavior with invalid-only imports, preflight corruption/env parity, and API-key writer contract removal.
+
+### UX/DX Before -> After
+- MCP config validation: malformed scalar input could silently mutate behavior -> malformed scalar input is rejected deterministically with field-specific diagnostics.
+- External-agent readiness: engines could be flagged unavailable even when runtime env satisfied requirements -> preflight availability now tracks actual executability while still surfacing managed-store warnings.
+- Managed key writes: multiple write contracts with different conflict behavior -> single CAS contract with deterministic revision semantics.
+- Dictation maintenance: misleading dead alternate path -> single authoritative runtime path and reduced maintenance surface.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `117 passed` (`tests/llm/test_config.py`, `tests/agentic/test_external_agent_preflight.py`, `tests/agentic/test_external_agent_settings.py`, `tests/llm/test_api_keys.py`, `tests/routers/test_llm_api_key_routes.py`).
+- Backend targeted env parity pytest: `5 passed` (`tests/agentic/test_external_agent_runner.py -k env`).
+- Frontend targeted Vitest: `2 passed` (`useProviderTranscriptionSessionHandlers.test.ts`).
+- CDP visual check: done (validated app page load and console-clean state at `/home`).

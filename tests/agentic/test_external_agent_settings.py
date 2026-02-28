@@ -932,6 +932,59 @@ url = "http://127.0.0.1:9900/mcp"
             assert llm_server_ids == {"valid-http"}
             assert codex_server_ids == {"valid-http"}
 
+    def test_build_codex_settings_file_skips_invalid_scalar_typed_codex_home_servers_and_omits_import_marker(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.invalid-transport]
+transport = 123
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.invalid-encoding]
+command = "node"
+encoding = 123
+
+[mcp_servers.invalid-command]
+transport = "streamable_http"
+url = "http://127.0.0.1:5000/mcp"
+command = 789
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-invalid-scalars",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            assert output_payload.get("codexMcpImportedAt") is None
+            mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            if not isinstance(mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert set(mcp_servers.keys()) == {SETTA_MCP_SERVER_ID}
+
     def test_build_codex_settings_file_with_missing_codex_home_file_does_not_fallback_to_home(
         self,
         monkeypatch: pytest.MonkeyPatch,

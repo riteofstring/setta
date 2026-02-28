@@ -243,32 +243,6 @@ def read_managed_api_keys(dbe: DBE) -> APIKeys:
     return result.api_keys
 
 
-def write_managed_api_keys(dbe: DBE, payload: APIKeys) -> APIKeys:
-    normalized = _normalize_api_key_write_payload(payload)
-    path = llm_api_keys_path(dbe)
-    with dbe.get_file_lock(path):
-        try:
-            raw_payload = _read_managed_api_keys_raw_payload_from_disk(path)
-            read_result = _parse_managed_api_keys_raw_payload(raw_payload)
-        except ManagedAPIKeysStoreUnavailableError as exc:
-            raise ValueError(str(exc)) from exc
-        except ManagedAPIKeysStoreCorruptError as exc:
-            read_result = ManagedAPIKeysReadResult(
-                api_keys={},
-                revision=0,
-                corrupt=True,
-                error_code=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
-                error=str(exc),
-            )
-        next_revision = 1
-        if not read_result.corrupt:
-            next_revision = read_result.revision + 1
-        _write_managed_api_keys_store_payload(
-            path, revision=next_revision, api_keys=normalized
-        )
-    return normalized
-
-
 def write_managed_api_keys_with_expected_revision(
     dbe: DBE,
     payload: APIKeys,

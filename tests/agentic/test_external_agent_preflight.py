@@ -15,7 +15,10 @@ from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import llm_api_keys_path, write_managed_api_keys
+from setta.llm.api_keys import (
+    llm_api_keys_path,
+    write_managed_api_keys_with_expected_revision,
+)
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -138,7 +141,11 @@ class TestExternalAgentPreflight:
             previous_present = os.environ.pop(key_present, None)
             previous_missing = os.environ.pop(key_missing, None)
             try:
-                write_managed_api_keys(dbe, {key_present: "yes"})
+                write_result = write_managed_api_keys_with_expected_revision(
+                    dbe,
+                    {key_present: "yes"},
+                    expected_revision=0,
+                )
                 config = self._build_config(
                     run_mode=ExternalAgentRunMode.app_server,
                     command_path="definitely_not_a_codex_executable",
@@ -146,6 +153,8 @@ class TestExternalAgentPreflight:
                 )
                 status = build_external_agent_preflight_status(dbe, config)
 
+                assert write_result.status == "success"
+                assert write_result.revision == 1
                 assert status.envVars.present == [key_present]
                 assert status.envVars.missing == [key_missing]
             finally:
@@ -171,6 +180,69 @@ class TestExternalAgentPreflight:
                 "Managed LLM API key store is corrupt" in issue
                 for issue in status.issues
             )
+
+    def test_env_var_status_allows_available_preflight_when_process_env_satisfies_requirements_despite_corrupt_store(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_name = "SETTA_TEST_ENV_PRESENT"
+            dbe.write_json(llm_api_keys_path(dbe), [])
+            previous_value = os.environ.pop(key_name, None)
+            try:
+                os.environ[key_name] = "token-present"
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="codex",
+                    env_vars=[key_name],
+                )
+                with mock.patch(
+                    "setta.agentic.external_agent_preflight._check_codex_cli",
+                    return_value=("0.0.0", None),
+                ):
+                    status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.supported
+                assert status.available
+                assert status.envVars.present == [key_name]
+                assert status.envVars.missing == []
+                assert any(
+                    "Managed LLM API key store is corrupt" in issue
+                    for issue in status.issues
+                )
+            finally:
+                _restore_env_var(key_name, previous_value)
+
+    def test_env_var_status_marks_unavailable_when_required_env_var_missing_and_managed_store_is_corrupt(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_name = "SETTA_TEST_ENV_MISSING"
+            dbe.write_json(llm_api_keys_path(dbe), [])
+            previous_value = os.environ.pop(key_name, None)
+            try:
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="codex",
+                    env_vars=[key_name],
+                )
+                with mock.patch(
+                    "setta.agentic.external_agent_preflight._check_codex_cli",
+                    return_value=("0.0.0", None),
+                ):
+                    status = build_external_agent_preflight_status(dbe, config)
+
+                assert status.supported
+                assert not status.available
+                assert status.envVars.present == []
+                assert status.envVars.missing == [key_name]
+                assert any(
+                    "Managed LLM API key store is corrupt" in issue
+                    for issue in status.issues
+                )
+            finally:
+                _restore_env_var(key_name, previous_value)
 
     def test_env_var_status_reports_corrupt_managed_api_key_store_malformed_json(
         self,

@@ -206,17 +206,28 @@ def _parse_codex_mcp_server_entry(
             + ", ".join(str(field) for field in unknown_fields)
         )
 
-    raw_transport = raw_entry.get("transport")
-    transport = ""
-    if isinstance(raw_transport, str):
-        transport = raw_transport.strip().lower()
-    if transport and transport not in _SUPPORTED_TRANSPORTS:
+    transport = _parse_optional_nonempty_string_field(
+        raw_entry,
+        server_id=server_id,
+        field_name="transport",
+    )
+    if transport is not None:
+        transport = transport.lower()
+    if transport is not None and transport not in _SUPPORTED_TRANSPORTS:
         raise ValueError(
             f"server '{server_id}' has unsupported transport '{transport}'"
         )
 
-    command = _normalize_nonempty_string(raw_entry.get("command"))
-    url = _normalize_nonempty_string(raw_entry.get("url"))
+    command = _parse_optional_nonempty_string_field(
+        raw_entry,
+        server_id=server_id,
+        field_name="command",
+    )
+    url = _parse_optional_nonempty_string_field(
+        raw_entry,
+        server_id=server_id,
+        field_name="url",
+    )
     if command and url:
         raise ValueError(f"server '{server_id}' cannot declare both command and url")
 
@@ -245,8 +256,12 @@ def _parse_codex_mcp_server_entry(
             command=command,
             args=_parse_args(raw_entry, server_id=server_id),
             env=_parse_env(raw_entry, server_id=server_id),
-            cwd=_normalize_nonempty_string(raw_entry.get("cwd")),
-            encoding=_parse_encoding(raw_entry),
+            cwd=_parse_optional_nonempty_string_field(
+                raw_entry,
+                server_id=server_id,
+                field_name="cwd",
+            ),
+            encoding=_parse_encoding(raw_entry, server_id=server_id),
             encoding_error_handler=_parse_encoding_error_handler(
                 raw_entry,
                 server_id=server_id,
@@ -373,8 +388,12 @@ def _parse_env(raw_entry: dict[str, Any], *, server_id: str) -> dict[str, str] |
     return normalized_env
 
 
-def _parse_encoding(raw_entry: dict[str, Any]) -> str:
-    encoding = _normalize_nonempty_string(raw_entry.get("encoding"))
+def _parse_encoding(raw_entry: dict[str, Any], *, server_id: str) -> str:
+    encoding = _parse_optional_nonempty_string_field(
+        raw_entry,
+        server_id=server_id,
+        field_name="encoding",
+    )
     if encoding is None:
         return "utf-8"
     return encoding
@@ -399,9 +418,17 @@ def _parse_encoding_error_handler(raw_entry: dict[str, Any], *, server_id: str) 
     return normalized_value
 
 
-def _normalize_nonempty_string(value: Any) -> str | None:
-    if not isinstance(value, str):
+def _parse_optional_nonempty_string_field(
+    raw_entry: dict[str, Any],
+    *,
+    server_id: str,
+    field_name: str,
+) -> str | None:
+    if field_name not in raw_entry:
         return None
+    value = raw_entry[field_name]
+    if not isinstance(value, str):
+        raise ValueError(f"server '{server_id}' {field_name} must be a string")
     normalized = value.strip()
     if not normalized:
         return None
