@@ -22,7 +22,11 @@ _USAGE_SNAKE_TO_CAMEL: dict[str, str] = {
     "output_tokens": "outputTokens",
     "cached_input_tokens": "cachedInputTokens",
     "reasoning_output_tokens": "reasoningOutputTokens",
+    "context_window_tokens": "contextWindowTokens",
     "model_context_window": "contextWindowTokens",
+    "modelContextWindow": "contextWindowTokens",
+    "usedTokens": "inputTokens",
+    "windowTokens": "contextWindowTokens",
 }
 
 

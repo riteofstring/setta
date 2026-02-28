@@ -111,3 +111,35 @@ def test_context_usage_rejects_non_integer_numeric_values() -> None:
     assert usage.context_used_tokens is None
     assert usage.context_window_tokens == 4096
     assert usage.estimated is False
+
+
+def test_external_context_usage_accepts_codex_camel_case_context_window() -> None:
+    run = _build_run_with_usage(
+        {
+            "inputTokens": 77,
+            "modelContextWindow": 258400,
+        }
+    )
+
+    usage = resolve_external_run_context_usage(run)
+
+    assert usage is not None
+    assert usage.context_used_tokens == 77
+    assert usage.context_window_tokens == 258400
+    assert usage.estimated is False
+
+
+def test_external_context_usage_accepts_codex_used_tokens_aliases() -> None:
+    run = _build_run_with_usage(
+        {
+            "usedTokens": 88,
+            "windowTokens": 272000,
+        }
+    )
+
+    usage = resolve_external_run_context_usage(run)
+
+    assert usage is not None
+    assert usage.context_used_tokens == 88
+    assert usage.context_window_tokens == 272000
+    assert usage.estimated is False

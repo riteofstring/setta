@@ -724,3 +724,37 @@
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatHistoryCopy.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts`: `27 passed`.
 - `SETTA_E2E_TEST_TIMEOUT_SECONDS=300 ./scripts/run-playwright-e2e.sh tests/e2e/chat/chat-composer-controls.spec.ts --grep "project chat thread list includes mixed-engine history entries"`: `1 passed`.
+
+## 2026-02-27 20:53:43 PST
+
+### Consolidated Findings
+- Project chat context telemetry was incomplete for real provider runs because some authoritative usage payload shapes were not being normalized.
+- Codex app-server usage can arrive in nested envelopes (`thread/tokenUsage/updated` and `codex/event/token_count`) and those fields were not fully extracted into persisted run usage.
+- Setta LLM Anthropic streaming runs surfaced authoritative usage via LiteLLM hidden params (`_hidden_params.usage`), while chunk-level `usage` was often empty, which left `contextUsedTokens` missing.
+- Frontend badge behavior is intentionally strict: if either window or used tokens are missing, it renders `context unavailable`.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Expanded external-agent usage normalization/extraction to parse nested Codex token-usage payloads and aliases, including:
+  - `thread/tokenUsage/*` with `tokenUsage.total`, `tokenUsage.last`, `modelContextWindow`
+  - `codex/event/token_count` with `msg.info.total_token_usage`, `msg.info.last_token_usage`, `model_context_window`
+  - additional aliases (`modelContextWindow`, `context_window_tokens`, `usedTokens`, `windowTokens`, cached/reasoning token fields).
+- Updated context-usage normalization to accept both snake/camel variants used by Codex payloads when hydrating API responses.
+- Updated Setta LLM stream usage extraction to read authoritative LiteLLM hidden usage (`chunk._hidden_params["usage"]`) when `chunk.usage` is absent.
+- Added new backend unit coverage for all new extraction/normalization pathways.
+- Added/updated live integration coverage for Setta LLM OpenAI, Setta LLM Anthropic, Claude SDK, and Codex app-server context usage persistence.
+- Added Playwright coverage proving project-chat UI shows `context left` (and not `context unavailable`) when external context telemetry is complete.
+
+### UX/DX Before -> After
+- Codex/Anthropic context badge behavior: frequent `context unavailable` despite provider usage availability -> backend now persists authoritative used/window values across supported payload shapes so frontend can render `context left`.
+- Source-of-truth handling: partial schema handling -> robust provider/runtime metadata normalization without heuristic estimation.
+
+### Verification
+- Backend unit tests passed:
+  - `source activate.sh && pytest tests/llm/test_agent_runner.py -k "extract_usage_from_chunk_reads_hidden_params_usage or resolve_context_window_usage_uses_litellm_model_metadata or normalize_usage_payload_maps_context_window_aliases"`
+  - `source activate.sh && pytest tests/agentic/test_external_agent_runner.py -k "TestExternalAgentRunnerUsage"`
+  - `source activate.sh && pytest tests/agentic/test_context_usage.py`
+  - `source activate.sh && pytest tests/routers/test_ai_agent_run_chats.py -k "context"`
+- Live integration tests passed with `.env` keys loaded:
+  - `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1 ./scripts/run_backend_tests.sh tests/llm/test_llm_chat_manager_openai_integration.py::TestLLMChatManagerOpenAIIntegration::test_gpt_4o_mini_chat_completion tests/llm/test_llm_chat_manager_anthropic_integration.py::TestLLMChatManagerAnthropicIntegration::test_claude_sonnet_45_chat_completion tests/agentic/test_claude_sdk_adapter_integration.py::TestClaudeSdkAdapterIntegration::test_claude_sdk_persists_usage_with_context_window tests/agentic/test_codex_app_server_adapter_integration.py::TestCodexAppServerAdapterIntegration::test_codex_app_server_persists_usage_with_context_window`
+- Playwright test passed:
+  - `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "project ai shows context-left badge for external chats when backend telemetry is complete"`

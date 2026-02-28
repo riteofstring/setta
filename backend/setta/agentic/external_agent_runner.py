@@ -2717,15 +2717,20 @@ def _normalize_external_usage_payload(payload: Any) -> dict[str, int] | None:
         "completionTokens": "completionTokens",
         "totalTokens": "totalTokens",
         "inputTokens": "inputTokens",
+        "cachedInputTokens": "cachedInputTokens",
         "outputTokens": "outputTokens",
+        "reasoningOutputTokens": "reasoningOutputTokens",
         "contextWindowTokens": "contextWindowTokens",
         "prompt_tokens": "promptTokens",
         "completion_tokens": "completionTokens",
         "total_tokens": "totalTokens",
         "input_tokens": "inputTokens",
+        "cached_input_tokens": "cachedInputTokens",
         "output_tokens": "outputTokens",
+        "reasoning_output_tokens": "reasoningOutputTokens",
         "context_window_tokens": "contextWindowTokens",
         "model_context_window": "contextWindowTokens",
+        "modelContextWindow": "contextWindowTokens",
         "usedTokens": "inputTokens",
         "windowTokens": "contextWindowTokens",
     }
@@ -2755,6 +2760,17 @@ def _extract_usage_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(value, dict):
             usage_payloads.append(value)
 
+    def _append_codex_usage_envelope(value: Any) -> None:
+        if not isinstance(value, dict):
+            return
+        _append_if_dict(value.get("usage"))
+        token_usage = value.get("tokenUsage")
+        if isinstance(token_usage, dict):
+            _append_if_dict(token_usage.get("total"))
+            _append_if_dict(token_usage.get("last"))
+            usage_payloads.append(token_usage)
+        usage_payloads.append(value)
+
     _append_if_dict(payload.get("usage"))
 
     payload_type = payload.get("type")
@@ -2776,16 +2792,18 @@ def _extract_usage_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
         "thread/tokenUsage/updated",
         "thread/tokenUsage/read",
     }:
+        _append_codex_usage_envelope(payload.get("params"))
+        _append_codex_usage_envelope(payload.get("result"))
+    if isinstance(method, str) and method == "codex/event/token_count":
         params_payload = payload.get("params")
         if isinstance(params_payload, dict):
-            _append_if_dict(params_payload.get("tokenUsage"))
-            _append_if_dict(params_payload.get("usage"))
-            usage_payloads.append(params_payload)
-        result_payload = payload.get("result")
-        if isinstance(result_payload, dict):
-            _append_if_dict(result_payload.get("tokenUsage"))
-            _append_if_dict(result_payload.get("usage"))
-            usage_payloads.append(result_payload)
+            message_payload = params_payload.get("msg")
+            if isinstance(message_payload, dict):
+                info_payload = message_payload.get("info")
+                if isinstance(info_payload, dict):
+                    _append_if_dict(info_payload.get("total_token_usage"))
+                    _append_if_dict(info_payload.get("last_token_usage"))
+                    usage_payloads.append(info_payload)
 
     return usage_payloads
 

@@ -3232,6 +3232,62 @@ class TestExternalAgentRunnerUsage:
         assert usage_payloads
         assert {"usedTokens": 31, "windowTokens": 272000} in usage_payloads
 
+    def test_extract_usage_payloads_reads_codex_nested_token_usage_payload(self) -> None:
+        payload = {
+            "method": "thread/tokenUsage/updated",
+            "params": {
+                "tokenUsage": {
+                    "total": {
+                        "inputTokens": 4834,
+                        "outputTokens": 18,
+                        "totalTokens": 4852,
+                    },
+                    "last": {
+                        "inputTokens": 4834,
+                        "outputTokens": 18,
+                        "totalTokens": 4852,
+                    },
+                    "modelContextWindow": 258400,
+                }
+            },
+        }
+
+        # Codex nested tokenUsage envelopes should expose total/last usage rows.
+        usage_payloads = _extract_usage_payloads(payload)
+
+        assert {"inputTokens": 4834, "outputTokens": 18, "totalTokens": 4852} in (
+            usage_payloads
+        )
+        assert any(
+            isinstance(entry, dict)
+            and entry.get("modelContextWindow") == 258400
+            for entry in usage_payloads
+        )
+
+    def test_extract_usage_payloads_reads_codex_token_count_info_payload(self) -> None:
+        payload = {
+            "method": "codex/event/token_count",
+            "params": {
+                "msg": {
+                    "info": {
+                        "total_token_usage": {
+                            "input_tokens": 2000,
+                            "output_tokens": 25,
+                            "total_tokens": 2025,
+                        },
+                        "model_context_window": 258400,
+                    }
+                }
+            },
+        }
+
+        # Codex token_count events should expose nested total_token_usage rows.
+        usage_payloads = _extract_usage_payloads(payload)
+
+        assert {"input_tokens": 2000, "output_tokens": 25, "total_tokens": 2025} in (
+            usage_payloads
+        )
+
     def test_capture_external_usage_from_codex_raw_payload_tracks_usage(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -3264,6 +3320,100 @@ class TestExternalAgentRunnerUsage:
             assert usage.get("inputTokens") == 41
             assert usage.get("promptTokens") == 41
             assert usage.get("contextWindowTokens") == 272000
+
+    def test_capture_external_usage_from_codex_nested_token_usage_tracks_usage(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-codex",
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-codex"),
+            )
+            run = context.run
+
+            runner._capture_external_usage_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "method": "thread/tokenUsage/updated",
+                    "params": {
+                        "tokenUsage": {
+                            "total": {
+                                "inputTokens": 4834,
+                                "outputTokens": 18,
+                                "totalTokens": 4852,
+                            },
+                            "modelContextWindow": 258400,
+                        }
+                    },
+                },
+            )
+
+            usage = runner._usage_by_run_id.get(run.id)
+            assert isinstance(usage, dict)
+            assert usage.get("inputTokens") == 4834
+            assert usage.get("promptTokens") == 4834
+            assert usage.get("outputTokens") == 18
+            assert usage.get("completionTokens") == 18
+            assert usage.get("totalTokens") == 4852
+            assert usage.get("contextWindowTokens") == 258400
+
+    def test_capture_external_usage_from_codex_token_count_tracks_usage(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-codex",
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-codex"),
+            )
+            run = context.run
+
+            runner._capture_external_usage_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "method": "codex/event/token_count",
+                    "params": {
+                        "msg": {
+                            "info": {
+                                "total_token_usage": {
+                                    "input_tokens": 2000,
+                                    "output_tokens": 25,
+                                    "total_tokens": 2025,
+                                },
+                                "model_context_window": 258400,
+                            }
+                        }
+                    },
+                },
+            )
+
+            usage = runner._usage_by_run_id.get(run.id)
+            assert isinstance(usage, dict)
+            assert usage.get("inputTokens") == 2000
+            assert usage.get("promptTokens") == 2000
+            assert usage.get("outputTokens") == 25
+            assert usage.get("completionTokens") == 25
+            assert usage.get("totalTokens") == 2025
+            assert usage.get("contextWindowTokens") == 258400
 
     def test_persist_outputs_from_state_merges_tracked_and_existing_usage(self) -> None:
         with TemporaryDirectory() as tmpdir:

@@ -406,29 +406,44 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Reply with exactly HELLO.", "allowUnscoped": True},
+                {
+                    "prompt": "Reply with exactly HELLO.",
+                    "allowUnscoped": True,
+                    "effort": "low",
+                    "summary": "none",
+                },
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
             assert isinstance(outputs, dict)
+            final_text = outputs.get("finalText")
+            assert isinstance(final_text, str)
+            assert "hello" in final_text.lower()
             usage = outputs.get("usage")
             assert isinstance(usage, dict)
 
-            # Codex usage should include token counts plus model context window size.
+            # Codex usage should include context window plus used token counters.
             context_window_tokens = usage.get("contextWindowTokens")
             prompt_tokens = usage.get("promptTokens")
             input_tokens = usage.get("inputTokens")
+            completion_tokens = usage.get("completionTokens")
+            output_tokens = usage.get("outputTokens")
+            total_tokens = usage.get("totalTokens")
             assert isinstance(context_window_tokens, int)
-            assert context_window_tokens > 0
             assert isinstance(prompt_tokens, int)
             assert isinstance(input_tokens, int)
+            assert isinstance(completion_tokens, int)
+            assert isinstance(output_tokens, int)
+            assert isinstance(total_tokens, int)
+            assert context_window_tokens > 0
             assert prompt_tokens > 0
             assert input_tokens > 0
+            assert completion_tokens >= 0
+            assert output_tokens >= 0
             assert prompt_tokens == input_tokens
-            assert context_window_tokens >= prompt_tokens
-            total_tokens = usage.get("totalTokens")
-            if isinstance(total_tokens, int):
-                assert total_tokens >= prompt_tokens
+            assert completion_tokens == output_tokens
+            assert total_tokens == prompt_tokens + completion_tokens
+            assert context_window_tokens >= total_tokens
 
     async def test_codex_app_server_persists_thread_id(self) -> None:
         codex_path = self._require_codex_cli()

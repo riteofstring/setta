@@ -2825,7 +2825,17 @@ class AgentRunner:
         self, chunk: ModelResponseStream
     ) -> dict[str, int] | None:
         usage = getattr(chunk, "usage", None)
-        return self._normalize_usage_payload(usage)
+        normalized_usage = self._normalize_usage_payload(usage)
+        if normalized_usage is not None:
+            return normalized_usage
+
+        hidden_params = getattr(chunk, "_hidden_params", None)
+        if isinstance(hidden_params, dict):
+            hidden_usage = hidden_params.get("usage")
+            normalized_usage = self._normalize_usage_payload(hidden_usage)
+            if normalized_usage is not None:
+                return normalized_usage
+        return None
 
     @staticmethod
     def _merge_usage_summary(

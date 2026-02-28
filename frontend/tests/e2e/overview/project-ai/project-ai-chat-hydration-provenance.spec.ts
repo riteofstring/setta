@@ -1546,6 +1546,172 @@ test("project ai shows context unavailable when backend context telemetry is mis
   }
 });
 
+test("project ai shows context-left badge for external chats when backend telemetry is complete", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const chatId = "pw-context-complete";
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-managed",
+          name: "Managed External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-managed",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-context-complete",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-10T00:00:00Z",
+          finishedAt: "2026-01-10T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-managed",
+            messages: [
+              {
+                id: "user-message-1",
+                role: "user",
+                content: [{ type: "text", text: "Check context telemetry" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Context complete thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId !== chatId) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-context-complete",
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Context telemetry is complete.",
+              },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        contextUsage: {
+          contextWindowTokens: 258400,
+          contextUsedTokens: 4852,
+          estimated: false,
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "default-llm",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: null,
+          temporary: false,
+        },
+        contextUsage: {
+          contextWindowTokens: 1000,
+          contextUsedTokens: 100,
+          estimated: false,
+        },
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Context complete thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await expect(
+      overviewPane.getByText("Context telemetry is complete.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", {
+        name: /context(?: left)? [0-9]+%/i,
+      }),
+    ).toBeVisible();
+    await expect(overviewPane.getByLabel("context unavailable")).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai blocks stale selected chat ids that have no provenance", async ({
   page,
 }) => {

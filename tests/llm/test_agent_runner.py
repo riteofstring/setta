@@ -1308,6 +1308,39 @@ class TestAgentRunner:
             "contextWindowTokens": 200000,
         }
 
+    def test_extract_usage_from_chunk_reads_hidden_params_usage(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="claude-sonnet-4-5-20250929",
+                        provider="anthropic",
+                        api_key_env="ANTHROPIC_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+
+            class _Chunk:
+                usage = None
+                _hidden_params = {
+                    "usage": {"prompt_tokens": 3372, "completion_tokens": 57}
+                }
+
+            # Anthropic via LiteLLM can surface authoritative usage in hidden params.
+            extracted = runner._extract_usage_from_chunk(_Chunk())
+
+            assert extracted == {
+                "promptTokens": 3372,
+                "completionTokens": 57,
+                "totalTokens": 3429,
+            }
+
     def test_run_event_persistence_records_start_and_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
