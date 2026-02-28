@@ -184,8 +184,6 @@ def resolve_frontend_websocket_affinity_from_ctx(
 ) -> FrontendWebsocketAffinityResolution:
     share_session_id = resolve_share_session_id_from_ctx(ctx)
     agentic_context = _resolve_agentic_context(ctx)
-    meta = resolve_request_meta(ctx)
-    meta_affinity_token = _parse_frontend_affinity_token_from_meta(meta)
     affinity_token: str | None = None
     if agentic_context is not None:
         try:
@@ -195,7 +193,8 @@ def resolve_frontend_websocket_affinity_from_ctx(
         except (TypeError, ValueError) as exc:
             raise InvalidToolArgumentsError(str(exc)) from exc
     if affinity_token is None and share_session_id is None:
-        affinity_token = meta_affinity_token
+        meta = resolve_request_meta(ctx)
+        affinity_token = _parse_frontend_affinity_token_from_meta(meta)
     if affinity_token is None:
         return FrontendWebsocketAffinityResolution(frontend_websocket_id=None)
     fastmcp = getattr(ctx, "fastmcp", None)

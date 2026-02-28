@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from mcp.server.fastmcp.exceptions import ToolError
 
+from setta.agentic.agentic_scope import AgenticContext
 from setta.database.db_objs import DBE
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
@@ -1255,3 +1256,132 @@ async def test_tools_call_rejects_frontend_websocket_id_passed_as_affinity_token
     assert isinstance(detail, dict)
     assert detail["error"] == "InvalidToolArguments"
     assert "not a websocket id" in detail["message"]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_share_scope_ignores_malformed_request_meta_frontend_affinity_when_agentic_affinity_is_present(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    monkeypatch.setattr(
+        state.mcp_server,
+        "_resolve_share_session_id",
+        lambda _ctx: "share-session-router-test",
+    )
+    monkeypatch.setattr(
+        state.mcp_server,
+        "_resolve_agentic_context",
+        lambda _ctx: AgenticContext(
+            project_config_id=project_config_id,
+            chat_id=ID("chat-router-test"),
+            section_id=None,
+            frontend_affinity_token="frontend-agentic",
+            allow_unscoped=True,
+        ),
+    )
+    monkeypatch.setattr(
+        frontend_sender,
+        "resolve_frontend_websocket_id_from_affinity_token",
+        lambda *, affinity_token, share_session_id=None: affinity_token,  # noqa: ARG005
+    )
+
+    class _ResolveFrontendAffinityTool:
+        async def run(
+            self,
+            _arguments,
+            *,
+            context,
+            convert_result,  # noqa: ARG002
+        ):
+            meta = context.request_context.meta
+            if meta is None:
+                raise AssertionError("Expected request metadata.")
+            meta.frontendAffinityToken = "   "
+            resolved_frontend_websocket_id = resolve_frontend_websocket_id_from_ctx(
+                context
+            )
+            return ([], {"frontendAffinityToken": resolved_frontend_websocket_id})
+
+    original_get_tool = state.mcp_server.get_tool
+
+    def _patched_get_tool(name: str):
+        if name == "resolve_frontend_affinity":
+            return _ResolveFrontendAffinityTool()
+        return original_get_tool(name)
+
+    monkeypatch.setattr(state.mcp_server, "get_tool", _patched_get_tool)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "resolve_frontend_affinity",
+                "arguments": {},
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "frontendAffinityToken": "frontend-meta-valid",
+                    "allowUnscoped": True,
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is False
+    assert payload["structuredContent"]["frontendAffinityToken"] == "frontend-agentic"

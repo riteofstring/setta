@@ -738,3 +738,25 @@
 4. UX after: failed right-pane reveals are side-effect free for activation and pane/tab state after lease rollback.
 5. DX before: project rename semantics were split across duplicate manager methods and tests.
 6. DX after: one canonical CAS rename contract with aligned tests and lower drift risk.
+
+## 2026-02-27 11:19:23 PST
+
+### Consolidated Findings
+1. Share-scoped UI-setting reveal routing still validated non-authoritative request-meta `frontendAffinityToken` values before scope gating, which could raise `InvalidToolArguments` despite valid canonical agentic affinity.
+2. Frontend receiver identity delivery still carried an unreachable optional branch (`fail_if_missing=False`) instead of a single fail-fast contract.
+3. Workspace required a completed cleanup/generation synchronization pass and root-level transient review-doc cleanup before commit.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Updated share-scope affinity resolution to parse request-meta affinity only when not in share scope; share scope now validates/uses authoritative agentic affinity only.
+2. Removed the unused optional identity-send branch and kept one fail-fast missing-affinity behavior in websocket frontend receiver.
+3. Added/updated backend unit, integration, router-level, websocket, and Playwright coverage for share-scope malformed-meta handling and fail-fast identity invariants.
+4. Ran `pnpm gcf` via the effective repo path (`pnpm gcf` in `frontend/`) to execute generate/cleanup/prune/format flows.
+5. Removed top-level `review*.md` files from repository root after consolidation.
+
+### UX/DX Before and After
+1. UX before: share-scoped reveal requests could fail on malformed non-authoritative affinity metadata.
+2. UX after: share-scoped reveal routing is driven by canonical agentic affinity and ignores malformed non-authoritative metadata.
+3. UX before: no user-facing branch difference, but missing-affinity identity handling was represented as optional in code.
+4. UX after: same runtime behavior with explicit fail-fast invariants and less ambiguity.
+5. DX before: precedence and validation contracts were split across scope and input sources, and websocket identity path exposed dead branch surface.
+6. DX after: scope-first affinity contract and single identity path reduce maintenance/debugging ambiguity with stronger regression guardrails.

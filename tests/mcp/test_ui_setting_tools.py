@@ -2590,6 +2590,65 @@ async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_af
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("malformed_meta_frontend_affinity_token", ["   ", 456])
+async def test_reveal_ui_setting_share_scope_ignores_malformed_meta_frontend_affinity_token_when_agentic_affinity_is_present(
+    malformed_meta_frontend_affinity_token: object,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_affinity_tokens = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        required_share_session_id = "share-session-test"
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id=required_share_session_id,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": required_share_session_id,
+                "frontendAffinityToken": malformed_meta_frontend_affinity_token,
+            },
+            resolved_share_session_id=required_share_session_id,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-share-malformed-meta"),
+                section_id=None,
+                frontend_affinity_token="frontend-a",
+                allow_unscoped=True,
+            ),
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-a"
+        assert frontend_sender.reveal_messages
+        _, reveal_share_session_id = frontend_sender.reveal_messages[-1]
+        assert reveal_share_session_id == required_share_session_id
+
+
+@pytest.mark.asyncio
 async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_affinity_token() -> (
     None
 ):
@@ -2839,7 +2898,7 @@ async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_ori
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_affinity() -> (
+async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_affinity_and_meta_frontend_affinity_is_malformed() -> (
     None
 ):
     async with (
@@ -2861,7 +2920,7 @@ async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_aff
             request_meta={
                 "projectConfigId": project_config_id,
                 "shareSessionId": "share-session-ambiguous",
-                "frontendAffinityToken": "frontend-b",
+                "frontendAffinityToken": "   ",
             },
             resolved_share_session_id="share-session-ambiguous",
         )

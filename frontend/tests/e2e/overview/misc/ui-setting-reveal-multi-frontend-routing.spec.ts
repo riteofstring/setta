@@ -41,6 +41,7 @@ async function callMcpTool<TStructured>(
   argumentsPayload: Record<string, unknown>,
   frontendAffinityToken?: string | null,
   shareSessionId?: string,
+  extraHeaders?: Record<string, string>,
 ): Promise<TStructured> {
   const agenticContext: Record<string, unknown> = {
     projectConfigId,
@@ -63,6 +64,7 @@ async function callMcpTool<TStructured>(
         arguments: argumentsPayload,
         agenticContext,
       },
+      headers: extraHeaders,
       timeout: 15000,
     },
   );
@@ -366,6 +368,38 @@ test("reveal_ui_setting accepts share-scoped calls that include frontend affinit
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
     await secondPage.close();
+  }
+});
+
+test("reveal_ui_setting ignores malformed frontend-affinity header when agentic affinity is valid", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  await installFrontendIdentityCapture(page);
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
+  const frontendIdentity = await waitForFrontendIdentity(page);
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1000,
+      },
+      frontendIdentity,
+      "share-session-e2e",
+      {
+        "x-setta-frontend-affinity-token": "   ",
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
   }
 });
 

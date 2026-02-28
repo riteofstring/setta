@@ -195,6 +195,41 @@ async def test_frontend_receiver_on_connect_sends_frontend_identity_message() ->
 
 
 @pytest.mark.asyncio
+async def test_frontend_receiver_on_connect_raises_when_frontend_affinity_token_is_missing() -> (
+    None
+):
+    websocket_manager = WebsocketManager()
+    listener_registry = ListenerRegistry()
+    sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+    event_hub = RealtimeEventHub(sender)
+    receiver = WMHFrontendReceiver(
+        websocket_manager,
+        project_manager=None,
+        realtime_event_hub=event_hub,
+        ui_setting_reveal_result_hub=UISettingRevealResultHub(),
+        share_mode=False,
+    )
+    frontend_messages: list[Message] = []
+    frontend_socket = await _build_websocket(frontend_messages)
+    frontend_id = await websocket_manager.on_connect(
+        frontend_socket,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-missing-affinity",
+        shareSessionId=None,
+        broadcast_connections=False,
+    )
+    try:
+        websocket_manager._remove_frontend_affinity_token_for_websocket_id(frontend_id)
+        with pytest.raises(
+            KeyError,
+            match=f"Missing frontend affinity token for websocket {frontend_id}",
+        ):
+            await receiver.on_connect(frontend_id)
+    finally:
+        await frontend_socket.close()
+
+
+@pytest.mark.asyncio
 async def test_frontend_receiver_rebroadcasts_connections_after_current_address_update(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

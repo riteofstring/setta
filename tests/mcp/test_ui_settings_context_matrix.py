@@ -484,19 +484,29 @@ def test_resolve_frontend_affinity_token_uses_agentic_affinity_only_in_share_sco
 
 
 @pytest.mark.parametrize(
-    ("agentic_frontend_affinity_token", "meta_frontend_affinity_token"),
+    (
+        "agentic_frontend_affinity_token",
+        "meta_frontend_affinity_token",
+        "expected_frontend_affinity_token",
+    ),
     [
-        ("   ", "frontend-meta"),
-        (None, "   "),
-        (None, 456),
+        ("frontend-agentic", "   ", "frontend-agentic"),
+        (None, 456, None),
     ],
 )
-def test_resolve_frontend_affinity_token_rejects_malformed_values_in_share_scope(
+def test_resolve_frontend_affinity_token_ignores_malformed_meta_values_in_share_scope(
     agentic_frontend_affinity_token: str | None,
     meta_frontend_affinity_token: object,
+    expected_frontend_affinity_token: str | None,
 ) -> None:
     request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
     request_meta["frontendAffinityToken"] = meta_frontend_affinity_token
+    frontend_sender = _RecordingFrontendSender()
+    if agentic_frontend_affinity_token is not None:
+        frontend_sender.register_affinity(
+            affinity_token=agentic_frontend_affinity_token,
+            websocket_id=agentic_frontend_affinity_token,
+        )
     ctx = _build_ctx(
         request_meta=request_meta,
         agentic_context=_build_agentic_context(
@@ -504,8 +514,29 @@ def test_resolve_frontend_affinity_token_rejects_malformed_values_in_share_scope
             frontend_affinity_token=agentic_frontend_affinity_token,
         ),
         share_session_resolver=lambda _ctx: "share-resolved",
+        frontend_sender=frontend_sender,
+    )
+    assert (
+        resolve_frontend_websocket_id_from_ctx(ctx)
+        == expected_frontend_affinity_token
     )
 
+
+def test_resolve_frontend_affinity_token_rejects_malformed_agentic_value_in_share_scope() -> (
+    None
+):
+    request_meta: dict[str, object] = {
+        "shareSessionId": "share-meta",
+        "frontendAffinityToken": "frontend-meta",
+    }
+    ctx = _build_ctx(
+        request_meta=request_meta,
+        agentic_context=_build_agentic_context(
+            project_config_id="project-agentic",
+            frontend_affinity_token="   ",
+        ),
+        share_session_resolver=lambda _ctx: "share-resolved",
+    )
     with pytest.raises(
         InvalidToolArgumentsError,
         match="frontendAffinityToken must be a non-empty string when provided.",
