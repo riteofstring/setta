@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import secrets
 
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
@@ -40,6 +41,8 @@ class WebsocketManager:
         self.sockets: dict[str, WebsocketConnectionInfoWithSocket] = {}
         self.main_id = "main"
         self._send_timeout_s = _resolve_websocket_send_timeout_s()
+        self._frontend_affinity_token_by_websocket_id: dict[str, str] = {}
+        self._frontend_websocket_id_by_affinity_token: dict[str, str] = {}
 
     async def on_connect(
         self,
@@ -62,12 +65,16 @@ class WebsocketManager:
             currentAddress=None,
             shareSessionId=shareSessionId,
         )
+        if connectionType is WebsocketConnectionType.FRONTEND:
+            frontend_affinity_token = self._generate_frontend_affinity_token()
+            self._frontend_affinity_token_by_websocket_id[id] = frontend_affinity_token
+            self._frontend_websocket_id_by_affinity_token[frontend_affinity_token] = id
         if broadcast_connections:
             await self.broadcast_connections()
         return id
 
     async def on_disconnect(self, id: str, *, broadcast_connections: bool = True):
-        removed = self.sockets.pop(id, None)
+        removed = self._remove_socket(id)
         if removed is None:
             return
         if broadcast_connections:
@@ -81,19 +88,72 @@ class WebsocketManager:
             raise KeyError(f"Unknown websocket id: {websocketId}")
         return self.sockets[websocketId].shareSessionId
 
-    async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
+    def get_frontend_affinity_token(self, websocket_id: str) -> str | None:
+        return self._frontend_affinity_token_by_websocket_id.get(websocket_id)
+
+    def resolve_frontend_websocket_id_from_affinity_token(
+        self,
+        *,
+        affinity_token: str,
+        share_session_id: str | None = None,
+    ) -> str | None:
+        normalized_affinity_token = affinity_token.strip()
+        if normalized_affinity_token == "":
+            return None
+        websocket_id = self._frontend_websocket_id_by_affinity_token.get(
+            normalized_affinity_token
+        )
+        if websocket_id is None:
+            return None
+        connection_info = self.sockets.get(websocket_id)
+        if connection_info is None:
+            self._remove_frontend_affinity_token_for_websocket_id(websocket_id)
+            return None
+        if connection_info.connectionType is not WebsocketConnectionType.FRONTEND:
+            return None
+        if connection_info.websocket.application_state != WebSocketState.CONNECTED:
+            self._remove_socket(websocket_id)
+            return None
+        if (
+            share_session_id is not None
+            and connection_info.shareSessionId != share_session_id
+        ):
+            return None
+        return websocket_id
+
+    @staticmethod
+    def _generate_frontend_affinity_token() -> str:
+        return secrets.token_urlsafe(24)
+
+    def _remove_frontend_affinity_token_for_websocket_id(
+        self,
+        websocket_id: str,
+    ) -> None:
+        token = self._frontend_affinity_token_by_websocket_id.pop(websocket_id, None)
+        if token is None:
+            return
+        self._frontend_websocket_id_by_affinity_token.pop(token, None)
+
+    def _remove_socket(
+        self, websocket_id: str
+    ) -> WebsocketConnectionInfoWithSocket | None:
+        removed = self.sockets.pop(websocket_id, None)
+        self._remove_frontend_affinity_token_for_websocket_id(websocket_id)
+        return removed
+
+    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
         socket_info = self.sockets.get(toWebsocketId)
         if not socket_info:
-            return
+            return False
         websocket = socket_info.websocket
         if websocket.application_state != WebSocketState.CONNECTED:
-            self.sockets.pop(toWebsocketId, None)
-            return
+            self._remove_socket(toWebsocketId)
+            return False
         try:
             payload = message.model_dump_json()
             if self._send_timeout_s is None:
                 await websocket.send_text(payload)
-                return
+                return True
             send_task = asyncio.create_task(websocket.send_text(payload))
             _done, pending = await asyncio.wait(
                 {send_task},
@@ -105,21 +165,24 @@ class WebsocketManager:
                     toWebsocketId,
                     self._send_timeout_s,
                 )
-                self.sockets.pop(toWebsocketId, None)
+                self._remove_socket(toWebsocketId)
                 send_task.cancel()
-                return
+                return False
             # If the task completed, re-raise any exceptions so we can clean up sockets.
             send_task.result()
+            return True
         except asyncio.TimeoutError:
             logger.warning(
                 "Websocket %s send_text timed out after %.2fs; removing.",
                 toWebsocketId,
                 self._send_timeout_s,
             )
-            self.sockets.pop(toWebsocketId, None)
+            self._remove_socket(toWebsocketId)
+            return False
         except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
-            self.sockets.pop(toWebsocketId, None)
+            self._remove_socket(toWebsocketId)
+            return False
 
     async def send_bytes(self, payload: bytes, toWebsocketId: str) -> None:
         socket_info = self.sockets.get(toWebsocketId)
@@ -127,7 +190,7 @@ class WebsocketManager:
             return
         websocket = socket_info.websocket
         if websocket.application_state != WebSocketState.CONNECTED:
-            self.sockets.pop(toWebsocketId, None)
+            self._remove_socket(toWebsocketId)
             return
         try:
             if self._send_timeout_s is None:
@@ -144,7 +207,7 @@ class WebsocketManager:
                     toWebsocketId,
                     self._send_timeout_s,
                 )
-                self.sockets.pop(toWebsocketId, None)
+                self._remove_socket(toWebsocketId)
                 send_task.cancel()
                 return
             send_task.result()
@@ -154,10 +217,10 @@ class WebsocketManager:
                 toWebsocketId,
                 self._send_timeout_s,
             )
-            self.sockets.pop(toWebsocketId, None)
+            self._remove_socket(toWebsocketId)
         except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
-            self.sockets.pop(toWebsocketId, None)
+            self._remove_socket(toWebsocketId)
 
     async def broadcast(
         self,

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from setta.app.catalog import APP_CATALOG
 from setta.app.catalog import list_app_components as list_catalog_components
 from setta.app.spec_patch_stream import apply_patch_ops, parse_patch_lines
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import (
     ToolAccessMetadata,
     ToolArgumentPreviewKind,
@@ -78,9 +79,12 @@ async def stream_app_definition(
     )
 
     if not patches.strip():
-        raise ValueError("patches must be non-empty.")
+        raise InvalidToolArgumentsError("patches must be non-empty.")
 
-    ops = parse_patch_lines(patches)
+    try:
+        ops = parse_patch_lines(patches)
+    except ValueError as exc:
+        raise InvalidToolArgumentsError(f"Invalid patches payload: {exc}") from exc
 
     manager = ctx.fastmcp.state.project_manager_switcher.main
     if manager is None:
@@ -93,10 +97,15 @@ async def stream_app_definition(
             initial_spec = current.appSpec
     else:
         if not isinstance(baseAppSpec, dict):
-            raise ValueError("baseAppSpec must be a JSON object (or omitted).")
+            raise InvalidToolArgumentsError(
+                "baseAppSpec must be a JSON object (or omitted)."
+            )
         initial_spec = baseAppSpec
 
-    app_spec = apply_patch_ops(ops, initial_spec=initial_spec)
+    try:
+        app_spec = apply_patch_ops(ops, initial_spec=initial_spec)
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise InvalidToolArgumentsError(f"Invalid patches payload: {exc}") from exc
     return await manager.set_app_definition(
         SetAppDefinitionRequest(
             appSpec=app_spec,

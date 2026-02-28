@@ -20,6 +20,10 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
+vi.mock("state/actions/frontendWebsocketAffinity", () => ({
+  getFrontendWebsocketAffinityId: vi.fn(() => "frontend-test-id"),
+}));
+
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
@@ -269,5 +273,31 @@ describe("submitMessage", () => {
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
     expect(payload.appSpecStreamingEnabled).toBe(true);
+  });
+
+  it("includes frontend websocket affinity id in llm requests", async () => {
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Check websocket affinity propagation.",
+        [],
+        false,
+        "engine-primary",
+        false,
+      ),
+    ).resolves.toBeNull();
+
+    const [payload] = route_get_llm_response.mock.calls[0] as [
+      { frontendWebsocketId: string | null },
+    ];
+    expect(payload.frontendWebsocketId).toBe("frontend-test-id");
   });
 });

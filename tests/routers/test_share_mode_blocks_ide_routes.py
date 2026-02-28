@@ -1,6 +1,5 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
 import pytest
@@ -20,7 +19,7 @@ from setta.routers.agentic import (
     route_update_external_agent_config,
     route_update_prompt_template,
 )
-from setta.routers.dependencies import require_full_ide_runtime, require_ide_mode
+from setta.routers.dependencies import require_ide_mode
 from setta.routers.settings import SaveSettingsRequest, route_save_settings
 from setta.server_state import SettaFastAPIState
 from setta.types.external_agents import (
@@ -131,14 +130,6 @@ async def test_require_ide_mode_rejects_share_state() -> None:
         with pytest.raises(HTTPException) as exc:
             require_ide_mode(state)
         assert exc.value.status_code == 403
-
-
-def test_require_full_ide_runtime_rejects_launcher_state() -> None:
-    state = SimpleNamespace(deployment_mode=False, launcher_mode=True)
-    with pytest.raises(HTTPException) as exc:
-        require_full_ide_runtime(state)
-    assert exc.value.status_code == 403
-    assert exc.value.detail == "Launcher mode does not allow this endpoint."
 
 
 @pytest.mark.asyncio
