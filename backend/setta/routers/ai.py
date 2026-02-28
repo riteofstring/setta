@@ -477,15 +477,6 @@ def _normalize_reference_image_inputs(
     )
 
 
-def _normalize_frontend_websocket_id(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        return None
-    return normalized
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -494,7 +485,6 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
-    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -756,11 +746,6 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
-    normalized_frontend_websocket_id = _normalize_frontend_websocket_id(
-        x.frontendWebsocketId
-    )
-    if ctx.share_session_id is not None:
-        normalized_frontend_websocket_id = None
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -810,8 +795,6 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
-        if normalized_frontend_websocket_id is not None:
-            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -887,8 +870,6 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
-        if normalized_frontend_websocket_id is not None:
-            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:
