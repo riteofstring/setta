@@ -19,6 +19,16 @@ class _RevealResultWaiter:
     expected_setting_ids: frozenset[str] | None
 
 
+class RevealResultTransportDisconnectedError(RuntimeError):
+    def __init__(self, *, request_id: str, websocket_id: str) -> None:
+        self.request_id = request_id
+        self.websocket_id = websocket_id
+        super().__init__(
+            "Frontend websocket disconnected while reveal request was pending: "
+            f"{websocket_id} (request {request_id})"
+        )
+
+
 class UISettingRevealResultHub:
     def __init__(self) -> None:
         self._waiters_by_request_id: dict[str, _RevealResultWaiter] = {}
@@ -54,6 +64,23 @@ class UISettingRevealResultHub:
             return False
         waiter.cancel()
         return True
+
+    def cancel_requests_for_websocket_id(self, websocket_id: str) -> int:
+        cancelled_count = 0
+        for request_id, waiter_record in list(self._waiters_by_request_id.items()):
+            if waiter_record.expected_websocket_id != websocket_id:
+                continue
+            waiter = waiter_record.future
+            if waiter.done():
+                continue
+            waiter.set_exception(
+                RevealResultTransportDisconnectedError(
+                    request_id=request_id,
+                    websocket_id=websocket_id,
+                )
+            )
+            cancelled_count += 1
+        return cancelled_count
 
     async def wait_for_result(
         self,

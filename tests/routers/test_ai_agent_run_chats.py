@@ -655,7 +655,7 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=ID("project-policy"),
                         allowUnscoped=True,
-                        frontendWebsocketId="  frontend-managed  ",
+                        frontendAffinityToken="  frontend-managed  ",
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                         appGenerationMode="json_render",
@@ -680,10 +680,10 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-managed"
+            assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
             assert "skillsEnabled" not in captured_inputs
 
-    async def test_get_llm_response_share_scope_preserves_frontend_websocket_id_for_managed_runner(
+    async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_managed_runner(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -718,7 +718,7 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=ID("project-policy"),
                         allowUnscoped=True,
-                        frontendWebsocketId="frontend-managed",
+                        frontendAffinityToken="frontend-managed",
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                     ),
@@ -728,9 +728,9 @@ class TestAgentRunChatRoutes:
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-managed"
+            assert captured_inputs.get("frontendAffinityToken") == "frontend-managed"
 
-    async def test_get_llm_response_rejects_whitespace_only_frontend_websocket_id(
+    async def test_get_llm_response_rejects_whitespace_only_frontend_affinity_token(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -760,14 +760,14 @@ class TestAgentRunChatRoutes:
                             thinking=False,
                             projectConfigId=ID("project-policy"),
                             allowUnscoped=True,
-                            frontendWebsocketId="   ",
+                            frontendAffinityToken="   ",
                             permissionMode=ChatPermissionMode.yolo,
                             searchEnabled=False,
                         ),
                         ctx,
                     )
             assert exc_info.value.status_code == 400
-            assert "frontendWebsocketId" in str(exc_info.value.detail)
+            assert "frontendAffinityToken" in str(exc_info.value.detail)
 
     async def test_get_llm_response_includes_execution_policy_for_external_runner(
         self,
@@ -863,7 +863,7 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=project_config.id,
                         allowUnscoped=True,
-                        frontendWebsocketId="  frontend-external  ",
+                        frontendAffinityToken="  frontend-external  ",
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
                     ),
@@ -875,7 +875,7 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-external"
+            assert captured_inputs.get("frontendAffinityToken") == "frontend-external"
             assert "skillsEnabled" not in captured_inputs
             assert captured_inputs.get("approvalPolicy") == "on-request"
             system_prompt = captured_inputs.get("systemPrompt")
@@ -886,7 +886,7 @@ class TestAgentRunChatRoutes:
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
 
-    async def test_get_llm_response_share_scope_preserves_frontend_websocket_id_for_external_runner(
+    async def test_get_llm_response_share_scope_preserves_frontend_affinity_token_for_external_runner(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -966,7 +966,7 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=project_config.id,
                         allowUnscoped=True,
-                        frontendWebsocketId="frontend-external",
+                        frontendAffinityToken="frontend-external",
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
                     ),
@@ -976,7 +976,7 @@ class TestAgentRunChatRoutes:
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-external"
+            assert captured_inputs.get("frontendAffinityToken") == "frontend-external"
 
     async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
         self,

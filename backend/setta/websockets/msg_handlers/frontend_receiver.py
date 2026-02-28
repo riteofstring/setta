@@ -151,7 +151,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             )
         await self.websocket_manager.send_message(
             WebsocketMsgFrontendIdentity(
-                content={"websocketId": frontend_affinity_token}
+                content={"frontendAffinityToken": frontend_affinity_token}
             ),
             _websocket_id,
         )
@@ -160,6 +160,9 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         if self.project_manager is None:
             return
         await self.project_manager.broadcast_all_project_metadata()
+
+    async def on_disconnect(self, websocket_id: str):
+        self.ui_setting_reveal_result_hub.cancel_requests_for_websocket_id(websocket_id)
 
     async def _handle_realtime_ui_change(
         self,

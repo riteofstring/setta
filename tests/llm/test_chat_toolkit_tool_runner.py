@@ -71,7 +71,7 @@ class TestToolRunner:
         with pytest.raises(ValueError):
             await runner.run(tool_calls)
 
-    async def test_runner_propagates_frontend_websocket_id_meta_for_setta_tools(
+    async def test_runner_propagates_frontend_affinity_token_meta_for_setta_tools(
         self,
     ) -> None:
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "alpha_tool")
@@ -108,7 +108,7 @@ class TestToolRunner:
             project_config_id=ID("project-1"),
             chat_id=ID("chat-1"),
             section_id=ID("section-1"),
-            frontend_websocket_id="frontend-1",
+            frontend_affinity_token="frontend-1",
             strict=True,
         )
 
@@ -121,11 +121,11 @@ class TestToolRunner:
                 "projectConfigId": "project-1",
                 "chatId": "chat-1",
                 "sectionId": "section-1",
-                "frontendWebsocketId": "frontend-1",
+                "frontendAffinityToken": "frontend-1",
             }
         ]
 
-    async def test_runner_preserves_frontend_websocket_id_meta_for_share_scoped_setta_tools(
+    async def test_runner_preserves_frontend_affinity_token_meta_for_share_scoped_setta_tools(
         self,
     ) -> None:
         tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "alpha_tool")
@@ -163,7 +163,7 @@ class TestToolRunner:
             project_config_id=ID("project-1"),
             chat_id=ID("chat-1"),
             section_id=ID("section-1"),
-            frontend_websocket_id="frontend-1",
+            frontend_affinity_token="frontend-1",
             strict=True,
         )
 
@@ -177,6 +177,6 @@ class TestToolRunner:
                 "projectConfigId": "project-1",
                 "chatId": "chat-1",
                 "sectionId": "section-1",
-                "frontendWebsocketId": "frontend-1",
+                "frontendAffinityToken": "frontend-1",
             }
         ]

@@ -9,7 +9,7 @@ from setta.agentic.completion_report import (
     build_completion_status_report,
 )
 from setta.agentic.store import load_agent_profiles
-from setta.frontend_websocket_id import parse_frontend_websocket_id
+from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
@@ -23,7 +23,7 @@ def set_agentic_context(
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
-    frontendWebsocketId: str | None = None,
+    frontendAffinityToken: str | None = None,
     allowUnscoped: bool = False,
     ctx: Context,
 ) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def set_agentic_context(
         projectConfigId: Active project config id.
         chatId: Chat id for the agent run.
         sectionId: Chat section id (required unless allowUnscoped=true).
-        frontendWebsocketId: Frontend websocket id for reveal routing affinity.
+        frontendAffinityToken: Frontend affinity token for reveal routing.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
     """
     if sectionId is None and not allowUnscoped:
@@ -46,7 +46,7 @@ def set_agentic_context(
             "allowUnscoped requires sectionId to be omitted."
         )
     try:
-        frontend_websocket_id = parse_frontend_websocket_id(frontendWebsocketId)
+        frontend_affinity_token = parse_frontend_affinity_token(frontendAffinityToken)
     except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
     ctx.fastmcp.set_agentic_context_for_session(
@@ -55,7 +55,7 @@ def set_agentic_context(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
-            frontend_websocket_id=frontend_websocket_id,
+            frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allowUnscoped,
         ),
     )

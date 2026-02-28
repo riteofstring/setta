@@ -1,9 +1,9 @@
 import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
-  getFrontendWebsocketAffinityId,
+  getFrontendAffinityToken,
   setActiveFrontendWebsocketAffinityGeneration,
-  setFrontendWebsocketAffinityId,
+  setFrontendAffinityToken,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
 import {
@@ -43,7 +43,7 @@ describe("frontendWebsocketAffinity", () => {
       shareSessionId: null,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("clears websocket affinity when no unique matching connection exists", () => {
@@ -67,13 +67,13 @@ describe("frontendWebsocketAffinity", () => {
       shareSessionId: null,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("ignores stale generation updates", () => {
     const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
     setActiveFrontendWebsocketAffinityGeneration(2);
-    setFrontendWebsocketAffinityId("frontend-stale", 1);
+    setFrontendAffinityToken("frontend-stale", 1);
     updateFrontendWebsocketAffinity({
       connections: [
         createWebsocketConnectionInfo({
@@ -88,7 +88,7 @@ describe("frontendWebsocketAffinity", () => {
       socketGeneration: 1,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("keeps affinity empty until FrontendIdentity arrives for the active generation", () => {
@@ -108,8 +108,8 @@ describe("frontendWebsocketAffinity", () => {
       socketGeneration: 2,
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
-    setFrontendWebsocketAffinityId("affinity-token", 2);
-    expect(getFrontendWebsocketAffinityId()).toBe("affinity-token");
+    expect(getFrontendAffinityToken()).toBeNull();
+    setFrontendAffinityToken("affinity-token", 2);
+    expect(getFrontendAffinityToken()).toBe("affinity-token");
   });
 });

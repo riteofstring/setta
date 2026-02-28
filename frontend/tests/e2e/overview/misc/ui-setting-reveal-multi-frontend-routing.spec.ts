@@ -38,7 +38,7 @@ async function callMcpTool<TStructured>(
   projectConfigId: string,
   tool: string,
   argumentsPayload: Record<string, unknown>,
-  frontendWebsocketId?: string | null,
+  frontendAffinityToken?: string | null,
   shareSessionId?: string,
 ): Promise<TStructured> {
   const agenticContext: Record<string, unknown> = {
@@ -46,10 +46,10 @@ async function callMcpTool<TStructured>(
     allowUnscoped: true,
   };
   if (
-    typeof frontendWebsocketId === "string" &&
-    frontendWebsocketId.trim() !== ""
+    typeof frontendAffinityToken === "string" &&
+    frontendAffinityToken.trim() !== ""
   ) {
-    agenticContext.frontendWebsocketId = frontendWebsocketId;
+    agenticContext.frontendAffinityToken = frontendAffinityToken;
   }
   if (typeof shareSessionId === "string" && shareSessionId.trim() !== "") {
     agenticContext.shareSessionId = shareSessionId;
@@ -115,14 +115,15 @@ async function installFrontendIdentityCapture(page: Page): Promise<void> {
             try {
               const payload = JSON.parse(event.data) as {
                 messageType?: unknown;
-                content?: { websocketId?: unknown };
+                content?: { frontendAffinityToken?: unknown };
               };
               if (
                 payload.messageType === identityMessageType &&
-                typeof payload.content?.websocketId === "string" &&
-                payload.content.websocketId.trim() !== ""
+                typeof payload.content?.frontendAffinityToken === "string" &&
+                payload.content.frontendAffinityToken.trim() !== ""
               ) {
-                targetWindow[globalKey] = payload.content.websocketId.trim();
+                targetWindow[globalKey] =
+                  payload.content.frontendAffinityToken.trim();
               }
             } catch {}
           }
@@ -366,7 +367,7 @@ test("share-scoped reveal_ui_setting rejects whitespace frontend affinity ids at
           },
           agenticContext: {
             projectConfigId: projectContext.projectConfigId,
-            frontendWebsocketId: "   ",
+            frontendAffinityToken: "   ",
             allowUnscoped: true,
             shareSessionId: "share-session-e2e",
           },
@@ -377,7 +378,7 @@ test("share-scoped reveal_ui_setting rejects whitespace frontend affinity ids at
     expect(response.status()).toBe(422);
     const responseText = await response.text();
     expect(responseText).toContain(
-      "frontendWebsocketId must be a non-empty string when provided.",
+      "frontendAffinityToken must be a non-empty string when provided.",
     );
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);

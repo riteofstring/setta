@@ -79,10 +79,11 @@ class _RecordingFrontendSender:
         )
         self.forced_status_by_setting_id: dict[str, UISettingRevealResultStatus] = {}
         self.reveal_target_websocket_id: str | None = "frontend-test"
-        self.connected_frontend_websocket_ids: list[str] = ["frontend-test"]
+        self.connected_frontend_affinity_tokens: list[str] = ["frontend-test"]
         self.undeliverable_target_websocket_ids: set[str] = set()
+        self.disconnect_after_dispatch_websocket_ids: set[str] = set()
         self.resolved_target_websocket_ids: list[str] = []
-        self.frontend_websocket_id_by_affinity_token: dict[str, str] = {}
+        self.frontend_affinity_token_by_affinity_token: dict[str, str] = {}
         self.skip_reveal_result_resolution = False
         self.override_reveal_statuses: list[UISettingRevealResultStatus] | None = None
         self.override_reveal_project_config_id: ID | None = None
@@ -93,9 +94,9 @@ class _RecordingFrontendSender:
         affinity_token: str,
         share_session_id: str | None = None,  # noqa: ARG002 - signature parity
     ) -> str | None:
-        if affinity_token in self.frontend_websocket_id_by_affinity_token:
-            return self.frontend_websocket_id_by_affinity_token[affinity_token]
-        if affinity_token in self.connected_frontend_websocket_ids:
+        if affinity_token in self.frontend_affinity_token_by_affinity_token:
+            return self.frontend_affinity_token_by_affinity_token[affinity_token]
+        if affinity_token in self.connected_frontend_affinity_tokens:
             return affinity_token
         return None
 
@@ -106,21 +107,21 @@ class _RecordingFrontendSender:
         preferred_websocket_id: str | None = None,
     ) -> str | None:
         if preferred_websocket_id is not None:
-            if preferred_websocket_id in self.connected_frontend_websocket_ids:
+            if preferred_websocket_id in self.connected_frontend_affinity_tokens:
                 return preferred_websocket_id
             return None
         if self.reveal_target_websocket_id is not None:
             return self.reveal_target_websocket_id
-        if not self.connected_frontend_websocket_ids:
+        if not self.connected_frontend_affinity_tokens:
             return None
-        return sorted(self.connected_frontend_websocket_ids)[0]
+        return sorted(self.connected_frontend_affinity_tokens)[0]
 
     def list_frontend_websocket_ids_for_ui_setting_reveal(
         self,
         *,
         share_session_id: str | None = None,  # noqa: ARG002 - signature parity
     ) -> list[str]:
-        return sorted(self.connected_frontend_websocket_ids)
+        return sorted(self.connected_frontend_affinity_tokens)
 
     async def broadcast_ui_setting_reveal(
         self,
@@ -142,6 +143,14 @@ class _RecordingFrontendSender:
             return None
         self.resolved_target_websocket_ids.append(resolved_target_websocket_id)
         self.reveal_messages.append((content, share_session_id))
+        if (
+            resolved_target_websocket_id
+            in self.disconnect_after_dispatch_websocket_ids
+        ):
+            self.reveal_result_hub.cancel_requests_for_websocket_id(
+                resolved_target_websocket_id
+            )
+            return resolved_target_websocket_id
         if self.skip_reveal_result_resolution:
             return resolved_target_websocket_id
         statuses: list[UISettingRevealResultStatus] = []
@@ -179,7 +188,7 @@ class _RecordingFrontendSender:
 class _RequestMetaModel(BaseModel):
     projectConfigId: ID
     sectionId: ID | None = None
-    frontendWebsocketId: str | None = None
+    frontendAffinityToken: str | None = None
 
 
 def _build_ctx(
@@ -1707,7 +1716,7 @@ async def test_reveal_right_pane_prefers_explicit_section_over_agentic_and_reque
                 project_config_id=project_config_id,
                 chat_id=ID("chat-agentic"),
                 section_id=non_explicit_section_id,
-                frontend_websocket_id=None,
+                frontend_affinity_token=None,
                 allow_unscoped=True,
             ),
         )
@@ -1789,7 +1798,7 @@ async def test_reveal_right_pane_no_frontend_does_not_mutate_active_section() ->
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.connected_frontend_affinity_tokens = []
         frontend_sender.reveal_target_websocket_id = None
         manager = project_fixture.manager
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
@@ -1969,7 +1978,7 @@ async def test_set_ui_setting_value_reveal_after_set_no_frontend_does_not_activa
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.connected_frontend_affinity_tokens = []
         frontend_sender.reveal_target_websocket_id = None
         manager = project_fixture.manager
         project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
@@ -2154,7 +2163,7 @@ async def test_reveal_right_pane_uses_agentic_context_project_and_section() -> N
                 project_config_id=target_project_config_id,
                 chat_id=ID("chat-agentic"),
                 section_id=section_id,
-                frontend_websocket_id=None,
+                frontend_affinity_token=None,
                 allow_unscoped=True,
             ),
         )
@@ -2209,7 +2218,7 @@ async def test_ui_setting_tools_reject_project_argument_mismatching_agentic_cont
                 project_config_id=project_config_id_a,
                 chat_id=ID("chat-agentic"),
                 section_id=None,
-                frontend_websocket_id=None,
+                frontend_affinity_token=None,
                 allow_unscoped=True,
             ),
         )
@@ -2300,7 +2309,7 @@ async def test_ui_setting_tools_reject_project_argument_mismatch_in_share_mode()
                 project_config_id=project_config_id_a,
                 chat_id=ID("chat-agentic"),
                 section_id=None,
-                frontend_websocket_id=None,
+                frontend_affinity_token=None,
                 allow_unscoped=True,
             ),
             resolved_share_session_id=share_session_id,
@@ -2331,7 +2340,7 @@ async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup(
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-share"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-share"]
         manager = project_fixture.manager
         settings_manager = settings_fixture.manager
         required_share_session_id = "share-session-test"
@@ -2356,7 +2365,7 @@ async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup(
                 project_config_id=project_config_id,
                 chat_id=ID("chat-share-session-propagation"),
                 section_id=None,
-                frontend_websocket_id="frontend-share",
+                frontend_affinity_token="frontend-share",
                 allow_unscoped=True,
             ),
             deployment_mode=True,
@@ -2400,7 +2409,7 @@ async def test_ui_setting_tools_prefer_resolved_share_session_id_over_request_me
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-share"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-share"]
         manager = project_fixture.manager
         settings_manager = settings_fixture.manager
         resolved_share_session_id = "share-session-resolved"
@@ -2426,7 +2435,7 @@ async def test_ui_setting_tools_prefer_resolved_share_session_id_over_request_me
                 project_config_id=project_config_id,
                 chat_id=ID("chat-resolved-share-session"),
                 section_id=None,
-                frontend_websocket_id="frontend-share",
+                frontend_affinity_token="frontend-share",
                 allow_unscoped=True,
             ),
         )
@@ -2531,7 +2540,7 @@ async def test_ui_setting_tools_share_scope_without_project_id_uses_share_defaul
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_websocket_id() -> (
+async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_affinity_token() -> (
     None
 ):
     async with (
@@ -2539,7 +2548,7 @@ async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_we
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -2563,14 +2572,14 @@ async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_we
             request_meta={
                 "projectConfigId": project_config_id,
                 "shareSessionId": required_share_session_id,
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
             resolved_share_session_id=required_share_session_id,
             agentic_context=AgenticContext(
                 project_config_id=project_config_id,
                 chat_id=ID("chat-share-origin"),
                 section_id=None,
-                frontend_websocket_id="frontend-a",
+                frontend_affinity_token="frontend-a",
                 allow_unscoped=True,
             ),
         )
@@ -2589,7 +2598,7 @@ async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_we
 
 
 @pytest.mark.asyncio
-async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_websocket_id() -> (
+async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_affinity_token() -> (
     None
 ):
     async with (
@@ -2597,7 +2606,7 @@ async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -2621,14 +2630,14 @@ async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_
             request_meta={
                 "projectConfigId": project_config_id,
                 "shareSessionId": required_share_session_id,
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
             resolved_share_session_id=required_share_session_id,
             agentic_context=AgenticContext(
                 project_config_id=project_config_id,
                 chat_id=ID("chat-share-origin-after-set"),
                 section_id=None,
-                frontend_websocket_id="frontend-a",
+                frontend_affinity_token="frontend-a",
                 allow_unscoped=True,
             ),
         )
@@ -2776,7 +2785,7 @@ async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected()
     ):
         frontend_sender = _RecordingFrontendSender()
         frontend_sender.reveal_target_websocket_id = None
-        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.connected_frontend_affinity_tokens = []
         ctx = _build_ctx(
             main_manager=project_fixture.manager,
             settings_manager=settings_fixture.manager,
@@ -2810,7 +2819,7 @@ async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_ori
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -2846,7 +2855,7 @@ async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_aff
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -2860,7 +2869,7 @@ async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_aff
             request_meta={
                 "projectConfigId": project_config_id,
                 "shareSessionId": "share-session-ambiguous",
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
             resolved_share_session_id="share-session-ambiguous",
         )
@@ -2887,7 +2896,7 @@ async def test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_targ
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = None
         project_config_id = ID(
             project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -2922,7 +2931,7 @@ async def test_reveal_ui_setting_share_scope_reports_no_frontend_without_affinit
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.connected_frontend_affinity_tokens = []
         frontend_sender.reveal_target_websocket_id = None
         project_config_id = ID(
             project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -2959,7 +2968,7 @@ async def test_reveal_ui_setting_fails_when_share_scope_affinity_token_is_invali
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -2979,7 +2988,7 @@ async def test_reveal_ui_setting_fails_when_share_scope_affinity_token_is_invali
                 project_config_id=project_config_id,
                 chat_id=ID("chat-share-invalid-token"),
                 section_id=None,
-                frontend_websocket_id="invalid-affinity-token",
+                frontend_affinity_token="invalid-affinity-token",
                 allow_unscoped=True,
             ),
         )
@@ -3005,7 +3014,7 @@ async def test_reveal_ui_setting_ignores_meta_share_session_id_in_ide_mode() -> 
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -3039,7 +3048,7 @@ async def test_reveal_ui_setting_in_ide_mode_keeps_frontend_affinity_when_meta_h
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -3054,7 +3063,7 @@ async def test_reveal_ui_setting_in_ide_mode_keeps_frontend_affinity_when_meta_h
             request_meta={
                 "projectConfigId": project_config_id,
                 "shareSessionId": "caller-share-session",
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
         )
 
@@ -3069,7 +3078,7 @@ async def test_reveal_ui_setting_in_ide_mode_keeps_frontend_affinity_when_meta_h
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta() -> (
+async def test_reveal_ui_setting_prefers_frontend_affinity_token_from_request_meta() -> (
     None
 ):
     async with (
@@ -3077,7 +3086,7 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -3091,7 +3100,7 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
         )
 
@@ -3106,7 +3115,7 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_agentic_context_over_request_meta() -> (
+async def test_reveal_ui_setting_prefers_frontend_affinity_token_from_agentic_context_over_request_meta() -> (
     None
 ):
     async with (
@@ -3114,7 +3123,7 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_agentic_cont
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = [
+        frontend_sender.connected_frontend_affinity_tokens = [
             "frontend-a",
             "frontend-b",
         ]
@@ -3128,13 +3137,13 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_agentic_cont
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-b",
+                "frontendAffinityToken": "frontend-b",
             },
             agentic_context=AgenticContext(
                 project_config_id=project_config_id,
                 chat_id=ID("chat-agentic"),
                 section_id=None,
-                frontend_websocket_id="frontend-a",
+                frontend_affinity_token="frontend-a",
                 allow_unscoped=True,
             ),
         )
@@ -3159,7 +3168,7 @@ async def test_reveal_ui_setting_fails_when_preferred_frontend_websocket_is_miss
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         project_config_id = ID(
             project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -3170,7 +3179,7 @@ async def test_reveal_ui_setting_fails_when_preferred_frontend_websocket_is_miss
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-missing",
+                "frontendAffinityToken": "frontend-missing",
             },
         )
 
@@ -3196,7 +3205,7 @@ async def test_reveal_ui_setting_fails_immediately_when_selected_frontend_become
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
         project_config_id = ID(
@@ -3208,7 +3217,7 @@ async def test_reveal_ui_setting_fails_immediately_when_selected_frontend_become
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3239,7 +3248,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_dispatch_is_
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
         manager = project_fixture.manager
@@ -3268,7 +3277,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_dispatch_is_
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3296,7 +3305,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_timeo
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.skip_reveal_result_resolution = True
         monkeypatch.setattr(
@@ -3330,7 +3339,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_timeo
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3353,6 +3362,69 @@ async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_timeo
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_disconnect() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.disconnect_after_dispatch_websocket_ids = {"frontend-a"}
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendAffinityToken": "frontend-a",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            durationMs=1000,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert "disconnected before reveal confirmation" in (
+            result.statuses[0].error.message
+        )
+        assert "Timed out waiting for frontend reveal confirmation" not in (
+            result.statuses[0].error.message
+        )
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
 async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -3361,7 +3433,7 @@ async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.skip_reveal_result_resolution = True
         monkeypatch.setattr(
@@ -3407,7 +3479,7 @@ async def test_reveal_right_pane_timeout_does_not_clobber_newer_active_selection
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3459,7 +3531,7 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_newer_same_targ
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.skip_reveal_result_resolution = True
         monkeypatch.setattr(
@@ -3493,7 +3565,7 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_newer_same_targ
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3550,7 +3622,7 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_user_aba_naviga
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.skip_reveal_result_resolution = True
         monkeypatch.setattr(
@@ -3596,7 +3668,7 @@ async def test_reveal_right_pane_timeout_does_not_rollback_after_user_aba_naviga
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3654,7 +3726,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_sta
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.override_reveal_statuses = [
             UISettingRevealResultStatus(
@@ -3690,7 +3762,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_when_frontend_sta
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3720,7 +3792,7 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.override_reveal_project_config_id = ID("project-mismatch")
         monkeypatch.setattr(
@@ -3736,7 +3808,7 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3763,7 +3835,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_faile
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.forced_status_by_setting_id[
             "core.project.show_param_display_names"
@@ -3799,7 +3871,7 @@ async def test_reveal_right_pane_rolls_back_section_activation_on_frontend_faile
             frontend_sender=frontend_sender,
             request_meta={
                 "projectConfigId": project_config_id,
-                "frontendWebsocketId": "frontend-a",
+                "frontendAffinityToken": "frontend-a",
             },
         )
 
@@ -3827,7 +3899,7 @@ async def test_set_ui_setting_value_reveal_after_set_rolls_back_section_on_undel
         real_settings_manager() as settings_fixture,
     ):
         frontend_sender = _RecordingFrontendSender()
-        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.connected_frontend_affinity_tokens = ["frontend-a"]
         frontend_sender.reveal_target_websocket_id = "frontend-a"
         frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
         manager = project_fixture.manager
@@ -3857,7 +3929,7 @@ async def test_set_ui_setting_value_reveal_after_set_rolls_back_section_on_undel
             request_meta=_RequestMetaModel(
                 projectConfigId=project_config_id,
                 sectionId=section_id,
-                frontendWebsocketId="frontend-a",
+                frontendAffinityToken="frontend-a",
             ),
         )
         current_value_result = await get_ui_setting_value(

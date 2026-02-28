@@ -21,7 +21,7 @@ vi.mock("utils/generatedEndpoints", async () => {
 });
 
 vi.mock("state/actions/frontendWebsocketAffinity", () => ({
-  getFrontendWebsocketAffinityId: vi.fn(() => "frontend-test-id"),
+  getFrontendAffinityToken: vi.fn(() => "frontend-test-id"),
 }));
 
 let useAIStore: typeof import("state/definitions").useAIStore;
@@ -296,8 +296,8 @@ describe("submitMessage", () => {
     ).resolves.toBeNull();
 
     const [payload] = route_get_llm_response.mock.calls[0] as [
-      { frontendWebsocketId: string | null },
+      { frontendAffinityToken: string | null },
     ];
-    expect(payload.frontendWebsocketId).toBe("frontend-test-id");
+    expect(payload.frontendAffinityToken).toBe("frontend-test-id");
   });
 });

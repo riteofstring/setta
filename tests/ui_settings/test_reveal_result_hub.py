@@ -8,6 +8,7 @@ from setta.types.websocket import (
     UISettingRevealResultStatus,
 )
 from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
+from setta.ui_settings.reveal_result_hub import RevealResultTransportDisconnectedError
 
 
 def _build_reveal_result_content(
@@ -100,6 +101,26 @@ async def test_reveal_result_hub_cancel_request_drops_waiter() -> None:
 
     with pytest.raises(KeyError):
         await hub.wait_for_result(request_id="request-3", timeout_seconds=0.2)
+
+
+@pytest.mark.asyncio
+async def test_reveal_result_hub_cancel_requests_for_websocket_id_fails_waiter_immediately() -> (
+    None
+):
+    hub = UISettingRevealResultHub()
+    hub.register_request(
+        "request-3b",
+        expected_websocket_id="frontend-a",
+    )
+
+    cancelled_count = hub.cancel_requests_for_websocket_id("frontend-a")
+    assert cancelled_count == 1
+
+    with pytest.raises(
+        RevealResultTransportDisconnectedError,
+        match="frontend-a",
+    ):
+        await hub.wait_for_result(request_id="request-3b", timeout_seconds=0.2)
 
 
 @pytest.mark.asyncio

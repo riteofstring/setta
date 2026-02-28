@@ -135,7 +135,7 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
 
 
 class FrontendIdentityContent(BaseModel):
-    websocketId: str
+    frontendAffinityToken: str
 
 
 class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):

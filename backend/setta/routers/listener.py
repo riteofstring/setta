@@ -4,7 +4,7 @@ from setta.agentic.engine_resolver import resolve_engine_config
 from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit import ChatHistory, ToolRunner
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.frontend_websocket_id import require_frontend_websocket_id
+from setta.routers.frontend_affinity_token import require_frontend_affinity_token
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import EngineType
 from setta.types.chat import Chat, ChatMetadata
@@ -147,7 +147,7 @@ async def route_run_mcp_tools(
     if project_config_id is None:
         raise KeyError(f"Chat {x.chatId} missing project config id")
     server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
-    frontend_websocket_id = require_frontend_websocket_id(x.frontendWebsocketId)
+    frontend_affinity_token = require_frontend_affinity_token(x.frontendAffinityToken)
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),
@@ -155,7 +155,7 @@ async def route_run_mcp_tools(
         project_config_id=project_config_id,
         chat_id=x.chatId,
         section_id=x.sectionId,
-        frontend_websocket_id=frontend_websocket_id,
+        frontend_affinity_token=frontend_affinity_token,
     )
     return await runner.run(x.toolCalls)
 

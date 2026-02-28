@@ -85,7 +85,7 @@ from setta.types.section_impls import SectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
-    AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER,
+    AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -308,7 +308,7 @@ class TestExternalAgentRunnerContext:
                 engine_config_id=engine_config_id,
                 inputs={
                     "sectionId": str(chat_section_id),
-                    "frontendWebsocketId": "frontend-codex",
+                    "frontendAffinityToken": "frontend-codex",
                 },
             )
 
@@ -336,7 +336,7 @@ class TestExternalAgentRunnerContext:
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
                 chat_section_id
             )
-            assert headers.get(AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER) == (
+            assert headers.get(AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER) == (
                 "frontend-codex"
             )
 
@@ -1104,7 +1104,7 @@ class TestExternalAgentRunner:
                     inputs={"projectConfigId": 123},
                 )
 
-    def test_context_rejects_blank_frontend_websocket_id(self) -> None:
+    def test_context_rejects_blank_frontend_affinity_token(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
@@ -1118,14 +1118,14 @@ class TestExternalAgentRunner:
 
             with pytest.raises(
                 ValueError,
-                match="frontendWebsocketId must be a non-empty string when provided.",
+                match="frontendAffinityToken must be a non-empty string when provided.",
             ):
                 runner._build_context(
                     engine_config_id,
                     config,
                     profile=None,
                     inputs={
-                        "frontendWebsocketId": "   ",
+                        "frontendAffinityToken": "   ",
                         "allowUnscoped": True,
                     },
                 )

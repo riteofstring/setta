@@ -68,7 +68,8 @@ class _RecordingProjectManagerSwitcher:
 
 class _RecordingFrontendSender:
     def __init__(self) -> None:
-        self._frontend_websocket_ids_by_token: dict[str, str] = {}
+        self._frontend_affinity_tokens_by_token: dict[str, str] = {}
+        self._connected_frontend_websocket_ids: set[str] = set()
 
     def register_affinity(
         self,
@@ -76,7 +77,11 @@ class _RecordingFrontendSender:
         affinity_token: str,
         websocket_id: str,
     ) -> None:
-        self._frontend_websocket_ids_by_token[affinity_token] = websocket_id
+        self._frontend_affinity_tokens_by_token[affinity_token] = websocket_id
+        self._connected_frontend_websocket_ids.add(websocket_id)
+
+    def register_connected_frontend(self, websocket_id: str) -> None:
+        self._connected_frontend_websocket_ids.add(websocket_id)
 
     def resolve_frontend_websocket_id_from_affinity_token(
         self,
@@ -84,13 +89,21 @@ class _RecordingFrontendSender:
         affinity_token: str,
         share_session_id: str | None = None,  # noqa: ARG002
     ) -> str | None:
-        return self._frontend_websocket_ids_by_token.get(affinity_token)
+        return self._frontend_affinity_tokens_by_token.get(affinity_token)
+
+    def list_frontend_websocket_ids_for_ui_setting_reveal(
+        self,
+        *,
+        share_session_id: str | None = None,  # noqa: ARG002
+    ) -> list[str]:
+        return sorted(self._connected_frontend_websocket_ids)
 
 
 def _build_ctx(
     *,
     request_meta: dict[str, object] | None = None,
     agentic_context: AgenticContext | None = None,
+    agentic_context_resolver: Callable[[Context], object] | None = None,
     share_session_resolver: Callable[[Context], object] | None = None,
     project_manager_switcher: _RecordingProjectManagerSwitcher | None = None,
     frontend_sender: _RecordingFrontendSender | None = None,
@@ -111,7 +124,9 @@ def _build_ctx(
         deployment_mode=deployment_mode,
     )
     fastmcp = SimpleNamespace(state=state)
-    if agentic_context is not None:
+    if agentic_context_resolver is not None:
+        fastmcp._resolve_agentic_context = agentic_context_resolver
+    elif agentic_context is not None:
         fastmcp._resolve_agentic_context = lambda _ctx: agentic_context
     if share_session_resolver is not None:
         fastmcp._resolve_share_session_id = share_session_resolver
@@ -131,13 +146,13 @@ def _build_agentic_context(
     *,
     project_config_id: str,
     section_id: str | None = None,
-    frontend_websocket_id: str | None = None,
+    frontend_affinity_token: str | None = None,
 ) -> AgenticContext:
     return AgenticContext(
         project_config_id=ID(project_config_id),
         chat_id=ID("chat-test"),
         section_id=ID(section_id) if section_id is not None else None,
-        frontend_websocket_id=frontend_websocket_id,
+        frontend_affinity_token=frontend_affinity_token,
         allow_unscoped=True,
     )
 
@@ -244,6 +259,48 @@ def test_resolve_project_config_id_matrix(
     assert resolved_project_config_id == ID(expected_project_config_id)
 
 
+def test_resolve_project_config_id_rejects_agentic_context_value_error_without_fallback() -> (
+    None
+):
+    def _raise_value_error(_ctx: Context) -> object:
+        raise ValueError("Malformed agentic context metadata.")
+
+    ctx = _build_ctx(
+        request_meta={"projectConfigId": "project-meta"},
+        agentic_context_resolver=_raise_value_error,
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="Malformed agentic context metadata.",
+    ):
+        resolve_project_config_id_from_ctx(
+            ctx=ctx,
+            project_config_id=ID("project-explicit"),
+        )
+
+
+def test_resolve_project_config_id_rejects_agentic_context_type_error_without_fallback() -> (
+    None
+):
+    def _raise_type_error(_ctx: Context) -> object:
+        raise TypeError("allowUnscoped must be a boolean")
+
+    ctx = _build_ctx(
+        request_meta={"projectConfigId": "project-meta"},
+        agentic_context_resolver=_raise_type_error,
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="allowUnscoped must be a boolean",
+    ):
+        resolve_project_config_id_from_ctx(
+            ctx=ctx,
+            project_config_id=None,
+        )
+
+
 @pytest.mark.parametrize(
     (
         "explicit_section_id",
@@ -294,9 +351,9 @@ def test_resolve_section_id_matrix(
 
 @pytest.mark.parametrize(
     (
-        "agentic_frontend_websocket_id",
-        "meta_frontend_websocket_id",
-        "expected_frontend_websocket_id",
+        "agentic_frontend_affinity_token",
+        "meta_frontend_affinity_token",
+        "expected_frontend_affinity_token",
     ),
     [
         ("frontend-agentic", "frontend-meta", "frontend-agentic"),
@@ -304,18 +361,18 @@ def test_resolve_section_id_matrix(
         (None, None, None),
     ],
 )
-def test_resolve_frontend_websocket_id_matrix(
-    agentic_frontend_websocket_id: str | None,
-    meta_frontend_websocket_id: str | None,
-    expected_frontend_websocket_id: str | None,
+def test_resolve_frontend_affinity_token_matrix(
+    agentic_frontend_affinity_token: str | None,
+    meta_frontend_affinity_token: str | None,
+    expected_frontend_affinity_token: str | None,
 ) -> None:
     """Reveal routing affinity must prefer agentic context when both are valid."""
 
     request_meta: dict[str, object] = {}
-    if meta_frontend_websocket_id is not None:
-        request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    if meta_frontend_affinity_token is not None:
+        request_meta["frontendAffinityToken"] = meta_frontend_affinity_token
     frontend_sender = _RecordingFrontendSender()
-    for candidate in [agentic_frontend_websocket_id, meta_frontend_websocket_id]:
+    for candidate in [agentic_frontend_affinity_token, meta_frontend_affinity_token]:
         if isinstance(candidate, str) and candidate.strip() != "":
             frontend_sender.register_affinity(
                 affinity_token=candidate.strip(),
@@ -323,7 +380,7 @@ def test_resolve_frontend_websocket_id_matrix(
             )
     agentic_context = _build_agentic_context(
         project_config_id="project-agentic",
-        frontend_websocket_id=agentic_frontend_websocket_id,
+        frontend_affinity_token=agentic_frontend_affinity_token,
     )
     ctx = _build_ctx(
         request_meta=request_meta,
@@ -331,13 +388,13 @@ def test_resolve_frontend_websocket_id_matrix(
         frontend_sender=frontend_sender,
     )
 
-    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
+    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_affinity_token
 
 
 @pytest.mark.parametrize(
     (
-        "agentic_frontend_websocket_id",
-        "meta_frontend_websocket_id",
+        "agentic_frontend_affinity_token",
+        "meta_frontend_affinity_token",
     ),
     [
         ("   ", "frontend-meta"),
@@ -345,51 +402,68 @@ def test_resolve_frontend_websocket_id_matrix(
         (None, 123),
     ],
 )
-def test_resolve_frontend_websocket_id_rejects_malformed_values(
-    agentic_frontend_websocket_id: str | None,
-    meta_frontend_websocket_id: object | None,
+def test_resolve_frontend_affinity_token_rejects_malformed_values(
+    agentic_frontend_affinity_token: str | None,
+    meta_frontend_affinity_token: object | None,
 ) -> None:
     request_meta: dict[str, object] = {}
-    if meta_frontend_websocket_id is not None:
-        request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    if meta_frontend_affinity_token is not None:
+        request_meta["frontendAffinityToken"] = meta_frontend_affinity_token
     ctx = _build_ctx(
         request_meta=request_meta,
         agentic_context=_build_agentic_context(
             project_config_id="project-agentic",
-            frontend_websocket_id=agentic_frontend_websocket_id,
+            frontend_affinity_token=agentic_frontend_affinity_token,
         ),
     )
 
     with pytest.raises(
         InvalidToolArgumentsError,
-        match="frontendWebsocketId must be a non-empty string when provided.",
+        match="frontendAffinityToken must be a non-empty string when provided.",
+    ):
+        resolve_frontend_websocket_id_from_ctx(ctx)
+
+
+def test_resolve_frontend_affinity_token_rejects_connected_websocket_id_input() -> (
+    None
+):
+    frontend_sender = _RecordingFrontendSender()
+    frontend_sender.register_connected_frontend("frontend-raw-id")
+    ctx = _build_ctx(
+        request_meta={"frontendAffinityToken": "frontend-raw-id"},
+        frontend_sender=frontend_sender,
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="not a websocket id",
     ):
         resolve_frontend_websocket_id_from_ctx(ctx)
 
 
 @pytest.mark.parametrize(
     (
-        "agentic_frontend_websocket_id",
-        "meta_frontend_websocket_id",
-        "expected_frontend_websocket_id",
+        "agentic_frontend_affinity_token",
+        "meta_frontend_affinity_token",
+        "expected_frontend_affinity_token",
     ),
     [
         ("frontend-agentic", "frontend-meta", "frontend-agentic"),
         (None, "frontend-meta", None),
     ],
 )
-def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope(
-    agentic_frontend_websocket_id: str | None,
-    meta_frontend_websocket_id: str | None,
-    expected_frontend_websocket_id: str | None,
+def test_resolve_frontend_affinity_token_uses_agentic_affinity_only_in_share_scope(
+    agentic_frontend_affinity_token: str | None,
+    meta_frontend_affinity_token: str | None,
+    expected_frontend_affinity_token: str | None,
 ) -> None:
     """Share-scoped reveal routing must ignore request-meta affinity but honor agentic context."""
 
     request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
-    if meta_frontend_websocket_id is not None:
-        request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    if meta_frontend_affinity_token is not None:
+        request_meta["frontendAffinityToken"] = meta_frontend_affinity_token
     frontend_sender = _RecordingFrontendSender()
-    for candidate in [agentic_frontend_websocket_id, meta_frontend_websocket_id]:
+    for candidate in [agentic_frontend_affinity_token, meta_frontend_affinity_token]:
         if isinstance(candidate, str) and candidate.strip() != "":
             frontend_sender.register_affinity(
                 affinity_token=candidate.strip(),
@@ -397,7 +471,7 @@ def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope
             )
     agentic_context = _build_agentic_context(
         project_config_id="project-agentic",
-        frontend_websocket_id=agentic_frontend_websocket_id,
+        frontend_affinity_token=agentic_frontend_affinity_token,
     )
     ctx = _build_ctx(
         request_meta=request_meta,
@@ -406,35 +480,35 @@ def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope
         frontend_sender=frontend_sender,
     )
 
-    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
+    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_affinity_token
 
 
 @pytest.mark.parametrize(
-    ("agentic_frontend_websocket_id", "meta_frontend_websocket_id"),
+    ("agentic_frontend_affinity_token", "meta_frontend_affinity_token"),
     [
         ("   ", "frontend-meta"),
         (None, "   "),
         (None, 456),
     ],
 )
-def test_resolve_frontend_websocket_id_rejects_malformed_values_in_share_scope(
-    agentic_frontend_websocket_id: str | None,
-    meta_frontend_websocket_id: object,
+def test_resolve_frontend_affinity_token_rejects_malformed_values_in_share_scope(
+    agentic_frontend_affinity_token: str | None,
+    meta_frontend_affinity_token: object,
 ) -> None:
     request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
-    request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    request_meta["frontendAffinityToken"] = meta_frontend_affinity_token
     ctx = _build_ctx(
         request_meta=request_meta,
         agentic_context=_build_agentic_context(
             project_config_id="project-agentic",
-            frontend_websocket_id=agentic_frontend_websocket_id,
+            frontend_affinity_token=agentic_frontend_affinity_token,
         ),
         share_session_resolver=lambda _ctx: "share-resolved",
     )
 
     with pytest.raises(
         InvalidToolArgumentsError,
-        match="frontendWebsocketId must be a non-empty string when provided.",
+        match="frontendAffinityToken must be a non-empty string when provided.",
     ):
         resolve_frontend_websocket_id_from_ctx(ctx)
 
@@ -444,7 +518,6 @@ def test_resolve_frontend_websocket_id_rejects_malformed_values_in_share_scope(
     [
         ("resolved", "share-meta", "share-resolved"),
         ("resolved_empty", "share-meta", None),
-        ("raises", "share-meta", None),
         ("missing", "share-meta", None),
         ("missing", "\t", None),
     ],
@@ -467,12 +540,6 @@ def test_resolve_share_session_id_matrix(
         resolver = _resolved_share
     elif resolver_mode == "resolved_empty":
         resolver = _resolved_empty
-    elif resolver_mode == "raises":
-
-        def _raises(_ctx: Context) -> object:
-            raise ValueError("share session unavailable")
-
-        resolver = _raises
     elif resolver_mode == "missing":
         resolver = None
     else:
@@ -484,6 +551,29 @@ def test_resolve_share_session_id_matrix(
     ctx = _build_ctx(request_meta=request_meta, share_session_resolver=resolver)
 
     assert resolve_share_session_id_from_ctx(ctx) == expected_share_session_id
+
+
+@pytest.mark.parametrize(
+    ("resolver_error", "message"),
+    [
+        (ValueError("share session unavailable"), "share session unavailable"),
+        (TypeError("shareSessionId must be a string"), "shareSessionId must be a string"),
+    ],
+)
+def test_resolve_share_session_id_maps_resolver_contract_errors_to_invalid_arguments(
+    resolver_error: Exception,
+    message: str,
+) -> None:
+    def _raise(_ctx: Context) -> object:
+        raise resolver_error
+
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        share_session_resolver=_raise,
+    )
+
+    with pytest.raises(InvalidToolArgumentsError, match=message):
+        resolve_share_session_id_from_ctx(ctx)
 
 
 def test_resolve_share_session_id_uses_meta_fallback_in_deployment_mode() -> None:

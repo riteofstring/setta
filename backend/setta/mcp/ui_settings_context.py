@@ -5,7 +5,7 @@ from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.agentic.agentic_scope import AgenticContext
-from setta.frontend_websocket_id import parse_frontend_websocket_id
+from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.types.id import ID
 
@@ -28,17 +28,17 @@ def _resolve_agentic_context(ctx: Context) -> AgenticContext | None:
         return None
     try:
         return resolve_agentic_context(ctx)
-    except ValueError:
-        return None
+    except (TypeError, ValueError) as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
 
 
-def _parse_frontend_websocket_id_from_meta(
+def _parse_frontend_affinity_token_from_meta(
     meta: dict[str, Any],
 ) -> str | None:
-    if "frontendWebsocketId" not in meta:
+    if "frontendAffinityToken" not in meta:
         return None
     try:
-        return parse_frontend_websocket_id(meta.get("frontendWebsocketId"))
+        return parse_frontend_affinity_token(meta.get("frontendAffinityToken"))
     except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
 
@@ -117,7 +117,7 @@ def _resolve_share_scoped_default_project_config_id(
             ID("__share_session_default_project__"),
             share_session_id=share_session_id,
         )
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
     default_project_config_id = manager.project_state_backend.defaultProjectConfigId
     if default_project_config_id is None:
@@ -146,8 +146,8 @@ def resolve_share_session_id_from_ctx(ctx: Context) -> str | None:
         if callable(resolve_share_session_id):
             try:
                 resolved_share_session_id = resolve_share_session_id(ctx)
-            except ValueError:
-                resolved_share_session_id = None
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError(str(exc)) from exc
             normalized_resolved_share_session_id = _normalize_non_empty_string(
                 resolved_share_session_id
             )
@@ -185,12 +185,12 @@ def resolve_frontend_websocket_affinity_from_ctx(
     share_session_id = resolve_share_session_id_from_ctx(ctx)
     agentic_context = _resolve_agentic_context(ctx)
     meta = resolve_request_meta(ctx)
-    meta_affinity_token = _parse_frontend_websocket_id_from_meta(meta)
+    meta_affinity_token = _parse_frontend_affinity_token_from_meta(meta)
     affinity_token: str | None = None
     if agentic_context is not None:
         try:
-            affinity_token = parse_frontend_websocket_id(
-                agentic_context.frontend_websocket_id
+            affinity_token = parse_frontend_affinity_token(
+                agentic_context.frontend_affinity_token
             )
         except (TypeError, ValueError) as exc:
             raise InvalidToolArgumentsError(str(exc)) from exc
@@ -229,6 +229,20 @@ def resolve_frontend_websocket_affinity_from_ctx(
         share_session_id=share_session_id,
     )
     if resolved_frontend_websocket_id is None:
+        list_frontend_websocket_ids = getattr(
+            frontend_sender,
+            "list_frontend_websocket_ids_for_ui_setting_reveal",
+            None,
+        )
+        if callable(list_frontend_websocket_ids):
+            connected_frontend_ids = list_frontend_websocket_ids(
+                share_session_id=share_session_id
+            )
+            if affinity_token in connected_frontend_ids:
+                raise InvalidToolArgumentsError(
+                    "frontendAffinityToken must be a frontend affinity token "
+                    "from FrontendIdentity, not a websocket id."
+                )
         return FrontendWebsocketAffinityResolution(
             frontend_websocket_id=None,
             error_message=(

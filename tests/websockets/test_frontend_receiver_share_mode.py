@@ -27,7 +27,10 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgRealtimeUIChange,
 )
-from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
+from setta.ui_settings.reveal_result_hub import (
+    RevealResultTransportDisconnectedError,
+    UISettingRevealResultHub,
+)
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.websockets.listener_registry import ListenerRegistry
@@ -178,10 +181,10 @@ async def test_frontend_receiver_on_connect_sends_frontend_identity_message() ->
             payload = json.loads(sent_messages[0])
             typed_payload = WebsocketMsgFrontendIdentity.model_validate(payload)
             assert typed_payload.messageType == "FrontendIdentity"
-            assert typed_payload.content.websocketId != frontend_id
+            assert typed_payload.content.frontendAffinityToken != frontend_id
             resolved_websocket_id = (
                 websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
-                    affinity_token=typed_payload.content.websocketId,
+                    affinity_token=typed_payload.content.frontendAffinityToken,
                     share_session_id="session-a",
                 )
             )
@@ -703,3 +706,56 @@ async def test_share_receiver_ignores_reveal_result_from_unexpected_frontend() -
         finally:
             await frontend_socket_a.close()
             await frontend_socket_b.close()
+
+
+@pytest.mark.asyncio
+async def test_share_receiver_disconnect_cancels_pending_reveal_waiters() -> None:
+    with TemporaryDirectory() as tmpdir:
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        event_hub = RealtimeEventHub(sender)
+        project_config_id = ID("share-project")
+        share_runtime_state = _build_share_runtime_state(
+            tmpdir,
+            websocket_manager,
+            project_config_id,
+            "Share Project",
+        )
+        share_runtime_state.create_session_backend("session-a")
+        reveal_result_hub = UISettingRevealResultHub()
+        receiver = WMHFrontendReceiver(
+            websocket_manager,
+            project_manager=None,
+            realtime_event_hub=event_hub,
+            ui_setting_reveal_result_hub=reveal_result_hub,
+            share_mode=True,
+            share_runtime_state=share_runtime_state,
+        )
+        frontend_messages: list[Message] = []
+        frontend_socket = await _build_websocket(frontend_messages)
+        frontend_id = await websocket_manager.on_connect(
+            frontend_socket,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-share-disconnect",
+            shareSessionId="session-a",
+        )
+        try:
+            await receiver.on_connect(frontend_id)
+            reveal_result_hub.register_request(
+                "reveal-request-disconnect",
+                expected_websocket_id=frontend_id,
+            )
+
+            await receiver.on_disconnect(frontend_id)
+
+            with pytest.raises(
+                RevealResultTransportDisconnectedError,
+                match=frontend_id,
+            ):
+                await reveal_result_hub.wait_for_result(
+                    request_id="reveal-request-disconnect",
+                    timeout_seconds=0.2,
+                )
+        finally:
+            await frontend_socket.close()

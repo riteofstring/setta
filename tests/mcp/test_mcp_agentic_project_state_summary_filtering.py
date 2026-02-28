@@ -15,6 +15,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
@@ -615,14 +616,14 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "frontendWebsocketId": "frontend-test",
+            "frontendAffinityToken": "frontend-test",
         },
         context=ctx,
     )
     assert init_result == {"status": "ok"}
     resolved_agentic_context = mcp_server._resolve_agentic_context(ctx)
     assert resolved_agentic_context is not None
-    assert resolved_agentic_context.frontend_websocket_id == "frontend-test"
+    assert resolved_agentic_context.frontend_affinity_token == "frontend-test"
 
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
@@ -639,7 +640,7 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
 
 
 @pytest.mark.asyncio
-async def test_set_agentic_context_rejects_blank_frontend_websocket_id(tmp_path) -> (
+async def test_set_agentic_context_rejects_blank_frontend_affinity_token(tmp_path) -> (
     None
 ):
     dbe = DBE(tmp_path)
@@ -696,21 +697,21 @@ async def test_set_agentic_context_rejects_blank_frontend_websocket_id(tmp_path)
 
     with pytest.raises(
         ToolError,
-        match="frontendWebsocketId must be a non-empty string when provided.",
+        match="frontendAffinityToken must be a non-empty string when provided.",
     ):
         await init_tool.run(
             {
                 "projectConfigId": str(tmp_project_id),
                 "chatId": str(tmp_chat_id),
                 "sectionId": str(tmp_section_id),
-                "frontendWebsocketId": "   ",
+                "frontendAffinityToken": "   ",
             },
             context=ctx,
         )
 
 
 @pytest.mark.asyncio
-async def test_resolve_agentic_context_rejects_non_string_frontend_websocket_id_meta(
+async def test_resolve_agentic_context_rejects_non_string_frontend_affinity_token_meta(
     tmp_path,
 ) -> None:
     dbe = DBE(tmp_path)
@@ -766,18 +767,18 @@ async def test_resolve_agentic_context_rejects_non_string_frontend_websocket_id_
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "frontendWebsocketId": 123,
+            "frontendAffinityToken": 123,
         },
     )
     with pytest.raises(
-        TypeError,
-        match="frontendWebsocketId must be a non-empty string when provided.",
+        InvalidToolArgumentsError,
+        match="frontendAffinityToken must be a non-empty string when provided.",
     ):
         mcp_server._resolve_agentic_context(ctx)
 
 
 @pytest.mark.asyncio
-async def test_resolve_agentic_context_rejects_blank_frontend_websocket_id_meta(
+async def test_resolve_agentic_context_rejects_blank_frontend_affinity_token_meta(
     tmp_path,
 ) -> None:
     dbe = DBE(tmp_path)
@@ -833,12 +834,12 @@ async def test_resolve_agentic_context_rejects_blank_frontend_websocket_id_meta(
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "frontendWebsocketId": "   ",
+            "frontendAffinityToken": "   ",
         },
     )
     with pytest.raises(
-        ValueError,
-        match="frontendWebsocketId must be a non-empty string when provided.",
+        InvalidToolArgumentsError,
+        match="frontendAffinityToken must be a non-empty string when provided.",
     ):
         mcp_server._resolve_agentic_context(ctx)
 

@@ -35,7 +35,7 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
-from setta.frontend_websocket_id import parse_frontend_websocket_id
+from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.listeners.router_endpoint_local_updates import (
     build_local_router_endpoint_updates,
 )
@@ -216,7 +216,7 @@ class ListenerCallbackContext:
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
     project_manager: RouterEndpointAPI
-    frontend_websocket_id: str | None
+    frontend_affinity_token: str | None
     ids: "ListenerDependencyIds"
     values: "ListenerDependencyValues"
 
@@ -351,7 +351,7 @@ class SettaListener:
         port: int | None = None,
         reconnect_delay: float = 5.0,
         auth_headers: dict[str, str] | None = None,
-        frontend_websocket_id: str | None = None,
+        frontend_affinity_token: str | None = None,
     ) -> None:
         if project_name is None and project_config_id is None:
             raise ValueError("SettaListener requires project_name or project_config_id")
@@ -370,7 +370,9 @@ class SettaListener:
         self._port = port or C.PORT
         self._reconnect_delay = reconnect_delay
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
-        self._frontend_websocket_id = parse_frontend_websocket_id(frontend_websocket_id)
+        self._frontend_affinity_token = parse_frontend_affinity_token(
+            frontend_affinity_token
+        )
         self._stop_event = asyncio.Event()
         self._socket_id = uuid4().hex
         self._registration_pending = False
@@ -1868,7 +1870,7 @@ class SettaListener:
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
             project_manager=project_manager,
-            frontend_websocket_id=self._frontend_websocket_id,
+            frontend_affinity_token=self._frontend_affinity_token,
             ids=ids,
             values=values,
         )

@@ -137,7 +137,7 @@ class TestChatToolkitListenerClient:
         assert messages
         assert isinstance(messages[0], ToolChatMessage)
 
-    async def test_tool_runner_client_forwards_frontend_websocket_id(self) -> None:
+    async def test_tool_runner_client_forwards_frontend_affinity_token(self) -> None:
         chat_id = ID("chat-1")
         section_id = ID("section-1")
         captured_payload: dict[str, object] = {}
@@ -153,7 +153,7 @@ class TestChatToolkitListenerClient:
         api = RouterEndpointAPI(router_caller)
         client = ChatToolRunnerClient(
             api,
-            frontend_websocket_id="frontend-from-context",
+            frontend_affinity_token="frontend-from-context",
         )
         tool_call = ToolCallBuilder.from_name_and_args(
             name="setta__list_mcp_tools",
@@ -167,4 +167,4 @@ class TestChatToolkitListenerClient:
             tool_calls=[tool_call],
         )
 
-        assert captured_payload.get("frontendWebsocketId") == "frontend-from-context"
+        assert captured_payload.get("frontendAffinityToken") == "frontend-from-context"

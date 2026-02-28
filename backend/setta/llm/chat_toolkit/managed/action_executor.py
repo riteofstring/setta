@@ -202,13 +202,13 @@ class ManagedActionExecutor:
                                     else None
                                 ),
                             }
-                            meta_payload["frontendWebsocketId"] = (
-                                action.agentic_context.frontend_websocket_id
+                            meta_payload["frontendAffinityToken"] = (
+                                action.agentic_context.frontend_affinity_token
                                 if isinstance(
-                                    action.agentic_context.frontend_websocket_id,
+                                    action.agentic_context.frontend_affinity_token,
                                     str,
                                 )
-                                and action.agentic_context.frontend_websocket_id.strip()
+                                and action.agentic_context.frontend_affinity_token.strip()
                                 != ""
                                 else None
                             )

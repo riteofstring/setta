@@ -74,7 +74,7 @@ describe("submitMessage websocket affinity", () => {
       .route_get_llm_response as unknown as vi.Mock;
     const {
       setActiveFrontendWebsocketAffinityGeneration,
-      setFrontendWebsocketAffinityId,
+      setFrontendAffinityToken,
     } = await import("state/actions/frontendWebsocketAffinity");
     route_get_llm_response.mockResolvedValue({
       status: 200,
@@ -83,7 +83,7 @@ describe("submitMessage websocket affinity", () => {
     });
 
     setActiveFrontendWebsocketAffinityGeneration(1);
-    setFrontendWebsocketAffinityId("frontend-old", 1);
+    setFrontendAffinityToken("frontend-old", 1);
     setActiveFrontendWebsocketAffinityGeneration(2);
 
     await expect(
@@ -97,11 +97,11 @@ describe("submitMessage websocket affinity", () => {
       ),
     ).resolves.toBeNull();
     const [firstPayload] = route_get_llm_response.mock.calls[0] as [
-      { frontendWebsocketId: string | null },
+      { frontendAffinityToken: string | null },
     ];
-    expect(firstPayload.frontendWebsocketId).toBeNull();
+    expect(firstPayload.frontendAffinityToken).toBeNull();
 
-    setFrontendWebsocketAffinityId("frontend-new", 2);
+    setFrontendAffinityToken("frontend-new", 2);
     await expect(
       submitMessage(
         null,
@@ -113,8 +113,8 @@ describe("submitMessage websocket affinity", () => {
       ),
     ).resolves.toBeNull();
     const [secondPayload] = route_get_llm_response.mock.calls[1] as [
-      { frontendWebsocketId: string | null },
+      { frontendAffinityToken: string | null },
     ];
-    expect(secondPayload.frontendWebsocketId).toBe("frontend-new");
+    expect(secondPayload.frontendAffinityToken).toBe("frontend-new");
   });
 });

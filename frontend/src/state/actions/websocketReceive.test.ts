@@ -333,10 +333,8 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
-    const {
-      buildFrontendAffinityCurrentAddress,
-      getFrontendWebsocketAffinityId,
-    } = await import("state/actions/frontendWebsocketAffinity");
+    const { buildFrontendAffinityCurrentAddress, getFrontendAffinityToken } =
+      await import("state/actions/frontendWebsocketAffinity");
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
@@ -363,7 +361,7 @@ describe("openWebSocket", () => {
       }),
     });
 
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
@@ -371,7 +369,7 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
-    const { getFrontendWebsocketAffinityId } = await import(
+    const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
@@ -389,10 +387,10 @@ describe("openWebSocket", () => {
       data: JSON.stringify({
         id: "msg-affinity-identity",
         messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-        content: { websocketId: "frontend-handshake" },
+        content: { frontendAffinityToken: "frontend-handshake" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
+    expect(getFrontendAffinityToken()).toBe("frontend-handshake");
 
     await socket.emit("message", {
       data: JSON.stringify({
@@ -401,7 +399,7 @@ describe("openWebSocket", () => {
         content: [],
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
+    expect(getFrontendAffinityToken()).toBe("frontend-handshake");
   });
 
   it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
@@ -409,7 +407,7 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
-    const { getFrontendWebsocketAffinityId } = await import(
+    const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
@@ -427,29 +425,29 @@ describe("openWebSocket", () => {
       data: JSON.stringify({
         id: "msg-first-identity",
         messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-        content: { websocketId: "frontend-first" },
+        content: { frontendAffinityToken: "frontend-first" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
+    expect(getFrontendAffinityToken()).toBe("frontend-first");
 
     openWebSocket("/project", "share-session-replacement");
     vi.advanceTimersByTime(1000);
 
     const secondSocket = MockWebSocket.instances[1];
     expect(secondSocket).toBeDefined();
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
 
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-stale-identity",
         messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-        content: { websocketId: "frontend-stale" },
+        content: { frontendAffinityToken: "frontend-stale" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
 
     await secondSocket.emit("open");
-    expect(getFrontendWebsocketAffinityId()).toBeNull();
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("repopulates affinity from active-socket FrontendIdentity after replacement clear", async () => {
@@ -457,7 +455,7 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
-    const { getFrontendWebsocketAffinityId } = await import(
+    const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
@@ -475,10 +473,10 @@ describe("openWebSocket", () => {
       data: JSON.stringify({
         id: "msg-first-identity",
         messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-        content: { websocketId: "frontend-first" },
+        content: { frontendAffinityToken: "frontend-first" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
+    expect(getFrontendAffinityToken()).toBe("frontend-first");
 
     openWebSocket("/project", "share-session-replacement");
     vi.advanceTimersByTime(1000);
@@ -490,10 +488,10 @@ describe("openWebSocket", () => {
       data: JSON.stringify({
         id: "msg-second-identity",
         messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
-        content: { websocketId: "frontend-second-token" },
+        content: { frontendAffinityToken: "frontend-second-token" },
       }),
     });
-    expect(getFrontendWebsocketAffinityId()).toBe("frontend-second-token");
+    expect(getFrontendAffinityToken()).toBe("frontend-second-token");
   });
 
   it("reconnects once after an active-socket transport error followed by close", async () => {

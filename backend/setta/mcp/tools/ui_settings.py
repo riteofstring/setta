@@ -50,6 +50,7 @@ from setta.ui_settings.registry import (
     validate_ui_setting_value,
 )
 from setta.ui_settings.reveal_result_hub import (
+    RevealResultTransportDisconnectedError,
     UISettingRevealResultContent,
     UISettingRevealResultStatus,
 )
@@ -707,7 +708,7 @@ async def _reveal_settings(
         if share_session_id is None:
             ambiguity_message = (
                 "Reveal routing is ambiguous because multiple frontends are connected "
-                "and no frontendWebsocketId was provided."
+                "and no frontendAffinityToken was provided."
             )
         return RevealUISettingResult(
             requestId=request_id,
@@ -831,7 +832,7 @@ async def _reveal_settings(
         )
         if preferred_frontend_websocket_id is not None:
             dispatch_failure_message = (
-                "Requested frontend websocket id became unavailable before reveal "
+                "Requested frontend affinity token became unavailable before reveal "
                 f"dispatch: {preferred_frontend_websocket_id}"
             )
         return RevealUISettingResult(
@@ -851,10 +852,34 @@ async def _reveal_settings(
             ],
         )
 
-    frontend_reveal_result = await reveal_result_hub.wait_for_result(
-        request_id=request_id,
-        timeout_seconds=_resolve_frontend_reveal_timeout_seconds(bounded_duration_ms),
-    )
+    try:
+        frontend_reveal_result = await reveal_result_hub.wait_for_result(
+            request_id=request_id,
+            timeout_seconds=_resolve_frontend_reveal_timeout_seconds(
+                bounded_duration_ms
+            ),
+        )
+    except RevealResultTransportDisconnectedError as exc:
+        await _rollback_pending_section_activation()
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Selected frontend websocket disconnected before reveal "
+                            f"confirmation: {exc.websocket_id}"
+                        ),
+                    ),
+                )
+            ],
+        )
     if frontend_reveal_result is None:
         await _rollback_pending_section_activation()
         return RevealUISettingResult(

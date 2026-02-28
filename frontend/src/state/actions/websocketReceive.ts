@@ -5,7 +5,7 @@ import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
   setActiveFrontendWebsocketAffinityGeneration,
-  setFrontendWebsocketAffinityId,
+  setFrontendAffinityToken,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
 import { processLspDiagnostics } from "state/actions/lspDiagnostics";
@@ -509,7 +509,10 @@ function receiveMessage(message: string, socketGeneration: number) {
   const m = JSON.parse(message) as FrontendWebsocketMsgUnion;
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
-      setFrontendWebsocketAffinityId(m.content.websocketId, socketGeneration);
+      setFrontendAffinityToken(
+        m.content.frontendAffinityToken,
+        socketGeneration,
+      );
       return;
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       setWebsocketConnections(m.content);

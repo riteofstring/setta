@@ -8,6 +8,7 @@ import anyio
 import setta.project_state.base_project_manager  # noqa: F401
 from fastapi import FastAPI
 from mcp.client.session import ClientSession
+from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent, Tool
 import pytest
 
@@ -25,6 +26,8 @@ from setta.llm.chat_toolkit.managed.actions import (
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.project_state.history import History
+from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
+from setta.mcp.tool_metadata import SettaToolType, ToolAccessMetadata, attach_tool_access
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -48,6 +51,8 @@ from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
+
+ensure_setta_mcp_tools_loaded()
 
 
 def _seed_project_state(dbe: DBE, project_config_id: ID) -> None:
@@ -289,7 +294,7 @@ class TestManagedActionExecutor:
             assert tool_message.is_error
             assert "not allowed" in tool_message.content[0].text
 
-    async def test_setta_tool_meta_includes_frontend_websocket_id(self) -> None:
+    async def test_setta_tool_meta_includes_frontend_affinity_token(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
             project_config_id = ID("project-1")
@@ -348,7 +353,7 @@ class TestManagedActionExecutor:
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
                     section_id=ID("section-1"),
-                    frontend_websocket_id="frontend-1",
+                    frontend_affinity_token="frontend-1",
                 ),
             )
 
@@ -363,11 +368,11 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
-                    "frontendWebsocketId": "frontend-1",
+                    "frontendAffinityToken": "frontend-1",
                 }
             ]
 
-    async def test_setta_tool_meta_preserves_frontend_websocket_id_in_share_scope(
+    async def test_setta_tool_meta_preserves_frontend_affinity_token_in_share_scope(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -428,7 +433,7 @@ class TestManagedActionExecutor:
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
                     section_id=ID("section-1"),
-                    frontend_websocket_id="frontend-1",
+                    frontend_affinity_token="frontend-1",
                 ),
             )
 
@@ -443,7 +448,7 @@ class TestManagedActionExecutor:
                     "projectConfigId": "project-1",
                     "chatId": "chat-1",
                     "sectionId": "section-1",
-                    "frontendWebsocketId": "frontend-1",
+                    "frontendAffinityToken": "frontend-1",
                     "shareSessionId": "share-session-1",
                 }
             ]
@@ -528,6 +533,7 @@ class TestManagedActionExecutor:
             state = SimpleNamespace(
                 project_manager_switcher=SimpleNamespace(get=_get_manager),
                 dbe=dbe,
+                deployment_mode=False,
             )
             app = FastAPI()
             mcp_server = SettaFastMCP(
@@ -538,6 +544,27 @@ class TestManagedActionExecutor:
                 frontend_sender,
                 dbe,
             )
+            scope_tool_calls = 0
+
+            async def scope_probe_tool(
+                *,
+                projectConfigId: ID,
+                sectionId: ID,
+                ctx: Context,
+            ) -> object:
+                del projectConfigId, sectionId, ctx
+                nonlocal scope_tool_calls
+                scope_tool_calls += 1
+                return {"ok": True}
+
+            attach_tool_access(
+                scope_probe_tool,
+                ToolAccessMetadata(
+                    accessType="write",
+                    idPathsByType={"section": ["sectionId"]},
+                ),
+            )
+            mcp_server._register_setta_tool(scope_probe_tool, SettaToolType.discoverable)
             mcp_client = MultiMCPClient(
                 {
                     SETTA_MCP_SERVER_ID: MCPServerConfig(
@@ -580,12 +607,11 @@ class TestManagedActionExecutor:
                         id="tool-call-1",
                         function=ToolCallFunction(
                             name=build_namespaced_tool_name(
-                                SETTA_MCP_SERVER_ID, "set_section_name"
+                                SETTA_MCP_SERVER_ID, "scope_probe_tool"
                             ),
                             arguments={
                                 "projectConfigId": str(tmp_project_config_id),
                                 "sectionId": str(tmp_blocked_section_id),
-                                "name": "blocked",
                             },
                         ),
                     )
@@ -612,6 +638,7 @@ class TestManagedActionExecutor:
                     assert isinstance(chunk, ToolResultEvent)
                     tool_message = chunk.result
                     assert tool_message.is_error
+                    assert scope_tool_calls == 0
 
                     structured = tool_message.result["structuredContent"]
                     assert structured["error"] == "ScopeViolation"

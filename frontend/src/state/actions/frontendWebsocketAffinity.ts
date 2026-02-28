@@ -5,9 +5,9 @@ import {
 import { createNewId } from "utils/idNameCreation";
 
 const FRONTEND_WEBSOCKET_AFFINITY_TOKEN = createNewId();
-let frontendWebsocketId: string | null = null;
+let frontendAffinityToken: string | null = null;
 let activeFrontendWebsocketGeneration = 0;
-let frontendWebsocketIdGeneration = 0;
+let frontendAffinityTokenGeneration = 0;
 
 function isStaleGeneration(
   socketGeneration: number | null | undefined,
@@ -18,9 +18,9 @@ function isStaleGeneration(
   return socketGeneration !== activeFrontendWebsocketGeneration;
 }
 
-function setAffinityId(nextFrontendWebsocketId: string | null): void {
-  frontendWebsocketId = nextFrontendWebsocketId;
-  frontendWebsocketIdGeneration = activeFrontendWebsocketGeneration;
+function setAffinityId(nextFrontendAffinityToken: string | null): void {
+  frontendAffinityToken = nextFrontendAffinityToken;
+  frontendAffinityTokenGeneration = activeFrontendWebsocketGeneration;
 }
 
 export function buildFrontendAffinityCurrentAddress(pathname: string): string {
@@ -43,7 +43,7 @@ export function updateFrontendWebsocketAffinity({
   if (isStaleGeneration(socketGeneration)) {
     return;
   }
-  if (frontendWebsocketId !== null) {
+  if (frontendAffinityToken !== null) {
     return;
   }
   if (!currentAddress) {
@@ -67,19 +67,19 @@ export function updateFrontendWebsocketAffinity({
   // Keep waiting for FrontendIdentity to provide the token bound to this socket.
 }
 
-export function setFrontendWebsocketAffinityId(
-  websocketId: string,
+export function setFrontendAffinityToken(
+  frontendAffinityToken: string,
   socketGeneration?: number,
 ): void {
   if (isStaleGeneration(socketGeneration)) {
     return;
   }
-  const normalizedWebsocketId = websocketId.trim();
-  if (normalizedWebsocketId === "") {
+  const normalizedFrontendAffinityToken = frontendAffinityToken.trim();
+  if (normalizedFrontendAffinityToken === "") {
     setAffinityId(null);
     return;
   }
-  setAffinityId(normalizedWebsocketId);
+  setAffinityId(normalizedFrontendAffinityToken);
 }
 
 export function clearFrontendWebsocketAffinity(
@@ -95,13 +95,13 @@ export function setActiveFrontendWebsocketAffinityGeneration(
   socketGeneration: number,
 ): void {
   activeFrontendWebsocketGeneration = socketGeneration;
-  frontendWebsocketId = null;
-  frontendWebsocketIdGeneration = socketGeneration;
+  frontendAffinityToken = null;
+  frontendAffinityTokenGeneration = socketGeneration;
 }
 
-export function getFrontendWebsocketAffinityId(): string | null {
-  if (frontendWebsocketIdGeneration !== activeFrontendWebsocketGeneration) {
+export function getFrontendAffinityToken(): string | null {
+  if (frontendAffinityTokenGeneration !== activeFrontendWebsocketGeneration) {
     return null;
   }
-  return frontendWebsocketId;
+  return frontendAffinityToken;
 }

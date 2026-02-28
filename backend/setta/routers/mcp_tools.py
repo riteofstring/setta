@@ -12,8 +12,8 @@ from pydantic import BaseModel, ValidationError, field_validator
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
-from setta.routers.frontend_websocket_id import (
-    validate_frontend_websocket_id_for_model,
+from setta.routers.frontend_affinity_token import (
+    validate_frontend_affinity_token_for_model,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.id import ID
@@ -39,14 +39,14 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
-    frontendWebsocketId: str | None = None
+    frontendAffinityToken: str | None = None
     allowUnscoped: bool = False
     shareSessionId: str | None = None
 
-    @field_validator("frontendWebsocketId")
+    @field_validator("frontendAffinityToken")
     @classmethod
-    def _normalize_frontend_websocket_id(cls, value: str | None) -> str | None:
-        return validate_frontend_websocket_id_for_model(value)
+    def _normalize_frontend_affinity_token(cls, value: str | None) -> str | None:
+        return validate_frontend_affinity_token_for_model(value)
 
 
 @router.post(Route.TOOLS_CALL)

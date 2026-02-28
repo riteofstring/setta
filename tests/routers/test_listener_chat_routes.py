@@ -101,7 +101,7 @@ async def test_create_chat_resolves_internal_engine() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_mcp_tools_forwards_frontend_websocket_id_to_tool_runner(
+async def test_run_mcp_tools_forwards_frontend_affinity_token_to_tool_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with TemporaryDirectory() as tmpdir:
@@ -153,14 +153,14 @@ async def test_run_mcp_tools_forwards_frontend_websocket_id_to_tool_runner(
                 project_config_id,
                 chat_id,
                 section_id,
-                frontend_websocket_id,
+                frontend_affinity_token,
             ) -> None:
                 captured["allowed_server_ids"] = allowed_server_ids
                 captured["share_session_id"] = share_session_id
                 captured["project_config_id"] = project_config_id
                 captured["chat_id"] = chat_id
                 captured["section_id"] = section_id
-                captured["frontend_websocket_id"] = frontend_websocket_id
+                captured["frontend_affinity_token"] = frontend_affinity_token
 
             async def run(self, tool_calls):
                 captured["tool_calls"] = tool_calls
@@ -178,7 +178,7 @@ async def test_run_mcp_tools_forwards_frontend_websocket_id_to_tool_runner(
                 RunMcpToolsRequest(
                     chatId=chat_id,
                     sectionId=section_id,
-                    frontendWebsocketId="frontend-1",
+                    frontendAffinityToken="frontend-1",
                     toolCalls=[tool_call],
                 ),
                 ctx,
@@ -188,11 +188,11 @@ async def test_run_mcp_tools_forwards_frontend_websocket_id_to_tool_runner(
         assert captured["chat_id"] == chat_id
         assert captured["project_config_id"] == project_config_id
         assert captured["section_id"] == section_id
-        assert captured["frontend_websocket_id"] == "frontend-1"
+        assert captured["frontend_affinity_token"] == "frontend-1"
 
 
 @pytest.mark.asyncio
-async def test_run_mcp_tools_share_scope_preserves_frontend_websocket_id_for_tool_runner(
+async def test_run_mcp_tools_share_scope_preserves_frontend_affinity_token_for_tool_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with TemporaryDirectory() as tmpdir:
@@ -246,14 +246,14 @@ async def test_run_mcp_tools_share_scope_preserves_frontend_websocket_id_for_too
                 project_config_id,
                 chat_id,
                 section_id,
-                frontend_websocket_id,
+                frontend_affinity_token,
             ) -> None:
                 captured["allowed_server_ids"] = allowed_server_ids
                 captured["share_session_id"] = share_session_id
                 captured["project_config_id"] = project_config_id
                 captured["chat_id"] = chat_id
                 captured["section_id"] = section_id
-                captured["frontend_websocket_id"] = frontend_websocket_id
+                captured["frontend_affinity_token"] = frontend_affinity_token
 
             async def run(self, tool_calls):
                 captured["tool_calls"] = tool_calls
@@ -271,7 +271,7 @@ async def test_run_mcp_tools_share_scope_preserves_frontend_websocket_id_for_too
                 RunMcpToolsRequest(
                     chatId=chat_id,
                     sectionId=section_id,
-                    frontendWebsocketId="frontend-1",
+                    frontendAffinityToken="frontend-1",
                     toolCalls=[tool_call],
                 ),
                 ctx,
@@ -282,11 +282,11 @@ async def test_run_mcp_tools_share_scope_preserves_frontend_websocket_id_for_too
         assert captured["project_config_id"] == project_config_id
         assert captured["section_id"] == section_id
         assert captured["share_session_id"] == "share-session-1"
-        assert captured["frontend_websocket_id"] == "frontend-1"
+        assert captured["frontend_affinity_token"] == "frontend-1"
 
 
 @pytest.mark.asyncio
-async def test_run_mcp_tools_rejects_whitespace_only_frontend_websocket_id() -> None:
+async def test_run_mcp_tools_rejects_whitespace_only_frontend_affinity_token() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = DBE(Path(tmpdir))
         websocket_manager = WebsocketManager()
@@ -336,10 +336,10 @@ async def test_run_mcp_tools_rejects_whitespace_only_frontend_websocket_id() -> 
                         RunMcpToolsRequest(
                             chatId=chat_id,
                             sectionId=section_id,
-                            frontendWebsocketId="   ",
+                            frontendAffinityToken="   ",
                             toolCalls=[],
                         ),
                         ctx,
                     )
         assert exc_info.value.status_code == 400
-        assert "frontendWebsocketId" in str(exc_info.value.detail)
+        assert "frontendAffinityToken" in str(exc_info.value.detail)
