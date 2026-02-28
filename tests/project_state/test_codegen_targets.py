@@ -1292,10 +1292,9 @@ class TestCodegenTargetsRunCommand:
             )
             assert old_output_root.exists()
 
-            await manager.compare_and_set_project_config_name(
+            await manager.set_project_config_name(
                 projectConfigId=project_config.id,
                 newName="PluginCodegenRenameNew",
-                expected_old_value=None,
             )
             assert not old_output_root.exists()
 
