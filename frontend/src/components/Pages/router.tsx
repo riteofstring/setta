@@ -25,16 +25,16 @@ import {
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
+import {
+  resolveWorkspaceLaunchRouteKind,
+  type WorkspaceLaunchRouteKind,
+} from "utils/serverModeBoundaryPolicy";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
-import {
-  resolveWorkspaceLaunchRouteKind,
-  type WorkspaceLaunchRouteKind,
-} from "./workspaceLaunchModePolicy";
 
 const LazyAppWrapper = lazy(async () => {
   const mod = await import("components/Pages/App/AppWrapper");

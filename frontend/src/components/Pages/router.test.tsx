@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveModeElementForServerMode } from "./modeRouteResolver";
+import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
 import {
-  modeSupportsWorkspaceLaunch,
-  resolveWorkspaceLaunchRouteKind,
-} from "./workspaceLaunchModePolicy";
+  resolveModeElementForServerMode,
+  type ServerModeValue,
+} from "./modeRouteResolver";
+
+function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
+  return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
+}
 
 describe("resolveModeElementForServerMode", () => {
   const modeRoutes = {
@@ -38,8 +42,8 @@ describe("resolveModeElementForServerMode", () => {
     expect(resolveModeElementForServerMode(null, modeRoutes)).toBe("ide-route");
   });
 
-  it("keeps workspace-launch handoff enabled in launcher mode", () => {
-    // Handoff route support is explicit per mode to avoid launcher regressions.
+  it("derives workspace-launch support from route-kind policy", () => {
+    // Route-kind policy is the single source of truth for launch support.
     expect(modeSupportsWorkspaceLaunch("ide")).toBe(true);
     expect(modeSupportsWorkspaceLaunch("launcher")).toBe(true);
     expect(modeSupportsWorkspaceLaunch("share")).toBe(false);

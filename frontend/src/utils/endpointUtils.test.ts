@@ -243,6 +243,38 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes launch endpoints via backend origin in blocked modes", async () => {
+    const blockedModes = ["app", "share"] as const;
+    for (const mode of blockedModes) {
+      useServerMode.setState({
+        mode,
+        modeResolved: true,
+        modeError: null,
+      });
+      await post(RouteEnum.LAUNCH, {
+        launchIntentToken: "intent-token",
+      });
+      await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+        launchRequest: { workspaceRoot: "/tmp/workspace" },
+        returnUrl: "http://localhost/home",
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+    );
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+    );
+  });
+
   it("serializes launcher recent-workspaces query params", async () => {
     // The launcher recent-workspaces endpoint accepts `setta_home` as a query param.
     await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {

@@ -72,10 +72,6 @@ export function resolveWorkspaceLaunchRouteKind(
   return MODE_BOUNDARY_POLICY[mode].workspaceLaunchRouteKind;
 }
 
-export function modeSupportsWorkspaceLaunch(mode: ServerMode): boolean {
-  return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
-}
-
 function stripQueryAndHash(address: string): string {
   const hashIndex = address.indexOf("#");
   let withoutHash = address;

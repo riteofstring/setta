@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import { RouteEnum } from "./generatedTypes";
 import {
   ENDPOINT_ORIGIN_POLICY,
-  modeSupportsWorkspaceLaunch,
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind,
 } from "./serverModeBoundaryPolicy";
+
+function modeSupportsWorkspaceLaunch(
+  mode: "ide" | "share" | "app" | "launcher" | null,
+): boolean {
+  return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
+}
 
 describe("serverModeBoundaryPolicy", () => {
   it("keeps mode capabilities and workspace-launch behavior in one contract", () => {

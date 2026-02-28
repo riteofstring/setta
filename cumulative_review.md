@@ -249,3 +249,11 @@
 - Removed dead no-op pagination logic in launcher-home directory listing (`scan_budget_reached and next_cursor is None`).
 - Added backend unit/integration coverage for missing/whitespace workspace roots and malformed persisted intent rejection with no launch side effects, plus Playwright coverage for create-intent missing-workspace rejection.
 - Ran requested cleanup workflow: `source activate.sh && cd frontend && pnpm gcf`.
+
+## 2026-02-27 14:40:56 PST
+
+- Removed duplicated workspace-launch mode policy surface by deleting `workspaceLaunchModePolicy.ts` and routing all workspace-launch mode decisions through `resolveWorkspaceLaunchRouteKind(...)` in `serverModeBoundaryPolicy.ts`.
+- Removed dead `modeSupportsWorkspaceLaunch(...)` export from `serverModeBoundaryPolicy.ts` and updated tests to derive launch support from route kind (`!== "blocked"`), keeping one canonical contract.
+- Added/updated unit and integration coverage for route-kind and endpoint-origin behavior (`router.test.tsx`, `serverModeBoundaryPolicy.test.ts`, `endpointUtils.test.ts`) including blocked-mode launch endpoint routing.
+- Added Playwright coverage in `app-mode-routing.spec.ts` to assert app mode blocks direct `/launching` navigation by redirecting to `/home`.
+- Ran requested cleanup workflow: `source activate.sh && cd frontend && pnpm gcf`.
