@@ -12,7 +12,7 @@ from setta.utils.user_config import load_setta_user_config
 
 def test_setta_home_info_route_returns_resolved_paths() -> None:
     app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=False, launcher_mode=False)
+    app.state.setta = SimpleNamespace(deployment_mode=False)
     app.include_router(status_router, prefix=Route.PREFIX.value)
 
     expected_home = resolve_setta_home()
@@ -35,18 +35,7 @@ def test_setta_home_info_route_returns_resolved_paths() -> None:
 
 def test_setta_home_info_route_blocked_in_deployment_mode() -> None:
     app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=True, launcher_mode=False)
-    app.include_router(status_router, prefix=Route.PREFIX.value)
-
-    with TestClient(app) as client:
-        response = client.get(f"{Route.PREFIX.value}{Route.GET_SETTA_HOME_INFO.value}")
-
-    assert response.status_code == 403
-
-
-def test_setta_home_info_route_blocked_in_launcher_mode() -> None:
-    app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=False, launcher_mode=True)
+    app.state.setta = SimpleNamespace(deployment_mode=True)
     app.include_router(status_router, prefix=Route.PREFIX.value)
 
     with TestClient(app) as client:
@@ -60,7 +49,7 @@ def test_setta_home_info_route_allows_null_active_location(
     monkeypatch,
 ) -> None:
     app = FastAPI()
-    app.state.setta = SimpleNamespace(deployment_mode=False, launcher_mode=False)
+    app.state.setta = SimpleNamespace(deployment_mode=False)
     app.include_router(status_router, prefix=Route.PREFIX.value)
 
     workspace_root = tmp_path / "workspace"
