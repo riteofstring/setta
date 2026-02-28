@@ -167,6 +167,52 @@ describe("resolveProjectChatHydrationAuthority", () => {
     });
   });
 
+  it("returns unknown while selected thread engine configs are non-authoritative", () => {
+    expect(
+      resolveProjectChatHydrationAuthority({
+        chatId: "chat-1",
+        selectedScopedChatProvenance: {
+          status: "ready",
+          provenance: {
+            runType: "llm_chat",
+            engineConfigId: "engine-missing",
+          },
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: false,
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
+  });
+
+  it("returns blocked when selected thread engine configs are authoritative and missing", () => {
+    expect(
+      resolveProjectChatHydrationAuthority({
+        chatId: "chat-1",
+        selectedScopedChatProvenance: {
+          status: "ready",
+          provenance: {
+            runType: "llm_chat",
+            engineConfigId: "engine-missing",
+          },
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toEqual({
+      status: "blocked",
+      hydrationRunType: null,
+      blockedErrorCode: "engine_config_missing",
+    });
+  });
+
   it("returns ready authority for draft chats using current engine type", () => {
     expect(
       resolveProjectChatHydrationAuthority({

@@ -214,7 +214,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     });
   });
 
-  it("remains compatible when engine cache is unavailable but provenance is ready", () => {
+  it("returns unknown while engine configs are still non-authoritative", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -228,7 +228,27 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigById: new Map(),
       engineConfigsAuthoritative: false,
     });
-    expect(result).toEqual({ status: "compatible" });
+    expect(result).toEqual({ status: "unknown" });
+  });
+
+  it("blocks when engine configs are authoritative but the persisted engine is missing", () => {
+    const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      chatId: "chat-1",
+      selectedScopedChatProvenance: {
+        status: "ready",
+        provenance: {
+          runType: "llm_chat",
+          engineConfigId: "engine-llm",
+        },
+      },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: new Map(),
+      engineConfigsAuthoritative: true,
+    });
+    expect(result).toEqual({
+      status: "blocked",
+      errorCode: "engine_config_missing",
+    });
   });
 
   it("blocks when selected chat run type mismatches persisted engine type", () => {

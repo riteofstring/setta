@@ -616,3 +616,29 @@
 - `source activate.sh && ruff check backend/setta/agentic/external_agent_settings.py tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py tests/llm/test_api_keys.py`: passed.
 - `source activate.sh && pytest -q tests/agentic/test_external_agent_settings.py tests/agentic/test_external_agent_runner.py`: `125 passed`.
 - `source activate.sh && pytest -q tests/llm/test_api_keys.py`: `13 passed`.
+
+## 2026-02-27 14:43:00 PST
+
+### Consolidated Findings
+- Selected-thread hydration authority treated missing engine config as compatible when engine-config metadata was still non-authoritative, allowing premature hydrate calls.
+- Existing provenance Playwright coverage still asserted the old behavior of hydrating while engine-config metadata remained non-authoritative.
+- Top-level `review*.md` files were temporary review artifacts and should be removed after consolidation.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated `resolveProjectChatThreadBlockedErrorCodeForSelectedChat` to return `unknown` (not `compatible`) when persisted engine config is missing and engine-config metadata is non-authoritative.
+- Added frontend unit/integration coverage for:
+  - non-authoritative engine-config authority -> `unknown`,
+  - authoritative missing engine config -> `blocked(engine_config_missing)`,
+  - cross-module hydration cache-key gating behavior while authority is unresolved.
+- Added/updated Playwright provenance coverage for delayed engine-config authority and aligned stale expectation tests with the new invariant (defer hydration until authoritative metadata is ready).
+- Ran `pnpm -C frontend gcf` and removed top-level temporary `review*.md` files from the worktree.
+
+### UX/DX Before -> After
+- Selected-thread hydration: metadata-loading window could trigger premature hydrate requests -> hydration now waits for authoritative engine-config resolution.
+- E2E authority guardrails: one scenario encoded stale permissive behavior -> authoritative gating contract is now covered consistently.
+- Repo hygiene: temporary review docs remained at root -> outcomes are preserved in cumulative history and transient review artifacts are removed.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`: `59 passed`.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts`: `14 passed`.

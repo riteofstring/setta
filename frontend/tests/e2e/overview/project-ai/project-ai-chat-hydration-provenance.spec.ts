@@ -688,6 +688,169 @@ test("project ai waits for authoritative provenance before hydrating a selected 
   }
 });
 
+test("project ai waits for authoritative engine config metadata before hydrating a selected thread", async ({
+  page,
+}) => {
+  const selectedChatId = "pw-selected-unknown-engine-config-authority";
+  let llmHydrateCalls = 0;
+  let releaseEngineConfigs: (() => void) | null = null;
+  const engineConfigsReady = new Promise<void>((resolve) => {
+    releaseEngineConfigs = resolve;
+  });
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await seedAIStore(page, {
+    activeChatId: selectedChatId,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await engineConfigsReady;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-llm-authoritative",
+          name: "Authoritative LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-selected-unknown-engine-config-authority",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-01T00:00:00Z",
+          finishedAt: "2026-06-01T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: selectedChatId,
+            engineConfigId: "engine-llm-authoritative",
+            messages: [
+              {
+                id: "selected-chat-engine-config-user-1",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Resume selected thread after engine config loads",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Selected unknown engine config authority thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "selected-engine-config-assistant",
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hydrated after engine config authority ready.",
+              },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await page.waitForTimeout(600);
+    expect(llmHydrateCalls).toBe(0);
+
+    if (!releaseEngineConfigs) {
+      throw new Error("Expected delayed getEngineConfigs gate to initialize.");
+    }
+    releaseEngineConfigs();
+
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(
+          async ({ activeChatId }) => {
+            const { useAIStore } = await import("/src/state/definitions.ts");
+            const messages =
+              useAIStore.getState().chatDetails[activeChatId]?.messages;
+            return (
+              messages?.some((message) =>
+                message.content?.some(
+                  (entry) =>
+                    entry.type === "text" &&
+                    entry.text ===
+                      "Hydrated after engine config authority ready.",
+                ),
+              ) ?? false
+            );
+          },
+          { activeChatId: selectedChatId },
+        );
+      })
+      .toBe(true);
+  } finally {
+    releaseEngineConfigs?.();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai rehydrates after metadata revision changes clear a terminal hydration decision", async ({
   page,
 }) => {
@@ -1814,7 +1977,7 @@ test("project ai retries transient metadata failures and hydrates after authorit
   }
 });
 
-test("project ai hydrates selected threads when engine config cache is unavailable", async ({
+test("project ai defers selected-thread hydration when engine config metadata is non-authoritative", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1480, height: 920 });
@@ -1921,11 +2084,12 @@ test("project ai hydrates selected threads when engine config cache is unavailab
     await expect(threadEntry).toBeVisible();
     await threadEntry.click();
 
-    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await page.waitForTimeout(700);
+    expect(llmHydrateCalls).toBe(0);
     await expect.poll(() => engineConfigCalls).toBeGreaterThan(0);
     await expect(
       overviewPane.getByText("Hydrated with unknown cache.").first(),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toHaveCount(0);

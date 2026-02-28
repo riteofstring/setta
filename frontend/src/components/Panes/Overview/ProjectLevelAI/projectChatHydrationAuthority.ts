@@ -111,7 +111,7 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   const requiredEngine = engineConfigById.get(requiredEngineConfigId);
   if (!requiredEngine) {
     if (!engineConfigsAuthoritative) {
-      return { status: "compatible" };
+      return { status: "unknown" };
     }
     return {
       status: "blocked",
