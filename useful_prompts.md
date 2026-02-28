@@ -6,7 +6,6 @@ Review this branch for merge into `main`.
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status main...HEAD`
       - `git diff $(git merge-base main HEAD)..HEAD`
-    - Consider `cumulative_review.md` and do not re-raise resolved issues unless this branch regresses them.
  
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
