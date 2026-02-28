@@ -116,6 +116,12 @@ class UpdateLauncherRequest(LauncherRequestBase):
     packageSpec: str = "setta"
 
 
+def _normalize_active_setta_files_location(setta_files_location: str | None) -> str:
+    if setta_files_location is None:
+        return "custom"
+    return setta_files_location
+
+
 def _build_reveal_path_command(path: Path) -> list[str]:
     if sys.platform == "darwin":
         if path.is_file():
@@ -213,7 +219,9 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
     return SettaHomeInfoResponse(
         settaHome=str(home),
         globalSettaFilesBase=str(config.global_setta_files_base),
-        activeSettaFilesLocation=paths.setta_files_location,
+        activeSettaFilesLocation=_normalize_active_setta_files_location(
+            paths.setta_files_location
+        ),
         llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
     )
 
@@ -331,7 +339,9 @@ def route_get_mcp_server_runtime_status(
         )
     return MCPServerRuntimeStatusResponse(
         llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
-        activeSettaFilesLocation=paths.setta_files_location,
+        activeSettaFilesLocation=_normalize_active_setta_files_location(
+            paths.setta_files_location
+        ),
         servers=state.mcp_client.get_server_runtime_statuses(),
         externalServers=external_servers,
     )

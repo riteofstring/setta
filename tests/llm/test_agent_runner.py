@@ -1258,6 +1258,89 @@ class TestAgentRunner:
             assert outputs.get("usage") == usage
             assert outputs.get("cost") == 0.0123
 
+    def test_resolve_context_window_usage_uses_litellm_model_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+            context = runner._build_context(
+                profile,
+                inputs={"allowUnscoped": True, "messages": []},
+            )
+
+            # Verifies the runner resolves context window size from LiteLLM model info.
+            usage = runner._resolve_context_window_usage(context)
+
+            assert isinstance(usage, dict)
+            context_window_tokens = usage.get("contextWindowTokens")
+            assert isinstance(context_window_tokens, int)
+            assert context_window_tokens > 0
+
+    def test_normalize_usage_payload_maps_context_window_aliases(self) -> None:
+        payload = {
+            "prompt_tokens": 11,
+            "completion_tokens": 7,
+            "model_context_window": "200000",
+        }
+
+        # Verifies normalization accepts snake_case aliases and computes totals.
+        normalized = AgentRunner._normalize_usage_payload(payload)
+
+        assert normalized == {
+            "promptTokens": 11,
+            "completionTokens": 7,
+            "totalTokens": 18,
+            "contextWindowTokens": 200000,
+        }
+
+    def test_extract_usage_from_chunk_reads_hidden_params_usage(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="claude-sonnet-4-5-20250929",
+                        provider="anthropic",
+                        api_key_env="ANTHROPIC_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+
+            class _Chunk:
+                usage = None
+                _hidden_params = {
+                    "usage": {"prompt_tokens": 3372, "completion_tokens": 57}
+                }
+
+            # Anthropic via LiteLLM can surface authoritative usage in hidden params.
+            extracted = runner._extract_usage_from_chunk(_Chunk())
+
+            assert extracted == {
+                "promptTokens": 3372,
+                "completionTokens": 57,
+                "totalTokens": 3429,
+            }
+
     def test_run_event_persistence_records_start_and_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

@@ -6,6 +6,7 @@ import {
   ENDPOINT_ORIGIN_POLICY,
   get,
   getBinary,
+  getErrorCode,
   getErrorDetail,
   post,
   resolveEndpointOrigin,
@@ -319,6 +320,17 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes tools call via backend origin without /api prefix", async () => {
+    await post(RouteEnum.TOOLS_CALL, {
+      tool: "list_mcp_tools",
+      arguments: {},
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.TOOLS_CALL}`,
+    );
+  });
+
   it("keeps streamAppSpec on backend origin", async () => {
     await post(RouteEnum.STREAM_APP_SPEC, { prompt: "Generate app" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -366,5 +378,33 @@ describe("endpointUtils URL routing", () => {
     );
 
     expect(getErrorDetail(binaryJson)).toBe("Permission denied.");
+  });
+
+  it("extracts nested detail and error code payloads", () => {
+    const payload = {
+      detail: {
+        message:
+          "Realtime transcription is unavailable for this provider/model.",
+        errorCode: "unsupported_model",
+      },
+    };
+
+    expect(getErrorDetail(payload)).toBe(
+      "Realtime transcription is unavailable for this provider/model.",
+    );
+    expect(getErrorCode(payload)).toBe("unsupported_model");
+  });
+
+  it("extracts error codes from binary JSON payloads", () => {
+    const binaryJson = new TextEncoder().encode(
+      JSON.stringify({
+        detail: {
+          message: "Missing API key.",
+          errorCode: "missing_api_key",
+        },
+      }),
+    );
+
+    expect(getErrorCode(binaryJson)).toBe("missing_api_key");
   });
 });

@@ -1,10 +1,4 @@
 import {
-  ChatInput,
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
-import { ChatMessageList } from "components/Chat/ChatMessages";
-import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
   createManagedExecutionControlHandlers,
@@ -14,7 +8,16 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
-import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
+import {
+  ChatInput,
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+} from "components/Chat/ChatInput";
+import { ChatMessageList } from "components/Chat/ChatMessages";
+import {
+  resolveAuthoritativeContextTelemetry,
+  type ChatContextTelemetry,
+} from "components/Chat/contextTelemetry";
 import {
   Dispatch,
   SetStateAction,
@@ -25,19 +28,24 @@ import {
   useRef,
   useState,
 } from "react";
-import { TbLayoutDashboard } from "react-icons/tb";
-import { getRunInputString } from "state/actions/agentRunUtils";
+import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
-  getExternalAgentChat,
-  getLLMChat,
+  getExternalAgentChatHydrationOutcome,
+  getLLMChatHydrationOutcome,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
+  transcribeChatAudioWithProfile,
+  type ChatHydrationErrorCode,
+  type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -47,19 +55,33 @@ import {
 } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import { hasPendingToolInteraction } from "utils/claudeTools";
+import {
+  hasPendingToolInteraction,
+  normalizeToolName,
+} from "utils/claudeTools";
+import {
+  buildSearchableTextForMessage,
+  matchesConversationSearchText,
+  tokenizeConversationSearchQuery,
+} from "utils/conversationSearch";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
-  ChatDictationMode,
+  BaseChatMessageUnion,
   ChatFileAttachment,
+  ChatRoleEnum,
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
+import {
+  resolveProjectChatRunTypeForEngine,
+  type ProjectChatHydrationAuthority,
+  type ProjectChatThreadBlockedErrorCode,
+} from "./projectChatHydrationAuthority";
+import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -74,6 +96,9 @@ const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
+type ProjectChatBlockedErrorCode =
+  | ChatHydrationErrorCode
+  | ProjectChatThreadBlockedErrorCode;
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -88,16 +113,219 @@ export function getDefaultProjectChatPermissionMode(
   return "minimal";
 }
 
-function resolveProjectChatRunType(
-  engineType: EngineTypeEnum | null,
-): ChatRunType | null {
-  if (engineType === EngineTypeEnum.external_agent) {
-    return "external_agent";
+export function getProjectChatBlockedReasonMessage(
+  errorCode: ProjectChatBlockedErrorCode,
+): string {
+  if (errorCode === "chat_not_found") {
+    return "This thread was not found during hydration. You can still continue chatting from here.";
   }
-  if (engineType === EngineTypeEnum.setta_llm) {
-    return "llm_chat";
+  if (errorCode === "chat_provenance_missing") {
+    return "This thread is missing provenance metadata. You can continue chatting, but prior hydration may be incomplete.";
   }
-  return null;
+  if (errorCode === "engine_config_missing") {
+    return "This thread's saved engine config is no longer available. You can continue chatting with the currently selected engine.";
+  }
+  if (errorCode === "engine_type_mismatch") {
+    return "This thread's saved engine type no longer matches its provenance. You can continue chatting with the currently selected engine.";
+  }
+  if (errorCode === "llm_config_missing") {
+    return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
+  }
+  return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
+}
+
+export function buildProjectChatHydrationCacheKey({
+  chatId,
+  hydrationRunType,
+  hydrationMetadataRevision,
+}: {
+  chatId: string | null | undefined;
+  hydrationRunType: ChatRunType | null;
+  hydrationMetadataRevision: string;
+}): string | null {
+  const normalizedChatId = chatId?.trim() ?? "";
+  if (!normalizedChatId || !hydrationRunType) {
+    return null;
+  }
+  const normalizedRevision = hydrationMetadataRevision.trim();
+  if (!normalizedRevision) {
+    return null;
+  }
+  return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
+}
+
+type ProjectChatHydrationRetryStatus =
+  | "in_flight"
+  | "succeeded"
+  | "failed"
+  | "retry_scheduled"
+  | "terminal_failure";
+
+type ProjectChatHydrationRetryEntry = {
+  status: ProjectChatHydrationRetryStatus;
+  timerId: ReturnType<typeof setTimeout> | null;
+  attempt: number;
+  lastTouchedAt: number;
+};
+
+const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
+const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
+export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
+
+type ProjectChatHydrationRetryDecision =
+  | { type: "success" }
+  | { type: "terminal_failure" }
+  | {
+      type: "transient_retry";
+      nextAttempt: number;
+      delayMs: number;
+    }
+  | {
+      type: "transient_exhausted";
+      nextAttempt: number;
+    };
+
+export function resolveProjectChatHydrationRetryDelayMs(
+  attempt: number,
+): number {
+  const normalizedAttempt = Math.max(1, attempt);
+  const exponentialDelayMs =
+    PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS * 2 ** (normalizedAttempt - 1);
+  return Math.min(
+    PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS,
+    exponentialDelayMs,
+  );
+}
+
+export function resolveProjectChatHydrationRetryDecision({
+  outcomeType,
+  attempt,
+}: {
+  outcomeType: ChatHydrationOutcomeType;
+  attempt: number;
+}): ProjectChatHydrationRetryDecision {
+  if (outcomeType === "success") {
+    return { type: "success" };
+  }
+  if (outcomeType === "terminal_failure") {
+    return { type: "terminal_failure" };
+  }
+  const nextAttempt = attempt + 1;
+  if (nextAttempt > PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS) {
+    return {
+      type: "transient_exhausted",
+      nextAttempt,
+    };
+  }
+  return {
+    type: "transient_retry",
+    nextAttempt,
+    delayMs: resolveProjectChatHydrationRetryDelayMs(nextAttempt),
+  };
+}
+
+export function shouldSkipProjectChatHydration(
+  state: {
+    status: ProjectChatHydrationRetryStatus;
+    hasLiveRetryTimer: boolean;
+  } | null,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  if (state.status === "in_flight" || state.status === "succeeded") {
+    return true;
+  }
+  if (state.status === "terminal_failure") {
+    return true;
+  }
+  return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
+}
+
+function buildProjectChatHydrationChatKeyPrefix(chatId: string): string {
+  return `${chatId.trim()}:`;
+}
+
+export function clearProjectChatHydrationCacheEntriesForChat({
+  cache,
+  chatId,
+  keepCacheKey,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  chatId: string;
+  keepCacheKey: string | null;
+}): string[] {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return [];
+  }
+  const keyPrefix = buildProjectChatHydrationChatKeyPrefix(normalizedChatId);
+  const removedCacheKeys: string[] = [];
+  for (const cacheKey of Object.keys(cache)) {
+    if (!cacheKey.startsWith(keyPrefix)) {
+      continue;
+    }
+    if (keepCacheKey !== null && cacheKey === keepCacheKey) {
+      continue;
+    }
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
+}
+
+function touchProjectChatHydrationRetryEntry(
+  entry: ProjectChatHydrationRetryEntry,
+): void {
+  entry.lastTouchedAt = Date.now();
+}
+
+export function trimProjectChatHydrationCache({
+  cache,
+  maxEntries = PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES,
+}: {
+  cache: Record<string, ProjectChatHydrationRetryEntry>;
+  maxEntries?: number;
+}): string[] {
+  const cacheKeys = Object.keys(cache);
+  if (cacheKeys.length <= maxEntries) {
+    return [];
+  }
+  const removableEntries = cacheKeys
+    .filter((cacheKey) => cache[cacheKey]?.timerId === null)
+    .sort((leftKey, rightKey) => {
+      const leftEntry = cache[leftKey];
+      const rightEntry = cache[rightKey];
+      const leftLastTouchedAt = leftEntry?.lastTouchedAt ?? 0;
+      const rightLastTouchedAt = rightEntry?.lastTouchedAt ?? 0;
+      return leftLastTouchedAt - rightLastTouchedAt;
+    });
+  const overflowCount = cacheKeys.length - maxEntries;
+  const removedCacheKeys: string[] = [];
+  for (let index = 0; index < removableEntries.length; index += 1) {
+    if (removedCacheKeys.length >= overflowCount) {
+      break;
+    }
+    const cacheKey = removableEntries[index];
+    if (cache[cacheKey] === undefined) {
+      continue;
+    }
+    delete cache[cacheKey];
+    removedCacheKeys.push(cacheKey);
+  }
+  return removedCacheKeys;
+}
+
+type ProjectChatContextUsage = ReturnType<
+  typeof getDefaultChatDetails
+>["contextUsage"];
+
+type ProjectChatContextTelemetry = ChatContextTelemetry;
+
+export function resolveProjectChatContextTelemetry(
+  contextUsage: ProjectChatContextUsage,
+): ProjectChatContextTelemetry {
+  return resolveAuthoritativeContextTelemetry(contextUsage);
 }
 
 export function resolveWorkspaceRootPollDelayMs(
@@ -107,6 +335,113 @@ export function resolveWorkspaceRootPollDelayMs(
     return WORKSPACE_ROOT_BACKOFF_POLL_MS;
   }
   return WORKSPACE_ROOT_FAST_POLL_MS;
+}
+
+type ProjectChatRuntimeActivityCounts = {
+  activeBackgroundTerminals: number;
+  activeSubagents: number;
+};
+
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
+  {
+    activeBackgroundTerminals: 0,
+    activeSubagents: 0,
+  };
+const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
+  "command_execution",
+]);
+const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
+  "setta__run_agent_profile",
+  "setta__run_sub_agent",
+  "run_agent_profile",
+  "run_sub_agent",
+]);
+
+function resolveToolRuntimeCategory(
+  toolName: string,
+): "background_terminal" | "subagent" | null {
+  const normalizedToolName = normalizeToolName(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  const lowerCaseToolName = normalizedToolName.toLowerCase();
+  if (ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS.has(lowerCaseToolName)) {
+    return "background_terminal";
+  }
+  if (ACTIVE_SUBAGENT_TOOL_IDS.has(lowerCaseToolName)) {
+    return "subagent";
+  }
+  return null;
+}
+
+function resolveStreamingAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
+): Extract<BaseChatMessageUnion, { role: ChatRoleEnum.assistant }> | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === ChatRoleEnum.assistant) {
+      return message;
+    }
+  }
+  return null;
+}
+
+export function resolveProjectChatRuntimeActivityCounts({
+  messages,
+  waitingForResponse,
+}: {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+}): ProjectChatRuntimeActivityCounts {
+  if (!waitingForResponse) {
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
+  }
+  const streamingAssistantMessage = resolveStreamingAssistantMessage(messages);
+  if (!streamingAssistantMessage) {
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
+  }
+  const completedToolCallIds = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== ChatRoleEnum.tool) {
+      continue;
+    }
+    const toolCallId = message.tool_call_id;
+    if (!toolCallId) {
+      continue;
+    }
+    completedToolCallIds.add(toolCallId);
+  }
+  let activeBackgroundTerminals = 0;
+  let activeSubagents = 0;
+  const toolCalls = streamingAssistantMessage.tool_calls ?? [];
+  for (const toolCall of toolCalls) {
+    if (completedToolCallIds.has(toolCall.id)) {
+      continue;
+    }
+    const category = resolveToolRuntimeCategory(toolCall.function?.name ?? "");
+    if (!category) {
+      continue;
+    }
+    if (category === "background_terminal") {
+      activeBackgroundTerminals += 1;
+      continue;
+    }
+    if (category === "subagent") {
+      activeSubagents += 1;
+    }
+  }
+  return {
+    activeBackgroundTerminals,
+    activeSubagents,
+  };
+}
+
+export function resolveProjectChatProviderDictationTranscribeEnabled({
+  providerDictationAvailable,
+}: {
+  providerDictationAvailable: boolean;
+}): boolean {
+  return providerDictationAvailable;
 }
 
 function useWorkspaceRootIdentity(
@@ -359,38 +694,228 @@ function useHasPythonInWorkspaceRoot(
 
 function toSortedProjectHistoryEntries(
   runs: Array<AgentRun>,
+  projectConfigId: string,
   compatibility: ChatHistoryCompatibility | null,
 ): Array<ProjectChatHistoryEntry> {
   return buildChatHistoryEntries(runs, {
+    projectConfigId,
     unscopedOnly: true,
     compatibility,
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+}
+
+type LatestRunByChat = {
+  run: AgentRun;
+  lastUpdatedMs: number;
+};
+
+function isProjectChatRunType(runType: string | null): boolean {
+  return (
+    runType === "llm_chat" ||
+    runType === "external_agent" ||
+    runType === "scriptable_chat"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
+  const outputs = isRecord(run.outputs) ? run.outputs : null;
+  const outputMessages = outputs ? outputs.messages : null;
+  if (Array.isArray(outputMessages)) {
+    return outputMessages as Array<BaseChatMessageUnion>;
+  }
+  const inputs = isRecord(run.inputs) ? run.inputs : null;
+  const inputMessages = inputs ? inputs.messages : null;
+  if (Array.isArray(inputMessages)) {
+    return inputMessages as Array<BaseChatMessageUnion>;
+  }
+  return [];
+}
+
+function extractUserPromptText(message: BaseChatMessageUnion): string | null {
+  if (message.role !== ChatRoleEnum.user) {
+    return null;
+  }
+  if (!Array.isArray(message.content)) {
+    return null;
+  }
+  const textParts: string[] = [];
+  for (const block of message.content) {
+    if (!isRecord(block)) {
+      continue;
+    }
+    if (block.type !== "text") {
+      continue;
+    }
+    const text = block.text;
+    if (typeof text !== "string") {
+      continue;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      continue;
+    }
+    textParts.push(trimmed);
+  }
+  if (textParts.length === 0) {
+    return null;
+  }
+  return textParts.join("\n");
+}
+
+function getMessageAttachments(
+  message: BaseChatMessageUnion,
+): Array<ChatFileAttachment> {
+  if ("attachments" in message && Array.isArray(message.attachments)) {
+    return message.attachments;
+  }
+  return [];
+}
+
+function findBranchSourceUserMessage(
+  messages: Array<BaseChatMessageUnion>,
+  assistantMessageId: string,
+): BaseChatMessageUnion | null {
+  const assistantIndex = messages.findIndex(
+    (message) =>
+      message.id === assistantMessageId &&
+      message.role === ChatRoleEnum.assistant,
+  );
+  if (assistantIndex < 0) {
+    return null;
+  }
+  for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== ChatRoleEnum.user) {
+      continue;
+    }
+    return message;
+  }
+  return null;
+}
+
+function collectUserPrompts(
+  messages: Array<BaseChatMessageUnion>,
+): Array<string> {
+  const prompts: string[] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) {
+      continue;
+    }
+    const prompt = extractUserPromptText(message);
+    if (!prompt) {
+      continue;
+    }
+    prompts.push(prompt);
+  }
+  return prompts;
+}
+
+function filterProjectConversationMessagesBySearch({
+  messages,
+  normalizedSearchTerms,
+}: {
+  messages: Array<BaseChatMessageUnion>;
+  normalizedSearchTerms: Array<string>;
+}): Array<BaseChatMessageUnion> {
+  if (normalizedSearchTerms.length === 0) {
+    return messages;
+  }
+  return messages.filter((message) =>
+    matchesConversationSearchText(
+      buildSearchableTextForMessage(message),
+      normalizedSearchTerms,
+    ),
+  );
+}
+
+function appendUniquePrompts(
+  prompts: Array<string>,
+  seen: Set<string>,
+  incoming: Array<string>,
+): void {
+  for (const prompt of incoming) {
+    const trimmed = prompt.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    prompts.push(trimmed);
+  }
+}
+
+export function buildProjectChatSubmittedMessageHistory({
+  runs,
+  projectConfigId,
+  activeMessages,
+}: {
+  runs: Array<AgentRun>;
+  projectConfigId: string;
+  activeMessages: Array<BaseChatMessageUnion>;
+}): Array<string> {
+  const candidateRuns = runs.filter(
+    (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
+  );
+  const latestRunByChatId = new Map<string, LatestRunByChat>();
+
+  for (const run of candidateRuns) {
+    const runType = getRunInputString(run, "runType");
+    if (!isProjectChatRunType(runType)) {
+      continue;
+    }
+    if (getRunInputString(run, "sectionId") !== null) {
+      continue;
+    }
+    const runChatId = getRunInputString(run, "chatId");
+    if (!runChatId) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const existing = latestRunByChatId.get(runChatId);
+    if (!existing || lastUpdatedMs > existing.lastUpdatedMs) {
+      latestRunByChatId.set(runChatId, { run, lastUpdatedMs });
+    }
+  }
+
+  const sortedRuns = [...latestRunByChatId.values()]
+    .sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs)
+    .map((entry) => entry.run);
+  const prompts: string[] = [];
+  const seenPrompts = new Set<string>();
+
+  appendUniquePrompts(prompts, seenPrompts, collectUserPrompts(activeMessages));
+  for (const run of sortedRuns) {
+    appendUniquePrompts(
+      prompts,
+      seenPrompts,
+      collectUserPrompts(getRunMessages(run)),
+    );
+  }
+
+  return prompts;
 }
 
 function EmptyChatState({
   starterPrompts,
   disabled,
   onStarterPrompt,
-  onDesignFirstPrompt,
 }: {
   starterPrompts: ChatStarterPrompt[];
   disabled: boolean;
   onStarterPrompt: (prompt: string) => void;
-  onDesignFirstPrompt: () => void;
 }) {
   const starterButtonClassName =
-    "rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
+    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
-      <button
-        type="button"
-        className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50"
-        onClick={onDesignFirstPrompt}
-        disabled={disabled}
-      >
-        <TbLayoutDashboard /> Create Project UI (Design First)
-      </button>
       {starterPrompts.map((starterPrompt) => (
         <button
           key={starterPrompt.id}
@@ -409,6 +934,13 @@ function EmptyChatState({
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
   placeholderText,
+  conversationFilterText,
+  requiresNewThreadContinuation = false,
+  newThreadContinuationRequiredReason = null,
+  newThreadSeedChatId = null,
+  activeConversationSearchMatchMessageId = null,
+  hydrationAuthority,
+  hydrationMetadataRevision,
   thinking,
   engineConfigId,
   engineType,
@@ -418,12 +950,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   transcriptionProfileId,
   dictationMode,
   providerDictationAvailable,
-  providerDictationUnavailableReason,
+  providerDictationLikelySupported,
   setChatId,
+  onStartNewChat,
+  onDraftThreadStart,
+  onDraftThreadSettled,
+  onThinkingChange,
   onPermissionModeChange,
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
+  conversationFilterText: string;
+  requiresNewThreadContinuation?: boolean;
+  newThreadContinuationRequiredReason?: string | null;
+  newThreadSeedChatId?: string | null;
+  activeConversationSearchMatchMessageId?: string | null;
+  hydrationAuthority: ProjectChatHydrationAuthority;
+  hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
   engineType: EngineTypeEnum | null;
@@ -431,16 +974,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
   transcriptionProfileId: string | null;
-  dictationMode: ChatDictationMode;
+  dictationMode: "auto" | "browser" | "provider";
   providerDictationAvailable: boolean;
-  providerDictationUnavailableReason: string;
+  providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onStartNewChat?: () => void;
+  onDraftThreadStart?: () => void;
+  onDraftThreadSettled?: (
+    nextChatId: string | null,
+    succeeded: boolean,
+  ) => void;
+  onThinkingChange?: (nextThinking: boolean) => void;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
   ) => void;
 }) {
-  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
-    (state) => {
+  const { messages, toolCallArguments, waitingForResponse, contextUsage } =
+    useAIStore((state) => {
       if (chatId === null) {
         return state.pendingChatDetails ?? getDefaultChatDetails();
       }
@@ -448,9 +998,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         return getDefaultChatDetails();
       }
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
-    },
-    shallow,
-  );
+    }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -463,14 +1011,54 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     });
   }, [branchIndex, chatId, messages]);
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
+  const agentRuns = useAIStore((state) => state.agentRuns);
+  const agentRunsInitialLoadComplete = useAIStore(
+    (state) => state.agentRunsInitialLoadComplete,
+  );
+  const interruptedAssistantMessageIds = useAIStore((state) => {
+    if (typeof chatId !== "string") {
+      return {};
+    }
+    return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+  }, shallow);
   const [draftMessage, setDraftMessage] = useState("");
+  const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
+    useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =
     useState<ChatExecutionSettings>(() => ({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
       searchEnabled: true,
     }));
   const showEmptyState = typeof chatId === "undefined";
+  const normalizedConversationSearchTerms = useMemo(
+    () => tokenizeConversationSearchQuery(conversationFilterText),
+    [conversationFilterText],
+  );
+  const filteredConversationMessages = useMemo(
+    () =>
+      filterProjectConversationMessagesBySearch({
+        messages,
+        normalizedSearchTerms: normalizedConversationSearchTerms,
+      }),
+    [messages, normalizedConversationSearchTerms],
+  );
+  const hasVisibleConversationMatches = useMemo(
+    () =>
+      filteredConversationMessages.some(
+        (message) => message.role !== ChatRoleEnum.tool,
+      ),
+    [filteredConversationMessages],
+  );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const submittedMessageHistory = useMemo(
+    () =>
+      buildProjectChatSubmittedMessageHistory({
+        runs: agentRuns,
+        projectConfigId,
+        activeMessages: messages,
+      }),
+    [agentRuns, messages, projectConfigId],
+  );
   const workspaceRootIdentity = useWorkspaceRootIdentity(
     showEmptyState,
     projectConfigId,
@@ -480,8 +1068,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const hydrationRunType = hydrationAuthority.hydrationRunType;
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = useMemo(
+    () => resolveProjectChatContextTelemetry(contextUsage),
+    [contextUsage],
+  );
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveProjectChatRunType(engineType);
+    const runType = resolveProjectChatRunTypeForEngine(engineType);
     if (!runType) {
       return null;
     }
@@ -521,12 +1119,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
+  const blockedErrorCode =
+    hydrationAuthority.blockedErrorCode ?? hydrationBlockedErrorCode;
+  const blockedReason = blockedErrorCode
+    ? getProjectChatBlockedReasonMessage(blockedErrorCode)
+    : null;
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
-  const showSearchExecutionControl =
-    canConfigureExecutionSettings && !isExternalEngine;
+  const showSearchExecutionControl = false;
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -536,22 +1138,71 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [showPermissionExecutionControl, showSearchExecutionControl],
   );
-  const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
+  const hydrationStatusByKeyRef = useRef<
+    Record<string, ProjectChatHydrationRetryEntry>
+  >({});
+  const createProjectStarterPrompt = useMemo(
+    () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
+    [hasPythonInWorkspaceRoot],
+  );
   const visibleStarterPrompts = useMemo(
     () =>
       CHAT_STARTER_PROMPTS.filter(
         (starterPrompt) =>
           !starterPrompt.requiresPython || hasPythonInWorkspaceRoot,
-      ),
-    [hasPythonInWorkspaceRoot],
+      ).map((starterPrompt) => {
+        if (starterPrompt.id !== "create-project") {
+          return starterPrompt;
+        }
+        return {
+          ...starterPrompt,
+          prompt: createProjectStarterPrompt,
+        };
+      }),
+    [createProjectStarterPrompt, hasPythonInWorkspaceRoot],
   );
+
+  useEffect(() => {
+    if (!agentRunsInitialLoadComplete) {
+      void loadAgentRuns();
+    }
+  }, [agentRunsInitialLoadComplete]);
 
   useEffect(() => {
     if (typeof chatId === "string") {
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
+
+  useEffect(() => {
+    setHydrationBlockedErrorCode(null);
+  }, [chatId, hydrationMetadataRevision, hydrationRunType]);
+
+  const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
+    const state = hydrationStatusByKeyRef.current[cacheKey];
+    if (!state || state.timerId === null) {
+      return;
+    }
+    globalThis.clearTimeout(state.timerId);
+    state.timerId = null;
+    if (state.status === "retry_scheduled") {
+      state.status = "failed";
+    }
+    touchProjectChatHydrationRetryEntry(state);
+  }, []);
+
+  const clearAllHydrationRetryTimers = useCallback(() => {
+    for (const cacheKey of Object.keys(hydrationStatusByKeyRef.current)) {
+      clearHydrationRetryTimer(cacheKey);
+    }
+  }, [clearHydrationRetryTimer]);
+
+  useEffect(() => {
+    return () => {
+      clearAllHydrationRetryTimers();
+    };
+  }, [clearAllHydrationRetryTimers]);
 
   useEffect(() => {
     if (!pendingPrompt) {
@@ -565,27 +1216,156 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (typeof chatId !== "string") {
       return;
     }
+    if (hydrationAuthority.status !== "ready") {
+      return;
+    }
+    if (hydrationRunType === null) {
+      return;
+    }
     if (waitingForResponse) {
       return;
     }
-    if (lastFetchedChatIdRef.current === chatId) {
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
+    if (!cacheKey) {
       return;
     }
-    lastFetchedChatIdRef.current = chatId;
-    if (isExternalEngine) {
-      getExternalAgentChat(chatId, null);
+    const staleCacheKeys = clearProjectChatHydrationCacheEntriesForChat({
+      cache: hydrationStatusByKeyRef.current,
+      chatId,
+      keepCacheKey: cacheKey,
+    });
+    for (const staleCacheKey of staleCacheKeys) {
+      clearHydrationRetryTimer(staleCacheKey);
+      delete hydrationStatusByKeyRef.current[staleCacheKey];
+    }
+    const retryState = hydrationStatusByKeyRef.current[cacheKey];
+    if (retryState) {
+      touchProjectChatHydrationRetryEntry(retryState);
+    }
+    if (
+      shouldSkipProjectChatHydration(
+        retryState
+          ? {
+              status: retryState.status,
+              hasLiveRetryTimer: retryState.timerId !== null,
+            }
+          : null,
+      )
+    ) {
       return;
     }
-    getLLMChat(chatId);
-  }, [chatId, isExternalEngine, waitingForResponse]);
+    if (retryState && retryState.status === "retry_scheduled") {
+      retryState.status = "failed";
+    }
+    let cancelled = false;
+    const hydrateChat = async () => {
+      const state =
+        hydrationStatusByKeyRef.current[cacheKey] ??
+        (hydrationStatusByKeyRef.current[cacheKey] = {
+          status: "failed",
+          timerId: null,
+          attempt: 0,
+          lastTouchedAt: Date.now(),
+        });
+      touchProjectChatHydrationRetryEntry(state);
+      state.status = "in_flight";
+      const hydrationOutcome =
+        hydrationRunType === "external_agent"
+          ? await getExternalAgentChatHydrationOutcome(chatId, null)
+          : await getLLMChatHydrationOutcome(chatId);
+      if (cancelled) {
+        return;
+      }
+      const retryDecision = resolveProjectChatHydrationRetryDecision({
+        outcomeType: hydrationOutcome.outcome,
+        attempt: state.attempt,
+      });
+      if (retryDecision.type === "success") {
+        setHydrationBlockedErrorCode(null);
+        state.status = "succeeded";
+        touchProjectChatHydrationRetryEntry(state);
+        clearHydrationRetryTimer(cacheKey);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
+        return;
+      }
+      if (retryDecision.type === "terminal_failure") {
+        setHydrationBlockedErrorCode(hydrationOutcome.errorCode);
+        clearHydrationRetryTimer(cacheKey);
+        state.status = "terminal_failure";
+        touchProjectChatHydrationRetryEntry(state);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
+        return;
+      }
+      setHydrationBlockedErrorCode(null);
+      clearHydrationRetryTimer(cacheKey);
+      state.attempt = retryDecision.nextAttempt;
+      if (retryDecision.type === "transient_exhausted") {
+        state.status = "failed";
+        touchProjectChatHydrationRetryEntry(state);
+        trimProjectChatHydrationCache({
+          cache: hydrationStatusByKeyRef.current,
+        });
+        return;
+      }
+      state.status = "retry_scheduled";
+      touchProjectChatHydrationRetryEntry(state);
+      state.timerId = globalThis.setTimeout(() => {
+        if (cancelled) {
+          return;
+        }
+        const retryStateForKey = hydrationStatusByKeyRef.current[cacheKey];
+        if (!retryStateForKey) {
+          return;
+        }
+        retryStateForKey.timerId = null;
+        retryStateForKey.status = "failed";
+        touchProjectChatHydrationRetryEntry(retryStateForKey);
+        void hydrateChat();
+      }, retryDecision.delayMs);
+    };
+    void hydrateChat();
+    return () => {
+      cancelled = true;
+      clearHydrationRetryTimer(cacheKey);
+      const state = hydrationStatusByKeyRef.current[cacheKey];
+      if (state?.status === "in_flight") {
+        state.status = "failed";
+        touchProjectChatHydrationRetryEntry(state);
+      }
+    };
+  }, [
+    chatId,
+    clearHydrationRetryTimer,
+    hydrationAuthority.status,
+    hydrationMetadataRevision,
+    hydrationRunType,
+    waitingForResponse,
+  ]);
 
   const handleNewChatStart = useCallback(() => {
+    if (onStartNewChat) {
+      onStartNewChat();
+      return;
+    }
+    onDraftThreadStart?.();
+    if (chatId === null) {
+      return;
+    }
     initializePendingChatDetails();
     setChatId(null);
-  }, [setChatId]);
+  }, [chatId, onDraftThreadStart, onStartNewChat, setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
+      onDraftThreadSettled?.(newChatId, succeeded);
       if (!succeeded || !newChatId) {
         clearPendingChatDetails();
         setChatId((currentChatId) => {
@@ -598,7 +1378,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }
       finalizePendingChatDetails(newChatId);
     },
-    [setChatId],
+    [onDraftThreadSettled, setChatId],
   );
 
   const executionControlHandlers = useMemo(
@@ -609,16 +1389,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
     const currentChatId = typeof chatId === "string" ? chatId : null;
-    const allRuns = useAIStore.getState().agentRuns;
-    const scopedRuns = allRuns.filter(
-      (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
-    );
-    const fallbackRuns = allRuns.filter(
-      (run) => getRunInputString(run, "projectConfigId") === null,
-    );
-    const candidateRuns = scopedRuns.length > 0 ? scopedRuns : fallbackRuns;
     const latestEntry = toSortedProjectHistoryEntries(
-      candidateRuns,
+      useAIStore.getState().agentRuns,
+      projectConfigId,
       historyCompatibility,
     ).find((entry) => entry.chatId !== currentChatId);
     if (!latestEntry) {
@@ -661,6 +1434,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (!trimmed && attachments.length === 0) {
         return false;
       }
+      if (requiresNewThreadContinuation) {
+        return false;
+      }
       if (!engineConfigId) {
         return false;
       }
@@ -670,8 +1446,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (isExternalEngine && !externalEngineAvailable) {
         return false;
       }
-      const isFirstMessage = chatId === undefined;
-      if (isFirstMessage) {
+      const isFirstDraftSubmit = chatId === undefined || chatId === null;
+      if (isFirstDraftSubmit) {
         handleNewChatStart();
       }
 
@@ -686,6 +1462,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           engineConfigId,
           isExternalEngine,
           {
+            continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
             executionSettings: {
               permissionMode: executionSettings.permissionMode,
               searchEnabled: executionSettings.searchEnabled,
@@ -696,7 +1473,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       } catch (err) {
         console.error("Failed to submit LLM chat message", err);
       } finally {
-        if (isFirstMessage) {
+        if (isFirstDraftSubmit) {
           handleNewChatSettled(submittedChatId, succeeded);
         }
       }
@@ -711,6 +1488,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       externalEngineAvailable,
       hasLLMConfig,
+      newThreadSeedChatId,
+      requiresNewThreadContinuation,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
     ],
@@ -729,6 +1508,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       const resolvedChatId =
         typeof chatId === "string" ? chatId : lastChatIdRef.current;
       if (!resolvedChatId) {
+        return false;
+      }
+      if (requiresNewThreadContinuation) {
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
@@ -758,6 +1540,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       externalEngineAvailable,
       isExternalEngine,
       messages,
+      requiresNewThreadContinuation,
       thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
@@ -774,116 +1557,228 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [chatId, setChatId],
   );
 
-  const isDisabled =
-    !engineConfigId ||
-    (!isExternalEngine && !hasLLMConfig) ||
-    (isExternalEngine && !externalEngineAvailable);
-  const editDisabledReason = useMemo(
-    () =>
-      getChatEditDisabledReason({
-        hasEngineConfig: Boolean(engineConfigId),
-        hasLLMConfig,
+  const handleRedoMessage = useCallback(
+    async (assistantMessageId: string) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId || waitingForResponse) {
+        return false;
+      }
+      if (requiresNewThreadContinuation) {
+        return false;
+      }
+      if (!engineConfigId) {
+        return false;
+      }
+      if (!isExternalEngine && !hasLLMConfig) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const sourceUserMessage = findBranchSourceUserMessage(
+        messages,
+        assistantMessageId,
+      );
+      if (!sourceUserMessage) {
+        return false;
+      }
+      const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
+      const sourceAttachments = getMessageAttachments(sourceUserMessage);
+      const nextChatId = await submitEditedMessage({
+        parentChatId: resolvedChatId,
+        messages,
+        messageId: sourceUserMessage.id,
+        message: sourceText,
+        attachments: sourceAttachments,
+        thinking,
+        engineConfigId,
         isExternalEngine,
-        externalEngineAvailable,
-        noLLMConfigsAvailable,
-      }),
+        agentProfileId: null,
+        sectionId: null,
+        executionSettings: {
+          permissionMode: executionSettings.permissionMode,
+          searchEnabled: executionSettings.searchEnabled,
+        },
+      });
+      return Boolean(nextChatId);
+    },
     [
+      chatId,
       engineConfigId,
+      executionSettings.permissionMode,
+      executionSettings.searchEnabled,
       externalEngineAvailable,
       hasLLMConfig,
       isExternalEngine,
-      noLLMConfigsAvailable,
+      messages,
+      requiresNewThreadContinuation,
+      thinking,
+      waitingForResponse,
     ],
   );
+
+  const isDisabled =
+    requiresNewThreadContinuation ||
+    !engineConfigId ||
+    (!isExternalEngine && !hasLLMConfig) ||
+    (isExternalEngine && !externalEngineAvailable);
+  const editDisabledReason = useMemo(() => {
+    if (newThreadContinuationRequiredReason) {
+      return newThreadContinuationRequiredReason;
+    }
+    return getChatEditDisabledReason({
+      hasEngineConfig: Boolean(engineConfigId),
+      hasLLMConfig,
+      isExternalEngine,
+      externalEngineAvailable,
+      noLLMConfigsAvailable,
+    });
+  }, [
+    engineConfigId,
+    externalEngineAvailable,
+    hasLLMConfig,
+    isExternalEngine,
+    newThreadContinuationRequiredReason,
+    noLLMConfigsAvailable,
+  ]);
   const submitDisabled = useMemo(
-    () => !waitingForResponse && hasPendingToolInteraction(messages),
+    () =>
+      requiresNewThreadContinuation ||
+      (!waitingForResponse && hasPendingToolInteraction(messages)),
+    [messages, requiresNewThreadContinuation, waitingForResponse],
+  );
+  const runtimeActivityCounts = useMemo(
+    () =>
+      resolveProjectChatRuntimeActivityCounts({
+        messages,
+        waitingForResponse,
+      }),
     [messages, waitingForResponse],
   );
+  const showThinkingExecutionControl =
+    engineType === EngineTypeEnum.setta_llm ||
+    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
+      thinkingEnabled: thinking,
+      onThinkingEnabledChange: showThinkingExecutionControl
+        ? onThinkingChange
+        : undefined,
       permissionMode: executionSettings.permissionMode,
       searchEnabled: executionSettings.searchEnabled,
       onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
+      thinking,
+      onThinkingChange,
+      showThinkingExecutionControl,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
     ],
   );
-  const handleDesignFirstPrompt = useCallback(() => {
-    const starterPrompt = buildDesignFirstFigmaStarterPrompt();
-    setDraftMessage((current) => (current.trim() ? current : starterPrompt));
-  }, []);
-  const {
-    onProviderTranscriptionSessionStart:
-      handleProviderTranscriptionSessionStart,
-    onProviderTranscriptionSessionAppend:
-      handleProviderTranscriptionSessionAppend,
-    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
-    onProviderTranscriptionSessionCancel:
-      handleProviderTranscriptionSessionCancel,
-  } = useProviderTranscriptionSessionHandlers({
-    transcriptionProfileId,
-    suppressStartNotification: dictationMode === "auto",
-  });
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!transcriptionProfileId) {
+        throw new Error("Provider dictation is not configured.");
+      }
+      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
+    },
+    [transcriptionProfileId],
+  );
+  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
+  const showConversationSearchEmptyState =
+    normalizedConversationSearchTerms.length > 0 &&
+    !hasVisibleConversationMatches &&
+    !waitingForResponse;
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {blockedReason ? (
+        <div
+          role="alert"
+          data-testid="project-chat-thread-blocked-banner"
+          className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {blockedReason}
+        </div>
+      ) : null}
       {showEmptyState ? (
-        <EmptyChatState
-          starterPrompts={visibleStarterPrompts}
-          disabled={isDisabled}
-          onStarterPrompt={(prompt) => {
-            void handleSubmit(prompt, []);
-          }}
-          onDesignFirstPrompt={handleDesignFirstPrompt}
-        />
+        <div
+          className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}
+          data-chat-width-shell="true"
+        >
+          <EmptyChatState
+            starterPrompts={visibleStarterPrompts}
+            disabled={isDisabled}
+            onStarterPrompt={(prompt) => {
+              void handleSubmit(prompt, []);
+            }}
+          />
+        </div>
+      ) : showConversationSearchEmptyState ? (
+        <div
+          className={`${chatWidthShellClassName} flex min-h-0 flex-1 items-center justify-center`}
+          data-chat-width-shell="true"
+        >
+          <p className="text-xs text-setta-500 dark:text-setta-400">
+            No messages match this filter.
+          </p>
+        </div>
       ) : (
         <ChatMessageList
-          messages={messages}
+          messages={filteredConversationMessages}
+          allMessagesForToolResults={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
+          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
+          activeSearchMessageId={activeConversationSearchMatchMessageId}
           editDisabledReason={editDisabledReason}
+          onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}
           branchInfoByMessage={branchInfoByMessage}
+          contentClassName={chatWidthShellClassName}
         />
       )}
-      <ChatInput
-        placeholderText={placeholderText}
-        waitingForResponse={waitingForResponse}
-        submitDisabled={submitDisabled}
-        disabled={isDisabled}
-        value={draftMessage}
-        onChange={setDraftMessage}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-        slashCommands={slashCommands}
-        onSlashCommand={handleSlashCommand}
-        executionControls={executionControls}
-        executionControlVisibility={{
-          permissionMode: showPermissionExecutionControl,
-          search: showSearchExecutionControl,
-        }}
-        dictationMode={dictationMode}
-        dictationEnabledByProvider={providerDictationAvailable}
-        providerDictationUnavailableMessage={providerDictationUnavailableReason}
-        onProviderTranscriptionSessionStart={
-          handleProviderTranscriptionSessionStart
-        }
-        onProviderTranscriptionSessionAppend={
-          handleProviderTranscriptionSessionAppend
-        }
-        onProviderTranscriptionSessionStop={
-          handleProviderTranscriptionSessionStop
-        }
-        onProviderTranscriptionSessionCancel={
-          handleProviderTranscriptionSessionCancel
-        }
-      />
-    </>
+      <div className={chatWidthShellClassName} data-chat-width-shell="true">
+        <ChatInput
+          placeholderText={placeholderText}
+          waitingForResponse={waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isDisabled}
+          value={draftMessage}
+          onChange={setDraftMessage}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          slashCommands={slashCommands}
+          onSlashCommand={handleSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: showPermissionExecutionControl,
+            search: showSearchExecutionControl,
+          }}
+          dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
+          providerDictationLikelySupported={providerDictationLikelySupported}
+          contextWindowTokens={contextWindowTokens}
+          contextUsedTokens={contextUsedTokens}
+          contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
+          submittedMessageHistory={submittedMessageHistory}
+          runtimeActivityCounts={runtimeActivityCounts}
+          onProviderDictationTranscribe={
+            !resolveProjectChatProviderDictationTranscribeEnabled({
+              providerDictationAvailable,
+            })
+              ? undefined
+              : handleProviderDictationTranscribe
+          }
+        />
+      </div>
+    </div>
   );
 });

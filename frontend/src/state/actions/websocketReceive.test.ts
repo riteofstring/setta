@@ -328,6 +328,47 @@ describe("openWebSocket", () => {
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 
+  it("applies revisioned llm api-key websocket snapshots", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    openWebSocket("/project", "share-session-api-keys");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    useAIStore.setState({
+      apiKeys: { OPENAI_API_KEY: "old-secret" },
+      apiKeysRevision: 1,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: "stale error",
+    });
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: null,
+        messageType: "LLMApiKeysUpdated",
+        content: {
+          apiKeys: {
+            OPENAI_API_KEY: "new-secret",
+            ANTHROPIC_API_KEY: "new-anthropic-secret",
+          },
+          revision: 4,
+          corrupt: false,
+          errorCode: null,
+          message: null,
+        },
+      }),
+    });
+
+    const state = useAIStore.getState();
+    expect(state.apiKeys).toEqual({
+      OPENAI_API_KEY: "new-secret",
+      ANTHROPIC_API_KEY: "new-anthropic-secret",
+    });
+    expect(state.apiKeysRevision).toBe(4);
+    expect(state.apiKeysLoadError).toBeNull();
+    expect(state.apiKeysAuthoritative).toBe(true);
+  });
+
   it("does not set frontend websocket affinity from AllConnections payloads", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(

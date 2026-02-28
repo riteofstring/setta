@@ -40,6 +40,7 @@ export const ENDPOINT_ORIGIN_POLICY: Readonly<
   [RouteEnum.LAUNCH]: "launcher",
   [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
   [RouteEnum.GET_SETTA_HOME_INFO]: "backend",
+  [RouteEnum.TOOLS_CALL]: "backend-origin",
   [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
   [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
   [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
@@ -94,6 +95,9 @@ export function resolveEndpointOriginForMode(
     return "backend-origin";
   }
   const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
+  if (routePolicy === "backend-origin") {
+    return "backend-origin";
+  }
   if (routePolicy === "launcher") {
     if (
       MODE_SCOPED_LAUNCHER_ROUTES.has(normalizedAddress) &&

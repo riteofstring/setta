@@ -21,9 +21,13 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.api_keys import (
+    read_managed_api_keys_with_status,
+    resolve_runtime_llm_api_keys,
+)
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
-from setta.llm.dotenv_watcher import DotEnvWatcher
+from setta.llm.dotenv_watcher import LLMApiKeyWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.transcription_sessions import TranscriptionSessionManager
 from setta.logging.tasks import spawn_background_task
@@ -331,7 +335,9 @@ class SettaFastAPIState:
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
         self.agent_runner: AgentRunner = self._defer_attr("agent_runner")
-        self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
+        self.llm_api_key_watcher: LLMApiKeyWatcher = self._defer_attr(
+            "llm_api_key_watcher"
+        )
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
         )
@@ -516,14 +522,25 @@ class SettaFastAPIState:
                 share_mode=self.deployment_mode,
             )
             self.agent_runner.update_config(llm_config)
-            self.agent_runner.update_api_keys(self.dbe.read_dot_env())
-            self.dotenv_watcher = DotEnvWatcher(
+            self.dbe.reload_dot_env()
+            managed_api_keys = read_managed_api_keys_with_status(self.dbe)
+            if managed_api_keys.corrupt:
+                logger.error(
+                    ".env API key store is corrupt during startup: %s",
+                    managed_api_keys.error or "unknown parse error",
+                )
+            runtime_api_keys = resolve_runtime_llm_api_keys(
+                config=llm_config,
+                managed_api_keys=managed_api_keys.api_keys,
+            )
+            self.agent_runner.update_api_keys(runtime_api_keys)
+            self.llm_api_key_watcher = LLMApiKeyWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
-            self.dotenv_watcher.start()
+            self.llm_api_key_watcher.start()
             self.llm_config_watcher = LLMConfigWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,

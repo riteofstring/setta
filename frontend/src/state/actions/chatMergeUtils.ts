@@ -38,6 +38,47 @@ export function mergeChatMessages(
   return merged;
 }
 
+export function reconcileHydratedChatMessages({
+  backendMessages,
+  localMessages,
+  preserveLocalOnlyMessages,
+}: {
+  backendMessages: Array<BaseChatMessageUnion>;
+  localMessages: Array<BaseChatMessageUnion>;
+  preserveLocalOnlyMessages: boolean;
+}): Array<BaseChatMessageUnion> {
+  if (backendMessages.length === 0) {
+    if (!preserveLocalOnlyMessages) {
+      return [];
+    }
+    return [...localMessages];
+  }
+  const localMessageById = new Map<string, BaseChatMessageUnion>();
+  for (const message of localMessages) {
+    localMessageById.set(message.id, message);
+  }
+  const nextMessages = backendMessages.map((backendMessage) => {
+    const localMessage = localMessageById.get(backendMessage.id);
+    if (!localMessage) {
+      return backendMessage;
+    }
+    return pickMoreCompleteMessage(backendMessage, localMessage);
+  });
+  if (!preserveLocalOnlyMessages) {
+    return nextMessages;
+  }
+  const backendMessageIds = new Set(
+    backendMessages.map((message) => message.id),
+  );
+  for (const localMessage of localMessages) {
+    if (backendMessageIds.has(localMessage.id)) {
+      continue;
+    }
+    nextMessages.push(localMessage);
+  }
+  return nextMessages;
+}
+
 export function getMessageCompletenessScore(
   message: BaseChatMessageUnion,
 ): number {

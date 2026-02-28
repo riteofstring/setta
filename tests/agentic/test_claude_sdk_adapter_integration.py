@@ -285,6 +285,69 @@ class TestClaudeSdkAdapterIntegration:
 
             await self._await_completed_run(dbe, run.id)
 
+    async def test_claude_sdk_persists_usage_with_context_window(self) -> None:
+        self._require_claude_sdk()
+
+        with TemporaryDirectory() as tmpdir, self._temp_home(Path(tmpdir)):
+            mcp_config = self._write_empty_mcp_config(Path(tmpdir))
+            dbe = DBE(Path(tmpdir) / "setta_files")
+            project_config = ProjectConfig()
+            dbe.write_project(
+                ProjectStateBackend(
+                    projectConfigs={project_config.id: project_config},
+                    defaultProjectConfigId=project_config.id,
+                )
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registry = ExternalAgentAdapterRegistry(adapters=[ClaudeSdkAdapter()])
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                adapter_registry=registry,
+            )
+
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="allow",
+                defaultModel="claude-sonnet-4-5-20250929",
+                envVarWhitelist=["ANTHROPIC_API_KEY"],
+            )
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": "Reply with exactly HELLO.",
+                    "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
+                },
+            )
+
+            stored = await self._await_completed_run(dbe, run.id)
+            outputs = stored.get("outputs")
+            assert isinstance(outputs, dict)
+            usage = outputs.get("usage")
+            assert isinstance(usage, dict)
+
+            # External usage should include both real token counts and model window.
+            context_window_tokens = usage.get("contextWindowTokens")
+            prompt_tokens = usage.get("promptTokens")
+            completion_tokens = usage.get("completionTokens")
+            total_tokens = usage.get("totalTokens")
+            assert isinstance(context_window_tokens, int)
+            assert isinstance(prompt_tokens, int)
+            assert isinstance(completion_tokens, int)
+            assert isinstance(total_tokens, int)
+            assert context_window_tokens > 0
+            assert prompt_tokens > 0
+            assert completion_tokens > 0
+            assert total_tokens == prompt_tokens + completion_tokens
+            assert context_window_tokens >= total_tokens
+
     async def test_claude_sdk_persists_session_id(self) -> None:
         self._require_claude_sdk()
 

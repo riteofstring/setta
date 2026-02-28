@@ -163,7 +163,7 @@ class SettingsBackend(BaseModel):
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
-    completionGuardEnabled: bool = True
+    completionGuardEnabled: bool = False
 
 
 def get_default_language_server_settings() -> dict:

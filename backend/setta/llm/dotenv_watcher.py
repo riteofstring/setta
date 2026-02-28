@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.llm.api_key_runtime_sync import sync_managed_api_keys_to_runtime
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.paths import normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -19,8 +19,8 @@ if TYPE_CHECKING:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-class DotEnvWatcher:
-    CATEGORY = "DotEnvWatcher"
+class LLMApiKeyWatcher:
+    CATEGORY = "LLMApiKeyWatcher"
 
     def __init__(
         self,
@@ -47,24 +47,15 @@ class DotEnvWatcher:
         )
 
     async def _reload_from_disk(self) -> None:
-        try:
-            self.dbe.reload_dot_env()
-            env_vars = self.dbe.read_dot_env()
-        except Exception as exc:  # pragma: no cover - defensive log
-            await (
-                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="dotenv-reload",
-                    message="Failed to reload API keys; keeping previous values",
-                    severity=SettaBackendLogEventSeverity.error,
-                    handled=True,
-                    logger=logger,
-                    context={"dot_env": str(self.dbe.dot_env)},
-                )
-            )
-            return
-
-        self.agent_runner.update_api_keys(env_vars)
-        await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.agent_runner.api_keys
+        self.dbe.reload_dot_env()
+        await sync_managed_api_keys_to_runtime(
+            dbe=self.dbe,
+            agent_runner=self.agent_runner,
+            websocket_msg_handler=self.websocket_msg_handler,
+            logger=logger,
+            log_label="llm-api-keys-reload",
+            corruption_message=(
+                "Failed to read .env API keys; applying empty API key snapshot"
+            ),
+            context={"dot_env_path": str(self.dbe.dot_env)},
         )
