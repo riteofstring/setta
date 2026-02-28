@@ -51,7 +51,6 @@ def cors_client(tmp_path, monkeypatch):
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -101,7 +100,6 @@ def test_launcher_mode_cors_allows_configured_loopback_origin_launch_intent(
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -161,7 +159,6 @@ def test_launcher_mode_cors_allows_handoff_trusted_loopback_preflight_origin(
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -259,7 +256,6 @@ def test_launch_handoff_trusts_workspace_origin_for_launcher_cors(monkeypatch) -
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -267,11 +263,23 @@ def test_launch_handoff_trusts_workspace_origin_for_launcher_cors(monkeypatch) -
     app.include_router(launch_router, prefix=Route.PREFIX.value)
 
     with TestClient(app, base_url=C.BACKEND) as client:
+        intent_response = client.post(
+            f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+            headers={"Origin": launcher_origin},
+            json={
+                "launchRequest": {"workspaceRoot": "/tmp/workspace"},
+                "returnUrl": f"{C.BACKEND}/home",
+            },
+        )
+        assert intent_response.status_code == 200
+        assert intent_response.json()["ok"] is True
+        launch_intent_token = intent_response.json()["launchIntentToken"]
+
         # A successful launcher /launch call should trust the launched workspace origin.
         launch_response = client.post(
             f"{Route.PREFIX.value}{Route.LAUNCH.value}",
             headers={"Origin": launcher_origin},
-            json={"workspaceRoot": "/tmp/workspace"},
+            json={"launchIntentToken": launch_intent_token},
         )
         assert launch_response.status_code == 200
         assert launch_response.json()["ok"] is True
@@ -330,7 +338,6 @@ def test_launcher_mode_cors_rejects_unconfigured_loopback_preflight_origin(
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -378,7 +385,6 @@ def test_launcher_mode_cors_credentialed_request_blocks_non_allowlisted_loopback
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -427,7 +433,6 @@ def test_launcher_mode_cors_fails_closed_when_store_read_raises(
     app.add_middleware(
         SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
-        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

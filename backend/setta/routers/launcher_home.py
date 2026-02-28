@@ -1,5 +1,4 @@
 import os
-import signal
 from pathlib import Path
 from typing import Literal
 
@@ -42,6 +41,10 @@ from setta.utils.launcher_origin_handoff import (
     mint_launcher_origin_handoff_proof,
 )
 from setta.utils.network import build_bootstrap_urls
+from setta.utils.session_rollback import (
+    LocalSessionRollbackError,
+    rollback_started_local_session,
+)
 
 router = SettaAPIRouter(
     dependencies=[Depends(require_not_deployment_mode), Depends(require_launcher_mode)]
@@ -517,11 +520,24 @@ def route_open_launcher_workspace(
         )
     except TrustedFrontendOriginStoreError as exc:
         if result.started_new:
-            _rollback_started_workspace_session(
-                session_id=result.session.id,
-                pid=result.session.pid,
-                registry=result.registry,
-            )
+            try:
+                rollback_started_local_session(
+                    session_id=result.session.id,
+                    pid=result.session.pid,
+                    registry=result.registry,
+                )
+            except LocalSessionRollbackError as rollback_exc:
+                return LauncherOpenWorkspaceResponse(
+                    ok=False,
+                    error=LauncherHomeErrorPayload(
+                        code="LocalRollbackFailed",
+                        message=(
+                            "Launch trust persistence failed and rollback of "
+                            f"local session {result.session.id} also failed: "
+                            f"{rollback_exc}"
+                        ),
+                    ),
+                )
         return LauncherOpenWorkspaceResponse(
             ok=False,
             error=LauncherHomeErrorPayload(
@@ -586,22 +602,3 @@ def _path_display_name(path: Path) -> str:
     if drive:
         return drive
     return str(path)
-
-
-def _rollback_started_workspace_session(
-    *, session_id: str, pid: int, registry: object
-) -> None:
-    if pid > 0:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-
-    try:
-        delete_session = getattr(registry, "delete_session")
-    except AttributeError:
-        return
-    try:
-        delete_session(session_id)
-    except OSError:
-        pass

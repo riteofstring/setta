@@ -1,5 +1,4 @@
 import json
-import signal
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
@@ -16,6 +15,7 @@ from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
 )
 from setta.types.routes import Route
+from setta.utils.session_rollback import LocalSessionRollbackError
 
 
 def _build_app(*, deployment_mode: bool = False, launcher_mode: bool = True) -> FastAPI:
@@ -654,15 +654,11 @@ def test_open_launcher_workspace_fails_when_trust_persistence_fails(
     allowed.mkdir(parents=True, exist_ok=True)
     workspace.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
-    removed_sessions: list[str] = []
-    kill_calls: list[tuple[int, int]] = []
+    rollback_calls: list[tuple[str, int]] = []
 
     class _Registry:
         def load_secret(self, _session: object) -> bytes:
             return b"secret"
-
-        def delete_session(self, session_id: str) -> None:
-            removed_sessions.append(session_id)
 
     def fake_launch_workspace_session(**kwargs):
         resolved_workspace = Path(str(kwargs["workspace_root"])).resolve(strict=False)
@@ -710,8 +706,10 @@ def test_open_launcher_workspace_fails_when_trust_persistence_fails(
         ),
     )
     monkeypatch.setattr(
-        "setta.routers.launcher_home.os.kill",
-        lambda pid, sig: kill_calls.append((pid, sig)),
+        "setta.routers.launcher_home.rollback_started_local_session",
+        lambda **kwargs: rollback_calls.append(
+            (kwargs["session_id"], kwargs["pid"])
+        ),
     )
 
     with TestClient(app) as client:
@@ -728,8 +726,7 @@ def test_open_launcher_workspace_fails_when_trust_persistence_fails(
     payload = response.json()
     assert payload["ok"] is False
     assert payload["error"]["code"] == "TrustedFrontendOriginStoreUnavailable"
-    assert kill_calls == [(12345, signal.SIGTERM)]
-    assert removed_sessions == ["session-1"]
+    assert rollback_calls == [("session-1", 12345)]
 
 
 def test_open_launcher_workspace_does_not_cleanup_reused_session_on_trust_failure(
@@ -743,15 +740,11 @@ def test_open_launcher_workspace_does_not_cleanup_reused_session_on_trust_failur
     allowed.mkdir(parents=True, exist_ok=True)
     workspace.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
-    removed_sessions: list[str] = []
-    kill_calls: list[tuple[int, int]] = []
+    rollback_calls: list[tuple[str, int]] = []
 
     class _Registry:
         def load_secret(self, _session: object) -> bytes:
             return b"secret"
-
-        def delete_session(self, session_id: str) -> None:
-            removed_sessions.append(session_id)
 
     def fake_launch_workspace_session(**kwargs):
         resolved_workspace = Path(str(kwargs["workspace_root"])).resolve(strict=False)
@@ -799,8 +792,10 @@ def test_open_launcher_workspace_does_not_cleanup_reused_session_on_trust_failur
         ),
     )
     monkeypatch.setattr(
-        "setta.routers.launcher_home.os.kill",
-        lambda pid, sig: kill_calls.append((pid, sig)),
+        "setta.routers.launcher_home.rollback_started_local_session",
+        lambda **kwargs: rollback_calls.append(
+            (kwargs["session_id"], kwargs["pid"])
+        ),
     )
 
     with TestClient(app) as client:
@@ -817,8 +812,92 @@ def test_open_launcher_workspace_does_not_cleanup_reused_session_on_trust_failur
     payload = response.json()
     assert payload["ok"] is False
     assert payload["error"]["code"] == "TrustedFrontendOriginStoreUnavailable"
-    assert kill_calls == []
-    assert removed_sessions == []
+    assert rollback_calls == []
+
+
+def test_open_launcher_workspace_returns_local_rollback_failed_when_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    setta_home = tmp_path / "setta-home"
+    workspace = allowed / "workspace"
+    allowed.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+
+    class _Registry:
+        def load_secret(self, _session: object) -> bytes:
+            return b"secret"
+
+    def fake_launch_workspace_session(**kwargs):
+        resolved_workspace = Path(str(kwargs["workspace_root"])).resolve(strict=False)
+        session = SimpleNamespace(id="session-1", host="127.0.0.1", port=61234, pid=12345)
+        paths = SimpleNamespace(
+            workspace_root=resolved_workspace,
+            setta_files_location="local",
+            setta_files_root=(resolved_workspace / "setta_files").resolve(strict=False),
+            runtime_root=(resolved_workspace / "setta_files" / "runtime").resolve(
+                strict=False
+            ),
+            setta_home=setta_home.resolve(strict=False),
+            profile_name=None,
+        )
+        return SimpleNamespace(
+            session=session,
+            paths=paths,
+            registry=_Registry(),
+            started_new=True,
+        )
+
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.launch_workspace_session",
+        fake_launch_workspace_session,
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.load_current_session_secret",
+        lambda: (SimpleNamespace(id="launcher-session"), b"launcher-secret"),
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.BOOTSTRAP_TOKEN_MANAGER.mint",
+        lambda *_a, **_k: "tok",
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.build_bootstrap_urls",
+        lambda host, port, token: (
+            f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+            f"http://{host}:{port}/__setta__/bootstrap",
+        ),
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.trust_launched_workspace_origin_for_launcher_session",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            TrustedFrontendOriginStoreError("store unavailable")
+        ),
+    )
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.rollback_started_local_session",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            LocalSessionRollbackError("session did not exit")
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(workspace),
+                "settaHome": str(setta_home),
+                "createIfMissing": False,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "LocalRollbackFailed"
+    assert "session-1" in payload["error"]["message"]
 
 
 def test_open_launcher_workspace_rejects_dot_segments_for_create(

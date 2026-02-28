@@ -171,7 +171,14 @@ def rollback_local_ssh_tunnel(
     if metadata.keyHash != key_hash:
         return
 
-    _stop_pid(metadata.pid, expected_create_time=metadata.pidCreateTime)
+    pid_was_running = _pid_matches_create_time(metadata.pid, metadata.pidCreateTime)
+    if pid_was_running:
+        _stop_pid(metadata.pid, expected_create_time=metadata.pidCreateTime)
+        if _pid_matches_create_time(metadata.pid, metadata.pidCreateTime):
+            raise LaunchError(
+                "TunnelRollback",
+                f"Tunnel process {metadata.pid} is still running for {trimmed_target}.",
+            )
     if not metadata_path.exists():
         return
     try:

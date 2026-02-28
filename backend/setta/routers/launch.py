@@ -2,7 +2,6 @@ import time
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
-import psutil
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
@@ -48,6 +47,12 @@ from setta.utils.launcher_origin_handoff import (
 )
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths_without_profile_env
+from setta.utils.session_rollback import (
+    LocalSessionRollbackError,
+)
+from setta.utils.session_rollback import (
+    rollback_started_local_session as _rollback_started_local_session,
+)
 
 router = SettaAPIRouter(dependencies=[Depends(require_not_deployment_mode)])
 
@@ -112,92 +117,6 @@ class CreateWorkspaceLaunchIntentResponse(BaseModel):
 
 SAFE_LAUNCH_RETURN_PATH = "/home"
 _WORKSPACE_LAUNCH_INTENT_STORE = WorkspaceLaunchIntentStore()
-_LOCAL_ROLLBACK_TERMINATE_TIMEOUT_SECONDS = 2.0
-_LOCAL_ROLLBACK_KILL_TIMEOUT_SECONDS = 2.0
-_LOCAL_ROLLBACK_POLL_INTERVAL_SECONDS = 0.05
-
-
-class LocalSessionRollbackError(RuntimeError):
-    pass
-
-
-def _is_pid_running(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        process = psutil.Process(pid)
-    except (psutil.NoSuchProcess, psutil.ZombieProcess):
-        return False
-    if not process.is_running():
-        return False
-    try:
-        return process.status() != psutil.STATUS_ZOMBIE
-    except psutil.Error:
-        return True
-
-
-def _wait_for_pid_exit(*, pid: int, timeout_seconds: float) -> bool:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        if not _is_pid_running(pid):
-            return True
-        time.sleep(_LOCAL_ROLLBACK_POLL_INTERVAL_SECONDS)
-    return not _is_pid_running(pid)
-
-
-def _stop_local_session_process(*, session_id: str, pid: int) -> None:
-    if pid <= 0 or not _is_pid_running(pid):
-        return
-    try:
-        process = psutil.Process(pid)
-    except (psutil.NoSuchProcess, psutil.ZombieProcess):
-        return
-    try:
-        process.terminate()
-    except (psutil.NoSuchProcess, psutil.ZombieProcess):
-        return
-    except psutil.Error as exc:
-        raise LocalSessionRollbackError(
-            f"Failed terminating session process {pid} for {session_id} during rollback."
-        ) from exc
-    if _wait_for_pid_exit(
-        pid=pid,
-        timeout_seconds=_LOCAL_ROLLBACK_TERMINATE_TIMEOUT_SECONDS,
-    ):
-        return
-    try:
-        process.kill()
-    except (psutil.NoSuchProcess, psutil.ZombieProcess):
-        return
-    except psutil.Error as exc:
-        raise LocalSessionRollbackError(
-            f"Failed killing session process {pid} for {session_id} during rollback."
-        ) from exc
-    if _wait_for_pid_exit(
-        pid=pid,
-        timeout_seconds=_LOCAL_ROLLBACK_KILL_TIMEOUT_SECONDS,
-    ):
-        return
-    raise LocalSessionRollbackError(
-        f"Session process {pid} for {session_id} did not exit during rollback."
-    )
-
-
-def _rollback_started_local_session(
-    *, session_id: str, pid: int, registry: object
-) -> None:
-    _stop_local_session_process(session_id=session_id, pid=pid)
-    delete_session = getattr(registry, "delete_session", None)
-    if not callable(delete_session):
-        raise LocalSessionRollbackError(
-            f"Session registry cannot delete session {session_id} during rollback."
-        )
-    try:
-        delete_session(session_id)
-    except OSError as exc:
-        raise LocalSessionRollbackError(
-            f"Failed deleting session metadata for {session_id} during rollback."
-        ) from exc
 
 
 @router.post(Route.CREATE_WORKSPACE_LAUNCH_INTENT)
@@ -291,8 +210,7 @@ def route_launch(
     )
     return_url = _build_safe_launch_return_url(request_origin=request_origin)
     launcher_session_info = load_current_session_secret()
-    requires_launch_intent_token = request is not None
-    if x.launchIntentToken is None and requires_launch_intent_token:
+    if x.launchIntentToken is None:
         return LaunchResponse(
             ok=False,
             returnUrl=return_url,
@@ -301,7 +219,7 @@ def route_launch(
                 message="launchIntentToken is required.",
             ),
         )
-    if x.launchIntentToken is not None and _launch_request_has_inline_overrides(x):
+    if _launch_request_has_inline_overrides(x):
         return LaunchResponse(
             ok=False,
             returnUrl=return_url,
@@ -310,43 +228,55 @@ def route_launch(
                 message="launchIntentToken must be the only request field when provided.",
             ),
         )
-    if x.launchIntentToken is not None:
-        if launcher_session_info is None:
-            return LaunchResponse(
-                ok=False,
-                returnUrl=return_url,
-                error=LaunchErrorPayload(
-                    code="Unauthorized", message="Missing session."
-                ),
-            )
-        session_metadata, secret = launcher_session_info
-        try:
-            x, return_url = _consume_workspace_launch_intent(
-                token=x.launchIntentToken,
-                session_id=session_metadata.id,
-                secret=secret,
-            )
-        except WorkspaceLaunchIntentStoreUnavailableError as exc:
-            return LaunchResponse(
-                ok=False,
-                returnUrl=return_url,
-                error=LaunchErrorPayload(
-                    code="LaunchIntentStoreUnavailable",
-                    message=str(exc),
-                ),
-            )
-        except WorkspaceLaunchIntentStoreStateError as exc:
-            return LaunchResponse(
-                ok=False,
-                returnUrl=return_url,
-                error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
-            )
-        except ValueError as exc:
-            return LaunchResponse(
-                ok=False,
-                returnUrl=return_url,
-                error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
-            )
+    if launcher_session_info is None:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(code="Unauthorized", message="Missing session."),
+        )
+    session_metadata, secret = launcher_session_info
+    try:
+        launch_request, return_url = _consume_workspace_launch_intent(
+            token=x.launchIntentToken,
+            session_id=session_metadata.id,
+            secret=secret,
+        )
+    except WorkspaceLaunchIntentStoreUnavailableError as exc:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(
+                code="LaunchIntentStoreUnavailable",
+                message=str(exc),
+            ),
+        )
+    except WorkspaceLaunchIntentStoreStateError as exc:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
+        )
+    except ValueError as exc:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
+        )
+    return execute_launch_request(
+        x=launch_request,
+        request_origin=request_origin,
+        return_url=return_url,
+        launcher_session_info=launcher_session_info,
+    )
+
+
+def execute_launch_request(
+    *,
+    x: LaunchRequest,
+    request_origin: str | None,
+    return_url: str,
+    launcher_session_info: tuple[object, bytes] | None,
+) -> LaunchResponse:
     try:
         normalized_profile = normalize_optional_argument(x.profile)
         normalized_setta_home = normalize_optional_argument(x.settaHome)

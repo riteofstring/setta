@@ -159,7 +159,6 @@ if not (C.SHARE_MODE or C.APP_MODE):
 app.add_middleware(
     SettaCORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
-    allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

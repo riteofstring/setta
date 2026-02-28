@@ -21,6 +21,7 @@ from setta.launch_intent_store import (
     WorkspaceLaunchIntentStoreUnavailableError,
 )
 from setta.launcher_metadata import LauncherMetadataError
+from setta.routers import launch as launch_module
 from setta.routers.launch import (
     CreateWorkspaceLaunchIntentRequest,
     LaunchRequest,
@@ -52,6 +53,17 @@ from setta.utils.paths import (
 from tests.utils.setta_paths import temporary_setta_paths
 
 
+def _invoke_launch_for_tests(x: LaunchRequest):
+    if x.launchIntentToken is None:
+        return launch_module.execute_launch_request(
+            x=x,
+            request_origin=None,
+            return_url="/home",
+            launcher_session_info=launch_module.load_current_session_secret(),
+        )
+    return route_launch(x)
+
+
 class TestLaunchRoutes:
     def test_launch_local_profile_preserves_omitted_setta_files_location(
         self, monkeypatch: pytest.MonkeyPatch
@@ -67,7 +79,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 profile="dev",
@@ -93,7 +105,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
             )
@@ -131,7 +143,7 @@ class TestLaunchRoutes:
         assert payload["returnUrl"] == "http://frontend.example/home"
 
     def test_launch_intent_rejects_inline_overrides(self) -> None:
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 launchIntentToken="token",
                 workspaceRoot="/tmp/workspace",
@@ -179,7 +191,7 @@ class TestLaunchRoutes:
         assert create_response.ok is True
         assert create_response.launchIntentToken is not None
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(launchIntentToken=create_response.launchIntentToken)
         )
 
@@ -244,7 +256,7 @@ class TestLaunchRoutes:
             "setta.routers.launch._WORKSPACE_LAUNCH_INTENT_STORE",
             store_b,
         )
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(launchIntentToken=create_response.launchIntentToken)
         )
 
@@ -284,7 +296,7 @@ class TestLaunchRoutes:
         tampered_suffix = "a" if token[-1] != "a" else "b"
         tampered_token = f"{token[:-1]}{tampered_suffix}"
 
-        response = route_launch(LaunchRequest(launchIntentToken=tampered_token))
+        response = _invoke_launch_for_tests(LaunchRequest(launchIntentToken=tampered_token))
 
         assert response.ok is False
         assert response.error is not None
@@ -319,8 +331,8 @@ class TestLaunchRoutes:
         assert create_response.launchIntentToken is not None
         token = create_response.launchIntentToken
 
-        first = route_launch(LaunchRequest(launchIntentToken=token))
-        second = route_launch(LaunchRequest(launchIntentToken=token))
+        first = _invoke_launch_for_tests(LaunchRequest(launchIntentToken=token))
+        second = _invoke_launch_for_tests(LaunchRequest(launchIntentToken=token))
 
         assert first.ok is False
         assert first.error is not None
@@ -360,10 +372,10 @@ class TestLaunchRoutes:
         assert first_intent.ok is True
         assert first_intent.launchIntentToken is not None
 
-        first_launch = route_launch(
+        first_launch = _invoke_launch_for_tests(
             LaunchRequest(launchIntentToken=first_intent.launchIntentToken)
         )
-        replay_launch = route_launch(
+        replay_launch = _invoke_launch_for_tests(
             LaunchRequest(launchIntentToken=first_intent.launchIntentToken)
         )
 
@@ -380,7 +392,7 @@ class TestLaunchRoutes:
         assert second_intent.launchIntentToken is not None
         assert second_intent.launchIntentToken != first_intent.launchIntentToken
 
-        second_launch = route_launch(
+        second_launch = _invoke_launch_for_tests(
             LaunchRequest(launchIntentToken=second_intent.launchIntentToken)
         )
 
@@ -410,7 +422,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(LaunchRequest(launchIntentToken="expired-token"))
+        response = _invoke_launch_for_tests(LaunchRequest(launchIntentToken="expired-token"))
 
         assert response.ok is False
         assert response.error is not None
@@ -537,7 +549,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(LaunchRequest(launchIntentToken="token"))
+        response = _invoke_launch_for_tests(LaunchRequest(launchIntentToken="token"))
 
         assert response.ok is False
         assert response.error is not None
@@ -568,7 +580,7 @@ class TestLaunchRoutes:
 
         # Consuming a launch intent must return a typed unavailable error instead of
         # leaking an unhandled filesystem exception from lock setup.
-        response = route_launch(LaunchRequest(launchIntentToken="token"))
+        response = _invoke_launch_for_tests(LaunchRequest(launchIntentToken="token"))
 
         assert response.ok is False
         assert response.error is not None
@@ -766,7 +778,7 @@ class TestLaunchRoutes:
             lambda: _Paths(),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 profile="dev",
@@ -801,7 +813,7 @@ class TestLaunchRoutes:
             lambda: _Paths(),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
             )
@@ -839,7 +851,7 @@ class TestLaunchRoutes:
             fake_get_setta_paths_without_profile_env,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
             )
@@ -867,7 +879,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 profile="   ",
@@ -907,7 +919,7 @@ class TestLaunchRoutes:
             )(),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 profile="dev",
@@ -938,7 +950,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 settaFilesRoot="/tmp/workspace/setta_files_dev",
@@ -964,7 +976,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 profile="dev",
@@ -991,7 +1003,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 settaFilesRoot="/tmp/workspace/setta_files_dev",
@@ -1007,7 +1019,7 @@ class TestLaunchRoutes:
     def test_launch_local_explicit_root_with_auto_surfaces_workspace_validation(
         self,
     ) -> None:
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
                 settaFilesRoot="/tmp/workspace/setta_files_dev",
@@ -1039,7 +1051,7 @@ class TestLaunchRoutes:
             fake_launch_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
             )
@@ -1100,7 +1112,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot=str(workspace_root)))
 
         assert response.ok is True
         assert captured["setta_home"] == setta_home
@@ -1163,7 +1175,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot=str(workspace_root)))
 
         assert response.ok is True
 
@@ -1201,7 +1213,7 @@ class TestLaunchRoutes:
             fake_connect_remote_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -1247,7 +1259,7 @@ class TestLaunchRoutes:
             fake_connect_remote_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -1260,7 +1272,7 @@ class TestLaunchRoutes:
         assert captured["profile"] is None
 
     def test_launch_returns_structured_error_for_value_error(self) -> None:
-        response = route_launch(LaunchRequest(workspaceRoot="bad\u0000path"))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot="bad\u0000path"))
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "BadRequest"
@@ -1273,7 +1285,7 @@ class TestLaunchRoutes:
             runtime_root_file = tmp_path / "runtime-root-file"
             runtime_root_file.write_text("not a directory", encoding="utf-8")
 
-            response = route_launch(
+            response = _invoke_launch_for_tests(
                 LaunchRequest(
                     workspaceRoot=str(workspace_root),
                     runtimeRoot=str(runtime_root_file),
@@ -1291,7 +1303,7 @@ class TestLaunchRoutes:
             workspace_root.mkdir(parents=True, exist_ok=True)
             invalid_setta_home = tmp_path / "custom-home"
 
-            response = route_launch(
+            response = _invoke_launch_for_tests(
                 LaunchRequest(
                     workspaceRoot=str(workspace_root),
                     settaHome=str(invalid_setta_home),
@@ -1310,7 +1322,7 @@ class TestLaunchRoutes:
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
 
-            response = route_launch(
+            response = _invoke_launch_for_tests(
                 LaunchRequest(
                     workspaceRoot=str(workspace_root),
                     runtimeRoot=str(workspace_root),
@@ -1357,7 +1369,7 @@ class TestLaunchRoutes:
                     runtime_root=paths.runtime_root,
                     setta_files_location="local",
                 ):
-                    response = route_launch(
+                    response = _invoke_launch_for_tests(
                         LaunchRequest(
                             workspaceRoot="/remote/workspace",
                             sshTarget="user@host",
@@ -1432,12 +1444,12 @@ class TestLaunchRoutes:
                     runtime_root=paths.runtime_root,
                     setta_files_location="local",
                 ):
-                    response1 = route_launch(request)
+                    response1 = _invoke_launch_for_tests(request)
                     assert response1.ok is True
                     pid1 = int(pid_file.read_text(encoding="utf-8").strip())
                     assert pid1 > 0
 
-                    response2 = route_launch(request)
+                    response2 = _invoke_launch_for_tests(request)
                     assert response2.ok is True
                     pid2 = int(pid_file.read_text(encoding="utf-8").strip())
                     assert pid1 == pid2
@@ -1492,7 +1504,7 @@ class TestLaunchRoutes:
             fake_connect_remote_workspace_session,
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -1716,7 +1728,7 @@ class TestLaunchRoutes:
             monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(workspaceRoot=str(workspace_root))
                 )
             finally:
@@ -1809,7 +1821,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(
                         workspaceRoot=str(workspace_root),
                         profile="dev",
@@ -1892,7 +1904,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(
                         workspaceRoot=str(workspace_root),
                         profile="dev",
@@ -1971,7 +1983,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(workspaceRoot=str(workspace_root))
                 )
             finally:
@@ -2023,7 +2035,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(workspaceRoot=str(workspace_root))
                 )
             finally:
@@ -2075,7 +2087,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(
                         workspaceRoot=str(workspace_root),
                         settaFilesLocation="global",
@@ -2124,7 +2136,7 @@ class TestLaunchRoutes:
             )
 
             try:
-                response = route_launch(
+                response = _invoke_launch_for_tests(
                     LaunchRequest(
                         workspaceRoot=str(workspace_root),
                         settaFilesRoot=str(explicit_root),
@@ -2404,11 +2416,11 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch._stop_local_session_process",
+            "setta.utils.session_rollback.stop_local_session_process",
             lambda **kwargs: rollback_steps.append(f"stop:{kwargs['session_id']}"),
         )
 
-        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot=str(workspace_root)))
 
         assert response.ok is False
         assert response.error is not None
@@ -2482,7 +2494,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot=str(workspace_root)))
 
         assert response.ok is False
         assert response.error is not None
@@ -2552,11 +2564,11 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch._stop_local_session_process",
+            "setta.utils.session_rollback.stop_local_session_process",
             lambda **kwargs: stop_calls.append(kwargs["session_id"]),
         )
 
-        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+        response = _invoke_launch_for_tests(LaunchRequest(workspaceRoot=str(workspace_root)))
 
         assert response.ok is False
         assert response.error is not None
@@ -2607,7 +2619,7 @@ class TestLaunchRoutes:
             lambda **kwargs: rollback_calls.append(kwargs),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -2681,7 +2693,7 @@ class TestLaunchRoutes:
             lambda **kwargs: rollback_calls.append(kwargs),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -2736,7 +2748,7 @@ class TestLaunchRoutes:
             ),
         )
 
-        response = route_launch(
+        response = _invoke_launch_for_tests(
             LaunchRequest(
                 workspaceRoot="/requested/workspace",
                 sshTarget="user@host",
@@ -2748,3 +2760,62 @@ class TestLaunchRoutes:
         assert response.error.code == "RemoteRollbackFailed"
         assert "remote-session-id" in response.error.message
         assert "failed deleting session remotely" in response.error.message
+
+    def test_launch_route_returns_remote_rollback_failed_for_tunnel_rollback_failures(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=True,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+                launcher_origin_proof=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.trust_launched_workspace_origin_for_launcher_session",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                TrustedFrontendOriginStoreError("store unavailable")
+            ),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.rollback_remote_workspace_launch",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                LaunchError(
+                    "RemoteRollback",
+                    "TunnelRollback: tunnel process 999 is still running",
+                )
+            ),
+        )
+
+        response = _invoke_launch_for_tests(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "RemoteRollbackFailed"
+        assert "remote-session-id" in response.error.message
+        assert "TunnelRollback" in response.error.message

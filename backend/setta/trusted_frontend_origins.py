@@ -1,5 +1,4 @@
 import json
-import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -233,9 +232,6 @@ def is_trusted_frontend_origin(origin: str | None, *, session_id: str | None) ->
     if normalized_origin is None:
         return False
     if _is_configured_frontend_origin(normalized_origin):
-        return True
-    origin_regex = C.FRONTEND_ORIGIN_REGEX
-    if origin_regex is not None and re.fullmatch(origin_regex, normalized_origin):
         return True
     if session_id is None:
         return False

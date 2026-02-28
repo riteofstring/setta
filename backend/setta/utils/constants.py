@@ -239,10 +239,6 @@ class C:
         return _dedupe_preserving_order(output)
 
     @classproperty
-    def FRONTEND_ORIGIN_REGEX(cls):
-        return None
-
-    @classproperty
     def BACKEND(cls):
         return f"http://{cls.HOST}:{cls.PORT}"
 

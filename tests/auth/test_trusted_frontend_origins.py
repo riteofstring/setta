@@ -67,6 +67,22 @@ def test_is_trusted_frontend_origin_checks_dynamic_store(
     assert is_trusted_frontend_origin(origin, session_id="session-1") is True
 
 
+def test_is_trusted_frontend_origin_denies_unconfigured_origin_without_session(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = _build_store(tmp_path)
+    monkeypatch.setattr(
+        trusted_frontend_origins_module,
+        "_TRUSTED_FRONTEND_ORIGIN_STORE",
+        store,
+    )
+
+    assert (
+        is_trusted_frontend_origin("http://127.0.0.1:65535", session_id=None) is False
+    )
+
+
 def test_is_trusted_frontend_origin_is_session_scoped(
     tmp_path: Path,
     monkeypatch,

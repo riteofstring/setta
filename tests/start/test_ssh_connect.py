@@ -659,6 +659,17 @@ def test_rollback_local_ssh_tunnel_stops_process_and_deletes_metadata(
             (pid, expected_create_time)
         ),
     )
+    pid_match_checks: list[int] = []
+
+    def fake_pid_matches_create_time(_pid: int, _expected_create_time: float) -> bool:
+        pid_match_checks.append(_pid)
+        return len(pid_match_checks) == 1
+
+    monkeypatch.setattr(
+        ssh_connect,
+        "_pid_matches_create_time",
+        fake_pid_matches_create_time,
+    )
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
@@ -673,4 +684,69 @@ def test_rollback_local_ssh_tunnel_stops_process_and_deletes_metadata(
         )
 
     assert stop_calls == [(999, 123.456)]
+    assert pid_match_checks == [999, 999]
     assert metadata_path.exists() is False
+
+
+def test_rollback_local_ssh_tunnel_raises_when_process_remains_alive(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    runtime_root = tmp_path / "runtime"
+    runtime_root.mkdir(parents=True, exist_ok=True)
+
+    ssh_target = "user@host"
+    ssh_args = "-i ~/.ssh/id_ed25519"
+    remote_host = "127.0.0.1"
+    remote_port = 61234
+    ssh_args_list = ssh_connect.apply_control_socket_args(
+        ssh_connect.parse_ssh_args(ssh_args)
+    )
+    key_hash = ssh_connect._compute_tunnel_key_hash(
+        ssh_target=ssh_target,
+        ssh_args=ssh_args_list,
+        remote_host=remote_host,
+        remote_port=remote_port,
+    )
+    tunnel_id = ssh_connect._tunnel_id_for_key_hash(key_hash)
+    metadata_path = runtime_root / "ssh_tunnels" / f"{tunnel_id}.json"
+    metadata = ssh_connect.SshTunnelMetadata(
+        keyHash=key_hash,
+        remoteHost=remote_host,
+        remotePort=remote_port,
+        localPort=62000,
+        pid=999,
+        pidCreateTime=123.456,
+        createdAt="2025-01-01T00:00:00+00:00",
+        lastUsedAt="2025-01-01T00:00:00+00:00",
+    )
+    ssh_connect._write_tunnel_metadata(metadata_path, metadata)
+
+    monkeypatch.setattr(
+        ssh_connect,
+        "_stop_pid",
+        lambda _pid, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "_pid_matches_create_time",
+        lambda _pid, _expected_create_time: True,
+    )
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        runtime_root=runtime_root,
+        setta_files_location="local",
+    ):
+        with pytest.raises(LaunchError) as excinfo:
+            ssh_connect.rollback_local_ssh_tunnel(
+                ssh_target=ssh_target,
+                ssh_args=ssh_args,
+                remote_host=remote_host,
+                remote_port=remote_port,
+            )
+
+    assert excinfo.value.code == "TunnelRollback"
+    assert "still running" in str(excinfo.value)
+    assert metadata_path.exists() is True

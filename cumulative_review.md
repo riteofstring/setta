@@ -216,3 +216,12 @@
 - Updated launch error UX to eliminate misleading one-time-token retries by removing the launch-page `Retry` action; recovery flow is now `Back to Switcher` only (which mints a fresh launch intent).
 - Added/updated backend pytest and frontend Playwright coverage for rollback ordering/failure typing, token non-consumption on invalid session, explicit-session-mode quarantine/status filtering, remote result contract guard, and no-retry launch error UI.
 - Ran `pnpm gcf` for this pass (executed in `frontend/` due repo importer layout) and validated targeted backend pytest suites, targeted Vitest, and targeted Playwright with passing results.
+
+## 2026-02-27 12:13:39 PST
+
+- Unified local rollback semantics by extracting shared transactional rollback helpers and applying them to both `/launch` and `/openLauncherWorkspace`; launcher-home now returns explicit `LocalRollbackFailed` when cleanup cannot complete.
+- Enforced the single token-first `/launch` route contract (always require `launchIntentToken`) and moved route-independent launch execution into `execute_launch_request(...)` so non-route launch logic remains directly testable without preserving tokenless route behavior.
+- Hardened SSH trust-failure cleanup by making local tunnel rollback transactional: verify process exit before metadata deletion, preserve metadata if the process remains alive, and surface typed `TunnelRollback` failures.
+- Removed inert origin-regex policy surface by deleting `FRONTEND_ORIGIN_REGEX` plumbing and CORS regex wiring; trusted-origin decisions now flow only through explicit configured origins plus session-scoped trusted-origin storage.
+- Added/updated backend unit/integration and Playwright coverage for launch-token contract enforcement, local/remote rollback error typing, SSH tunnel rollback invariants, and trusted-origin policy behavior.
+- Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
