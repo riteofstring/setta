@@ -5,7 +5,7 @@ from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit import ChatHistory, ToolRunner
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.frontend_affinity_token import require_frontend_affinity_token
-from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import EngineType
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import ToolChatMessage
@@ -24,9 +24,7 @@ from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapsh
 from setta.types.llm_config import build_scriptable_llm_config
 from setta.types.routes import Route
 
-router = SettaProjectContextFullRuntimeAPIRouter(
-    require_project_context_by_default=True
-)
+router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
 
 
 def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:

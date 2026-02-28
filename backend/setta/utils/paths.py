@@ -137,12 +137,9 @@ def resolve_setta_paths(
     profile: str | None = None,
     allow_env_files_overrides: bool = True,
     allow_env_non_files_overrides: bool = True,
-    allow_profile_env_overrides: bool = True,
 ) -> SettaPaths:
     profile_name = _resolve_profile_name(
-        profile,
-        allow_env_overrides=allow_env_non_files_overrides
-        and allow_profile_env_overrides,
+        profile, allow_env_overrides=allow_env_non_files_overrides
     )
     profile_config: SettaProfileConfig | None = None
     if profile_name is None:
@@ -223,14 +220,8 @@ def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
 
 
-@lru_cache(maxsize=1)
-def get_setta_paths_without_profile_env() -> SettaPaths:
-    return resolve_setta_paths(allow_profile_env_overrides=False)
-
-
 def clear_setta_paths_cache() -> None:
     get_setta_paths.cache_clear()
-    get_setta_paths_without_profile_env.cache_clear()
     # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
     # Keep dependent caches in sync so overrides behave as expected.
     from setta.utils.user_config import clear_setta_user_config_cache

@@ -3,7 +3,6 @@ import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage";
-import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
@@ -25,15 +24,7 @@ import {
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
-import {
-  resolveWorkspaceLaunchRouteKind,
-  type WorkspaceLaunchRouteKind,
-} from "utils/serverModeBoundaryPolicy";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
-import {
-  resolveModeElementForServerMode,
-  type ModeRouteElements,
-} from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
@@ -102,9 +93,13 @@ function ShareIndexRedirect() {
   return <Navigate to={defaultProjectConfigName} replace />;
 }
 
-type ModeWrapperProps = ModeRouteElements;
+type ModeWrapperProps = {
+  ide: ReactNode;
+  share: ReactNode;
+  app: ReactNode;
+};
 
-function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
+function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
   const { mode, modeResolved, modeError } = useServerMode((x) => x);
 
   useEffect(() => {
@@ -162,12 +157,13 @@ function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
     );
   }
 
-  return resolveModeElementForServerMode(mode, {
-    ide,
-    share,
-    app,
-    launcher,
-  });
+  if (mode === "share") {
+    return share;
+  }
+  if (mode === "app") {
+    return app;
+  }
+  return ide;
 }
 
 const ideHomeRouteElement = (
@@ -202,23 +198,6 @@ const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
     <WorkspaceLaunchPage />
   </GlobalWrapper>
-);
-
-const launcherWorkspaceLaunchRouteElement = (
-  <AppShell isLoading={false} loadingContent={null}>
-    <WorkspaceLaunchPage />
-  </AppShell>
-);
-
-const launcherHomeRouteElement = (
-  <AppShell isLoading={false} loadingContent={null}>
-    <ModalContainer>
-      <HeaderContainer path={HOME_ROUTER_PATH} />
-      <GridContainer>
-        <LauncherHomePage />
-      </GridContainer>
-    </ModalContainer>
-  </AppShell>
 );
 
 const shareProjectRouteElement = (
@@ -302,7 +281,6 @@ const indexRoute = {
       ide={ideIndexRouteElement}
       share={shareIndexRouteElement}
       app={appRouteElement}
-      launcher={launcherHomeRouteElement}
     />
   ),
 };
@@ -314,7 +292,6 @@ const homeRoute = {
       ide={ideHomeRouteElement}
       share={shareHomeRouteElement}
       app={appRouteElement}
-      launcher={launcherHomeRouteElement}
     />
   ),
 };
@@ -326,7 +303,6 @@ const projectRoute = {
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
       app={appRouteElement}
-      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),
 };
@@ -338,7 +314,6 @@ const viewModeRoute = {
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
       app={appRouteElement}
-      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),
 };
@@ -350,42 +325,18 @@ const catchAllRoute = {
       ide={ideNotFoundRouteElement}
       share={shareNotFoundRouteElement}
       app={appRouteElement}
-      launcher={launcherHomeRouteElement}
     />
   ),
 };
 
-const workspaceLaunchBlockedRouteElement = (
-  <Navigate to={HOME_ROUTER_PATH} replace />
-);
-
-const workspaceLaunchRouteElementsByKind: Record<
-  WorkspaceLaunchRouteKind,
-  ReactNode
-> = {
-  ide: ideWorkspaceLaunchRouteElement,
-  launcher: launcherWorkspaceLaunchRouteElement,
-  blocked: workspaceLaunchBlockedRouteElement,
-};
-
-function resolveWorkspaceLaunchRouteElement(
-  mode: "ide" | "share" | "app" | "launcher",
-) {
-  return workspaceLaunchRouteElementsByKind[
-    resolveWorkspaceLaunchRouteKind(mode)
-  ];
-}
-
-const workspaceLaunchRouteElements: ModeRouteElements = {
-  ide: resolveWorkspaceLaunchRouteElement("ide"),
-  share: resolveWorkspaceLaunchRouteElement("share"),
-  app: resolveWorkspaceLaunchRouteElement("app"),
-  launcher: resolveWorkspaceLaunchRouteElement("launcher"),
-};
-
 const workspaceLaunchRoute = {
   path: WORKSPACE_LAUNCH_ROUTER_PATH,
-  element: <ModeWrapper {...workspaceLaunchRouteElements} />,
+  element: (
+    <ModeWrapper
+      ide={ideWorkspaceLaunchRouteElement}
+      share={<Navigate to={HOME_ROUTER_PATH} replace />}
+    />
+  ),
 };
 
 export const router = createBrowserRouter([
