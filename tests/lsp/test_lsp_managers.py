@@ -1,13 +1,8 @@
 from pathlib import Path
-import sys
 
 import pytest
 
-from setta.lsp.managers import (
-    BASEDPYRIGHT_LANGSERVER_ENTRYPOINT,
-    LSPServers,
-    LSPWriters,
-)
+from setta.lsp.managers import LSPServers, LSPWriters
 from setta.lsp.registrations import RegisteredLanguageServer
 from setta.lsp.server import LanguageServer
 from setta.types.section_impls import CodeLanguage
@@ -35,12 +30,6 @@ def test_lsp_servers_include_plugin_language_servers(tmp_path: Path) -> None:
     )
 
     assert servers.by_language[CodeLanguage.python] is servers.full
-    assert servers.full.command == sys.executable
-    assert servers.full.args == (
-        "-c",
-        BASEDPYRIGHT_LANGSERVER_ENTRYPOINT,
-        "--stdio",
-    )
     fixture_server = servers.by_language["fixturedsl"]
     assert fixture_server.language == "fixturedsl"
     assert fixture_server.command == "typescript-language-server"

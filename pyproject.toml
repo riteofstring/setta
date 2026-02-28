@@ -81,5 +81,4 @@ artifacts = [
     "backend/setta/agentic/external_adapters/sidecars/**",
     "backend/setta/vendor/node/**",
     "backend/setta/plugins/schemas/**",
-    "backend/setta/launcher_artifacts/assets/**",
 ]

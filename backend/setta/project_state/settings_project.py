@@ -125,12 +125,6 @@ SETTINGS_VIEW_MODE_GROUPS: list[tuple[str, list[str]]] = [
 ]
 
 
-class MissingSettingsSectionError(KeyError):
-    def __init__(self, section_name: str) -> None:
-        super().__init__(f"Missing settings section {section_name}.")
-        self.section_name = section_name
-
-
 def _split_identifier(identifier: str) -> list[str]:
     tokens: list[str] = []
     for chunk in identifier.replace("-", "_").split("_"):
@@ -628,7 +622,7 @@ def ensure_settings_code_objs(project_state: ProjectStateSingleConfig) -> bool:
     changed = False
     for section_name in SettingsState.model_fields.keys():
         if section_name not in section_name_to_id:
-            raise MissingSettingsSectionError(section_name)
+            raise KeyError(f"Missing settings section {section_name}.")
         section_id = section_name_to_id[section_name]
 
         if section_id not in project_state.projectConfig.sectionVariantMap:

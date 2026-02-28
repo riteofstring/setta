@@ -1,20 +1,14 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import {
-  route_create_workspace_launch_intent,
-  route_get_setta_home_info,
-} from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
-import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
@@ -26,75 +20,20 @@ import {
   type WorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
+  encodePendingWorkspaceLaunchForUrlHash,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
-  type PendingWorkspaceLaunch,
 } from "utils/workspaceSwitcherLaunch";
-
-type CreatePendingWorkspaceLaunchResult =
-  | { ok: true; pendingLaunch: PendingWorkspaceLaunch }
-  | { ok: false; message: string };
-
-export async function createPendingWorkspaceLaunchFromIntent({
-  launchRequest,
-  returnUrl,
-}: {
-  launchRequest: LaunchRequestInput;
-  returnUrl: string;
-}): Promise<CreatePendingWorkspaceLaunchResult> {
-  const response = await route_create_workspace_launch_intent({
-    launchRequest,
-    returnUrl,
-  });
-  if (!res200(response) || !response.data) {
-    const detail = getErrorDetail(response.data);
-    return {
-      ok: false,
-      message:
-        detail ??
-        (response.status
-          ? `Failed to prepare launch intent (HTTP ${response.status}).`
-          : "Failed to prepare launch intent."),
-    };
-  }
-  if (!response.data.ok || !response.data.launchIntentToken) {
-    return {
-      ok: false,
-      message:
-        response.data.error?.message ??
-        "Failed to prepare launch intent for workspace switch.",
-    };
-  }
-  return {
-    ok: true,
-    pendingLaunch: {
-      request: {
-        launchIntentToken: response.data.launchIntentToken,
-      },
-      returnUrl,
-      requestedAt: response.data.requestedAt ?? Date.now(),
-      sshTarget: launchRequest.sshTarget ?? null,
-      settaFilesLocation: launchRequest.settaFilesLocation ?? null,
-    },
-  };
-}
 
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
-  const serverMode = useServerMode((state) => state.mode);
-  const modeResolved = useServerMode((state) => state.modeResolved);
-  const canManageDesktopLauncher =
-    resolveServerModeCapabilities(serverMode).canManageDesktopLauncher;
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [settaFilesLocation, setSettaFilesLocation] =
     useState<SettaFilesLocation>("auto");
   const [launcherSettaHomeInfo, setLauncherSettaHomeInfo] =
     useState<SettaHomeInfoResponse | null>(null);
-  const [launcherSettaHomeInfoError, setLauncherSettaHomeInfoError] = useState<
-    string | null
-  >(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
@@ -103,6 +42,7 @@ export function WorkspaceSwitcherModal() {
   const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     setHistory(loadWorkspaceHistory());
 
     const draft = readWorkspaceSwitcherDraft();
@@ -118,33 +58,24 @@ export function WorkspaceSwitcherModal() {
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
     }
-  }, []);
-
-  useEffect(() => {
-    if (!modeResolved) {
-      return;
-    }
-    let isMounted = true;
 
     async function hydrateLauncherSettaHomeInfo() {
-      if (!canManageDesktopLauncher) {
-        setLauncherSettaHomeInfo(null);
-        setLauncherSettaHomeInfoError(null);
-        return;
-      }
-
       const response = await route_get_setta_home_info();
-      if (!isMounted) {
+      if (!isMounted || !res200(response)) {
         return;
       }
-      if (!res200(response) || !response.data) {
-        setLauncherSettaHomeInfoError(
-          "Failed to resolve launcher scope for desktop launcher actions.",
-        );
+      const data: unknown = response.data;
+      if (!data || typeof data !== "object") {
         return;
       }
-      setLauncherSettaHomeInfoError(null);
-      setLauncherSettaHomeInfo(response.data);
+      const record = data as Record<string, unknown>;
+      if (
+        typeof record.settaHome !== "string" ||
+        typeof record.globalSettaFilesBase !== "string"
+      ) {
+        return;
+      }
+      setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
     }
 
     void hydrateLauncherSettaHomeInfo();
@@ -152,19 +83,18 @@ export function WorkspaceSwitcherModal() {
     return () => {
       isMounted = false;
     };
-  }, [canManageDesktopLauncher, modeResolved]);
+  }, []);
 
   const trimmedWorkspace = workspaceRoot.trim();
   const trimmedSshTarget = sshTarget.trim();
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
-  let globalBaseLabel = "<global_setta_files_base>";
-  if (trimmedSshTarget.length > 0) {
-    globalBaseLabel = "remote Setta home";
-  } else if (launcherSettaHomeInfo?.globalSettaFilesBase) {
-    globalBaseLabel = launcherSettaHomeInfo.globalSettaFilesBase;
-  }
+  const globalBaseLabel =
+    trimmedSshTarget.length > 0
+      ? "remote Setta home"
+      : launcherSettaHomeInfo?.globalSettaFilesBase ??
+        "<global_setta_files_base>";
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -217,19 +147,38 @@ export function WorkspaceSwitcherModal() {
     };
 
     writeWorkspaceSwitcherDraft(request);
-    const returnUrl =
-      typeof window !== "undefined" ? window.location.href : "/";
-    const pendingLaunchResult = await createPendingWorkspaceLaunchFromIntent({
-      launchRequest: request,
-      returnUrl,
-    });
-    if (!pendingLaunchResult.ok) {
-      setError(pendingLaunchResult.message);
-      setIsLaunching(false);
+    const pendingLaunch = {
+      request,
+      returnUrl: typeof window !== "undefined" ? window.location.href : "/",
+      requestedAt: Date.now(),
+    };
+
+    if (
+      !import.meta.env?.DEV &&
+      typeof window !== "undefined" &&
+      C_ADDRESSES.LAUNCHER_ORIGIN !== window.location.origin
+    ) {
+      const encoded = encodePendingWorkspaceLaunchForUrlHash(pendingLaunch);
+      if (!encoded) {
+        setIsLaunching(false);
+        setError("Failed to encode launch request.");
+        return;
+      }
+      const url = new URL(
+        WORKSPACE_LAUNCH_ROUTER_PATH,
+        C_ADDRESSES.LAUNCHER_ORIGIN,
+      );
+      const params = new URLSearchParams(
+        url.hash.startsWith("#") ? url.hash.slice(1) : url.hash,
+      );
+      params.set("pl", encoded);
+      url.hash = params.toString();
+      closeModal();
+      window.location.assign(url.toString());
       return;
     }
 
-    writePendingWorkspaceLaunch(pendingLaunchResult.pendingLaunch);
+    writePendingWorkspaceLaunch(pendingLaunch);
 
     closeModal();
     navigate(WORKSPACE_LAUNCH_ROUTER_PATH);
@@ -352,17 +301,6 @@ export function WorkspaceSwitcherModal() {
                 : null}
             </p>
           </div>
-
-          {canManageDesktopLauncher && (
-            <DesktopLauncherSettingsSection
-              settaHome={launcherSettaHomeInfo?.settaHome ?? null}
-              requireSettaHome={true}
-              missingSettaHomeMessage={
-                launcherSettaHomeInfoError ??
-                "Resolving launcher scope for desktop launcher actions."
-              }
-            />
-          )}
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">

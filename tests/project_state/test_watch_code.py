@@ -1,8 +1,6 @@
 import asyncio
 import logging
 import shutil
-import subprocess
-import sys
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1322,14 +1320,9 @@ class TestWatchCodeLspOrdering:
         self._lsps_started = False
         await self.manager._process_queue_task_started.wait()
         try:
-            basedpyright_import = subprocess.run(
-                [sys.executable, "-c", "import basedpyright"],
-                capture_output=True,
-                text=True,
-            )
-            if basedpyright_import.returncode != 0:
+            if shutil.which("basedpyright-langserver") is None:
                 pytest.fail(
-                    "basedpyright is required for tests; ensure it is installed in the active Python environment."
+                    "basedpyright-langserver is required for tests; ensure it is installed and on PATH."
                 )
             await start_lsps(self.lsp_servers, self.lsp_readers, self.lsp_writers)
             self._lsps_started = True

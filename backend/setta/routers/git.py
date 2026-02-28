@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import HTTPException, status
 
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.setta_api_router import SettaNonLauncherAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.git import (
     GetGitCommitDetailsRequest,
     GetGitCommitDetailsResponse,
@@ -23,7 +23,7 @@ from setta.types.routes import Route
 from setta.utils.git import get_workspace_repo_root, run_git
 from setta.utils.paths import get_setta_paths
 
-router = SettaNonLauncherAPIRouter()
+router = SettaAPIRouter()
 
 _STATUS_TIMEOUT_S = 2.0
 _DIFF_TIMEOUT_S = 4.0

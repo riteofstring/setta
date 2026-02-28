@@ -218,7 +218,7 @@ export const useShareSession = withProjectState(
 );
 
 type ServerModeState = {
-  mode: "ide" | "share" | "app" | "launcher" | null;
+  mode: "ide" | "share" | "app" | null;
   modeResolved: boolean;
   modeError: string | null;
 };
