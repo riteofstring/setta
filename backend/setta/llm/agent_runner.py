@@ -57,6 +57,7 @@ from setta.agentic.store import (
 )
 from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
+from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import (
@@ -884,6 +885,11 @@ class AgentRunner:
             raise ValueError("sectionId is required unless allowUnscoped is true.")
         if section_id is not None and allow_unscoped:
             raise ValueError("allowUnscoped requires sectionId to be omitted.")
+        frontend_affinity_token: str | None = None
+        if inputs and "frontendAffinityToken" in inputs:
+            frontend_affinity_token = parse_frontend_affinity_token(
+                inputs["frontendAffinityToken"]
+            )
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -934,6 +940,7 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
+            frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
         )
         return AgentRunContext(

@@ -36,6 +36,7 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.frontend_affinity_token import require_frontend_affinity_token
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
     AgentProfile,
@@ -485,6 +486,7 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
+    frontendAffinityToken: str | None = None
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -746,6 +748,9 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
+    normalized_frontend_affinity_token = require_frontend_affinity_token(
+        x.frontendAffinityToken
+    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -795,6 +800,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_affinity_token is not None:
+            inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -870,6 +877,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_affinity_token is not None:
+            inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:

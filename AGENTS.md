@@ -18,7 +18,7 @@
 - `./format_code.sh` applies Ruff import sorting, lint fixes, and formatting to every Python module (run with `source activate.sh`).
 - `./t.sh` runs all tests (backend pytest, frontend Vitest, Playwright E2E). Use `--b` for backend-only or `--f` for frontend + Playwright.
 - `./scripts/run_backend_tests.sh` runs the Python pytest suite only.
-- `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root.
+- `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root (see Generation & Cleanup for when and why to run cleanup).
 - Release smoke tests rely on `verify_install.sh`, which builds, installs the sdist with `uv pip`, and cleans up.
 - Note: the full test suite (and Playwright in particular) can take a long time to finish.
 
@@ -83,7 +83,6 @@
 - Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --all-extras` and activates the venv.
 - `dev_install.sh` is the one-stop local setup (runs `init_env.sh`, installs frontend deps, installs agent sidecars, then cleans). Source it if you want the venv to stay active: `. ./dev_install.sh`.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
-- Regenerate TypeScript bindings or templates via `pnpm generate` whenever editing files under `frontend/generation/`.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
 - Node is pinned in `scripts/node_version.txt` (used by `scripts/bundle_node_runtime.sh` during builds); keep local Node compatible.
 
@@ -94,7 +93,7 @@
 
 ## Endpoints
 
-Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then run pnpm generate to sync the backend and frontend endpoint function definitions.
+Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If a function exists on the backend but not on the frontend, run the generation workflow in Generation & Cleanup to sync endpoint definitions.
 
 ## Pydantic
 
@@ -102,7 +101,7 @@ Never use the `alias` feature in pydantic. Camel case is fine for pydantic attri
 
 ## Environment
 
-Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
+Whenever you run `format_code` or any python-related tooling, make sure to first run `activate.sh` to activate the correct python environment.
 
 To run backend-only tests: `./scripts/run_backend_tests.sh` (uses pytest).
 
@@ -114,13 +113,17 @@ I prefer a hard KeyError instead of hiding problems via project_state.some_dict.
 Make existence checks explicit (e.g., `if key not in dict: raise KeyError(...)`) instead of relying on bare dict access for side effects.
 When you know a section impl or code obj impl must be of a specific type, use the helper getter functions ending with "with_type_guard".
 
-## Generated types
+## Generation & Cleanup
 
-Don't manually edit files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
-
-To cleanup generated files after you've imported what you need from them, you can run pnpm full-cleanup to remove unused generated types.
-
-`pnpm full-cleanup` runs Knip + a Python prune step; only run it after you have updated imports to use the generated types you need, because it deletes unused generated files.
+- Use `pnpm generate` to regenerate frontend templates/bindings and backend generated types. This command can produce a large diff.
+- Large diffs after `pnpm generate` are often expected: we frequently run cleanup (`pnpm gcf`/`./gcf.sh` and `pnpm full-cleanup`) that removes unused generated files, and `pnpm generate` brings them back.
+- `./gcf.sh` runs `pnpm gcf` and logs output to `gcf.log` at the repo root; `pnpm gcf` includes cleanup that can prune unused generated files.
+- `pnpm full-cleanup` runs Knip + a Python prune step and deletes unused generated files.
+- Whether to run cleanup (`pnpm gcf`, `./gcf.sh`, or `pnpm full-cleanup`) is task-dependent; do not assume large generated diffs are incorrect.
+- If you need new generated types/functions, run `pnpm generate` first, then import/use those generated outputs in code before running any cleanup command. Otherwise cleanup can delete freshly generated files as unused.
+- Run generation from the repo root with the python env active: `source activate.sh && cd frontend && pnpm generate`.
+- Regenerate whenever editing files under `frontend/generation/`.
+- Don't manually edit files in `backend/setta/types/generated`; they are generated outputs.
 
 ## Tests
 
