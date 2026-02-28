@@ -133,3 +133,11 @@
 - Removed request-time process-global env mutation from `/launch` by introducing `get_setta_paths_without_profile_env()` and switching launch default-path resolution to the non-mutating path.
 - Added/updated backend pytest coverage for crash recovery, typed store failure mapping, session trust isolation/lifetime refresh, strict SSH origin checks, and launch env isolation, plus Playwright coverage to ensure trusted bootstrap origin does not widen CORS trust to a different origin.
 - Ran `pnpm gcf` in `frontend/` and then validated targeted suites (`pytest` affected backend/auth/router/start tests, Playwright bootstrap launcher-origin spec, and Ruff checks on touched files), all passing.
+
+## 2026-02-26 10:47:26 PST
+
+- Fixed lock-boundary contract leakage by moving parent-directory creation and lock setup inside the typed `acquire_process_file_lock` error boundary so stores consistently surface typed unavailable errors.
+- Corrected launcher directory listing cap semantics by counting only valid in-policy entries toward `_MAX_DIRECTORY_ENTRIES` (filter first, cap second), eliminating lexicographic drop-off of later valid directories.
+- Hardened macOS install/uninstall wrappers with a shared strict JSON contract validator (structural parse + required-field checks), replacing regex-only `"ok": true` acceptance.
+- Added and updated regression coverage across unit/store/route/script levels for lock-parent failure mapping, launch-intent and bootstrap unavailable-error contracts, launcher-directory cap-after-filter behavior, and malformed/missing-field macOS wrapper payload rejection.
+- Ran `pnpm gcf` in `frontend/` and validated targeted backend suites (`97 passed`) plus Ruff/shell syntax checks on touched files.

@@ -135,6 +135,44 @@ def test_bootstrap_consume_ignores_invalid_launcher_origin_proof(
     )
 
 
+def test_bootstrap_consume_returns_503_when_trusted_origin_store_is_unavailable(
+    bootstrap_client,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client, session, secret = bootstrap_client
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    launcher_origin = "http://127.0.0.1:9001"
+    launcher_origin_proof = mint_launcher_origin_handoff_proof(
+        session_id=session.id,
+        launcher_origin=launcher_origin,
+        secret=secret,
+    )
+    lock_parent = tmp_path / "lock-parent-as-file"
+    lock_parent.write_text("not-a-directory", encoding="utf-8")
+    broken_store = TrustedFrontendOriginStore(
+        storage_path=lock_parent / "trusted_frontend_origins.json"
+    )
+    monkeypatch.setattr(
+        trusted_frontend_origins_module,
+        "_TRUSTED_FRONTEND_ORIGIN_STORE",
+        broken_store,
+    )
+
+    # Trust-store lock failures should map to the route's explicit 503 contract.
+    response = client.post(
+        "/__setta__/bootstrap/consume",
+        json={
+            "token": token,
+            "launcherOrigin": launcher_origin,
+            "launcherOriginProof": launcher_origin_proof,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Trusted frontend origin store unavailable"}
+
+
 def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:
     client, _, _ = bootstrap_client
     response = client.get(

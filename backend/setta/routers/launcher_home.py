@@ -291,7 +291,7 @@ def route_list_launcher_directory(
         )
     )
 
-    for child in children[:_MAX_DIRECTORY_ENTRIES]:
+    for child in children:
         resolved_child = child.resolve(strict=False)
         if not _is_within_roots(path=resolved_child, roots=allowed_roots):
             continue
@@ -303,6 +303,8 @@ def route_list_launcher_directory(
                 isSymlink=child.is_symlink(),
             )
         )
+        if len(entries) >= _MAX_DIRECTORY_ENTRIES:
+            break
 
     parent_path: str | None = None
     parent = directory.parent.resolve(strict=False)

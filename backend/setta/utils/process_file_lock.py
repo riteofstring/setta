@@ -19,9 +19,9 @@ def acquire_process_file_lock(
     *,
     timeout_seconds: float,
 ) -> Iterator[None]:
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock = FileLock(str(lock_path), timeout=timeout_seconds)
     try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock = FileLock(str(lock_path), timeout=timeout_seconds)
         with lock:
             yield
     except Timeout as exc:

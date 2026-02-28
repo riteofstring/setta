@@ -15,6 +15,10 @@ Options:
 USAGE
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/launcher_json_validation.sh
+source "${SCRIPT_DIR}/launcher_json_validation.sh"
+
 resolve_abs_path() {
   local raw_path="${1-}"
   if [[ -z "${raw_path}" ]]; then
@@ -152,9 +156,6 @@ launcher_remove_cmd+=("launcher" "remove" "--json")
 
 remove_json="$("${launcher_remove_cmd[@]}")"
 
-if ! grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' <<<"${remove_json}"; then
-  echo "setta launcher remove did not return a successful JSON payload." >&2
-  exit 1
-fi
+validate_launcher_remove_json_payload "${remove_json}"
 
 echo "${remove_json}"

@@ -19,6 +19,10 @@ Options:
 USAGE
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/launcher_json_validation.sh
+source "${SCRIPT_DIR}/launcher_json_validation.sh"
+
 resolve_abs_path() {
   local raw_path="${1-}"
   if [[ -z "${raw_path}" ]]; then
@@ -249,9 +253,6 @@ fi
 
 install_json="$("${launcher_setup_cmd[@]}")"
 
-if ! grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' <<<"${install_json}"; then
-  echo "setta launcher setup did not return a successful JSON payload." >&2
-  exit 1
-fi
+validate_launcher_setup_json_payload "${install_json}"
 
 echo "${install_json}"

@@ -260,6 +260,82 @@ def test_launcher_directory_listing_rejects_outside_allowed_roots(
     assert payload["error"]["code"] == "PathOutsideAllowedRoots"
 
 
+def test_launcher_directory_listing_filters_before_applying_entry_cap(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    listed_dir = allowed / "listed"
+    outside = tmp_path / "outside"
+    allowed.mkdir(parents=True, exist_ok=True)
+    listed_dir.mkdir(parents=True, exist_ok=True)
+    outside.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+    monkeypatch.setattr("setta.routers.launcher_home._MAX_DIRECTORY_ENTRIES", 3)
+
+    # These entries sort first but resolve outside allowed roots, so they should
+    # not consume the entry cap.
+    for escaped_name in ("a-escape", "b-escape", "c-escape"):
+        escape_target = outside / escaped_name
+        escape_target.mkdir(parents=True, exist_ok=True)
+        (listed_dir / escaped_name).symlink_to(escape_target, target_is_directory=True)
+
+    for valid_name in ("z-valid-1", "z-valid-2", "z-valid-3", "z-valid-4"):
+        (listed_dir / valid_name).mkdir(parents=True, exist_ok=True)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.LIST_LAUNCHER_DIRECTORY.value}",
+            json={"path": str(listed_dir)},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert [entry["name"] for entry in payload["entries"]] == [
+        "z-valid-1",
+        "z-valid-2",
+        "z-valid-3",
+    ]
+
+
+def test_launcher_directory_listing_cap_counts_only_valid_entries(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    listed_dir = allowed / "listed"
+    outside = tmp_path / "outside"
+    allowed.mkdir(parents=True, exist_ok=True)
+    listed_dir.mkdir(parents=True, exist_ok=True)
+    outside.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+    monkeypatch.setattr("setta.routers.launcher_home._MAX_DIRECTORY_ENTRIES", 1)
+
+    # One escaped symlink sorts first; cap=1 should still return the first valid
+    # in-policy entry instead of an empty list.
+    escaped_target = outside / "a-escape"
+    escaped_target.mkdir(parents=True, exist_ok=True)
+    (listed_dir / "a-escape").symlink_to(escaped_target, target_is_directory=True)
+    (listed_dir / "b-valid").mkdir(parents=True, exist_ok=True)
+    (listed_dir / "c-valid").mkdir(parents=True, exist_ok=True)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.LIST_LAUNCHER_DIRECTORY.value}",
+            json={"path": str(listed_dir)},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert [entry["name"] for entry in payload["entries"]] == ["b-valid"]
+
+
 def test_open_launcher_workspace_rejects_symlink_escape(
     tmp_path: Path,
     monkeypatch,

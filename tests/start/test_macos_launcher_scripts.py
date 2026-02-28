@@ -7,26 +7,42 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _write_setta_stub(*, path: Path, args_capture_path: Path) -> None:
+def _write_setta_stub_with_json_payload(
+    *,
+    path: Path,
+    args_capture_path: Path,
+    payload_json: str,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" >> "{args_capture_path}"
 cat <<'JSON'
-{{
-  "ok": true,
-  "metadataPath": "/tmp/launcher-install.json",
-  "targetCommand": ["/tmp/tool-python", "-m", "setta"],
-  "managedArtifacts": {{
-    "macosApp": "/tmp/Setta.app"
-  }}
-}}
+{payload_json}
 JSON
 """,
         encoding="utf-8",
     )
     path.chmod(0o755)
+
+
+def _write_setta_stub(*, path: Path, args_capture_path: Path) -> None:
+    _write_setta_stub_with_json_payload(
+        path=path,
+        args_capture_path=args_capture_path,
+        payload_json="""{
+  "ok": true,
+  "metadataPath": "/tmp/launcher-install.json",
+  "targetCommand": ["/tmp/tool-python", "-m", "setta"],
+  "metadataRemoved": true,
+  "removedPaths": [],
+  "missingPaths": [],
+  "managedArtifacts": {
+    "macosApp": "/tmp/Setta.app"
+  }
+}""",
+    )
 
 
 def _write_failing_python_stubs(*, bin_dir: Path, calls_path: Path) -> None:
@@ -142,6 +158,80 @@ def test_install_macos_launcher_script_supports_optional_icns_icon(
     )
 
 
+def test_install_macos_launcher_script_rejects_malformed_json_with_ok_text(
+    tmp_path: Path,
+) -> None:
+    script_path = _repo_root() / "scripts" / "install_macos_launcher.sh"
+    app_path = tmp_path / "Applications" / "Setta.app"
+    args_capture_path = tmp_path / "setta-args.txt"
+    setta_stub = tmp_path / "bin" / "setta"
+    _write_setta_stub_with_json_payload(
+        path=setta_stub,
+        args_capture_path=args_capture_path,
+        payload_json='{"ok": true',
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path / "home")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--setta-bin",
+            str(setta_stub),
+            "--app-path",
+            str(app_path),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    # The payload includes `"ok": true` text, but malformed JSON must fail.
+    assert result.returncode != 0
+    assert "invalid JSON" in result.stderr
+
+
+def test_install_macos_launcher_script_rejects_missing_required_fields(
+    tmp_path: Path,
+) -> None:
+    script_path = _repo_root() / "scripts" / "install_macos_launcher.sh"
+    app_path = tmp_path / "Applications" / "Setta.app"
+    args_capture_path = tmp_path / "setta-args.txt"
+    setta_stub = tmp_path / "bin" / "setta"
+    _write_setta_stub_with_json_payload(
+        path=setta_stub,
+        args_capture_path=args_capture_path,
+        payload_json='{"ok":true,"metadataPath":"/tmp/launcher-install.json"}',
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path / "home")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--setta-bin",
+            str(setta_stub),
+            "--app-path",
+            str(app_path),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    # Missing required keys should fail even when `ok` is true.
+    assert result.returncode != 0
+    assert "missing targetCommand" in result.stderr
+
+
 def test_uninstall_macos_launcher_script_delegates_to_launcher_remove(
     tmp_path: Path,
 ) -> None:
@@ -182,6 +272,74 @@ JSON
     assert result.returncode == 0, result.stderr
     captured = args_capture_path.read_text(encoding="utf-8")
     assert "launcher remove --json" in captured
+
+
+def test_uninstall_macos_launcher_script_rejects_malformed_json_with_ok_text(
+    tmp_path: Path,
+) -> None:
+    script_path = _repo_root() / "scripts" / "uninstall_macos_launcher.sh"
+    args_capture_path = tmp_path / "setta-args.txt"
+    setta_stub = tmp_path / "bin" / "setta"
+    _write_setta_stub_with_json_payload(
+        path=setta_stub,
+        args_capture_path=args_capture_path,
+        payload_json='{"ok": true',
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path / "home")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--setta-bin",
+            str(setta_stub),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    # The payload includes `"ok": true` text, but malformed JSON must fail.
+    assert result.returncode != 0
+    assert "invalid JSON" in result.stderr
+
+
+def test_uninstall_macos_launcher_script_rejects_missing_required_fields(
+    tmp_path: Path,
+) -> None:
+    script_path = _repo_root() / "scripts" / "uninstall_macos_launcher.sh"
+    args_capture_path = tmp_path / "setta-args.txt"
+    setta_stub = tmp_path / "bin" / "setta"
+    _write_setta_stub_with_json_payload(
+        path=setta_stub,
+        args_capture_path=args_capture_path,
+        payload_json='{"ok":true,"metadataRemoved":true}',
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path / "home")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--setta-bin",
+            str(setta_stub),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    # Missing removed/missing path arrays should fail contract validation.
+    assert result.returncode != 0
+    assert "missing removedPaths" in result.stderr
 
 
 def test_macos_launcher_scripts_ignore_python_binaries_on_path(tmp_path: Path) -> None:

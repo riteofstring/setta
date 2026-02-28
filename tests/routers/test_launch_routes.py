@@ -318,6 +318,37 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "LaunchIntentStoreUnavailable"
 
+    def test_create_launch_intent_returns_store_unavailable_when_lock_path_is_invalid(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        lock_parent = tmp_path / "lock-parent-as-file"
+        lock_parent.write_text("not-a-directory", encoding="utf-8")
+        broken_store = WorkspaceLaunchIntentStore(
+            storage_path=lock_parent / "workspace_launch_intents.json"
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._WORKSPACE_LAUNCH_INTENT_STORE",
+            broken_store,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+
+        # A malformed lock parent must fail as LaunchIntentStoreUnavailable.
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(workspaceRoot="/tmp/workspace"),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreUnavailable"
+
     def test_create_launch_intent_returns_typed_store_state_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -357,6 +388,37 @@ class TestLaunchRoutes:
             ),
         )
 
+        response = route_launch(LaunchRequest(launchIntentToken="token"))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "LaunchIntentStoreUnavailable"
+
+    def test_launch_intent_returns_store_unavailable_when_lock_path_is_invalid(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        lock_parent = tmp_path / "lock-parent-as-file"
+        lock_parent.write_text("not-a-directory", encoding="utf-8")
+        broken_store = WorkspaceLaunchIntentStore(
+            storage_path=lock_parent / "workspace_launch_intents.json"
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch._WORKSPACE_LAUNCH_INTENT_STORE",
+            broken_store,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.LAUNCH_INTENT_TOKEN_MANAGER.validate",
+            lambda *_args, **_kwargs: SimpleNamespace(sessionId="session-1"),
+        )
+
+        # Consuming a launch intent must return a typed unavailable error instead of
+        # leaking an unhandled filesystem exception from lock setup.
         response = route_launch(LaunchRequest(launchIntentToken="token"))
 
         assert response.ok is False

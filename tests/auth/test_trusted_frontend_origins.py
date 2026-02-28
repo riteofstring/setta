@@ -1,9 +1,12 @@
 import time
 from pathlib import Path
 
+import pytest
+
 from setta import trusted_frontend_origins as trusted_frontend_origins_module
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStore,
+    TrustedFrontendOriginStoreUnavailableError,
     is_trusted_frontend_origin,
     refresh_trusted_frontend_origins_for_session,
     trust_frontend_origin,
@@ -118,6 +121,23 @@ def test_trusted_frontend_origin_store_ignores_stale_lock_file(
     store.trust_origin(session_id="session-1", origin=origin, exp=150, now=100)
 
     assert store.is_trusted(session_id="session-1", origin=origin, now=120) is True
+
+
+def test_trusted_frontend_origin_store_maps_lock_parent_failures_to_unavailable_error(
+    tmp_path: Path,
+) -> None:
+    lock_parent = tmp_path / "lock-parent-as-file"
+    lock_parent.write_text("not-a-directory", encoding="utf-8")
+    store = TrustedFrontendOriginStore(
+        storage_path=lock_parent / "trusted_frontend_origins.json"
+    )
+
+    # A broken lock parent must be normalized into a typed store-unavailable error.
+    with pytest.raises(
+        TrustedFrontendOriginStoreUnavailableError,
+        match="Failed acquiring trusted frontend origins store lock",
+    ):
+        store.clear()
 
 
 def test_is_trusted_frontend_origin_denies_expired_session_entry(
