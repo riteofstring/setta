@@ -1600,13 +1600,7 @@ class _WorkerState:
                     f"{self.plugin_id}:{handler_id}"
                 ),
             )
-        return {
-            "result": _ensure_json_serializable(
-                result,
-                plugin_id=self.plugin_id,
-                label="ui setting write result",
-            )
-        }
+        return {"ok": True}
 
     def _run_awaitable(
         self,

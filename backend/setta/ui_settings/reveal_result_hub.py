@@ -133,7 +133,17 @@ class UISettingRevealResultHub:
             expected_websocket_id is not None
             and expected_websocket_id != from_websocket_id
         ):
-            return False
+            waiter.set_exception(
+                RevealResultContractMismatchError(
+                    request_id=content.requestId,
+                    websocket_id=from_websocket_id,
+                    reason=(
+                        "Frontend reveal response websocket mismatch: expected "
+                        f"{expected_websocket_id} but received {from_websocket_id}."
+                    ),
+                )
+            )
+            return True
         expected_project_config_id = waiter_record.expected_project_config_id
         if (
             expected_project_config_id is not None

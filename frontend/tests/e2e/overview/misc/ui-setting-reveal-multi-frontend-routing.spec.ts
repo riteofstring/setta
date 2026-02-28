@@ -177,72 +177,6 @@ async function waitForFrontendIdentity(page: Page): Promise<string> {
   return identity;
 }
 
-async function getFrontendIdentityMessageCount(page: Page): Promise<number> {
-  return await page.evaluate((historyKey) => {
-    const history = (window as unknown as Record<string, unknown>)[historyKey];
-    if (!Array.isArray(history)) {
-      return 0;
-    }
-    return history.length;
-  }, FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY);
-}
-
-async function waitForFrontendIdentityAfterCount(
-  page: Page,
-  previousCount: number,
-): Promise<string> {
-  await expect
-    .poll(
-      async () => {
-        return await page.evaluate(
-          ({ historyKey, count }) => {
-            const history = (window as unknown as Record<string, unknown>)[
-              historyKey
-            ];
-            if (!Array.isArray(history) || history.length <= count) {
-              return null;
-            }
-            const latestIdentity = history[history.length - 1];
-            if (
-              typeof latestIdentity !== "string" ||
-              latestIdentity.trim() === ""
-            ) {
-              return null;
-            }
-            return latestIdentity.trim();
-          },
-          {
-            historyKey: FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY,
-            count: previousCount,
-          },
-        );
-      },
-      { timeout: 20000 },
-    )
-    .not.toBeNull();
-  const identity = await page.evaluate(
-    ({ historyKey, count }) => {
-      const history = (window as unknown as Record<string, unknown>)[historyKey];
-      if (!Array.isArray(history) || history.length <= count) {
-        return null;
-      }
-      const latestIdentity = history[history.length - 1];
-      if (typeof latestIdentity !== "string" || latestIdentity.trim() === "") {
-        return null;
-      }
-      return latestIdentity.trim();
-    },
-    {
-      historyKey: FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY,
-      count: previousCount,
-    },
-  );
-  if (identity === null) {
-    throw new Error("Expected frontend identity update after reconnect.");
-  }
-  return identity;
-}
-
 test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", async ({
   page,
 }) => {
@@ -343,33 +277,24 @@ test("reveal_ui_setting fails fast when frontend websocket id is unavailable", a
       "Timed out waiting for frontend reveal confirmation",
     );
   } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("reveal_ui_setting remains routable after websocket reconnect in the same tab", async ({
+test("reveal_ui_setting invalidates stale affinity after websocket reconnect in the same tab", async ({
   page,
 }) => {
   await setOverviewTab(page, "Overview");
   await installFrontendIdentityCapture(page);
   const projectContext = await openIsolatedProject(page);
-  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
 
   try {
     const initialFrontendIdentity = await waitForFrontendIdentity(page);
-    const initialIdentityCount = await getFrontendIdentityMessageCount(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const identityAfterReconnect = await waitForFrontendIdentity(page);
+    expect(identityAfterReconnect).not.toBe(initialFrontendIdentity);
 
-    await page.context().setOffline(true);
-    await page.waitForTimeout(1500);
-    await page.context().setOffline(false);
-
-    const identityAfterReconnect = await waitForFrontendIdentityAfterCount(
-      page,
-      initialIdentityCount,
-    );
-    expect(identityAfterReconnect).toBe(initialFrontendIdentity);
-
-    const revealResult = await callMcpTool<RevealUISettingResult>(
+    const staleIdentityReveal = await callMcpTool<RevealUISettingResult>(
       page,
       projectContext.projectConfigId,
       "reveal_ui_setting",
@@ -379,12 +304,18 @@ test("reveal_ui_setting remains routable after websocket reconnect in the same t
       },
       initialFrontendIdentity,
     );
-    expect(revealResult.emittedRevealCount).toBe(1);
-    expect(revealResult.statuses[0]?.status).toBe("revealed");
-    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
+    expect(staleIdentityReveal.emittedRevealCount).toBe(0);
+    expect(staleIdentityReveal.statuses[0]?.status).toBe("failed");
+    expect(staleIdentityReveal.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(staleIdentityReveal.statuses[0]?.error?.message).toContain(
+      initialFrontendIdentity,
+    );
+    expect(staleIdentityReveal.statuses[0]?.error?.message).not.toContain(
+      "Timed out waiting for frontend reveal confirmation",
+    );
+
   } finally {
-    await page.context().setOffline(false);
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 

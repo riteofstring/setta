@@ -79,10 +79,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)
-            await self._send_frontend_identity(
-                fromWebsocketId,
-                fail_if_missing=False,
-            )
             if not self.share_mode:
                 await self.websocket_manager.broadcast_connections()
             return

@@ -176,7 +176,9 @@ class TestWebsocketManagerSession:
         )
         await websocket_c.close()
 
-    async def test_frontend_affinity_token_rebinds_to_reconnected_tab(self) -> None:
+    async def test_frontend_affinity_token_stays_server_owned_across_reconnects(
+        self,
+    ) -> None:
         first_websocket = await _build_websocket([])
         first_websocket_id = await self.websocket_manager.on_connect(
             first_websocket,
@@ -194,6 +196,10 @@ class TestWebsocketManagerSession:
             self.websocket_manager.update_current_address(
                 "/project#setta-ws-affinity=tab-stable",
                 first_websocket_id,
+            )
+            assert (
+                self.websocket_manager.sockets[first_websocket_id].currentAddress
+                == "/project"
             )
             stable_affinity_token = self.websocket_manager.get_frontend_affinity_token(
                 first_websocket_id
@@ -226,13 +232,25 @@ class TestWebsocketManagerSession:
                     "/project#setta-ws-affinity=tab-stable",
                     second_websocket_id,
                 )
+                assert (
+                    self.websocket_manager.sockets[second_websocket_id].currentAddress
+                    == "/project"
+                )
                 rebound_affinity_token = self.websocket_manager.get_frontend_affinity_token(
                     second_websocket_id
                 )
-                assert rebound_affinity_token == stable_affinity_token
+                assert rebound_affinity_token == second_connection_token
+                assert rebound_affinity_token != stable_affinity_token
                 assert (
                     self.websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
                         affinity_token=stable_affinity_token,
+                        share_session_id="session-reconnect",
+                    )
+                    is None
+                )
+                assert (
+                    self.websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                        affinity_token=rebound_affinity_token,
                         share_session_id="session-reconnect",
                     )
                     == second_websocket_id
@@ -249,3 +267,36 @@ class TestWebsocketManagerSession:
                     first_websocket_id,
                     broadcast_connections=False,
                 )
+
+    async def test_broadcast_connections_redacts_affinity_marker_from_current_address(
+        self,
+    ) -> None:
+        self.websocket_manager.update_current_address(
+            "/project#setta-ws-affinity=tab-secret",
+            "frontend-a",
+        )
+        await self.websocket_manager.broadcast_connections()
+
+        messages = _sent_text_messages(self.messages_by_socket["frontend-a"])
+        assert len(messages) == 1
+        payload = WebsocketMsgAllConnections.model_validate_json(messages[0])
+        by_id = {connection.id: connection for connection in payload.content}
+        assert by_id["frontend-a"].currentAddress == "/project"
+
+    async def test_current_address_updates_cannot_rebind_other_frontend_affinity(
+        self,
+    ) -> None:
+        frontend_a_token = self.websocket_manager.get_frontend_affinity_token("frontend-a")
+        assert frontend_a_token is not None
+
+        self.websocket_manager.update_current_address(
+            "/project#setta-ws-affinity=spoofed-tab",
+            "frontend-b",
+        )
+        resolved_id = (
+            self.websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                affinity_token=frontend_a_token,
+                share_session_id="session-a",
+            )
+        )
+        assert resolved_id == "frontend-a"

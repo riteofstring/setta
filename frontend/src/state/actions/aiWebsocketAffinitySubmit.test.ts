@@ -69,7 +69,7 @@ describe("submitMessage websocket affinity", () => {
     delete (globalThis as { localStorage?: Storage }).localStorage;
   });
 
-  it("sends null affinity until the current websocket generation receives identity", async () => {
+  it("blocks llm requests until the current websocket generation receives identity", async () => {
     const route_get_llm_response = (await import("utils/generatedEndpoints"))
       .route_get_llm_response as unknown as vi.Mock;
     const {
@@ -95,11 +95,8 @@ describe("submitMessage websocket affinity", () => {
         "engine-primary",
         false,
       ),
-    ).resolves.toBeNull();
-    const [firstPayload] = route_get_llm_response.mock.calls[0] as [
-      { frontendAffinityToken: string | null },
-    ];
-    expect(firstPayload.frontendAffinityToken).toBeNull();
+    ).rejects.toThrow("Frontend identity not ready");
+    expect(route_get_llm_response).toHaveBeenCalledTimes(0);
 
     setFrontendAffinityToken("frontend-new", 2);
     await expect(
@@ -112,8 +109,8 @@ describe("submitMessage websocket affinity", () => {
         false,
       ),
     ).resolves.toBeNull();
-    const [secondPayload] = route_get_llm_response.mock.calls[1] as [
-      { frontendAffinityToken: string | null },
+    const [secondPayload] = route_get_llm_response.mock.calls[0] as [
+      { frontendAffinityToken: string },
     ];
     expect(secondPayload.frontendAffinityToken).toBe("frontend-new");
   });

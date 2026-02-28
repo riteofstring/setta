@@ -88,6 +88,7 @@ class _RecordingFrontendSender:
         self.skip_reveal_result_resolution = False
         self.override_reveal_statuses: list[UISettingRevealResultStatus] | None = None
         self.override_reveal_project_config_id: ID | None = None
+        self.override_reveal_from_websocket_id: str | None = None
 
     def resolve_frontend_websocket_id_from_affinity_token(
         self,
@@ -181,7 +182,11 @@ class _RecordingFrontendSender:
                 requestId=content.requestId,
                 statuses=statuses,
             ),
-            from_websocket_id=resolved_target_websocket_id,
+            from_websocket_id=(
+                self.override_reveal_from_websocket_id
+                if self.override_reveal_from_websocket_id is not None
+                else resolved_target_websocket_id
+            ),
         )
         return resolved_target_websocket_id
 
@@ -3824,6 +3829,53 @@ async def test_reveal_ui_setting_fails_closed_when_frontend_ack_project_mismatch
         assert result.statuses[0].error is not None
         assert elapsed_seconds < 1.0
         assert "project mismatch" in result.statuses[0].error.message
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_closed_when_frontend_ack_websocket_mismatches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_affinity_tokens = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.override_reveal_from_websocket_id = "frontend-b"
+        monkeypatch.setattr(
+            ui_settings_tools_module,
+            "_resolve_frontend_reveal_timeout_seconds",
+            lambda _duration_ms: 5.0,
+        )
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendAffinityToken": "frontend-a",
+            },
+        )
+
+        started_at = monotonic()
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            durationMs=250,
+            ctx=ctx,
+        )
+        elapsed_seconds = monotonic() - started_at
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert elapsed_seconds < 1.0
+        assert "websocket mismatch" in result.statuses[0].error.message
 
 
 @pytest.mark.asyncio

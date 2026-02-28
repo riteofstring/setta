@@ -4,12 +4,8 @@ import {
   getFrontendAffinityToken,
   setActiveFrontendWebsocketAffinityGeneration,
   setFrontendAffinityToken,
-  updateFrontendWebsocketAffinity,
+  waitForFrontendAffinityToken,
 } from "state/actions/frontendWebsocketAffinity";
-import {
-  WebsocketConnectionTypeEnum,
-  createWebsocketConnectionInfo,
-} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("frontendWebsocketAffinity", () => {
@@ -18,98 +14,62 @@ describe("frontendWebsocketAffinity", () => {
     clearFrontendWebsocketAffinity();
   });
 
-  it("builds a stable per-tab currentAddress token", () => {
+  it("builds a normalized currentAddress without embedding affinity capability state", () => {
     const first = buildFrontendAffinityCurrentAddress("/project-a");
     const second = buildFrontendAffinityCurrentAddress("/project-a");
-    const other = buildFrontendAffinityCurrentAddress("/project-b");
+    const root = buildFrontendAffinityCurrentAddress("   ");
 
     expect(first).toBe(second);
-    expect(first).toContain("#setta-ws-affinity=");
-    expect(other).not.toBe(first);
-  });
-
-  it("does not derive affinity from AllConnections snapshots", () => {
-    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
-    updateFrontendWebsocketAffinity({
-      connections: [
-        createWebsocketConnectionInfo({
-          id: "frontend-1",
-          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-          currentAddress,
-          shareSessionId: null,
-        }),
-      ],
-      currentAddress,
-      shareSessionId: null,
-    });
-
-    expect(getFrontendAffinityToken()).toBeNull();
-  });
-
-  it("clears websocket affinity when no unique matching connection exists", () => {
-    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
-    updateFrontendWebsocketAffinity({
-      connections: [
-        createWebsocketConnectionInfo({
-          id: "frontend-1",
-          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-          currentAddress,
-          shareSessionId: null,
-        }),
-        createWebsocketConnectionInfo({
-          id: "frontend-2",
-          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-          currentAddress,
-          shareSessionId: null,
-        }),
-      ],
-      currentAddress,
-      shareSessionId: null,
-    });
-
-    expect(getFrontendAffinityToken()).toBeNull();
-  });
-
-  it("ignores stale generation updates", () => {
-    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
-    setActiveFrontendWebsocketAffinityGeneration(2);
-    setFrontendAffinityToken("frontend-stale", 1);
-    updateFrontendWebsocketAffinity({
-      connections: [
-        createWebsocketConnectionInfo({
-          id: "frontend-stale",
-          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-          currentAddress,
-          shareSessionId: null,
-        }),
-      ],
-      currentAddress,
-      shareSessionId: null,
-      socketGeneration: 1,
-    });
-
-    expect(getFrontendAffinityToken()).toBeNull();
+    expect(first).toBe("/project-a");
+    expect(root).toBe("/");
   });
 
   it("keeps affinity empty until FrontendIdentity arrives for the active generation", () => {
-    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
     setActiveFrontendWebsocketAffinityGeneration(2);
-    updateFrontendWebsocketAffinity({
-      connections: [
-        createWebsocketConnectionInfo({
-          id: "frontend-new",
-          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
-          currentAddress,
-          shareSessionId: null,
-        }),
-      ],
-      currentAddress,
-      shareSessionId: null,
-      socketGeneration: 2,
-    });
-
     expect(getFrontendAffinityToken()).toBeNull();
     setFrontendAffinityToken("affinity-token", 2);
     expect(getFrontendAffinityToken()).toBe("affinity-token");
+  });
+
+  it("ignores stale generation updates", () => {
+    setActiveFrontendWebsocketAffinityGeneration(2);
+    setFrontendAffinityToken("frontend-stale", 1);
+    expect(getFrontendAffinityToken()).toBeNull();
+  });
+
+  it("waits for FrontendIdentity on the active generation", async () => {
+    setActiveFrontendWebsocketAffinityGeneration(2);
+    const waitPromise = waitForFrontendAffinityToken({
+      timeoutMs: 120,
+      pollIntervalMs: 10,
+    });
+
+    setTimeout(() => {
+      setFrontendAffinityToken("frontend-ready", 2);
+    }, 20);
+
+    await expect(waitPromise).resolves.toBe("frontend-ready");
+  });
+
+  it("fails fast when FrontendIdentity is not ready within timeout", async () => {
+    setActiveFrontendWebsocketAffinityGeneration(3);
+    await expect(
+      waitForFrontendAffinityToken({
+        timeoutMs: 15,
+        pollIntervalMs: 5,
+      }),
+    ).rejects.toThrow("Frontend identity not ready");
+  });
+
+  it("keeps waiting tied to the active generation", async () => {
+    setActiveFrontendWebsocketAffinityGeneration(4);
+    const waitPromise = waitForFrontendAffinityToken({
+      timeoutMs: 120,
+      pollIntervalMs: 10,
+    });
+    setActiveFrontendWebsocketAffinityGeneration(5);
+    setFrontendAffinityToken("affinity-token", 2);
+    setFrontendAffinityToken("affinity-token-new", 5);
+    await expect(waitPromise).resolves.toBe("affinity-token-new");
   });
 });

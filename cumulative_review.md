@@ -623,3 +623,30 @@
 6. UX after: same-value plugin writes are true no-ops, reducing unnecessary work and side-effect risk.
 7. DX before: debugging mixed transport/protocol/no-op behavior required tracing across timeout paths and plugin internals.
 8. DX after: explicit fail-fast protocol errors and manager-owned no-op gates make behavior deterministic and easier to reason about.
+
+## 2026-02-26 22:05:26 PST
+
+### Consolidated Findings
+1. Frontend affinity capability was still derivable/rebindable through mutable `CurrentAddressUpdate` markers and rebroadcast addresses.
+2. Initial agentic requests could still be sent before canonical frontend identity readiness, allowing missing affinity submissions.
+3. Reveal ACK websocket-origin mismatches could degrade to timeout-class outcomes instead of immediate contract failure.
+4. Plugin backend write RPC still coupled mutation classification to serialization of an unused write-handler return payload.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Removed address-derived affinity rebinding/caching from websocket manager and sanitized `#setta-ws-affinity=` marker material out of stored/broadcast `currentAddress`.
+2. Kept frontend affinity server-issued per socket and stopped identity re-emission on `CurrentAddressUpdate`.
+3. Added generation-scoped frontend affinity readiness gating (`waitForFrontendAffinityToken`) and updated AI submit paths to fail fast when identity is not ready (no null-affinity emission).
+4. Converted reveal ACK websocket mismatch handling to immediate `RevealResultContractMismatchError` fail-fast behavior.
+5. Simplified plugin write RPC contract to fixed `{"ok": true}` acknowledgements without serializing write return values.
+6. Added/updated unit, integration, Vitest, and Playwright coverage for affinity ownership/sanitization, identity readiness gating, reveal mismatch fail-fast, and non-serializable plugin write return handling.
+7. Ran `pnpm -C frontend gcf` to execute generation, cleanup, prune, and formatting flows for the updated workspace state.
+
+### UX/DX Before and After
+1. UX before: multi-frontend routing could be influenced by mutable address markers and stale rebinding state.
+2. UX after: affinity routing is origin-scoped to server-issued socket identity and no longer mutable via address updates.
+3. UX before: first requests after generation rollover could go out without canonical frontend identity.
+4. UX after: requests are either affinity-ready or fail fast client-side with explicit identity-readiness errors.
+5. UX before: wrong-websocket reveal ACKs surfaced as delayed timeout-like failures.
+6. UX after: websocket-origin contract violations fail immediately with explicit mismatch diagnostics.
+7. DX before: plugin write handlers could mutate state but still fail due to irrelevant return serialization constraints.
+8. DX after: write success/failure aligns with mutation/readback invariants and a minimal write ACK contract.

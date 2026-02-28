@@ -28,6 +28,7 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeUIChange,
 )
 from setta.ui_settings.reveal_result_hub import (
+    RevealResultContractMismatchError,
     RevealResultTransportDisconnectedError,
     UISettingRevealResultHub,
 )
@@ -238,7 +239,9 @@ async def test_frontend_receiver_rebroadcasts_connections_after_current_address_
 
 
 @pytest.mark.asyncio
-async def test_frontend_receiver_reuses_tab_affinity_token_after_reconnect() -> None:
+async def test_frontend_receiver_reconnect_publishes_fresh_identity_and_ignores_address_markers() -> (
+    None
+):
     websocket_manager = WebsocketManager()
     listener_registry = ListenerRegistry()
     sender = WMHPythonScriptSender(websocket_manager, listener_registry)
@@ -270,13 +273,14 @@ async def test_frontend_receiver_reuses_tab_affinity_token_after_reconnect() -> 
             ).model_dump_json(),
             first_frontend_id,
         )
+        assert websocket_manager.sockets[first_frontend_id].currentAddress == "/project"
         first_identity_messages = [
             WebsocketMsgFrontendIdentity.model_validate_json(message)
             for message in _sent_text_messages(first_messages)
             if json.loads(message).get("messageType") == "FrontendIdentity"
         ]
-        assert len(first_identity_messages) >= 1
-        stable_affinity_token = first_identity_messages[-1].content.frontendAffinityToken
+        assert len(first_identity_messages) == 1
+        first_affinity_token = first_identity_messages[-1].content.frontendAffinityToken
 
         await websocket_manager.on_disconnect(
             first_frontend_id,
@@ -300,19 +304,31 @@ async def test_frontend_receiver_reuses_tab_affinity_token_after_reconnect() -> 
                 ).model_dump_json(),
                 second_frontend_id,
             )
+            assert (
+                websocket_manager.sockets[second_frontend_id].currentAddress == "/project"
+            )
             second_identity_messages = [
                 WebsocketMsgFrontendIdentity.model_validate_json(message)
                 for message in _sent_text_messages(second_messages)
                 if json.loads(message).get("messageType") == "FrontendIdentity"
             ]
-            assert len(second_identity_messages) >= 2
+            assert len(second_identity_messages) == 1
             assert (
                 second_identity_messages[-1].content.frontendAffinityToken
-                == stable_affinity_token
+                != first_affinity_token
             )
             assert (
                 websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
-                    affinity_token=stable_affinity_token,
+                    affinity_token=first_affinity_token,
+                    share_session_id=None,
+                )
+                is None
+            )
+            assert (
+                websocket_manager.resolve_frontend_websocket_id_from_affinity_token(
+                    affinity_token=second_identity_messages[
+                        -1
+                    ].content.frontendAffinityToken,
                     share_session_id=None,
                 )
                 == second_frontend_id
@@ -771,33 +787,14 @@ async def test_share_receiver_ignores_reveal_result_from_unexpected_frontend() -
                 ),
                 frontend_id_b,
             )
-            await receiver.process_json_str(
-                json.dumps(
-                    {
-                        "messageType": "UISettingRevealResult",
-                        "content": {
-                            "projectConfigId": str(project_config_id),
-                            "requestId": "reveal-request-2",
-                            "statuses": [
-                                {
-                                    "settingId": "core.watch_code.enabled",
-                                    "status": "revealed",
-                                    "errorCode": None,
-                                    "errorMessage": None,
-                                }
-                            ],
-                        },
-                    }
-                ),
-                frontend_id_a,
-            )
-            resolved = await reveal_result_hub.wait_for_result(
-                request_id="reveal-request-2",
-                timeout_seconds=0.2,
-            )
-            assert resolved is not None
-            assert resolved.requestId == "reveal-request-2"
-            assert resolved.statuses[0].status == "revealed"
+            with pytest.raises(
+                RevealResultContractMismatchError,
+                match="websocket mismatch",
+            ):
+                await reveal_result_hub.wait_for_result(
+                    request_id="reveal-request-2",
+                    timeout_seconds=0.2,
+                )
         finally:
             await frontend_socket_a.close()
             await frontend_socket_b.close()

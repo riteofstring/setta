@@ -44,12 +44,6 @@ class WebsocketManager:
         self._send_timeout_s = _resolve_websocket_send_timeout_s()
         self._frontend_affinity_token_by_websocket_id: dict[str, str] = {}
         self._frontend_websocket_id_by_affinity_token: dict[str, str] = {}
-        self._frontend_affinity_scope_key_by_websocket_id: dict[
-            str, tuple[str | None, str]
-        ] = {}
-        self._frontend_affinity_token_by_scope_key: dict[
-            tuple[str | None, str], str
-        ] = {}
 
     async def on_connect(
         self,
@@ -90,36 +84,7 @@ class WebsocketManager:
 
     def update_current_address(self, currentAddress: str, websocketId: str):
         connection_info = self.sockets[websocketId]
-        connection_info.currentAddress = currentAddress
-        if connection_info.connectionType is not WebsocketConnectionType.FRONTEND:
-            return
-        frontend_affinity_scope_key = self._build_frontend_affinity_scope_key(
-            current_address=currentAddress,
-            share_session_id=connection_info.shareSessionId,
-        )
-        if frontend_affinity_scope_key is None:
-            return
-        self._frontend_affinity_scope_key_by_websocket_id[websocketId] = (
-            frontend_affinity_scope_key
-        )
-        stable_frontend_affinity_token = self._frontend_affinity_token_by_scope_key.get(
-            frontend_affinity_scope_key
-        )
-        if stable_frontend_affinity_token is None:
-            stable_frontend_affinity_token = (
-                self._frontend_affinity_token_by_websocket_id.get(websocketId)
-            )
-            if stable_frontend_affinity_token is None:
-                stable_frontend_affinity_token = (
-                    self._generate_frontend_affinity_token()
-                )
-            self._frontend_affinity_token_by_scope_key[frontend_affinity_scope_key] = (
-                stable_frontend_affinity_token
-            )
-        self._set_frontend_affinity_token_for_websocket_id(
-            websocketId,
-            stable_frontend_affinity_token,
-        )
+        connection_info.currentAddress = self._sanitize_current_address(currentAddress)
 
     def get_share_session_id(self, websocketId: str) -> str | None:
         if websocketId not in self.sockets:
@@ -170,28 +135,14 @@ class WebsocketManager:
         return secrets.token_urlsafe(24)
 
     @staticmethod
-    def _extract_frontend_tab_affinity_id(current_address: str) -> str | None:
-        marker_index = current_address.rfind(_FRONTEND_AFFINITY_ADDRESS_MARKER)
+    def _sanitize_current_address(current_address: str) -> str:
+        marker_index = current_address.find(_FRONTEND_AFFINITY_ADDRESS_MARKER)
         if marker_index == -1:
-            return None
-        raw_tab_affinity_id = current_address[
-            marker_index + len(_FRONTEND_AFFINITY_ADDRESS_MARKER) :
-        ]
-        normalized_tab_affinity_id = raw_tab_affinity_id.strip()
-        if normalized_tab_affinity_id == "":
-            return None
-        return normalized_tab_affinity_id
-
-    def _build_frontend_affinity_scope_key(
-        self,
-        *,
-        current_address: str,
-        share_session_id: str | None,
-    ) -> tuple[str | None, str] | None:
-        tab_affinity_id = self._extract_frontend_tab_affinity_id(current_address)
-        if tab_affinity_id is None:
-            return None
-        return share_session_id, tab_affinity_id
+            return current_address
+        stripped_address = current_address[:marker_index].strip()
+        if stripped_address == "":
+            return "/"
+        return stripped_address
 
     def _set_frontend_affinity_token_for_websocket_id(
         self,
@@ -216,7 +167,6 @@ class WebsocketManager:
         self,
         websocket_id: str,
     ) -> None:
-        self._frontend_affinity_scope_key_by_websocket_id.pop(websocket_id, None)
         token = self._frontend_affinity_token_by_websocket_id.pop(websocket_id, None)
         if token is None:
             return

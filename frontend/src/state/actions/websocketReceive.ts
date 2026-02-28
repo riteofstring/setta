@@ -6,7 +6,6 @@ import {
   clearFrontendWebsocketAffinity,
   setActiveFrontendWebsocketAffinityGeneration,
   setFrontendAffinityToken,
-  updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
 import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
@@ -516,14 +515,6 @@ function receiveMessage(message: string, socketGeneration: number) {
       return;
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       setWebsocketConnections(m.content);
-      updateFrontendWebsocketAffinity({
-        connections: m.content,
-        currentAddress: lastPathname
-          ? buildFrontendAffinityCurrentAddress(lastPathname)
-          : null,
-        shareSessionId: currentShareSessionId,
-        socketGeneration,
-      });
       return;
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);

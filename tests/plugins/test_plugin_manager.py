@@ -9215,6 +9215,171 @@ def test_backend_ui_setting_registration_and_handler_invocation(
     assert updated_value is True
 
 
+def test_backend_ui_setting_write_allows_non_serializable_handler_return(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-non-serializable-write"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-non-serializable-write"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Non-Serializable Write Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return object()\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registration = manager.get_backend_ui_settings(plugin_id=plugin_id)[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    manager.write_backend_ui_setting_value(
+        plugin_id=plugin_id,
+        write_handler_id=write_handler_id,
+        project_config_id="project-1",
+        value=True,
+    )
+    persisted_value = manager.read_backend_ui_setting_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert persisted_value is True
+
+
+def test_backend_ui_setting_compare_and_write_rolls_back_when_validation_fails_with_non_serializable_write_return(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-invalid-non-serializable"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-invalid-non-serializable"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Invalid Non-Serializable Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    if value is True:\n"
+        "        _STATE['enabled'] = 'invalid-value'\n"
+        "        return object()\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return object()\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registration = manager.get_backend_ui_settings(plugin_id=plugin_id)[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    def _validate_boolean(value: object) -> None:
+        if not isinstance(value, bool):
+            raise ValueError("Expected boolean value.")
+
+    with pytest.raises(PluginManagerError) as post_write_error:
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id=plugin_id,
+            setting_id=f"plugin.{plugin_id}.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+            validate_old_value=_validate_boolean,
+            validate_new_value=_validate_boolean,
+        )
+    assert (
+        post_write_error.value.code
+        == "PLUGIN_BACKEND_UI_SETTING_POST_WRITE_VALIDATION_FAILED"
+    )
+    assert "Rollback restored the previous value." in post_write_error.value.message
+
+    rolled_back_value = manager.read_backend_ui_setting_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert rolled_back_value is False
+
+
 def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
     tmp_path: Path,
 ) -> None:

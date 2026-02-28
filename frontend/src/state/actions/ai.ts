@@ -2,7 +2,7 @@ import {
   receiveAgenticScopeViolationEdges,
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
-import { getFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
+import { waitForFrontendAffinityToken } from "state/actions/frontendWebsocketAffinity";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -1232,7 +1232,7 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    const frontendAffinityToken = getFrontendAffinityToken();
+    const frontendAffinityToken = await waitForFrontendAffinityToken();
     const appGenerationMode = appGeneration?.mode ?? null;
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
@@ -1370,7 +1370,7 @@ export async function submitEditedMessage({
   }
 
   try {
-    const frontendAffinityToken = getFrontendAffinityToken();
+    const frontendAffinityToken = await waitForFrontendAffinityToken();
     const res = await route_get_llm_response({
       message: editedMessage,
       thinking,

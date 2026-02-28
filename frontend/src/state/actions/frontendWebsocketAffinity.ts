@@ -1,10 +1,8 @@
-import {
-  WebsocketConnectionInfo,
-  WebsocketConnectionTypeEnum,
-} from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
+const FRONTEND_AFFINITY_WAIT_TIMEOUT_MS = 1000;
+const FRONTEND_AFFINITY_WAIT_POLL_INTERVAL_MS = 25;
+const FRONTEND_AFFINITY_NOT_READY_ERROR_MESSAGE =
+  "Frontend identity not ready for this websocket connection.";
 
-const FRONTEND_WEBSOCKET_AFFINITY_TOKEN = createNewId();
 let frontendAffinityToken: string | null = null;
 let activeFrontendWebsocketGeneration = 0;
 let frontendAffinityTokenGeneration = 0;
@@ -25,46 +23,10 @@ function setAffinityId(nextFrontendAffinityToken: string | null): void {
 
 export function buildFrontendAffinityCurrentAddress(pathname: string): string {
   const normalizedPathname = pathname.trim();
-  const resolvedPathname = normalizedPathname === "" ? "/" : normalizedPathname;
-  return `${resolvedPathname}#setta-ws-affinity=${FRONTEND_WEBSOCKET_AFFINITY_TOKEN}`;
-}
-
-export function updateFrontendWebsocketAffinity({
-  connections,
-  currentAddress,
-  shareSessionId,
-  socketGeneration,
-}: {
-  connections: Array<WebsocketConnectionInfo>;
-  currentAddress: string | null;
-  shareSessionId: string | null;
-  socketGeneration?: number;
-}): void {
-  if (isStaleGeneration(socketGeneration)) {
-    return;
+  if (normalizedPathname === "") {
+    return "/";
   }
-  if (frontendAffinityToken !== null) {
-    return;
-  }
-  if (!currentAddress) {
-    setAffinityId(null);
-    return;
-  }
-  const hasMatchingFrontendConnection = connections.some((connection) => {
-    if (connection.connectionType !== WebsocketConnectionTypeEnum.FRONTEND) {
-      return false;
-    }
-    if (connection.currentAddress !== currentAddress) {
-      return false;
-    }
-    return connection.shareSessionId === shareSessionId;
-  });
-  if (!hasMatchingFrontendConnection) {
-    setAffinityId(null);
-    return;
-  }
-  // AllConnections snapshots expose websocket ids, not affinity capability tokens.
-  // Keep waiting for FrontendIdentity to provide the token bound to this socket.
+  return normalizedPathname;
 }
 
 export function setFrontendAffinityToken(
@@ -104,4 +66,38 @@ export function getFrontendAffinityToken(): string | null {
     return null;
   }
   return frontendAffinityToken;
+}
+
+function sleep(timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, timeoutMs);
+  });
+}
+
+export async function waitForFrontendAffinityToken({
+  timeoutMs = FRONTEND_AFFINITY_WAIT_TIMEOUT_MS,
+  pollIntervalMs = FRONTEND_AFFINITY_WAIT_POLL_INTERVAL_MS,
+}: {
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+} = {}): Promise<string> {
+  const resolvedTimeoutMs = timeoutMs < 0 ? 0 : timeoutMs;
+  const resolvedPollIntervalMs =
+    pollIntervalMs <= 0
+      ? FRONTEND_AFFINITY_WAIT_POLL_INTERVAL_MS
+      : pollIntervalMs;
+  let remainingWaitMs = resolvedTimeoutMs;
+
+  while (true) {
+    const frontendAffinityToken = getFrontendAffinityToken();
+    if (frontendAffinityToken !== null) {
+      return frontendAffinityToken;
+    }
+    if (remainingWaitMs <= 0) {
+      throw new Error(FRONTEND_AFFINITY_NOT_READY_ERROR_MESSAGE);
+    }
+    const waitStepMs = Math.min(remainingWaitMs, resolvedPollIntervalMs);
+    await sleep(waitStepMs);
+    remainingWaitMs -= waitStepMs;
+  }
 }

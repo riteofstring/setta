@@ -461,7 +461,7 @@ def test_worker_register_ui_setting_and_invoke_handler_roundtrip(
                 "value": True,
             },
         )
-        assert write_response["result"]["result"]["ok"] is True
+        assert write_response["result"]["ok"] is True
 
         second_read = _rpc_call(
             worker,
@@ -474,6 +474,72 @@ def test_worker_register_ui_setting_and_invoke_handler_roundtrip(
             },
         )
         assert second_read["result"]["value"] is True
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_ui_setting_write_allows_non_serializable_handler_return(
+    tmp_path: Path,
+) -> None:
+    # Worker write RPC should classify success by handler completion, not return serialization.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_setting(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_setting(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return object()\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend setting behavior.',\n"
+        "            'paneId': 'full-settings-pane',\n"
+        "            'revealKey': 'full-settings',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_setting,\n"
+        "            'write': _write_setting,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        requested_capabilities=["registerPane"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        register_response = _rpc_call(worker, request_id=2, method="plugin.register")
+        assert register_response["result"] == {"ok": True}
+
+        write_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "write",
+                "projectConfigId": "project-a",
+                "value": True,
+            },
+        )
+        assert write_response["result"]["ok"] is True
+
+        read_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert read_response["result"]["value"] is True
     finally:
         _stop_worker(worker)
 

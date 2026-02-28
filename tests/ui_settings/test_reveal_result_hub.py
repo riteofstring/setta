@@ -40,16 +40,6 @@ async def test_reveal_result_hub_requires_expected_websocket_id() -> None:
     hub = UISettingRevealResultHub()
     hub.register_request("request-1", expected_websocket_id="frontend-a")
 
-    # Non-target websocket acknowledgements must not resolve the request.
-    ignored = hub.resolve(
-        _build_reveal_result_content(
-            request_id="request-1",
-            status="failed",
-        ),
-        from_websocket_id="frontend-b",
-    )
-    assert ignored is False
-
     resolved = hub.resolve(
         _build_reveal_result_content(
             request_id="request-1",
@@ -62,6 +52,23 @@ async def test_reveal_result_hub_requires_expected_websocket_id() -> None:
     result = await hub.wait_for_result(request_id="request-1", timeout_seconds=0.2)
     assert result is not None
     assert result.statuses[0].status == "revealed"
+
+
+@pytest.mark.asyncio
+async def test_reveal_result_hub_fails_fast_on_websocket_mismatch() -> None:
+    hub = UISettingRevealResultHub()
+    hub.register_request("request-1b", expected_websocket_id="frontend-a")
+
+    resolved_mismatch = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-1b",
+            status="failed",
+        ),
+        from_websocket_id="frontend-b",
+    )
+    assert resolved_mismatch is True
+    with pytest.raises(RevealResultContractMismatchError, match="websocket mismatch"):
+        await hub.wait_for_result(request_id="request-1b", timeout_seconds=0.2)
 
 
 @pytest.mark.asyncio
