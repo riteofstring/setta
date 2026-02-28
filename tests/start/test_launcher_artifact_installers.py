@@ -379,6 +379,45 @@ def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
     ]
 
 
+def test_install_windows_artifacts_quotes_workspace_forwarding(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "UserProfile"))
+
+    wrapper_path = tmp_path / "wrapper" / "setta-launcher.cmd"
+    start_menu_shortcut_path = tmp_path / "start-menu" / "Setta Test.lnk"
+
+    def fake_create_windows_shortcut(*, shortcut_path: Path, target_path: Path) -> None:
+        assert target_path == wrapper_path
+        shortcut_path.parent.mkdir(parents=True, exist_ok=True)
+        shortcut_path.write_text("shortcut", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.windows._create_windows_shortcut",
+        fake_create_windows_shortcut,
+    )
+
+    context = LauncherArtifactContext(
+        target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        channel="windows-script",
+        existing_managed_artifacts={},
+        options={
+            "app_name": "Setta Test",
+            "wrapper_path": str(wrapper_path),
+            "start_menu_shortcut_path": str(start_menu_shortcut_path),
+        },
+    )
+
+    install_windows_artifacts(context=context)
+
+    wrapper_script = wrapper_path.read_text(encoding="utf-8")
+    assert 'launcher --workspace "%~1"' in wrapper_script
+    assert "launcher --workspace %1" not in wrapper_script
+
+
 def test_install_windows_artifacts_rejects_path_like_app_name(
     tmp_path: Path,
     monkeypatch,

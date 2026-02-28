@@ -113,3 +113,13 @@
 - Tightened launcher credentialed CORS trust to explicit allowlisted origins only by removing broad loopback regex acceptance; trusted loopback origins must now be configured (for example via `SETTA_FRONTEND_ORIGINS`).
 - Added/updated regression coverage across router-policy tests, launcher-mode guard tests with deferred-field sentinels, CLI mode-selection unit/integration tests, and CORS tests for configured vs unconfigured loopback origins.
 - Ran `pnpm gcf` and validated targeted suites (`pytest` for touched backend/start/cors/router areas and Playwright launcher-origin workspace-launch spec) with passing results.
+
+## 2026-02-26 09:04:12 PST
+
+- Reworked workspace launch-intent persistence to a file-backed, lock-protected store with hashed token keys, cross-process atomic consume-once semantics, and expiry pruning that survives process restarts.
+- Split launch-intent token handling into validation and consumption paths so `/launch` now validates signature/session binding before atomically consuming the stored intent payload.
+- Added dynamic trusted frontend-origin persistence driven by verified bootstrap launcher-origin handoff (`lo` + proof), and routed CORS enforcement through `SettaCORSMiddleware` so trusted origins can make credentialed launcher API requests.
+- Tightened launcher-mode runtime boundaries by moving detached runs to a non-launcher router policy and explicitly rejecting launcher-mode frontend/python websocket endpoints.
+- Fixed Windows launcher wrapper workspace forwarding by quoting `%~1` in the generated `launcher --workspace` call to preserve paths with spaces.
+- Expanded regression coverage with new/updated pytest and Playwright tests for trusted-origin storage/CORS behavior, launch-intent durability and cross-instance consume races, websocket/route mode guards, and Windows wrapper quoting.
+- Ran `pnpm gcf` in `frontend/` as part of this update.

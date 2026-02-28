@@ -11,6 +11,7 @@ from setta.auth.headers import extract_bearer_token
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
+from setta.trusted_frontend_origins import is_trusted_frontend_origin
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 
@@ -375,7 +376,7 @@ def _should_auto_auth_dev_request(request: Request) -> bool:
     if not client or client.host not in {"127.0.0.1", "::1"}:
         return False
     origin = request.headers.get("origin")
-    if origin and origin in C.FRONTEND_ORIGINS:
+    if origin and is_trusted_frontend_origin(origin):
         return True
     referer = request.headers.get("referer")
     if not referer:
@@ -384,4 +385,4 @@ def _should_auto_auth_dev_request(request: Request) -> bool:
     if not parsed.scheme or not parsed.netloc:
         return False
     referer_origin = f"{parsed.scheme}://{parsed.netloc}"
-    return referer_origin in C.FRONTEND_ORIGINS
+    return is_trusted_frontend_origin(referer_origin)

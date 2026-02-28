@@ -2,15 +2,35 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
+from setta import trusted_frontend_origins as trusted_frontend_origins_module
+from setta.middleware import (
+    AuthMiddleware,
+    LoggingContextMiddleware,
+    SettaCORSMiddleware,
+)
 from setta.routers.launch import router as launch_router
-from setta.middleware import AuthMiddleware, LoggingContextMiddleware
 from setta.sessions.constants import SESSION_ID_ENV_VAR
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStore,
+    trust_frontend_origin,
+)
 from setta.types.routes import Route
 from setta.utils import constants
 from setta.utils.constants import C
+
+
+@pytest.fixture(autouse=True)
+def isolated_trusted_frontend_origins_store(tmp_path, monkeypatch) -> None:
+    store = TrustedFrontendOriginStore(
+        storage_path=tmp_path / "trusted_frontend_origins.json"
+    )
+    monkeypatch.setattr(
+        trusted_frontend_origins_module,
+        "_TRUSTED_FRONTEND_ORIGIN_STORE",
+        store,
+    )
 
 
 @pytest.fixture
@@ -26,7 +46,7 @@ def cors_client(tmp_path, monkeypatch):
     app.add_middleware(LoggingContextMiddleware)
     app.add_middleware(AuthMiddleware)
     app.add_middleware(
-        CORSMiddleware,
+        SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
         allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
@@ -76,7 +96,7 @@ def test_launcher_mode_cors_allows_configured_loopback_origin_launch_intent(
         app_mode=False,
     )
     app.add_middleware(
-        CORSMiddleware,
+        SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
         allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
@@ -112,6 +132,47 @@ def test_launcher_mode_cors_allows_configured_loopback_origin_launch_intent(
     assert response.json()["ok"] is True
 
 
+def test_launcher_mode_cors_allows_handoff_trusted_loopback_preflight_origin(
+    monkeypatch,
+) -> None:
+    # Trusted launcher handoff origins should be allowlisted without env wiring.
+    monkeypatch.setattr(constants, "IS_DEV_MODE", False)
+    monkeypatch.setattr(C, "LAUNCHER_MODE", True)
+    monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
+    monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
+    monkeypatch.delenv("SETTA_FRONTEND_ORIGINS", raising=False)
+    trusted_origin = "http://127.0.0.1:61234"
+    trust_frontend_origin(trusted_origin)
+
+    app = FastAPI()
+    app.add_middleware(
+        SettaCORSMiddleware,
+        allow_origins=C.FRONTEND_ORIGINS,
+        allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.post(f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}")
+    async def launch_intent_stub() -> dict[str, bool]:
+        return {"ok": True}
+
+    with TestClient(app, base_url=C.BACKEND) as client:
+        preflight = client.options(
+            f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+            headers={
+                "Origin": trusted_origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+    assert preflight.status_code == 200
+    assert preflight.headers.get("access-control-allow-origin") == trusted_origin
+    assert preflight.headers.get("access-control-allow-credentials") == "true"
+
+
 def test_launcher_mode_cors_rejects_unconfigured_loopback_preflight_origin(
     monkeypatch,
 ) -> None:
@@ -124,7 +185,7 @@ def test_launcher_mode_cors_rejects_unconfigured_loopback_preflight_origin(
 
     app = FastAPI()
     app.add_middleware(
-        CORSMiddleware,
+        SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
         allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,
@@ -172,7 +233,7 @@ def test_launcher_mode_cors_credentialed_request_blocks_non_allowlisted_loopback
         app_mode=False,
     )
     app.add_middleware(
-        CORSMiddleware,
+        SettaCORSMiddleware,
         allow_origins=C.FRONTEND_ORIGINS,
         allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
         allow_credentials=True,

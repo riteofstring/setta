@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from setta.launch import LaunchError
+from setta.launch_intent_store import WorkspaceLaunchIntentStore
 from setta.launcher_metadata import LauncherMetadataError
 from setta.routers.launch import (
     CreateWorkspaceLaunchIntentRequest,
@@ -139,6 +140,65 @@ class TestLaunchRoutes:
             create_response.launchIntentToken
         )
 
+    def test_launch_intent_roundtrip_survives_store_reinitialization(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        store_path = tmp_path / "launch-intents.json"
+        store_a = WorkspaceLaunchIntentStore(storage_path=store_path)
+        store_b = WorkspaceLaunchIntentStore(storage_path=store_path)
+        monkeypatch.setattr(
+            "setta.routers.launch._WORKSPACE_LAUNCH_INTENT_STORE",
+            store_a,
+        )
+        store_a.clear()
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured.update(kwargs)
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        create_response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                    settaFilesLocation="global",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert create_response.ok is True
+        assert create_response.launchIntentToken is not None
+
+        # Rebind the module-global store to simulate request handling in a new process.
+        monkeypatch.setattr(
+            "setta.routers.launch._WORKSPACE_LAUNCH_INTENT_STORE",
+            store_b,
+        )
+        response = route_launch(
+            LaunchRequest(launchIntentToken=create_response.launchIntentToken)
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert response.returnUrl == "http://localhost/home"
+        assert captured["workspace_root"] == "/tmp/workspace"
+        assert captured["setta_files_location"] == "global"
+        assert not store_b.contains(create_response.launchIntentToken)
+
     def test_launch_intent_rejects_tampered_token(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -216,7 +276,7 @@ class TestLaunchRoutes:
             lambda: (SimpleNamespace(id="session-1"), b"secret"),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.LAUNCH_INTENT_TOKEN_MANAGER.consume",
+            "setta.routers.launch.LAUNCH_INTENT_TOKEN_MANAGER.validate",
             lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 ValueError("Token has expired")
             ),
@@ -435,7 +495,9 @@ class TestLaunchRoutes:
             "setta.routers.launch.launch_workspace_session",
             fake_launch_workspace_session,
         )
-        monkeypatch.setattr("setta.routers.launch.get_setta_paths", fake_get_setta_paths)
+        monkeypatch.setattr(
+            "setta.routers.launch.get_setta_paths", fake_get_setta_paths
+        )
 
         response = route_launch(
             LaunchRequest(
@@ -680,12 +742,16 @@ class TestLaunchRoutes:
             started_new=False,
         )
 
-        monkeypatch.setattr("setta.routers.launch.launch_workspace_session", lambda **_k: result)
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session", lambda **_k: result
+        )
         monkeypatch.setattr(
             "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
             lambda **kwargs: captured.update(kwargs) or True,
         )
-        monkeypatch.setattr("setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok"
+        )
         monkeypatch.setattr(
             "setta.routers.launch.build_bootstrap_urls",
             lambda host, port, token: (
@@ -739,12 +805,16 @@ class TestLaunchRoutes:
             started_new=False,
         )
 
-        monkeypatch.setattr("setta.routers.launch.launch_workspace_session", lambda **_k: result)
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session", lambda **_k: result
+        )
         monkeypatch.setattr(
             "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
             lambda **_kwargs: (_ for _ in ()).throw(raised_error),
         )
-        monkeypatch.setattr("setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+        monkeypatch.setattr(
+            "setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok"
+        )
         monkeypatch.setattr(
             "setta.routers.launch.build_bootstrap_urls",
             lambda host, port, token: (
@@ -1100,7 +1170,9 @@ class TestLaunchRoutes:
         assert response.profile == "dev"
         assert response.remoteCmdResolved == "setta"
 
-    def test_launch_local_does_not_inherit_server_files_location_env(self, monkeypatch) -> None:
+    def test_launch_local_does_not_inherit_server_files_location_env(
+        self, monkeypatch
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             workspace_root = tmp_path / "workspace"
@@ -1110,14 +1182,20 @@ class TestLaunchRoutes:
 
             setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
             global_base = (setta_home / "setta_files").resolve(strict=False)
-            global_root = build_files_root_from_base(global_base, workspace_root).resolve(
+            global_root = build_files_root_from_base(
+                global_base, workspace_root
+            ).resolve(strict=False)
+
+            local_sessions_root = (
+                workspace_root / "setta_files" / "runtime" / "sessions"
+            )
+            local_sessions_root.mkdir(parents=True, exist_ok=True)
+            local_setta_files_root = (workspace_root / "setta_files").resolve(
                 strict=False
             )
-
-            local_sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
-            local_sessions_root.mkdir(parents=True, exist_ok=True)
-            local_setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
-            local_runtime_root = (local_setta_files_root / "runtime").resolve(strict=False)
+            local_runtime_root = (local_setta_files_root / "runtime").resolve(
+                strict=False
+            )
             global_sessions_root = global_root / "runtime" / "sessions"
             global_sessions_root.mkdir(parents=True, exist_ok=True)
             global_runtime_root = (global_root / "runtime").resolve(strict=False)
@@ -1164,7 +1242,9 @@ class TestLaunchRoutes:
             monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
 
             try:
-                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+                response = route_launch(
+                    LaunchRequest(workspaceRoot=str(workspace_root))
+                )
             finally:
                 server_socket_local.close()
                 server_socket_global.close()
@@ -1185,10 +1265,16 @@ class TestLaunchRoutes:
             env_sessions_root = env_state_root / "runtime" / "sessions"
             env_sessions_root.mkdir(parents=True, exist_ok=True)
             env_runtime_root = (env_state_root / "runtime").resolve(strict=False)
-            local_sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+            local_sessions_root = (
+                workspace_root / "setta_files" / "runtime" / "sessions"
+            )
             local_sessions_root.mkdir(parents=True, exist_ok=True)
-            local_setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
-            local_runtime_root = (local_setta_files_root / "runtime").resolve(strict=False)
+            local_setta_files_root = (workspace_root / "setta_files").resolve(
+                strict=False
+            )
+            local_runtime_root = (local_setta_files_root / "runtime").resolve(
+                strict=False
+            )
 
             setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
             profiles_dir = setta_home / "profiles"
@@ -1297,13 +1383,15 @@ class TestLaunchRoutes:
                 setta_home = runtime_home.resolve(strict=False)
                 profile_lookup_home = lookup_home.resolve(strict=False)
 
-            monkeypatch.setattr("setta.routers.launch.get_setta_paths", lambda: _Paths())
+            monkeypatch.setattr(
+                "setta.routers.launch.get_setta_paths", lambda: _Paths()
+            )
             monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 
             global_base = (runtime_home / "setta_files").resolve(strict=False)
-            global_root = build_files_root_from_base(global_base, workspace_root).resolve(
-                strict=False
-            )
+            global_root = build_files_root_from_base(
+                global_base, workspace_root
+            ).resolve(strict=False)
             sessions_root = global_root / "runtime" / "sessions"
             sessions_root.mkdir(parents=True, exist_ok=True)
 
@@ -1384,7 +1472,9 @@ class TestLaunchRoutes:
                 port=local_port,
                 pid=os.getpid(),
                 setta_files_location="local",
-                setta_files_root=str((workspace_root / "setta_files").resolve(strict=False)),
+                setta_files_root=str(
+                    (workspace_root / "setta_files").resolve(strict=False)
+                ),
                 runtime_root=str(local_runtime_root.resolve(strict=False)),
                 setta_home=str(setta_home),
                 profile=None,
@@ -1397,14 +1487,18 @@ class TestLaunchRoutes:
                 port=env_port,
                 pid=os.getpid(),
                 setta_files_location="local",
-                setta_files_root=str((workspace_root / "setta_files").resolve(strict=False)),
+                setta_files_root=str(
+                    (workspace_root / "setta_files").resolve(strict=False)
+                ),
                 runtime_root=str(env_runtime_root.resolve(strict=False)),
                 setta_home=str(setta_home),
                 profile=None,
             )
 
             try:
-                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+                response = route_launch(
+                    LaunchRequest(workspaceRoot=str(workspace_root))
+                )
             finally:
                 local_socket.close()
                 env_socket.close()
@@ -1443,14 +1537,20 @@ class TestLaunchRoutes:
                 port=port,
                 pid=os.getpid(),
                 setta_files_location="local",
-                setta_files_root=str((workspace_root / "setta_files").resolve(strict=False)),
-                runtime_root=str((workspace_root / "setta_files" / "runtime").resolve(strict=False)),
+                setta_files_root=str(
+                    (workspace_root / "setta_files").resolve(strict=False)
+                ),
+                runtime_root=str(
+                    (workspace_root / "setta_files" / "runtime").resolve(strict=False)
+                ),
                 setta_home=str(setta_home),
                 profile=None,
             )
 
             try:
-                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+                response = route_launch(
+                    LaunchRequest(workspaceRoot=str(workspace_root))
+                )
             finally:
                 server_socket.close()
 
@@ -1458,7 +1558,9 @@ class TestLaunchRoutes:
             assert response.sessionId == session.id
             assert response.profile is None
 
-    def test_launch_local_always_wins_even_when_global_requested(self, monkeypatch) -> None:
+    def test_launch_local_always_wins_even_when_global_requested(
+        self, monkeypatch
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             workspace_root = tmp_path / "workspace"
@@ -1467,8 +1569,12 @@ class TestLaunchRoutes:
 
             monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
             setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-            local_setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
-            local_runtime_root = (local_setta_files_root / "runtime").resolve(strict=False)
+            local_setta_files_root = (workspace_root / "setta_files").resolve(
+                strict=False
+            )
+            local_runtime_root = (local_setta_files_root / "runtime").resolve(
+                strict=False
+            )
             sessions_root = local_runtime_root / "sessions"
             sessions_root.mkdir(parents=True, exist_ok=True)
 
@@ -1586,9 +1692,7 @@ class TestLaunchRoutes:
             paths = SimpleNamespace(
                 workspace_root=workspace_root.resolve(strict=False),
                 setta_files_location="local",
-                setta_files_root=(workspace_root / "setta_files").resolve(
-                    strict=False
-                ),
+                setta_files_root=(workspace_root / "setta_files").resolve(strict=False),
                 runtime_root=(workspace_root / "setta_files" / "runtime").resolve(
                     strict=False
                 ),

@@ -13,6 +13,7 @@ from setta.routers.listener import router as listener_router
 from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
+from setta.routers.runs import router as runs_router
 from setta.routers.terminals import terminals_http_router
 from setta.types.routes import Route
 
@@ -240,6 +241,24 @@ def test_get_latest_project_state_is_blocked_in_launcher_mode() -> None:
     with TestClient(app) as client:
         response = client.post(
             f"{Route.PREFIX.value}{Route.GET_LATEST_PROJECT_STATE.value}",
+            json={"projectConfigId": "project-1"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_run_detached_is_blocked_in_launcher_mode() -> None:
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        project_manager_switcher=_DeferredRuntimeField("project_manager_switcher"),
+        detached_run_manager=_DeferredRuntimeField("detached_run_manager"),
+    )
+    app.include_router(runs_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.RUN_DETACHED.value}",
             json={"projectConfigId": "project-1"},
         )
 

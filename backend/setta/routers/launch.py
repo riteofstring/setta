@@ -376,7 +376,7 @@ def _consume_workspace_launch_intent(
     session_id: str,
     secret: bytes,
 ) -> tuple[LaunchRequest, str]:
-    payload = LAUNCH_INTENT_TOKEN_MANAGER.consume(token, secret)
+    payload = LAUNCH_INTENT_TOKEN_MANAGER.validate(token, secret)
     if payload.sessionId != session_id:
         raise ValueError("Launch intent token is bound to a different session.")
     stored = _WORKSPACE_LAUNCH_INTENT_STORE.consume_once(

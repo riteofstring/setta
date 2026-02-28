@@ -191,7 +191,7 @@ class LaunchIntentTokenManager:
         self, token: str, secret: bytes, now: datetime | None = None
     ) -> LaunchIntentTokenPayload:
         effective_now = now or datetime.now(timezone.utc)
-        payload = self._validate(token, secret, effective_now)
+        payload = self.validate(token, secret, effective_now)
         timestamp = int(effective_now.timestamp())
         if self._nonce_tracker.is_consumed(payload.sessionId, payload.nonce, timestamp):
             raise ValueError("Token has already been consumed")
@@ -200,7 +200,7 @@ class LaunchIntentTokenManager:
         )
         return payload
 
-    def _validate(
+    def validate(
         self, token: str, secret: bytes, now: datetime | None = None
     ) -> LaunchIntentTokenPayload:
         payload_obj, signature = _decode_token_parts(token)

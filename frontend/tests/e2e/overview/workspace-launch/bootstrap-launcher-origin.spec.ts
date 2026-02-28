@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as path from "node:path";
 
 const BACKEND_ORIGIN =
@@ -17,6 +18,11 @@ type SessionMetadata = {
   startedAt: string;
 };
 
+type OriginTestServer = {
+  origin: string;
+  close: () => Promise<void>;
+};
+
 function base64UrlEncode(data: Buffer): string {
   return data
     .toString("base64")
@@ -27,7 +33,11 @@ function base64UrlEncode(data: Buffer): string {
 
 function normalizeHostname(hostname: string): string {
   const normalized = hostname.trim().toLowerCase();
-  if (normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1") {
+  if (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1"
+  ) {
     return "local";
   }
   return normalized;
@@ -115,10 +125,11 @@ function mintBootstrapToken(backendOrigin: string): string {
   const ttlSeconds = 60 * 10;
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const nonce = base64UrlEncode(crypto.randomBytes(16));
-  const payloadJson = JSON.stringify(
-    { exp, nonce, sessionId: metadata.id },
-    ["exp", "nonce", "sessionId"],
-  );
+  const payloadJson = JSON.stringify({ exp, nonce, sessionId: metadata.id }, [
+    "exp",
+    "nonce",
+    "sessionId",
+  ]);
   const payloadBytes = Buffer.from(payloadJson, "utf-8");
   const signature = crypto
     .createHmac("sha256", secret)
@@ -156,7 +167,42 @@ async function clearLauncherOrigin(page: Page): Promise<void> {
   await scratch.close();
 }
 
-test("bootstrap launcher origin ignores non-http(s) values", async ({ page }) => {
+async function startOriginTestServer(): Promise<OriginTestServer> {
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer((_request, response) => {
+      response.statusCode = 200;
+      response.setHeader("content-type", "text/html; charset=utf-8");
+      response.end("<!doctype html><title>Setta Origin Test</title>ready");
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to allocate origin test server port.")),
+        );
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${address.port}`,
+        close: async () =>
+          await new Promise<void>((closeResolve, closeReject) => {
+            server.close((error) => {
+              if (error) {
+                closeReject(error);
+                return;
+              }
+              closeResolve();
+            });
+          }),
+      });
+    });
+  });
+}
+
+test("bootstrap launcher origin ignores non-http(s) values", async ({
+  page,
+}) => {
   await clearLauncherOrigin(page);
 
   const raw = "javascript:alert(1)";
@@ -165,7 +211,8 @@ test("bootstrap launcher origin ignores non-http(s) values", async ({ page }) =>
     try {
       const url = new URL(res.url());
       return (
-        url.origin === BACKEND_ORIGIN && url.pathname === "/__setta__/bootstrap/consume"
+        url.origin === BACKEND_ORIGIN &&
+        url.pathname === "/__setta__/bootstrap/consume"
       );
     } catch {
       return false;
@@ -176,7 +223,9 @@ test("bootstrap launcher origin ignores non-http(s) values", async ({ page }) =>
     `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
   expect((await consumeResponse).status()).toBe(200);
-  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+    waitUntil: "domcontentloaded",
+  });
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
     waitUntil: "domcontentloaded",
   });
@@ -199,7 +248,8 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
     try {
       const url = new URL(res.url());
       return (
-        url.origin === BACKEND_ORIGIN && url.pathname === "/__setta__/bootstrap/consume"
+        url.origin === BACKEND_ORIGIN &&
+        url.pathname === "/__setta__/bootstrap/consume"
       );
     } catch {
       return false;
@@ -210,7 +260,9 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
     `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}&lop=${encodeURIComponent(proof)}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
   expect((await consumeResponse).status()).toBe(200);
-  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+    waitUntil: "domcontentloaded",
+  });
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
     waitUntil: "domcontentloaded",
   });
@@ -223,7 +275,9 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
   expect(stored.session).toBe("https://127.0.0.1:4242");
 });
 
-test("bootstrap launcher origin ignores invalid proof values", async ({ page }) => {
+test("bootstrap launcher origin ignores invalid proof values", async ({
+  page,
+}) => {
   await clearLauncherOrigin(page);
 
   const raw = "http://127.0.0.1:4242";
@@ -232,7 +286,8 @@ test("bootstrap launcher origin ignores invalid proof values", async ({ page }) 
     try {
       const url = new URL(res.url());
       return (
-        url.origin === BACKEND_ORIGIN && url.pathname === "/__setta__/bootstrap/consume"
+        url.origin === BACKEND_ORIGIN &&
+        url.pathname === "/__setta__/bootstrap/consume"
       );
     } catch {
       return false;
@@ -243,7 +298,9 @@ test("bootstrap launcher origin ignores invalid proof values", async ({ page }) 
     `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}&lop=invalid-proof`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
   expect((await consumeResponse).status()).toBe(200);
-  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+    waitUntil: "domcontentloaded",
+  });
   await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
     waitUntil: "domcontentloaded",
   });
@@ -254,4 +311,121 @@ test("bootstrap launcher origin ignores invalid proof values", async ({ page }) 
   }));
   expect(stored.local).toBeNull();
   expect(stored.session).toBeNull();
+});
+
+test("bootstrap trusted launcher origin enables dynamic CORS launch-intent calls", async ({
+  page,
+}) => {
+  await clearLauncherOrigin(page);
+  const originServer = await startOriginTestServer();
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT ?? "/tmp/workspace";
+
+  try {
+    const authToken = mintBootstrapToken(BACKEND_ORIGIN);
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${encodeURIComponent(authToken)}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page.goto(originServer.origin, { waitUntil: "domcontentloaded" });
+
+    const beforeTrust = await page.evaluate(
+      async ({ backendOrigin, returnUrl, workspaceRootValue }) => {
+        try {
+          const response = await fetch(
+            `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                launchRequest: { workspaceRoot: workspaceRootValue },
+                returnUrl,
+              }),
+            },
+          );
+          return { ok: true, status: response.status };
+        } catch (error) {
+          return { ok: false, message: String(error) };
+        }
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        returnUrl: `${originServer.origin}/home`,
+        workspaceRootValue: workspaceRoot,
+      },
+    );
+    expect(beforeTrust.ok).toBe(false);
+
+    const trustedToken = mintBootstrapToken(BACKEND_ORIGIN);
+    const proof = mintLauncherOriginProof(BACKEND_ORIGIN, originServer.origin);
+    const consumeResponse = page.waitForResponse((res) => {
+      try {
+        const url = new URL(res.url());
+        return (
+          url.origin === BACKEND_ORIGIN &&
+          url.pathname === "/__setta__/bootstrap/consume"
+        );
+      } catch {
+        return false;
+      }
+    });
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap` +
+        `#token=${encodeURIComponent(trustedToken)}` +
+        `&lo=${encodeURIComponent(originServer.origin)}` +
+        `&lop=${encodeURIComponent(proof)}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    expect((await consumeResponse).status()).toBe(200);
+    await page.waitForURL(`${FRONTEND_ORIGIN}/**`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page.goto(originServer.origin, { waitUntil: "domcontentloaded" });
+
+    const afterTrust = await page.evaluate(
+      async ({ backendOrigin, returnUrl, workspaceRootValue }) => {
+        try {
+          const response = await fetch(
+            `${backendOrigin}/api/createWorkspaceLaunchIntent`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                launchRequest: { workspaceRoot: workspaceRootValue },
+                returnUrl,
+              }),
+            },
+          );
+          const payload = (await response.json()) as {
+            ok?: boolean;
+            launchIntentToken?: string | null;
+          };
+          return {
+            ok: true,
+            status: response.status,
+            responseOk: payload.ok === true,
+            hasToken: typeof payload.launchIntentToken === "string",
+          };
+        } catch (error) {
+          return { ok: false, message: String(error) };
+        }
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        returnUrl: `${originServer.origin}/home`,
+        workspaceRootValue: workspaceRoot,
+      },
+    );
+
+    expect(afterTrust.ok).toBe(true);
+    expect(afterTrust.status).toBe(200);
+    expect(afterTrust.responseOk).toBe(true);
+    expect(afterTrust.hasToken).toBe(true);
+  } finally {
+    await originServer.close();
+  }
 });

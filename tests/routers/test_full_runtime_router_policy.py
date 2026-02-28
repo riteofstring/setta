@@ -17,6 +17,7 @@ from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.routers.project_manager import router as project_manager_router
 from setta.routers.projects import router as projects_router
+from setta.routers.runs import router as runs_router
 from setta.routers.terminals import terminals_http_router
 from setta.types.routes import Route
 
@@ -58,10 +59,7 @@ def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
             listener_router,
         ],
     )
-    dependency_calls = {
-        dependency.dependency
-        for dependency in route.dependencies
-    }
+    dependency_calls = {dependency.dependency for dependency in route.dependencies}
     assert require_full_ide_runtime in dependency_calls
     assert require_ide_mode not in dependency_calls
 
@@ -74,6 +72,7 @@ def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
         Route.GET_ATTACHMENT_DOWNLOAD_URLS.value,
         Route.DELETE_TERMINALS.value,
         Route.GET_LATEST_PROJECT_STATE.value,
+        Route.RUN_DETACHED.value,
     ],
 )
 def test_non_launcher_routes_use_non_launcher_guard(route_path: str) -> None:
@@ -84,6 +83,7 @@ def test_non_launcher_routes_use_non_launcher_guard(route_path: str) -> None:
             attachments_router,
             terminals_http_router,
             project_manager_router,
+            runs_router,
         ],
     )
     dependency_calls = {dependency.dependency for dependency in route.dependencies}

@@ -10,7 +10,6 @@ from urllib.request import urlopen
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,6 +24,7 @@ from setta.lsp.managers import (
 from setta.middleware import (
     AuthMiddleware,
     LoggingContextMiddleware,
+    SettaCORSMiddleware,
     bind_request_logging_context,
 )
 from setta.routers import (
@@ -157,7 +157,7 @@ if not (C.SHARE_MODE or C.APP_MODE):
     app.add_middleware(AuthMiddleware)
 # Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
-    CORSMiddleware,
+    SettaCORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
     allow_origin_regex=C.FRONTEND_ORIGIN_REGEX,
     allow_credentials=True,

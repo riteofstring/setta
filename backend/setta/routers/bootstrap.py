@@ -12,6 +12,7 @@ from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.trusted_frontend_origins import trust_frontend_origin
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.launcher_origin_handoff import (
@@ -623,5 +624,6 @@ async def route_bootstrap_consume(
     )
     response_payload: dict[str, str] = {"status": "ok"}
     if trusted_launcher_origin is not None:
+        trust_frontend_origin(trusted_launcher_origin)
         response_payload["launcherOrigin"] = trusted_launcher_origin
     return response_payload

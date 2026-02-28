@@ -160,7 +160,7 @@ call :launch_default
 exit /b %ERRORLEVEL%
 
 :launch_with_workspace
-{quoted_target_command} launcher --workspace %1 > "%setta_launcher_log%" 2>&1
+{quoted_target_command} launcher --workspace "%~1" > "%setta_launcher_log%" 2>&1
 set "setta_launcher_exit=%ERRORLEVEL%"
 if "%setta_launcher_exit%"=="0" (
   if exist "%setta_launcher_log%" del /q "%setta_launcher_log%" >nul 2>&1
