@@ -24,6 +24,23 @@ if [[ -x "${ROOT_DIR}/scripts/test/ssh" ]]; then
   export PATH="${ROOT_DIR}/scripts/test:${PATH}"
 fi
 
+resolve_test_cache_root() {
+  if [[ -n "${SETTA_TEST_CACHE_DIR:-}" ]]; then
+    printf '%s\n' "${SETTA_TEST_CACHE_DIR}"
+    return
+  fi
+  local cache_key=""
+  if command -v cksum >/dev/null 2>&1; then
+    cache_key="$(printf '%s' "${ROOT_DIR}" | cksum | awk '{print $1}')"
+  fi
+  if [[ -z "${cache_key}" ]]; then
+    cache_key="default"
+  fi
+  printf '%s/%s\n' "${TMPDIR:-/tmp}/setta-test-cache" "${cache_key}"
+}
+
+SETTA_TEST_CACHE_ROOT="$(resolve_test_cache_root)"
+
 instance_offset() {
   local instance_name="$1"
   local segment="${instance_name}"
@@ -130,7 +147,7 @@ SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
 LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "${LOG_DIR}"
-PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
+PLUGIN_FIXTURE_CACHE_DIR="${SETTA_TEST_CACHE_ROOT}/plugin-fixtures"
 PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-fixtures-all.signature"
 PLUGIN_ARTIFACT_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-artifacts.signature"
 # shellcheck source=scripts/plugin-fixtures/cache.sh
@@ -484,7 +501,7 @@ configure_plugin_artifact_indexes() {
 }
 
 seed_local_plugin_artifacts() {
-  local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
+  local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${SETTA_TEST_CACHE_ROOT}/playwright-plugin-artifacts}"
   local artifact_stamp_cache_file="${PLUGIN_ARTIFACT_CACHE_FILE}.stamp"
   local fixture_metadata package_name package_version
   fixture_metadata=()

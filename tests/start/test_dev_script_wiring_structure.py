@@ -39,6 +39,36 @@ def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
     assert 'if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then' in script
 
 
+def test_backend_test_runner_uses_temp_cache_root_by_default() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run_backend_tests.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "resolve_test_cache_root()" in script
+    assert "SETTA_TEST_CACHE_DIR" in script
+    assert "setta-test-cache" in script
+    assert 'PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"' not in script
+
+
+def test_playwright_runner_uses_temp_cache_root_by_default() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "resolve_test_cache_root()" in script
+    assert "SETTA_TEST_CACHE_DIR" in script
+    assert "setta-test-cache" in script
+    assert (
+        'PLUGIN_FIXTURE_CACHE_DIR="${SETTA_TEST_CACHE_ROOT}/plugin-fixtures"'
+        in script
+    )
+    assert (
+        "SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${SETTA_TEST_CACHE_ROOT}/playwright-plugin-artifacts"
+        in script
+    )
+    assert 'PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"' not in script
+
+
 def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(

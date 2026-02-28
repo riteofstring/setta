@@ -120,6 +120,10 @@ echo "$*" > "{pytest_capture_file}"
     return sandbox_root, build_count_file
 
 
+def _plugin_fixture_cache_dir(sandbox_root: Path) -> Path:
+    return sandbox_root / "tmp-cache" / "plugin-fixtures"
+
+
 def _run_backend_test_runner(
     sandbox_root: Path,
     *,
@@ -128,6 +132,7 @@ def _run_backend_test_runner(
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
+    env["SETTA_TEST_CACHE_DIR"] = str(sandbox_root / "tmp-cache")
     if extra_env:
         env.update(extra_env)
     args = pytest_args if pytest_args is not None else ["-k", "plugins"]
@@ -257,12 +262,9 @@ def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
     first_run = _run_backend_test_runner(sandbox_root)
     assert first_run.returncode == 0, f"{first_run.stdout}\n{first_run.stderr}"
     assert build_count_file.read_text(encoding="utf-8").strip() == "1"
-    cache_file = (
+    cache_file = _plugin_fixture_cache_dir(
         sandbox_root
-        / "setta_files"
-        / ".cache"
-        / "backend-test-plugin-fixtures-all.signature"
-    )
+    ) / "backend-test-plugin-fixtures-all.signature"
     assert cache_file.exists()
     assert (
         (sandbox_root / "pytest_args.txt")
@@ -315,12 +317,9 @@ def test_force_fixture_build_computes_signature_after_build(
 ) -> None:
     # Force rebuild should run build first and only then evaluate final signature writes.
     sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
-    cache_file = (
+    cache_file = _plugin_fixture_cache_dir(
         sandbox_root
-        / "setta_files"
-        / ".cache"
-        / "backend-test-plugin-fixtures-force.signature"
-    )
+    ) / "backend-test-plugin-fixtures-force.signature"
     stamp_cache_file = cache_file.with_suffix(cache_file.suffix + ".stamp")
     command = f"""
 set -euo pipefail
@@ -350,12 +349,9 @@ def test_fixture_stamp_short_circuit_skips_full_signature_recompute(
 ) -> None:
     # Unchanged change-stamp runs should reuse cached signature without recomputing file checksums.
     sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
-    cache_file = (
+    cache_file = _plugin_fixture_cache_dir(
         sandbox_root
-        / "setta_files"
-        / ".cache"
-        / "backend-test-plugin-fixtures-stamp.signature"
-    )
+    ) / "backend-test-plugin-fixtures-stamp.signature"
     signature_calls_file = sandbox_root / "signature_calls.txt"
     command = f"""
 set -euo pipefail
@@ -386,12 +382,9 @@ def test_fixture_stamp_backfills_when_signature_cache_exists_without_stamp(
 ) -> None:
     # Unchanged runs should backfill missing stamp caches to restore fast-path behavior.
     sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
-    cache_file = (
+    cache_file = _plugin_fixture_cache_dir(
         sandbox_root
-        / "setta_files"
-        / ".cache"
-        / "backend-test-plugin-fixtures-stamp-backfill.signature"
-    )
+    ) / "backend-test-plugin-fixtures-stamp-backfill.signature"
     stamp_cache_file = cache_file.with_suffix(cache_file.suffix + ".stamp")
     signature_calls_file = sandbox_root / "signature_calls_backfill.txt"
     command = f"""
@@ -585,7 +578,8 @@ def test_run_backend_tests_skips_fixture_build_for_non_plugin_targets(
     assert "Skipping plugin fixture build for selected pytest targets." in result.stdout
     assert not build_count_file.exists()
     assert not (
-        sandbox_root / "setta_files" / ".cache" / "backend-test-plugin-fixtures-all.signature"
+        _plugin_fixture_cache_dir(sandbox_root)
+        / "backend-test-plugin-fixtures-all.signature"
     ).exists()
 
 

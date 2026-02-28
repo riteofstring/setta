@@ -3,7 +3,23 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
-PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
+resolve_test_cache_root() {
+  if [[ -n "${SETTA_TEST_CACHE_DIR:-}" ]]; then
+    printf '%s\n' "${SETTA_TEST_CACHE_DIR}"
+    return
+  fi
+  local cache_key=""
+  if command -v cksum >/dev/null 2>&1; then
+    cache_key="$(printf '%s' "${ROOT_DIR}" | cksum | awk '{print $1}')"
+  fi
+  if [[ -z "${cache_key}" ]]; then
+    cache_key="default"
+  fi
+  printf '%s/%s\n' "${TMPDIR:-/tmp}/setta-test-cache" "${cache_key}"
+}
+
+SETTA_TEST_CACHE_ROOT="$(resolve_test_cache_root)"
+PLUGIN_FIXTURE_CACHE_DIR="${SETTA_TEST_CACHE_ROOT}/plugin-fixtures"
 PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/backend-test-plugin-fixtures-all.signature"
 # shellcheck source=scripts/plugin-fixtures/cache.sh
 . "${ROOT_DIR}/scripts/plugin-fixtures/cache.sh"
