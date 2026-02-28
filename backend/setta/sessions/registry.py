@@ -7,14 +7,12 @@ import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 import psutil
 from pydantic import BaseModel, Field, ValidationError
 
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
-from setta.utils.pid_identity import resolve_pid_create_time
 
 SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
@@ -29,7 +27,6 @@ class SessionMetadata(BaseModel):
     host: str
     port: int
     pid: int
-    pidCreateTime: float | None = None
     startedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     secretPath: str
     settaFilesLocation: str | None = None
@@ -37,7 +34,6 @@ class SessionMetadata(BaseModel):
     runtimeRoot: str | None = None
     settaHome: str | None = None
     profile: str | None = None
-    serverMode: Literal["ide", "launcher"]
 
 
 class SessionRegistry:
@@ -71,7 +67,6 @@ class SessionRegistry:
         host: str,
         port: int,
         pid: int,
-        pid_create_time: float | None = None,
         started_at: datetime | None = None,
         workspace_display_path: str | None = None,
         setta_files_location: str | None = None,
@@ -79,7 +74,6 @@ class SessionRegistry:
         runtime_root: str | None = None,
         setta_home: str | None = None,
         profile: str | None = None,
-        server_mode: Literal["ide", "launcher"] = "ide",
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
         display_workspace = workspace_display_path or str(workspace_path)
@@ -95,9 +89,6 @@ class SessionRegistry:
         if os.name != "nt":
             os.chmod(secret_path, stat.S_IRUSR | stat.S_IWUSR)
 
-        resolved_pid_create_time = pid_create_time
-        if resolved_pid_create_time is None:
-            resolved_pid_create_time = resolve_pid_create_time(pid)
         metadata = SessionMetadata(
             id=session_id,
             workspacePath=display_workspace,
@@ -105,7 +96,6 @@ class SessionRegistry:
             host=host,
             port=port,
             pid=pid,
-            pidCreateTime=resolved_pid_create_time,
             startedAt=started_at or datetime.now(timezone.utc),
             secretPath=str(secret_path),
             settaFilesLocation=setta_files_location,
@@ -113,7 +103,6 @@ class SessionRegistry:
             runtimeRoot=runtime_root,
             settaHome=setta_home,
             profile=profile,
-            serverMode=server_mode,
         )
         self._write_metadata(metadata)
         return metadata
@@ -158,23 +147,6 @@ class SessionRegistry:
             session
             for session in sessions
             if Path(session.workspacePathCanonical).resolve() == canonical_workspace
-        ]
-
-    def find_sessions_by_workspace_and_mode(
-        self,
-        workspace_path: Path | str,
-        server_mode: Literal["ide", "launcher"],
-        prune_stale: bool = True,
-        track_suspicious: bool = False,
-    ) -> list[SessionMetadata]:
-        return [
-            session
-            for session in self.find_sessions_by_workspace(
-                workspace_path=workspace_path,
-                prune_stale=prune_stale,
-                track_suspicious=track_suspicious,
-            )
-            if session.serverMode == server_mode
         ]
 
     def delete_session(self, session_id: str) -> None:

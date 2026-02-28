@@ -2,33 +2,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { LaunchRequestInput } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
+  encodePendingWorkspaceLaunchForUrlHash,
   readPendingWorkspaceLaunch,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
 
-function buildWorkspaceLaunchIntentHash({
-  launchIntentToken,
-  requestedAt,
-}: {
-  launchIntentToken: string;
-  requestedAt: number;
-}): string {
-  const params = new URLSearchParams();
-  params.set("plt", launchIntentToken);
-  params.set("pla", String(requestedAt));
-  return params.toString();
-}
-
 describe("workspaceSwitcherLaunch", () => {
   let memoryStorage: Storage;
   let windowStub: {
-    location: {
-      href: string;
-      hash: string;
-      replace: (nextUrl: string) => void;
-    };
+    location: { href: string; hash: string };
     history: {
       state: unknown;
       replaceState: (
@@ -60,15 +44,7 @@ describe("workspaceSwitcherLaunch", () => {
     };
 
     windowStub = {
-      location: {
-        href: "http://localhost/",
-        hash: "",
-        replace(nextUrl: string) {
-          const resolved = new URL(nextUrl, this.href).toString();
-          this.href = resolved;
-          this.hash = new URL(resolved).hash;
-        },
-      },
+      location: { href: "http://localhost/", hash: "" },
       history: {
         state: null as unknown,
         replaceState: function (
@@ -122,40 +98,47 @@ describe("workspaceSwitcherLaunch", () => {
     expect(pending?.requestedAt).toBe(123);
   });
 
-  it("can consume pending launch intent from the URL hash", () => {
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "intent-token",
+  it("can consume pending launch from the URL hash", () => {
+    const request: LaunchRequestInput = { workspaceRoot: "/tmp/work" };
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request,
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("intent-token");
-    expect(pending?.returnUrl).toBe("http://localhost/home");
     expect(pending?.requestedAt).toBe(456);
-    expect(windowStub.location.hash).not.toContain("plt=");
-    expect(windowStub.location.href).not.toContain("plt=");
+    expect(windowStub.location.hash).not.toContain("pl=");
+    expect(windowStub.location.href).not.toContain("pl=");
   });
 
-  it("prefers the URL hash intent over sessionStorage when both exist", () => {
+  it("prefers the URL hash payload over sessionStorage when both exist", () => {
     writePendingWorkspaceLaunch({
       request: { workspaceRoot: "/tmp/stale" },
       returnUrl: "http://localhost/project",
       requestedAt: 123,
     });
 
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "fresh-intent-token",
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/fresh" },
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("fresh-intent-token");
+    expect(pending?.request.workspaceRoot).toBe("/tmp/fresh");
     expect(pending?.requestedAt).toBe(456);
 
     const stored = memoryStorage.getItem("setta.pendingWorkspaceLaunch");
-    expect(stored).toContain("fresh-intent-token");
+    expect(stored).toContain("/tmp/fresh");
     expect(stored).not.toContain("/tmp/stale");
   });
 
@@ -179,11 +162,15 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("cleans the URL hash even when history state is not cloneable", () => {
-    const hash = buildWorkspaceLaunchIntentHash({
-      launchIntentToken: "intent-token",
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/work" },
+      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    windowStub.location.hash = `#${hash}`;
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
 
     windowStub.history.state = { from: "test" };
     const originalReplaceState = windowStub.history.replaceState;
@@ -209,30 +196,7 @@ describe("workspaceSwitcherLaunch", () => {
 
     expect(seenStates[0]).toMatchObject({ from: "test" });
     expect(seenStates[1]).toBeNull();
-    expect(windowStub.location.href).not.toContain("plt=");
-  });
-
-  it("ignores unknown hash params and uses the safe default return URL", () => {
-    windowStub.location.hash =
-      "#plt=intent-token&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU&pla=123";
-
-    const pending = readPendingWorkspaceLaunch();
-    expect(pending?.request.launchIntentToken).toBe("intent-token");
-    expect(pending?.returnUrl).toBe("http://localhost/home");
-    expect(windowStub.location.hash).not.toContain("plt=");
-    expect(windowStub.location.hash).not.toContain("pla=");
-  });
-
-  it("cleans legacy hash params even when no launch intent token is present", () => {
-    windowStub.location.hash =
-      "#pl=eyJyZXF1ZXN0Ijp7IndvcmtzcGFjZVJvb3QiOiIvdG1wL2ZvcmdlZCJ9fQ&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU";
-
-    const pending = readPendingWorkspaceLaunch();
-    expect(pending).toBeNull();
-    expect(windowStub.location.hash).not.toContain("pl=");
-    expect(windowStub.location.hash).not.toContain("plr=");
-    expect(windowStub.location.hash).not.toContain("plt=");
-    expect(windowStub.location.hash).not.toContain("pla=");
+    expect(windowStub.location.href).not.toContain("pl=");
   });
 
   it("consumes the open-switcher request from the URL", () => {
@@ -240,37 +204,6 @@ describe("workspaceSwitcherLaunch", () => {
       "http://localhost/?__setta_open_workspace_switcher=1#hash";
 
     expect(consumeOpenWorkspaceSwitcherRequest()).toBe(true);
-    expect(windowStub.location.href).not.toContain(
-      "__setta_open_workspace_switcher",
-    );
-  });
-
-  it("consumes open-switcher URL query with replaceState fallback", () => {
-    windowStub.location.href =
-      "http://localhost/?__setta_open_workspace_switcher=1#hash";
-    windowStub.history.state = { from: "test" };
-    const originalReplaceState = windowStub.history.replaceState;
-    const seenStates: unknown[] = [];
-    windowStub.history.replaceState = function (
-      state: unknown,
-      title: string,
-      url: string | URL | null | undefined,
-    ) {
-      seenStates.push(state);
-      if (state !== null) {
-        throw new Error("DataCloneError");
-      }
-      return originalReplaceState.call(this, state, title, url);
-    };
-
-    try {
-      expect(consumeOpenWorkspaceSwitcherRequest()).toBe(true);
-    } finally {
-      windowStub.history.replaceState = originalReplaceState;
-    }
-
-    expect(seenStates[0]).toMatchObject({ from: "test" });
-    expect(seenStates[1]).toBeNull();
     expect(windowStub.location.href).not.toContain(
       "__setta_open_workspace_switcher",
     );
