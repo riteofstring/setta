@@ -41,20 +41,16 @@ function averageRunTimeMs(iterations: number, fn: () => void): number {
 }
 
 function makeSkillActivityMessages(size: number): BaseChatMessageUnion[] {
+  const skillTokens = Array.from(
+    { length: size },
+    (_, index) => `$skill-${index}`,
+  ).join(" ");
   return [
     {
-      id: "assistant-1",
-      role: "assistant",
-      content: [],
+      id: "user-1",
+      role: "user",
+      content: [{ type: "text", text: `Use ${skillTokens}` }],
       attachments: [],
-      tool_calls: Array.from({ length: size }, (_, index) => ({
-        id: `tool-${index}`,
-        type: "function",
-        function: {
-          name: `skill/skill-${index}`,
-          arguments: {},
-        },
-      })),
     },
   ];
 }
@@ -101,7 +97,7 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
     expect(largeAverageMs / smallAverageMs).toBeLessThan(10);
   });
 
-  it("active skill mapping scales roughly linearly with large tool invocation sets", () => {
+  it("active skill mapping scales roughly linearly with large active token sets", () => {
     const smallRows = makeRows(250);
     const largeRows = makeRows(1000);
     const smallMessages = makeSkillActivityMessages(50);
@@ -137,7 +133,7 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
       });
     });
 
-    // 4x scale on skills/tool invocations should avoid quadratic blow-up.
+    // 4x scale on skills/messages should avoid quadratic blow-up.
     expect(largeAverageMs / smallAverageMs).toBeLessThan(12);
   });
 });

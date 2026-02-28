@@ -63,7 +63,7 @@ import {
   receiveAgentProfilesUpdate,
   receiveEngineConfigsUpdate,
   receiveExternalAgentConfigsUpdate,
-  receiveLLMApiKeysSnapshotUpdate,
+  receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
@@ -545,7 +545,7 @@ function receiveMessage(message: string, socketGeneration: number) {
     case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
       return receiveLLMConfigUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
-      return receiveLLMApiKeysSnapshotUpdate(m.content);
+      return receiveLLMApiKeysUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
       return addBackendLogEvent(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolArgumentsUpdate:

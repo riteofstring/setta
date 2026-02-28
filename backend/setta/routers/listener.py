@@ -24,7 +24,9 @@ from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapsh
 from setta.types.llm_config import build_scriptable_llm_config
 from setta.types.routes import Route
 
-router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
+router = SettaProjectContextAPIRouter(
+    require_project_context_by_default=True
+)
 
 
 def _chat_history(ctx: RuntimeContextFromRequest) -> ChatHistory:

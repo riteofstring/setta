@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 from contextlib import ExitStack
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -237,6 +238,89 @@ def test_auth_json_emits_payload(auth_env) -> None:
         "http://127.0.0.1:61234/__setta__/bootstrap#token="
     )
     assert payload["source"] == "bootstrap"
+
+
+def test_auth_latest_defaults_to_ide_session_mode(auth_env) -> None:
+    # Auth output should keep IDE as the default session mode even if launcher is newer.
+    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    ide_session = auth_env.registry.create_session(
+        workspace_path=auth_env.workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=auth_env.process.pid,
+        started_at=now,
+        server_mode="ide",
+    )
+    auth_env.registry.create_session(
+        workspace_path=auth_env.workspace,
+        host="127.0.0.1",
+        port=61235,
+        pid=auth_env.process.pid,
+        started_at=now + timedelta(minutes=1),
+        server_mode="launcher",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(auth, ["--json", "--latest"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["session"]["id"] == ide_session.id
+    assert payload["session"]["serverMode"] == "ide"
+    assert payload["baseUrl"] == "http://127.0.0.1:61234"
+
+
+def test_api_auto_auth_latest_defaults_to_ide_session_mode(
+    auth_env,
+    monkeypatch,
+) -> None:
+    # API auto-auth should derive URL/cookie from IDE mode by default.
+    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    ide_session = auth_env.registry.create_session(
+        workspace_path=auth_env.workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=auth_env.process.pid,
+        started_at=now,
+        server_mode="ide",
+    )
+    auth_env.registry.create_session(
+        workspace_path=auth_env.workspace,
+        host="127.0.0.1",
+        port=61235,
+        pid=auth_env.process.pid,
+        started_at=now + timedelta(minutes=1),
+        server_mode="launcher",
+    )
+    captured: dict[str, object] = {}
+
+    class _FakeResponse:
+        status_code = 200
+        content = b'{"ok":true}'
+        text = '{"ok":true}'
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, bool]:
+            return {"ok": True}
+
+    def _fake_post(url: str, **kwargs):
+        captured["url"] = url
+        captured["headers"] = kwargs.get("headers")
+        return _FakeResponse()
+
+    monkeypatch.setattr("setta.start.requests.post", _fake_post)
+    runner = CliRunner()
+
+    result = runner.invoke(api, ["getProjectConfigNamesAndIds", "--json-output"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {"ok": True}
+    assert captured["url"] == f"http://127.0.0.1:61234{Route.TOOLS_CALL.value}"
+    headers = captured["headers"]
+    assert isinstance(headers, dict)
+    assert headers["Cookie"].startswith(f"{auth_cookie_name(ide_session.id)}=")
 
 
 def test_setta_api_tool_call(api_integration_env) -> None:
