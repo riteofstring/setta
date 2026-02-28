@@ -780,3 +780,36 @@
 - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`: `29 passed`.
 - `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "selected thread spinner follows live chat state"`: `1 passed`.
 - `./scripts/run-playwright-e2e.sh tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts --grep "does not flash missing-provenance banner"`: `1 passed`.
+
+## 2026-02-27 22:57:09 PST
+
+### Consolidated Findings
+- Project AI chat had a hard-block hydration policy that prevented continuation when provenance/engine metadata was missing or stale, even though users expected warnings with continued usability.
+- Engine-switch continuation UX required explicit new-thread confirmation, but the first implementation opened an empty draft and only backfilled history after first send.
+- Users expected immediate visible history carry-over when selecting `Continue in new thread`.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Removed hard blocking for selected-thread hydration compatibility mismatches by converting authoritative metadata failures to warning state while keeping hydration deterministic.
+- Updated backend `GET_LLM_CHAT` behavior to allow legacy/mismatched metadata and return `llmConfig: null` instead of 409 terminal hydration errors for those cases.
+- Implemented engine-switch continuation policy in Project AI Chat:
+  - sticky inline warning banner after switching engines on an existing selected thread
+  - explicit CTA `Continue in new thread`
+  - temporary composer/edit/redo disable until CTA is used or engine selection is reconciled.
+- Added explicit continuation-source wiring (`continueFromChatId`) from frontend submit path to backend `GET_LLM_RESPONSE` so new-thread continuation includes prior conversation history across engines.
+- Tightened backend request validation for invalid continuation combinations (`continueFromChatId` with `chatId` or branch-edit fields).
+- Fixed UX gap by pre-seeding pending draft chat messages immediately on CTA click so prior history is visible before sending the first continued message.
+
+### UX/DX Before -> After
+- Hydration mismatch behavior: hard-stop and forced restart -> warning banner with continued chat usability.
+- Engine switch behavior on selected thread: implicit reset confusion -> explicit banner + one-click continue-in-new-thread flow.
+- Continue UX: blank draft until first send -> copied history visible immediately in the new draft before first send.
+- Continuation payloads: no explicit source lineage for first send -> deterministic `continueFromChatId` source-of-truth path.
+
+### Verification
+- Backend tests passed:
+  - `source activate.sh && pytest tests/routers/test_ai_agent_run_chats.py`: `56 passed`.
+- Frontend unit/integration tests passed:
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts`: `77 passed`.
+- Playwright E2E tests passed:
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/project-ai-combobox.spec.ts -g "continue-in-new-thread banner"`: `1 passed`.
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts -g "keeps selected threads usable|warns on stale selected chat ids"`: `2 passed`.

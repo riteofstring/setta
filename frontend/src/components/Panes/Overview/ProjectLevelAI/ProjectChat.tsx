@@ -39,7 +39,11 @@ import {
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
-import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
+import {
+  saveLLMConfig,
+  seedPendingChatDetails,
+  updateEngineConfig,
+} from "state/actions/ai";
 import {
   buildChatHistoryEntries,
   buildChatProvenanceByChatId,
@@ -155,6 +159,29 @@ type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
   availableConfigIds: Set<string>;
 };
 
+type ProjectChatEngineSwitchContinuation = {
+  sourceChatId: string;
+  sourceEngineConfigId: string;
+  targetEngineConfigId: string | null;
+};
+
+type ResolveProjectChatEngineSwitchContinuationOnEngineChangeInput = {
+  chatId: string | null | undefined;
+  nextEngineId: string | null;
+  chatEngineConfigByChatId: Map<string, string | null>;
+};
+
+type ResolveProjectChatEngineSwitchContinuationAfterContextChangeInput = {
+  continuation: ProjectChatEngineSwitchContinuation | null;
+  chatId: string | null | undefined;
+  selectedEngineId: string | null;
+};
+
+type ShouldProjectChatSkipEngineSyncForContinuationInput = {
+  continuation: ProjectChatEngineSwitchContinuation | null;
+  chatId: string | null | undefined;
+};
+
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -259,6 +286,58 @@ export function resolveProjectChatSelectedLLMUnavailableReason({
     return `Selected model is unavailable. Missing API key: ${requiredApiKeyEnv}.`;
   }
   return "Selected model is unavailable.";
+}
+
+export function resolveProjectChatEngineSwitchContinuationOnEngineChange({
+  chatId,
+  nextEngineId,
+  chatEngineConfigByChatId,
+}: ResolveProjectChatEngineSwitchContinuationOnEngineChangeInput): ProjectChatEngineSwitchContinuation | null {
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (!resolvedChatId) {
+    return null;
+  }
+  const sourceEngineConfigId = chatEngineConfigByChatId.get(resolvedChatId);
+  if (!sourceEngineConfigId) {
+    return null;
+  }
+  if (sourceEngineConfigId === nextEngineId) {
+    return null;
+  }
+  return {
+    sourceChatId: resolvedChatId,
+    sourceEngineConfigId,
+    targetEngineConfigId: nextEngineId,
+  };
+}
+
+export function resolveProjectChatEngineSwitchContinuationAfterContextChange({
+  continuation,
+  chatId,
+  selectedEngineId,
+}: ResolveProjectChatEngineSwitchContinuationAfterContextChangeInput): ProjectChatEngineSwitchContinuation | null {
+  if (!continuation) {
+    return null;
+  }
+  const resolvedChatId = chatId?.trim() ?? "";
+  if (resolvedChatId !== continuation.sourceChatId) {
+    return null;
+  }
+  if (selectedEngineId === continuation.sourceEngineConfigId) {
+    return null;
+  }
+  return continuation;
+}
+
+export function shouldProjectChatSkipEngineSyncForContinuation({
+  continuation,
+  chatId,
+}: ShouldProjectChatSkipEngineSyncForContinuationInput): boolean {
+  if (!continuation) {
+    return false;
+  }
+  const resolvedChatId = chatId?.trim() ?? "";
+  return resolvedChatId !== "" && resolvedChatId === continuation.sourceChatId;
 }
 
 export function ProjectChat() {
@@ -407,6 +486,12 @@ export function ProjectChat() {
   const [inlineThreadsHeaderPortalTarget, setInlineThreadsHeaderPortalTarget] =
     useState<HTMLDivElement | null>(null);
   const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
+  const [engineSwitchContinuation, setEngineSwitchContinuation] =
+    useState<ProjectChatEngineSwitchContinuation | null>(null);
+  const [
+    draftThreadContinuationSourceChatId,
+    setDraftThreadContinuationSourceChatId,
+  ] = useState<string | null>(null);
   const notifiedExternalEngineIssueRef = useRef<string | null>(null);
   const inlineThreadsHeaderShellRef = useRef<HTMLDivElement | null>(null);
   const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
@@ -577,6 +662,23 @@ export function ProjectChat() {
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode: runtimePermissionMode,
   });
+  const engineSwitchContinuationBannerText = useMemo(() => {
+    if (!engineSwitchContinuation) {
+      return null;
+    }
+    const sourceEngineName =
+      engineConfigById.get(engineSwitchContinuation.sourceEngineConfigId)
+        ?.name ?? "the previous engine";
+    const targetEngineName = engineSwitchContinuation.targetEngineConfigId
+      ? (engineConfigById.get(engineSwitchContinuation.targetEngineConfigId)
+          ?.name ?? "the selected engine")
+      : "the selected engine";
+    return `Engine changed from ${sourceEngineName} to ${targetEngineName}. Continue in a new thread to keep engine provenance consistent.`;
+  }, [engineConfigById, engineSwitchContinuation]);
+  const requiresNewThreadForEngineSwitch = engineSwitchContinuation !== null;
+  const newThreadContinuationRequiredReason = requiresNewThreadForEngineSwitch
+    ? "Switching engines on an existing thread requires continuing in a new thread."
+    : null;
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
@@ -798,6 +900,23 @@ export function ProjectChat() {
     setSelectedThreadGroupId(threadAssignments[chatId] ?? null);
   }, [chatId, threadAssignments]);
   useEffect(() => {
+    setEngineSwitchContinuation((current) =>
+      resolveProjectChatEngineSwitchContinuationAfterContextChange({
+        continuation: current,
+        chatId,
+        selectedEngineId: effectiveEngineId,
+      }),
+    );
+  }, [chatId, effectiveEngineId]);
+  useEffect(() => {
+    if (
+      shouldProjectChatSkipEngineSyncForContinuation({
+        continuation: engineSwitchContinuation,
+        chatId,
+      })
+    ) {
+      return;
+    }
     const nextEngineConfigId = resolveProjectChatEngineConfigIdForSelectedChat({
       chatId,
       selectedEngineId,
@@ -810,6 +929,7 @@ export function ProjectChat() {
     setSelectedEngineId(nextEngineConfigId);
   }, [
     availableEngineConfigIds,
+    engineSwitchContinuation,
     chatEngineConfigByChatId,
     chatId,
     selectedEngineId,
@@ -849,14 +969,30 @@ export function ProjectChat() {
       if (nextEngineId === selectedEngineId) {
         return;
       }
+      const nextContinuation =
+        resolveProjectChatEngineSwitchContinuationOnEngineChange({
+          chatId,
+          nextEngineId,
+          chatEngineConfigByChatId,
+        });
       setSelectedEngineId(nextEngineId);
+      setViewSkillsMcpViewer(false);
+      setEngineSwitchContinuation(nextContinuation);
+      if (nextContinuation) {
+        return;
+      }
       setChatId(undefined);
       setDraftThreadState({ phase: "none" });
       setDraftThreadTargetGroupId(null);
       setSelectedThreadGroupId(null);
-      setViewSkillsMcpViewer(false);
     },
-    [selectedEngineId, setChatId, setSelectedEngineId],
+    [
+      chatEngineConfigByChatId,
+      chatId,
+      selectedEngineId,
+      setChatId,
+      setSelectedEngineId,
+    ],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -1199,6 +1335,8 @@ export function ProjectChat() {
     setChatId(undefined);
     setDraftThreadState({ phase: "idle" });
     setDraftThreadTargetGroupId(selectedThreadGroupId);
+    setDraftThreadContinuationSourceChatId(null);
+    setEngineSwitchContinuation(null);
     if (!showInlineThreads) {
       useAIStore.setState({
         viewThreads: false,
@@ -1212,6 +1350,8 @@ export function ProjectChat() {
       setDraftThreadState({ phase: "idle" });
       setDraftThreadTargetGroupId(groupId);
       setSelectedThreadGroupId(groupId);
+      setDraftThreadContinuationSourceChatId(null);
+      setEngineSwitchContinuation(null);
       if (!showInlineThreads) {
         useAIStore.setState({
           viewThreads: false,
@@ -1221,6 +1361,31 @@ export function ProjectChat() {
     },
     [setChatId, showInlineThreads],
   );
+  const handleContinueInNewThread = useCallback(() => {
+    if (!engineSwitchContinuation) {
+      return;
+    }
+    seedPendingChatDetails(activeConversationMessages);
+    setChatId(null);
+    setDraftThreadState({ phase: "idle" });
+    setDraftThreadTargetGroupId(selectedThreadGroupId);
+    setDraftThreadContinuationSourceChatId(
+      engineSwitchContinuation.sourceChatId,
+    );
+    setEngineSwitchContinuation(null);
+    if (!showInlineThreads) {
+      useAIStore.setState({
+        viewThreads: false,
+      });
+    }
+    setViewSkillsMcpViewer(false);
+  }, [
+    activeConversationMessages,
+    engineSwitchContinuation,
+    selectedThreadGroupId,
+    setChatId,
+    showInlineThreads,
+  ]);
   const returnToChatTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
@@ -1287,6 +1452,9 @@ export function ProjectChat() {
           draftThreadTargetGroupId,
         );
       }
+      if (succeeded && nextChatId) {
+        setDraftThreadContinuationSourceChatId(null);
+      }
       setDraftThreadState((current) => {
         if (current.phase === "none") {
           return current;
@@ -1302,6 +1470,14 @@ export function ProjectChat() {
   useEffect(() => {
     setConversationFilterText("");
   }, [chatId]);
+  useEffect(() => {
+    if (
+      draftThreadState.phase === "none" &&
+      draftThreadContinuationSourceChatId !== null
+    ) {
+      setDraftThreadContinuationSourceChatId(null);
+    }
+  }, [draftThreadContinuationSourceChatId, draftThreadState.phase]);
 
   return (
     apiKeysInitialLoadComplete &&
@@ -1488,6 +1664,26 @@ export function ProjectChat() {
             </div>
           </div>
         </nav>
+        {engineSwitchContinuationBannerText ? (
+          <div className="sticky top-0 z-10 border-b border-amber-300 bg-amber-50/95 px-2 py-2 text-xs text-amber-900 backdrop-blur dark:border-amber-600/70 dark:bg-amber-950/60 dark:text-amber-200">
+            <div className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex items-center justify-between gap-2`}>
+              <p
+                data-testid="project-chat-engine-switch-banner"
+                className="min-w-0 flex-1"
+              >
+                {engineSwitchContinuationBannerText}
+              </p>
+              <button
+                type="button"
+                data-testid="project-chat-engine-switch-continue-button"
+                onClick={handleContinueInNewThread}
+                className="shrink-0 rounded-md border border-amber-400/90 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-200 dark:border-amber-500/80 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
+              >
+                Continue in new thread
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {showInlineThreads ? (
           <div className="flex min-h-0 flex-1">
@@ -1562,6 +1758,17 @@ export function ProjectChat() {
                   chatId={chatId}
                   placeholderText={placeholderText}
                   conversationFilterText={conversationFilterText}
+                  requiresNewThreadContinuation={
+                    requiresNewThreadForEngineSwitch
+                  }
+                  newThreadContinuationRequiredReason={
+                    newThreadContinuationRequiredReason
+                  }
+                  newThreadSeedChatId={
+                    draftThreadState.phase === "none"
+                      ? null
+                      : draftThreadContinuationSourceChatId
+                  }
                   hydrationAuthority={selectedChatHydrationAuthority}
                   hydrationMetadataRevision={
                     selectedChatHydrationMetadataRevision
@@ -1620,6 +1827,15 @@ export function ProjectChat() {
               chatId={chatId}
               placeholderText={placeholderText}
               conversationFilterText={conversationFilterText}
+              requiresNewThreadContinuation={requiresNewThreadForEngineSwitch}
+              newThreadContinuationRequiredReason={
+                newThreadContinuationRequiredReason
+              }
+              newThreadSeedChatId={
+                draftThreadState.phase === "none"
+                  ? null
+                  : draftThreadContinuationSourceChatId
+              }
               hydrationAuthority={selectedChatHydrationAuthority}
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}

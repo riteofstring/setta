@@ -358,7 +358,7 @@ test("project ai resolves selected-thread provenance from project scope when cha
   }
 });
 
-test("project ai blocks selected threads when persisted engine config is missing", async ({
+test("project ai keeps selected threads usable when hydration reports terminal metadata errors", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1480, height: 920 });
@@ -388,6 +388,27 @@ test("project ai blocks selected threads when persisted engine config is missing
           externalAgentConfigId: null,
         },
       ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
     });
   });
 
@@ -496,19 +517,21 @@ test("project ai blocks selected threads when persisted engine config is missing
       path: "/api/getLLMChat",
       method: "POST",
       statuses: [409],
-      count: 1,
+      count: 2,
     });
     await threadEntry.click();
 
     await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
-    ).toContainText("engine config is no longer available");
+    ).toContainText("saved engine config is no longer available");
+    const input = overviewPane.locator("textarea").first();
+    await input.fill("Continue despite hydration warning");
     await expect(
       overviewPane.locator('button[type="submit"]').first(),
-    ).toBeDisabled();
-    await page.waitForTimeout(500);
-    expect(llmSubmitCalls).toBe(0);
+    ).toBeEnabled();
+    await input.press("Enter");
+    await expect.poll(() => llmSubmitCalls).toBe(1);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -555,6 +578,27 @@ test("project ai waits for authoritative provenance before hydrating a selected 
           settaLlmConfigId: null,
         },
       ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
     });
   });
   await page.route("**/api/getAgentRuns", async (route) => {
@@ -725,6 +769,27 @@ test("project ai waits for authoritative engine config metadata before hydrating
           externalAgentConfigId: null,
         },
       ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
     });
   });
   await page.route("**/api/getAgentRuns", async (route) => {
@@ -1712,7 +1777,7 @@ test("project ai shows context-left badge for external chats when backend teleme
   }
 });
 
-test("project ai blocks stale selected chat ids that have no provenance", async ({
+test("project ai warns on stale selected chat ids without hard-blocking composer", async ({
   page,
 }) => {
   const staleChatId = "pw-stale-selected-chat";
@@ -1742,6 +1807,27 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
       ]),
     });
   });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
+    });
+  });
   await page.route("**/api/getAgentRuns", async (route) => {
     await route.fulfill({
       status: 200,
@@ -1767,18 +1853,24 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
     await seedAIStore(page, {
       activeChatId: staleChatId,
     });
+    allowExpectedApiError(page, {
+      path: "/api/getLLMChat",
+      statuses: [404],
+      count: 1,
+    });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = page.locator("#OverviewPane");
 
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
-    ).toContainText("missing required provenance");
+    ).toContainText("missing provenance metadata");
+    const input = overviewPane.locator("textarea").first();
+    await input.fill("Warn but keep composer usable.");
     await expect(
       overviewPane.locator('button[type="submit"]').first(),
-    ).toBeDisabled();
-    await page.waitForTimeout(400);
-    expect(llmHydrateCalls).toBe(0);
+    ).toBeEnabled();
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

@@ -1953,14 +1953,21 @@ export function initializePendingChatDetails() {
 
 function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
+  waitingForResponse: boolean = true,
 ) {
   useAIStore.setState({
     pendingChatDetails: {
       ...getDefaultChatDetails(),
       messages,
-      waitingForResponse: true,
+      waitingForResponse,
     },
   });
+}
+
+export function seedPendingChatDetails(
+  messages: Array<BaseChatMessageUnion>,
+) {
+  initializePendingChatDetailsWithMessages(messages, false);
 }
 
 export function clearPendingChatDetails() {
@@ -2230,6 +2237,7 @@ export async function submitMessage(
     messageId?: string;
     agentProfileId?: string | null;
     sectionId?: string | null;
+    continueFromChatId?: string | null;
     executionSettings?: ChatExecutionSettings | null;
     appGeneration?: ChatAppGenerationContext | null;
   } = {},
@@ -2269,6 +2277,7 @@ export async function submitMessage(
       message: userMessage,
       thinking,
       chatId,
+      continueFromChatId: options.continueFromChatId ?? null,
       engineConfigId,
       agentProfileId: options.agentProfileId ?? null,
       appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,

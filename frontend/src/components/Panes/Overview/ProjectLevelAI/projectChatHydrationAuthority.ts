@@ -35,7 +35,7 @@ type ProjectChatThreadCompatibilityResult =
       status: "unknown";
     }
   | {
-      status: "blocked";
+      status: "warning";
       errorCode: ProjectChatThreadBlockedErrorCode;
     };
 
@@ -43,17 +43,12 @@ export type ProjectChatHydrationAuthority =
   | {
       status: "ready";
       hydrationRunType: ChatRunType | null;
-      blockedErrorCode: null;
+      blockedErrorCode: ProjectChatThreadBlockedErrorCode | null;
     }
   | {
       status: "unknown";
       hydrationRunType: null;
       blockedErrorCode: null;
-    }
-  | {
-      status: "blocked";
-      hydrationRunType: null;
-      blockedErrorCode: ProjectChatThreadBlockedErrorCode;
     };
 
 function isSelectedChatRunTypeCompatibleWithEngineType({
@@ -92,13 +87,13 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       return { status: "unknown" };
     }
     return {
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     };
   }
   if (selectedScopedChatProvenance.status === "ambiguous") {
     return {
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     };
   }
@@ -112,7 +107,7 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       return { status: "unknown" };
     }
     return {
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     };
   }
@@ -122,7 +117,7 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       return { status: "unknown" };
     }
     return {
-      status: "blocked",
+      status: "warning",
       errorCode: "engine_config_missing",
     };
   }
@@ -133,7 +128,7 @@ export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
     })
   ) {
     return {
-      status: "blocked",
+      status: "warning",
       errorCode: "engine_type_mismatch",
     };
   }
@@ -188,18 +183,22 @@ export function resolveProjectChatHydrationAuthority({
       blockedErrorCode: null,
     };
   }
-  if (compatibility.status === "blocked") {
+  if (compatibility.status === "warning") {
+    const fallbackHydrationRunType =
+      selectedScopedChatProvenance.status === "ready"
+        ? selectedScopedChatProvenance.provenance.runType
+        : resolveProjectChatRunTypeForEngine(engineType);
     return {
-      status: "blocked",
-      hydrationRunType: null,
+      status: "ready",
+      hydrationRunType: fallbackHydrationRunType,
       blockedErrorCode: compatibility.errorCode,
     };
   }
   if (selectedScopedChatProvenance.status !== "ready") {
     return {
-      status: "blocked",
-      hydrationRunType: null,
-      blockedErrorCode: "chat_provenance_missing",
+      status: "ready",
+      hydrationRunType: resolveProjectChatRunTypeForEngine(engineType),
+      blockedErrorCode: null,
     };
   }
   return {

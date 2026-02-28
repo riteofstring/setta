@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveProjectChatEngineSwitchContinuationAfterContextChange,
+  resolveProjectChatEngineSwitchContinuationOnEngineChange,
   resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
   resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
+  shouldProjectChatSkipEngineSyncForContinuation,
 } from "./ProjectChat";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
@@ -200,6 +203,126 @@ describe("resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad", () => {
   });
 });
 
+describe("resolveProjectChatEngineSwitchContinuationOnEngineChange", () => {
+  it("returns null when no thread is selected", () => {
+    const continuation =
+      resolveProjectChatEngineSwitchContinuationOnEngineChange({
+        chatId: null,
+        nextEngineId: "engine-b",
+        chatEngineConfigByChatId: new Map([["chat-1", "engine-a"]]),
+      });
+    expect(continuation).toBeNull();
+  });
+
+  it("returns null when selected thread does not have authoritative engine metadata", () => {
+    const continuation =
+      resolveProjectChatEngineSwitchContinuationOnEngineChange({
+        chatId: "chat-1",
+        nextEngineId: "engine-b",
+        chatEngineConfigByChatId: new Map([["chat-1", null]]),
+      });
+    expect(continuation).toBeNull();
+  });
+
+  it("returns null when selected thread engine is unchanged", () => {
+    const continuation =
+      resolveProjectChatEngineSwitchContinuationOnEngineChange({
+        chatId: "chat-1",
+        nextEngineId: "engine-a",
+        chatEngineConfigByChatId: new Map([["chat-1", "engine-a"]]),
+      });
+    expect(continuation).toBeNull();
+  });
+
+  it("returns continuation metadata when switching to a different engine on an existing thread", () => {
+    const continuation =
+      resolveProjectChatEngineSwitchContinuationOnEngineChange({
+        chatId: "chat-1",
+        nextEngineId: "engine-b",
+        chatEngineConfigByChatId: new Map([["chat-1", "engine-a"]]),
+      });
+    expect(continuation).toEqual({
+      sourceChatId: "chat-1",
+      sourceEngineConfigId: "engine-a",
+      targetEngineConfigId: "engine-b",
+    });
+  });
+});
+
+describe("resolveProjectChatEngineSwitchContinuationAfterContextChange", () => {
+  it("clears continuation when the active thread changes", () => {
+    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
+      {
+        continuation: {
+          sourceChatId: "chat-1",
+          sourceEngineConfigId: "engine-a",
+          targetEngineConfigId: "engine-b",
+        },
+        chatId: "chat-2",
+        selectedEngineId: "engine-b",
+      },
+    );
+    expect(resolved).toBeNull();
+  });
+
+  it("clears continuation when the user switches back to the source engine", () => {
+    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
+      {
+        continuation: {
+          sourceChatId: "chat-1",
+          sourceEngineConfigId: "engine-a",
+          targetEngineConfigId: "engine-b",
+        },
+        chatId: "chat-1",
+        selectedEngineId: "engine-a",
+      },
+    );
+    expect(resolved).toBeNull();
+  });
+
+  it("preserves continuation while staying on the same thread and target engine", () => {
+    const continuation = {
+      sourceChatId: "chat-1",
+      sourceEngineConfigId: "engine-a",
+      targetEngineConfigId: "engine-b",
+    } as const;
+    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
+      {
+        continuation,
+        chatId: "chat-1",
+        selectedEngineId: "engine-b",
+      },
+    );
+    expect(resolved).toEqual(continuation);
+  });
+});
+
+describe("shouldProjectChatSkipEngineSyncForContinuation", () => {
+  it("returns true when continuation owns the currently selected thread", () => {
+    const shouldSkip = shouldProjectChatSkipEngineSyncForContinuation({
+      continuation: {
+        sourceChatId: "chat-1",
+        sourceEngineConfigId: "engine-a",
+        targetEngineConfigId: "engine-b",
+      },
+      chatId: "chat-1",
+    });
+    expect(shouldSkip).toBe(true);
+  });
+
+  it("returns false when continuation does not match the selected thread", () => {
+    const shouldSkip = shouldProjectChatSkipEngineSyncForContinuation({
+      continuation: {
+        sourceChatId: "chat-1",
+        sourceEngineConfigId: "engine-a",
+        targetEngineConfigId: "engine-b",
+      },
+      chatId: "chat-2",
+    });
+    expect(shouldSkip).toBe(false);
+  });
+});
+
 describe("resolveProjectChatSelectedLLMUnavailableReason", () => {
   it("returns missing key guidance when selected LLM requires an absent API key", () => {
     const resolved = resolveProjectChatSelectedLLMUnavailableReason({
@@ -268,7 +391,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "compatible" });
   });
 
-  it("blocks when selected chat has missing provenance", () => {
+  it("returns warning when selected chat has missing provenance", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "missing" },
@@ -277,12 +400,12 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     });
   });
 
-  it("blocks when selected chat has missing engine metadata in provenance", () => {
+  it("returns warning when selected chat has missing engine metadata in provenance", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -297,7 +420,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     });
   });
@@ -325,7 +448,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "unknown" });
   });
 
-  it("blocks when selected chat provenance is ambiguous", () => {
+  it("returns warning when selected chat provenance is ambiguous", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: { status: "ambiguous" },
@@ -334,7 +457,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({
-      status: "blocked",
+      status: "warning",
       errorCode: "chat_provenance_missing",
     });
   });
@@ -356,7 +479,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     expect(result).toEqual({ status: "unknown" });
   });
 
-  it("blocks when engine configs are authoritative but the persisted engine is missing", () => {
+  it("returns warning when engine configs are authoritative but the persisted engine is missing", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -371,12 +494,12 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({
-      status: "blocked",
+      status: "warning",
       errorCode: "engine_config_missing",
     });
   });
 
-  it("blocks when selected chat run type mismatches persisted engine type", () => {
+  it("returns warning when selected chat run type mismatches persisted engine type", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -402,7 +525,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigsAuthoritative: true,
     });
     expect(result).toEqual({
-      status: "blocked",
+      status: "warning",
       errorCode: "engine_type_mismatch",
     });
   });

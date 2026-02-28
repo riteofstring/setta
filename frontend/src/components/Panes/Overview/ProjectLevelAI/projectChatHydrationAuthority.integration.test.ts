@@ -74,7 +74,7 @@ describe("project chat hydration authority integration", () => {
     expect(resolvedCacheKey).toBe("chat-1:llm_chat:rev-1");
   });
 
-  it("keeps hydration cache-key inputs unresolved when authoritative metadata reports a missing engine config", () => {
+  it("keeps hydration cache-key inputs resolved when authoritative metadata reports a missing engine config", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -96,11 +96,11 @@ describe("project chat hydration authority integration", () => {
     });
 
     expect(authority).toEqual({
-      status: "blocked",
-      hydrationRunType: null,
+      status: "ready",
+      hydrationRunType: "llm_chat",
       blockedErrorCode: "engine_config_missing",
     });
-    expect(cacheKey).toBeNull();
+    expect(cacheKey).toBe("chat-1:llm_chat:rev-1");
   });
 
   it("keeps hydration unresolved while selected chat is still waiting and provenance has not appeared yet", () => {
@@ -125,5 +125,30 @@ describe("project chat hydration authority integration", () => {
       blockedErrorCode: null,
     });
     expect(cacheKey).toBeNull();
+  });
+
+  it("falls back to current engine run type when authoritative metadata is missing provenance", () => {
+    const authority = resolveProjectChatHydrationAuthority({
+      chatId: "chat-missing-provenance",
+      selectedScopedChatProvenance: { status: "missing" },
+      chatProvenanceAuthoritative: true,
+      engineConfigById: resolvedEngineConfigById,
+      engineConfigsAuthoritative: true,
+      engineType: EngineTypeEnum.setta_llm,
+    });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId: "chat-missing-provenance",
+      hydrationRunType: authority.hydrationRunType,
+      hydrationMetadataRevision: "rev-missing-provenance",
+    });
+
+    expect(authority).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: "chat_provenance_missing",
+    });
+    expect(cacheKey).toBe(
+      "chat-missing-provenance:llm_chat:rev-missing-provenance",
+    );
   });
 });

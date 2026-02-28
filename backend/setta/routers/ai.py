@@ -289,6 +289,23 @@ def _get_prior_messages_for_engine(
     return build_chat_state_from_run(latest_run).messages
 
 
+def _get_prior_messages_for_seed_chat(
+    *,
+    dbe,
+    chat_id: ID,
+    project_config_id: ID | None,
+) -> list[BaseChatMessageUnion]:
+    runs = list_agent_runs_by_metadata(
+        dbe,
+        chat_id=chat_id,
+        project_config_id=project_config_id,
+    )
+    latest_run = _select_latest_run(runs)
+    if latest_run is None:
+        return []
+    return build_chat_state_from_run(latest_run).messages
+
+
 def _get_latest_run_for_engine(
     *,
     dbe,
@@ -545,6 +562,7 @@ def _normalize_reference_image_inputs(
 
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
+    continueFromChatId: ID | None = None
     message: BaseChatMessageUnionWithDiscriminator
     engineConfigId: ID
     agentProfileId: ID | None = None
@@ -655,7 +673,7 @@ class ChatContextUsage(BaseModel):
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
-    llmConfig: LLMConfig
+    llmConfig: LLMConfig | None
     contextUsage: ChatContextUsage | None = None
 
 
@@ -813,6 +831,16 @@ async def route_get_llm_response(
     is_branch_request = (
         x.branchParentChatId is not None or x.branchFromMessageId is not None
     )
+    if is_branch_request and x.continueFromChatId is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="continueFromChatId cannot be used with branch edits.",
+        )
+    if x.chatId is not None and x.continueFromChatId is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="continueFromChatId requires chatId to be omitted.",
+        )
     if is_branch_request:
         if x.branchParentChatId is None or x.branchFromMessageId is None:
             raise HTTPException(
@@ -872,6 +900,12 @@ async def route_get_llm_response(
                 chat_id=chat_id,
                 project_config_id=x.projectConfigId,
                 external_runs=external_runs_for_chat_id,
+            )
+        elif x.continueFromChatId is not None:
+            prior_messages = _get_prior_messages_for_seed_chat(
+                dbe=ctx.state.dbe,
+                chat_id=x.continueFromChatId,
+                project_config_id=x.projectConfigId,
             )
         combined_messages = _build_inputs_messages(
             prior_messages=prior_messages,
@@ -1316,37 +1350,24 @@ async def route_get_llm_chat(
         live_state = ctx.state.agent_runner.get_live_chat_state(latest_run.id)
         if live_state is not None:
             state = live_state
+    llm_config: LLMConfig | None = None
     engine_config_id = get_run_engine_config_id(latest_run)
-    if not engine_config_id:
-        _raise_chat_hydration_http_error(
-            message="Chat provenance is incomplete; start a new chat.",
-            error_code=ChatHydrationErrorCode.chat_provenance_missing,
-        )
-    try:
-        engine_config = require_engine_config(ctx.state.dbe, engine_config_id)
-    except KeyError:
-        _raise_chat_hydration_http_error(
-            message="Chat engine config is no longer available.",
-            error_code=ChatHydrationErrorCode.engine_config_missing,
-        )
-    if engine_config.engineType != EngineType.setta_llm:
-        _raise_chat_hydration_http_error(
-            message="Chat engine mismatch; start a new chat.",
-            error_code=ChatHydrationErrorCode.engine_type_mismatch,
-        )
-    llm_config_id = engine_config.settaLlmConfigId
-    if not llm_config_id:
-        _raise_chat_hydration_http_error(
-            message="Chat LLM config is no longer available.",
-            error_code=ChatHydrationErrorCode.llm_config_missing,
-        )
-    try:
-        llm_config = ctx.state.agent_runner.config.resolve_config(llm_config_id)
-    except ValueError:
-        _raise_chat_hydration_http_error(
-            message="Chat LLM config is no longer available.",
-            error_code=ChatHydrationErrorCode.llm_config_missing,
-        )
+    if engine_config_id:
+        try:
+            engine_config = require_engine_config(ctx.state.dbe, engine_config_id)
+        except KeyError:
+            engine_config = None
+        if (
+            engine_config is not None
+            and engine_config.engineType == EngineType.setta_llm
+            and engine_config.settaLlmConfigId
+        ):
+            try:
+                llm_config = ctx.state.agent_runner.config.resolve_config(
+                    engine_config.settaLlmConfigId
+                )
+            except ValueError:
+                llm_config = None
     context_usage = resolve_internal_run_context_usage(latest_run)
     return GetLLMChatRequestResponse(
         messages=state.messages,

@@ -8605,7 +8605,7 @@ const GetLLMChatRequestResponseSchema = z.object({
     ]),
   ),
   waitingForResponse: z.boolean(),
-  llmConfig: LLMConfigSchema,
+  llmConfig: z.union([LLMConfigSchema, z.null()]),
   contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
 });
 
@@ -8615,6 +8615,7 @@ export type GetLLMChatRequestResponse = z.infer<
 
 const GetLLMResponseRequestSchema = z.object({
   chatId: z.union([IDSchema, z.null()]),
+  continueFromChatId: z.union([IDSchema, z.null()]).default(null),
   message: z.union([
     SystemChatMessageSchema,
     AssistantChatMessageSchema,

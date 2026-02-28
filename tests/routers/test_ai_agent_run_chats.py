@@ -647,7 +647,7 @@ class TestAgentRunChatRoutes:
             assert response.contextUsage is not None
             assert response.contextUsage.contextWindowTokens == 123
 
-    async def test_get_llm_chat_returns_typed_error_when_engine_metadata_missing(
+    async def test_get_llm_chat_allows_missing_engine_metadata_and_returns_null_llm_config(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -678,21 +678,18 @@ class TestAgentRunChatRoutes:
             save_agent_run(dbe, run)
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_chat(
-                        GetLLMChatRequest(
-                            chatId=chat_id,
-                            projectConfigId=project_config_id,
-                        ),
-                        ctx,
-                    )
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 409
-            _assert_chat_hydration_http_error(
-                exc.value,
-                message="Chat provenance is incomplete; start a new chat.",
-                error_code="chat_provenance_missing",
-            )
+            assert response.waitingForResponse is False
+            assert response.llmConfig is None
+            assert len(response.messages) >= 1
+            assert response.messages[-1].role == "assistant"
 
     async def test_get_llm_chat_missing_run_returns_typed_not_found_error(
         self,
@@ -723,7 +720,7 @@ class TestAgentRunChatRoutes:
                 error_code="chat_not_found",
             )
 
-    async def test_get_llm_chat_returns_typed_error_when_engine_type_mismatches(
+    async def test_get_llm_chat_allows_engine_type_mismatch_and_returns_null_llm_config(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -764,23 +761,20 @@ class TestAgentRunChatRoutes:
             save_agent_run(dbe, run)
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_chat(
-                        GetLLMChatRequest(
-                            chatId=chat_id,
-                            projectConfigId=project_config_id,
-                        ),
-                        ctx,
-                    )
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 409
-            _assert_chat_hydration_http_error(
-                exc.value,
-                message="Chat engine mismatch; start a new chat.",
-                error_code="engine_type_mismatch",
-            )
+            assert response.waitingForResponse is False
+            assert response.llmConfig is None
+            assert len(response.messages) >= 1
+            assert response.messages[-1].role == "assistant"
 
-    async def test_get_llm_chat_returns_typed_error_when_llm_config_is_missing(
+    async def test_get_llm_chat_allows_missing_llm_config_and_returns_null_llm_config(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -821,23 +815,20 @@ class TestAgentRunChatRoutes:
             save_agent_run(dbe, run)
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_chat(
-                        GetLLMChatRequest(
-                            chatId=chat_id,
-                            projectConfigId=project_config_id,
-                        ),
-                        ctx,
-                    )
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 409
-            _assert_chat_hydration_http_error(
-                exc.value,
-                message="Chat LLM config is no longer available.",
-                error_code="llm_config_missing",
-            )
+            assert response.waitingForResponse is False
+            assert response.llmConfig is None
+            assert len(response.messages) >= 1
+            assert response.messages[-1].role == "assistant"
 
-    async def test_get_llm_chat_returns_typed_error_without_llm_binding_fallback(
+    async def test_get_llm_chat_allows_missing_llm_binding_and_returns_null_llm_config(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -878,21 +869,18 @@ class TestAgentRunChatRoutes:
             save_agent_run(dbe, run)
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_chat(
-                        GetLLMChatRequest(
-                            chatId=chat_id,
-                            projectConfigId=project_config_id,
-                        ),
-                        ctx,
-                    )
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 409
-            _assert_chat_hydration_http_error(
-                exc.value,
-                message="Chat LLM config is no longer available.",
-                error_code="llm_config_missing",
-            )
+            assert response.waitingForResponse is False
+            assert response.llmConfig is None
+            assert len(response.messages) >= 1
+            assert response.messages[-1].role == "assistant"
 
     async def test_external_engine_rejects_llm_chat_id(
         self,
@@ -1037,6 +1025,209 @@ class TestAgentRunChatRoutes:
 
             assert exc.value.status_code == 404
             assert exc.value.detail == "Message missing not found in chat history"
+
+    async def test_get_llm_response_continue_from_chat_seeds_prior_messages(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            source_engine_config_id = ID("engine-source")
+            target_engine_config_id = ID("engine-target")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=source_engine_config_id,
+                        name="Source Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId="primary",
+                    ),
+                    EngineConfig(
+                        id=target_engine_config_id,
+                        name="Target Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId="primary",
+                    ),
+                ],
+            )
+            project_config_id = ID("project-continue-seed")
+            source_chat_id = ID("chat-source-seed")
+            source_user_message = UserChatMessage(
+                id="source-user",
+                content=[MessageTextContent(text="Source prompt")],
+            )
+            source_assistant_message = AssistantChatMessage(
+                id="source-assistant",
+                content=[MessageTextContent(text="Source reply")],
+            )
+            seed_run = _build_run(
+                chat_id=source_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=source_engine_config_id,
+                started_at=datetime(2024, 1, 5, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[source_user_message],
+                output_messages=[source_user_message, source_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                created_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        continueFromChatId=source_chat_id,
+                        message=UserChatMessage(
+                            id="new-message",
+                            content=[MessageTextContent(text="Continue on new engine")],
+                        ),
+                        engineConfigId=target_engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            assert created_chat_id is not None
+            assert created_chat_id != source_chat_id
+            raw_messages = captured_inputs.get("messages")
+            assert isinstance(raw_messages, list)
+            assert [raw.get("id") for raw in raw_messages] == [
+                "source-user",
+                "source-assistant",
+                "new-message",
+            ]
+
+    async def test_get_llm_response_continue_from_chat_supports_external_sources(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            target_engine_config_id = ID("engine-target-managed")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=target_engine_config_id,
+                        name="Target Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId="primary",
+                    ),
+                ],
+            )
+            project_config_id = ID("project-continue-external-seed")
+            source_chat_id = ID("chat-source-external-seed")
+            source_user_message = UserChatMessage(
+                id="source-external-user",
+                content=[MessageTextContent(text="External source prompt")],
+            )
+            source_assistant_message = AssistantChatMessage(
+                id="source-external-assistant",
+                content=[MessageTextContent(text="External source reply")],
+            )
+            seed_run = _build_external_run(
+                chat_id=source_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-external-source"),
+                started_at=datetime(2024, 1, 6, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[source_user_message],
+                output_messages=[source_user_message, source_assistant_message],
+            )
+            save_agent_run(dbe, seed_run)
+            captured_inputs: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured_inputs.update(inputs)
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                created_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        continueFromChatId=source_chat_id,
+                        message=UserChatMessage(
+                            id="new-managed-message",
+                            content=[MessageTextContent(text="Continue externally seeded chat")],
+                        ),
+                        engineConfigId=target_engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            assert created_chat_id is not None
+            raw_messages = captured_inputs.get("messages")
+            assert isinstance(raw_messages, list)
+            assert [raw.get("id") for raw in raw_messages] == [
+                "source-external-user",
+                "source-external-assistant",
+                "new-managed-message",
+            ]
+
+    async def test_get_llm_response_rejects_continue_from_with_chat_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=ID("chat-target"),
+                            continueFromChatId=ID("chat-source"),
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Hello")],
+                            ),
+                            engineConfigId=ID("engine-id"),
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-id"),
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert exc.value.detail == "continueFromChatId requires chatId to be omitted."
 
     async def test_get_llm_response_requires_section_or_allow_unscoped(self) -> None:
         with TemporaryDirectory() as tmpdir:

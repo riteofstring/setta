@@ -50,19 +50,19 @@ describe("getDefaultProjectChatPermissionMode", () => {
 describe("getProjectChatBlockedReasonMessage", () => {
   it("returns deterministic blocked copy for each hydration error code", () => {
     expect(getProjectChatBlockedReasonMessage("chat_not_found")).toContain(
-      "no longer exists",
+      "not found during hydration",
     );
     expect(
       getProjectChatBlockedReasonMessage("chat_provenance_missing"),
-    ).toContain("missing required provenance");
+    ).toContain("missing provenance metadata");
     expect(
       getProjectChatBlockedReasonMessage("engine_config_missing"),
-    ).toContain("engine config is no longer available");
+    ).toContain("saved engine config is no longer available");
     expect(
       getProjectChatBlockedReasonMessage("engine_type_mismatch"),
-    ).toContain("engine type no longer matches");
+    ).toContain("saved engine type no longer matches");
     expect(getProjectChatBlockedReasonMessage("llm_config_missing")).toContain(
-      "LLM config is no longer available",
+      "saved LLM config is unavailable",
     );
     expect(
       getProjectChatBlockedReasonMessage("terminal_hydration_failure"),
@@ -148,7 +148,7 @@ describe("resolveProjectChatHydrationAuthority", () => {
     });
   });
 
-  it("returns blocked when selected thread has authoritative missing provenance", () => {
+  it("returns ready authority with warning when selected thread has authoritative missing provenance", () => {
     expect(
       resolveProjectChatHydrationAuthority({
         chatId: "chat-1",
@@ -161,8 +161,8 @@ describe("resolveProjectChatHydrationAuthority", () => {
         engineType: EngineTypeEnum.setta_llm,
       }),
     ).toEqual({
-      status: "blocked",
-      hydrationRunType: null,
+      status: "ready",
+      hydrationRunType: "llm_chat",
       blockedErrorCode: "chat_provenance_missing",
     });
   });
@@ -190,7 +190,7 @@ describe("resolveProjectChatHydrationAuthority", () => {
     });
   });
 
-  it("returns blocked when selected thread engine configs are authoritative and missing", () => {
+  it("returns ready authority with warning when selected thread engine configs are authoritative and missing", () => {
     expect(
       resolveProjectChatHydrationAuthority({
         chatId: "chat-1",
@@ -207,8 +207,8 @@ describe("resolveProjectChatHydrationAuthority", () => {
         engineType: EngineTypeEnum.setta_llm,
       }),
     ).toEqual({
-      status: "blocked",
-      hydrationRunType: null,
+      status: "ready",
+      hydrationRunType: "llm_chat",
       blockedErrorCode: "engine_config_missing",
     });
   });
