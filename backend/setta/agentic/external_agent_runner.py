@@ -1389,7 +1389,7 @@ class ExternalAgentRunner:
         managed_api_keys_result = read_managed_api_keys_with_status(self.dbe)
         if managed_api_keys_result.corrupt:
             logger.warning(
-                "Managed API key store is corrupt while building external agent env: %s",
+                ".env API key metadata is corrupt while building external agent env: %s",
                 managed_api_keys_result.error or "unknown parse error",
             )
         managed_api_keys = managed_api_keys_result.api_keys

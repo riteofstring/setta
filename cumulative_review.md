@@ -642,3 +642,36 @@
 - `pnpm -C frontend gcf`: completed successfully (`exit 0`).
 - `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts`: `59 passed`.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts`: `14 passed`.
+
+## 2026-02-27 17:42:57 PST
+
+### Consolidated Findings
+- LLM API key persistence had regressed from `.env` auto-detection behavior and required explicit managed-store writes in some flows.
+- The old JSON key-store path was no longer desired; key persistence needed to be `.env`-only while retaining CAS/revision conflict handling and runtime synchronization semantics.
+- Test isolation for `.env` handling was insufficient in one path and could mutate the repo-root `.env` during backend tests.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Removed JSON-store assumptions from backend LLM key persistence and standardized managed-key persistence on `.env`.
+- Added deterministic content-hash revisions for managed key snapshots to preserve optimistic concurrency conflict detection.
+- Preserved unrelated `.env` entries while managing LLM key updates, and tracked managed key ownership with metadata in `.env`.
+- Split key resolution paths:
+  - runtime update path uses configured provider keys only,
+  - API/snapshot path surfaces effective keys for settings UX.
+- Updated startup/watcher/preflight/error-message paths to `.env` semantics.
+- Rewrote backend tests (`tests/llm/*`, `tests/routers/test_llm_api_key_routes.py`, `tests/agentic/test_external_agent_preflight.py`) to `.env` contracts and fixed `.env` isolation to temp paths.
+- Executed `gcf` workflow from `frontend` package context (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) because root `pnpm gcf` is not available without a root importer.
+
+### UX/DX Before -> After
+- API key sourcing: inconsistent with `.env` expectations -> configured `.env` keys are recognized and synchronized again.
+- Persistence model: split JSON + env behavior -> single `.env` source of truth with conflict-safe writes.
+- Runtime key updates: mixed visibility/runtime intent -> explicit runtime-filtered application with effective snapshot reporting.
+- Test reliability: potential workspace `.env` mutation -> isolated temp `.env` test behavior.
+
+### Verification
+- Backend focused tests passed:
+  - `tests/llm/test_api_keys.py`
+  - `tests/llm/test_api_key_runtime_sync.py`
+  - `tests/routers/test_llm_api_key_routes.py`
+  - `tests/agentic/test_external_agent_preflight.py`
+- Ruff targeted checks passed for touched backend/test files.
+- `gcf` workflow completed successfully from frontend package context.

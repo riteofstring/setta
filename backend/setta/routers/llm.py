@@ -9,6 +9,7 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     read_managed_api_keys_with_status,
+    resolve_effective_llm_api_keys,
     write_managed_api_keys_with_expected_revision,
 )
 from setta.llm.config import save_llm_config
@@ -68,7 +69,7 @@ async def route_get_llm_api_keys(
     if read_result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
-            message=read_result.error or "Managed API key store is unavailable.",
+            message=read_result.error or ".env API key store is unavailable.",
             revision=0,
         )
         raise HTTPException(
@@ -77,14 +78,18 @@ async def route_get_llm_api_keys(
     if read_result.corrupt:
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
-            message=read_result.error or "Managed API key store is corrupt.",
+            message=read_result.error or ".env API key store is corrupt.",
             revision=0,
         )
         raise HTTPException(
             status_code=409, detail=error_payload.model_dump(mode="json")
         )
+    effective_api_keys = resolve_effective_llm_api_keys(
+        config=ctx.state.agent_runner.config,
+        managed_api_keys=read_result.api_keys,
+    )
     return ManagedAPIKeysResponse(
-        apiKeys=read_result.api_keys,
+        apiKeys=effective_api_keys,
         revision=read_result.revision,
     )
 
@@ -104,7 +109,7 @@ async def route_set_llm_api_keys(
     if write_attempt.status == "corrupt_store":
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
-            message=write_attempt.error or "Managed API key store is corrupt.",
+            message=write_attempt.error or ".env API key store is corrupt.",
             revision=0,
         )
         raise HTTPException(
@@ -113,7 +118,7 @@ async def route_set_llm_api_keys(
     if write_attempt.status == "store_unavailable":
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
-            message=write_attempt.error or "Managed API key store is unavailable.",
+            message=write_attempt.error or ".env API key store is unavailable.",
             revision=0,
         )
         raise HTTPException(
@@ -122,7 +127,7 @@ async def route_set_llm_api_keys(
     if write_attempt.status == "revision_conflict":
         error_payload = ManagedAPIKeysErrorResponse(
             errorCode=MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
-            message=write_attempt.error or "Managed API key store revision conflict.",
+            message=write_attempt.error or ".env API key store revision conflict.",
             revision=write_attempt.revision,
         )
         raise HTTPException(
@@ -130,8 +135,12 @@ async def route_set_llm_api_keys(
         )
     if write_attempt.status != "success":
         raise HTTPException(status_code=500, detail="Failed to save LLM API keys")
+    effective_api_keys = resolve_effective_llm_api_keys(
+        config=ctx.state.agent_runner.config,
+        managed_api_keys=write_attempt.api_keys,
+    )
     updated_payload = ManagedAPIKeysResponse(
-        apiKeys=write_attempt.api_keys,
+        apiKeys=effective_api_keys,
         revision=write_attempt.revision,
     )
     await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(

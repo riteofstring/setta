@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveProjectChatEngineConfigIdForSelectedChat,
+  resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
+  resolveProjectChatSelectedLLMUnavailableReason,
   resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
   resolveProjectChatThreadVisibilityFromResize,
 } from "./ProjectChat";
@@ -140,6 +142,117 @@ describe("resolveProjectChatEngineConfigIdForSelectedChat", () => {
       chatEngineConfigByChatId: new Map([["chat-1", "engine-b"]]),
     });
     expect(resolved).toBe("engine-b");
+  });
+});
+
+describe("resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad", () => {
+  it("keeps the selected engine when it still exists", () => {
+    const resolved = resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigs: [
+        {
+          id: "engine-setta",
+          name: "Setta",
+          engineType: "setta_llm",
+          settaLlmConfigId: "claude",
+          externalAgentConfigId: null,
+        },
+        {
+          id: "engine-codex",
+          name: "Codex",
+          engineType: "external_agent",
+          settaLlmConfigId: null,
+          externalAgentConfigId: "external-codex",
+        },
+      ],
+      selectedEngineId: "engine-setta",
+      preferredEngineId: "engine-codex",
+    });
+    expect(resolved).toBe("engine-setta");
+  });
+
+  it("falls back to preferred engine when the selected engine is missing", () => {
+    const resolved = resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigs: [
+        {
+          id: "engine-setta",
+          name: "Setta",
+          engineType: "setta_llm",
+          settaLlmConfigId: "claude",
+          externalAgentConfigId: null,
+        },
+      ],
+      selectedEngineId: "engine-missing",
+      preferredEngineId: "engine-setta",
+    });
+    expect(resolved).toBe("engine-setta");
+  });
+
+  it("returns null when no engine configs are available", () => {
+    const resolved = resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+      engineConfigsInitialLoadComplete: true,
+      engineConfigs: [],
+      selectedEngineId: "engine-setta",
+      preferredEngineId: null,
+    });
+    expect(resolved).toBeNull();
+  });
+});
+
+describe("resolveProjectChatSelectedLLMUnavailableReason", () => {
+  it("returns missing key guidance when selected LLM requires an absent API key", () => {
+    const resolved = resolveProjectChatSelectedLLMUnavailableReason({
+      engineType: "setta_llm",
+      selectedLLMConfigId: "claude-sonnet",
+      allLLMConfigs: {
+        configs: {
+          "claude-sonnet": {
+            id: "claude-sonnet",
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+        default_config_id: "claude-sonnet",
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        codexMcpImportedAt: null,
+      },
+      availableConfigIds: new Set(),
+    });
+    expect(resolved).toContain("Missing API key: ANTHROPIC_API_KEY");
+  });
+
+  it("returns null when selected LLM config is available", () => {
+    const resolved = resolveProjectChatSelectedLLMUnavailableReason({
+      engineType: "setta_llm",
+      selectedLLMConfigId: "claude-sonnet",
+      allLLMConfigs: {
+        configs: {
+          "claude-sonnet": {
+            id: "claude-sonnet",
+            model: "claude-sonnet-4-5-20250929",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+            base_url: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+        default_config_id: "claude-sonnet",
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        codexMcpImportedAt: null,
+      },
+      availableConfigIds: new Set(["claude-sonnet"]),
+    });
+    expect(resolved).toBeNull();
   });
 });
 

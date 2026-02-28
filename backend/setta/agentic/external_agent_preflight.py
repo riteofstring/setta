@@ -332,13 +332,12 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> _EnvStatusResult:
     unavailable_issue: str | None = None
     if managed_api_keys_result.corrupt:
         corruption_issue = (
-            "Managed LLM API key store is corrupt; "
+            ".env API key store metadata is corrupt; "
             "open LLM settings and save API keys to repair."
         )
     elif managed_api_keys_result.error_code == MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE:
         unavailable_issue = (
-            "Managed LLM API key store is unavailable; "
-            "check filesystem path and permissions."
+            ".env API key store is unavailable; check filesystem path and permissions."
         )
     return _EnvStatusResult(
         status=ExternalAgentEnvVarStatus(present=present, missing=missing),

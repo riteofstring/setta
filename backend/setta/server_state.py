@@ -21,7 +21,10 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.llm.agent_runner import AgentRunner
-from setta.llm.api_keys import read_managed_api_keys_with_status
+from setta.llm.api_keys import (
+    read_managed_api_keys_with_status,
+    resolve_runtime_llm_api_keys,
+)
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import LLMApiKeyWatcher
@@ -507,13 +510,18 @@ class SettaFastAPIState:
                 share_mode=self.deployment_mode,
             )
             self.agent_runner.update_config(llm_config)
+            self.dbe.reload_dot_env()
             managed_api_keys = read_managed_api_keys_with_status(self.dbe)
             if managed_api_keys.corrupt:
                 logger.error(
-                    "Managed API key store is corrupt during startup: %s",
+                    ".env API key store is corrupt during startup: %s",
                     managed_api_keys.error or "unknown parse error",
                 )
-            self.agent_runner.update_api_keys(managed_api_keys.api_keys)
+            runtime_api_keys = resolve_runtime_llm_api_keys(
+                config=llm_config,
+                managed_api_keys=managed_api_keys.api_keys,
+            )
+            self.agent_runner.update_api_keys(runtime_api_keys)
             self.llm_api_key_watcher = LLMApiKeyWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,

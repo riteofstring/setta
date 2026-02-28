@@ -91,6 +91,7 @@ type ProjectAISettingsPopoverProps = {
   availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
+  llmSelectionUnavailableReason: string | null;
   selectedTranscriptionProfileId: string | null;
   defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
@@ -138,6 +139,20 @@ type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
   selectedEngineId: string | null;
   availableEngineConfigIds: Set<string>;
   chatEngineConfigByChatId: Map<string, string | null>;
+};
+
+type ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput = {
+  engineConfigsInitialLoadComplete: boolean;
+  engineConfigs: EngineConfig[];
+  selectedEngineId: string | null;
+  preferredEngineId: string | null;
+};
+
+type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
+  engineType: EngineTypeEnum | null;
+  selectedLLMConfigId: string | null;
+  allLLMConfigs: AllLLMConfigs | null;
+  availableConfigIds: Set<string>;
 };
 
 export function resolveProjectChatThreadVisibilityFromResize({
@@ -195,6 +210,55 @@ export function resolveProjectChatEngineConfigIdForSelectedChat({
     return null;
   }
   return resolvedEngineConfigId;
+}
+
+export function resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+  engineConfigsInitialLoadComplete,
+  engineConfigs,
+  selectedEngineId,
+  preferredEngineId,
+}: ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput):
+  | string
+  | null {
+  if (!engineConfigsInitialLoadComplete) {
+    return selectedEngineId;
+  }
+  if (engineConfigs.length === 0) {
+    return null;
+  }
+  if (
+    selectedEngineId &&
+    engineConfigs.some((config) => config.id === selectedEngineId)
+  ) {
+    return selectedEngineId;
+  }
+  return preferredEngineId ?? engineConfigs[0].id;
+}
+
+export function resolveProjectChatSelectedLLMUnavailableReason({
+  engineType,
+  selectedLLMConfigId,
+  allLLMConfigs,
+  availableConfigIds,
+}: ResolveProjectChatSelectedLLMUnavailableReasonInput): string | null {
+  if (engineType !== EngineTypeEnum.setta_llm) {
+    return null;
+  }
+  if (!selectedLLMConfigId) {
+    return null;
+  }
+  if (availableConfigIds.has(selectedLLMConfigId)) {
+    return null;
+  }
+  const selectedConfig = allLLMConfigs?.configs[selectedLLMConfigId];
+  if (!selectedConfig) {
+    return "Selected model is unavailable.";
+  }
+  const requiredApiKeyEnv = selectedConfig.api_key_env?.trim() ?? "";
+  if (requiredApiKeyEnv) {
+    return `Selected model is unavailable. Missing API key: ${requiredApiKeyEnv}.`;
+  }
+  return "Selected model is unavailable.";
 }
 
 export function ProjectChat() {
@@ -461,6 +525,16 @@ export function ProjectChat() {
   const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
+  );
+  const llmSelectionUnavailableReason = useMemo(
+    () =>
+      resolveProjectChatSelectedLLMUnavailableReason({
+        engineType,
+        selectedLLMConfigId,
+        allLLMConfigs,
+        availableConfigIds,
+      }),
+    [allLLMConfigs, availableConfigIds, engineType, selectedLLMConfigId],
   );
   const externalEngineStatus = useMemo(
     () =>
@@ -833,43 +907,20 @@ export function ProjectChat() {
   );
 
   useEffect(() => {
-    if (!engineConfigsInitialLoadComplete) {
+    const resolvedSelectedEngineId =
+      resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad({
+        engineConfigsInitialLoadComplete,
+        engineConfigs,
+        selectedEngineId,
+        preferredEngineId,
+      });
+    if (resolvedSelectedEngineId === selectedEngineId) {
       return;
     }
-    if (engineConfigs.length === 0) {
-      if (selectedEngineId !== null) {
-        setSelectedEngineId(null);
-      }
-      return;
-    }
-    const selectedConfig = selectedEngineId
-      ? engineConfigs.find((config) => config.id === selectedEngineId) ?? null
-      : null;
-    const preferredId = preferredEngineId ?? engineConfigs[0].id;
-    if (!selectedConfig) {
-      setSelectedEngineId(preferredId);
-      return;
-    }
-    if (
-      preferredEngineId &&
-      preferredEngineId !== selectedEngineId &&
-      !isEngineUsable({
-        config: selectedConfig,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      setSelectedEngineId(preferredEngineId);
-    }
+    setSelectedEngineId(resolvedSelectedEngineId);
   }, [
-    allLLMConfigs,
-    availableConfigIds,
     engineConfigs,
     engineConfigsInitialLoadComplete,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
     preferredEngineId,
     selectedEngineId,
     setSelectedEngineId,
@@ -1325,6 +1376,9 @@ export function ProjectChat() {
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
                         selectedLLMConfigId={selectedLLMConfigId}
+                        llmSelectionUnavailableReason={
+                          llmSelectionUnavailableReason
+                        }
                         selectedTranscriptionProfileId={
                           projectChatTranscriptionProfileId
                         }
@@ -1671,6 +1725,7 @@ function ProjectAISettingsPopover({
   availableConfigGroups,
   selectedEngineId,
   selectedLLMConfigId,
+  llmSelectionUnavailableReason,
   selectedTranscriptionProfileId,
   defaultLLMConfigId,
   engineType,
@@ -1690,12 +1745,14 @@ function ProjectAISettingsPopover({
   onActivityChildrenOpenByDefaultChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
+  const showLlmUnavailableWarning = llmSelectionUnavailableReason !== null;
   const llmPlaceholder = noConfigsAvailable
     ? "Add an LLM config or API key"
     : "Select an LLM";
-  const llmBg = selectedLLMConfigId
-    ? ""
-    : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+  const llmBg =
+    selectedLLMConfigId && !showLlmUnavailableWarning
+      ? ""
+      : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
   const providerModeAvailable = providerDictationLikelySupported;
   const autoFallsBackToBrowser =
     dictationMode === "auto" && !providerDictationLikelySupported;
@@ -1878,6 +1935,11 @@ function ProjectAISettingsPopover({
                 bg={llmBg}
                 outerDivClasses="w-full"
               />
+              {showLlmUnavailableWarning ? (
+                <p className="text-[10px] text-red-600 dark:text-red-300">
+                  {llmSelectionUnavailableReason}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={onPinDefaultModel}

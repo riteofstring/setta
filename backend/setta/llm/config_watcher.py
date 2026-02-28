@@ -74,6 +74,7 @@ class LLMConfigWatcher:
         await self.websocket_msg_handler.broadcast_llm_config_update(
             self.agent_runner.config
         )
+        self.dbe.reload_dot_env()
         await sync_managed_api_keys_to_runtime(
             dbe=self.dbe,
             agent_runner=self.agent_runner,
@@ -81,6 +82,6 @@ class LLMConfigWatcher:
             logger=logger,
             log_label="llm-api-keys-parse",
             corruption_message=(
-                "Failed to parse llm_api_keys.json; applying empty API keys snapshot"
+                "Failed to read .env API keys; applying empty API key snapshot"
             ),
         )
