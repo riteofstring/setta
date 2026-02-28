@@ -675,3 +675,29 @@
   - `tests/agentic/test_external_agent_preflight.py`
 - Ruff targeted checks passed for touched backend/test files.
 - `gcf` workflow completed successfully from frontend package context.
+
+## 2026-02-27 18:15:18 PST
+
+### Consolidated Findings
+- Inline thread-header controls in Project AI Chat could overflow into the main chat-header controls when thread pane width was narrow.
+- Completion guardrails defaulted to enabled in settings state, which did not match the requested default behavior.
+- Root-level `pnpm gcf` is not directly runnable in this repo because the root has no importer manifest; the frontend package owns the cleanup workflow.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated Project AI Chat inline thread-header layout to be container-aware and clipped to its host region to prevent cross-header overlap.
+- Added a Playwright regression assertion that verifies thread-header controls stay within the inline header host before and after resize.
+- Switched the backend and frontend generated settings defaults for `completionGuardEnabled` to `false`.
+- Added backend regression coverage for completion-guard default resolution when no explicit setting exists.
+- Updated Project AI settings Playwright coverage to assert the guardrails toggle is unchecked by default.
+- Executed the `gcf` workflow from `frontend` (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and captured output in `gcf.log`.
+
+### UX/DX Before -> After
+- Thread pane resize behavior: toolbar labels could overlap neighboring header controls -> controls now remain constrained to the inline thread header.
+- Guardrails bootstrap behavior: new settings instances started with completion guard enabled -> new settings now start with completion guard disabled.
+- Cleanup workflow ergonomics: root `pnpm gcf` call fails due missing root importer -> frontend-owned `gcf` workflow is run directly and logged.
+
+### Verification
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/agentic/test_completion_guard.py`: `21 passed`.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-threads.spec.ts --grep "project ai threads render folder groups and support group drag reorder"`: `1 passed`.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts --grep "guardrails completion toggle persists"`: `1 passed`.
+- `gcf` workflow completed from frontend package context with no command failures.

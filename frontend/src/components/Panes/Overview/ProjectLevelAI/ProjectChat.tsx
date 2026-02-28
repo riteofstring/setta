@@ -1303,12 +1303,12 @@ export function ProjectChat() {
             {showInlineThreads ? (
               <div
                 ref={handleInlineThreadsHeaderShellRef}
-                className="shrink-0 border-r border-setta-200 dark:border-setta-800"
+                className="shrink-0 overflow-hidden border-r border-setta-200 dark:border-setta-800"
                 style={{ width: `${resolvedInlineThreadsWidth}px` }}
               >
                 <div
                   ref={handleInlineThreadsHeaderHostRef}
-                  className="h-full w-full min-w-0"
+                  className="h-full w-full min-w-0 @container"
                   data-testid="project-chat-inline-threads-header-host"
                 />
               </div>

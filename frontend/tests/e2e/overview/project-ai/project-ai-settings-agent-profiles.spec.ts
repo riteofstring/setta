@@ -461,6 +461,7 @@ test.describe.serial("project ai settings accordion layout", () => {
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(completionGuardToggle).toBeVisible();
+      await expect(completionGuardToggle).not.toBeChecked();
       const initiallyChecked = await completionGuardToggle.isChecked();
       const expectedChecked = !initiallyChecked;
       const saveResponsePromise = page.waitForResponse(

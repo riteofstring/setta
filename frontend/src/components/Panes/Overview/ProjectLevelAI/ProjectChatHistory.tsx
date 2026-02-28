@@ -1108,7 +1108,7 @@ export function ProjectChatHistory({
   );
   const threadsToolbar = (
     <div
-      className="flex w-full min-w-0 items-center gap-2 whitespace-nowrap"
+      className="flex w-full min-w-0 items-center gap-2 whitespace-nowrap @container"
       data-testid="project-chat-threads-toolbar"
     >
       <search
@@ -1187,22 +1187,24 @@ export function ProjectChatHistory({
       <button
         type="button"
         className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+        aria-label="Restore Delete"
         onClick={handleRestoreDeletedThreadOrGroup}
         data-testid="project-chat-thread-restore-last-delete-button"
         {...restoreThreadMutationTooltipHandlers}
       >
         <MdRestore size={14} />
-        Restore Delete
+        <span className="hidden @[26rem]:inline">Restore Delete</span>
       </button>
       <button
         type="button"
         className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+        aria-label="New Group"
         onClick={handleCreateGroup}
         data-testid="project-chat-thread-group-new-group-button"
         {...newGroupTooltipHandlers}
       >
         <MdAdd size={15} />
-        New Group
+        <span className="hidden @[20rem]:inline">New Group</span>
       </button>
     </div>
   );

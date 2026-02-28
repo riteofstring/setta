@@ -80,6 +80,40 @@ test("project ai threads render folder groups and support group drag reorder", a
     name: "Attachment options",
   });
   await expect(attachmentButton).toBeVisible();
+  // Ensure thread-header controls stay inside their header host and do not
+  // overlap chat controls when pane widths change.
+  const assertInlineThreadHeaderHasNoOverflow = async (): Promise<void> => {
+    await expect
+      .poll(async () => {
+        return await overviewPane.evaluate((paneElement) => {
+          const headerHost = paneElement.querySelector(
+            '[data-testid="project-chat-inline-threads-header-host"]',
+          );
+          const toolbar = paneElement.querySelector(
+            '[data-testid="project-chat-threads-toolbar"]',
+          );
+          if (
+            !(headerHost instanceof HTMLElement) ||
+            !(toolbar instanceof HTMLElement)
+          ) {
+            return Number.POSITIVE_INFINITY;
+          }
+          const hostRight = headerHost.getBoundingClientRect().right;
+          const controls = Array.from(
+            toolbar.querySelectorAll("button, search"),
+          );
+          const maxControlRight = controls.reduce((maxRight, control) => {
+            if (!(control instanceof HTMLElement)) {
+              return maxRight;
+            }
+            return Math.max(maxRight, control.getBoundingClientRect().right);
+          }, toolbar.getBoundingClientRect().right);
+          return maxControlRight - hostRight;
+        });
+      })
+      .toBeLessThanOrEqual(0.5);
+  };
+  await assertInlineThreadHeaderHasNoOverflow();
   await expect
     .poll(async () => {
       const panelBox = await threadsPanel.boundingBox();
@@ -127,6 +161,7 @@ test("project ai threads render folder groups and support group drag reorder", a
       );
     })
     .toBeGreaterThan(beforeInputLeft + 20);
+  await assertInlineThreadHeaderHasNoOverflow();
 
   await overviewPane.getByRole("button", { name: "New Group" }).click();
   const groupNameInput = threadsPanel.getByTestId(
