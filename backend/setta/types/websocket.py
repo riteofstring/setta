@@ -15,6 +15,7 @@ from setta.types.agentic import (
     TranscriptionProfileList,
 )
 from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.external_agents import ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
@@ -36,7 +37,6 @@ from setta.types.listener import (
 )
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import SettaLspDiagnosticsPayload
-from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
@@ -244,7 +244,7 @@ class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
 
 
 class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
-    content: ManagedAPIKeysSnapshot
+    content: APIKeys
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
     )

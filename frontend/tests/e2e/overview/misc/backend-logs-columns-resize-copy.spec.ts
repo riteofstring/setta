@@ -9,11 +9,9 @@ test("backend logs pane supports column resize handles and copy feedback", async
 
   await postBackend(page, "/llm/apiKeys", {
     apiKeys: { SETTA_E2E_LOG_KEY: "one" },
-    expectedRevision: 0,
   });
   await postBackend(page, "/llm/apiKeys", {
     apiKeys: { SETTA_E2E_LOG_KEY: "two" },
-    expectedRevision: 1,
   });
 
   const rows = page.getByTestId("backend-log-row");

@@ -36,7 +36,13 @@ def test_auto_auth_allows_origin_in_dev_mode(monkeypatch) -> None:
     origin = constants.C.FRONTEND_ORIGINS[0]
     request = build_request({"origin": origin}, "127.0.0.1")
 
-    assert auth_middleware._should_auto_auth_dev_request(request) is True
+    assert (
+        auth_middleware._should_auto_auth_dev_request(
+            request,
+            session_id="session-1",
+        )
+        is True
+    )
 
 
 def test_auto_auth_allows_referer_in_dev_mode(monkeypatch) -> None:
@@ -44,7 +50,13 @@ def test_auto_auth_allows_referer_in_dev_mode(monkeypatch) -> None:
     origin = constants.C.FRONTEND_ORIGINS[0]
     request = build_request({"referer": f"{origin}/chat"}, "127.0.0.1")
 
-    assert auth_middleware._should_auto_auth_dev_request(request) is True
+    assert (
+        auth_middleware._should_auto_auth_dev_request(
+            request,
+            session_id="session-1",
+        )
+        is True
+    )
 
 
 def test_auto_auth_rejects_non_local_client(monkeypatch) -> None:
@@ -52,7 +64,13 @@ def test_auto_auth_rejects_non_local_client(monkeypatch) -> None:
     origin = constants.C.FRONTEND_ORIGINS[0]
     request = build_request({"origin": origin}, "10.0.0.5")
 
-    assert auth_middleware._should_auto_auth_dev_request(request) is False
+    assert (
+        auth_middleware._should_auto_auth_dev_request(
+            request,
+            session_id="session-1",
+        )
+        is False
+    )
 
 
 def test_auto_auth_rejects_when_not_dev_mode(monkeypatch) -> None:
@@ -60,4 +78,10 @@ def test_auto_auth_rejects_when_not_dev_mode(monkeypatch) -> None:
     origin = constants.C.FRONTEND_ORIGINS[0]
     request = build_request({"origin": origin}, "127.0.0.1")
 
-    assert auth_middleware._should_auto_auth_dev_request(request) is False
+    assert (
+        auth_middleware._should_auto_auth_dev_request(
+            request,
+            session_id="session-1",
+        )
+        is False
+    )
