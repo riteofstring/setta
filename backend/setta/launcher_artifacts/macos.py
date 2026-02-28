@@ -13,6 +13,7 @@ from setta.launcher_artifacts.common import (
 )
 
 MANAGED_ARTIFACT_KEYS = ("macosApp",)
+DEFAULT_MACOS_ICON_FILE_NAME = "Setta.icns"
 
 
 def plan_macos_artifact_paths(*, context: LauncherArtifactContext) -> dict[str, Path]:
@@ -82,8 +83,15 @@ def _copy_optional_icns_icon(
     destination_dir: Path,
 ) -> str | None:
     if source_path is None:
-        return None
-    resolved_source = Path(source_path).expanduser().resolve(strict=False)
+        resolved_source = (
+            Path(__file__).resolve(strict=False).parent
+            / "assets"
+            / DEFAULT_MACOS_ICON_FILE_NAME
+        )
+        if not resolved_source.exists() or not resolved_source.is_file():
+            return None
+    else:
+        resolved_source = Path(source_path).expanduser().resolve(strict=False)
     if not resolved_source.exists() or not resolved_source.is_file():
         raise LauncherArtifactError(f"Icon file does not exist: {resolved_source}")
     if resolved_source.suffix.lower() != ".icns":

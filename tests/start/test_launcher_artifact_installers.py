@@ -37,11 +37,14 @@ def test_install_macos_artifacts_writes_bundle_files(tmp_path: Path) -> None:
     assert "--setta-home" in launcher_script
     assert "/tmp/setta-home" in launcher_script
     assert "CFBundleExecutable" in info_plist
+    assert "CFBundleIconFile" in info_plist
+    assert "Setta.icns" in info_plist
+    assert (app_path / "Contents" / "Resources" / "Setta.icns").exists()
 
 
 def test_install_macos_artifacts_copies_optional_icon(tmp_path: Path) -> None:
     app_path = tmp_path / "Applications" / "Setta.app"
-    icon_path = tmp_path / "Setta.icns"
+    icon_path = tmp_path / "CustomSetta.icns"
     icon_path.write_text("icon", encoding="utf-8")
 
     context = LauncherArtifactContext(
@@ -54,12 +57,13 @@ def test_install_macos_artifacts_copies_optional_icon(tmp_path: Path) -> None:
 
     install_macos_artifacts(context=context)
 
-    copied_icon = app_path / "Contents" / "Resources" / "Setta.icns"
+    copied_icon = app_path / "Contents" / "Resources" / "CustomSetta.icns"
     info_plist = (app_path / "Contents" / "Info.plist").read_text(encoding="utf-8")
 
     assert copied_icon.exists()
+    assert copied_icon.read_text(encoding="utf-8") == "icon"
     assert "CFBundleIconFile" in info_plist
-    assert "Setta.icns" in info_plist
+    assert "CustomSetta.icns" in info_plist
 
 
 def test_install_macos_artifacts_writes_parseable_plist_for_xml_icon_names(
