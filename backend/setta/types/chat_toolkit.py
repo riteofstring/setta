@@ -40,7 +40,6 @@ class GetAllChatMetadataRequest(BaseModel):
 class RunMcpToolsRequest(BaseModel):
     chatId: ID
     sectionId: ID
-    frontendAffinityToken: str | None = None
     toolCalls: list[ToolCall]
 
 
