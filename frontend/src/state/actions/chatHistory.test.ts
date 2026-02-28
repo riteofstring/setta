@@ -5,11 +5,7 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import {
-  buildChatHistoryEntries,
-  buildChatProvenanceByChatId,
-  resolveScopedChatProvenanceForChatId,
-} from "./chatHistory";
+import { buildChatHistoryEntries } from "./chatHistory";
 
 function buildRun({
   chatId,
@@ -20,7 +16,6 @@ function buildRun({
   outputName,
   nameSource,
   sectionId,
-  projectConfigId,
   runType,
   engineConfigId,
   status,
@@ -33,7 +28,6 @@ function buildRun({
   outputName?: string;
   nameSource?: string;
   sectionId?: string;
-  projectConfigId?: string | null;
   runType?: "llm_chat" | "external_agent" | "scriptable_chat";
   engineConfigId?: string | null;
   status?: AgentRunStatusEnum;
@@ -51,7 +45,6 @@ function buildRun({
       branchParentChatId,
       branchFromMessageId,
       sectionId,
-      projectConfigId,
       engineConfigId,
       messages: [
         {
@@ -122,35 +115,6 @@ describe("chatHistory", () => {
     expect(entries[0].nameSource).toBe("external");
   });
 
-  it("strips a leading user prefix from output-provided thread titles", () => {
-    const runs = [
-      buildRun({
-        chatId: "root",
-        messageText: "Root message",
-        outputName: "User: summarize this codebase",
-        nameSource: "llm",
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.label).toBe("summarize this codebase");
-    expect(entries[0]?.nameSource).toBe("llm");
-  });
-
-  it("strips a leading user prefix from fallback thread labels", () => {
-    const runs = [
-      buildRun({
-        chatId: "root",
-        messageText: "User: explain fastapi's use of it in detail",
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.label).toBe("explain fastapi's use of it in");
-  });
-
   it("filters history entries by section id when requested", () => {
     const runs = [
       buildRun({
@@ -194,28 +158,6 @@ describe("chatHistory", () => {
     expect(unscopedEntries[0]?.chatId).toBe("project-chat");
   });
 
-  it("filters history entries to the active project when projectConfigId is provided", () => {
-    const runs = [
-      buildRun({
-        chatId: "project-a-chat",
-        messageText: "Scoped to A",
-        projectConfigId: "project-a",
-      }),
-      buildRun({
-        chatId: "project-b-chat",
-        messageText: "Scoped to B",
-        projectConfigId: "project-b",
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs, {
-      projectConfigId: "project-a",
-    });
-
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.chatId).toBe("project-a-chat");
-  });
-
   it("exposes run metadata for each history entry", () => {
     const runs = [
       buildRun({
@@ -230,48 +172,6 @@ describe("chatHistory", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.runType).toBe("external_agent");
     expect(entries[0]?.engineConfigId).toBe("engine-external");
-  });
-
-  it("uses the latest run status for thread working indicators", () => {
-    const runs = [
-      buildRun({
-        chatId: "chat-status",
-        messageText: "Older running",
-        startedAt: "2024-01-01T00:00:00Z",
-        status: AgentRunStatusEnum.running,
-      }),
-      buildRun({
-        chatId: "chat-status",
-        messageText: "Latest completed",
-        startedAt: "2024-01-02T00:00:00Z",
-        status: AgentRunStatusEnum.completed,
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.waitingForResponse).toBe(false);
-  });
-
-  it("prefers later runs when timestamps tie for waiting indicators", () => {
-    const runs = [
-      buildRun({
-        chatId: "chat-tie",
-        messageText: "Tie running",
-        startedAt: "2024-01-03T00:00:00Z",
-        status: AgentRunStatusEnum.running,
-      }),
-      buildRun({
-        chatId: "chat-tie",
-        messageText: "Tie completed",
-        startedAt: "2024-01-03T00:00:00Z",
-        status: AgentRunStatusEnum.completed,
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.waitingForResponse).toBe(false);
   });
 
   it("filters history entries to the selected run type and engine config", () => {
@@ -307,190 +207,5 @@ describe("chatHistory", () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.chatId).toBe("chat-match");
-  });
-
-  it("keeps mixed-engine history visible when no compatibility filter is applied", () => {
-    const runs = [
-      buildRun({
-        chatId: "chat-selected-engine",
-        messageText: "Selected engine row",
-        projectConfigId: "project-a",
-        runType: "llm_chat",
-        engineConfigId: "engine-a",
-      }),
-      buildRun({
-        chatId: "chat-other-engine",
-        messageText: "Other engine row",
-        projectConfigId: "project-a",
-        runType: "llm_chat",
-        engineConfigId: "engine-b",
-        startedAt: "2024-01-02T00:00:00Z",
-      }),
-      buildRun({
-        chatId: "chat-external",
-        messageText: "External row",
-        projectConfigId: "project-a",
-        runType: "external_agent",
-        engineConfigId: "engine-external",
-        startedAt: "2024-01-03T00:00:00Z",
-      }),
-    ];
-
-    // ProjectChatHistory intentionally uses an unfiltered history feed.
-    const entries = buildChatHistoryEntries(runs, {
-      projectConfigId: "project-a",
-      unscopedOnly: true,
-    });
-
-    const chatIds = entries.map((entry) => entry.chatId);
-    expect(chatIds).toHaveLength(3);
-    expect(chatIds).toEqual(
-      expect.arrayContaining([
-        "chat-selected-engine",
-        "chat-other-engine",
-        "chat-external",
-      ]),
-    );
-  });
-
-  it("includes branch chats in canonical provenance resolution", () => {
-    const runs = [
-      buildRun({ chatId: "root", messageText: "Root message" }),
-      buildRun({
-        chatId: "branch",
-        messageText: "Branch message",
-        branchParentChatId: "root",
-        branchFromMessageId: "msg-root",
-        runType: "external_agent",
-        engineConfigId: "external-engine",
-      }),
-    ];
-
-    const provenanceByChatId = buildChatProvenanceByChatId(runs);
-
-    expect(provenanceByChatId.get("root")).toEqual({
-      runType: "llm_chat",
-      engineConfigId: null,
-    });
-    expect(provenanceByChatId.get("branch")).toEqual({
-      runType: "external_agent",
-      engineConfigId: "external-engine",
-    });
-  });
-
-  it("uses the latest run metadata for canonical provenance", () => {
-    const runs = [
-      buildRun({
-        chatId: "chat-latest",
-        messageText: "Original run",
-        startedAt: "2024-01-01T00:00:00Z",
-        runType: "llm_chat",
-        engineConfigId: "engine-a",
-      }),
-      buildRun({
-        chatId: "chat-latest",
-        messageText: "Newest run",
-        startedAt: "2024-01-02T00:00:00Z",
-        runType: "external_agent",
-        engineConfigId: "engine-b",
-      }),
-    ];
-
-    const provenanceByChatId = buildChatProvenanceByChatId(runs);
-
-    expect(provenanceByChatId.get("chat-latest")).toEqual({
-      runType: "external_agent",
-      engineConfigId: "engine-b",
-    });
-  });
-
-  it("filters provenance to the active project when projectConfigId is provided", () => {
-    const runs = [
-      buildRun({
-        chatId: "chat-project-a",
-        messageText: "A",
-        projectConfigId: "project-a",
-      }),
-      buildRun({
-        chatId: "chat-project-b",
-        messageText: "B",
-        projectConfigId: "project-b",
-      }),
-    ];
-
-    const provenanceByChatId = buildChatProvenanceByChatId(runs, {
-      projectConfigId: "project-b",
-    });
-
-    expect(provenanceByChatId.has("chat-project-a")).toBe(false);
-    expect(provenanceByChatId.get("chat-project-b")).toEqual({
-      runType: "llm_chat",
-      engineConfigId: null,
-    });
-  });
-
-  it("resolves project-scoped provenance for shared chat ids without cross-scope collisions", () => {
-    const runs = [
-      buildRun({
-        chatId: "shared-chat",
-        messageText: "Section variant",
-        projectConfigId: "project-a",
-        sectionId: "section-a",
-        runType: "external_agent",
-        engineConfigId: "engine-external",
-        startedAt: "2026-01-02T00:00:00Z",
-      }),
-      buildRun({
-        chatId: "shared-chat",
-        messageText: "Project variant",
-        projectConfigId: "project-a",
-        runType: "llm_chat",
-        engineConfigId: "engine-llm",
-        startedAt: "2026-01-01T00:00:00Z",
-      }),
-    ];
-
-    const result = resolveScopedChatProvenanceForChatId(runs, {
-      chatId: "shared-chat",
-      projectConfigId: "project-a",
-      unscopedOnly: true,
-    });
-
-    expect(result).toEqual({
-      status: "ready",
-      provenance: {
-        runType: "llm_chat",
-        engineConfigId: "engine-llm",
-      },
-    });
-  });
-
-  it("fails fast when latest scoped provenance is ambiguous", () => {
-    const runs = [
-      buildRun({
-        chatId: "ambiguous-chat",
-        messageText: "Latest A",
-        projectConfigId: "project-a",
-        runType: "llm_chat",
-        engineConfigId: "engine-a",
-        startedAt: "2026-01-03T00:00:00Z",
-      }),
-      buildRun({
-        chatId: "ambiguous-chat",
-        messageText: "Latest B",
-        projectConfigId: "project-a",
-        runType: "external_agent",
-        engineConfigId: "engine-b",
-        startedAt: "2026-01-03T00:00:00Z",
-      }),
-    ];
-
-    const result = resolveScopedChatProvenanceForChatId(runs, {
-      chatId: "ambiguous-chat",
-      projectConfigId: "project-a",
-      unscopedOnly: true,
-    });
-
-    expect(result).toEqual({ status: "ambiguous" });
   });
 });

@@ -415,14 +415,6 @@ def test_load_completion_guard_enabled_reads_backend_toggle(tmp_path) -> None:
     assert enabled is False
 
 
-def test_load_completion_guard_enabled_defaults_to_disabled(tmp_path) -> None:
-    dbe = DBE(tmp_path / "setta_files")
-
-    enabled = load_completion_guard_enabled(dbe)
-
-    assert enabled is False
-
-
 def test_load_completion_guard_enabled_reads_remapped_backend_slice(tmp_path) -> None:
     dbe = DBE(tmp_path / "setta_files")
     dbe.write_json(dbe.settings, SettingsState().model_dump(mode="json"))

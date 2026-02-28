@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import FastAPI
@@ -8,7 +7,6 @@ from fastapi.testclient import TestClient
 from setta.routers.status import router as status_router
 from setta.types.mcp_runtime_status import MCPServerRuntimeStatus
 from setta.types.routes import Route
-from tests.utils.setta_paths import temporary_setta_paths
 
 
 class _FakeMCPClient:
@@ -75,7 +73,6 @@ def test_mcp_runtime_status_route_returns_server_and_external_statuses() -> None
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload.get("llmConfigPath"), str)
-    assert isinstance(payload.get("activeSettaFilesLocation"), str)
     assert payload["servers"] == [
         {
             "serverId": "setta",
@@ -163,35 +160,3 @@ def test_mcp_runtime_status_route_skips_external_runner_when_disabled() -> None:
     assert len(payload["servers"]) == 1
     assert payload["externalServers"] == []
     assert external_runner.calls == []
-
-
-def test_mcp_runtime_status_route_reports_custom_setta_files_location_when_explicit_root(
-    tmp_path: Path,
-) -> None:
-    workspace_root = tmp_path / "workspace"
-    workspace_root.mkdir()
-    setta_files_root = workspace_root / "setta_files_dev"
-    setta_files_root.mkdir()
-
-    app = FastAPI()
-    app.state.setta = SimpleNamespace(
-        deployment_mode=False,
-        mcp_client=_FakeMCPClient([]),
-        external_agent_runner=_FakeExternalRunner([]),
-    )
-    app.include_router(status_router, prefix=Route.PREFIX.value)
-
-    with temporary_setta_paths(
-        workspace_root=workspace_root,
-        setta_files_root=setta_files_root,
-    ):
-        with TestClient(app) as client:
-            response = client.post(
-                f"{Route.PREFIX.value}{Route.GET_MCP_SERVER_RUNTIME_STATUS.value}",
-                json={},
-            )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["activeSettaFilesLocation"] == "custom"
-    assert payload["llmConfigPath"] == str(setta_files_root / "llm_config.json")

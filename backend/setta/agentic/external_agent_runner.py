@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import litellm
 from mcp.types import TextContent
 from pydantic import ValidationError
 
@@ -69,7 +68,6 @@ from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
 from setta.frontend_affinity_token import parse_frontend_affinity_token
-from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -151,15 +149,6 @@ _SUMMARY_EVENT_TYPES = {
 }
 
 
-def _normalize_runtime_env_value(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        return None
-    return normalized
-
-
 @dataclass(frozen=True)
 class ExternalAgentRunState:
     handle: ExternalAgentRunHandle
@@ -223,7 +212,6 @@ class ExternalAgentRunner:
         self._chat_states: dict[ID, ChatSectionState] = {}
         self._tool_call_buffers: dict[ID, dict[str, str]] = {}
         self._tool_call_names: dict[ID, dict[str, str]] = {}
-        self._usage_by_run_id: dict[ID, dict[str, int]] = {}
         self._external_mcp_statuses_by_run_id: dict[
             ID, dict[str, MCPServerRuntimeStatus]
         ] = {}
@@ -343,7 +331,6 @@ class ExternalAgentRunner:
             self._chat_states.pop(run_id, None)
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
-            self._usage_by_run_id.pop(run_id, None)
             self._external_mcp_statuses_by_run_id.pop(run_id, None)
             self._clear_pending_approvals(run_id)
             self._clear_pending_questions(run_id)
@@ -402,10 +389,6 @@ class ExternalAgentRunner:
         handle: ExternalAgentRunHandle | None = None
         current_adapter: ExternalAgentAdapter | None = adapter
         try:
-            self._upsert_external_usage(
-                run.id,
-                self._resolve_external_context_window_usage(context),
-            )
             if context.agentic_context_section_ids:
                 await self._broadcast_ai_follow_update(
                     context.project_config_id,
@@ -423,11 +406,6 @@ class ExternalAgentRunner:
             )
             async for event in current_adapter.stream_events(handle, context):
                 self._capture_external_mcp_statuses_from_raw(
-                    context,
-                    run_id=run.id,
-                    raw_payload=event.raw,
-                )
-                self._capture_external_usage_from_raw(
                     context,
                     run_id=run.id,
                     raw_payload=event.raw,
@@ -948,32 +926,6 @@ class ExternalAgentRunner:
             return raw
         return None
 
-    @classmethod
-    def _resolve_runtime_model(
-        cls,
-        config: ExternalAgentConfig,
-        inputs: dict[str, Any] | None,
-    ) -> str | None:
-        explicit_model = cls._extract_input_string(inputs, "model")
-        if explicit_model:
-            return explicit_model
-        managed = config.settingsManagedBlock
-        if (
-            config.toolType == ExternalAgentToolType.codex
-            and managed is not None
-            and managed.codex is not None
-            and managed.codex.model
-        ):
-            return managed.codex.model
-        if (
-            config.toolType == ExternalAgentToolType.opencode
-            and managed is not None
-            and managed.opencode is not None
-            and managed.opencode.model
-        ):
-            return managed.opencode.model
-        return config.defaultModel
-
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
 
@@ -1019,9 +971,8 @@ class ExternalAgentRunner:
             metadata["externalAgentConfigId"] = str(config.id)
             metadata["toolType"] = config.toolType.value
             metadata["runMode"] = config.runMode.value
-            runtime_model = self._resolve_runtime_model(config, run.inputs)
-            if runtime_model:
-                metadata["model"] = runtime_model
+            if config.defaultModel:
+                metadata["model"] = config.defaultModel
             if config.approvalPolicy:
                 metadata["approvalPolicy"] = config.approvalPolicy
             if config.sandboxPolicy:
@@ -1062,9 +1013,6 @@ class ExternalAgentRunner:
                 metadata["settingsPaths"] = resolved_paths
         if metadata:
             outputs["metadata"] = metadata
-        usage = self._resolve_persisted_external_usage(run, config)
-        if usage is not None:
-            outputs["usage"] = usage
         title_result = build_deterministic_chat_title(state.messages)
         if "nameInputHash" not in outputs:
             outputs["nameInputHash"] = title_result.input_hash
@@ -1087,146 +1035,6 @@ class ExternalAgentRunner:
                     outputs["metadata"] = metadata
         run.outputs = outputs
         save_agent_run(self.dbe, run)
-
-    def _resolve_persisted_external_usage(
-        self,
-        run: AgentRun,
-        config: ExternalAgentConfig | None,
-    ) -> dict[str, int] | None:
-        outputs = run.outputs if isinstance(run.outputs, dict) else None
-        existing_usage = _normalize_external_usage_payload(
-            outputs.get("usage") if isinstance(outputs, dict) else None
-        )
-        tracked_usage = self._usage_by_run_id.get(run.id)
-        merged_usage = self._merge_usage_summary(existing_usage, tracked_usage)
-        context_window_usage = None
-        if config is not None:
-            runtime_model = self._resolve_runtime_model(config, run.inputs)
-            context_window_usage = self._resolve_context_window_usage_from_model(
-                model=runtime_model,
-                provider_hint=self._resolve_external_provider_hint(
-                    config, runtime_model
-                ),
-            )
-        return self._merge_usage_summary(merged_usage, context_window_usage)
-
-    @staticmethod
-    def _extract_usage_int(value: Any) -> int | None:
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, int):
-            return value
-        if isinstance(value, float):
-            if not value.is_integer():
-                return None
-            return int(value)
-        if isinstance(value, str):
-            stripped = value.strip()
-            if stripped == "":
-                return None
-            try:
-                return int(stripped)
-            except ValueError:
-                return None
-        return None
-
-    @classmethod
-    def _resolve_context_window_usage_from_model(
-        cls,
-        *,
-        model: str | None,
-        provider_hint: str | None,
-    ) -> dict[str, int] | None:
-        if model is None:
-            return None
-        normalized_model = model.strip()
-        if normalized_model == "":
-            return None
-        model_info: Any = None
-        if provider_hint:
-            try:
-                model_info = litellm.get_model_info(
-                    normalized_model,
-                    custom_llm_provider=provider_hint,
-                )
-            except Exception:
-                model_info = None
-        if model_info is None:
-            try:
-                model_info = litellm.get_model_info(normalized_model)
-            except Exception:
-                return None
-
-        def _extract_model_info_int(key: str) -> int | None:
-            if isinstance(model_info, dict):
-                return cls._extract_usage_int(model_info.get(key))
-            return cls._extract_usage_int(getattr(model_info, key, None))
-
-        context_window_tokens = _extract_model_info_int("max_input_tokens")
-        if context_window_tokens is None:
-            context_window_tokens = _extract_model_info_int("max_tokens")
-        if context_window_tokens is None or context_window_tokens <= 0:
-            return None
-        return {"contextWindowTokens": context_window_tokens}
-
-    @classmethod
-    def _resolve_external_context_window_usage(
-        cls,
-        context: ExternalAgentRunContext,
-    ) -> dict[str, int] | None:
-        runtime_model = cls._resolve_runtime_model(context.config, context.inputs)
-        provider_hint = cls._resolve_external_provider_hint(
-            context.config, runtime_model
-        )
-        return cls._resolve_context_window_usage_from_model(
-            model=runtime_model,
-            provider_hint=provider_hint,
-        )
-
-    @staticmethod
-    def _resolve_external_provider_hint(
-        config: ExternalAgentConfig,
-        model: str | None,
-    ) -> str | None:
-        if model is not None:
-            normalized_model = model.strip()
-            if normalized_model:
-                provider_prefix, _, _ = normalized_model.partition("/")
-                if provider_prefix and provider_prefix != normalized_model:
-                    return provider_prefix
-        if config.toolType == ExternalAgentToolType.claude_code:
-            return "anthropic"
-        if config.toolType == ExternalAgentToolType.codex:
-            return "openai"
-        return None
-
-    @staticmethod
-    def _merge_usage_summary(
-        current: dict[str, int] | None,
-        incoming: dict[str, int] | None,
-    ) -> dict[str, int] | None:
-        if incoming is None:
-            return current
-        if current is None:
-            return dict(incoming)
-        merged = dict(current)
-        prefer_latest_keys = {"contextUsedTokens"}
-        for key, value in incoming.items():
-            if key in prefer_latest_keys:
-                merged[key] = value
-                continue
-            if key not in merged or value >= merged[key]:
-                merged[key] = value
-        if "promptTokens" not in merged and "inputTokens" in merged:
-            merged["promptTokens"] = merged["inputTokens"]
-        if "completionTokens" not in merged and "outputTokens" in merged:
-            merged["completionTokens"] = merged["outputTokens"]
-        if "totalTokens" not in merged:
-            prompt = merged.get("promptTokens")
-            completion = merged.get("completionTokens")
-            if prompt is not None and completion is not None:
-                merged["totalTokens"] = prompt + completion
-        return merged
 
     def _build_system_prompt(
         self,
@@ -1527,8 +1335,8 @@ class ExternalAgentRunner:
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}
         for key in _BASE_ENV_KEYS:
-            value = _normalize_runtime_env_value(os.environ.get(key))
-            if value is not None:
+            value = os.environ.get(key)
+            if value:
                 env[key] = value
         allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
         plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
@@ -1541,20 +1349,12 @@ class ExternalAgentRunner:
             )
         if not allowed:
             return env
-        managed_api_keys_result = read_managed_api_keys_with_status(self.dbe)
-        if managed_api_keys_result.corrupt:
-            logger.warning(
-                ".env API key metadata is corrupt while building external agent env: %s",
-                managed_api_keys_result.error or "unknown parse error",
-            )
-        managed_api_keys = managed_api_keys_result.api_keys
+        dot_env = self.dbe.read_dot_env()
         for key in allowed:
-            process_value = _normalize_runtime_env_value(os.environ.get(key))
-            if process_value is not None:
-                env[key] = process_value
-            managed_value = _normalize_runtime_env_value(managed_api_keys.get(key))
-            if managed_value is not None:
-                env[key] = managed_value
+            if key in os.environ:
+                env[key] = os.environ[key]
+            if key in dot_env:
+                env[key] = dot_env[key]
         return env
 
     def _cleanup_context(self, context: ExternalAgentRunContext) -> None:
@@ -1664,41 +1464,6 @@ class ExternalAgentRunner:
         )
         self._upsert_external_mcp_statuses(run_id, status_entries)
 
-    def _capture_external_usage_from_raw(
-        self,
-        context: ExternalAgentRunContext,
-        *,
-        run_id: ID,
-        raw_payload: dict[str, Any],
-    ) -> None:
-        usage_payloads = _extract_usage_payloads(raw_payload)
-        merged: dict[str, int] | None = None
-        for usage_payload in usage_payloads:
-            normalized_usage = _normalize_external_usage_payload(usage_payload)
-            if normalized_usage is None:
-                continue
-            merged = self._merge_usage_summary(merged, normalized_usage)
-        if merged is None:
-            return
-        if "contextWindowTokens" not in merged:
-            merged = self._merge_usage_summary(
-                merged,
-                self._resolve_external_context_window_usage(context),
-            )
-        self._upsert_external_usage(run_id, merged)
-
-    def _upsert_external_usage(
-        self,
-        run_id: ID,
-        usage_payload: dict[str, int] | None,
-    ) -> None:
-        if usage_payload is None:
-            return
-        current = self._usage_by_run_id.get(run_id)
-        merged = self._merge_usage_summary(current, usage_payload)
-        if merged is not None:
-            self._usage_by_run_id[run_id] = merged
-
     def _upsert_external_mcp_statuses(
         self,
         run_id: ID,
@@ -1789,6 +1554,8 @@ class ExternalAgentRunner:
         if not isinstance(payload, dict):
             return []
         raw_servers = payload.get("mcpServers")
+        if not isinstance(raw_servers, dict):
+            raw_servers = payload.get("mcp_servers")
         if not isinstance(raw_servers, dict):
             return []
         statuses: list[MCPServerRuntimeStatus] = []
@@ -2473,13 +2240,14 @@ def _extract_status_payloads_from_container(
                 )
                 if len(nested_payloads) > 0:
                     return nested_payloads
-        nested = container.get("mcp_servers")
-        if isinstance(nested, dict | list):
-            return _extract_status_payloads_from_container(
-                nested,
-                is_mcp_container=True,
-                allow_generic_server_containers=allow_generic_server_containers,
-            )
+        for key in ("mcp_servers", "mcpServers"):
+            nested = container.get(key)
+            if isinstance(nested, dict | list):
+                return _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=True,
+                    allow_generic_server_containers=allow_generic_server_containers,
+                )
         if allow_generic_server_containers:
             nested = container.get("servers")
             if isinstance(nested, dict | list):
@@ -2692,149 +2460,6 @@ def _resolve_mcp_status_state_value(
     if normalized in {"disabled"}:
         return MCPServerRuntimeState.disabled
     return None
-
-
-def _extract_usage_int(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        if not value.is_integer():
-            return None
-        return int(value)
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped == "":
-            return None
-        try:
-            return int(stripped)
-        except ValueError:
-            return None
-    return None
-
-
-def _extract_context_used_tokens_from_payload(value: Any) -> int | None:
-    if not isinstance(value, dict):
-        return None
-    for key in ("inputTokens", "promptTokens", "input_tokens", "prompt_tokens"):
-        parsed = _extract_usage_int(value.get(key))
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def _normalize_external_usage_payload(payload: Any) -> dict[str, int] | None:
-    if not isinstance(payload, dict):
-        return None
-    mapping = {
-        "promptTokens": "promptTokens",
-        "completionTokens": "completionTokens",
-        "totalTokens": "totalTokens",
-        "inputTokens": "inputTokens",
-        "cachedInputTokens": "cachedInputTokens",
-        "outputTokens": "outputTokens",
-        "reasoningOutputTokens": "reasoningOutputTokens",
-        "contextWindowTokens": "contextWindowTokens",
-        "contextUsedTokens": "contextUsedTokens",
-        "prompt_tokens": "promptTokens",
-        "completion_tokens": "completionTokens",
-        "total_tokens": "totalTokens",
-        "input_tokens": "inputTokens",
-        "cached_input_tokens": "cachedInputTokens",
-        "output_tokens": "outputTokens",
-        "reasoning_output_tokens": "reasoningOutputTokens",
-        "context_window_tokens": "contextWindowTokens",
-        "context_used_tokens": "contextUsedTokens",
-        "model_context_window": "contextWindowTokens",
-        "modelContextWindow": "contextWindowTokens",
-        "usedTokens": "inputTokens",
-        "windowTokens": "contextWindowTokens",
-    }
-    normalized: dict[str, int] = {}
-    for source_key, target_key in mapping.items():
-        raw_value = payload.get(source_key)
-        parsed = _extract_usage_int(raw_value)
-        if parsed is None:
-            continue
-        normalized[target_key] = parsed
-    if "promptTokens" not in normalized and "inputTokens" in normalized:
-        normalized["promptTokens"] = normalized["inputTokens"]
-    if "completionTokens" not in normalized and "outputTokens" in normalized:
-        normalized["completionTokens"] = normalized["outputTokens"]
-    if "totalTokens" not in normalized:
-        prompt_tokens = normalized.get("promptTokens")
-        completion_tokens = normalized.get("completionTokens")
-        if prompt_tokens is not None and completion_tokens is not None:
-            normalized["totalTokens"] = prompt_tokens + completion_tokens
-    return normalized or None
-
-
-def _extract_usage_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    usage_payloads: list[dict[str, Any]] = []
-
-    def _append_if_dict(value: Any) -> None:
-        if isinstance(value, dict):
-            usage_payloads.append(value)
-
-    def _append_codex_usage_envelope(value: Any) -> None:
-        if not isinstance(value, dict):
-            return
-        _append_if_dict(value.get("usage"))
-        token_usage = value.get("tokenUsage")
-        if isinstance(token_usage, dict):
-            _append_if_dict(token_usage.get("total"))
-            _append_if_dict(token_usage.get("last"))
-            usage_payloads.append(token_usage)
-            context_used_tokens = _extract_context_used_tokens_from_payload(
-                token_usage.get("last")
-            )
-            if context_used_tokens is not None:
-                usage_payloads.append({"contextUsedTokens": context_used_tokens})
-        usage_payloads.append(value)
-
-    _append_if_dict(payload.get("usage"))
-
-    payload_type = payload.get("type")
-    if payload_type == "stream_event":
-        stream_event = payload.get("event")
-        if isinstance(stream_event, dict):
-            _append_if_dict(stream_event.get("usage"))
-            message_payload = stream_event.get("message")
-            if isinstance(message_payload, dict):
-                _append_if_dict(message_payload.get("usage"))
-    if payload_type in {"result", "result_message", "system_message"}:
-        message_payload = payload.get("message")
-        if isinstance(message_payload, dict):
-            _append_if_dict(message_payload.get("usage"))
-            _append_if_dict(message_payload.get("tokenUsage"))
-
-    method = payload.get("method")
-    if isinstance(method, str) and method in {
-        "thread/tokenUsage/updated",
-        "thread/tokenUsage/read",
-    }:
-        _append_codex_usage_envelope(payload.get("params"))
-        _append_codex_usage_envelope(payload.get("result"))
-    if isinstance(method, str) and method == "codex/event/token_count":
-        params_payload = payload.get("params")
-        if isinstance(params_payload, dict):
-            message_payload = params_payload.get("msg")
-            if isinstance(message_payload, dict):
-                info_payload = message_payload.get("info")
-                if isinstance(info_payload, dict):
-                    _append_if_dict(info_payload.get("total_token_usage"))
-                    _append_if_dict(info_payload.get("last_token_usage"))
-                    usage_payloads.append(info_payload)
-                    context_used_tokens = _extract_context_used_tokens_from_payload(
-                        info_payload.get("last_token_usage")
-                    )
-                    if context_used_tokens is not None:
-                        usage_payloads.append(
-                            {"contextUsedTokens": context_used_tokens}
-                        )
-
-    return usage_payloads
 
 
 def _format_question_answers(answers: dict[str, str]) -> str:

@@ -15,9 +15,6 @@ from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import (
-    write_managed_api_keys_with_expected_revision,
-)
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -25,14 +22,6 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
-
-_MANAGED_KEY_NAMES_ENV_VAR = "SETTA_MANAGED_LLM_API_KEY_NAMES"
-
-
-def _build_dbe(tmp: Path) -> DBE:
-    dbe = DBE(tmp / "setta_files")
-    dbe.dot_env = tmp / ".env"
-    return dbe
 
 
 def _restore_env_var(key: str, value: str | None) -> None:
@@ -71,54 +60,9 @@ class TestExternalAgentPreflight:
             envVarWhitelist=env_vars or [],
         )
 
-    def test_env_var_status_reads_process_env(self) -> None:
+    def test_env_var_status_reads_dot_env(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_present = "SETTA_TEST_ENV_PRESENT"
-            key_missing = "SETTA_TEST_ENV_MISSING"
-
-            previous_present = os.environ.pop(key_present, None)
-            previous_missing = os.environ.pop(key_missing, None)
-            try:
-                os.environ[key_present] = "yes"
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="definitely_not_a_codex_executable",
-                    env_vars=[key_present, key_missing],
-                )
-                status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.envVars.present == [key_present]
-                assert status.envVars.missing == [key_missing]
-            finally:
-                _restore_env_var(key_present, previous_present)
-                _restore_env_var(key_missing, previous_missing)
-
-    def test_env_var_status_treats_whitespace_process_values_as_missing(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_name = "SETTA_TEST_ENV_WHITESPACE"
-
-            previous_value = os.environ.pop(key_name, None)
-            try:
-                os.environ[key_name] = "   "
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="definitely_not_a_codex_executable",
-                    env_vars=[key_name],
-                )
-                status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.envVars.present == []
-                assert status.envVars.missing == [key_name]
-            finally:
-                _restore_env_var(key_name, previous_value)
-
-    def test_env_var_status_ignores_dot_env_without_managed_or_process_value(self) -> (
-        None
-    ):
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             key_present = "SETTA_TEST_ENV_PRESENT"
             key_missing = "SETTA_TEST_ENV_MISSING"
 
@@ -133,240 +77,15 @@ class TestExternalAgentPreflight:
                 )
                 status = build_external_agent_preflight_status(dbe, config)
 
-                assert status.envVars.present == []
-                assert status.envVars.missing == [key_missing, key_present]
-            finally:
-                _restore_env_var(key_present, previous_present)
-                _restore_env_var(key_missing, previous_missing)
-
-    def test_env_var_status_reads_managed_api_keys(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_present = "SETTA_TEST_ENV_PRESENT"
-            key_missing = "SETTA_TEST_ENV_MISSING"
-
-            previous_present = os.environ.pop(key_present, None)
-            previous_missing = os.environ.pop(key_missing, None)
-            try:
-                write_result = write_managed_api_keys_with_expected_revision(
-                    dbe,
-                    {key_present: "yes"},
-                    expected_revision=0,
-                )
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="definitely_not_a_codex_executable",
-                    env_vars=[key_present, key_missing],
-                )
-                status = build_external_agent_preflight_status(dbe, config)
-
-                assert write_result.status == "success"
-                assert write_result.revision > 0
                 assert status.envVars.present == [key_present]
                 assert status.envVars.missing == [key_missing]
             finally:
                 _restore_env_var(key_present, previous_present)
                 _restore_env_var(key_missing, previous_missing)
 
-    def test_env_var_status_reports_corrupt_managed_api_key_store(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_missing = "SETTA_TEST_ENV_MISSING"
-            dbe.write_dot_env({_MANAGED_KEY_NAMES_ENV_VAR: "not-json"})
-            config = self._build_config(
-                run_mode=ExternalAgentRunMode.app_server,
-                command_path="definitely_not_a_codex_executable",
-                env_vars=[key_missing],
-            )
-
-            status = build_external_agent_preflight_status(dbe, config)
-
-            assert status.envVars.present == []
-            assert status.envVars.missing == [key_missing]
-            assert any(
-                ".env API key store metadata is corrupt" in issue
-                for issue in status.issues
-            )
-
-    def test_env_var_status_allows_available_preflight_when_process_env_satisfies_requirements_despite_corrupt_store(
-        self,
-    ) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_name = "SETTA_TEST_ENV_PRESENT"
-            dbe.write_dot_env({_MANAGED_KEY_NAMES_ENV_VAR: "not-json"})
-            previous_value = os.environ.pop(key_name, None)
-            try:
-                os.environ[key_name] = "token-present"
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="codex",
-                    env_vars=[key_name],
-                )
-                with mock.patch(
-                    "setta.agentic.external_agent_preflight._check_codex_cli",
-                    return_value=("0.0.0", None),
-                ):
-                    status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.supported
-                assert status.available
-                assert status.envVars.present == [key_name]
-                assert status.envVars.missing == []
-                assert any(
-                    ".env API key store metadata is corrupt" in issue
-                    for issue in status.issues
-                )
-            finally:
-                _restore_env_var(key_name, previous_value)
-
-    def test_env_var_status_marks_unavailable_when_required_env_var_missing_and_managed_store_is_corrupt(
-        self,
-    ) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_name = "SETTA_TEST_ENV_MISSING"
-            dbe.write_dot_env({_MANAGED_KEY_NAMES_ENV_VAR: "not-json"})
-            previous_value = os.environ.pop(key_name, None)
-            try:
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="codex",
-                    env_vars=[key_name],
-                )
-                with mock.patch(
-                    "setta.agentic.external_agent_preflight._check_codex_cli",
-                    return_value=("0.0.0", None),
-                ):
-                    status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.supported
-                assert not status.available
-                assert status.envVars.present == []
-                assert status.envVars.missing == [key_name]
-                assert any(
-                    ".env API key store metadata is corrupt" in issue
-                    for issue in status.issues
-                )
-            finally:
-                _restore_env_var(key_name, previous_value)
-
-    def test_env_var_status_reports_corrupt_managed_api_key_store_malformed_json(
-        self,
-    ) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_missing = "SETTA_TEST_ENV_MISSING"
-            path = dbe.dot_env
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(b"\xff\xfe\xfd")
-            config = self._build_config(
-                run_mode=ExternalAgentRunMode.app_server,
-                command_path="definitely_not_a_codex_executable",
-                env_vars=[key_missing],
-            )
-
-            status = build_external_agent_preflight_status(dbe, config)
-
-            assert status.envVars.present == []
-            assert status.envVars.missing == [key_missing]
-            assert any(
-                ".env API key store metadata is corrupt" in issue
-                for issue in status.issues
-            )
-
-    def test_env_var_status_reports_unavailable_managed_api_key_store(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_missing = "SETTA_TEST_ENV_MISSING"
-            path = dbe.dot_env
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.mkdir()
-            config = self._build_config(
-                run_mode=ExternalAgentRunMode.app_server,
-                command_path="definitely_not_a_codex_executable",
-                env_vars=[key_missing],
-            )
-
-            status = build_external_agent_preflight_status(dbe, config)
-
-            assert status.envVars.present == []
-            assert status.envVars.missing == [key_missing]
-            assert any(
-                ".env API key store is unavailable" in issue
-                for issue in status.issues
-            )
-
-    def test_env_var_status_allows_available_preflight_when_process_env_satisfies_requirements_despite_unavailable_store(
-        self,
-    ) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_name = "SETTA_TEST_ENV_PRESENT"
-            path = dbe.dot_env
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.mkdir()
-            previous_value = os.environ.pop(key_name, None)
-            try:
-                os.environ[key_name] = "token-present"
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="codex",
-                    env_vars=[key_name],
-                )
-                with mock.patch(
-                    "setta.agentic.external_agent_preflight._check_codex_cli",
-                    return_value=("0.0.0", None),
-                ):
-                    status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.supported
-                assert status.available
-                assert status.envVars.present == [key_name]
-                assert status.envVars.missing == []
-                assert any(
-                    ".env API key store is unavailable" in issue
-                    for issue in status.issues
-                )
-            finally:
-                _restore_env_var(key_name, previous_value)
-
-    def test_env_var_status_marks_unavailable_when_required_env_var_missing_and_managed_store_is_unavailable(
-        self,
-    ) -> None:
-        with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
-            key_name = "SETTA_TEST_ENV_MISSING"
-            path = dbe.dot_env
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.mkdir()
-            previous_value = os.environ.pop(key_name, None)
-            try:
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="codex",
-                    env_vars=[key_name],
-                )
-                with mock.patch(
-                    "setta.agentic.external_agent_preflight._check_codex_cli",
-                    return_value=("0.0.0", None),
-                ):
-                    status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.supported
-                assert not status.available
-                assert status.envVars.present == []
-                assert status.envVars.missing == [key_name]
-                assert any(
-                    ".env API key store is unavailable" in issue
-                    for issue in status.issues
-                )
-            finally:
-                _restore_env_var(key_name, previous_value)
-
     def test_server_run_mode_marked_unsupported(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = self._build_config(run_mode=ExternalAgentRunMode.server)
             status = build_external_agent_preflight_status(dbe, config)
 
@@ -377,7 +96,7 @@ class TestExternalAgentPreflight:
 
     def test_opencode_server_run_mode_supported(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = self._build_config(
                 tool_type=ExternalAgentToolType.opencode,
                 run_mode=ExternalAgentRunMode.server,
@@ -391,7 +110,7 @@ class TestExternalAgentPreflight:
 
     def test_missing_codex_cli_reports_issue(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = self._build_config(
                 run_mode=ExternalAgentRunMode.app_server,
                 command_path="definitely_not_a_codex_executable",
@@ -418,7 +137,7 @@ class TestExternalAgentPreflight:
 
     def test_sdk_version_reflects_sidecar_install(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = self._build_config(
                 tool_type=ExternalAgentToolType.opencode,
                 run_mode=ExternalAgentRunMode.sdk,
@@ -484,7 +203,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_supported_with_registered_adapter(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             plugin_adapter = PluginRegisteredExternalAgentAdapter(
                 adapterId="acme-plugin:openhands",
                 pluginId="acme-plugin",
@@ -515,7 +234,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_reports_missing_adapter(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = ExternalAgentConfig(
                 name="Missing plugin adapter",
                 toolType=ExternalAgentToolType.plugin,
@@ -533,7 +252,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_missing_adapter_id_reports_one_primary_issue(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             config = ExternalAgentConfig(
                 name="Missing plugin adapter id",
                 toolType=ExternalAgentToolType.plugin,
@@ -551,7 +270,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_merges_adapter_env_var_whitelist(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             plugin_env_var = "PLUGIN_EXTERNAL_AGENT_TOKEN"
             previous = os.environ.pop(plugin_env_var, None)
             try:
@@ -590,7 +309,7 @@ class TestExternalAgentPreflight:
         if os.name == "nt":
             pytest.skip("Shell script command fixture is not supported on Windows")
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             command_root = tmp / "plugin-adapter-root"
             command_root.mkdir(parents=True, exist_ok=True)
             command_path = command_root / "bin" / "fixture-adapter"
@@ -630,7 +349,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_sdk_preflight_rejects_invalid_command_override(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             plugin_adapter = PluginRegisteredExternalAgentAdapter(
                 adapterId="acme-plugin:bad-command",
                 pluginId="acme-plugin",
@@ -665,7 +384,7 @@ class TestExternalAgentPreflight:
 
     def test_plugin_tool_rejects_relative_command_for_temp_dir_strategy(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             plugin_adapter = PluginRegisteredExternalAgentAdapter(
                 adapterId="acme-plugin:temp-relative",
                 pluginId="acme-plugin",
@@ -702,7 +421,7 @@ class TestExternalAgentPreflight:
         self,
     ) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             command_name = Path(sys.executable).name
             resolved_command = shutil.which(command_name)
             if resolved_command is None:
@@ -745,7 +464,7 @@ class TestExternalAgentPreflight:
         self,
     ) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             plugin_adapter = PluginRegisteredExternalAgentAdapter(
                 adapterId="acme-plugin:trimmed-command",
                 pluginId="acme-plugin",
@@ -778,7 +497,7 @@ class TestExternalAgentPreflight:
         if os.name == "nt":
             pytest.skip("Executable bit semantics differ on Windows.")
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             command_path = tmp / "adapter-command"
             command_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
             command_path.chmod(0o644)
@@ -814,7 +533,7 @@ class TestExternalAgentPreflight:
 
     def test_preflight_cache_prunes_expired_entries(self) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             preflight._PREFLIGHT_CACHE.clear()
             try:
                 stale_config = self._build_config(
@@ -851,7 +570,7 @@ class TestExternalAgentPreflight:
 
     def test_preflight_cache_respects_max_entries(self, monkeypatch) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             preflight._PREFLIGHT_CACHE.clear()
             monkeypatch.setattr(preflight, "_PREFLIGHT_CACHE_MAX_ENTRIES", 2)
             try:
@@ -881,7 +600,7 @@ class TestExternalAgentPreflight:
 
     def test_store_preflight_cache_prunes_once_per_write(self, monkeypatch) -> None:
         with _temp_cwd() as tmp:
-            dbe = _build_dbe(tmp)
+            dbe = DBE(tmp / "setta_files")
             preflight._PREFLIGHT_CACHE.clear()
             try:
                 config = self._build_config(
@@ -904,7 +623,7 @@ class TestExternalAgentPreflight:
                 )
                 preflight._store_preflight_cache(
                     config,
-                    preflight._EnvStatusResult(status=status.envVars),
+                    status.envVars,
                     status,
                     plugin_adapter_fingerprint=None,
                 )

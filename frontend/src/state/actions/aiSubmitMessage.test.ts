@@ -1,16 +1,5 @@
 import { resetProjectStores } from "state/utils";
 import {
-  route_get_agent_runs,
-  route_get_llm_chat,
-  route_get_llm_response,
-} from "utils/generatedEndpoints";
-import {
-  StreamingEventTypeEnum,
-  createAssistantChatMessage,
-  createMessageTextContent,
-  createUserChatMessage,
-} from "utils/generatedTypes";
-import {
   afterAll,
   afterEach,
   beforeAll,
@@ -27,8 +16,6 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_agent_runs: vi.fn(),
-    route_get_llm_chat: vi.fn(),
     route_get_llm_response: vi.fn(),
   };
 });
@@ -37,15 +24,10 @@ vi.mock("state/actions/frontendWebsocketAffinity", () => ({
   waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
 }));
 
-const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
-const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
-const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
-
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
-let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
 
 describe("submitMessage", () => {
@@ -75,7 +57,6 @@ describe("submitMessage", () => {
     const ai = await import("state/actions/ai");
     submitMessage = ai.submitMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
-    receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
@@ -88,30 +69,6 @@ describe("submitMessage", () => {
       },
     });
     vi.clearAllMocks();
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [],
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: {
-          id: "primary",
-          model: "gpt-4o-mini",
-          provider: "openai",
-          base_url: null,
-          api_key_env: null,
-          other_params: null,
-          mcpServerIds: [],
-          temporary: false,
-        },
-        contextUsage: null,
-      },
-    });
   });
 
   afterEach(() => {
@@ -135,7 +92,9 @@ describe("submitMessage", () => {
       },
     });
 
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 400,
       hasResponse: true,
       data: {
@@ -171,7 +130,9 @@ describe("submitMessage", () => {
       },
     });
 
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 503,
       hasResponse: true,
       data: null,
@@ -190,7 +151,9 @@ describe("submitMessage", () => {
   });
 
   it("passes app-generation mode context through to the backend request", async () => {
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -214,8 +177,8 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBeNull();
 
-    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
       {
         appGenerationMode: string | null;
         appGenerationReferenceImageUrl: string | null;
@@ -235,7 +198,9 @@ describe("submitMessage", () => {
     useLocalStorage.setState({
       appSpecStreamingEnabled: true,
     });
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -252,8 +217,8 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBeNull();
 
-    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
       {
         appSpecStreamingEnabled: boolean;
         appGenerationMode: string | null;
@@ -267,7 +232,9 @@ describe("submitMessage", () => {
     useLocalStorage.setState({
       appSpecStreamingEnabled: true,
     });
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -295,8 +262,8 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBeNull();
 
-    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
       {
         permissionMode: string;
         searchEnabled: boolean;
@@ -308,83 +275,10 @@ describe("submitMessage", () => {
     expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 
-  it("refreshes agent runs after successful submit hydration", async () => {
-    const returnedChatId = "chat-submit-provenance-sync";
-    mockedRouteGetLLMResponse.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: returnedChatId,
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: {
-          id: "primary",
-          model: "gpt-4o-mini",
-          provider: "openai",
-          base_url: null,
-          api_key_env: null,
-          other_params: null,
-          mcpServerIds: [],
-          temporary: false,
-        },
-        contextUsage: null,
-      },
-    });
-    mockedRouteGetAgentRuns.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: [
-        {
-          id: "run-provenance-sync",
-          profileId: null,
-          status: "completed",
-          startedAt: "2026-06-10T00:00:00Z",
-          finishedAt: "2026-06-10T00:00:01Z",
-          events: [],
-          inputs: {
-            runType: "llm_chat",
-            chatId: returnedChatId,
-            engineConfigId: "engine-primary",
-            projectConfigId: "project-config-id",
-            messages: [],
-          },
-          outputs: {
-            name: "Synced",
-            nameSource: "llm",
-          },
-          toolCalls: [],
-          cost: null,
-        },
-      ],
-    });
-
-    await expect(
-      submitMessage(
-        null,
-        "Sync provenance after submit.",
-        [],
-        true,
-        "engine-primary",
-        false,
-      ),
-    ).resolves.toBe(returnedChatId);
-
-    await expect.poll(() => mockedRouteGetAgentRuns.mock.calls.length).toBe(1);
-    await expect
-      .poll(() =>
-        useAIStore
-          .getState()
-          .agentRuns.some((run) => run.inputs?.chatId === returnedChatId),
-      )
-      .toBe(true);
-  });
-
   it("includes frontend websocket affinity id in llm requests", async () => {
-    mockedRouteGetLLMResponse.mockResolvedValue({
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -401,201 +295,9 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBeNull();
 
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = route_get_llm_response.mock.calls[0] as [
       { frontendAffinityToken: string },
     ];
     expect(payload.frontendAffinityToken).toBe("frontend-test-id");
-  });
-
-  it("routes optimistic user messages to the selected chat when chatId is provided", async () => {
-    const chatId = "chat-route-selected";
-    const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
-    const submitGate = new Promise<void>((resolve) => {
-      releaseSubmit.resolve = resolve;
-    });
-    mockedRouteGetLLMResponse.mockImplementation(async () => {
-      await submitGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: chatId,
-      };
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: {
-          id: "primary",
-          model: "gpt-4o-mini",
-          provider: "openai",
-          base_url: null,
-          api_key_env: null,
-          other_params: null,
-          mcpServerIds: [],
-          temporary: false,
-        },
-        contextUsage: null,
-      },
-    });
-    useAIStore.setState({
-      chatDetails: {
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          messages: [],
-          waitingForResponse: false,
-        },
-      },
-      pendingChatDetails: null,
-    });
-
-    const submitPromise = submitMessage(
-      chatId,
-      "Route this to the selected chat.",
-      [],
-      true,
-      "engine-primary",
-      false,
-    );
-
-    // Wait until submit has enqueued its optimistic state before releasing the backend response.
-    await expect
-      .poll(() =>
-        useAIStore
-          .getState()
-          .chatDetails[
-            chatId
-          ]?.messages.some((message) => message.role === "user"),
-      )
-      .toBe(true);
-    const optimisticState = useAIStore.getState();
-    expect(optimisticState.pendingChatDetails).toBeNull();
-    releaseSubmit.resolve?.();
-
-    await expect(submitPromise).resolves.toBe(chatId);
-  });
-
-  it("keeps pending draft routing isolated when late chunks arrive for another chat", async () => {
-    const existingChatId = "chat-existing-stream";
-    const returnedChatId = "chat-new-draft";
-    const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
-    const submitGate = new Promise<void>((resolve) => {
-      releaseSubmit.resolve = resolve;
-    });
-    mockedRouteGetLLMResponse.mockImplementation(async () => {
-      await submitGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: returnedChatId,
-      };
-    });
-    mockedRouteGetLLMChat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [],
-        waitingForResponse: false,
-        llmConfig: {
-          id: "primary",
-          model: "gpt-4o-mini",
-          provider: "openai",
-          base_url: null,
-          api_key_env: null,
-          other_params: null,
-          mcpServerIds: [],
-          temporary: false,
-        },
-        contextUsage: null,
-      },
-    });
-    useAIStore.setState({
-      activeChatId: undefined,
-      pendingChatDetails: null,
-      chatDetails: {
-        [existingChatId]: {
-          ...getDefaultChatDetails(),
-          messages: [
-            createUserChatMessage({
-              id: "existing-user-msg",
-              content: [
-                createMessageTextContent({
-                  text: "Write a long poem",
-                }),
-              ],
-              attachments: [],
-            }),
-          ],
-          waitingForResponse: true,
-        },
-      },
-    });
-
-    const submitPromise = submitMessage(
-      null,
-      "Can you run a bunch of read only bash commands?",
-      [],
-      true,
-      "engine-primary",
-      false,
-    );
-
-    // Wait for optimistic pending draft state to be applied.
-    await expect
-      .poll(() => {
-        return (
-          useAIStore
-            .getState()
-            .pendingChatDetails?.messages.some(
-              (message) => message.role === "user",
-            ) ?? false
-        );
-      })
-      .toBe(true);
-
-    // Simulate an in-flight chunk for the old chat while the new draft request is still pending.
-    receiveLLMResponseChunk({
-      chatId: existingChatId,
-      sectionId: null,
-      chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
-        message: createAssistantChatMessage({
-          id: "existing-assistant-msg",
-          content: [createMessageTextContent({ text: "Continuing poem..." })],
-        }),
-      },
-    });
-
-    const stateDuringRace = useAIStore.getState();
-    const pendingUserMessage =
-      stateDuringRace.pendingChatDetails?.messages.find(
-        (message) => message.role === "user",
-      );
-    const pendingUserText =
-      pendingUserMessage?.content
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
-        .join(" ")
-        .trim() ?? "";
-    const existingChatUserTexts =
-      stateDuringRace.chatDetails[existingChatId]?.messages
-        .filter((message) => message.role === "user")
-        .map((message) =>
-          message.content
-            .filter((part) => part.type === "text")
-            .map((part) => part.text)
-            .join(" ")
-            .trim(),
-        ) ?? [];
-    expect(stateDuringRace.activeChatId).toBeUndefined();
-    expect(pendingUserText).toBe(
-      "Can you run a bunch of read only bash commands?",
-    );
-    expect(existingChatUserTexts).not.toContain(pendingUserText);
-
-    releaseSubmit.resolve?.();
-    await expect(submitPromise).resolves.toBe(returnedChatId);
   });
 });

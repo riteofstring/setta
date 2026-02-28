@@ -31,7 +31,6 @@ Managed mode uses the central LLM chat manager:
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
-  - Response includes `alreadyStopped`, plus optional `stoppedRunId` and `stoppedMessageId` for stop-state reconciliation.
 
 ## Composer controls
 

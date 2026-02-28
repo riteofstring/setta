@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from claude_agent_sdk import ResultMessage, SystemMessage
+from claude_agent_sdk import SystemMessage
 from claude_agent_sdk.types import StreamEvent
 
 from setta.agentic.external_adapters.base import (
@@ -593,62 +593,6 @@ class TestClaudeSdkAdapterParser:
         ]
         assert len(system_raw_events) >= 1
         assert any(raw.get("type") == "system_message" for raw in system_raw_events)
-
-    @pytest.mark.asyncio
-    async def test_stream_events_emits_result_message_raw_payload(self) -> None:
-        adapter = ClaudeSdkAdapter()
-        run = AgentRun(id=ID("run-result-message"))
-        context = ExternalAgentRunContext(
-            run=run,
-            config=ExternalAgentConfig(
-                id=ID("config-result-message"),
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            ),
-            profile=None,
-            project_config_id=ID("project-1"),
-            chat_id=ID("chat-1"),
-            section_id=None,
-            inputs={"runType": "external_agent", "allowUnscoped": True},
-            system_prompt="System prompt",
-            working_dir=Path("."),
-            env={},
-        )
-        queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
-        handle = ExternalAgentRunHandle(run_id=run.id, metadata={"queue": queue})
-        await queue.put(
-            (
-                _QUEUE_KIND_MESSAGE,
-                ResultMessage(
-                    subtype="success",
-                    duration_ms=10,
-                    duration_api_ms=10,
-                    is_error=False,
-                    num_turns=1,
-                    session_id="session-1",
-                    usage={"input_tokens": 5, "output_tokens": 2},
-                    result="done",
-                ),
-            )
-        )
-        await queue.put((_QUEUE_KIND_DONE, None))
-
-        events = [event async for event in adapter.stream_events(handle, context)]
-        raw_events = [event.raw for event in events if isinstance(event.raw, dict)]
-        result_events = [
-            raw
-            for raw in raw_events
-            if raw.get("type") == "result_message"
-        ]
-        assert len(result_events) == 1
-        result_payload = result_events[0].get("message")
-        assert isinstance(result_payload, dict)
-        assert result_payload.get("result") == "done"
-        assert result_payload.get("usage") == {
-            "input_tokens": 5,
-            "output_tokens": 2,
-        }
 
 
 class TestClaudeSdkAdapterToolResponse:

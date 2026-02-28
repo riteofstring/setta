@@ -193,9 +193,9 @@ test("assistant reasoning card matches bubble width with compact padding", async
     });
 
     const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const reasoningCard = node
-      .locator('[data-chat-assistant-reasoning-card="true"]')
-      .first();
+    const reasoningCard = node.locator(
+      '[data-chat-assistant-reasoning-card="true"]',
+    );
     const assistantBubble = node.locator('[data-chat-assistant-bubble="true"]');
 
     await expect(reasoningCard).toBeVisible({ timeout: 10000 });
@@ -315,132 +315,6 @@ test("assistant reasoning card matches bubble width with compact padding", async
     expect(
       Math.abs(resizedSizing.cardWidth - resizedSizing.bubbleWidth),
     ).toBeLessThan(1);
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
-test("summary-only reasoning expands only when the summary is truncated", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-
-  try {
-    const { sectionId } = await createChatSection(
-      page,
-      projectContext.projectConfigId,
-      "__pw_reasoning_summary_expand__",
-    );
-    const chatId = `chat-reasoning-summary-${Date.now()}`;
-    await postBackend(page, "/setChatSectionChatId", {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId,
-      chatId,
-    });
-
-    await setChatSectionState(page, {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId,
-      state: {
-        messages: [
-          {
-            id: "msg-reasoning-summary",
-            role: "assistant",
-            content: [
-              {
-                type: "thinking",
-                thinking: "",
-                summary: "Short summary",
-                signature: null,
-              },
-            ],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        inputText: "",
-        waitingForResponse: false,
-        toolCallArguments: {},
-      },
-    });
-
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const trigger = node.locator('[data-chat-thinking-list-trigger="true"]');
-    const expandedSummary = node.locator(
-      '[data-chat-thinking-summary-expanded="true"]',
-    );
-    await expect(trigger).toBeVisible({ timeout: 10000 });
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-list-expandable",
-      "false",
-    );
-    const shortCursor = await trigger.evaluate(
-      (el) => window.getComputedStyle(el).cursor,
-    );
-    expect(shortCursor).toBe("default");
-    await expect(trigger).toBeDisabled();
-    await expect(expandedSummary).toHaveCount(0);
-
-    const initialLayout = await getSectionLayoutFromState(
-      page,
-      projectContext.projectConfigId,
-      sectionId,
-    );
-    await postBackend(page, "/setTopLevelSectionLayout", {
-      projectConfigId: projectContext.projectConfigId,
-      topLevelSections: {
-        [sectionId]: {
-          x: initialLayout.x ?? 0,
-          y: initialLayout.y ?? 0,
-          zIndex: initialLayout.zIndex ?? 0,
-          w: 260,
-          h: initialLayout.height ?? 220,
-        },
-      },
-    });
-
-    const longSummary =
-      "This summary is intentionally very long so it overflows the available title width and requires expansion to read in full.";
-    await setChatSectionState(page, {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId,
-      state: {
-        messages: [
-          {
-            id: "msg-reasoning-summary",
-            role: "assistant",
-            content: [
-              {
-                type: "thinking",
-                thinking: "",
-                summary: longSummary,
-                signature: null,
-              },
-            ],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        inputText: "",
-        waitingForResponse: false,
-        toolCallArguments: {},
-      },
-    });
-
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-list-expandable",
-      "true",
-    );
-    const longCursor = await trigger.evaluate(
-      (el) => window.getComputedStyle(el).cursor,
-    );
-    expect(longCursor).toBe("pointer");
-    await trigger.click();
-    const innerTrigger = node.locator('[data-chat-thinking-trigger="true"]');
-    await expect(innerTrigger).toHaveAttribute("data-chat-thinking-expandable", "true");
-    await innerTrigger.click();
-    await expect(expandedSummary).toContainText(longSummary);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
