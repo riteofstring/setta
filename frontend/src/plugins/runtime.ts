@@ -54,7 +54,7 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app";
+type PluginServerMode = "ide" | "share" | "app" | "launcher";
 
 type PluginSectionProps = {
   sectionId: string;
@@ -89,17 +89,6 @@ type PluginPaneProps = {
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
 };
-
-type PluginSettingRevealHandlerContext = {
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-};
-
-type PluginSettingRevealHandler = (
-  context: PluginSettingRevealHandlerContext,
-) => boolean | Promise<boolean>;
 
 type PluginPaneRenderer = {
   mount: (el: HTMLElement, props: PluginPaneProps) => void;
@@ -194,10 +183,6 @@ type SettaPluginHost = {
   ) => StoreApi<TState>;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
-  registerSettingRevealHandler: (
-    revealKey: string,
-    handler: PluginSettingRevealHandler,
-  ) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
   registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
@@ -309,10 +294,6 @@ const emitListenerEventsCapability = "emitListenerEvents";
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
-const settingRevealHandlersByPluginId = new Map<
-  string,
-  Map<string, PluginSettingRevealHandler>
->();
 const frontendSignatureByPluginId = new Map<string, string>();
 const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
   PluginListEntry,
@@ -759,35 +740,6 @@ function registerPluginCleanup(
   };
 }
 
-function registerPluginSettingRevealHandler(
-  pluginId: string,
-  revealKey: string,
-  handler: PluginSettingRevealHandler,
-): void {
-  let handlersByKey = settingRevealHandlersByPluginId.get(pluginId);
-  if (!handlersByKey) {
-    handlersByKey = new Map<string, PluginSettingRevealHandler>();
-    settingRevealHandlersByPluginId.set(pluginId, handlersByKey);
-  }
-  if (handlersByKey.has(revealKey)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} registered duplicate setting reveal handler ${revealKey}.`,
-    );
-  }
-  handlersByKey.set(revealKey, handler);
-  registerPluginCleanup(pluginId, () => {
-    const currentHandlers = settingRevealHandlersByPluginId.get(pluginId);
-    if (!currentHandlers) {
-      return;
-    }
-    currentHandlers.delete(revealKey);
-    if (currentHandlers.size === 0) {
-      settingRevealHandlersByPluginId.delete(pluginId);
-    }
-  });
-}
-
 function runPluginCleanup(pluginId: string): void {
   const cleanups = cleanupByPluginId.get(pluginId);
   if (!cleanups) {
@@ -813,7 +765,6 @@ function clearPluginRuntimeSideEffects(): void {
   for (const link of styleElementByPluginId.values()) {
     link.remove();
   }
-  settingRevealHandlersByPluginId.clear();
   frontendSignatureByPluginId.clear();
   styleElementByPluginId.clear();
   styleHrefByPluginId.clear();
@@ -1145,29 +1096,6 @@ function registerPluginModule({
       }
       pluginPanes.push(validated);
       registryDelta.panes[plugin.pluginId] = pluginPanes;
-    },
-    registerSettingRevealHandler: (revealKey, handler) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        paneCapability,
-        "registerSettingRevealHandler",
-      );
-      const normalizedRevealKey = requireNonEmptyString(
-        revealKey,
-        `Plugin ${plugin.pluginId} setting reveal handler key must be a non-empty string.`,
-      );
-      if (typeof handler !== "function") {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} setting reveal handler must be a function.`,
-        );
-      }
-      registerPluginSettingRevealHandler(
-        plugin.pluginId,
-        normalizedRevealKey,
-        handler,
-      );
     },
     registerCommand: (definition) => {
       ensureCapability(
@@ -2506,85 +2434,6 @@ export function usePluginPaneTabs(): PluginPaneTabEntry[] {
   return usePluginRuntimeStore((state) => state.sortedPaneTabs);
 }
 
-export async function invokePluginSettingRevealHandler({
-  pluginId,
-  revealKey,
-  settingId,
-  paneId,
-  durationMs,
-  abortSignal,
-}: {
-  pluginId: string;
-  revealKey: string;
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-}): Promise<{ ok: boolean; message: string | null }> {
-  const handlersByKey = settingRevealHandlersByPluginId.get(pluginId);
-  if (!handlersByKey) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} has no setting reveal handlers.`,
-    };
-  }
-  const handler = handlersByKey.get(revealKey);
-  if (!handler) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} has no setting reveal handler for ${revealKey}.`,
-    };
-  }
-  if (abortSignal.aborted) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} was aborted before invocation.`,
-    };
-  }
-  try {
-    const handled = await handler({
-      settingId,
-      paneId,
-      durationMs,
-      abortSignal,
-    });
-    if (abortSignal.aborted) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
-      };
-    }
-    if (handled === true) {
-      return { ok: true, message: null };
-    }
-    if (handled === false) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} did not handle setting reveal ${revealKey}.`,
-      };
-    }
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} returned a non-boolean value.`,
-    };
-  } catch (error) {
-    if (abortSignal.aborted) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
-      };
-    }
-    const message =
-      error instanceof Error && error.message.trim()
-        ? error.message
-        : String(error);
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} failed: ${message}`,
-    };
-  }
-}
-
 export function usePluginCommands(): RegisteredPluginCommand[] {
   return usePluginRuntimeStore((state) => state.sortedCommands);
 }
@@ -2688,7 +2537,6 @@ export const pluginRuntimeTestApi = {
   cloneProjectStateSnapshot,
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
-  registerPluginSettingRevealHandler,
   normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,

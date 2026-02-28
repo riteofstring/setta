@@ -67,7 +67,6 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
-from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -556,11 +555,6 @@ class ExternalAgentRunner:
             inputs, project_state.defaultProjectConfigId, project_state.projectConfigs
         )
         section_id = self._resolve_id_input(inputs, "sectionId")
-        frontend_affinity_token: str | None = None
-        if inputs and "frontendAffinityToken" in inputs:
-            frontend_affinity_token = parse_frontend_affinity_token(
-                inputs["frontendAffinityToken"]
-            )
         allow_unscoped = False
         if inputs and "allowUnscoped" in inputs:
             raw_allow_unscoped = inputs["allowUnscoped"]
@@ -621,7 +615,6 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
-            frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
         )
         system_prompt = self._build_system_prompt(

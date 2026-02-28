@@ -17,7 +17,6 @@ class ToolRunner:
         project_config_id: ID | None = None,
         chat_id: ID | None = None,
         section_id: ID | None = None,
-        frontend_affinity_token: str | None = None,
         strict: bool = False,
     ) -> None:
         self._mcp_client = mcp_client
@@ -26,7 +25,6 @@ class ToolRunner:
         self._project_config_id = project_config_id
         self._chat_id = chat_id
         self._section_id = section_id
-        self._frontend_affinity_token = frontend_affinity_token
         self._strict = strict
 
     async def run(self, tool_calls: list[ToolCall]) -> list[ToolChatMessage]:
@@ -106,12 +104,6 @@ class ToolRunner:
             meta["chatId"] = str(self._chat_id) if self._chat_id is not None else None
             meta["sectionId"] = (
                 str(self._section_id) if self._section_id is not None else None
-            )
-            meta["frontendAffinityToken"] = (
-                self._frontend_affinity_token
-                if isinstance(self._frontend_affinity_token, str)
-                and self._frontend_affinity_token.strip() != ""
-                else None
             )
         return meta or None
 

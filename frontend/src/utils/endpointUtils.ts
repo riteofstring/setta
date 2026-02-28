@@ -1,6 +1,12 @@
-import { useShareSession } from "state/definitions";
+import { useServerMode, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
-import { RouteEnum } from "./generatedTypes";
+import {
+  ENDPOINT_ORIGIN_POLICY,
+  resolveEndpointOriginForMode,
+  type EndpointOriginPolicy,
+} from "./serverModeBoundaryPolicy";
+
+export { ENDPOINT_ORIGIN_POLICY };
 
 export type ResponseDataAndStatus<T> = {
   data: T | undefined;
@@ -43,15 +49,16 @@ export function getErrorDetail(value: unknown): string | null {
   return null;
 }
 
+export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+  return resolveEndpointOriginForMode(address, useServerMode.getState().mode);
+}
+
 function resolveBackendUrl(address: string): string {
-  if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+  const originPolicy = resolveEndpointOrigin(address);
+  if (originPolicy === "backend-origin") {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  if (
-    address === RouteEnum.LAUNCH ||
-    address === RouteEnum.GET_SETTA_HOME_INFO ||
-    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
-  ) {
+  if (originPolicy === "launcher") {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;
@@ -97,7 +104,7 @@ async function parseBinaryResponse(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, string | number | boolean>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): string {
   if (!addressParams) return address;
 
@@ -109,11 +116,47 @@ export function replaceAddressParams(
   return output;
 }
 
+function buildAddressWithParams(
+  address: string,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
+): string {
+  if (!addressParams) {
+    return address;
+  }
+
+  const pathParamMatches = Array.from(address.matchAll(/\{([^}]+)\}/g));
+  const pathParamKeys = new Set(pathParamMatches.map((match) => match[1]));
+  const pathParams: Record<
+    string,
+    string | number | boolean | null | undefined
+  > = {};
+  const queryParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(addressParams)) {
+    if (pathParamKeys.has(key)) {
+      pathParams[key] = value;
+      continue;
+    }
+    if (value === null || value === undefined) {
+      continue;
+    }
+    queryParams.append(key, String(value));
+  }
+
+  const pathAddress = replaceAddressParams(address, pathParams);
+  const encodedQuery = queryParams.toString();
+  if (encodedQuery.length === 0) {
+    return pathAddress;
+  }
+  const joiner = pathAddress.includes("?") ? "&" : "?";
+  return `${pathAddress}${joiner}${encodedQuery}`;
+}
+
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, string | number | boolean>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = replaceAddressParams(address, addressParams);
+  const fullAddress = buildAddressWithParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -133,9 +176,9 @@ export async function get<T>(
 
 export async function getBinary(
   address: string,
-  addressParams?: Record<string, string | number | boolean>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): Promise<ResponseDataAndStatus<Uint8Array>> {
-  const fullAddress = replaceAddressParams(address, addressParams);
+  const fullAddress = buildAddressWithParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -157,9 +200,9 @@ export async function getBinary(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
-  addressParams?: Record<string, string | number | boolean>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = replaceAddressParams(address, addressParams);
+  const fullAddress = buildAddressWithParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const isFormData = body instanceof FormData;

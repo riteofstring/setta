@@ -51,6 +51,8 @@ class RemoteConnectResult:
     runtime_root: str | None
     setta_home: str | None
     profile: str | None
+    launcher_origin: str | None
+    launcher_origin_proof: str | None
 
 
 class SshTunnelMetadata(BaseModel):
@@ -91,6 +93,7 @@ def connect_remote_workspace_session(
     ssh_args: str | None = None,
     remote_cmd: str | None = None,
     local_port: int | None = None,
+    launcher_origin: str | None = None,
     timeout_seconds: float = 30.0,
 ) -> RemoteConnectResult:
     if not ssh_target or not ssh_target.strip():
@@ -145,6 +148,7 @@ def connect_remote_workspace_session(
         setta_command,
         setta_files_args,
         ssh_prefix=ssh_prefix,
+        server_mode="ide",
     )
     started_new = False
     start_timed_out = False
@@ -181,6 +185,7 @@ def connect_remote_workspace_session(
                 setta_files_location=trimmed_location,
                 setta_files_root=trimmed_setta_files_root,
                 runtime_root=runtime_root,
+                server_mode="ide",
             )
         except LaunchError as exc:
             if start_timed_out and exc.code == "RemoteLaunchTimeout":
@@ -202,6 +207,7 @@ def connect_remote_workspace_session(
         setta_files_args,
         session_id=session.id,
         ssh_prefix=ssh_prefix,
+        launcher_origin=launcher_origin,
     )
     remote_bootstrap_url = connect_info.get("bootstrapUrlFragment")
     if not isinstance(remote_bootstrap_url, str) or not remote_bootstrap_url:
@@ -236,6 +242,24 @@ def connect_remote_workspace_session(
         connect_info, key="settaHome"
     )
     remote_profile = _parse_optional_connect_info_field(connect_info, key="profile")
+    remote_launcher_origin = _parse_optional_connect_info_field(
+        connect_info, key="launcherOrigin"
+    )
+    remote_launcher_origin_proof = _parse_optional_connect_info_field(
+        connect_info, key="launcherOriginProof"
+    )
+    if launcher_origin is not None:
+        if remote_launcher_origin != launcher_origin:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info launcherOrigin did not match requested launcher origin. "
+                f"requested={launcher_origin!r}, remote={remote_launcher_origin!r}",
+            )
+        if remote_launcher_origin_proof is None:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info did not include launcherOriginProof.",
+            )
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -265,6 +289,8 @@ def connect_remote_workspace_session(
         runtime_root=remote_runtime_root,
         setta_home=remote_setta_home,
         profile=remote_profile,
+        launcher_origin=remote_launcher_origin,
+        launcher_origin_proof=remote_launcher_origin_proof,
     )
 
 

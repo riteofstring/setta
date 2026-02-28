@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 import litellm
-from fastapi import Depends, status
+from fastapi import status
 from fastapi.responses import JSONResponse, StreamingResponse
 from litellm.types.utils import ModelResponseStream
 from pydantic import BaseModel, Field
@@ -15,12 +15,12 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_NOTES_CHARS,
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
-from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.setta_api_router import SettaFullRuntimeAPIRouter
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.routes import Route
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaFullRuntimeAPIRouter()
 logger = logging.getLogger(__name__)
 _MAX_STREAM_REMAINDER_CHARS = 256_000
 _MAX_CONTEXT_SUMMARY_CHARS = 100_000
