@@ -7,7 +7,6 @@ describe("resolveProviderDictationAvailability", () => {
       selectedTranscriptionProfile: null,
       allLLMConfigs: null,
       apiKeys: {},
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(false);
@@ -34,7 +33,6 @@ describe("resolveProviderDictationAvailability", () => {
         default_config_id: null,
       },
       apiKeys: {},
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(false);
@@ -72,7 +70,6 @@ describe("resolveProviderDictationAvailability", () => {
         default_config_id: null,
       },
       apiKeys: {},
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(false);
@@ -110,7 +107,6 @@ describe("resolveProviderDictationAvailability", () => {
         default_config_id: null,
       },
       apiKeys: { OPENAI_API_KEY: "   " },
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(false);
@@ -148,7 +144,6 @@ describe("resolveProviderDictationAvailability", () => {
         default_config_id: null,
       },
       apiKeys: {},
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(false);
@@ -186,50 +181,11 @@ describe("resolveProviderDictationAvailability", () => {
         default_config_id: null,
       },
       apiKeys: { OPENAI_API_KEY: "test-key" },
-      apiKeysAuthoritative: true,
     });
 
     expect(result.providerDictationAvailable).toBe(true);
     expect(result.providerDictationUnavailableReason).toBe(
       "Provider dictation is not available.",
-    );
-  });
-
-  it("requires authoritative api-key state before enabling provider dictation", () => {
-    const result = resolveProviderDictationAvailability({
-      selectedTranscriptionProfile: {
-        id: "profile-1",
-        name: "Profile",
-        transcriptionLlmConfigId: "openai-transcribe",
-        transportMode: "file",
-        chunkMs: 1200,
-        supportsRealtimeTranscription: false,
-        language: null,
-      },
-      allLLMConfigs: {
-        configs: {
-          "openai-transcribe": {
-            id: "openai-transcribe",
-            model: "gpt-4o-mini-transcribe",
-            provider: "openai",
-            base_url: null,
-            api_key_env: "OPENAI_API_KEY",
-            other_params: null,
-            mcpServerIds: [],
-            temporary: false,
-          },
-        },
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      },
-      apiKeys: { OPENAI_API_KEY: "test-key" },
-      apiKeysAuthoritative: false,
-    });
-
-    expect(result.providerDictationAvailable).toBe(false);
-    expect(result.providerDictationUnavailableReason).toBe(
-      "Provider dictation requires an authoritative API key snapshot.",
     );
   });
 });

@@ -1,13 +1,9 @@
 """Helpers for persisting the LLM configuration file."""
 
 import json
-from datetime import UTC, datetime
 from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
-from setta.mcp.codex_config import (
-    load_codex_mcp_servers_from_config as load_codex_mcp_servers_from_user_config,
-)
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
@@ -18,32 +14,22 @@ from setta.utils.network import format_host_for_url
 
 def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
-    raw_is_empty_payload = not raw or raw == {"configs": {}, "default_config_id": None}
-    seeded_from_example: AllLLMConfigs | None = None
-    if raw_is_empty_payload:
+    if not raw or raw == {"configs": {}, "default_config_id": None}:
         example = dbe.read_llm_config_example()
         if example:
             config = AllLLMConfigs.model_validate(example)
             config = _ensure_setta_mcp_server_url(config)
             if allow_write:
                 save_llm_config(config, dbe)
-            seeded_from_example = config
-    if seeded_from_example is not None:
-        config = seeded_from_example
-    elif raw:
-        config = AllLLMConfigs.model_validate(raw)
-    else:
+            return config
+    if not raw:
         config = _build_default_llm_config()
         config = _ensure_setta_mcp_server_url(config)
         if allow_write:
             save_llm_config(config, dbe)
-
-    config = _ensure_setta_mcp_server_url(config)
-    return _bootstrap_codex_mcp_servers_if_needed(
-        config,
-        dbe,
-        allow_write=allow_write,
-    )
+        return config
+    config = AllLLMConfigs.model_validate(raw)
+    return _ensure_setta_mcp_server_url(config)
 
 
 def save_llm_config(
@@ -80,7 +66,6 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
         mcpServers=config.mcpServers,
         defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=default_config_id,
-        codexMcpImportedAt=config.codexMcpImportedAt,
     )
 
 
@@ -111,49 +96,6 @@ def _ensure_setta_mcp_server_url(config: AllLLMConfigs) -> AllLLMConfigs:
     return config
 
 
-def _bootstrap_codex_mcp_servers_if_needed(
-    config: AllLLMConfigs,
-    dbe: DBE,
-    *,
-    allow_write: bool,
-) -> AllLLMConfigs:
-    if config.codexMcpImportedAt:
-        return config
-    has_non_setta_servers = _has_non_setta_mcp_servers(config)
-    merged_servers = dict(config.mcpServers)
-    if not has_non_setta_servers:
-        imported_servers = _load_codex_mcp_servers_from_config()
-        for server_id, server_config in imported_servers.items():
-            if server_id in merged_servers:
-                continue
-            merged_servers[server_id] = server_config
-    has_non_setta_servers_after_bootstrap = any(
-        server_id != SETTA_MCP_SERVER_ID for server_id in merged_servers.keys()
-    )
-    if not has_non_setta_servers_after_bootstrap:
-        return config
-    updated = config.model_copy(
-        update={
-            "mcpServers": merged_servers,
-            "codexMcpImportedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        }
-    )
-    if allow_write:
-        save_llm_config(updated, dbe)
-    return updated
-
-
-def _has_non_setta_mcp_servers(config: AllLLMConfigs) -> bool:
-    for server_id in config.mcpServers.keys():
-        if server_id != SETTA_MCP_SERVER_ID:
-            return True
-    return False
-
-
-def _load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
-    return load_codex_mcp_servers_from_user_config()
-
-
 def merge_chat_llm_configs(
     config: AllLLMConfigs,
     chat_metadata: Iterable[ChatMetadata],
@@ -180,7 +122,6 @@ def merge_chat_llm_configs(
         mcpServers=config.mcpServers,
         defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=config.default_config_id,
-        codexMcpImportedAt=config.codexMcpImportedAt,
     )
 
 
