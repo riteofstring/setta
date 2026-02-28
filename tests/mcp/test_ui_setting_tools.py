@@ -2838,7 +2838,7 @@ async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_ori
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_fails_when_share_scope_is_missing_affinity_token() -> (
+async def test_reveal_ui_setting_fails_when_share_scope_is_ambiguous_without_affinity() -> (
     None
 ):
     async with (
@@ -2874,10 +2874,80 @@ async def test_reveal_ui_setting_fails_when_share_scope_is_missing_affinity_toke
         assert result.statuses[0].status == "failed"
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
-        assert "share scope requires a frontend affinity token" in (
-            result.statuses[0].error.message
-        )
+        assert "multiple frontends are connected" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_share_scope_succeeds_without_affinity_when_target_is_deterministic() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = None
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": "share-session-single-target",
+            },
+            resolved_share_session_id="share-session-single-target",
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-a"
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_share_scope_reports_no_frontend_without_affinity() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.reveal_target_websocket_id = None
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": "share-session-no-target",
+            },
+            resolved_share_session_id="share-session-no-target",
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "No connected frontend is available" in result.statuses[0].error.message
 
 
 @pytest.mark.asyncio
@@ -5954,6 +6024,7 @@ async def test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contribu
         )
         known_invalid_setting_id = f"plugin::{plugin_id}::enabled"
         unknown_setting_id = f"plugin::{plugin_id}::unknown_setting"
+        unknown_plugin_setting_id = "plugin::totally-missing-plugin::enabled"
 
         # Known-invalid contributions should keep plugin_unavailable diagnostics.
         known_invalid_get_result = await get_ui_setting_value(
@@ -5981,6 +6052,34 @@ async def test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contribu
         )
         assert unknown_set_result.error is not None
         assert unknown_set_result.error.code == "setting_not_found"
+
+        unknown_plugin_get_result = await get_ui_setting_value(
+            settingId=unknown_plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unknown_plugin_get_result.error is not None
+        assert unknown_plugin_get_result.error.code == "setting_not_found"
+
+        unknown_plugin_set_result = await set_ui_setting_value(
+            settingId=unknown_plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unknown_plugin_set_result.error is not None
+        assert unknown_plugin_set_result.error.code == "setting_not_found"
+
+        unknown_plugin_reveal_result = await reveal_ui_setting(
+            settingId=unknown_plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unknown_plugin_reveal_result.statuses[0].error is not None
+        assert (
+            unknown_plugin_reveal_result.statuses[0].error.code
+            == "setting_not_found"
+        )
 
 
 @pytest.mark.asyncio

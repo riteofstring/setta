@@ -67,6 +67,7 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
+from setta.frontend_websocket_id import parse_frontend_websocket_id
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -557,13 +558,9 @@ class ExternalAgentRunner:
         section_id = self._resolve_id_input(inputs, "sectionId")
         frontend_websocket_id: str | None = None
         if inputs and "frontendWebsocketId" in inputs:
-            raw_frontend_websocket_id = inputs["frontendWebsocketId"]
-            if raw_frontend_websocket_id is not None:
-                if not isinstance(raw_frontend_websocket_id, str):
-                    raise TypeError("frontendWebsocketId must be a string")
-                normalized_frontend_websocket_id = raw_frontend_websocket_id.strip()
-                if normalized_frontend_websocket_id:
-                    frontend_websocket_id = normalized_frontend_websocket_id
+            frontend_websocket_id = parse_frontend_websocket_id(
+                inputs["frontendWebsocketId"]
+            )
         allow_unscoped = False
         if inputs and "allowUnscoped" in inputs:
             raw_allow_unscoped = inputs["allowUnscoped"]

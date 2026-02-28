@@ -300,9 +300,7 @@ def test_resolve_section_id_matrix(
     ),
     [
         ("frontend-agentic", "frontend-meta", "frontend-agentic"),
-        ("   ", "frontend-meta", "frontend-meta"),
         (None, "frontend-meta", "frontend-meta"),
-        (None, "\t", None),
         (None, None, None),
     ],
 )
@@ -311,7 +309,7 @@ def test_resolve_frontend_websocket_id_matrix(
     meta_frontend_websocket_id: str | None,
     expected_frontend_websocket_id: str | None,
 ) -> None:
-    """Reveal routing affinity must prefer agentic context and normalize empties."""
+    """Reveal routing affinity must prefer agentic context when both are valid."""
 
     request_meta: dict[str, object] = {}
     if meta_frontend_websocket_id is not None:
@@ -340,11 +338,43 @@ def test_resolve_frontend_websocket_id_matrix(
     (
         "agentic_frontend_websocket_id",
         "meta_frontend_websocket_id",
+    ),
+    [
+        ("   ", "frontend-meta"),
+        (None, "\t"),
+        (None, 123),
+    ],
+)
+def test_resolve_frontend_websocket_id_rejects_malformed_values(
+    agentic_frontend_websocket_id: str | None,
+    meta_frontend_websocket_id: object | None,
+) -> None:
+    request_meta: dict[str, object] = {}
+    if meta_frontend_websocket_id is not None:
+        request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    ctx = _build_ctx(
+        request_meta=request_meta,
+        agentic_context=_build_agentic_context(
+            project_config_id="project-agentic",
+            frontend_websocket_id=agentic_frontend_websocket_id,
+        ),
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="frontendWebsocketId must be a non-empty string when provided.",
+    ):
+        resolve_frontend_websocket_id_from_ctx(ctx)
+
+
+@pytest.mark.parametrize(
+    (
+        "agentic_frontend_websocket_id",
+        "meta_frontend_websocket_id",
         "expected_frontend_websocket_id",
     ),
     [
         ("frontend-agentic", "frontend-meta", "frontend-agentic"),
-        ("   ", "frontend-meta", None),
         (None, "frontend-meta", None),
     ],
 )
@@ -377,6 +407,36 @@ def test_resolve_frontend_websocket_id_uses_agentic_affinity_only_in_share_scope
     )
 
     assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
+
+
+@pytest.mark.parametrize(
+    ("agentic_frontend_websocket_id", "meta_frontend_websocket_id"),
+    [
+        ("   ", "frontend-meta"),
+        (None, "   "),
+        (None, 456),
+    ],
+)
+def test_resolve_frontend_websocket_id_rejects_malformed_values_in_share_scope(
+    agentic_frontend_websocket_id: str | None,
+    meta_frontend_websocket_id: object,
+) -> None:
+    request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
+    request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    ctx = _build_ctx(
+        request_meta=request_meta,
+        agentic_context=_build_agentic_context(
+            project_config_id="project-agentic",
+            frontend_websocket_id=agentic_frontend_websocket_id,
+        ),
+        share_session_resolver=lambda _ctx: "share-resolved",
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError,
+        match="frontendWebsocketId must be a non-empty string when provided.",
+    ):
+        resolve_frontend_websocket_id_from_ctx(ctx)
 
 
 @pytest.mark.parametrize(

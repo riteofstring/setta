@@ -1,5 +1,6 @@
 import pytest
 from fastapi import FastAPI
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 from mcp.types import CallToolResult, RequestParams
@@ -204,6 +205,27 @@ def _build_context_without_agentic_metadata(
     return Context(fastmcp=mcp_server, request_context=request_context)
 
 
+def _build_context_with_raw_meta(
+    *,
+    mcp_server: SettaFastMCP,
+    meta: dict[str, object],
+) -> Context:
+    class _RawMeta:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+
+        def model_dump(self) -> dict[str, object]:
+            return dict(self._payload)
+
+    request_context = RequestContext(
+        request_id=1,
+        meta=_RawMeta(meta),
+        session=object(),
+        lifespan_context=object(),
+    )
+    return Context(fastmcp=mcp_server, request_context=request_context)
+
+
 @pytest.mark.asyncio
 async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path) -> None:
     dbe = DBE(tmp_path)
@@ -232,7 +254,15 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -291,7 +321,15 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_pa
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -353,7 +391,15 @@ async def test_get_latest_project_state_summary_allows_temporary_agentic_context
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -411,7 +457,15 @@ async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> N
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -464,7 +518,15 @@ async def test_mcp_blocks_tool_calls_when_section_id_missing(tmp_path) -> None:
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -524,7 +586,15 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,
@@ -569,6 +639,211 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_set_agentic_context_rejects_blank_frontend_websocket_id(tmp_path) -> (
+    None
+):
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+    tmp_section_id = tmp_map[chat_section_id]
+    tmp_chat_id = tmp_map[ID("chat-1")]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    session = type("_Session", (), {})()
+    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    init_tool = mcp_server.get_tool("set_agentic_context")
+    assert init_tool is not None
+
+    with pytest.raises(
+        ToolError,
+        match="frontendWebsocketId must be a non-empty string when provided.",
+    ):
+        await init_tool.run(
+            {
+                "projectConfigId": str(tmp_project_id),
+                "chatId": str(tmp_chat_id),
+                "sectionId": str(tmp_section_id),
+                "frontendWebsocketId": "   ",
+            },
+            context=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resolve_agentic_context_rejects_non_string_frontend_websocket_id_meta(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+    tmp_section_id = tmp_map[chat_section_id]
+    tmp_chat_id = tmp_map[ID("chat-1")]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_raw_meta(
+        mcp_server=mcp_server,
+        meta={
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_chat_id),
+            "sectionId": str(tmp_section_id),
+            "frontendWebsocketId": 123,
+        },
+    )
+    with pytest.raises(
+        TypeError,
+        match="frontendWebsocketId must be a non-empty string when provided.",
+    ):
+        mcp_server._resolve_agentic_context(ctx)
+
+
+@pytest.mark.asyncio
+async def test_resolve_agentic_context_rejects_blank_frontend_websocket_id_meta(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+    tmp_section_id = tmp_map[chat_section_id]
+    tmp_chat_id = tmp_map[ID("chat-1")]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_raw_meta(
+        mcp_server=mcp_server,
+        meta={
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_chat_id),
+            "sectionId": str(tmp_section_id),
+            "frontendWebsocketId": "   ",
+        },
+    )
+    with pytest.raises(
+        ValueError,
+        match="frontendWebsocketId must be a non-empty string when provided.",
+    ):
+        mcp_server._resolve_agentic_context(ctx)
+
+
+@pytest.mark.asyncio
 async def test_report_completion_status_allowed_in_scoped_chat_context(tmp_path) -> None:
     dbe = DBE(tmp_path)
     (
@@ -595,7 +870,15 @@ async def test_report_completion_status_allowed_in_scoped_chat_context(tmp_path)
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "deployment_mode": False,
+        },
+    )()
     app = FastAPI()
     mcp_server = SettaFastMCP(
         app,

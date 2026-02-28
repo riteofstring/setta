@@ -58,6 +58,7 @@ from setta.agentic.agentic_scope import (
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.database.db_objs import DBE
+from setta.frontend_websocket_id import parse_frontend_websocket_id
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
@@ -783,14 +784,7 @@ class SettaFastMCP(FastMCP):
             return self.temporary_to_canonical.get(value, value)
 
         def _parse_frontend_websocket_id(value: Any) -> str | None:
-            if not isinstance(value, str):
-                return None
-            normalized = value.strip()
-            if normalized == "":
-                raise TypeError(
-                    "frontendWebsocketId must be a non-empty string when provided."
-                )
-            return normalized
+            return parse_frontend_websocket_id(value)
 
         meta = ctx.request_context.meta
         if meta is not None:

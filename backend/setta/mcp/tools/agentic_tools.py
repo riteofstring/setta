@@ -9,6 +9,7 @@ from setta.agentic.completion_report import (
     build_completion_status_report,
 )
 from setta.agentic.store import load_agent_profiles
+from setta.frontend_websocket_id import parse_frontend_websocket_id
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
@@ -44,18 +45,17 @@ def set_agentic_context(
         raise InvalidToolArgumentsError(
             "allowUnscoped requires sectionId to be omitted."
         )
+    try:
+        frontend_websocket_id = parse_frontend_websocket_id(frontendWebsocketId)
+    except (TypeError, ValueError) as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
     ctx.fastmcp.set_agentic_context_for_session(
         ctx,
         AgenticContext(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
-            frontend_websocket_id=(
-                frontendWebsocketId.strip()
-                if isinstance(frontendWebsocketId, str)
-                and frontendWebsocketId.strip() != ""
-                else None
-            ),
+            frontend_websocket_id=frontend_websocket_id,
             allow_unscoped=allowUnscoped,
         ),
     )

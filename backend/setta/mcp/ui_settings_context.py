@@ -5,6 +5,7 @@ from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.agentic.agentic_scope import AgenticContext
+from setta.frontend_websocket_id import parse_frontend_websocket_id
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.types.id import ID
 
@@ -29,6 +30,17 @@ def _resolve_agentic_context(ctx: Context) -> AgenticContext | None:
         return resolve_agentic_context(ctx)
     except ValueError:
         return None
+
+
+def _parse_frontend_websocket_id_from_meta(
+    meta: dict[str, Any],
+) -> str | None:
+    if "frontendWebsocketId" not in meta:
+        return None
+    try:
+        return parse_frontend_websocket_id(meta.get("frontendWebsocketId"))
+    except (TypeError, ValueError) as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
 
 
 @dataclass(frozen=True)
@@ -172,22 +184,19 @@ def resolve_frontend_websocket_affinity_from_ctx(
 ) -> FrontendWebsocketAffinityResolution:
     share_session_id = resolve_share_session_id_from_ctx(ctx)
     agentic_context = _resolve_agentic_context(ctx)
+    meta = resolve_request_meta(ctx)
+    meta_affinity_token = _parse_frontend_websocket_id_from_meta(meta)
     affinity_token: str | None = None
     if agentic_context is not None:
-        affinity_token = _normalize_non_empty_string(
-            agentic_context.frontend_websocket_id
-        )
-    if affinity_token is None and share_session_id is None:
-        meta = resolve_request_meta(ctx)
-        affinity_token = _normalize_non_empty_string(meta.get("frontendWebsocketId"))
-    if affinity_token is None:
-        if share_session_id is not None:
-            return FrontendWebsocketAffinityResolution(
-                frontend_websocket_id=None,
-                error_message=(
-                    "Reveal routing in share scope requires a frontend affinity token."
-                ),
+        try:
+            affinity_token = parse_frontend_websocket_id(
+                agentic_context.frontend_websocket_id
             )
+        except (TypeError, ValueError) as exc:
+            raise InvalidToolArgumentsError(str(exc)) from exc
+    if affinity_token is None and share_session_id is None:
+        affinity_token = meta_affinity_token
+    if affinity_token is None:
         return FrontendWebsocketAffinityResolution(frontend_websocket_id=None)
     fastmcp = getattr(ctx, "fastmcp", None)
     if fastmcp is None:

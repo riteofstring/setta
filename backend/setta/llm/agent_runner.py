@@ -57,6 +57,7 @@ from setta.agentic.store import (
 )
 from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
+from setta.frontend_websocket_id import parse_frontend_websocket_id
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import (
@@ -886,13 +887,9 @@ class AgentRunner:
             raise ValueError("allowUnscoped requires sectionId to be omitted.")
         frontend_websocket_id: str | None = None
         if inputs and "frontendWebsocketId" in inputs:
-            raw_frontend_websocket_id = inputs["frontendWebsocketId"]
-            if raw_frontend_websocket_id is not None:
-                if not isinstance(raw_frontend_websocket_id, str):
-                    raise TypeError("frontendWebsocketId must be a string")
-                normalized_frontend_websocket_id = raw_frontend_websocket_id.strip()
-                if normalized_frontend_websocket_id:
-                    frontend_websocket_id = normalized_frontend_websocket_id
+            frontend_websocket_id = parse_frontend_websocket_id(
+                inputs["frontendWebsocketId"]
+            )
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]

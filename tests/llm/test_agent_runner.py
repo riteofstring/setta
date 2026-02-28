@@ -1076,6 +1076,11 @@ class TestAgentRunner:
                     profile,
                     inputs={"frontendWebsocketId": 123, "allowUnscoped": True},
                 )
+            with pytest.raises(ValueError):
+                runner._build_context(
+                    profile,
+                    inputs={"frontendWebsocketId": "   ", "allowUnscoped": True},
+                )
 
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:

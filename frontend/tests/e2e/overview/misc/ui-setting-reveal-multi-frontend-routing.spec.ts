@@ -38,14 +38,19 @@ async function callMcpTool<TStructured>(
   projectConfigId: string,
   tool: string,
   argumentsPayload: Record<string, unknown>,
-  frontendWebsocketId: string,
+  frontendWebsocketId?: string | null,
   shareSessionId?: string,
 ): Promise<TStructured> {
   const agenticContext: Record<string, unknown> = {
     projectConfigId,
-    frontendWebsocketId,
     allowUnscoped: true,
   };
+  if (
+    typeof frontendWebsocketId === "string" &&
+    frontendWebsocketId.trim() !== ""
+  ) {
+    agenticContext.frontendWebsocketId = frontendWebsocketId;
+  }
   if (typeof shareSessionId === "string" && shareSessionId.trim() !== "") {
     agenticContext.shareSessionId = shareSessionId;
   }
@@ -313,6 +318,33 @@ test("reveal_ui_setting accepts share-scoped calls that include frontend affinit
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
     await secondPage.close();
+  }
+});
+
+test("share-scoped reveal_ui_setting succeeds without affinity when only one frontend is connected", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlights = page.locator(".setta-ui-setting-reveal-highlight");
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1000,
+      },
+      undefined,
+      "share-session-e2e",
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
   }
 });
 

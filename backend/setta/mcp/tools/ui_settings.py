@@ -477,6 +477,11 @@ def _resolve_missing_setting_error(
 
     plugin_id, local_setting_id = parsed_plugin_setting
     if registry is not None:
+        if not registry.has_known_plugin(plugin_id):
+            return UISettingToolError(
+                code="setting_not_found",
+                message=f"Unknown setting id: {setting_id}",
+            )
         plugin_errors_by_plugin_and_local_setting_id = getattr(
             registry,
             "pluginErrorsByPluginAndLocalSettingId",
@@ -493,12 +498,21 @@ def _resolve_missing_setting_error(
                     f"{plugin_registry_error}"
                 ),
             )
-    plugin_error = _resolve_plugin_runtime_support_error(
+    plugin_runtime_error = _resolve_plugin_runtime_support_error(
         ctx=ctx,
         plugin_id=plugin_id,
     )
-    if plugin_error is not None:
-        return plugin_error
+    if registry is not None and not registry.has_known_plugin_setting(
+        plugin_id, local_setting_id
+    ):
+        if plugin_runtime_error is not None:
+            return plugin_runtime_error
+        return UISettingToolError(
+            code="setting_not_found",
+            message=f"Unknown setting id: {setting_id}",
+        )
+    if plugin_runtime_error is not None:
+        return plugin_runtime_error
 
     return UISettingToolError(
         code="setting_not_found",

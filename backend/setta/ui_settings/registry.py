@@ -181,9 +181,17 @@ class UISettingRegistry:
     entriesById: dict[str, UISettingRuntimeEntry]
     pluginErrorsByPluginId: dict[str, str]
     pluginErrorsByPluginAndLocalSettingId: dict[tuple[str, str], str]
+    knownPluginIds: set[str]
+    knownPluginAndLocalSettingIds: set[tuple[str, str]]
 
     def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
         return self.entriesById.get(setting_id)
+
+    def has_known_plugin(self, plugin_id: str) -> bool:
+        return plugin_id in self.knownPluginIds
+
+    def has_known_plugin_setting(self, plugin_id: str, local_setting_id: str) -> bool:
+        return (plugin_id, local_setting_id) in self.knownPluginAndLocalSettingIds
 
     def list_entries(
         self, *, source_filter: UISettingSourceFilter
@@ -241,10 +249,23 @@ def build_ui_settings_registry(
         "by_plugin_and_local_setting_id",
         {},
     )
+    (
+        known_plugin_ids,
+        known_plugin_and_local_setting_ids,
+    ) = _collect_known_plugin_ids_and_settings(ctx=ctx)
+    known_plugin_ids.update(plugin_errors.keys())
+    known_plugin_and_local_setting_ids.update(
+        plugin_errors_by_plugin_and_local_setting_id.keys()
+    )
     for entry in plugin_entries:
         setting_id = entry.metadata.settingId
+        plugin_id = entry.metadata.pluginId
+        if plugin_id is not None:
+            parsed_setting_id = parse_plugin_setting_id(setting_id)
+            if parsed_setting_id is not None:
+                known_plugin_ids.add(plugin_id)
+                known_plugin_and_local_setting_ids.add(parsed_setting_id)
         if setting_id in entries_by_id:
-            plugin_id = entry.metadata.pluginId
             if plugin_id is None:
                 raise ValueError(f"Duplicate UI setting id: {setting_id}")
             parsed_setting_id = parse_plugin_setting_id(setting_id)
@@ -271,7 +292,51 @@ def build_ui_settings_registry(
         pluginErrorsByPluginAndLocalSettingId=(
             plugin_errors_by_plugin_and_local_setting_id
         ),
+        knownPluginIds=known_plugin_ids,
+        knownPluginAndLocalSettingIds=known_plugin_and_local_setting_ids,
     )
+
+
+def _collect_known_plugin_ids_and_settings(
+    *,
+    ctx: "Context",
+) -> tuple[set[str], set[tuple[str, str]]]:
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        return set(), set()
+
+    runtime_response = plugin_manager.get_runtime_response()
+    known_plugin_ids: set[str] = set()
+    known_plugin_and_local_setting_ids: set[tuple[str, str]] = set()
+    for status_entry in runtime_response.status.plugins:
+        known_plugin_ids.add(status_entry.pluginId)
+    for plugin in runtime_response.list.plugins:
+        plugin_id = plugin.pluginId
+        known_plugin_ids.add(plugin_id)
+
+        schema_json = plugin.config.schemaJson
+        if isinstance(schema_json, dict):
+            raw_definitions = schema_json.get(PLUGIN_UI_SETTINGS_SCHEMA_KEY)
+            if isinstance(raw_definitions, list):
+                for raw_definition in raw_definitions:
+                    local_setting_id = _try_resolve_plugin_local_setting_id_for_error(
+                        raw_definition=raw_definition,
+                    )
+                    if local_setting_id is not None:
+                        known_plugin_and_local_setting_ids.add(
+                            (plugin_id, local_setting_id)
+                        )
+
+        backend_registrations = plugin_manager.get_backend_ui_settings(
+            plugin_id=plugin_id
+        )
+        for registration in backend_registrations:
+            local_setting_id = registration.localSettingId.strip()
+            if local_setting_id == "":
+                continue
+            known_plugin_and_local_setting_ids.add((plugin_id, local_setting_id))
+
+    return known_plugin_ids, known_plugin_and_local_setting_ids
 
 
 def _validate_runtime_entry_write_signature(entry: UISettingRuntimeEntry) -> None:
