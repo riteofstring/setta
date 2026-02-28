@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatEngineSwitchContinuationAfterContextChange,
   resolveProjectChatEngineSwitchContinuationOnEngineChange,
-  resolveProjectChatEngineConfigIdForSelectedChat,
   resolveProjectChatSelectedEngineIdAfterEngineConfigsLoad,
   resolveProjectChatSelectedLLMUnavailableReason,
   resolveProjectChatThreadBlockedErrorCodeForSelectedChat,
@@ -251,8 +251,8 @@ describe("resolveProjectChatEngineSwitchContinuationOnEngineChange", () => {
 
 describe("resolveProjectChatEngineSwitchContinuationAfterContextChange", () => {
   it("clears continuation when the active thread changes", () => {
-    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
-      {
+    const resolved =
+      resolveProjectChatEngineSwitchContinuationAfterContextChange({
         continuation: {
           sourceChatId: "chat-1",
           sourceEngineConfigId: "engine-a",
@@ -260,14 +260,13 @@ describe("resolveProjectChatEngineSwitchContinuationAfterContextChange", () => {
         },
         chatId: "chat-2",
         selectedEngineId: "engine-b",
-      },
-    );
+      });
     expect(resolved).toBeNull();
   });
 
   it("clears continuation when the user switches back to the source engine", () => {
-    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
-      {
+    const resolved =
+      resolveProjectChatEngineSwitchContinuationAfterContextChange({
         continuation: {
           sourceChatId: "chat-1",
           sourceEngineConfigId: "engine-a",
@@ -275,8 +274,7 @@ describe("resolveProjectChatEngineSwitchContinuationAfterContextChange", () => {
         },
         chatId: "chat-1",
         selectedEngineId: "engine-a",
-      },
-    );
+      });
     expect(resolved).toBeNull();
   });
 
@@ -286,13 +284,12 @@ describe("resolveProjectChatEngineSwitchContinuationAfterContextChange", () => {
       sourceEngineConfigId: "engine-a",
       targetEngineConfigId: "engine-b",
     } as const;
-    const resolved = resolveProjectChatEngineSwitchContinuationAfterContextChange(
-      {
+    const resolved =
+      resolveProjectChatEngineSwitchContinuationAfterContextChange({
         continuation,
         chatId: "chat-1",
         selectedEngineId: "engine-b",
-      },
-    );
+      });
     expect(resolved).toEqual(continuation);
   });
 });

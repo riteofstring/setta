@@ -994,7 +994,7 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
-  it("preserves typed terminal hydration error codes", async () => {
+  it("maps unknown terminal hydration codes to the generic terminal code", async () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 409,
       hasResponse: true,
@@ -1011,7 +1011,7 @@ describe("stopProjectChatResponse", () => {
     expect(outcome).toEqual({
       outcome: "terminal_failure",
       status: 409,
-      errorCode: "engine_config_missing",
+      errorCode: "terminal_hydration_failure",
     });
   });
 

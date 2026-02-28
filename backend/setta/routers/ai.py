@@ -302,7 +302,7 @@ def _get_prior_messages_for_seed_chat(
     )
     latest_run = _select_latest_run(runs)
     if latest_run is None:
-        return []
+        raise KeyError(f"Continuation source chat {chat_id} not found.")
     return build_chat_state_from_run(latest_run).messages
 
 
@@ -653,15 +653,20 @@ class TranscriptionErrorDetail(BaseModel):
 
 class ChatHydrationErrorCode(str, Enum):
     chat_not_found = "chat_not_found"
-    chat_provenance_missing = "chat_provenance_missing"
-    engine_config_missing = "engine_config_missing"
-    engine_type_mismatch = "engine_type_mismatch"
-    llm_config_missing = "llm_config_missing"
 
 
 class ChatHydrationErrorDetail(BaseModel):
     message: str
     errorCode: ChatHydrationErrorCode
+
+
+class ContinueFromChatErrorCode(str, Enum):
+    source_chat_not_found = "source_chat_not_found"
+
+
+class ContinueFromChatErrorDetail(BaseModel):
+    message: str
+    errorCode: ContinueFromChatErrorCode
 
 
 class ChatContextUsage(BaseModel):
@@ -749,6 +754,21 @@ def _raise_chat_hydration_http_error(
     raise HTTPException(
         status_code=status_code,
         detail=ChatHydrationErrorDetail(
+            message=message,
+            errorCode=error_code,
+        ).model_dump(mode="json"),
+    )
+
+
+def _raise_continue_from_chat_http_error(
+    *,
+    status_code: int = 404,
+    message: str,
+    error_code: ContinueFromChatErrorCode,
+) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=ContinueFromChatErrorDetail(
             message=message,
             errorCode=error_code,
         ).model_dump(mode="json"),
@@ -902,11 +922,20 @@ async def route_get_llm_response(
                 external_runs=external_runs_for_chat_id,
             )
         elif x.continueFromChatId is not None:
-            prior_messages = _get_prior_messages_for_seed_chat(
-                dbe=ctx.state.dbe,
-                chat_id=x.continueFromChatId,
-                project_config_id=x.projectConfigId,
-            )
+            try:
+                prior_messages = _get_prior_messages_for_seed_chat(
+                    dbe=ctx.state.dbe,
+                    chat_id=x.continueFromChatId,
+                    project_config_id=x.projectConfigId,
+                )
+            except KeyError:
+                _raise_continue_from_chat_http_error(
+                    status_code=404,
+                    message=(
+                        f"Continuation source chat {x.continueFromChatId} not found."
+                    ),
+                    error_code=ContinueFromChatErrorCode.source_chat_not_found,
+                )
         combined_messages = _build_inputs_messages(
             prior_messages=prior_messages,
             message=x.message,

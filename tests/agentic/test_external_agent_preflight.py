@@ -16,7 +16,6 @@ from setta.agentic.external_agent_preflight import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import (
-    llm_api_keys_path,
     write_managed_api_keys_with_expected_revision,
 )
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -258,7 +257,7 @@ class TestExternalAgentPreflight:
         with _temp_cwd() as tmp:
             dbe = _build_dbe(tmp)
             key_missing = "SETTA_TEST_ENV_MISSING"
-            path = llm_api_keys_path(dbe)
+            path = dbe.dot_env
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"\xff\xfe\xfd")
             config = self._build_config(
@@ -280,7 +279,7 @@ class TestExternalAgentPreflight:
         with _temp_cwd() as tmp:
             dbe = _build_dbe(tmp)
             key_missing = "SETTA_TEST_ENV_MISSING"
-            path = llm_api_keys_path(dbe)
+            path = dbe.dot_env
             path.parent.mkdir(parents=True, exist_ok=True)
             path.mkdir()
             config = self._build_config(
@@ -304,7 +303,7 @@ class TestExternalAgentPreflight:
         with _temp_cwd() as tmp:
             dbe = _build_dbe(tmp)
             key_name = "SETTA_TEST_ENV_PRESENT"
-            path = llm_api_keys_path(dbe)
+            path = dbe.dot_env
             path.parent.mkdir(parents=True, exist_ok=True)
             path.mkdir()
             previous_value = os.environ.pop(key_name, None)
@@ -338,7 +337,7 @@ class TestExternalAgentPreflight:
         with _temp_cwd() as tmp:
             dbe = _build_dbe(tmp)
             key_name = "SETTA_TEST_ENV_MISSING"
-            path = llm_api_keys_path(dbe)
+            path = dbe.dot_env
             path.parent.mkdir(parents=True, exist_ok=True)
             path.mkdir()
             previous_value = os.environ.pop(key_name, None)

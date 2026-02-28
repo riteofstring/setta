@@ -15,7 +15,6 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     ManagedAPIKeysStoreUnavailableError,
-    llm_api_keys_path,
     read_managed_api_keys,
 )
 from setta.routers.llm import (
@@ -335,6 +334,45 @@ async def test_llm_api_keys_route_can_repair_corrupt_index_payload(
 
 
 @pytest.mark.asyncio
+async def test_llm_api_keys_route_repair_purges_stale_configured_provider_keys(
+    state_env: SettaFastAPIState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_single_provider_config(
+        state_env,
+        config_id="openai-default",
+        provider="openai",
+        api_key_env="OPENAI_API_KEY",
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    state_env.dbe.dot_env.write_text(
+        "UNRELATED_SECRET=keep-me\n"
+        "OPENAI_API_KEY=stale-secret\n"
+        f"{_MANAGED_KEY_NAMES_ENV_VAR}=not-json\n",
+        encoding="utf-8",
+    )
+    state_env.dbe.reload_dot_env()
+
+    with runtime_context(state_env) as runtime_ctx:
+        response = await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(
+                apiKeys={},
+                expectedRevision=0,
+            ),
+            runtime_ctx,
+        )
+        keys_from_get = await route_get_llm_api_keys(runtime_ctx)
+
+    persisted_raw = state_env.dbe.dot_env.read_text(encoding="utf-8")
+    assert "OPENAI_API_KEY=stale-secret" not in persisted_raw
+    assert response.apiKeys == {}
+    assert response.revision == 0
+    assert keys_from_get.apiKeys == {}
+    assert keys_from_get.revision == 0
+    assert state_env.dbe.read_dot_env()["UNRELATED_SECRET"] == "keep-me"
+
+
+@pytest.mark.asyncio
 async def test_llm_api_keys_route_rejects_stale_revision_with_409(
     state_env: SettaFastAPIState,
 ) -> None:
@@ -399,7 +437,7 @@ async def test_llm_api_keys_get_route_returns_typed_corruption_error(
 async def test_llm_api_keys_get_route_returns_unavailable_error_for_io_failures(
     state_env: SettaFastAPIState,
 ) -> None:
-    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path = state_env.dbe.dot_env
     managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
     managed_keys_path.mkdir()
 
@@ -422,7 +460,7 @@ async def test_llm_api_keys_get_route_returns_unavailable_error_for_io_failures(
 async def test_llm_api_keys_set_route_returns_unavailable_error_for_io_failures(
     state_env: SettaFastAPIState,
 ) -> None:
-    managed_keys_path = llm_api_keys_path(state_env.dbe)
+    managed_keys_path = state_env.dbe.dot_env
     managed_keys_path.parent.mkdir(parents=True, exist_ok=True)
     managed_keys_path.mkdir()
 

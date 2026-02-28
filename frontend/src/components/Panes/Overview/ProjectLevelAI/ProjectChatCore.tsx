@@ -79,6 +79,7 @@ import { shallow } from "zustand/shallow";
 import {
   resolveProjectChatRunTypeForEngine,
   type ProjectChatHydrationAuthority,
+  type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
@@ -95,7 +96,9 @@ const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
-type ProjectChatBlockedErrorCode = ChatHydrationErrorCode;
+type ProjectChatBlockedErrorCode =
+  | ChatHydrationErrorCode
+  | ProjectChatThreadBlockedErrorCode;
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -941,6 +944,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable,
   providerDictationLikelySupported,
   setChatId,
+  onStartNewChat,
   onDraftThreadStart,
   onDraftThreadSettled,
   onThinkingChange,
@@ -966,6 +970,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onStartNewChat?: () => void;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
     nextChatId: string | null,
@@ -1338,13 +1343,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   ]);
 
   const handleNewChatStart = useCallback(() => {
+    if (onStartNewChat) {
+      onStartNewChat();
+      return;
+    }
     onDraftThreadStart?.();
     if (chatId === null) {
       return;
     }
     initializePendingChatDetails();
     setChatId(null);
-  }, [chatId, onDraftThreadStart, setChatId]);
+  }, [chatId, onDraftThreadStart, onStartNewChat, setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
@@ -1429,9 +1438,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (isExternalEngine && !externalEngineAvailable) {
         return false;
       }
-      const isFirstMessage =
-        chatId === undefined || (chatId === null && !!newThreadSeedChatId);
-      if (isFirstMessage) {
+      const isFirstDraftSubmit = chatId === undefined || chatId === null;
+      if (isFirstDraftSubmit) {
         handleNewChatStart();
       }
 
@@ -1446,7 +1454,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           engineConfigId,
           isExternalEngine,
           {
-            continueFromChatId: isFirstMessage ? newThreadSeedChatId : null,
+            continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
             executionSettings: {
               permissionMode: executionSettings.permissionMode,
               searchEnabled: executionSettings.searchEnabled,
@@ -1457,7 +1465,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       } catch (err) {
         console.error("Failed to submit LLM chat message", err);
       } finally {
-        if (isFirstMessage) {
+        if (isFirstDraftSubmit) {
           handleNewChatSettled(submittedChatId, succeeded);
         }
       }

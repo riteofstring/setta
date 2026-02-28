@@ -8,6 +8,7 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
+    collect_config_api_key_names,
     read_managed_api_keys_with_status,
     resolve_effective_llm_api_keys,
     write_managed_api_keys_with_expected_revision,
@@ -105,6 +106,9 @@ async def route_set_llm_api_keys(
         ctx.state.dbe,
         payload.apiKeys,
         expected_revision=payload.expectedRevision,
+        configured_provider_key_names=collect_config_api_key_names(
+            ctx.state.agent_runner.config
+        ),
     )
     if write_attempt.status == "corrupt_store":
         error_payload = ManagedAPIKeysErrorResponse(

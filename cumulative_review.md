@@ -813,3 +813,42 @@
 - Playwright E2E tests passed:
   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/project-ai-combobox.spec.ts -g "continue-in-new-thread banner"`: `1 passed`.
   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-hydration-provenance.spec.ts -g "keeps selected threads usable|warns on stale selected chat ids"`: `2 passed`.
+
+## 2026-02-28 07:20:58 PST
+
+### Consolidated Findings
+- Managed LLM API key persistence needed stricter `.env` ownership behavior to repair corrupt managed-key metadata without leaving stale configured provider keys behind.
+- Continuation flow should fail fast when `continueFromChatId` points to a missing source chat instead of creating a run with incomplete lineage.
+- `/new` first-submit behavior in Project AI Chat could bypass the parent new-chat setup path, which caused thread-group assignment drift.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Hardened managed key write path in `backend/setta/llm/api_keys.py`:
+  - preserves unrelated `.env` lines verbatim,
+  - rewrites managed keys/index deterministically,
+  - repairs corrupt index on `expectedRevision=0`,
+  - purges stale configured provider env keys during repair.
+- Wired router-level configured provider key discovery into API key writes (`backend/setta/routers/llm.py`) so repair cleanup is config-authoritative.
+- Updated continuation handling in `backend/setta/routers/ai.py` to return typed `404 source_chat_not_found` and stop before run creation when continuation source is missing.
+- Fixed `/new` first-submit thread settlement by routing `ProjectChatCore` new-chat action through parent `handleNewChatClick` and correcting first-draft submit detection.
+- Reduced hydration terminal error-code surface to emitted values and aligned frontend parsing/types (`frontend/src/state/actions/ai.ts`, `projectChatHydrationAuthority.ts`).
+- Added/updated tests:
+  - backend unit/integration for `.env` preservation + corrupt-repair purge + continuation missing-source 404,
+  - frontend Vitest for hydration terminal error mapping,
+  - Playwright regression for `/new` first submit preserving selected thread-group assignment.
+
+### UX/DX Before -> After
+- Corrupt managed-key repair: stale configured provider keys could survive in `.env` -> repair now purges those configured keys while preserving unrelated entries.
+- Continuation robustness: missing source chat could proceed too far -> deterministic typed 404 stops early with explicit error code.
+- Project chat grouping on `/new`: first submit could lose selected group intent -> first submit now retains selected group assignment.
+- Frontend hydration typing: broader enum surface than emitted runtime values -> tighter typed parse path with consistent terminal fallback handling.
+
+### Verification
+- Backend tests passed:
+  - `source activate.sh && python -m pytest tests/llm/test_api_keys.py tests/llm/test_api_key_runtime_sync.py tests/routers/test_llm_api_key_routes.py -k "repair or preserve or unavailable or legacy_entrypoint or stale_configured_provider"`: `13 passed`.
+  - `source activate.sh && python -m pytest tests/routers/test_ai_agent_run_chats.py -k "continue_from_chat"`: `3 passed`.
+  - `source activate.sh && python -m pytest tests/agentic/test_external_agent_preflight.py -k "managed_api_keys or corrupt_managed_api_key_store"`: `3 passed`.
+- Frontend tests passed:
+  - `pnpm -C frontend exec vitest run src/state/actions/aiStopProjectChat.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatThreadVisibility.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatEngineSwitchContinuation.integration.test.ts`: `96 passed`.
+  - `./scripts/run-playwright-e2e.sh tests/e2e/chat/chat-composer-controls.spec.ts --grep "project chat /new first submit keeps the selected thread group assignment"`: `1 passed`.
+- Cleanup workflow:
+  - `pnpm -C frontend gcf`: completed successfully (`exit 0`).

@@ -6,6 +6,7 @@ import {
   ensureManagedChatEngine,
   openIsolatedProject,
   postBackend,
+  seedLocalStorage,
   setChatSectionState,
   setOverviewTab,
 } from "../helpers";
@@ -247,6 +248,197 @@ test.describe.serial("chat composer controls", () => {
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
     } finally {
       await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat /new first submit keeps the selected thread group assignment", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1480, height: 920 });
+    await seedLocalStorage(page, {
+      overviewTab: "ProjectAIChat",
+      overviewVis: true,
+      overviewWidth: 1100,
+      overviewTrueWidth: 1100,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const newChatId = "pw-slash-new-group-chat";
+
+    await page.route("**/api/getEngineConfigs", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "engine-e2e-setta",
+            name: "Setta E2E",
+            engineType: "setta_llm",
+            settaLlmConfigId: "llm-e2e",
+            externalAgentConfigId: null,
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/llm/config", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          configs: {
+            "llm-e2e": {
+              id: "llm-e2e",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              api_key_env: null,
+              base_url: null,
+              other_params: {},
+              mcpServerIds: [],
+              temporary: false,
+            },
+          },
+          mcpServers: {},
+          defaultMcpServerIds: [],
+          default_config_id: "llm-e2e",
+        }),
+      });
+    });
+    await page.route("**/api/llm/apiKeys", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          apiKeys: {},
+          revision: 0,
+        }),
+      });
+    });
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(newChatId),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "e2e-llm",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+            temporary: false,
+          },
+          contextUsage: null,
+        }),
+      });
+    });
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+      await selectProjectAiEngine(page, "Setta E2E");
+
+      const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+      if (
+        (await threadsPanel.count()) === 0 ||
+        !(await threadsPanel.first().isVisible())
+      ) {
+        await overviewPane.getByRole("button", { name: "View Threads" }).click();
+      }
+      await expect(threadsPanel).toBeVisible();
+
+      await overviewPane.getByRole("button", { name: "New Group" }).click();
+      const groupNameInput = threadsPanel.getByTestId(
+        "project-chat-thread-group-name-input",
+      );
+      await expect(groupNameInput).toBeVisible();
+      await groupNameInput.fill("Backend");
+      await groupNameInput.press("Enter");
+      const backendGroupRow = threadsPanel
+        .getByTestId("project-chat-thread-group-row")
+        .filter({ hasText: "Backend" });
+      await expect(backendGroupRow).toBeVisible();
+      const backendGroupButton = backendGroupRow.getByRole("button", {
+        name: "Backend",
+        exact: true,
+      });
+      await backendGroupButton.click();
+      await expect(backendGroupButton.locator("span").nth(1)).toHaveClass(
+        /text-blue-700/,
+      );
+
+      const returnToChatButton = overviewPane
+        .getByRole("button", { name: "Return to chat" })
+        .first();
+      if (await returnToChatButton.isVisible()) {
+        await returnToChatButton.click();
+      }
+
+      const composerInput = overviewPane.getByPlaceholder("Type a message...");
+      await expect(composerInput).toBeVisible();
+      await composerInput.fill("/new");
+      await composerInput.press("Enter");
+      await expect(overviewPane.getByText("Started a new chat thread.")).toBeVisible();
+
+      await composerInput.fill("Route this thread into Backend");
+      await composerInput.press("Enter");
+
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(
+              ({ projectConfigId, chatId }) => {
+                const raw = window.localStorage.getItem("setta_data");
+                if (!raw) {
+                  return false;
+                }
+                const parsed = JSON.parse(raw) as {
+                  state?: Record<string, unknown>;
+                };
+                const state = parsed.state ?? {};
+                const groupsByProject =
+                  (state.projectChatThreadGroupsByProjectConfigId as
+                    | Record<string, Array<{ id: string; name: string }>>
+                    | undefined) ?? {};
+                const assignmentsByProject =
+                  (state.projectChatThreadAssignmentsByProjectConfigId as
+                    | Record<string, Record<string, string>>
+                    | undefined) ?? {};
+                const groups = groupsByProject[projectConfigId] ?? [];
+                const backendGroupId =
+                  groups.find((group) => group.name === "Backend")?.id ?? null;
+                if (!backendGroupId) {
+                  return false;
+                }
+                const assignedGroupId =
+                  assignmentsByProject[projectConfigId]?.[chatId] ?? null;
+                return assignedGroupId === backendGroupId;
+              },
+              {
+                projectConfigId: projectContext.projectConfigId,
+                chatId: newChatId,
+              },
+            ),
+          { timeout: 15000 },
+        )
+        .toBe(true);
+    } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });

@@ -670,8 +670,8 @@ export function ProjectChat() {
       engineConfigById.get(engineSwitchContinuation.sourceEngineConfigId)
         ?.name ?? "the previous engine";
     const targetEngineName = engineSwitchContinuation.targetEngineConfigId
-      ? (engineConfigById.get(engineSwitchContinuation.targetEngineConfigId)
-          ?.name ?? "the selected engine")
+      ? engineConfigById.get(engineSwitchContinuation.targetEngineConfigId)
+          ?.name ?? "the selected engine"
       : "the selected engine";
     return `Engine changed from ${sourceEngineName} to ${targetEngineName}. Continue in a new thread to keep engine provenance consistent.`;
   }, [engineConfigById, engineSwitchContinuation]);
@@ -1666,7 +1666,9 @@ export function ProjectChat() {
         </nav>
         {engineSwitchContinuationBannerText ? (
           <div className="sticky top-0 z-10 border-b border-amber-300 bg-amber-50/95 px-2 py-2 text-xs text-amber-900 backdrop-blur dark:border-amber-600/70 dark:bg-amber-950/60 dark:text-amber-200">
-            <div className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex items-center justify-between gap-2`}>
+            <div
+              className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex items-center justify-between gap-2`}
+            >
               <p
                 data-testid="project-chat-engine-switch-banner"
                 className="min-w-0 flex-1"
@@ -1786,6 +1788,7 @@ export function ProjectChat() {
                     providerDictationLikelySupported
                   }
                   setChatId={setChatId}
+                  onStartNewChat={handleNewChatClick}
                   onDraftThreadStart={handleDraftThreadStart}
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
@@ -1851,6 +1854,7 @@ export function ProjectChat() {
                 providerDictationLikelySupported
               }
               setChatId={setChatId}
+              onStartNewChat={handleNewChatClick}
               onDraftThreadStart={handleDraftThreadStart}
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}

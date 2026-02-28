@@ -22,7 +22,7 @@ type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
   selectedChatWaitingForResponse?: boolean;
 };
 
-type ProjectChatThreadBlockedErrorCode =
+export type ProjectChatThreadBlockedErrorCode =
   | "chat_provenance_missing"
   | "engine_config_missing"
   | "engine_type_mismatch";

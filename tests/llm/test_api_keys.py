@@ -10,7 +10,6 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE,
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     ManagedAPIKeysStoreUnavailableError,
-    llm_api_keys_path,
     read_managed_api_keys,
     read_managed_api_keys_with_status,
     write_managed_api_keys_with_expected_revision,
@@ -29,6 +28,7 @@ def _build_dbe(tmpdir: str) -> DBE:
 
 def test_write_managed_api_keys_legacy_entrypoint_removed() -> None:
     assert not hasattr(api_keys_module, "write_managed_api_keys")
+    assert not hasattr(api_keys_module, "llm_api_keys_path")
 
 
 def test_read_managed_api_keys_with_status_returns_empty_snapshot_when_dot_env_missing() -> (
@@ -68,7 +68,7 @@ def test_read_managed_api_keys_with_status_reads_only_indexed_dot_env_keys() -> 
 def test_read_managed_api_keys_with_status_reports_corrupt_index() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "OPENAI_API_KEY=secret\n"
@@ -132,6 +132,30 @@ def test_write_managed_api_keys_with_expected_revision_preserves_unrelated_doten
         assert read_managed_api_keys(dbe) == {"OPENAI_API_KEY": "saved-secret"}
 
 
+def test_write_managed_api_keys_with_expected_revision_preserves_quoted_unrelated_values() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        # Keep a quoted hash-bearing value that would break if rewritten as raw KEY=value.
+        dbe.dot_env.write_text(
+            'UNRELATED="a b # c"\nBASE_URL=https://api.example.com\n',
+            encoding="utf-8",
+        )
+
+        write_result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {"OPENAI_API_KEY": "saved-secret"},
+            expected_revision=0,
+        )
+
+        assert write_result.status == "success"
+        persisted_raw = dbe.dot_env.read_text(encoding="utf-8")
+        assert 'UNRELATED="a b # c"\n' in persisted_raw
+        reparsed_dot_env = dbe.read_dot_env()
+        assert reparsed_dot_env["UNRELATED"] == "a b # c"
+
+
 def test_write_managed_api_keys_with_expected_revision_can_remove_managed_key() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
@@ -166,7 +190,7 @@ def test_write_managed_api_keys_with_expected_revision_repairs_corrupt_index_whe
 ):
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "UNRELATED_SECRET=keep-me\n"
@@ -190,10 +214,36 @@ def test_write_managed_api_keys_with_expected_revision_repairs_corrupt_index_whe
         )
 
 
+def test_write_managed_api_keys_with_expected_revision_repairs_corrupt_index_and_purges_configured_provider_keys() -> (
+    None
+):
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        dbe.dot_env.write_text(
+            "UNRELATED_SECRET=keep-me\n"
+            "OPENAI_API_KEY=stale-secret\n"
+            f"{_MANAGED_KEY_NAMES_ENV_VAR}=not-json\n",
+            encoding="utf-8",
+        )
+
+        write_result = write_managed_api_keys_with_expected_revision(
+            dbe,
+            {},
+            expected_revision=0,
+            configured_provider_key_names={"OPENAI_API_KEY"},
+        )
+
+        assert write_result.status == "success"
+        persisted_raw = dbe.dot_env.read_text(encoding="utf-8")
+        assert "OPENAI_API_KEY=stale-secret" not in persisted_raw
+        assert dbe.read_dot_env()["UNRELATED_SECRET"] == "keep-me"
+        assert read_managed_api_keys(dbe) == {}
+
+
 def test_write_managed_api_keys_with_expected_revision_reports_corrupt_index() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "OPENAI_API_KEY=existing-secret\n"
@@ -215,7 +265,7 @@ def test_write_managed_api_keys_with_expected_revision_reports_corrupt_index() -
 def test_read_managed_api_keys_with_status_reports_unavailable_store() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.mkdir()
 

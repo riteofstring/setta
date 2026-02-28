@@ -1104,7 +1104,9 @@ class ExternalAgentRunner:
             runtime_model = self._resolve_runtime_model(config, run.inputs)
             context_window_usage = self._resolve_context_window_usage_from_model(
                 model=runtime_model,
-                provider_hint=self._resolve_external_provider_hint(config, runtime_model),
+                provider_hint=self._resolve_external_provider_hint(
+                    config, runtime_model
+                ),
             )
         return self._merge_usage_summary(merged_usage, context_window_usage)
 
@@ -1173,7 +1175,9 @@ class ExternalAgentRunner:
         context: ExternalAgentRunContext,
     ) -> dict[str, int] | None:
         runtime_model = cls._resolve_runtime_model(context.config, context.inputs)
-        provider_hint = cls._resolve_external_provider_hint(context.config, runtime_model)
+        provider_hint = cls._resolve_external_provider_hint(
+            context.config, runtime_model
+        )
         return cls._resolve_context_window_usage_from_model(
             model=runtime_model,
             provider_hint=provider_hint,

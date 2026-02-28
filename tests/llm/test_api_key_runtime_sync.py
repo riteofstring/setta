@@ -15,7 +15,6 @@ from setta.llm.api_keys import (
     MANAGED_API_KEYS_CORRUPT_ERROR_CODE,
     MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE,
     ManagedAPIKeysWriteAttempt,
-    llm_api_keys_path,
     write_managed_api_keys_with_expected_revision,
 )
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
@@ -91,7 +90,7 @@ async def test_sync_managed_api_keys_broadcasts_corruption_snapshot_for_invalid_
 ) -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "OPENAI_API_KEY=secret\n"
@@ -135,7 +134,7 @@ async def test_sync_managed_api_keys_broadcasts_unavailable_snapshot(
 ) -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
-        path = llm_api_keys_path(dbe)
+        path = dbe.dot_env
         path.parent.mkdir(parents=True, exist_ok=True)
         path.mkdir()
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)

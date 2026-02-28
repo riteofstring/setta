@@ -1196,6 +1196,81 @@ class TestAgentRunChatRoutes:
                 "new-managed-message",
             ]
 
+    async def test_get_llm_response_continue_from_chat_requires_existing_source(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            target_engine_config_id = ID("engine-target-missing-source")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=target_engine_config_id,
+                        name="Target Engine",
+                        engineType=EngineType.setta_llm,
+                        settaLlmConfigId="primary",
+                    ),
+                ],
+            )
+            project_config_id = ID("project-continue-missing-source")
+            start_run_call_count = 0
+
+            def _capture_start_run(*_args, **_kwargs):
+                nonlocal start_run_call_count
+                start_run_call_count += 1
+                return create_agent_run(
+                    profile_id=ID("profile-unexpected"),
+                    inputs={},
+                )
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            continueFromChatId=ID("chat-source-missing"),
+                            message=UserChatMessage(
+                                id="new-message",
+                                content=[
+                                    MessageTextContent(
+                                        text="Should fail before run creation",
+                                    )
+                                ],
+                            ),
+                            engineConfigId=target_engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            assert isinstance(exc.value.detail, dict)
+            if not isinstance(exc.value.detail, dict):
+                raise AssertionError("Expected typed continuation-source detail.")
+            assert (
+                exc.value.detail.get("errorCode") == "source_chat_not_found"
+            )
+            assert (
+                exc.value.detail.get("message")
+                == "Continuation source chat chat-source-missing not found."
+            )
+            assert start_run_call_count == 0
+
     async def test_get_llm_response_rejects_continue_from_with_chat_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

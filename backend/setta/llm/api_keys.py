@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from io import StringIO
@@ -20,6 +21,9 @@ MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt"
 MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE = "managed_api_keys_store_unavailable"
 MANAGED_API_KEYS_REVISION_CONFLICT_ERROR_CODE = "managed_api_keys_revision_conflict"
 _MANAGED_API_KEY_NAMES_ENV_VAR = "SETTA_MANAGED_LLM_API_KEY_NAMES"
+_DOT_ENV_ASSIGNMENT_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*="
+)
 
 
 @dataclass(frozen=True)
@@ -48,11 +52,6 @@ class ManagedAPIKeysStoreUnavailableError(RuntimeError):
 
 class ManagedAPIKeysStoreCorruptError(RuntimeError):
     """API key storage contains an unreadable payload."""
-
-
-def llm_api_keys_path(dbe: DBE) -> Path:
-    """Legacy helper retained for compatibility; API keys now persist in .env."""
-    return dbe.dot_env
 
 
 def _normalize_api_key_name(raw_key: str) -> str:
@@ -121,8 +120,7 @@ def _read_dot_env_raw_payload_from_disk(path: Path) -> str | None:
         ) from exc
 
 
-def _read_dot_env_payload_from_disk(path: Path) -> dict[str, str]:
-    raw_payload = _read_dot_env_raw_payload_from_disk(path)
+def _parse_dot_env_payload(raw_payload: str | None) -> dict[str, str]:
     if raw_payload is None:
         return {}
     env_vars = dotenv_values(stream=StringIO(raw_payload))
@@ -135,6 +133,11 @@ def _read_dot_env_payload_from_disk(path: Path) -> dict[str, str]:
             continue
         normalized[key] = raw_value
     return normalized
+
+
+def _read_dot_env_payload_from_disk(path: Path) -> dict[str, str]:
+    raw_payload = _read_dot_env_raw_payload_from_disk(path)
+    return _parse_dot_env_payload(raw_payload)
 
 
 def _parse_managed_api_key_names(raw_value: str | None) -> set[str]:
@@ -182,11 +185,29 @@ def _read_managed_api_keys_from_dot_env_payload(
     return managed_key_names, managed_api_keys
 
 
-def _write_dot_env_payload_to_disk(path: Path, env_vars: dict[str, str]) -> None:
-    lines = [f"{key}={value}" for key, value in sorted(env_vars.items())]
-    content = "\n".join(lines)
-    if content:
-        content += "\n"
+def _extract_dot_env_assignment_key(line: str) -> str | None:
+    match = _DOT_ENV_ASSIGNMENT_PATTERN.match(line)
+    if match is None:
+        return None
+    return match.group(1)
+
+
+def _serialize_dot_env_assignment_value(value: str) -> str:
+    safe_unquoted = re.fullmatch(r"[A-Za-z0-9_./:@%+\-=]+", value)
+    if safe_unquoted is not None:
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    escaped = escaped.replace("\n", "\\n")
+    return f'"{escaped}"'
+
+
+def _resolve_dot_env_newline(raw_payload: str | None) -> str:
+    if raw_payload is not None and "\r\n" in raw_payload:
+        return "\r\n"
+    return "\n"
+
+
+def _write_dot_env_payload_to_disk(path: Path, content: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
@@ -207,22 +228,40 @@ def _write_dot_env_payload_to_disk(path: Path, env_vars: dict[str, str]) -> None
 
 def _build_next_dot_env_payload(
     *,
-    current_env_vars: dict[str, str],
+    raw_payload: str | None,
     current_managed_key_names: set[str],
+    managed_key_names_to_purge: set[str],
     next_managed_api_keys: APIKeys,
-) -> dict[str, str]:
-    updated_env_vars = dict(current_env_vars)
-    updated_env_vars.pop(_MANAGED_API_KEY_NAMES_ENV_VAR, None)
-    for managed_key_name in current_managed_key_names:
-        updated_env_vars.pop(managed_key_name, None)
-    for key, value in next_managed_api_keys.items():
-        updated_env_vars[key] = value
+) -> str:
+    managed_keys_to_remove = set(current_managed_key_names)
+    managed_keys_to_remove.update(managed_key_names_to_purge)
+    managed_keys_to_remove.add(_MANAGED_API_KEY_NAMES_ENV_VAR)
+
+    preserved_lines: list[str] = []
+    if raw_payload is not None:
+        for raw_line in raw_payload.splitlines(keepends=True):
+            key = _extract_dot_env_assignment_key(raw_line.rstrip("\r\n"))
+            if key is not None and key in managed_keys_to_remove:
+                continue
+            preserved_lines.append(raw_line)
+
+    newline = _resolve_dot_env_newline(raw_payload)
+    additions: list[str] = []
+    for key, value in sorted(next_managed_api_keys.items()):
+        serialized_value = _serialize_dot_env_assignment_value(value)
+        additions.append(f"{key}={serialized_value}")
     if next_managed_api_keys:
-        updated_env_vars[_MANAGED_API_KEY_NAMES_ENV_VAR] = json.dumps(
-            sorted(next_managed_api_keys.keys()),
-            separators=(",", ":"),
+        additions.append(
+            f"{_MANAGED_API_KEY_NAMES_ENV_VAR}="
+            f"{json.dumps(sorted(next_managed_api_keys.keys()), separators=(',', ':'))}"
         )
-    return updated_env_vars
+
+    preserved_content = "".join(preserved_lines)
+    if not additions:
+        return preserved_content
+    if preserved_content and not preserved_content.endswith(("\n", "\r")):
+        preserved_content += newline
+    return preserved_content + newline.join(additions) + newline
 
 
 def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
@@ -283,6 +322,7 @@ def write_managed_api_keys_with_expected_revision(
     payload: APIKeys,
     *,
     expected_revision: int,
+    configured_provider_key_names: set[str] | None = None,
 ) -> ManagedAPIKeysWriteAttempt:
     def _corrupt_result(error: Exception) -> ManagedAPIKeysWriteAttempt:
         return ManagedAPIKeysWriteAttempt(
@@ -303,14 +343,17 @@ def write_managed_api_keys_with_expected_revision(
         )
 
     normalized = _normalize_api_key_write_payload(payload)
+    provider_key_names = configured_provider_key_names or set()
     path = dbe.dot_env
     with dbe.get_file_lock(path):
         try:
-            current_env_vars = _read_dot_env_payload_from_disk(path)
+            raw_dot_env_payload = _read_dot_env_raw_payload_from_disk(path)
+            current_env_vars = _parse_dot_env_payload(raw_dot_env_payload)
         except ManagedAPIKeysStoreUnavailableError as exc:
             return _store_unavailable_result(exc)
         except ManagedAPIKeysStoreCorruptError as exc:
             return _corrupt_result(exc)
+        managed_key_names_to_purge: set[str] = set()
         try:
             current_managed_key_names, current_api_keys = (
                 _read_managed_api_keys_from_dot_env_payload(current_env_vars)
@@ -320,6 +363,7 @@ def write_managed_api_keys_with_expected_revision(
                 return _corrupt_result(exc)
             current_managed_key_names = set()
             current_api_keys = {}
+            managed_key_names_to_purge = set(provider_key_names)
         current_revision = _compute_api_keys_revision(current_api_keys)
         if expected_revision != current_revision:
             return ManagedAPIKeysWriteAttempt(
@@ -333,14 +377,23 @@ def write_managed_api_keys_with_expected_revision(
                 ),
             )
         try:
-            next_env_vars = _build_next_dot_env_payload(
-                current_env_vars=current_env_vars,
+            next_dot_env_payload = _build_next_dot_env_payload(
+                raw_payload=raw_dot_env_payload,
                 current_managed_key_names=current_managed_key_names,
+                managed_key_names_to_purge=managed_key_names_to_purge,
                 next_managed_api_keys=normalized,
             )
-            _write_dot_env_payload_to_disk(path, next_env_vars)
+            _write_dot_env_payload_to_disk(path, next_dot_env_payload)
         except ManagedAPIKeysStoreUnavailableError as exc:
             return _store_unavailable_result(exc)
+        removed_keys_from_process_env = set(current_managed_key_names)
+        removed_keys_from_process_env.update(managed_key_names_to_purge)
+        for removed_key in removed_keys_from_process_env:
+            if removed_key in normalized:
+                continue
+            if removed_key not in current_env_vars:
+                continue
+            os.environ.pop(removed_key, None)
     dbe.reload_dot_env()
     return ManagedAPIKeysWriteAttempt(
         status="success",

@@ -1964,9 +1964,7 @@ function initializePendingChatDetailsWithMessages(
   });
 }
 
-export function seedPendingChatDetails(
-  messages: Array<BaseChatMessageUnion>,
-) {
+export function seedPendingChatDetails(messages: Array<BaseChatMessageUnion>) {
   initializePendingChatDetailsWithMessages(messages, false);
 }
 
@@ -1981,10 +1979,6 @@ export type ChatHydrationOutcomeType =
 
 export type ChatHydrationErrorCode =
   | "chat_not_found"
-  | "chat_provenance_missing"
-  | "engine_config_missing"
-  | "engine_type_mismatch"
-  | "llm_config_missing"
   | "terminal_hydration_failure";
 
 type ChatHydrationOutcome = {
@@ -1998,18 +1992,6 @@ function parseChatHydrationErrorCode(
 ): ChatHydrationErrorCode | null {
   if (value === "chat_not_found") {
     return "chat_not_found";
-  }
-  if (value === "chat_provenance_missing") {
-    return "chat_provenance_missing";
-  }
-  if (value === "engine_config_missing") {
-    return "engine_config_missing";
-  }
-  if (value === "engine_type_mismatch") {
-    return "engine_type_mismatch";
-  }
-  if (value === "llm_config_missing") {
-    return "llm_config_missing";
   }
   return null;
 }
