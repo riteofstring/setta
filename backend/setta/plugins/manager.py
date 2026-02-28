@@ -1179,23 +1179,6 @@ class PluginManager:
         return response_payload["value"]
 
     @_mutation_locked
-    def write_backend_ui_setting_value(
-        self,
-        *,
-        plugin_id: str,
-        write_handler_id: str,
-        project_config_id: str,
-        value: Any,
-    ) -> None:
-        self._invoke_backend_ui_setting_handler(
-            plugin_id=plugin_id,
-            handler_id=write_handler_id,
-            operation="write",
-            project_config_id=project_config_id,
-            value=value,
-        )
-
-    @_mutation_locked
     def compare_and_write_backend_ui_setting_value(
         self,
         *,

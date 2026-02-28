@@ -692,3 +692,25 @@
 4. UX after: one production reveal ownership path with leaner code and clearer failure semantics.
 5. DX before: maintainers had to reason about unreachable variants and orphan manager APIs.
 6. DX after: reveal flow ownership and rollback behavior are explicit, with tighter unit/integration/e2e guardrails.
+
+## 2026-02-27 09:55:10 PST
+
+### Consolidated Findings
+1. UI-setting registry known-plugin discovery hard-failed when MCP runtime context was absent (`ctx.fastmcp` missing).
+2. Plugin manager exposed a secondary backend UI-setting write API with weaker invariants than compare-and-write and no production callsites.
+3. Root-level `pnpm gcf` is not directly runnable in this repo because the importer manifest is under `frontend/`.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Made `_collect_known_plugin_ids_and_settings(...)` context-safe by guarding `fastmcp/state/plugin_manager` access and returning empty known-plugin sets when unavailable.
+2. Removed `write_backend_ui_setting_value(...)` from `PluginManager` so backend UI-setting mutations use the canonical compare-and-write path only.
+3. Added/updated backend tests to assert non-MCP registry behavior and compare-and-write invariants (no-op semantics, stale expected-old rejection, and rollback-related behavior).
+4. Ran `pnpm gcf` in `frontend/` (after confirming root-level `pnpm gcf` has no importer) and completed generation/cleanup/prune/format flow.
+5. Removed top-level `review*.md` docs as requested.
+
+### UX/DX Before and After
+1. UX before: registry construction could crash in non-MCP contexts instead of returning deterministic plugin-known metadata.
+2. UX after: registry construction behaves consistently in MCP and non-MCP contexts, with graceful empty known-plugin sets when runtime context is absent.
+3. UX before: dual backend write APIs increased the risk of inconsistent mutation guarantees if the non-canonical path was used.
+4. UX after: one enforced compare-and-write mutation path with consistent precondition and rollback semantics.
+5. DX before: tests and future changes had to account for two backend write contracts and context-coupled registry assumptions.
+6. DX after: a single backend write contract and explicit non-MCP registry behavior reduce ambiguity and maintenance risk.

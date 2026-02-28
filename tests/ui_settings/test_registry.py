@@ -92,6 +92,42 @@ def test_build_ui_settings_registry_isolates_plugin_id_collisions(
     assert (plugin_id, "enabled") in registry.pluginErrorsByPluginAndLocalSettingId
 
 
+def test_collect_known_plugin_ids_and_settings_without_fastmcp_returns_empty_sets() -> None:
+    # Registry construction should remain valid when MCP runtime state is unavailable.
+    known_plugin_ids, known_plugin_and_local_setting_ids = (
+        ui_settings_registry._collect_known_plugin_ids_and_settings(
+            ctx=SimpleNamespace(),
+        )
+    )
+
+    assert known_plugin_ids == set()
+    assert known_plugin_and_local_setting_ids == set()
+
+
+def test_build_ui_settings_registry_without_fastmcp_uses_empty_known_plugin_sets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fake_build_plugin_entries(*, ctx, project_config_id):
+        assert ctx is not None
+        assert isinstance(project_config_id, ID)
+        return [], {}
+
+    monkeypatch.setattr(ui_settings_registry, "_build_core_entries", lambda: [])
+    monkeypatch.setattr(
+        ui_settings_registry,
+        "_build_plugin_entries",
+        _fake_build_plugin_entries,
+    )
+
+    registry = ui_settings_registry.build_ui_settings_registry(
+        ctx=SimpleNamespace(),
+        project_config_id=ID("project-1"),
+    )
+
+    assert registry.knownPluginIds == set()
+    assert registry.knownPluginAndLocalSettingIds == set()
+
+
 def test_build_ui_settings_registry_rejects_writable_entries_without_precondition_arg(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

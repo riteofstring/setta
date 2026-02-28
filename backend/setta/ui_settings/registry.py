@@ -300,7 +300,9 @@ def _collect_known_plugin_ids_and_settings(
     *,
     ctx: "Context",
 ) -> tuple[set[str], set[tuple[str, str]]]:
-    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    fastmcp = getattr(ctx, "fastmcp", None)
+    state = getattr(fastmcp, "state", None)
+    plugin_manager = getattr(state, "plugin_manager", None)
     if plugin_manager is None:
         return set(), set()
 

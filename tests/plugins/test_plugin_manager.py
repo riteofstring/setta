@@ -9201,12 +9201,20 @@ def test_backend_ui_setting_registration_and_handler_invocation(
     )
     assert initial_value is False
 
-    manager.write_backend_ui_setting_value(
-        plugin_id="setta-fixture-backend-ui-setting",
-        write_handler_id=write_handler_id,
-        project_config_id="project-1",
-        value=True,
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting",
+            setting_id="plugin::setta-fixture-backend-ui-setting::backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+        )
     )
+    assert observed_old_value is False
+    assert observed_new_value is True
+
     updated_value = manager.read_backend_ui_setting_value(
         plugin_id="setta-fixture-backend-ui-setting",
         read_handler_id=registration.readHandlerId,
@@ -9274,12 +9282,19 @@ def test_backend_ui_setting_write_allows_non_serializable_handler_return(
     write_handler_id = registration.writeHandlerId
     assert write_handler_id is not None
 
-    manager.write_backend_ui_setting_value(
-        plugin_id=plugin_id,
-        write_handler_id=write_handler_id,
-        project_config_id="project-1",
-        value=True,
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id=plugin_id,
+            setting_id=f"plugin::{plugin_id}::backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+        )
     )
+    assert observed_old_value is False
+    assert observed_new_value is True
     persisted_value = manager.read_backend_ui_setting_value(
         plugin_id=plugin_id,
         read_handler_id=registration.readHandlerId,
