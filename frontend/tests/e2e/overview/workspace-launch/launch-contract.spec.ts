@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ensureAppReady } from "../../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -23,4 +24,31 @@ test("launch endpoint rejects requests without launch intent token", async ({
   expect(payload.ok).toBe(false);
   expect(payload.error?.code).toBe("BadRequest");
   expect(payload.error?.message).toBe("launchIntentToken is required.");
+});
+
+test("create launch intent rejects missing workspace root", async ({ page }) => {
+  await ensureAppReady(page);
+  const returnUrl = page.url();
+
+  const response = await page.evaluate(async (nextReturnUrl: string) => {
+    const { route_create_workspace_launch_intent } = await import(
+      "/src/utils/generatedEndpoints"
+    );
+    return await route_create_workspace_launch_intent({
+      launchRequest: {},
+      returnUrl: nextReturnUrl,
+    });
+  }, returnUrl);
+
+  expect(response.status).toBe(200);
+  const payload = response.data as {
+    ok?: boolean;
+    error?: {
+      code?: string;
+      message?: string;
+    };
+  };
+  expect(payload.ok).toBe(false);
+  expect(payload.error?.code).toBe("BadRequest");
+  expect(payload.error?.message).toContain("workspaceRoot");
 });

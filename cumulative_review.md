@@ -241,3 +241,11 @@
 - Added launcher-mode fail-fast regression coverage for listener chat creation (`/createChat`) and expanded full-runtime policy assertions to include that route.
 - Added websocket guard and integration tests for non-launcher routers, including terminal websocket route behavior in non-launcher mode (handler reached) and launcher mode (closed with `4403` before handler side effects).
 - Ran requested cleanup workflow: attempted root `pnpm gcf` (no root importer manifest), then successfully ran `pnpm -C frontend gcf`.
+
+## 2026-02-27 14:23:40 PST
+
+- Tightened workspace launch-intent invariants by requiring non-empty `launchRequest.workspaceRoot` during intent creation and again during intent consumption, eliminating implicit CWD fallback launches.
+- Added a shared launch-intent payload validator in the launch router so create/consume enforce one contract and return deterministic `BadRequest`/`InvalidLaunchIntent` errors.
+- Removed dead no-op pagination logic in launcher-home directory listing (`scan_budget_reached and next_cursor is None`).
+- Added backend unit/integration coverage for missing/whitespace workspace roots and malformed persisted intent rejection with no launch side effects, plus Playwright coverage for create-intent missing-workspace rejection.
+- Ran requested cleanup workflow: `source activate.sh && cd frontend && pnpm gcf`.

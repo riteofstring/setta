@@ -144,12 +144,18 @@ def route_create_workspace_launch_intent(
         exclude={"launchIntentToken"},
     )
     try:
-        LaunchRequest.model_validate(launch_request_payload)
+        validated_launch_request = _validate_workspace_launch_intent_request_payload(
+            launch_request_payload
+        )
     except ValueError as exc:
         return CreateWorkspaceLaunchIntentResponse(
             ok=False,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
+    launch_request_payload = validated_launch_request.model_dump(
+        exclude_unset=True,
+        exclude={"launchIntentToken"},
+    )
     try:
         return_url = _validate_and_normalize_return_url(
             return_url=x.returnUrl,
@@ -514,6 +520,16 @@ def _launch_request_has_inline_overrides(x: LaunchRequest) -> bool:
     return False
 
 
+def _validate_workspace_launch_intent_request_payload(
+    launch_request_payload: dict[str, object],
+) -> LaunchRequest:
+    launch_request = LaunchRequest.model_validate(launch_request_payload)
+    workspace_root = launch_request.workspaceRoot
+    if workspace_root is None or not workspace_root.strip():
+        raise ValueError("launchRequest.workspaceRoot is required.")
+    return launch_request
+
+
 def _store_workspace_launch_intent(
     *,
     token: str,
@@ -546,9 +562,10 @@ def _consume_workspace_launch_intent(
         session_id=session_id,
         now=int(time.time()),
     )
-    return LaunchRequest.model_validate(
+    launch_request = _validate_workspace_launch_intent_request_payload(
         stored.launch_request_payload
-    ), stored.return_url
+    )
+    return launch_request, stored.return_url
 
 
 def _build_safe_launch_return_url(*, request_origin: str | None) -> str:

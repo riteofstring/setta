@@ -333,8 +333,6 @@ def route_list_launcher_directory(
     next_cursor: str | None = None
     if has_more:
         next_cursor = str(cursor_offset + len(visible_entries))
-    if scan_budget_reached and next_cursor is None:
-        has_more = False
 
     parent_path: str | None = None
     parent = directory.parent.resolve(strict=False)

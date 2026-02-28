@@ -434,6 +434,91 @@ class TestLaunchRoutes:
         assert response.error.code == "InvalidLaunchIntent"
         assert "expired" in response.error.message
 
+    def test_create_launch_intent_rejects_missing_workspace_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        # Launch intents must carry an explicit workspace target.
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "BadRequest"
+        assert "workspaceRoot" in response.error.message
+
+    def test_create_launch_intent_rejects_whitespace_workspace_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+
+        response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(workspaceRoot="   "),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        # Whitespace-only workspace roots are treated as invalid launch targets.
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "BadRequest"
+        assert "workspaceRoot" in response.error.message
+
+    def test_launch_intent_rejects_consumed_payload_without_workspace_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        launch_calls: list[dict[str, object]] = []
+
+        def fake_launch_workspace_session(**kwargs):
+            launch_calls.append(kwargs)
+            raise AssertionError("launch_workspace_session should not be called")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        token, exp = launch_module.LAUNCH_INTENT_TOKEN_MANAGER.mint(
+            "session-1",
+            b"secret",
+        )
+        _WORKSPACE_LAUNCH_INTENT_STORE.create(
+            token=token,
+            session_id="session-1",
+            launch_request_payload={"settaHome": "/tmp/setta-home"},
+            return_url="http://localhost/home",
+            exp=exp,
+            now=0,
+        )
+
+        response = _invoke_launch_for_tests(LaunchRequest(launchIntentToken=token))
+
+        # Stored intents are re-validated before launch execution.
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "InvalidLaunchIntent"
+        assert "workspaceRoot" in response.error.message
+        assert launch_calls == []
+
     def test_create_launch_intent_returns_typed_store_unavailable_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -590,6 +675,39 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "LaunchIntentStoreUnavailable"
+
+    def test_create_launch_intent_route_rejects_missing_workspace_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app, base_url="http://launcher.example") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {},
+                    "returnUrl": "http://launcher.example/home",
+                },
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        # API contract must reject launch intents without explicit workspaceRoot.
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "BadRequest"
+        assert "workspaceRoot" in payload["error"]["message"]
 
     def test_create_launch_intent_rejects_disallowed_return_url_origin(
         self, monkeypatch: pytest.MonkeyPatch
