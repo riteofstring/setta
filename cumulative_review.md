@@ -462,3 +462,31 @@
 - Backend targeted env parity pytest: `5 passed` (`tests/agentic/test_external_agent_runner.py -k env`).
 - Frontend targeted Vitest: `2 passed` (`useProviderTranscriptionSessionHandlers.test.ts`).
 - CDP visual check: done (validated app page load and console-clean state at `/home`).
+
+## 2026-02-27 10:20:30 PST
+
+### Consolidated Findings
+- Canonical Codex MCP server ID normalization still allowed silent overwrite on collisions (`"foo"` vs `" foo "`), violating deterministic import invariants.
+- Frontend transcription refactor residue remained (`useProviderTranscriptionSessionHandlers.ts` and its orphan test-only call path).
+- Transcription error module included an unused exported type alias (`TranscriptionErrorCode`) and lacked active-path assertions for null append/stop deltas in provider dictation flow.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Updated Codex MCP parsing to detect canonical-ID collisions after normalization, skip all colliding entries for that canonical ID, and emit explicit collision warnings with canonical/raw IDs.
+- Added backend regression coverage for collision fail-closed behavior in LLM bootstrap and external-agent Codex settings bootstrap.
+- Removed orphan frontend transcription session helper module and its isolated test.
+- Removed the unused `TranscriptionErrorCode` alias from frontend transcription error contracts.
+- Added active-runtime transcription unit coverage to assert `ProviderTranscriptionError` on null append and null stop deltas.
+- Added Playwright coverage for chat-section dictation behavior when provider transcription stop returns a null delta (auto mode stays on browser fallback path).
+- Ran `pnpm -C frontend gcf` from package context and kept the resulting repo state synchronized.
+
+### UX/DX Before -> After
+- MCP imports: ambiguous server IDs could silently pick a winner -> colliding canonical IDs are rejected deterministically with actionable logs.
+- Transcription code ownership: orphan helper implied a live runtime path -> only active dictation/transcription paths remain.
+- Error contract clarity: unused alias and partial runtime assertions -> tighter transcription error surface with active-flow guard coverage.
+- Dictation fallback confidence: null-stop edge case behavior was implicit -> explicit e2e guardrail on browser fallback continuity in auto mode.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully (`exit 0`).
+- Backend targeted pytest: `58 passed` (`tests/llm/test_config.py`, `tests/agentic/test_external_agent_settings.py`).
+- Frontend targeted Vitest: `23 passed` (`src/state/actions/aiTranscribeChatAudio.test.ts`, `src/utils/transcriptionErrors.test.ts`, `src/components/Chat/dictationPolicy.test.ts`).
+- Targeted Playwright e2e: `1 passed` (`frontend/tests/e2e/chat/chat-dictation-fallback.spec.ts`, grep: `chat section falls back to browser dictation when provider transcription stop returns no delta`).

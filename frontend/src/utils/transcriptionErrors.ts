@@ -1,12 +1,3 @@
-type TranscriptionErrorCode =
-  | "unsupported_model"
-  | "missing_api_key"
-  | "profile_not_found"
-  | "session_not_found"
-  | "invalid_request"
-  | "audio_payload_too_large"
-  | "provider_failure";
-
 export class ProviderTranscriptionError extends Error {
   code: string | null;
   status: number | undefined;

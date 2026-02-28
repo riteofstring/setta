@@ -675,6 +675,70 @@ args = ["server.js"]
                 for message in warning_messages
             )
 
+    def test_load_llm_config_rejects_duplicate_canonical_codex_server_ids(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.foo]
+command = "alpha"
+
+[mcp_servers." foo "]
+command = "beta"
+
+[mcp_servers.valid-http]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "foo" not in loaded.mcpServers
+            assert "valid-http" in loaded.mcpServers
+            collision_messages = [
+                message
+                for message in warning_messages
+                if "duplicate canonical server id" in message
+            ]
+            assert len(collision_messages) == 1
+            collision_message = collision_messages[0]
+            assert "canonical id 'foo'" in collision_message
+            assert "'foo'" in collision_message
+            assert "' foo '" in collision_message
+
     def test_load_llm_config_with_invalid_codex_home_does_not_fallback_to_home(
         self,
         monkeypatch: pytest.MonkeyPatch,

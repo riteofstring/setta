@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import tomllib
 
 import pytest
+import setta.mcp.codex_config as codex_config_module
 
 from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
@@ -317,6 +318,80 @@ args = ["pencil-mcp.js"]
             assert (
                 mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
             )
+
+    def test_build_codex_settings_file_bootstraps_only_non_colliding_canonical_ids(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.foo]
+command = "alpha"
+
+[mcp_servers." foo "]
+command = "beta"
+
+[mcp_servers.pencil]
+command = "node"
+args = ["pencil-mcp.js"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            config = ExternalAgentConfig(
+                id="codex-canonical-collision",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            if not isinstance(mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "foo" not in mcp_servers
+            assert "pencil" in mcp_servers
+            assert (
+                mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
+            )
+            collision_messages = [
+                message
+                for message in warning_messages
+                if "duplicate canonical server id" in message
+            ]
+            assert len(collision_messages) == 1
+            collision_message = collision_messages[0]
+            assert "canonical id 'foo'" in collision_message
+            assert "'foo'" in collision_message
+            assert "' foo '" in collision_message
 
     def test_build_codex_settings_file_preserves_dotted_mcp_server_ids(
         self, monkeypatch: pytest.MonkeyPatch

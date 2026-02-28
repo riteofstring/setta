@@ -174,10 +174,45 @@ def load_codex_mcp_server_payloads_from_config() -> dict[str, dict[str, Any]]:
 
 def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
     parsed: dict[str, MCPServerConfig] = {}
+    validated_entries: list[tuple[str, str, Any]] = []
+    raw_server_labels_by_canonical_id: dict[str, list[str]] = {}
+
     for raw_server_id, raw_entry in raw_servers.items():
         server_label = _format_server_label(raw_server_id)
         try:
             server_id = _validate_codex_server_id(raw_server_id)
+        except ValueError as exc:
+            logger.warning(
+                "Skipping Codex MCP server '%s': %s",
+                server_label,
+                exc,
+            )
+            continue
+        validated_entries.append((server_label, server_id, raw_entry))
+        labels_for_server_id = raw_server_labels_by_canonical_id.get(server_id)
+        if labels_for_server_id is None:
+            raw_server_labels_by_canonical_id[server_id] = [server_label]
+            continue
+        labels_for_server_id.append(server_label)
+
+    collided_canonical_ids = {
+        server_id: labels_for_server_id
+        for server_id, labels_for_server_id in raw_server_labels_by_canonical_id.items()
+        if len(labels_for_server_id) > 1
+    }
+    for server_id, labels_for_server_id in collided_canonical_ids.items():
+        colliding_raw_keys = ", ".join(f"'{label}'" for label in labels_for_server_id)
+        logger.warning(
+            "Skipping Codex MCP server canonical id '%s': "
+            "duplicate canonical server id from raw keys [%s]",
+            server_id,
+            colliding_raw_keys,
+        )
+
+    for server_label, server_id, raw_entry in validated_entries:
+        if server_id in collided_canonical_ids:
+            continue
+        try:
             server_config = _parse_codex_mcp_server_entry(
                 raw_entry, server_id=server_id
             )
@@ -189,6 +224,7 @@ def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerC
             )
             continue
         parsed[server_id] = server_config
+
     return parsed
 
 
