@@ -94,32 +94,6 @@ Transcription profile CRUD is separate from chat engine config:
   - Content type: `application/json`
   - Request fields: `profileId`.
 
-### LLM config + API key routes
-
-- `/api/llm/config`
-  - `GET` returns the full LLM config (`AllLLMConfigs`).
-  - `POST` replaces the full LLM config payload.
-- `/api/llm/apiKeys`
-  - `GET` returns `{ apiKeys, revision }`.
-  - `POST` expects `{ apiKeys, expectedRevision }` and returns `{ apiKeys, revision }`.
-  - Writes are compare-and-set by revision; stale revisions return `409`.
-  - Error payloads use `{ errorCode, message, revision }` with:
-    - `managed_api_keys_revision_conflict` (`409`)
-    - `managed_api_keys_store_corrupt` (`409`)
-    - `managed_api_keys_store_unavailable` (`503`)
-- `LLMApiKeysUpdated` websocket messages now carry snapshots:
-  - `{ apiKeys, revision, corrupt, errorCode, message }`
-
-### Managed chat stop route
-
-- `/api/stopLLMChat`
-  - Method: `POST`
-  - Request fields: `chatId`
-  - Response fields:
-    - `alreadyStopped`
-    - `stoppedRunId` (nullable)
-    - `stoppedMessageId` (nullable)
-
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -148,7 +122,7 @@ The app-generation/skills viewer flow adds these backend routes:
   - Returns current MCP runtime status for Setta + external agent integrations.
   - Request fields: optional `chatId`, optional `engineConfigId`.
   - Response includes `servers`, `externalServers`, `llmConfigPath`, and
-    `activeSettaFilesLocation` (`local|global|custom`).
+    `activeSettaFilesLocation`.
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
 

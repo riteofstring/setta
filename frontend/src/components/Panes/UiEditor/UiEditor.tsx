@@ -24,7 +24,6 @@ import {
   getOnUIEditorTabClickNoSectionSelected,
   TabButton,
 } from "../paneFns";
-import { getPaneMinimumWidth } from "../paneLayout";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -127,7 +126,7 @@ export function UiEditor() {
       <PaneContainer
         paneName={PaneNameEnum.uiEditor}
         right={true}
-        minimumWidth={getPaneMinimumWidth(PaneNameEnum.uiEditor)}
+        minimumWidth={425}
         vis={vis}
         width={width}
       >

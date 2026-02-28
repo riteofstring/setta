@@ -124,10 +124,7 @@ describe("AI resource load guards", () => {
         status: 200,
         hasResponse: true,
         data: {
-          apiKeys: {
-            OPENAI_API_KEY: "pw-key",
-          },
-          revision: 2,
+          OPENAI_API_KEY: "pw-key",
         },
       };
     });
@@ -142,38 +139,6 @@ describe("AI resource load guards", () => {
     const state = useAIStore.getState();
     expect(state.apiKeysInitialLoadComplete).toBe(true);
     expect(state.apiKeysLoadError).toBeNull();
-    expect(state.apiKeysRevision).toBe(2);
-    expect(state.apiKeysAuthoritative).toBe(true);
-  });
-
-  it("marks api keys non-authoritative on unavailable-store errors", async () => {
-    useAIStore.setState({
-      apiKeys: { OPENAI_API_KEY: "stale-local-key" },
-      apiKeysRevision: 7,
-      apiKeysAuthoritative: true,
-    });
-    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llm_api_keys as unknown as vi.Mock;
-    route_get_llm_api_keys.mockResolvedValue({
-      status: 503,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "managed_api_keys_store_unavailable",
-          message: "Managed API key store is unavailable.",
-          revision: 7,
-        },
-      },
-    });
-
-    await loadLLMApiKeys();
-
-    const state = useAIStore.getState();
-    expect(state.apiKeys).toEqual({});
-    expect(state.apiKeysAuthoritative).toBe(false);
-    expect(state.apiKeysLoadError).toBe(
-      "Managed API key store is unavailable.",
-    );
   });
 
   it("deduplicates in-flight agent run loads", async () => {
@@ -183,7 +148,6 @@ describe("AI resource load guards", () => {
     });
     const route_get_agent_runs = (await import("utils/generatedEndpoints"))
       .route_get_agent_runs as unknown as vi.Mock;
-    route_get_agent_runs.mockReset();
     route_get_agent_runs.mockImplementation(async () => {
       await requestGate;
       return {
@@ -203,133 +167,5 @@ describe("AI resource load guards", () => {
     const state = useAIStore.getState();
     expect(state.agentRunsInitialLoadComplete).toBe(true);
     expect(state.agentRunsLoadError).toBeNull();
-    expect(state.agentRunsAuthorityState).toBe("ready");
-  });
-
-  it("retries transient agent-runs load failures and recovers to ready", async () => {
-    vi.useFakeTimers();
-    try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
-      let callCount = 0;
-      route_get_agent_runs.mockImplementation(async () => {
-        callCount += 1;
-        if (callCount === 1) {
-          return {
-            status: 500,
-            hasResponse: true,
-            data: { detail: "failed once" },
-          };
-        }
-        return {
-          status: 200,
-          hasResponse: true,
-          data: [],
-        };
-      });
-
-      useAIStore.setState({
-        agentRunsAuthorityState: "loading",
-        agentRunsInitialLoadComplete: false,
-        agentRunsLoadError: null,
-      });
-      await loadAgentRuns();
-      expect(callCount).toBe(1);
-      let state = useAIStore.getState();
-      expect(state.agentRunsAuthorityState).toBe("transient_error");
-      expect(state.agentRunsInitialLoadComplete).toBe(false);
-      expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
-
-      await vi.advanceTimersByTimeAsync(350);
-
-      state = useAIStore.getState();
-      expect(state.agentRunsAuthorityState).toBe("ready");
-      expect(state.agentRunsInitialLoadComplete).toBe(true);
-      expect(state.agentRunsLoadError).toBeNull();
-      expect(callCount).toBe(2);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("downgrades ready authority after transient agent-runs refresh failures", async () => {
-    vi.useFakeTimers();
-    try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
-      let callCount = 0;
-      route_get_agent_runs.mockImplementation(async () => {
-        callCount += 1;
-        if (callCount === 1) {
-          return {
-            status: 500,
-            hasResponse: true,
-            data: { detail: "failed after ready" },
-          };
-        }
-        return {
-          status: 200,
-          hasResponse: true,
-          data: [],
-        };
-      });
-
-      useAIStore.setState({
-        agentRunsAuthorityState: "ready",
-        agentRunsInitialLoadComplete: true,
-        agentRunsLoadError: null,
-      });
-
-      await loadAgentRuns();
-
-      let state = useAIStore.getState();
-      expect(callCount).toBe(1);
-      expect(state.agentRunsAuthorityState).toBe("transient_error");
-      expect(state.agentRunsInitialLoadComplete).toBe(false);
-      expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
-
-      await vi.advanceTimersByTimeAsync(350);
-
-      state = useAIStore.getState();
-      expect(callCount).toBe(2);
-      expect(state.agentRunsAuthorityState).toBe("ready");
-      expect(state.agentRunsInitialLoadComplete).toBe(true);
-      expect(state.agentRunsLoadError).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("marks agent-runs authority as terminal after bounded retry exhaustion", async () => {
-    vi.useFakeTimers();
-    try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
-      route_get_agent_runs.mockResolvedValue({
-        status: 500,
-        hasResponse: true,
-        data: { detail: "persistent failure" },
-      });
-
-      useAIStore.setState({
-        agentRunsAuthorityState: "loading",
-        agentRunsInitialLoadComplete: false,
-        agentRunsLoadError: null,
-      });
-      await loadAgentRuns();
-      expect(route_get_agent_runs).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(4000);
-
-      const state = useAIStore.getState();
-      expect(state.agentRunsAuthorityState).toBe("terminal_error");
-      expect(state.agentRunsInitialLoadComplete).toBe(true);
-      expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
-      expect(route_get_agent_runs).toHaveBeenCalledTimes(4);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });

@@ -68,52 +68,36 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("falls back to canonical home pane defaults when persisted values are invalid", () => {
+  it("drops deprecated home column width fields from persisted state", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
       {
-        homeWorkspacePaneVis: "yes",
-        homeWorkspacePaneWidth: "320",
-        homeWorkspacePaneTrueWidth: null,
-        homeSelectedProjectPaneVis: 1,
-        homeSelectedProjectPaneWidth: "280",
-        homeSelectedProjectPaneTrueWidth: {},
+        homePageLeftColumnWidth: 640,
+        homePageRightColumnWidth: 600,
       } as Record<string, unknown>,
       current,
-    ) as typeof current;
+    ) as typeof current & Record<string, unknown>;
 
-    expect(merged.homeWorkspacePaneVis).toBe(true);
-    expect(merged.homeWorkspacePaneWidth).toBe(320);
-    expect(merged.homeWorkspacePaneTrueWidth).toBe(320);
-    expect(merged.homeSelectedProjectPaneVis).toBe(true);
-    expect(merged.homeSelectedProjectPaneWidth).toBe(280);
-    expect(merged.homeSelectedProjectPaneTrueWidth).toBe(280);
+    expect("homePageLeftColumnWidth" in merged).toBe(false);
+    expect("homePageRightColumnWidth" in merged).toBe(false);
   });
 
-  it("keeps canonical home pane values when persisted values are valid", () => {
+  it("drops deprecated home true-width fields from persisted state", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
       {
-        homeWorkspacePaneVis: false,
-        homeWorkspacePaneWidth: 410,
-        homeWorkspacePaneTrueWidth: 412,
-        homeSelectedProjectPaneVis: false,
-        homeSelectedProjectPaneWidth: 350,
-        homeSelectedProjectPaneTrueWidth: 352,
+        homeWorkspacePaneTrueWidth: 480,
+        homeSelectedProjectPaneTrueWidth: 520,
       } as Record<string, unknown>,
       current,
-    ) as typeof current;
+    ) as typeof current & Record<string, unknown>;
 
-    expect(merged.homeWorkspacePaneVis).toBe(false);
-    expect(merged.homeWorkspacePaneWidth).toBe(410);
-    expect(merged.homeWorkspacePaneTrueWidth).toBe(412);
-    expect(merged.homeSelectedProjectPaneVis).toBe(false);
-    expect(merged.homeSelectedProjectPaneWidth).toBe(350);
-    expect(merged.homeSelectedProjectPaneTrueWidth).toBe(352);
+    expect("homeWorkspacePaneTrueWidth" in merged).toBe(false);
+    expect("homeSelectedProjectPaneTrueWidth" in merged).toBe(false);
   });
 });
 
