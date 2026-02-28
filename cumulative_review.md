@@ -376,3 +376,33 @@
 
 ### Verification
 - `source activate.sh && cd frontend && pnpm gcf`: completed successfully (`exit 0`).
+
+## 2026-02-27 08:29:30 PST
+
+### Consolidated Findings
+- Project AI chat hydration/execution settings still had split authority across parallel flags and fallback branches, creating repeated patch points.
+- Managed API-key unavailable/corrupt handling remained duplicated across frontend save/load/update paths.
+- Codex MCP table canonicalization existed in multiple backend paths and could drift.
+- The `pnpm gcf` wrapper script uses `/dev/fd` process substitution, which is blocked by this sandbox.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added the execution plan at `docs/plans/fault-line-contract-consolidation-plan.md` and implemented the listed consolidation work.
+- Introduced `projectChatHydrationAuthority.ts` and rewired `ProjectChat` + `ProjectChatCore` to consume one hydration authority contract instead of parallel booleans.
+- Unified managed API-key unavailable/corrupt mapping in frontend AI actions and reused that path from save-related flows.
+- Centralized Codex MCP canonicalization in `backend/setta/mcp/codex_config.py` and reused it from external-agent settings.
+- Added/updated targeted Vitest, backend pytest, and Playwright coverage for hydration provenance and stale-thread behavior.
+- Ran the `pnpm gcf` equivalent sequence with env activation (`pnpm generate`, `pnpm full-cleanup`, `pnpm f`) and captured output in `gcf.log`.
+- Removed top-level `review*.md` files (no files matched in this worktree).
+
+### UX/DX Before -> After
+- Hydration authority: fragmented per-flag branching -> one typed authority object with deterministic precedence.
+- API-key failure handling: repeated callsite-specific branches -> one explicit corruption/unavailable pathway.
+- Codex config normalization: duplicated canonicalization behavior -> single source-of-truth helper.
+- Cleanup execution under sandbox: wrapper failure on `/dev/fd` -> equivalent deterministic cleanup flow executed successfully.
+
+### Verification
+- `source activate.sh && cd frontend && (pnpm generate && pnpm full-cleanup && pnpm f)`: completed successfully (`exit 0`), output captured to `gcf.log`.
+- Targeted frontend Vitest suite from this consolidation set: passed (`65 passed`).
+- Targeted backend pytest sets: passed (`16 passed`, `14 passed`).
+- Targeted Playwright provenance suite: passed (`12 passed`).
+- CDP visual verification: Project AI pane/chat/settings flow checked after hydration-authority consolidation with no visual regression observed.

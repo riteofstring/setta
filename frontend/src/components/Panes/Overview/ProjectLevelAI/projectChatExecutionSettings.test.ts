@@ -20,12 +20,15 @@ import {
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
   resolveProjectChatHydrationRetryDelayMs,
-  resolveProjectChatHydrationRunType,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
 } from "./ProjectChatCore";
+import {
+  resolveProjectChatHydrationAuthority,
+  resolveProjectChatRunTypeForEngine,
+} from "./projectChatHydrationAuthority";
 
 describe("getDefaultProjectChatPermissionMode", () => {
   it("defaults external engines to config_toml_custom", () => {
@@ -79,60 +82,137 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
   });
 });
 
-describe("resolveProjectChatHydrationRunType", () => {
-  it("uses selected chat run type when provenance is ready", () => {
+describe("resolveProjectChatHydrationAuthority", () => {
+  const engineConfigById = new Map([
+    [
+      "engine-external",
+      {
+        id: "engine-external",
+        name: "External Engine",
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentConfigId: "external-config",
+        settaLlmConfigId: null,
+      },
+    ],
+    [
+      "engine-llm",
+      {
+        id: "engine-llm",
+        name: "LLM Engine",
+        engineType: EngineTypeEnum.setta_llm,
+        externalAgentConfigId: null,
+        settaLlmConfigId: "llm-config",
+      },
+    ],
+  ]);
+
+  it("returns ready authority with selected run type when provenance is compatible", () => {
     expect(
-      resolveProjectChatHydrationRunType({
+      resolveProjectChatHydrationAuthority({
         chatId: "chat-1",
-        selectedChatRunType: "external_agent",
-        selectedChatHydrationProvenanceStatus: "ready",
+        selectedScopedChatProvenance: {
+          status: "ready",
+          provenance: {
+            runType: "external_agent",
+            engineConfigId: "engine-external",
+          },
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
         engineType: EngineTypeEnum.setta_llm,
       }),
-    ).toBe("external_agent");
+    ).toEqual({
+      status: "ready",
+      hydrationRunType: "external_agent",
+      blockedErrorCode: null,
+    });
   });
 
-  it("returns null when selected thread provenance is not authoritative yet", () => {
+  it("returns unknown while selected thread provenance is non-authoritative", () => {
     expect(
-      resolveProjectChatHydrationRunType({
+      resolveProjectChatHydrationAuthority({
         chatId: "chat-1",
-        selectedChatRunType: null,
-        selectedChatHydrationProvenanceStatus: "unknown",
+        selectedScopedChatProvenance: {
+          status: "missing",
+        },
+        chatProvenanceAuthoritative: false,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
         engineType: EngineTypeEnum.setta_llm,
       }),
-    ).toBeNull();
+    ).toEqual({
+      status: "unknown",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
   });
 
-  it("returns null when selected chat has authoritative but missing run provenance", () => {
+  it("returns blocked when selected thread has authoritative missing provenance", () => {
     expect(
-      resolveProjectChatHydrationRunType({
+      resolveProjectChatHydrationAuthority({
         chatId: "chat-1",
-        selectedChatRunType: null,
-        selectedChatHydrationProvenanceStatus: "ready",
+        selectedScopedChatProvenance: {
+          status: "missing",
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
         engineType: EngineTypeEnum.setta_llm,
       }),
-    ).toBeNull();
+    ).toEqual({
+      status: "blocked",
+      hydrationRunType: null,
+      blockedErrorCode: "chat_provenance_missing",
+    });
   });
 
-  it("returns null when no chat and no engine type are selected", () => {
+  it("returns ready authority for draft chats using current engine type", () => {
     expect(
-      resolveProjectChatHydrationRunType({
+      resolveProjectChatHydrationAuthority({
+        chatId: null,
+        selectedScopedChatProvenance: {
+          status: "missing",
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toEqual({
+      status: "ready",
+      hydrationRunType: "llm_chat",
+      blockedErrorCode: null,
+    });
+
+    expect(
+      resolveProjectChatHydrationAuthority({
         chatId: undefined,
-        selectedChatRunType: null,
-        selectedChatHydrationProvenanceStatus: "ready",
+        selectedScopedChatProvenance: {
+          status: "missing",
+        },
+        chatProvenanceAuthoritative: true,
+        engineConfigById,
+        engineConfigsAuthoritative: true,
         engineType: null,
       }),
-    ).toBeNull();
+    ).toEqual({
+      status: "ready",
+      hydrationRunType: null,
+      blockedErrorCode: null,
+    });
   });
+});
 
-  it("uses engine type for non-selected draft chats", () => {
+describe("resolveProjectChatRunTypeForEngine", () => {
+  it("maps engine type to authoritative chat run type", () => {
     expect(
-      resolveProjectChatHydrationRunType({
-        chatId: undefined,
-        selectedChatRunType: null,
-        selectedChatHydrationProvenanceStatus: "ready",
-        engineType: EngineTypeEnum.setta_llm,
-      }),
-    ).toBe("llm_chat");
+      resolveProjectChatRunTypeForEngine(EngineTypeEnum.external_agent),
+    ).toBe("external_agent");
+    expect(resolveProjectChatRunTypeForEngine(EngineTypeEnum.setta_llm)).toBe(
+      "llm_chat",
+    );
+    expect(resolveProjectChatRunTypeForEngine(null)).toBeNull();
   });
 });
 

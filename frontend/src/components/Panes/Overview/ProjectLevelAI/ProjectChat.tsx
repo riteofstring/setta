@@ -45,7 +45,6 @@ import {
   buildChatProvenanceByChatId,
   resolveScopedChatProvenanceForChatId,
   type ChatHistoryCompatibility,
-  type ChatRunType,
 } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import { setProjectChatThreadGroupAssignment } from "state/actions/projectChatThreads";
@@ -73,16 +72,18 @@ import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
-  type SelectedChatHydrationProvenanceStatus,
 } from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
 } from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
+import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+
+export { resolveProjectChatThreadBlockedErrorCodeForSelectedChat } from "./projectChatHydrationAuthority";
 
 type ProjectAISettingsPopoverProps = {
   engineGroups: ReturnType<typeof buildEngineGroups>;
@@ -139,41 +140,6 @@ type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
   chatEngineConfigByChatId: Map<string, string | null>;
 };
 
-type ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput = {
-  chatId: string | null | undefined;
-  selectedScopedChatProvenance:
-    | {
-        status: "ready";
-        provenance: {
-          runType: ChatRunType;
-          engineConfigId: string | null;
-        };
-      }
-    | {
-        status: "missing" | "ambiguous";
-      };
-  chatProvenanceAuthoritative: boolean;
-  engineConfigById: Map<string, EngineConfig>;
-  engineConfigsAuthoritative: boolean;
-};
-
-type ProjectChatThreadBlockedErrorCode =
-  | "chat_provenance_missing"
-  | "engine_config_missing"
-  | "engine_type_mismatch";
-
-type ProjectChatThreadCompatibilityResult =
-  | {
-      status: "compatible";
-    }
-  | {
-      status: "unknown";
-    }
-  | {
-      status: "blocked";
-      errorCode: ProjectChatThreadBlockedErrorCode;
-    };
-
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -229,83 +195,6 @@ export function resolveProjectChatEngineConfigIdForSelectedChat({
     return null;
   }
   return resolvedEngineConfigId;
-}
-
-function isSelectedChatRunTypeCompatibleWithEngineType({
-  runType,
-  engineType,
-}: {
-  runType: ChatRunType;
-  engineType: EngineTypeEnum;
-}): boolean {
-  if (runType === "llm_chat") {
-    return engineType === EngineTypeEnum.setta_llm;
-  }
-  if (runType === "external_agent") {
-    return engineType === EngineTypeEnum.external_agent;
-  }
-  return false;
-}
-
-export function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
-  chatId,
-  selectedScopedChatProvenance,
-  chatProvenanceAuthoritative,
-  engineConfigById,
-  engineConfigsAuthoritative,
-}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
-  const resolvedChatId = chatId?.trim() ?? "";
-  if (!resolvedChatId) {
-    return { status: "compatible" };
-  }
-  if (selectedScopedChatProvenance.status === "missing") {
-    if (!chatProvenanceAuthoritative) {
-      return { status: "unknown" };
-    }
-    return {
-      status: "blocked",
-      errorCode: "chat_provenance_missing",
-    };
-  }
-  if (selectedScopedChatProvenance.status === "ambiguous") {
-    return {
-      status: "blocked",
-      errorCode: "chat_provenance_missing",
-    };
-  }
-  const provenance = selectedScopedChatProvenance.provenance;
-  const requiredEngineConfigId = provenance.engineConfigId;
-  if (!requiredEngineConfigId) {
-    if (!chatProvenanceAuthoritative) {
-      return { status: "unknown" };
-    }
-    return {
-      status: "blocked",
-      errorCode: "chat_provenance_missing",
-    };
-  }
-  const requiredEngine = engineConfigById.get(requiredEngineConfigId);
-  if (!requiredEngine) {
-    if (!engineConfigsAuthoritative) {
-      return { status: "unknown" };
-    }
-    return {
-      status: "blocked",
-      errorCode: "engine_config_missing",
-    };
-  }
-  if (
-    !isSelectedChatRunTypeCompatibleWithEngineType({
-      runType: provenance.runType,
-      engineType: requiredEngine.engineType,
-    })
-  ) {
-    return {
-      status: "blocked",
-      errorCode: "engine_type_mismatch",
-    };
-  }
-  return { status: "compatible" };
 }
 
 export function ProjectChat() {
@@ -680,21 +569,16 @@ export function ProjectChat() {
     }
     return nextByChatId;
   }, [chatProvenanceByChatIdMap]);
-  const selectedChatRunType = useMemo(() => {
-    if (selectedScopedChatProvenance.status === "ready") {
-      return selectedScopedChatProvenance.provenance.runType;
-    }
-    return null;
-  }, [selectedScopedChatProvenance]);
-  const selectedThreadCompatibility = useMemo(
+  const selectedChatHydrationAuthority = useMemo(
     () =>
-      resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+      resolveProjectChatHydrationAuthority({
         chatId,
         selectedScopedChatProvenance,
         chatProvenanceAuthoritative: agentRunsAuthorityState === "ready",
         engineConfigById,
         engineConfigsAuthoritative:
           engineConfigsInitialLoadComplete && engineConfigsLoadError === null,
+        engineType,
       }),
     [
       chatId,
@@ -703,21 +587,9 @@ export function ProjectChat() {
       engineConfigById,
       engineConfigsInitialLoadComplete,
       engineConfigsLoadError,
+      engineType,
     ],
   );
-  const selectedThreadBlockedErrorCode =
-    selectedThreadCompatibility.status === "blocked"
-      ? selectedThreadCompatibility.errorCode
-      : null;
-  const selectedChatHydrationProvenanceStatus =
-    useMemo<SelectedChatHydrationProvenanceStatus>(() => {
-      if (typeof chatId !== "string" || !chatId.trim()) {
-        return "ready";
-      }
-      return selectedThreadCompatibility.status === "unknown"
-        ? "unknown"
-        : "ready";
-    }, [chatId, selectedThreadCompatibility.status]);
   const selectedChatRunWatermark = useMemo(() => {
     if (typeof chatId !== "string") {
       return 0;
@@ -759,9 +631,9 @@ export function ProjectChat() {
         ].join(":")
       : "missing_engine_config";
     return [
-      selectedChatHydrationProvenanceStatus,
-      selectedThreadCompatibility.status,
-      selectedProvenance?.runType ?? "missing_run_type",
+      selectedChatHydrationAuthority.status,
+      selectedChatHydrationAuthority.hydrationRunType ?? "missing_run_type",
+      selectedChatHydrationAuthority.blockedErrorCode ?? "not_blocked",
       selectedProvenanceEngineConfigId ?? "missing_engine_config_id",
       selectedEngineRevision,
       selectedChatRunWatermark,
@@ -778,9 +650,10 @@ export function ProjectChat() {
     engineConfigById,
     engineConfigsInitialLoadComplete,
     engineConfigsLoadError,
-    selectedChatHydrationProvenanceStatus,
+    selectedChatHydrationAuthority.blockedErrorCode,
+    selectedChatHydrationAuthority.hydrationRunType,
+    selectedChatHydrationAuthority.status,
     selectedChatRunWatermark,
-    selectedThreadCompatibility.status,
   ]);
   const availableEngineConfigIds = useMemo(
     () => new Set(engineConfigs.map((config) => config.id)),
@@ -1631,10 +1504,7 @@ export function ProjectChat() {
                   chatId={chatId}
                   placeholderText={placeholderText}
                   conversationFilterText={conversationFilterText}
-                  selectedChatRunType={selectedChatRunType}
-                  selectedChatHydrationProvenanceStatus={
-                    selectedChatHydrationProvenanceStatus
-                  }
+                  hydrationAuthority={selectedChatHydrationAuthority}
                   hydrationMetadataRevision={
                     selectedChatHydrationMetadataRevision
                   }
@@ -1655,9 +1525,6 @@ export function ProjectChat() {
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
-                  selectedThreadBlockedErrorCode={
-                    selectedThreadBlockedErrorCode
-                  }
                   activeConversationSearchMatchMessageId={
                     activeConversationSearchMatchMessageId
                   }
@@ -1695,10 +1562,7 @@ export function ProjectChat() {
               chatId={chatId}
               placeholderText={placeholderText}
               conversationFilterText={conversationFilterText}
-              selectedChatRunType={selectedChatRunType}
-              selectedChatHydrationProvenanceStatus={
-                selectedChatHydrationProvenanceStatus
-              }
+              hydrationAuthority={selectedChatHydrationAuthority}
               hydrationMetadataRevision={selectedChatHydrationMetadataRevision}
               thinking={thinking}
               engineConfigId={effectiveEngineId}
@@ -1717,7 +1581,6 @@ export function ProjectChat() {
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
-              selectedThreadBlockedErrorCode={selectedThreadBlockedErrorCode}
               activeConversationSearchMatchMessageId={
                 activeConversationSearchMatchMessageId
               }

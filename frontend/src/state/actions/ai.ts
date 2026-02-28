@@ -692,6 +692,88 @@ export async function saveLLMConfig(
   return res.data;
 }
 
+type ManagedAPIKeysErrorDetails = {
+  detail: string | null;
+  revision: number | null;
+  errorCode: string | null;
+  isCorrupt: boolean;
+  isUnavailable: boolean;
+};
+
+function resolveManagedApiKeysErrorDetails(
+  payload: unknown,
+): ManagedAPIKeysErrorDetails {
+  const detail = getErrorDetail(payload);
+  const revision = extractApiKeysRevisionFromErrorPayload(payload);
+  const errorCode = getErrorCode(payload);
+  const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
+  const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
+  return {
+    detail,
+    revision,
+    errorCode,
+    isCorrupt,
+    isUnavailable,
+  };
+}
+
+function applyManagedApiKeysReadFailure(payload: unknown): void {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  useAIStore.setState((state) => ({
+    apiKeys:
+      errorDetails.isCorrupt || errorDetails.isUnavailable ? {} : state.apiKeys,
+    apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+    apiKeysAuthoritative: errorDetails.isCorrupt,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? "Failed to load LLM API keys",
+  }));
+}
+
+function applyManagedApiKeysWriteFailure({
+  payload,
+  fallbackMessage,
+  fallbackAuthoritative,
+}: {
+  payload: unknown;
+  fallbackMessage: string;
+  fallbackAuthoritative: boolean;
+}): {
+  shouldRetryCorruptWrite: boolean;
+  isUnavailable: boolean;
+} {
+  const errorDetails = resolveManagedApiKeysErrorDetails(payload);
+  if (errorDetails.isCorrupt) {
+    useAIStore.setState((state) => ({
+      apiKeys: {},
+      apiKeysRevision: errorDetails.revision ?? state.apiKeysRevision,
+      apiKeysAuthoritative: errorDetails.revision !== null,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is corrupt.",
+    }));
+    return {
+      shouldRetryCorruptWrite: errorDetails.revision !== null,
+      isUnavailable: false,
+    };
+  }
+  if (errorDetails.isUnavailable) {
+    useAIStore.setState({
+      apiKeys: {},
+      apiKeysAuthoritative: false,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError:
+        errorDetails.detail ?? "Managed API key store is unavailable.",
+    });
+    return { shouldRetryCorruptWrite: false, isUnavailable: true };
+  }
+  useAIStore.setState({
+    apiKeysAuthoritative: fallbackAuthoritative,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: errorDetails.detail ?? fallbackMessage,
+  });
+  return { shouldRetryCorruptWrite: false, isUnavailable: false };
+}
+
 export async function loadLLMApiKeys() {
   if (llmApiKeysLoadPromise) {
     await llmApiKeysLoadPromise;
@@ -703,18 +785,7 @@ export async function loadLLMApiKeys() {
       receiveLLMApiKeysSnapshotUpdate(res.data);
       return;
     }
-    const detail = getErrorDetail(res.data);
-    const revision = extractApiKeysRevisionFromErrorPayload(res.data);
-    const errorCode = getErrorCode(res.data);
-    const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
-    const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
-    useAIStore.setState((state) => ({
-      apiKeys: isCorrupt || isUnavailable ? {} : state.apiKeys,
-      apiKeysRevision: revision ?? state.apiKeysRevision,
-      apiKeysAuthoritative: isCorrupt,
-      apiKeysInitialLoadComplete: true,
-      apiKeysLoadError: detail ?? "Failed to load LLM API keys",
-    }));
+    applyManagedApiKeysReadFailure(res.data);
   })();
   try {
     await llmApiKeysLoadPromise;
@@ -776,18 +847,7 @@ async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
     receiveLLMApiKeysSnapshotUpdate(res.data);
     return true;
   }
-  const detail = getErrorDetail(res.data);
-  const revision = extractApiKeysRevisionFromErrorPayload(res.data);
-  const errorCode = getErrorCode(res.data);
-  const isCorrupt = errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
-  const isUnavailable = errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE;
-  useAIStore.setState((state) => ({
-    apiKeys: isCorrupt || isUnavailable ? {} : state.apiKeys,
-    apiKeysRevision: revision ?? state.apiKeysRevision,
-    apiKeysAuthoritative: isCorrupt,
-    apiKeysInitialLoadComplete: true,
-    apiKeysLoadError: detail ?? "Failed to load LLM API keys",
-  }));
+  applyManagedApiKeysReadFailure(res.data);
   return false;
 }
 
@@ -821,44 +881,31 @@ async function persistLLMApiKeysMutation(
       res.status === 409 &&
       errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE
     ) {
-      const revision = extractApiKeysRevisionFromErrorPayload(res.data);
-      if (revision === null) {
-        useAIStore.setState({
-          apiKeysAuthoritative: false,
-          apiKeysInitialLoadComplete: true,
-          apiKeysLoadError:
-            getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
-        });
+      const writeFailureResult = applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is corrupt.",
+        fallbackAuthoritative: false,
+      });
+      if (!writeFailureResult.shouldRetryCorruptWrite) {
         return false;
       }
-      useAIStore.setState({
-        apiKeys: {},
-        apiKeysRevision: revision,
-        apiKeysAuthoritative: true,
-        apiKeysInitialLoadComplete: true,
-        apiKeysLoadError:
-          getErrorDetail(res.data) ?? "Managed API key store is corrupt.",
-      });
       continue;
     }
     if (
       res.status === 503 &&
       errorCode === MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE
     ) {
-      useAIStore.setState({
-        apiKeys: {},
-        apiKeysAuthoritative: false,
-        apiKeysInitialLoadComplete: true,
-        apiKeysLoadError:
-          getErrorDetail(res.data) ?? "Managed API key store is unavailable.",
+      applyManagedApiKeysWriteFailure({
+        payload: res.data,
+        fallbackMessage: "Managed API key store is unavailable.",
+        fallbackAuthoritative: false,
       });
       return false;
     }
-    useAIStore.setState({
-      apiKeysAuthoritative: false,
-      apiKeysInitialLoadComplete: true,
-      apiKeysLoadError:
-        getErrorDetail(res.data) ?? "Failed to save LLM API keys",
+    applyManagedApiKeysWriteFailure({
+      payload: res.data,
+      fallbackMessage: "Failed to save LLM API keys",
+      fallbackAuthoritative: false,
     });
     return false;
   }

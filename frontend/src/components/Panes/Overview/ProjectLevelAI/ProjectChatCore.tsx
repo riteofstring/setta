@@ -76,6 +76,10 @@ import {
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import {
+  resolveProjectChatRunTypeForEngine,
+  type ProjectChatHydrationAuthority,
+} from "./projectChatHydrationAuthority";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
@@ -92,7 +96,6 @@ const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
 type ProjectChatBlockedErrorCode = ChatHydrationErrorCode;
-export type SelectedChatHydrationProvenanceStatus = "ready" | "unknown";
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -105,18 +108,6 @@ export function getDefaultProjectChatPermissionMode(
     return "config_toml_custom";
   }
   return "minimal";
-}
-
-function resolveProjectChatRunType(
-  engineType: EngineTypeEnum | null,
-): ChatRunType | null {
-  if (engineType === EngineTypeEnum.external_agent) {
-    return "external_agent";
-  }
-  if (engineType === EngineTypeEnum.setta_llm) {
-    return "llm_chat";
-  }
-  return null;
 }
 
 export function getProjectChatBlockedReasonMessage(
@@ -138,27 +129,6 @@ export function getProjectChatBlockedReasonMessage(
     return "This thread's LLM config is no longer available. Start a new chat after choosing a valid model.";
   }
   return "This thread can't be resumed due to a terminal hydration error. Start a new chat.";
-}
-
-export function resolveProjectChatHydrationRunType({
-  chatId,
-  selectedChatRunType,
-  selectedChatHydrationProvenanceStatus,
-  engineType,
-}: {
-  chatId: string | null | undefined;
-  selectedChatRunType: ChatRunType | null;
-  selectedChatHydrationProvenanceStatus: SelectedChatHydrationProvenanceStatus;
-  engineType: EngineTypeEnum | null;
-}): ChatRunType | null {
-  const normalizedChatId = chatId?.trim() ?? "";
-  if (normalizedChatId) {
-    if (selectedChatHydrationProvenanceStatus !== "ready") {
-      return null;
-    }
-    return selectedChatRunType;
-  }
-  return resolveProjectChatRunType(engineType);
 }
 
 export function buildProjectChatHydrationCacheKey({
@@ -955,9 +925,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   conversationFilterText,
   activeConversationSearchMatchMessageId = null,
-  selectedThreadBlockedErrorCode = null,
-  selectedChatRunType,
-  selectedChatHydrationProvenanceStatus,
+  hydrationAuthority,
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
@@ -979,9 +947,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText: string;
   conversationFilterText: string;
   activeConversationSearchMatchMessageId?: string | null;
-  selectedThreadBlockedErrorCode?: ProjectChatBlockedErrorCode | null;
-  selectedChatRunType: ChatRunType | null;
-  selectedChatHydrationProvenanceStatus: SelectedChatHydrationProvenanceStatus;
+  hydrationAuthority: ProjectChatHydrationAuthority;
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
@@ -1083,21 +1049,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const hydrationRunType = useMemo(
-    () =>
-      resolveProjectChatHydrationRunType({
-        chatId,
-        selectedChatRunType,
-        selectedChatHydrationProvenanceStatus,
-        engineType,
-      }),
-    [
-      chatId,
-      engineType,
-      selectedChatRunType,
-      selectedChatHydrationProvenanceStatus,
-    ],
-  );
+  const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
     contextUsedTokens,
@@ -1108,7 +1060,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [contextUsage],
   );
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveProjectChatRunType(engineType);
+    const runType = resolveProjectChatRunTypeForEngine(engineType);
     if (!runType) {
       return null;
     }
@@ -1149,7 +1101,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
   const blockedErrorCode =
-    selectedThreadBlockedErrorCode ?? hydrationBlockedErrorCode;
+    hydrationAuthority.blockedErrorCode ?? hydrationBlockedErrorCode;
   const blockedReason = blockedErrorCode
     ? getProjectChatBlockedReasonMessage(blockedErrorCode)
     : null;
@@ -1247,10 +1199,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (typeof chatId !== "string") {
       return;
     }
-    if (selectedChatHydrationProvenanceStatus !== "ready") {
+    if (hydrationAuthority.status !== "ready") {
       return;
     }
-    if (selectedThreadBlockedErrorCode !== null) {
+    if (hydrationAuthority.blockedErrorCode !== null) {
+      return;
+    }
+    if (hydrationRunType === null) {
       return;
     }
     if (waitingForResponse) {
@@ -1375,10 +1330,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [
     chatId,
     clearHydrationRetryTimer,
+    hydrationAuthority.blockedErrorCode,
+    hydrationAuthority.status,
     hydrationMetadataRevision,
     hydrationRunType,
-    selectedChatHydrationProvenanceStatus,
-    selectedThreadBlockedErrorCode,
     waitingForResponse,
   ]);
 

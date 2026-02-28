@@ -213,7 +213,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
     });
   });
 
-  it("returns unknown when local engine cache is not authoritative", () => {
+  it("remains compatible when engine cache is unavailable but provenance is ready", () => {
     const result = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       chatId: "chat-1",
       selectedScopedChatProvenance: {
@@ -227,7 +227,7 @@ describe("resolveProjectChatThreadBlockedErrorCodeForSelectedChat", () => {
       engineConfigById: new Map(),
       engineConfigsAuthoritative: false,
     });
-    expect(result).toEqual({ status: "unknown" });
+    expect(result).toEqual({ status: "compatible" });
   });
 
   it("blocks when selected chat run type mismatches persisted engine type", () => {

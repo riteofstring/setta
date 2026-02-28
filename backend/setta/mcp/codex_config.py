@@ -93,6 +93,24 @@ def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
     return camel_case_servers
 
 
+def canonicalize_codex_mcp_servers_payload(payload: dict[str, Any]) -> bool:
+    has_snake_key = "mcp_servers" in payload
+    has_camel_key = "mcpServers" in payload
+    if not has_snake_key and not has_camel_key:
+        return False
+    canonical_servers = resolve_raw_codex_mcp_servers(payload)
+    existing_snake_value = payload.get("mcp_servers")
+    changed = has_camel_key
+    if not isinstance(existing_snake_value, dict):
+        changed = True
+    elif existing_snake_value != canonical_servers:
+        changed = True
+    payload.pop("mcp_servers", None)
+    payload.pop("mcpServers", None)
+    payload["mcp_servers"] = deepcopy(canonical_servers)
+    return changed
+
+
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     codex_home_config_path = resolve_codex_home_config_path()
     if codex_home_config_path is not None:

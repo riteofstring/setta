@@ -1435,6 +1435,9 @@ test("project ai blocks stale selected chat ids that have no provenance", async 
   });
 
   try {
+    await seedAIStore(page, {
+      activeChatId: staleChatId,
+    });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = page.locator("#OverviewPane");
