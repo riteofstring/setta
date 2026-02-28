@@ -68,7 +68,6 @@ from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
 from setta.frontend_affinity_token import parse_frontend_affinity_token
-from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -148,15 +147,6 @@ _SUMMARY_EVENT_TYPES = {
     "question_response",
     "tool_result",
 }
-
-
-def _normalize_runtime_env_value(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if normalized == "":
-        return None
-    return normalized
 
 
 @dataclass(frozen=True)
@@ -936,32 +926,6 @@ class ExternalAgentRunner:
             return raw
         return None
 
-    @classmethod
-    def _resolve_runtime_model(
-        cls,
-        config: ExternalAgentConfig,
-        inputs: dict[str, Any] | None,
-    ) -> str | None:
-        explicit_model = cls._extract_input_string(inputs, "model")
-        if explicit_model:
-            return explicit_model
-        managed = config.settingsManagedBlock
-        if (
-            config.toolType == ExternalAgentToolType.codex
-            and managed is not None
-            and managed.codex is not None
-            and managed.codex.model
-        ):
-            return managed.codex.model
-        if (
-            config.toolType == ExternalAgentToolType.opencode
-            and managed is not None
-            and managed.opencode is not None
-            and managed.opencode.model
-        ):
-            return managed.opencode.model
-        return config.defaultModel
-
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
 
@@ -1007,9 +971,8 @@ class ExternalAgentRunner:
             metadata["externalAgentConfigId"] = str(config.id)
             metadata["toolType"] = config.toolType.value
             metadata["runMode"] = config.runMode.value
-            runtime_model = self._resolve_runtime_model(config, run.inputs)
-            if runtime_model:
-                metadata["model"] = runtime_model
+            if config.defaultModel:
+                metadata["model"] = config.defaultModel
             if config.approvalPolicy:
                 metadata["approvalPolicy"] = config.approvalPolicy
             if config.sandboxPolicy:
@@ -1372,8 +1335,8 @@ class ExternalAgentRunner:
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}
         for key in _BASE_ENV_KEYS:
-            value = _normalize_runtime_env_value(os.environ.get(key))
-            if value is not None:
+            value = os.environ.get(key)
+            if value:
                 env[key] = value
         allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
         plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
@@ -1386,20 +1349,12 @@ class ExternalAgentRunner:
             )
         if not allowed:
             return env
-        managed_api_keys_result = read_managed_api_keys_with_status(self.dbe)
-        if managed_api_keys_result.corrupt:
-            logger.warning(
-                "Managed API key store is corrupt while building external agent env: %s",
-                managed_api_keys_result.error or "unknown parse error",
-            )
-        managed_api_keys = managed_api_keys_result.api_keys
+        dot_env = self.dbe.read_dot_env()
         for key in allowed:
-            process_value = _normalize_runtime_env_value(os.environ.get(key))
-            if process_value is not None:
-                env[key] = process_value
-            managed_value = _normalize_runtime_env_value(managed_api_keys.get(key))
-            if managed_value is not None:
-                env[key] = managed_value
+            if key in os.environ:
+                env[key] = os.environ[key]
+            if key in dot_env:
+                env[key] = dot_env[key]
         return env
 
     def _cleanup_context(self, context: ExternalAgentRunContext) -> None:

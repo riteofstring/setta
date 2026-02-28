@@ -161,7 +161,7 @@ class _WorkerState:
     plugin_version: str
     plugin_root: Path
     entrypoint_path: Path
-    server_mode: Literal["ide", "share", "app"] = "ide"
+    server_mode: Literal["ide", "share", "app", "launcher"] = "ide"
     requested_capabilities: list[str] = field(default_factory=list)
     effective_capabilities: list[str] = field(default_factory=list)
     module: Any | None = None
@@ -1704,7 +1704,7 @@ class _WorkerBackendPluginContext:
         self._host_call = host_call
         self.plugin_id = state.plugin_id
         self.plugin_root = state.plugin_root
-        self.server_mode: Literal["ide", "share", "app"] = state.server_mode
+        self.server_mode: Literal["ide", "share", "app", "launcher"] = state.server_mode
         self.requested_capabilities: list[str] = list(state.requested_capabilities)
         self.effective_capabilities: list[str] = list(state.effective_capabilities)
 
@@ -1904,7 +1904,7 @@ def main() -> int:
     parser.add_argument("--entrypoint", required=True)
     parser.add_argument(
         "--server-mode",
-        choices=["ide", "share", "app"],
+        choices=["ide", "share", "app", "launcher"],
         default="ide",
     )
     parser.add_argument(
