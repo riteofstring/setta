@@ -4,6 +4,7 @@ import hmac
 import json
 import secrets
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -17,6 +18,13 @@ class BootstrapTokenPayload(BaseModel):
 class AuthCookiePayload(BaseModel):
     sessionId: str
     exp: int
+
+
+class LaunchIntentTokenPayload(BaseModel):
+    sessionId: str
+    exp: int
+    nonce: str
+    purpose: Literal["launch_intent"] = "launch_intent"
 
 
 class NonceTracker:
@@ -154,6 +162,59 @@ class AuthCookieManager:
     def _is_expired(self, payload: AuthCookiePayload, now: datetime | None) -> bool:
         timestamp = int((now or datetime.now(timezone.utc)).timestamp())
         return timestamp >= payload.exp
+
+
+class LaunchIntentTokenManager:
+    def __init__(
+        self, ttl_seconds: int, nonce_tracker: NonceTracker | None = None
+    ) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._nonce_tracker = nonce_tracker or NonceTracker()
+
+    def mint(
+        self, session_id: str, secret: bytes, now: datetime | None = None
+    ) -> tuple[str, int]:
+        issued_at = now or datetime.now(timezone.utc)
+        exp = int(issued_at.timestamp()) + self._ttl_seconds
+        payload = LaunchIntentTokenPayload(
+            sessionId=session_id,
+            exp=exp,
+            nonce=secrets.token_urlsafe(16),
+            purpose="launch_intent",
+        )
+        payload_bytes = _encode_payload(payload)
+        signature = _sign(payload_bytes, secret)
+        token = f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
+        return token, exp
+
+    def consume(
+        self, token: str, secret: bytes, now: datetime | None = None
+    ) -> LaunchIntentTokenPayload:
+        effective_now = now or datetime.now(timezone.utc)
+        payload = self.validate(token, secret, effective_now)
+        timestamp = int(effective_now.timestamp())
+        if self._nonce_tracker.is_consumed(payload.sessionId, payload.nonce, timestamp):
+            raise ValueError("Token has already been consumed")
+        self._nonce_tracker.consume(
+            payload.sessionId, payload.nonce, payload.exp, timestamp
+        )
+        return payload
+
+    def validate(
+        self, token: str, secret: bytes, now: datetime | None = None
+    ) -> LaunchIntentTokenPayload:
+        payload_obj, signature = _decode_token_parts(token)
+        try:
+            payload = LaunchIntentTokenPayload.model_validate(payload_obj)
+        except ValidationError as exc:
+            raise ValueError("Invalid token payload") from exc
+        expected = _sign(_encode_payload(payload), secret)
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("Invalid token signature")
+        timestamp = int((now or datetime.now(timezone.utc)).timestamp())
+        if timestamp >= payload.exp:
+            raise ValueError("Token has expired")
+        return payload
 
 
 def _encode_payload(payload: BaseModel) -> bytes:

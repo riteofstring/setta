@@ -129,6 +129,7 @@ def test_connect_remote_workspace_session_preserves_omitted_location_for_profile
         port=61234,
         pid=123,
         started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
     )
 
     monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
@@ -193,6 +194,7 @@ def test_connect_remote_workspace_session_defaults_to_auto_without_profile(
         port=61234,
         pid=123,
         started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
     )
 
     monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
@@ -261,6 +263,7 @@ def test_connect_remote_workspace_session_treats_whitespace_profile_as_omitted(
         port=61234,
         pid=123,
         started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
     )
 
     monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
@@ -307,3 +310,243 @@ def test_connect_remote_workspace_session_treats_whitespace_profile_as_omitted(
     )
     assert captured["setta_files_location"] == "auto"
     assert captured["profile"] is None
+
+
+def test_connect_remote_workspace_session_requests_ide_server_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, str | None] = {"server_mode": None}
+    session = RemoteSessionSummary(
+        id="session-1",
+        workspace_path="/tmp/workspace",
+        workspace_path_canonical="/tmp/workspace",
+        host="127.0.0.1",
+        port=61234,
+        pid=123,
+        started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
+    )
+
+    def fake_fetch_remote_sessions(*_args, **kwargs):
+        captured["server_mode"] = kwargs.get("server_mode")
+        return [session]
+
+    monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_workspace", lambda *_args, **_kwargs: "/tmp/workspace"
+    )
+    monkeypatch.setattr(ssh_connect, "resolve_remote_setta_command", lambda *_args, **_kwargs: "setta")
+    monkeypatch.setattr(ssh_connect, "build_remote_setta_path_args", lambda **_kwargs: "")
+    monkeypatch.setattr(ssh_connect, "fetch_remote_sessions", fake_fetch_remote_sessions)
+    monkeypatch.setattr(
+        ssh_connect,
+        "fetch_remote_connect_info",
+        lambda *_args, **_kwargs: {
+            "bootstrapUrlFragment": "http://127.0.0.1:61234/__setta__/bootstrap#token=abc",
+            "settaFilesLocation": "local",
+        },
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "_ensure_ssh_tunnel",
+        lambda **_kwargs: ssh_connect.SshTunnelMetadata(
+            keyHash="k",
+            remoteHost="127.0.0.1",
+            remotePort=61234,
+            localPort=62000,
+            pid=999,
+            pidCreateTime=1.0,
+            createdAt="2025-01-01T00:00:00+00:00",
+            lastUsedAt="2025-01-01T00:00:00+00:00",
+        ),
+    )
+
+    result = ssh_connect.connect_remote_workspace_session(
+        ssh_target="user@host",
+        workspace="/tmp/workspace",
+    )
+
+    assert result.bootstrap_url_fragment.startswith(
+        "http://127.0.0.1:62000/__setta__/bootstrap#token="
+    )
+    assert captured["server_mode"] == "ide"
+
+
+def test_connect_remote_workspace_session_rejects_mismatched_launcher_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = RemoteSessionSummary(
+        id="session-1",
+        workspace_path="/tmp/workspace",
+        workspace_path_canonical="/tmp/workspace",
+        host="127.0.0.1",
+        port=61234,
+        pid=123,
+        started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
+    )
+
+    monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_workspace", lambda *_args, **_kwargs: "/tmp/workspace"
+    )
+    monkeypatch.setattr(ssh_connect, "resolve_remote_setta_command", lambda *_args, **_kwargs: "setta")
+    monkeypatch.setattr(ssh_connect, "build_remote_setta_path_args", lambda **_kwargs: "")
+    monkeypatch.setattr(ssh_connect, "fetch_remote_sessions", lambda *_args, **_kwargs: [session])
+    monkeypatch.setattr(
+        ssh_connect,
+        "fetch_remote_connect_info",
+        lambda *_args, **_kwargs: {
+            "bootstrapUrlFragment": "http://127.0.0.1:61234/__setta__/bootstrap#token=abc",
+            "settaFilesLocation": "local",
+            "launcherOrigin": "https://evil.example",
+            "launcherOriginProof": "proof",
+        },
+    )
+
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_connect.connect_remote_workspace_session(
+            ssh_target="user@host",
+            workspace="/tmp/workspace",
+            launcher_origin="http://launcher.example:7999",
+        )
+
+    assert excinfo.value.code == "RemoteConnectInfo"
+    assert "did not match requested launcher origin" in str(excinfo.value)
+
+
+def test_connect_remote_workspace_session_requires_launcher_origin_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher_origin = "http://launcher.example:7999"
+    session = RemoteSessionSummary(
+        id="session-1",
+        workspace_path="/tmp/workspace",
+        workspace_path_canonical="/tmp/workspace",
+        host="127.0.0.1",
+        port=61234,
+        pid=123,
+        started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        server_mode="ide",
+    )
+
+    monkeypatch.setattr(ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash")
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_workspace", lambda *_args, **_kwargs: "/tmp/workspace"
+    )
+    monkeypatch.setattr(ssh_connect, "resolve_remote_setta_command", lambda *_args, **_kwargs: "setta")
+    monkeypatch.setattr(ssh_connect, "build_remote_setta_path_args", lambda **_kwargs: "")
+    monkeypatch.setattr(ssh_connect, "fetch_remote_sessions", lambda *_args, **_kwargs: [session])
+    monkeypatch.setattr(
+        ssh_connect,
+        "fetch_remote_connect_info",
+        lambda *_args, **_kwargs: {
+            "bootstrapUrlFragment": "http://127.0.0.1:61234/__setta__/bootstrap#token=abc",
+            "settaFilesLocation": "local",
+            "launcherOrigin": launcher_origin,
+        },
+    )
+
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_connect.connect_remote_workspace_session(
+            ssh_target="user@host",
+            workspace="/tmp/workspace",
+            launcher_origin=launcher_origin,
+        )
+
+    assert excinfo.value.code == "RemoteConnectInfo"
+    assert "did not include launcherOriginProof" in str(excinfo.value)
+
+
+def test_rollback_remote_workspace_session_deletes_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash"
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "resolve_remote_workspace",
+        lambda *_args, **_kwargs: "/remote/workspace",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "build_remote_setta_path_args",
+        lambda **_kwargs: "--profile dev",
+    )
+
+    def fake_run_remote_setta_command(
+        ssh_target: str,
+        ssh_args: list[str],
+        shell: str,
+        workspace: str,
+        setta_command: str,
+        setta_args: str,
+        **_kwargs,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["ssh_target"] = ssh_target
+        captured["ssh_args"] = ssh_args
+        captured["shell"] = shell
+        captured["workspace"] = workspace
+        captured["setta_command"] = setta_command
+        captured["setta_args"] = setta_args
+        return subprocess.CompletedProcess(args=["ssh"], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        ssh_connect, "run_remote_setta_command", fake_run_remote_setta_command
+    )
+
+    ssh_connect.rollback_remote_workspace_session(
+        ssh_target="user@host",
+        ssh_args="-i ~/.ssh/id_ed25519",
+        workspace="/requested/workspace",
+        session_id="session-123",
+        remote_cmd="setta",
+        profile="dev",
+    )
+
+    assert captured["ssh_target"] == "user@host"
+    assert captured["shell"] == "bash"
+    assert captured["workspace"] == "/remote/workspace"
+    assert captured["setta_command"] == "setta"
+    assert captured["setta_args"] == "--profile dev status --delete-session session-123"
+    assert isinstance(captured["ssh_args"], list)
+    assert captured["ssh_args"]
+
+
+def test_rollback_remote_workspace_session_raises_when_delete_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        ssh_connect, "resolve_remote_shell", lambda *_args, **_kwargs: "bash"
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "resolve_remote_workspace",
+        lambda *_args, **_kwargs: "/remote/workspace",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "build_remote_setta_path_args",
+        lambda **_kwargs: "",
+    )
+    monkeypatch.setattr(
+        ssh_connect,
+        "run_remote_setta_command",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["ssh"], returncode=1, stdout="", stderr="permission denied"
+        ),
+    )
+
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_connect.rollback_remote_workspace_session(
+            ssh_target="user@host",
+            workspace="/requested/workspace",
+            session_id="session-123",
+            remote_cmd="setta",
+        )
+
+    assert excinfo.value.code == "RemoteRollback"
+    assert "session-123" in str(excinfo.value)

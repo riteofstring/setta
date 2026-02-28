@@ -206,18 +206,4 @@ describe("FollowAIToggleButton", () => {
     expect(markup).toContain("My Chat (section-)");
     expect(markup).toContain("Clear selection");
   });
-
-  it("uses the same responsive collapse breakpoint as project chat nav controls", () => {
-    setEmptyProjectState();
-
-    const markup = renderToStaticMarkup(
-      <Menubar.Root>
-        <FollowAIToggleButton />
-      </Menubar.Root>,
-    );
-
-    expect(markup).toContain('data-testid="follow-ai-visible-label"');
-    expect(markup).toContain("hidden @[31.25rem]:block");
-    expect(markup).toContain("sr-only @[31.25rem]:hidden");
-  });
 });

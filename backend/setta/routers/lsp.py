@@ -1,16 +1,14 @@
-from fastapi import Depends
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
 from setta.lsp.managers import restart_lsps
-from setta.routers.dependencies import require_ide_mode
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
 
 from .dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 
-router = SettaProjectContextAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaProjectContextFullRuntimeAPIRouter()
 
 
 class TypeCheckRequest(BaseModel):

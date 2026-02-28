@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from setta.ssh_common import (
     resolve_remote_setta_command,
     resolve_remote_shell,
     resolve_remote_workspace,
+    run_remote_setta_command,
     select_free_port,
     ssh_command_prefix,
     start_remote_setta,
@@ -51,6 +53,8 @@ class RemoteConnectResult:
     runtime_root: str | None
     setta_home: str | None
     profile: str | None
+    launcher_origin: str | None
+    launcher_origin_proof: str | None
 
 
 class SshTunnelMetadata(BaseModel):
@@ -62,6 +66,79 @@ class SshTunnelMetadata(BaseModel):
     pidCreateTime: float
     createdAt: str
     lastUsedAt: str
+
+
+def rollback_remote_workspace_session(
+    *,
+    ssh_target: str,
+    workspace: str,
+    session_id: str,
+    remote_cmd: str,
+    profile: str | None = None,
+    setta_home: str | None = None,
+    setta_files_root: str | None = None,
+    setta_files_location: str | None = None,
+    runtime_root: str | None = None,
+    ssh_args: str | None = None,
+) -> None:
+    trimmed_target = normalize_optional_argument(ssh_target)
+    if trimmed_target is None:
+        raise LaunchError("RemoteRollback", "Missing sshTarget for rollback.")
+    trimmed_workspace = normalize_optional_argument(workspace)
+    if trimmed_workspace is None:
+        raise LaunchError("RemoteRollback", "Missing workspace for rollback.")
+    trimmed_session_id = normalize_optional_argument(session_id)
+    if trimmed_session_id is None:
+        raise LaunchError("RemoteRollback", "Missing session id for rollback.")
+    trimmed_remote_cmd = normalize_optional_argument(remote_cmd)
+    if trimmed_remote_cmd is None:
+        raise LaunchError("RemoteRollback", "Missing remote command for rollback.")
+
+    trimmed_profile = normalize_optional_argument(profile)
+    trimmed_setta_home = normalize_optional_argument(setta_home)
+    trimmed_setta_files_root = normalize_optional_argument(setta_files_root)
+    trimmed_runtime_root = normalize_optional_argument(runtime_root)
+    trimmed_location = normalize_setta_files_location(setta_files_location)
+    if (
+        trimmed_setta_files_root is None
+        and trimmed_location is None
+        and trimmed_profile is None
+    ):
+        trimmed_location = "auto"
+
+    ssh_prefix = ssh_command_prefix(batch_mode=True)
+    ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
+    shell = resolve_remote_shell(trimmed_target, ssh_args_list, ssh_prefix=ssh_prefix)
+    remote_workspace = resolve_remote_workspace(
+        trimmed_target,
+        ssh_args_list,
+        shell,
+        trimmed_workspace,
+        ssh_prefix=ssh_prefix,
+    )
+    setta_files_args = build_remote_setta_path_args(
+        profile=trimmed_profile,
+        setta_home=trimmed_setta_home,
+        setta_files_root=trimmed_setta_files_root,
+        setta_files_location=trimmed_location,
+        runtime_root=trimmed_runtime_root,
+    )
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
+    result = run_remote_setta_command(
+        trimmed_target,
+        ssh_args_list,
+        shell,
+        remote_workspace,
+        trimmed_remote_cmd,
+        f"{root_prefix}status --delete-session {shlex.quote(trimmed_session_id)}",
+        ssh_prefix=ssh_prefix,
+    )
+    if result.returncode != 0:
+        details = (result.stderr.strip() or result.stdout.strip() or "").strip()
+        raise LaunchError(
+            "RemoteRollback",
+            f"Failed deleting remote session {trimmed_session_id}. {details}".strip(),
+        )
 
 
 def _parse_optional_connect_info_field(
@@ -91,6 +168,7 @@ def connect_remote_workspace_session(
     ssh_args: str | None = None,
     remote_cmd: str | None = None,
     local_port: int | None = None,
+    launcher_origin: str | None = None,
     timeout_seconds: float = 30.0,
 ) -> RemoteConnectResult:
     if not ssh_target or not ssh_target.strip():
@@ -145,6 +223,7 @@ def connect_remote_workspace_session(
         setta_command,
         setta_files_args,
         ssh_prefix=ssh_prefix,
+        server_mode="ide",
     )
     started_new = False
     start_timed_out = False
@@ -181,6 +260,7 @@ def connect_remote_workspace_session(
                 setta_files_location=trimmed_location,
                 setta_files_root=trimmed_setta_files_root,
                 runtime_root=runtime_root,
+                server_mode="ide",
             )
         except LaunchError as exc:
             if start_timed_out and exc.code == "RemoteLaunchTimeout":
@@ -202,6 +282,7 @@ def connect_remote_workspace_session(
         setta_files_args,
         session_id=session.id,
         ssh_prefix=ssh_prefix,
+        launcher_origin=launcher_origin,
     )
     remote_bootstrap_url = connect_info.get("bootstrapUrlFragment")
     if not isinstance(remote_bootstrap_url, str) or not remote_bootstrap_url:
@@ -236,6 +317,24 @@ def connect_remote_workspace_session(
         connect_info, key="settaHome"
     )
     remote_profile = _parse_optional_connect_info_field(connect_info, key="profile")
+    remote_launcher_origin = _parse_optional_connect_info_field(
+        connect_info, key="launcherOrigin"
+    )
+    remote_launcher_origin_proof = _parse_optional_connect_info_field(
+        connect_info, key="launcherOriginProof"
+    )
+    if launcher_origin is not None:
+        if remote_launcher_origin != launcher_origin:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info launcherOrigin did not match requested launcher origin. "
+                f"requested={launcher_origin!r}, remote={remote_launcher_origin!r}",
+            )
+        if remote_launcher_origin_proof is None:
+            raise LaunchError(
+                "RemoteConnectInfo",
+                "Remote connect info did not include launcherOriginProof.",
+            )
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -265,6 +364,8 @@ def connect_remote_workspace_session(
         runtime_root=remote_runtime_root,
         setta_home=remote_setta_home,
         profile=remote_profile,
+        launcher_origin=remote_launcher_origin,
+        launcher_origin_proof=remote_launcher_origin_proof,
     )
 
 
