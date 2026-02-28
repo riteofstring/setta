@@ -106,10 +106,10 @@ describe("C_ADDRESSES", () => {
     );
   });
 
-  it("reads launcher origin from sessionStorage in built mode", () => {
+  it("reads launcher origin from localStorage in built mode", () => {
     env["DEV"] = false;
     windowStub.location.origin = "http://remote.example:7777";
-    sessionStorageStub.setItem(
+    localStorageStub.setItem(
       "setta.launcherOrigin",
       "http://remote.example:9999",
     );
@@ -124,14 +124,14 @@ describe("C_ADDRESSES", () => {
   it("ignores a launcher origin with a mismatched hostname in built mode", () => {
     env["DEV"] = false;
     windowStub.location.origin = "http://remote.example:7777";
-    sessionStorageStub.setItem(
+    localStorageStub.setItem(
       "setta.launcherOrigin",
       "http://attacker.example:9999",
     );
 
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:7777");
-    expect(sessionStorageStub.getItem("setta.launcherOrigin")).toBe(
+    expect(localStorageStub.getItem("setta.launcherOrigin")).toBe(
       "http://remote.example:7777",
     );
   });

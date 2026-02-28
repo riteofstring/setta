@@ -1,3 +1,4 @@
+import requiredUIEditorTabsBySectionTypePayload from "../../../backend/setta/ui_settings/section_ui_editor_tab_compatibility.json";
 import { C } from "./c";
 import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
 
@@ -116,55 +117,46 @@ export const UIEditorTabNamePrettified = {
   [UIEditorTabNameEnum.SectionVariantsConfig]: "Version",
 } as const satisfies Record<UIEditorTabName, string>;
 
-export const REQUIRED_UI_EDITOR_TABS = {
-  [SectionTypeEnum.Callable]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Dict]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.GlobalVariables]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.ListRoot]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Code]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.GenPythonMetadata]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.TextBlock]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.InfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Draw]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.IFrame]: [],
-  [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Plugin]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.TaskBoard]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Spreadsheet]: [UIEditorTabNameEnum.SectionConfig],
-} as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
+function buildRequiredUIEditorTabs(): Record<
+  SectionType,
+  readonly UIEditorTabName[]
+> {
+  const sectionTypeValues = Object.values(SectionTypeEnum) as SectionType[];
+  const uiEditorTabValues = new Set<string>(Object.values(UIEditorTabNameEnum));
+  const requiredTabsBySectionType: Partial<
+    Record<SectionType, readonly UIEditorTabName[]>
+  > = {};
+
+  for (const sectionType of sectionTypeValues) {
+    const rawRequiredTabs =
+      requiredUIEditorTabsBySectionTypePayload[sectionType];
+    if (!Array.isArray(rawRequiredTabs)) {
+      throw new Error(
+        `Missing required UI editor tabs compatibility entry for section type ${sectionType}.`,
+      );
+    }
+    const requiredTabs: UIEditorTabName[] = [];
+    for (const rawTabName of rawRequiredTabs) {
+      if (
+        typeof rawTabName !== "string" ||
+        !uiEditorTabValues.has(rawTabName)
+      ) {
+        throw new Error(
+          `Invalid UI editor tab compatibility entry for ${sectionType}: ${String(rawTabName)}`,
+        );
+      }
+      requiredTabs.push(rawTabName as UIEditorTabName);
+    }
+    requiredTabsBySectionType[sectionType] = requiredTabs;
+  }
+
+  return requiredTabsBySectionType as Record<
+    SectionType,
+    readonly UIEditorTabName[]
+  >;
+}
+
+export const REQUIRED_UI_EDITOR_TABS = buildRequiredUIEditorTabs();
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
 
