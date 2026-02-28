@@ -196,3 +196,13 @@
 - Fixed launcher-mode `settaHomeInfo` behavior by keeping that endpoint on backend origin and skipping launcher-scope hydration in launcher mode, with corresponding frontend policy/test updates.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for rollback/error contracts, removed route surface, launch-hash handling, and switcher back-navigation hydration flow.
 - Ran cleanup via `pnpm -C frontend gcf` (root `pnpm gcf` has no importer manifest in this repository layout).
+
+## 2026-02-27 10:35:01 PST
+
+- Enforced token-first workspace launch flow end-to-end: workspace switcher now creates launch intents before navigating to `/launching`, pending storage carries tokenized launch request plus minimal UI metadata, and `/launch` rejects routed requests missing `launchIntentToken`.
+- Removed dead launch-intent replay-consume path from `LaunchIntentTokenManager` so launch-intent consumption remains single-authority in `WorkspaceLaunchIntentStore.consume_once(...)`.
+- Completed SSH trust-failure rollback as one transactional primitive by rolling back both remote session state and local tunnel metadata/process state for newly started remote launches.
+- Hardened URL handoff cleanup/recovery by always scrubbing launch control params (`plt`, `pla`, `pl`, `plr`) and reusing clone-safe `replaceState` fallback behavior for open-switcher query consumption.
+- Made release installer-version resolver test version-agnostic by deriving expected value from backend `__version__` source instead of pinning a transient literal.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for token-only launch contracts, rollback invariants, URL cleanup fallbacks, and workspace-switcher/e2e launch behavior; targeted suites passed in this workstream.
+- Ran `pnpm gcf` request flow: root `pnpm gcf` failed due missing root importer manifest, then executed `pnpm -C frontend gcf` successfully.

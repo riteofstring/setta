@@ -24,7 +24,11 @@ function buildWorkspaceLaunchIntentHash({
 describe("workspaceSwitcherLaunch", () => {
   let memoryStorage: Storage;
   let windowStub: {
-    location: { href: string; hash: string };
+    location: {
+      href: string;
+      hash: string;
+      replace: (nextUrl: string) => void;
+    };
     history: {
       state: unknown;
       replaceState: (
@@ -56,7 +60,15 @@ describe("workspaceSwitcherLaunch", () => {
     };
 
     windowStub = {
-      location: { href: "http://localhost/", hash: "" },
+      location: {
+        href: "http://localhost/",
+        hash: "",
+        replace(nextUrl: string) {
+          const resolved = new URL(nextUrl, this.href).toString();
+          this.href = resolved;
+          this.hash = new URL(resolved).hash;
+        },
+      },
       history: {
         state: null as unknown,
         replaceState: function (
@@ -211,11 +223,54 @@ describe("workspaceSwitcherLaunch", () => {
     expect(windowStub.location.hash).not.toContain("pla=");
   });
 
+  it("cleans legacy hash params even when no launch intent token is present", () => {
+    windowStub.location.hash =
+      "#pl=eyJyZXF1ZXN0Ijp7IndvcmtzcGFjZVJvb3QiOiIvdG1wL2ZvcmdlZCJ9fQ&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU";
+
+    const pending = readPendingWorkspaceLaunch();
+    expect(pending).toBeNull();
+    expect(windowStub.location.hash).not.toContain("pl=");
+    expect(windowStub.location.hash).not.toContain("plr=");
+    expect(windowStub.location.hash).not.toContain("plt=");
+    expect(windowStub.location.hash).not.toContain("pla=");
+  });
+
   it("consumes the open-switcher request from the URL", () => {
     windowStub.location.href =
       "http://localhost/?__setta_open_workspace_switcher=1#hash";
 
     expect(consumeOpenWorkspaceSwitcherRequest()).toBe(true);
+    expect(windowStub.location.href).not.toContain(
+      "__setta_open_workspace_switcher",
+    );
+  });
+
+  it("consumes open-switcher URL query with replaceState fallback", () => {
+    windowStub.location.href =
+      "http://localhost/?__setta_open_workspace_switcher=1#hash";
+    windowStub.history.state = { from: "test" };
+    const originalReplaceState = windowStub.history.replaceState;
+    const seenStates: unknown[] = [];
+    windowStub.history.replaceState = function (
+      state: unknown,
+      title: string,
+      url: string | URL | null | undefined,
+    ) {
+      seenStates.push(state);
+      if (state !== null) {
+        throw new Error("DataCloneError");
+      }
+      return originalReplaceState.call(this, state, title, url);
+    };
+
+    try {
+      expect(consumeOpenWorkspaceSwitcherRequest()).toBe(true);
+    } finally {
+      windowStub.history.replaceState = originalReplaceState;
+    }
+
+    expect(seenStates[0]).toMatchObject({ from: "test" });
+    expect(seenStates[1]).toBeNull();
     expect(windowStub.location.href).not.toContain(
       "__setta_open_workspace_switcher",
     );

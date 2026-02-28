@@ -165,11 +165,8 @@ class AuthCookieManager:
 
 
 class LaunchIntentTokenManager:
-    def __init__(
-        self, ttl_seconds: int, nonce_tracker: NonceTracker | None = None
-    ) -> None:
+    def __init__(self, ttl_seconds: int) -> None:
         self._ttl_seconds = ttl_seconds
-        self._nonce_tracker = nonce_tracker or NonceTracker()
 
     def mint(
         self, session_id: str, secret: bytes, now: datetime | None = None
@@ -186,19 +183,6 @@ class LaunchIntentTokenManager:
         signature = _sign(payload_bytes, secret)
         token = f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
         return token, exp
-
-    def consume(
-        self, token: str, secret: bytes, now: datetime | None = None
-    ) -> LaunchIntentTokenPayload:
-        effective_now = now or datetime.now(timezone.utc)
-        payload = self.validate(token, secret, effective_now)
-        timestamp = int(effective_now.timestamp())
-        if self._nonce_tracker.is_consumed(payload.sessionId, payload.nonce, timestamp):
-            raise ValueError("Token has already been consumed")
-        self._nonce_tracker.consume(
-            payload.sessionId, payload.nonce, payload.exp, timestamp
-        )
-        return payload
 
     def validate(
         self, token: str, secret: bytes, now: datetime | None = None

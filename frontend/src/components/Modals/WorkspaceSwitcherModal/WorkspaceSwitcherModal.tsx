@@ -5,8 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { route_get_setta_home_info } from "utils/generatedEndpoints";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  route_create_workspace_launch_intent,
+  route_get_setta_home_info,
+} from "utils/generatedEndpoints";
 import {
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
@@ -25,7 +28,56 @@ import {
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
+  type PendingWorkspaceLaunch,
 } from "utils/workspaceSwitcherLaunch";
+
+type CreatePendingWorkspaceLaunchResult =
+  | { ok: true; pendingLaunch: PendingWorkspaceLaunch }
+  | { ok: false; message: string };
+
+export async function createPendingWorkspaceLaunchFromIntent({
+  launchRequest,
+  returnUrl,
+}: {
+  launchRequest: LaunchRequestInput;
+  returnUrl: string;
+}): Promise<CreatePendingWorkspaceLaunchResult> {
+  const response = await route_create_workspace_launch_intent({
+    launchRequest,
+    returnUrl,
+  });
+  if (!res200(response) || !response.data) {
+    const detail = getErrorDetail(response.data);
+    return {
+      ok: false,
+      message:
+        detail ??
+        (response.status
+          ? `Failed to prepare launch intent (HTTP ${response.status}).`
+          : "Failed to prepare launch intent."),
+    };
+  }
+  if (!response.data.ok || !response.data.launchIntentToken) {
+    return {
+      ok: false,
+      message:
+        response.data.error?.message ??
+        "Failed to prepare launch intent for workspace switch.",
+    };
+  }
+  return {
+    ok: true,
+    pendingLaunch: {
+      request: {
+        launchIntentToken: response.data.launchIntentToken,
+      },
+      returnUrl,
+      requestedAt: response.data.requestedAt ?? Date.now(),
+      sshTarget: launchRequest.sshTarget ?? null,
+      settaFilesLocation: launchRequest.settaFilesLocation ?? null,
+    },
+  };
+}
 
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
@@ -164,13 +216,19 @@ export function WorkspaceSwitcherModal() {
     };
 
     writeWorkspaceSwitcherDraft(request);
-    const pendingLaunch = {
-      request,
-      returnUrl: typeof window !== "undefined" ? window.location.href : "/",
-      requestedAt: Date.now(),
-    };
+    const returnUrl =
+      typeof window !== "undefined" ? window.location.href : "/";
+    const pendingLaunchResult = await createPendingWorkspaceLaunchFromIntent({
+      launchRequest: request,
+      returnUrl,
+    });
+    if (!pendingLaunchResult.ok) {
+      setError(pendingLaunchResult.message);
+      setIsLaunching(false);
+      return;
+    }
 
-    writePendingWorkspaceLaunch(pendingLaunch);
+    writePendingWorkspaceLaunch(pendingLaunchResult.pendingLaunch);
 
     closeModal();
     navigate(WORKSPACE_LAUNCH_ROUTER_PATH);

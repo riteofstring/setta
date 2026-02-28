@@ -110,6 +110,10 @@ export function WorkspaceLaunchPage() {
             window.location.href,
           )
         : pending.returnUrl;
+    const pendingSshTarget =
+      pending.sshTarget ?? pending.request.sshTarget ?? null;
+    const pendingSettaFilesLocation =
+      pending.settaFilesLocation ?? pending.request.settaFilesLocation;
 
     let isMounted = true;
     setPhase({
@@ -117,7 +121,7 @@ export function WorkspaceLaunchPage() {
       startedAt: pending.requestedAt,
       returnUrl: pendingReturnUrl,
       workspaceRoot: pending.request.workspaceRoot ?? "",
-      sshTarget: pending.request.sshTarget ?? null,
+      sshTarget: pendingSshTarget,
     });
 
     async function runLaunch() {
@@ -141,7 +145,7 @@ export function WorkspaceLaunchPage() {
               : "Launch failed. Please try again."),
           returnUrl: pendingReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
-          sshTarget: pending.request.sshTarget ?? null,
+          sshTarget: pendingSshTarget,
         });
         return;
       }
@@ -158,7 +162,7 @@ export function WorkspaceLaunchPage() {
           message: res.data.error?.message ?? "Launch failed.",
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
-          sshTarget: pending.request.sshTarget ?? null,
+          sshTarget: pendingSshTarget,
         });
         return;
       }
@@ -168,7 +172,7 @@ export function WorkspaceLaunchPage() {
           message: "Launch succeeded but no bootstrap URL was returned.",
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
-          sshTarget: pending.request.sshTarget ?? null,
+          sshTarget: pendingSshTarget,
         });
         return;
       }
@@ -176,7 +180,7 @@ export function WorkspaceLaunchPage() {
       const resolvedWorkspaceRoot =
         res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
       let resolvedLocalPort = pending.request.localPort ?? null;
-      if (pending.request.sshTarget) {
+      if (pendingSshTarget) {
         try {
           const url = new URL(res.data.bootstrapUrlFragment);
           if (url.port) {
@@ -199,13 +203,13 @@ export function WorkspaceLaunchPage() {
 
       const historySettaFilesLocation =
         chooseWorkspaceHistorySettaFilesLocation({
-          requested: pending.request.settaFilesLocation,
+          requested: pendingSettaFilesLocation,
           resolved: res.data.settaFilesLocation,
         });
 
       const nextEntry = {
         workspaceRoot: resolvedWorkspaceRoot,
-        sshTarget: pending.request.sshTarget ?? null,
+        sshTarget: pendingSshTarget,
         localPort: resolvedLocalPort,
         settaFilesLocation: historySettaFilesLocation,
         lastUsedAt: Date.now(),
@@ -221,6 +225,7 @@ export function WorkspaceLaunchPage() {
       writeWorkspaceSwitcherDraft({
         ...pending.request,
         workspaceRoot: resolvedWorkspaceRoot,
+        sshTarget: pendingSshTarget,
         localPort: resolvedLocalPort,
         settaFilesLocation: historySettaFilesLocation,
       });

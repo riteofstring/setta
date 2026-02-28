@@ -2,16 +2,20 @@ import { HOME_ROUTER_PATH } from "utils/constants";
 import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
-type PendingWorkspaceLaunch = {
+export type PendingWorkspaceLaunch = {
   request: LaunchRequestInput;
   returnUrl: string;
   requestedAt: number;
+  sshTarget?: string | null;
+  settaFilesLocation?: string | null;
 };
 
 const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
 const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
+const LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY = "pl";
+const LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
 const PENDING_LAUNCH_REQUESTED_AT_HASH_KEY = "pla";
 
@@ -25,6 +29,8 @@ function parsePendingWorkspaceLaunch(
     request?: unknown;
     returnUrl?: unknown;
     requestedAt?: unknown;
+    sshTarget?: unknown;
+    settaFilesLocation?: unknown;
   };
   if (!record.request || typeof record.request !== "object") {
     return null;
@@ -35,10 +41,32 @@ function parsePendingWorkspaceLaunch(
   if (typeof record.requestedAt !== "number") {
     return null;
   }
+  if (
+    record.sshTarget !== undefined &&
+    record.sshTarget !== null &&
+    typeof record.sshTarget !== "string"
+  ) {
+    return null;
+  }
+  if (
+    record.settaFilesLocation !== undefined &&
+    record.settaFilesLocation !== null &&
+    typeof record.settaFilesLocation !== "string"
+  ) {
+    return null;
+  }
   return {
     request: record.request as LaunchRequestInput,
     returnUrl: record.returnUrl,
     requestedAt: record.requestedAt,
+    sshTarget:
+      typeof record.sshTarget === "string"
+        ? record.sshTarget
+        : record.sshTarget ?? null,
+    settaFilesLocation:
+      typeof record.settaFilesLocation === "string"
+        ? record.settaFilesLocation
+        : record.settaFilesLocation ?? null,
   };
 }
 
@@ -54,8 +82,19 @@ function parseRequestedAt(raw: string | null): number {
 }
 
 function cleanPendingWorkspaceLaunchParams(params: URLSearchParams): void {
+  params.delete(LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY);
+  params.delete(LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY);
   params.delete(PENDING_LAUNCH_INTENT_HASH_KEY);
   params.delete(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY);
+}
+
+function hasPendingWorkspaceLaunchParams(params: URLSearchParams): boolean {
+  return (
+    params.has(LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY) ||
+    params.has(LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY) ||
+    params.has(PENDING_LAUNCH_INTENT_HASH_KEY) ||
+    params.has(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY)
+  );
 }
 
 function getDefaultLaunchReturnUrl(): string {
@@ -69,28 +108,34 @@ function getDefaultLaunchReturnUrl(): string {
   }
 }
 
+function replaceCurrentUrl(nextUrl: string, warningContext: string): void {
+  try {
+    window.history.replaceState(window.history.state, "", nextUrl);
+    return;
+  } catch {
+    // Some browsers/extensions can leave a non-cloneable state in history.state.
+  }
+  try {
+    window.history.replaceState(null, "", nextUrl);
+    return;
+  } catch (error) {
+    console.warn(warningContext, error);
+    try {
+      window.location.replace(nextUrl);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function replaceCurrentUrlHash(params: URLSearchParams): void {
   try {
     const url = new URL(window.location.href);
     url.hash = params.toString();
-    const nextUrl = url.toString();
-    try {
-      window.history.replaceState(window.history.state, "", nextUrl);
-      return;
-    } catch {
-      // Some browsers/extensions can leave a non-cloneable state in history.state.
-    }
-    try {
-      window.history.replaceState(null, "", nextUrl);
-      return;
-    } catch (error) {
-      console.warn("Failed to clean pending workspace launch URL hash", error);
-      try {
-        window.location.replace(nextUrl);
-      } catch {
-        // ignore
-      }
-    }
+    replaceCurrentUrl(
+      url.toString(),
+      "Failed to clean pending workspace launch URL hash",
+    );
   } catch (error) {
     console.warn("Failed to clean pending workspace launch URL hash", error);
   }
@@ -108,25 +153,28 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
       return null;
     }
     const params = new URLSearchParams(hash);
+    if (!hasPendingWorkspaceLaunchParams(params)) {
+      return null;
+    }
     const launchIntentToken = params
       .get(PENDING_LAUNCH_INTENT_HASH_KEY)
       ?.trim();
+    const requestedAt = parseRequestedAt(
+      params.get(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY),
+    );
+    cleanPendingWorkspaceLaunchParams(params);
+    replaceCurrentUrlHash(params);
     if (!launchIntentToken) {
       return null;
     }
 
-    const pending: PendingWorkspaceLaunch = {
+    return {
       request: {
         launchIntentToken,
       } as LaunchRequestInput,
       returnUrl: getDefaultLaunchReturnUrl(),
-      requestedAt: parseRequestedAt(
-        params.get(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY),
-      ),
+      requestedAt,
     };
-    cleanPendingWorkspaceLaunchParams(params);
-    replaceCurrentUrlHash(params);
-    return pending;
   } catch (error) {
     console.warn("Failed to read pending workspace launch URL hash", error);
     return null;
@@ -237,7 +285,10 @@ export function consumeOpenWorkspaceSwitcherRequest(): boolean {
       const raw = url.searchParams.get(OPEN_SWITCHER_QUERY_PARAM);
       if (raw) {
         url.searchParams.delete(OPEN_SWITCHER_QUERY_PARAM);
-        window.history.replaceState(window.history.state, "", url.toString());
+        replaceCurrentUrl(
+          url.toString(),
+          "Failed to consume workspace switcher request from URL",
+        );
         return raw === "1" || raw.toLowerCase() === "true";
       }
     } catch (error) {

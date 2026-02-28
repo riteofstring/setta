@@ -103,30 +103,19 @@ class TestAuthCookieManager:
 
 
 class TestLaunchIntentTokenManager:
-    def test_mint_and_consume_round_trip(self) -> None:
+    def test_mint_and_validate_round_trip(self) -> None:
         manager = LaunchIntentTokenManager(ttl_seconds=60)
         secret = secrets.token_bytes(32)
         now = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
         token, exp = manager.mint("session-1", secret, now=now)
-        payload = manager.consume(token, secret, now=now)
+        payload = manager.validate(token, secret, now=now)
 
         assert payload.sessionId == "session-1"
         assert payload.exp == int(now.timestamp()) + 60
         assert payload.exp == exp
         assert payload.purpose == "launch_intent"
         assert payload.nonce
-
-    def test_rejects_reused_token(self) -> None:
-        manager = LaunchIntentTokenManager(ttl_seconds=60)
-        secret = secrets.token_bytes(32)
-        now = datetime(2025, 1, 1, tzinfo=timezone.utc)
-
-        token, _ = manager.mint("session-2", secret, now=now)
-        manager.consume(token, secret, now=now)
-
-        with pytest.raises(ValueError):
-            manager.consume(token, secret, now=now)
 
     def test_rejects_expired_token(self) -> None:
         manager = LaunchIntentTokenManager(ttl_seconds=60)
@@ -137,7 +126,7 @@ class TestLaunchIntentTokenManager:
         later = now + timedelta(seconds=61)
 
         with pytest.raises(ValueError):
-            manager.consume(token, secret, now=later)
+            manager.validate(token, secret, now=later)
 
     def test_rejects_tampered_signature(self) -> None:
         manager = LaunchIntentTokenManager(ttl_seconds=60)
@@ -149,7 +138,7 @@ class TestLaunchIntentTokenManager:
         tampered = f"{payload_part}.{signature_part}x"
 
         with pytest.raises(ValueError):
-            manager.consume(tampered, secret, now=now)
+            manager.validate(tampered, secret, now=now)
 
 
 class TestNonceTracker:

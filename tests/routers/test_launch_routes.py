@@ -103,17 +103,9 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
-    def test_launch_uses_origin_header_for_return_url_when_available(
-        self, monkeypatch: pytest.MonkeyPatch
+    def test_launch_requires_token_and_uses_origin_header_for_return_url_when_available(
+        self,
     ) -> None:
-        def fake_launch_workspace_session(**_kwargs):
-            raise LaunchError("Captured", "intentional capture")
-
-        monkeypatch.setattr(
-            "setta.routers.launch.launch_workspace_session",
-            fake_launch_workspace_session,
-        )
-
         app = FastAPI()
         app.state.setta = SimpleNamespace(
             deployment_mode=False,
@@ -133,8 +125,25 @@ class TestLaunchRoutes:
         response.raise_for_status()
         payload = response.json()
         assert payload["ok"] is False
-        assert payload["error"]["code"] == "Captured"
+        assert payload["error"]["code"] == "BadRequest"
+        assert payload["error"]["message"] == "launchIntentToken is required."
         assert payload["returnUrl"] == "http://frontend.example/home"
+
+    def test_launch_intent_rejects_inline_overrides(self) -> None:
+        response = route_launch(
+            LaunchRequest(
+                launchIntentToken="token",
+                workspaceRoot="/tmp/workspace",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "BadRequest"
+        assert (
+            response.error.message
+            == "launchIntentToken must be the only request field when provided."
+        )
 
     def test_launch_intent_roundtrip_uses_server_stored_request(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1475,14 +1484,27 @@ class TestLaunchRoutes:
             "setta.routers.launch.connect_remote_workspace_session",
             fake_connect_remote_workspace_session,
         )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
 
         with TestClient(app, base_url="http://launcher.example:7999") as client:
+            intent_response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {
+                        "workspaceRoot": "/requested/workspace",
+                        "sshTarget": "user@host",
+                    },
+                    "returnUrl": "http://launcher.example:7999/home",
+                },
+            )
+            intent_response.raise_for_status()
+            token = intent_response.json()["launchIntentToken"]
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={
-                    "workspaceRoot": "/requested/workspace",
-                    "sshTarget": "user@host",
-                },
+                json={"launchIntentToken": token},
             )
 
         response.raise_for_status()
@@ -1531,14 +1553,27 @@ class TestLaunchRoutes:
             "setta.routers.launch.connect_remote_workspace_session",
             fake_connect_remote_workspace_session,
         )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
 
         with TestClient(app, base_url="http://launcher.example:7999") as client:
+            intent_response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {
+                        "workspaceRoot": "/requested/workspace",
+                        "sshTarget": "user@host",
+                    },
+                    "returnUrl": "http://launcher.example:7999/home",
+                },
+            )
+            intent_response.raise_for_status()
+            token = intent_response.json()["launchIntentToken"]
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={
-                    "workspaceRoot": "/requested/workspace",
-                    "sshTarget": "user@host",
-                },
+                json={"launchIntentToken": token},
             )
 
         response.raise_for_status()
@@ -2104,11 +2139,24 @@ class TestLaunchRoutes:
                 f"http://{host}:{port}/__setta__/bootstrap",
             ),
         )
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
 
         with TestClient(app, base_url="http://launcher.example:7999") as client:
+            intent_response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {"workspaceRoot": str(workspace_root)},
+                    "returnUrl": "http://launcher.example:7999/home",
+                },
+            )
+            intent_response.raise_for_status()
+            token = intent_response.json()["launchIntentToken"]
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={"workspaceRoot": str(workspace_root)},
+                json={"launchIntentToken": token},
             )
 
         response.raise_for_status()
@@ -2197,9 +2245,18 @@ class TestLaunchRoutes:
         )
 
         with TestClient(app, base_url="http://launcher.example:7999") as client:
+            intent_response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {"workspaceRoot": str(workspace_root)},
+                    "returnUrl": "http://launcher.example:7999/home",
+                },
+            )
+            intent_response.raise_for_status()
+            token = intent_response.json()["launchIntentToken"]
             response = client.post(
                 f"{Route.PREFIX.value}{Route.LAUNCH.value}",
-                json={"workspaceRoot": str(workspace_root)},
+                json={"launchIntentToken": token},
             )
 
         response.raise_for_status()
@@ -2413,7 +2470,7 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.rollback_remote_workspace_session",
+            "setta.routers.launch.rollback_remote_workspace_launch",
             lambda **kwargs: rollback_calls.append(kwargs),
         )
 
@@ -2439,6 +2496,8 @@ class TestLaunchRoutes:
         assert rollback_call["workspace"] == "/remote/workspace"
         assert rollback_call["session_id"] == "remote-session-id"
         assert rollback_call["remote_cmd"] == "setta"
+        assert rollback_call["remote_host"] == "127.0.0.1"
+        assert rollback_call["remote_port"] == 61234
         assert rollback_call["profile"] == "dev"
         assert rollback_call["setta_home"] == "/remote/home/.setta"
         assert rollback_call["setta_files_root"] == "/remote/state"
@@ -2486,7 +2545,7 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.rollback_remote_workspace_session",
+            "setta.routers.launch.rollback_remote_workspace_launch",
             lambda **kwargs: rollback_calls.append(kwargs),
         )
 
@@ -2540,7 +2599,7 @@ class TestLaunchRoutes:
             ),
         )
         monkeypatch.setattr(
-            "setta.routers.launch.rollback_remote_workspace_session",
+            "setta.routers.launch.rollback_remote_workspace_launch",
             lambda **_kwargs: (_ for _ in ()).throw(
                 LaunchError("RemoteRollback", "failed deleting session remotely")
             ),

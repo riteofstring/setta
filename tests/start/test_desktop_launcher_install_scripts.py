@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -157,7 +158,7 @@ def test_macos_installer_script_runs_postinstall_bootstrap() -> None:
     script_content = script_path.read_text(encoding="utf-8")
 
     assert 'cat > "${installer_scripts_root}/postinstall"' in script_content
-    assert "--scripts \"${installer_scripts_root}\"" in script_content
+    assert '--scripts "${installer_scripts_root}"' in script_content
     assert (
         "--channel native-installer --install-source installer-managed --open-mode chrome-app"
         in script_content
@@ -178,12 +179,14 @@ def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
 
 
 def test_launcher_smoke_script_derives_mode_from_launcher_payload() -> None:
-    script_path = _repo_root() / "scripts" / "release" / "smoke_test_launcher_pipeline.sh"
+    script_path = (
+        _repo_root() / "scripts" / "release" / "smoke_test_launcher_pipeline.sh"
+    )
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "extract_launch_server_mode" in script_content
     assert "openWorkspaceSwitcher" in script_content
-    assert "--server-mode \"${server_mode}\"" in script_content
+    assert '--server-mode "${server_mode}"' in script_content
     assert "startedNew" in script_content
 
 
@@ -207,13 +210,16 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     assert "macos-installer-smoke:" in workflow_content
     assert "windows-installer-smoke:" in workflow_content
     assert "publish-release-assets:" in workflow_content
-    assert "./scripts/release/smoke_test_native_installer_macos.sh --pkg" in workflow_content
+    assert (
+        "./scripts/release/smoke_test_native_installer_macos.sh --pkg"
+        in workflow_content
+    )
     assert (
         "./scripts/release/smoke_test_native_installer_windows.ps1 -MsiPath $msiPath.FullName"
         in workflow_content
     )
     assert "name: Publish release assets" in workflow_content
-    assert "raw_version=\"${REF_NAME}\"" not in workflow_content
+    assert 'raw_version="${REF_NAME}"' not in workflow_content
 
 
 def _load_release_workflow_definition() -> dict[str, object]:
@@ -257,7 +263,9 @@ def _run_resolve_installer_version(
     release_tag_name: str = "",
     setta_version_file: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    resolver_script = _repo_root() / "scripts" / "release" / "resolve_installer_version.sh"
+    resolver_script = (
+        _repo_root() / "scripts" / "release" / "resolve_installer_version.sh"
+    )
     env = os.environ.copy()
     env["EVENT_NAME"] = event_name
     env["INPUT_INSTALLER_VERSION"] = input_installer_version
@@ -274,11 +282,21 @@ def _run_resolve_installer_version(
     )
 
 
-def test_release_installer_version_resolver_defaults_dispatch_to_project_version() -> None:
+def _read_project_version() -> str:
+    init_path = _repo_root() / "backend" / "setta" / "__init__.py"
+    init_content = init_path.read_text(encoding="utf-8")
+    match = re.search(r'__version__\s*=\s*"([^"]+)"', init_content)
+    assert match is not None
+    return match.group(1)
+
+
+def test_release_installer_version_resolver_defaults_dispatch_to_project_version() -> (
+    None
+):
     result = _run_resolve_installer_version(event_name="workflow_dispatch")
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "0.0.18"
+    assert result.stdout.strip() == _read_project_version()
 
 
 def test_release_installer_version_resolver_prefers_explicit_dispatch_input() -> None:

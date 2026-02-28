@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import * as fs from "node:fs";
 import net from "node:net";
 import * as path from "node:path";
@@ -53,6 +53,45 @@ function buildWorkspaceLaunchIntentHash({
   params.set("plt", launchIntentToken);
   params.set("pla", String(requestedAt));
   return params.toString();
+}
+
+async function createWorkspaceLaunchIntentToken({
+  page,
+  launchRequest,
+}: {
+  page: Page;
+  launchRequest: Record<string, unknown>;
+}): Promise<{ launchIntentToken: string; requestedAt: number }> {
+  const createIntentResponse = await page.evaluate(
+    async (payload: {
+      launchRequest: Record<string, unknown>;
+      returnUrl: string;
+    }) => {
+      const { route_create_workspace_launch_intent } = await import(
+        "/src/utils/generatedEndpoints"
+      );
+      return await route_create_workspace_launch_intent(payload);
+    },
+    {
+      launchRequest,
+      returnUrl: page.url(),
+    },
+  );
+  expect(createIntentResponse.status).toBe(200);
+  const payload = createIntentResponse.data as {
+    ok?: boolean;
+    launchIntentToken?: string | null;
+    requestedAt?: number | null;
+  };
+  expect(payload.ok).toBe(true);
+  expect(typeof payload.launchIntentToken).toBe("string");
+  return {
+    launchIntentToken: payload.launchIntentToken as string,
+    requestedAt:
+      typeof payload.requestedAt === "number"
+        ? payload.requestedAt
+        : Date.now(),
+  };
 }
 
 test("workspace switcher launches a session and persists history", async ({
@@ -145,11 +184,25 @@ test("workspace switcher launches a session and persists history", async ({
     .getByPlaceholder("/path/to/workspace")
     .fill(initialWorkspaceRoot);
 
+  const createLaunchIntentRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return (
+      req.method() === "POST" &&
+      url.pathname === "/api/createWorkspaceLaunchIntent"
+    );
+  });
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return req.method() === "POST" && url.pathname === "/api/launch";
   });
   await modalAfterError.getByRole("button", { name: "Launch" }).click();
+
+  const capturedCreateLaunchIntentRequest = await createLaunchIntentRequest;
+  const createLaunchIntentBody =
+    capturedCreateLaunchIntentRequest.postDataJSON() as {
+      launchRequest?: Record<string, unknown>;
+    };
+  expect(createLaunchIntentBody.launchRequest?.settaFilesLocation).toBe("auto");
 
   const capturedLaunchRequest = await launchRequest;
   const launchResponse = await capturedLaunchRequest.response();
@@ -158,7 +211,8 @@ test("workspace switcher launches a session and persists history", async ({
     string,
     unknown
   >;
-  expect(requestBody.settaFilesLocation).toBe("auto");
+  expect(typeof requestBody.launchIntentToken).toBe("string");
+  expect(requestBody.workspaceRoot).toBeUndefined();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
@@ -304,7 +358,9 @@ test("workspace switcher can update Setta from launcher controls", async ({
   ).toBe(scopedSettaHome);
 
   const modal = page.getByRole("dialog");
-  await expect(modal.getByText("Desktop Launcher", { exact: true })).toBeVisible();
+  await expect(
+    modal.getByText("Desktop Launcher", { exact: true }),
+  ).toBeVisible();
   const updateButton = modal.getByRole("button", { name: "Update Setta" });
   await expect(updateButton).toBeEnabled();
 
@@ -387,6 +443,13 @@ test("workspace switcher sends local setta files location", async ({
     .selectOption("local");
   await modal.getByPlaceholder("/path/to/workspace").fill(missingWorkspace);
 
+  const createLaunchIntentRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return (
+      req.method() === "POST" &&
+      url.pathname === "/api/createWorkspaceLaunchIntent"
+    );
+  });
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return req.method() === "POST" && url.pathname === "/api/launch";
@@ -394,11 +457,16 @@ test("workspace switcher sends local setta files location", async ({
   await modal.getByRole("button", { name: "Launch" }).click();
 
   await page.waitForURL("**/launching");
+  const createIntentBody = (await createLaunchIntentRequest).postDataJSON() as {
+    launchRequest?: Record<string, unknown>;
+  };
+  expect(createIntentBody.launchRequest?.settaFilesLocation).toBe("local");
   const requestBody = (await launchRequest).postDataJSON() as Record<
     string,
     unknown
   >;
-  expect(requestBody.settaFilesLocation).toBe("local");
+  expect(typeof requestBody.launchIntentToken).toBe("string");
+  expect(requestBody.workspaceRoot).toBeUndefined();
   await expect(page.getByText("Workspace root does not exist")).toBeVisible();
 });
 
@@ -488,11 +556,14 @@ test("workspace launch back-navigation reopens switcher with successful settaHom
   page,
 }) => {
   await ensureAppReady(page);
+  const returnUrl = page.url();
   await page.getByRole("menuitem", { name: "Project" }).click();
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
   const modal = page.getByRole("dialog");
   await expect(modal.getByText("Switch Workspace")).toBeVisible();
-  await modal.getByPlaceholder("/path/to/workspace").fill("/path/does/not/exist");
+  await modal
+    .getByPlaceholder("/path/to/workspace")
+    .fill("/path/does/not/exist");
   await modal.getByRole("button", { name: "Launch" }).click();
   await page.waitForURL("**/launching");
   await expect(page.getByText("Workspace root does not exist")).toBeVisible();
@@ -510,7 +581,7 @@ test("workspace launch back-navigation reopens switcher with successful settaHom
   });
 
   await page.getByRole("button", { name: "Back to Switcher" }).click();
-  await expect(page).toHaveURL(/\/home(?:\?|#|$)/);
+  await expect(page).toHaveURL(returnUrl);
   await expect(page.getByRole("dialog")).toContainText("Switch Workspace");
 
   const request = await settaHomeInfoRequest;
@@ -518,11 +589,15 @@ test("workspace launch back-navigation reopens switcher with successful settaHom
   const response = await settaHomeInfoResponse;
   expect(response.status()).toBe(200);
   await expect(
-    page.getByText("Failed to resolve launcher scope for desktop launcher actions."),
+    page.getByText(
+      "Failed to resolve launcher scope for desktop launcher actions.",
+    ),
   ).toHaveCount(0);
 });
 
-test("workspace launch blocks legacy forged hash payloads", async ({ page }) => {
+test("workspace launch blocks legacy forged hash payloads", async ({
+  page,
+}) => {
   await ensureAppReady(page);
 
   let launchRequestCount = 0;
@@ -549,7 +624,10 @@ test("workspace launch blocks legacy forged hash payloads", async ({ page }) => 
     for (const byte of encoded) {
       binary += String.fromCharCode(byte);
     }
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return btoa(binary)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
   });
   if (!forgedPayload) {
     throw new Error("Failed to encode forged payload.");
@@ -560,7 +638,9 @@ test("workspace launch blocks legacy forged hash payloads", async ({ page }) => 
   nextUrl.hash = `pl=${forgedPayload}`;
   await page.goto(nextUrl.toString(), { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByText("Missing pending workspace launch request.")).toBeVisible();
+  await expect(
+    page.getByText("Missing pending workspace launch request."),
+  ).toBeVisible();
   expect(launchRequestCount).toBe(0);
 });
 
@@ -920,23 +1000,26 @@ test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
     sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
     sessionStorage.removeItem("setta.workspaceSwitcherDraft");
   });
-  await page.evaluate(
-    (request) => {
-      sessionStorage.setItem(
-        "setta.pendingWorkspaceLaunch",
-        JSON.stringify({
-          request,
-          returnUrl: window.location.href,
-          requestedAt: Date.now(),
-        }),
-      );
-    },
-    {
+  const launchIntent = await createWorkspaceLaunchIntentToken({
+    page,
+    launchRequest: {
       workspaceRoot,
       runtimeRoot: workspaceRoot,
       settaFilesLocation: "local",
     },
-  );
+  });
+  await page.evaluate((handoff) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: {
+          launchIntentToken: handoff.launchIntentToken,
+        },
+        returnUrl: window.location.href,
+        requestedAt: handoff.requestedAt,
+      }),
+    );
+  }, launchIntent);
 
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
@@ -950,7 +1033,8 @@ test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
     string,
     unknown
   >;
-  expect(requestBody.runtimeRoot).toBe(workspaceRoot);
+  expect(typeof requestBody.launchIntentToken).toBe("string");
+  expect(requestBody.runtimeRoot).toBeUndefined();
   await expect(
     page.getByText("Runtime root cannot be the workspace root"),
   ).toBeVisible();
@@ -977,26 +1061,26 @@ test("workspace launch treats auto location as omitted when settaFilesRoot is pr
     sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
     sessionStorage.removeItem("setta.workspaceSwitcherDraft");
   });
-  await page.evaluate(
-    ({ workspaceRootValue, settaFilesRootValue }) => {
-      sessionStorage.setItem(
-        "setta.pendingWorkspaceLaunch",
-        JSON.stringify({
-          request: {
-            workspaceRoot: workspaceRootValue,
-            settaFilesRoot: settaFilesRootValue,
-            settaFilesLocation: "auto",
-          },
-          returnUrl: window.location.href,
-          requestedAt: Date.now(),
-        }),
-      );
+  const launchIntent = await createWorkspaceLaunchIntentToken({
+    page,
+    launchRequest: {
+      workspaceRoot: missingWorkspace,
+      settaFilesRoot: explicitSettaFilesRoot,
+      settaFilesLocation: "auto",
     },
-    {
-      workspaceRootValue: missingWorkspace,
-      settaFilesRootValue: explicitSettaFilesRoot,
-    },
-  );
+  });
+  await page.evaluate((handoff) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: {
+          launchIntentToken: handoff.launchIntentToken,
+        },
+        returnUrl: window.location.href,
+        requestedAt: handoff.requestedAt,
+      }),
+    );
+  }, launchIntent);
 
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
@@ -1010,8 +1094,9 @@ test("workspace launch treats auto location as omitted when settaFilesRoot is pr
     string,
     unknown
   >;
-  expect(requestBody.settaFilesLocation).toBe("auto");
-  expect(requestBody.settaFilesRoot).toBe(explicitSettaFilesRoot);
+  expect(typeof requestBody.launchIntentToken).toBe("string");
+  expect(requestBody.settaFilesLocation).toBeUndefined();
+  expect(requestBody.settaFilesRoot).toBeUndefined();
   await expect(page.getByText("Workspace root does not exist")).toBeVisible();
   await expect(
     page.getByText(
@@ -1067,6 +1152,14 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     .getByRole("combobox", { name: "Setta Files Location" })
     .selectOption("global");
   await modal.getByPlaceholder("61000").fill(String(requestedLocalPort));
+  const createLaunchIntentRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return (
+      req.method() === "POST" &&
+      url.pathname === "/api/createWorkspaceLaunchIntent" &&
+      url.origin === expectedLauncherOrigin
+    );
+  });
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
@@ -1084,12 +1177,19 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await modal.getByRole("button", { name: "Launch" }).click();
   await page.waitForURL("**/launching");
 
+  const createIntentBody = (await createLaunchIntentRequest).postDataJSON() as {
+    launchRequest?: Record<string, unknown>;
+  };
+  expect(createIntentBody.launchRequest?.localPort).toBe(requestedLocalPort);
+  expect(createIntentBody.launchRequest?.settaFilesLocation).toBe("global");
+
   const requestBody = (await launchRequest).postDataJSON() as Record<
     string,
     unknown
   >;
-  expect(requestBody.localPort).toBe(requestedLocalPort);
-  expect(requestBody.settaFilesLocation).toBe("global");
+  expect(typeof requestBody.launchIntentToken).toBe("string");
+  expect(requestBody.localPort).toBeUndefined();
+  expect(requestBody.settaFilesLocation).toBeUndefined();
 
   const bootstrapUrl = new URL((await bootstrapRequest).url());
   const connectedPort = Number(bootstrapUrl.port);

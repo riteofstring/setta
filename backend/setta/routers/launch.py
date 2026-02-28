@@ -28,7 +28,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import (
     connect_remote_workspace_session,
-    rollback_remote_workspace_session,
+    rollback_remote_workspace_launch,
 )
 from setta.trusted_frontend_origins import (
     TrustedFrontendOriginStoreError,
@@ -225,18 +225,26 @@ def route_launch(
     )
     return_url = _build_safe_launch_return_url(request_origin=request_origin)
     launcher_session_info = load_current_session_secret()
+    requires_launch_intent_token = request is not None
+    if x.launchIntentToken is None and requires_launch_intent_token:
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(
+                code="BadRequest",
+                message="launchIntentToken is required.",
+            ),
+        )
+    if x.launchIntentToken is not None and _launch_request_has_inline_overrides(x):
+        return LaunchResponse(
+            ok=False,
+            returnUrl=return_url,
+            error=LaunchErrorPayload(
+                code="BadRequest",
+                message="launchIntentToken must be the only request field when provided.",
+            ),
+        )
     if x.launchIntentToken is not None:
-        if _launch_request_has_inline_overrides(x):
-            return LaunchResponse(
-                ok=False,
-                returnUrl=return_url,
-                error=LaunchErrorPayload(
-                    code="BadRequest",
-                    message=(
-                        "launchIntentToken must be the only request field when provided."
-                    ),
-                ),
-            )
         if launcher_session_info is None:
             return LaunchResponse(
                 ok=False,
@@ -321,12 +329,14 @@ def route_launch(
             except TrustedFrontendOriginStoreError as exc:
                 if remote.started_new:
                     try:
-                        rollback_remote_workspace_session(
+                        rollback_remote_workspace_launch(
                             ssh_target=x.sshTarget,
                             ssh_args=x.sshArgs,
                             workspace=remote.session.workspace_path_canonical,
                             session_id=remote.session.id,
                             remote_cmd=remote.remote_cmd_resolved,
+                            remote_host=remote.session.host,
+                            remote_port=remote.session.port,
                             profile=normalized_profile,
                             setta_home=normalized_setta_home,
                             setta_files_root=normalized_setta_files_root,

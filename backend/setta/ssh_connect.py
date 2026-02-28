@@ -141,6 +141,97 @@ def rollback_remote_workspace_session(
         )
 
 
+def rollback_local_ssh_tunnel(
+    *,
+    ssh_target: str,
+    remote_host: str,
+    remote_port: int,
+    ssh_args: str | None = None,
+) -> None:
+    trimmed_target = normalize_optional_argument(ssh_target)
+    if trimmed_target is None:
+        raise LaunchError("TunnelRollback", "Missing sshTarget for tunnel rollback.")
+    trimmed_remote_host = normalize_optional_argument(remote_host)
+    if trimmed_remote_host is None:
+        raise LaunchError("TunnelRollback", "Missing remote host for tunnel rollback.")
+    if remote_port <= 0:
+        raise LaunchError("TunnelRollback", "Missing remote port for tunnel rollback.")
+
+    ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
+    key_hash = _compute_tunnel_key_hash(
+        ssh_target=trimmed_target,
+        ssh_args=ssh_args_list,
+        remote_host=trimmed_remote_host,
+        remote_port=remote_port,
+    )
+    tunnel_id = _tunnel_id_for_key_hash(key_hash)
+    metadata_path = _tunnels_root(get_setta_paths().runtime_root) / f"{tunnel_id}.json"
+    metadata = _load_tunnel_metadata(metadata_path)
+    if metadata is None:
+        return
+    if metadata.keyHash != key_hash:
+        return
+
+    _stop_pid(metadata.pid, expected_create_time=metadata.pidCreateTime)
+    if not metadata_path.exists():
+        return
+    try:
+        metadata_path.unlink()
+    except OSError as exc:
+        raise LaunchError(
+            "TunnelRollback",
+            f"Failed deleting local tunnel metadata at {metadata_path}.",
+        ) from exc
+
+
+def rollback_remote_workspace_launch(
+    *,
+    ssh_target: str,
+    workspace: str,
+    session_id: str,
+    remote_cmd: str,
+    remote_host: str,
+    remote_port: int,
+    profile: str | None = None,
+    setta_home: str | None = None,
+    setta_files_root: str | None = None,
+    setta_files_location: str | None = None,
+    runtime_root: str | None = None,
+    ssh_args: str | None = None,
+) -> None:
+    rollback_errors: list[str] = []
+    try:
+        rollback_remote_workspace_session(
+            ssh_target=ssh_target,
+            workspace=workspace,
+            session_id=session_id,
+            remote_cmd=remote_cmd,
+            profile=profile,
+            setta_home=setta_home,
+            setta_files_root=setta_files_root,
+            setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
+            ssh_args=ssh_args,
+        )
+    except LaunchError as exc:
+        rollback_errors.append(str(exc))
+    try:
+        rollback_local_ssh_tunnel(
+            ssh_target=ssh_target,
+            ssh_args=ssh_args,
+            remote_host=remote_host,
+            remote_port=remote_port,
+        )
+    except LaunchError as exc:
+        rollback_errors.append(str(exc))
+    if rollback_errors:
+        details = "; ".join(rollback_errors)
+        raise LaunchError(
+            "RemoteRollback",
+            f"Failed rolling back SSH launch side effects. {details}",
+        )
+
+
 def _parse_optional_connect_info_field(
     connect_info: dict[str, object], *, key: str
 ) -> str | None:
