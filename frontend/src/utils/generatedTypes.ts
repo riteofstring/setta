@@ -107,8 +107,6 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
   file: "file",
@@ -367,10 +365,6 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
-export type ExternalAgentToolType = ObjectValues<
-  typeof ExternalAgentToolTypeEnum
->;
-
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -390,8 +384,6 @@ const ChatDictationModeEnum = {
   browser: "browser",
   provider: "provider",
 } as const;
-
-export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
@@ -461,10 +453,6 @@ const MCPServerRuntimeStateEnum = {
   disabled: "disabled",
   unknown: "unknown",
 } as const;
-
-export type MCPServerRuntimeState = ObjectValues<
-  typeof MCPServerRuntimeStateEnum
->;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -1278,6 +1266,14 @@ const ToolCallFunctionSchema = z.object({
   arguments: z.record(z.string(), z.any()).default({}),
 });
 
+type ToolCallFunction = z.infer<typeof ToolCallFunctionSchema>;
+
+export function createToolCallFunction(
+  options: Partial<ToolCallFunction> = {},
+): ToolCallFunction {
+  return ToolCallFunctionSchema.parse(options);
+}
+
 const ToolCallSchema = z.object({
   id: z.string().default(create_new_id),
   type: z.literal("function").default("function" as const),
@@ -1285,6 +1281,10 @@ const ToolCallSchema = z.object({
 });
 
 export type ToolCall = z.infer<typeof ToolCallSchema>;
+
+export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
+  return ToolCallSchema.parse(options);
+}
 
 const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
@@ -1324,6 +1324,14 @@ const UserChatMessageSchema = z.object({
     .default(() => []),
   attachments: z.array(ChatFileAttachmentSchema).default(() => []),
 });
+
+type UserChatMessage = z.infer<typeof UserChatMessageSchema>;
+
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
+  return UserChatMessageSchema.parse(options);
+}
 
 const AnnotationsSchema = z.object({
   audience: z
@@ -1416,6 +1424,12 @@ const ToolChatMessageSchema = z.object({
 });
 
 export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
+
+export function createToolChatMessage(
+  options: Partial<ToolChatMessage> = {},
+): ToolChatMessage {
+  return ToolChatMessageSchema.parse(options);
+}
 
 const BaseChatMessageUnionSchema = z.union([
   SystemChatMessageSchema,
@@ -5199,7 +5213,7 @@ const SettingsBackendSchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  completionGuardEnabled: z.boolean().default(true),
+  completionGuardEnabled: z.boolean().default(false),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -6732,12 +6746,19 @@ const LLMConfigSchema = z.object({
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
 const MCPServerConfigSchema = z.object({
   transport: z.literal(["sse", "streamable_http", "stdio"]),
   url: z.union([z.string(), z.null()]).default(null),
   command: z.union([z.string(), z.null()]).default(null),
   args: z.array(z.string()).default(() => []),
   env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+  http_headers: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
   cwd: z.union([z.string(), z.null()]).default(null),
   encoding: z.string().default("utf-8" as const),
   encoding_error_handler: z
@@ -6750,11 +6771,18 @@ const AllLLMConfigsSchema = z.object({
   mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
   defaultMcpServerIds: z.array(z.string()).default(() => []),
   default_config_id: z.union([z.string(), z.null()]).default(null),
+  codexMcpImportedAt: z.union([z.string(), z.null()]).default(null),
 });
 
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
 export type AllLLMConfigsInput = z.input<typeof AllLLMConfigsSchema>;
+
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
+}
 
 const WebsocketMsgLLMConfigUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -6764,9 +6792,17 @@ const WebsocketMsgLLMConfigUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated),
 });
 
+const ManagedAPIKeysSnapshotSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()).default({}),
+  revision: z.int(),
+  corrupt: z.boolean().default(false),
+  errorCode: z.union([z.string(), z.null()]).default(null),
+  message: z.union([z.string(), z.null()]).default(null),
+});
+
 const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.record(z.string(), z.string()),
+  content: ManagedAPIKeysSnapshotSchema,
   messageType: z
     .literal("LLMApiKeysUpdated")
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
@@ -7776,6 +7812,12 @@ export type ExternalAgentPreflightStatus = z.infer<
   typeof ExternalAgentPreflightStatusSchema
 >;
 
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
+  return ExternalAgentPreflightStatusSchema.parse(options);
+}
+
 const BaseCanvasSectionImplSchema = z.object({
   type: z.any(),
   id: IDSchema.default(create_new_id),
@@ -8141,10 +8183,6 @@ const MCPServerRuntimeStatusSchema = z.object({
   toolCount: z.int().default(0),
 });
 
-export type MCPServerRuntimeStatus = z.infer<
-  typeof MCPServerRuntimeStatusSchema
->;
-
 const MCPServerRuntimeStatusResponseSchema = z.object({
   llmConfigPath: z.string(),
   activeSettaFilesLocation: z.union([z.string(), z.null()]),
@@ -8509,6 +8547,12 @@ export type CancelTranscriptionSessionResponse = z.infer<
   typeof CancelTranscriptionSessionResponseSchema
 >;
 
+const ChatContextUsageSchema = z.object({
+  contextWindowTokens: z.union([z.int(), z.null()]).default(null),
+  contextUsedTokens: z.union([z.int(), z.null()]).default(null),
+  estimated: z.boolean().default(false),
+});
+
 const GetAIFollowSnapshotRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -8537,6 +8581,7 @@ const GetExternalAgentChatResponseSchema = z.object({
   ),
   waitingForResponse: z.boolean(),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
 });
 
 export type GetExternalAgentChatResponse = z.infer<
@@ -8560,7 +8605,8 @@ const GetLLMChatRequestResponseSchema = z.object({
     ]),
   ),
   waitingForResponse: z.boolean(),
-  llmConfig: LLMConfigSchema,
+  llmConfig: z.union([LLMConfigSchema, z.null()]),
+  contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
 });
 
 export type GetLLMChatRequestResponse = z.infer<
@@ -8569,6 +8615,7 @@ export type GetLLMChatRequestResponse = z.infer<
 
 const GetLLMResponseRequestSchema = z.object({
   chatId: z.union([IDSchema, z.null()]),
+  continueFromChatId: z.union([IDSchema, z.null()]).default(null),
   message: z.union([
     SystemChatMessageSchema,
     AssistantChatMessageSchema,
@@ -8632,6 +8679,14 @@ const StopLLMChatRequestSchema = z.object({
 });
 
 export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
+
+const StopLLMChatResponseSchema = z.object({
+  alreadyStopped: z.boolean(),
+  stoppedRunId: z.union([IDSchema, z.null()]).default(null),
+  stoppedMessageId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type StopLLMChatResponse = z.infer<typeof StopLLMChatResponseSchema>;
 
 const StopTranscriptionSessionRequestSchema = z.object({
   sessionId: IDSchema,
@@ -9058,8 +9113,18 @@ const LaunchResponseSchema = z.object({
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
 
+const ManagedAPIKeysResponseSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()).default({}),
+  revision: z.int(),
+});
+
+export type ManagedAPIKeysResponse = z.infer<
+  typeof ManagedAPIKeysResponseSchema
+>;
+
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
+  expectedRevision: z.int(),
 });
 
 export type UpdateAPIKeysRequestInput = z.input<

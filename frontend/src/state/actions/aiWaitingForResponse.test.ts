@@ -206,4 +206,102 @@ describe("chat hydration waitingForResponse", () => {
       expect(assistant.content[0].text).toBe("Hello there streaming");
     }
   });
+
+  it("drops local-only messages after hydrate when no stream is active", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            {
+              id: "assistant-local-only",
+              role: ChatRoleEnum.assistant,
+              content: [
+                createMessageTextContent({ text: "Local only pending" }),
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+        },
+      },
+    });
+
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "assistant-remote",
+            role: ChatRoleEnum.assistant,
+            content: [createMessageTextContent({ text: "Remote canonical" })],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.messages.map((message) => message.id)).toEqual([
+      "assistant-remote",
+    ]);
+  });
+
+  it("keeps local-only messages while stream is active during hydrate", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            {
+              id: "assistant-local-only",
+              role: ChatRoleEnum.assistant,
+              content: [
+                createMessageTextContent({ text: "Local only pending" }),
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+        },
+      },
+    });
+    markChatStreamActive(chatId, null);
+
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "assistant-remote",
+            role: ChatRoleEnum.assistant,
+            content: [createMessageTextContent({ text: "Remote canonical" })],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.messages.map((message) => message.id)).toEqual([
+      "assistant-remote",
+      "assistant-local-only",
+    ]);
+  });
 });

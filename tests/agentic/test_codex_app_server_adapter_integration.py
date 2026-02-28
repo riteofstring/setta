@@ -395,6 +395,62 @@ class TestCodexAppServerAdapterIntegration:
             all_text = self._collect_message_texts(messages)
             assert all_text.strip()
 
+    async def test_codex_app_server_persists_usage_with_context_window(self) -> None:
+        codex_path = self._require_codex_cli()
+        with TemporaryDirectory() as tmpdir:
+            dbe, runner = self._build_runner(Path(tmpdir))
+            config = self._build_config(codex_path)
+            config.defaultModel = "gpt-5-codex"
+
+            run = runner.start_run(
+                config.id,
+                config,
+                None,
+                {
+                    "prompt": "Reply with exactly HELLO.",
+                    "allowUnscoped": True,
+                    "effort": "low",
+                    "summary": "none",
+                },
+            )
+            stored = await self._await_completed_run(dbe, run.id, runner=runner)
+            outputs = stored.get("outputs")
+            assert isinstance(outputs, dict)
+            final_text = outputs.get("finalText")
+            assert isinstance(final_text, str)
+            assert "hello" in final_text.lower()
+            usage = outputs.get("usage")
+            assert isinstance(usage, dict)
+
+            # Codex usage should include context window plus used token counters.
+            context_window_tokens = usage.get("contextWindowTokens")
+            prompt_tokens = usage.get("promptTokens")
+            input_tokens = usage.get("inputTokens")
+            completion_tokens = usage.get("completionTokens")
+            output_tokens = usage.get("outputTokens")
+            total_tokens = usage.get("totalTokens")
+            context_used_tokens = usage.get("contextUsedTokens")
+            assert isinstance(context_window_tokens, int)
+            assert isinstance(prompt_tokens, int)
+            assert isinstance(input_tokens, int)
+            assert isinstance(completion_tokens, int)
+            assert isinstance(output_tokens, int)
+            assert isinstance(total_tokens, int)
+            assert isinstance(context_used_tokens, int)
+            assert context_window_tokens > 0
+            assert prompt_tokens > 0
+            assert input_tokens > 0
+            assert completion_tokens >= 0
+            assert output_tokens >= 0
+            assert context_used_tokens >= 0
+            assert prompt_tokens == input_tokens
+            assert completion_tokens == output_tokens
+            assert total_tokens == prompt_tokens + completion_tokens
+            assert context_window_tokens >= total_tokens
+            # Context occupancy should be based on current-turn usage, not
+            # cumulative conversation totals, so it must not exceed prompt usage.
+            assert context_used_tokens <= prompt_tokens
+
     async def test_codex_app_server_persists_thread_id(self) -> None:
         codex_path = self._require_codex_cli()
         with TemporaryDirectory() as tmpdir:

@@ -429,7 +429,9 @@ class AgentRunner:
                 ],
                 context,
             )
-        usage_summary: dict[str, int] | None = None
+        usage_summary: dict[str, int] | None = self._resolve_context_window_usage(
+            context
+        )
         cost_value: float | None = None
         try:
             while True:
@@ -2706,7 +2708,60 @@ class AgentRunner:
         return metadata
 
     @staticmethod
-    def _normalize_usage_payload(payload: Any) -> dict[str, int] | None:
+    def _extract_int_usage_value(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            if not value.is_integer():
+                return None
+            return int(value)
+        if isinstance(value, str):
+            try:
+                return int(value)
+            except ValueError:
+                return None
+        return None
+
+    def _resolve_context_window_usage(
+        self, context: AgentRunContext
+    ) -> dict[str, int] | None:
+        model_name = context.llm_config.model.strip()
+        if model_name == "":
+            return None
+        provider = context.llm_config.provider
+        normalized_provider = provider.strip() if isinstance(provider, str) else ""
+
+        model_info: Any = None
+        if normalized_provider != "":
+            try:
+                model_info = litellm.get_model_info(
+                    model_name,
+                    custom_llm_provider=normalized_provider,
+                )
+            except Exception:
+                model_info = None
+        if model_info is None:
+            try:
+                model_info = litellm.get_model_info(model_name)
+            except Exception:
+                return None
+
+        def _extract_model_info_int(key: str) -> int | None:
+            if isinstance(model_info, dict):
+                return self._extract_int_usage_value(model_info.get(key))
+            return self._extract_int_usage_value(getattr(model_info, key, None))
+
+        context_window_tokens = _extract_model_info_int("max_input_tokens")
+        if context_window_tokens is None:
+            context_window_tokens = _extract_model_info_int("max_tokens")
+        if context_window_tokens is None or context_window_tokens <= 0:
+            return None
+        return {"contextWindowTokens": context_window_tokens}
+
+    @classmethod
+    def _normalize_usage_payload(cls, payload: Any) -> dict[str, int] | None:
         if payload is None:
             return None
         data: dict[str, int] = {}
@@ -2721,34 +2776,36 @@ class AgentRunner:
                     "total_tokens",
                     "input_tokens",
                     "output_tokens",
+                    "context_window_tokens",
+                    "model_context_window",
+                    "promptTokens",
+                    "completionTokens",
+                    "totalTokens",
+                    "inputTokens",
+                    "outputTokens",
+                    "contextWindowTokens",
                 )
             }
 
-        def _extract_int(value: Any) -> int | None:
-            if isinstance(value, bool):
-                return None
-            if isinstance(value, int):
-                return value
-            if isinstance(value, float):
-                return int(value)
-            if isinstance(value, str):
-                try:
-                    return int(value)
-                except ValueError:
-                    return None
-            return None
-
         mapping = {
+            "promptTokens": "promptTokens",
+            "completionTokens": "completionTokens",
+            "totalTokens": "totalTokens",
+            "inputTokens": "inputTokens",
+            "outputTokens": "outputTokens",
+            "contextWindowTokens": "contextWindowTokens",
             "prompt_tokens": "promptTokens",
             "completion_tokens": "completionTokens",
             "total_tokens": "totalTokens",
             "input_tokens": "inputTokens",
             "output_tokens": "outputTokens",
+            "context_window_tokens": "contextWindowTokens",
+            "model_context_window": "contextWindowTokens",
         }
         for key, output_key in mapping.items():
             if key not in raw_map:
                 continue
-            value = _extract_int(raw_map.get(key))
+            value = cls._extract_int_usage_value(raw_map.get(key))
             if value is not None:
                 data[output_key] = value
 
@@ -2768,7 +2825,17 @@ class AgentRunner:
         self, chunk: ModelResponseStream
     ) -> dict[str, int] | None:
         usage = getattr(chunk, "usage", None)
-        return self._normalize_usage_payload(usage)
+        normalized_usage = self._normalize_usage_payload(usage)
+        if normalized_usage is not None:
+            return normalized_usage
+
+        hidden_params = getattr(chunk, "_hidden_params", None)
+        if isinstance(hidden_params, dict):
+            hidden_usage = hidden_params.get("usage")
+            normalized_usage = self._normalize_usage_payload(hidden_usage)
+            if normalized_usage is not None:
+                return normalized_usage
+        return None
 
     @staticmethod
     def _merge_usage_summary(
