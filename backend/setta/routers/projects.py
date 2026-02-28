@@ -1,10 +1,11 @@
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
-from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
+from setta.routers.dependencies import require_ide_mode
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import (
@@ -15,7 +16,7 @@ from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConf
 from setta.types.routes import Route
 from setta.utils.errors import InvalidProjectName
 
-router = SettaProjectContextFullRuntimeAPIRouter()
+router = SettaProjectContextAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
 class ProjectLoadRequest(BaseModel):
@@ -158,8 +159,11 @@ async def route_set_project_config_name(
 ):
     try:
         project_manager = state.project_manager_switcher.main
-        await project_manager.set_project_config_name(x.projectConfigId, x.newName)
-        project_manager.perform_manual_save()
+        await project_manager.compare_and_set_project_config_name(
+            x.projectConfigId,
+            x.newName,
+            expected_old_value=None,
+        )
     except InvalidProjectName as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
