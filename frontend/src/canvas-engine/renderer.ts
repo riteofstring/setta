@@ -667,21 +667,30 @@ function buildSceneVertexData(
   viewport: CanvasEngineViewport,
 ): Float32Array {
   const clampedZoom = clamp(scene.camera.zoom, MIN_ZOOM, MAX_ZOOM);
-  const sortedRects = [...scene.rects].sort((left, right) => {
-    if (left.zIndex === right.zIndex) {
-      return left.id.localeCompare(right.id);
-    }
-    return left.zIndex - right.zIndex;
-  });
-
-  const rectById = new Map(sortedRects.map((rect) => [rect.id, rect]));
+  // Scene adapter snapshots are already ordered by z-index then id.
+  const orderedRects = scene.rects;
+  const rectById = new Map(orderedRects.map((rect) => [rect.id, rect]));
+  const dataEdgeById = new Map(
+    scene.dataEdges.map((edge) => [edge.id, edge] as const),
+  );
+  const agenticEdgeById = new Map(
+    scene.agenticEdges.map((edge) => [edge.id, edge] as const),
+  );
   const values: number[] = [];
 
   appendDataEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
   appendAgenticEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
-  appendHoveredEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
+  appendHoveredEdgePrimitives(
+    values,
+    scene,
+    viewport,
+    clampedZoom,
+    rectById,
+    dataEdgeById,
+    agenticEdgeById,
+  );
 
-  for (const rect of sortedRects) {
+  for (const rect of orderedRects) {
     if (rect.width <= 0 || rect.height <= 0) {
       continue;
     }
@@ -708,14 +717,7 @@ function appendDataEdgePrimitives(
   zoom: number,
   rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
 ): void {
-  const edges = [...scene.dataEdges].sort((left, right) => {
-    if (left.zIndex === right.zIndex) {
-      return left.id.localeCompare(right.id);
-    }
-    return left.zIndex - right.zIndex;
-  });
-
-  for (const edge of edges) {
+  for (const edge of scene.dataEdges) {
     if (edge.hidden) {
       continue;
     }
@@ -761,14 +763,7 @@ function appendAgenticEdgePrimitives(
   zoom: number,
   rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
 ): void {
-  const edges = [...scene.agenticEdges].sort((left, right) => {
-    if (left.zIndex === right.zIndex) {
-      return left.id.localeCompare(right.id);
-    }
-    return left.zIndex - right.zIndex;
-  });
-
-  for (const edge of edges) {
+  for (const edge of scene.agenticEdges) {
     if (edge.hidden) {
       continue;
     }
@@ -815,6 +810,11 @@ function appendHoveredEdgePrimitives(
   viewport: CanvasEngineViewport,
   zoom: number,
   rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+  dataEdgeById: Map<string, CanvasEngineSceneSnapshot["dataEdges"][number]>,
+  agenticEdgeById: Map<
+    string,
+    CanvasEngineSceneSnapshot["agenticEdges"][number]
+  >,
 ): void {
   const hoveredEdge = scene.hoveredEdge;
   if (!hoveredEdge) {
@@ -822,9 +822,7 @@ function appendHoveredEdgePrimitives(
   }
 
   if (hoveredEdge.kind === "data") {
-    const edge = scene.dataEdges.find(
-      (candidate) => candidate.id === hoveredEdge.id,
-    );
+    const edge = dataEdgeById.get(hoveredEdge.id);
     if (!edge || edge.hidden) {
       return;
     }
@@ -865,9 +863,7 @@ function appendHoveredEdgePrimitives(
     return;
   }
 
-  const edge = scene.agenticEdges.find(
-    (candidate) => candidate.id === hoveredEdge.id,
-  );
+  const edge = agenticEdgeById.get(hoveredEdge.id);
   if (!edge || edge.hidden) {
     return;
   }
