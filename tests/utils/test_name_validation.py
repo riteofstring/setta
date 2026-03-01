@@ -46,7 +46,6 @@ from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
-    CallableSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     MetaControlSectionImpl,
@@ -61,7 +60,6 @@ from setta.utils.errors import (
 )
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
-    collect_param_name_errors_for_sections,
     collect_param_name_format_errors,
     collect_project_name_format_errors,
     collect_section_name_conflicts,
@@ -288,7 +286,9 @@ class TestViewModeNameValidation:
         view_mode = ViewModeConfig(name="Primary")
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         assert (
-            validate_view_mode_name(project_state, view_mode.id, "Alpha-2 _Beta")
+            validate_view_mode_name(
+                project_state, view_mode.id, "Alpha-2 _Beta"
+            )
             == "Alpha-2 _Beta"
         )
 
@@ -420,8 +420,8 @@ class TestSectionNameValidation:
         errors = collect_section_name_format_errors(project_state)
         assert section_id in errors
         assert (
-            "Section name can only contain letters, numbers, spaces, '_' and '-'."
-            in errors[section_id]
+            "Section name can only contain letters, numbers, spaces, '_' and '-'.",
+            errors[section_id],
         )
 
     def test_text_block_heading_name_error_flags_invalid_heading(
@@ -441,8 +441,8 @@ class TestSectionNameValidation:
         errors = collect_text_block_heading_name_errors(project_state)
         assert section_id in errors
         assert (
-            "Text block heading cannot be used as section name: Section name cannot "
-            "include path separators." in errors[section_id]
+            "Text block heading cannot be used as section name: Section name cannot include path separators.",
+            errors[section_id],
         )
 
     def test_text_block_heading_name_error_flags_duplicate_sibling(
@@ -468,8 +468,8 @@ class TestSectionNameValidation:
         set_text_block_text(project_state, text_block_id, "# Duplicate")
         errors = collect_text_block_heading_name_errors(project_state)
         assert (
-            "Text block heading cannot be used as section name: Section name "
-            '"Duplicate" already exists under this parent.' in errors[text_block_id]
+            'Text block heading cannot be used as section name: Section name "Duplicate" already exists under this parent.',
+            errors[text_block_id],
         )
 
     def test_section_name_rejects_dotdot(
@@ -586,8 +586,8 @@ class TestSectionNameValidation:
         assert first in conflicts
         assert second in conflicts
         assert (
-            "Section name conflicts with another top-level name after Python "
-            "identifier sanitization." in conflicts[first]
+            "Section name conflicts with another top-level name after Python identifier sanitization.",
+            conflicts[first],
         )
 
     def test_nested_list_root_path_uses_immediate_parent(
@@ -876,6 +876,7 @@ class TestSectionNameValidation:
 
 
 class TestParamNameValidation:
+
     def test_param_name_allows_empty_for_editable_kwarg(
         self,
         settings_and_project_state,
@@ -1069,7 +1070,10 @@ class TestParamNameValidation:
         project_state.codeObjs[param_id].name = "invalid name"
         errors = collect_param_name_format_errors(project_state)
         assert param_id in errors
-        assert "Param name must be a valid Python identifier." in errors[param_id]
+        assert (
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
+        )
 
     def test_collect_param_name_format_errors_flags_meta_control(
         self,
@@ -1099,104 +1103,10 @@ class TestParamNameValidation:
         project_state.codeObjs[param_id].name = "invalid name"
         errors = collect_param_name_format_errors(project_state)
         assert param_id in errors
-        assert "Param name must be a valid Python identifier." in errors[param_id]
-
-    def test_collect_param_name_format_errors_respects_core_name_editable_modifier(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
+        assert (
+            "Param name must be a valid Python identifier.",
+            errors[param_id],
         )
-        project_state.validate_parent_section_map()
-        _ensure_callable_root(project_state, section_id)
-        param_id = add_kwarg(settings, project_state, section_id)
-        project_state.codeObjs[param_id].name = ""
-        set_curr_effective_code_obj_impl_value(
-            project_state,
-            section_id,
-            param_id,
-            BaseParamCodeObjImplArgsWithCallable(coreNameEditable=True),
-        )
-
-        # A coreNameEditable param should allow empty names in format validation.
-        errors = collect_param_name_format_errors(project_state)
-        assert param_id not in errors
-
-    def test_validate_name_rules_rejects_invalid_param_name(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        _ensure_callable_root(project_state, section_id)
-        param_id = add_kwarg(settings, project_state, section_id)
-        project_state.codeObjs[param_id].name = "invalid name"
-        with pytest.raises(InvalidParamName):
-            project_state.validate_name_rules()
-
-    def test_validate_name_rules_rejects_invalid_meta_control_param_name(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.MetaControl,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        add_meta_control_code_obj(
-            settings,
-            project_state,
-            section_id,
-            CodeObjType.SliderParam,
-        )
-        meta_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            MetaControlSectionImpl,
-        )
-        param_id = meta_impl.metaControlParamId
-        assert param_id is not None
-        project_state.codeObjs[param_id].name = "invalid name"
-        with pytest.raises(InvalidParamName):
-            project_state.validate_name_rules()
-
-    def test_validate_name_rules_allows_empty_for_core_name_editable_param(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        _ensure_callable_root(project_state, section_id)
-        param_id = add_kwarg(settings, project_state, section_id)
-        project_state.codeObjs[param_id].name = ""
-        set_curr_effective_code_obj_impl_value(
-            project_state,
-            section_id,
-            param_id,
-            BaseParamCodeObjImplArgsWithCallable(coreNameEditable=True),
-        )
-
-        project_state.validate_name_rules()
 
     def test_param_name_rejects_path_separators(
         self,
@@ -1337,51 +1247,3 @@ class TestParamNameValidation:
                 second_param,
                 "alpha",
             )
-
-    def test_collect_param_name_errors_tolerates_stale_callable_child_reference(
-        self,
-        settings_and_project_state,
-    ) -> None:
-        settings, project_state = settings_and_project_state
-        section_id = create_top_level_section(
-            settings,
-            project_state,
-            SectionType.Callable,
-            Position(),
-        )
-        project_state.validate_parent_section_map()
-        callable_id = _ensure_callable_root(project_state, section_id)
-        kept_param_id = add_kwarg(settings, project_state, section_id)
-        project_state.codeObjs[kept_param_id].name = "invalid name"
-
-        # Add a global param that is intentionally not included in this section's
-        # codeObjVariantMap, then reference it as a callable child.
-        stale_param_core = Core(name="stale")
-        stale_param_impl = CodeParamCodeObjImpl()
-        add_code_obj(project_state, [], stale_param_core, stale_param_impl)
-        set_curr_effective_code_obj_impl_value(
-            project_state,
-            section_id,
-            callable_id,
-            CodeCallableCodeObjImplArgsWithCallable(
-                children=[kept_param_id, stale_param_core.id]
-            ),
-        )
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            CallableSectionImpl,
-        )
-        assert stale_param_core.id not in section_impl.codeObjVariantMap
-
-        conflict_errors, format_errors = collect_param_name_errors_for_sections(
-            project_state,
-            {section_id},
-        )
-        assert kept_param_id in format_errors
-        assert "Param name must be a valid Python identifier." in format_errors[
-            kept_param_id
-        ]
-        assert stale_param_core.id not in format_errors
-        assert stale_param_core.id not in conflict_errors

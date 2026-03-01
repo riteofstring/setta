@@ -16,6 +16,8 @@ STDERR_LOG="${LOG_DIR}/chrome-devtools-mcp.stderr.${TS}.log"
 
 export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="${CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS:-1}"
 export NODE_NO_WARNINGS="${NODE_NO_WARNINGS:-1}"
+# Large trace payloads can exhaust Node's default heap and drop MCP transport.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 
 # Pin a known-good version to avoid breaking MCP transport on upstream changes.
 # Note: chrome-devtools-mcp expects `--browserUrl` (camelCase).
