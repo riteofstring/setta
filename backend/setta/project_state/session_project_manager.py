@@ -63,7 +63,9 @@ class SessionPersistenceMode(str, Enum):
 @dataclass(slots=True)
 class _SaveWorkItem:
     revision: int
-    payload: ProjectStateBackend | ProjectStateSingleConfig
+    source_backend: ProjectStateBackend
+    default_project_config_id: ID | None
+    payload: ProjectStateBackend | ProjectStateSingleConfig | None
     autobackup: bool
     autobackup_freq: int
     autobackup_keep_last_n: int
@@ -302,6 +304,7 @@ class SessionProjectManager(BaseProjectManager):
                 self._save_inflight_revision = work_item.revision
 
             try:
+                self._resolve_save_work_item_payload(work_item)
                 self._persist_save_work_item(work_item)
             except Exception as exc:
                 with self._save_condition:
@@ -326,19 +329,36 @@ class SessionProjectManager(BaseProjectManager):
                     self._last_save_error = None
                 self._save_condition.notify_all()
 
-    def _build_save_work_item(self, revision: int) -> _SaveWorkItem:
-        self.flush_code_files_for_all_configs()
+    def _resolve_save_work_item_payload(self, work_item: _SaveWorkItem) -> None:
+        if work_item.payload is not None:
+            return
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
-            default_id = self.project_state_backend.defaultProjectConfigId
-            if not default_id:
-                raise ValueError("Missing default project config id")
+            default_id = work_item.default_project_config_id
+            if default_id is None:
+                raise ValueError("Missing default project config id for settings save.")
             project_state = convert_backend_to_single_config(
-                self.project_state_backend,
+                work_item.source_backend,
                 default_id,
             )
+            work_item.payload = project_state.model_copy(deep=True)
+            return
+        if self.persistence_mode == SessionPersistenceMode.ide_main:
+            work_item.payload = work_item.source_backend.model_copy(deep=True)
+            return
+        raise ValueError(f"Unsupported persistence mode: {self.persistence_mode}")
+
+    def _build_save_work_item(self, revision: int) -> _SaveWorkItem:
+        self.flush_code_files_for_all_configs()
+        source_backend = self.project_state_backend
+        if self.persistence_mode == SessionPersistenceMode.ide_settings:
+            default_id = source_backend.defaultProjectConfigId
+            if not default_id:
+                raise ValueError("Missing default project config id")
             return _SaveWorkItem(
                 revision=revision,
-                payload=project_state.model_copy(deep=True),
+                source_backend=source_backend,
+                default_project_config_id=default_id,
+                payload=None,
                 autobackup=False,
                 autobackup_freq=0,
                 autobackup_keep_last_n=0,
@@ -349,7 +369,9 @@ class SessionProjectManager(BaseProjectManager):
             backend_settings = self.settings_file.settings.backend
             return _SaveWorkItem(
                 revision=revision,
-                payload=self.project_state_backend.model_copy(deep=True),
+                source_backend=source_backend,
+                default_project_config_id=None,
+                payload=None,
                 autobackup=backend_settings.autobackup,
                 autobackup_freq=backend_settings.autobackupFreq,
                 autobackup_keep_last_n=backend_settings.autobackupKeepLastN,
@@ -359,6 +381,8 @@ class SessionProjectManager(BaseProjectManager):
         raise ValueError(f"Unsupported persistence mode: {self.persistence_mode}")
 
     def _persist_save_work_item(self, work_item: _SaveWorkItem) -> None:
+        if work_item.payload is None:
+            raise RuntimeError("Save work item payload is not prepared.")
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
             if not isinstance(work_item.payload, ProjectStateSingleConfig):
                 raise TypeError(

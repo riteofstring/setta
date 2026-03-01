@@ -231,6 +231,53 @@ class TestManualSaveWriteDeduping:
 
 @pytest.mark.asyncio
 class TestSaveWorkerBehavior:
+    async def test_build_save_work_item_defers_payload_materialization(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            manager.add_new_history_entry(trigger_autosave=False)
+            revision = manager.history.revision
+
+            work_item = manager._build_save_work_item(revision)
+
+            assert work_item.revision == revision
+            assert work_item.payload is None
+            assert work_item.source_backend is manager.project_state_backend
+            assert (
+                work_item.default_project_config_id
+                == manager.project_state_backend.defaultProjectConfigId
+            )
+
+    async def test_autosave_resolves_payload_in_save_worker_thread(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            manager.add_new_history_entry(trigger_autosave=False)
+
+            resolve_threads: list[str] = []
+            original_resolve = manager._resolve_save_work_item_payload
+
+            def record_resolve(work_item):
+                resolve_threads.append(threading.current_thread().name)
+                original_resolve(work_item)
+
+            with patch.object(
+                manager,
+                "_resolve_save_work_item_payload",
+                side_effect=record_resolve,
+            ):
+                await manager.autosave()
+
+            assert resolve_threads
+            main_thread_name = threading.current_thread().name
+            assert all(
+                thread_name != main_thread_name for thread_name in resolve_threads
+            )
+            assert any(
+                thread_name.startswith(f"{type(manager).__name__}-save-worker")
+                for thread_name in resolve_threads
+            )
+
     async def test_autosave_save_worker_does_not_block_manager_queue(self):
         async with real_settings_manager() as fixture:
             manager = fixture.manager
