@@ -3719,6 +3719,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -3768,6 +3769,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
         await self._apply_code_section_diagnostics_ignore_state(
@@ -3800,6 +3802,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
         await self._apply_code_section_diagnostics_ignore_state(
@@ -6166,6 +6169,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6181,6 +6185,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6215,6 +6220,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6235,6 +6241,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6313,6 +6320,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6371,6 +6379,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
         return None
@@ -6383,6 +6392,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6507,6 +6517,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
@@ -6520,6 +6531,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 

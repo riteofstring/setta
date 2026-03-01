@@ -123,9 +123,16 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
         section_impl_patch_calls: list[dict[str, int | str | list[str]]] = []
         name_validation_broadcast_calls = 0
         refresh_calls = 0
+        watcher_refresh_calls = 0
         scheduled_deferred_refreshes: list[ID] = []
         original_refresh = manager._refresh_codegen_state
         original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+        original_watch_json_source_files = manager.watch_json_source_files
+        original_watch_artifact_files = manager.watch_artifact_files
+        original_watch_code_files = manager.watch_code_files
+        original_watch_code_sync_from_backend = (
+            manager.watch_code_manager.sync_from_backend
+        )
         original_project_state_broadcast = sender.broadcast_project_state
         original_section_impl_patch_broadcast = (
             sender.broadcast_project_state_section_impl_patch
@@ -136,6 +143,28 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             nonlocal refresh_calls
             refresh_calls += 1
             await original_refresh(next_state)
+
+        def record_watch_json_source_files() -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_json_source_files()
+
+        def record_watch_artifact_files() -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_artifact_files()
+
+        def record_watch_code_files(project_state_for_watch) -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_code_files(project_state_for_watch)
+
+        def record_watch_code_sync_from_backend(
+            project_state_backend_for_watch,
+        ) -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_code_sync_from_backend(project_state_backend_for_watch)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
@@ -194,6 +223,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             *,
             expected_section_id: ID,
             expected_section_type: SectionType,
+            expected_watcher_refresh_delta: int,
             operation_coro,
         ) -> None:
             await manager.finish_pending_operations(timeout=5.0)
@@ -201,6 +231,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             before_patch_count = len(section_impl_patch_calls)
             before_name_validation_calls = name_validation_broadcast_calls
             before_refresh_calls = refresh_calls
+            before_watcher_refresh_calls = watcher_refresh_calls
             before_deferred_refresh_count = len(scheduled_deferred_refreshes)
             await operation_coro
             await manager.finish_pending_operations(timeout=5.0)
@@ -215,12 +246,22 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             assert name_validation_broadcast_calls == before_name_validation_calls
             assert refresh_calls == before_refresh_calls
             assert (
+                watcher_refresh_calls - before_watcher_refresh_calls
+                == expected_watcher_refresh_delta
+            )
+            assert (
                 len(scheduled_deferred_refreshes) == before_deferred_refresh_count + 1
             )
             assert scheduled_deferred_refreshes[-1] == project_config_id
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
         manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
+        manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
+        manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
+        manager.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+        manager.watch_code_manager.sync_from_backend = (
+            record_watch_code_sync_from_backend  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
         sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
@@ -228,6 +269,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=callable_section_id,
                 expected_section_type=SectionType.Callable,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_type_error_ignore(
                     SetTypeErrorIgnoreRequest(
                         projectConfigId=project_config_id,
@@ -240,6 +282,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=code_section_id,
                 expected_section_type=SectionType.Code,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_code_section_diagnostics_mute(
                     SetCodeSectionDiagnosticsMuteRequest(
                         projectConfigId=project_config_id,
@@ -251,6 +294,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=code_section_id,
                 expected_section_type=SectionType.Code,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_code_section_diagnostic_code_suppression(
                     SetCodeSectionDiagnosticCodeSuppressionRequest(
                         projectConfigId=project_config_id,
@@ -263,6 +307,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=code_section_id,
                 expected_section_type=SectionType.Code,
+                expected_watcher_refresh_delta=4,
                 operation_coro=manager.set_code_file_binding(
                     SetCodeFileBindingRequest(
                         projectConfigId=project_config_id,
@@ -277,6 +322,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=group_section_id,
                 expected_section_type=SectionType.Group,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_parent_default_child_section_type(
                     SetParentDefaultChildSectionTypeRequest(
                         projectConfigId=project_config_id,
@@ -288,6 +334,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=list_root_section_id,
                 expected_section_type=SectionType.ListRoot,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_list_root_view_mode(
                     SetListRootViewModeRequest(
                         projectConfigId=project_config_id,
@@ -299,6 +346,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=task_board_section_id,
                 expected_section_type=SectionType.TaskBoard,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_task_board_section_state(
                     SetTaskBoardSectionStateRequest(
                         projectConfigId=project_config_id,
@@ -325,6 +373,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=spreadsheet_section_id,
                 expected_section_type=SectionType.Spreadsheet,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_spreadsheet_file_path(
                     SetSpreadsheetFilePathRequest(
                         projectConfigId=project_config_id,
@@ -337,6 +386,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=spreadsheet_section_id,
                 expected_section_type=SectionType.Spreadsheet,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_spreadsheet_section_settings(
                     SetSpreadsheetSectionSettingsRequest(
                         projectConfigId=project_config_id,
@@ -351,6 +401,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chat_section_id,
                 expected_section_type=SectionType.Chat,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_chat_section_settings(
                     SetChatSectionSettingsRequest(
                         projectConfigId=project_config_id,
@@ -369,6 +420,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chat_section_id,
                 expected_section_type=SectionType.Chat,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_chat_section_chat_id(
                     SetChatSectionChatIdRequest(
                         projectConfigId=project_config_id,
@@ -380,6 +432,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chat_section_id,
                 expected_section_type=SectionType.Chat,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.get_chat_section_chat_id(
                     GetChatSectionChatIdRequest(
                         projectConfigId=project_config_id,
@@ -390,6 +443,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=image_section_id,
                 expected_section_type=SectionType.Image,
+                expected_watcher_refresh_delta=4,
                 operation_coro=manager.set_image_area_image_path(
                     SetImageAreaImagePathRequest(
                         projectConfigId=project_config_id,
@@ -401,6 +455,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chart_section_id,
                 expected_section_type=SectionType.Chart,
+                expected_watcher_refresh_delta=4,
                 operation_coro=manager.set_chart_area_data_path(
                     SetChartAreaDataPathRequest(
                         projectConfigId=project_config_id,
@@ -412,6 +467,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chart_section_id,
                 expected_section_type=SectionType.Chart,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_chart_type(
                     SetChartTypeRequest(
                         projectConfigId=project_config_id,
@@ -423,6 +479,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await assert_section_patch(
                 expected_section_id=chart_section_id,
                 expected_section_type=SectionType.Chart,
+                expected_watcher_refresh_delta=0,
                 operation_coro=manager.set_chart_settings(
                     SetChartSettingsRequest(
                         projectConfigId=project_config_id,
@@ -439,6 +496,12 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
             manager._schedule_deferred_codegen_refresh = (
                 original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+            manager.watch_json_source_files = original_watch_json_source_files  # type: ignore[method-assign]
+            manager.watch_artifact_files = original_watch_artifact_files  # type: ignore[method-assign]
+            manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+            manager.watch_code_manager.sync_from_backend = (
+                original_watch_code_sync_from_backend  # type: ignore[method-assign]
             )
             sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
             sender.broadcast_project_state_section_impl_patch = (
