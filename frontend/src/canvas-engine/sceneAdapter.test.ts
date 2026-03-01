@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   CanvasEngineSceneAdapter,
   type CanvasEngineEdgeHandlePosition,
+  type CanvasEngineSectionEdgePorts,
 } from "./sceneAdapter";
 
 type SceneInput = {
@@ -14,10 +15,15 @@ type SceneInput = {
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
   edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
+  sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>;
 };
 
-type SceneInputOverrides = Omit<SceneInput, "edgeHandlePositions"> & {
+type SceneInputOverrides = Omit<
+  SceneInput,
+  "edgeHandlePositions" | "sectionEdgePortsBySectionId"
+> & {
   edgeHandlePositions?: Record<string, CanvasEngineEdgeHandlePosition>;
+  sectionEdgePortsBySectionId?: Record<string, CanvasEngineSectionEdgePorts>;
 };
 
 describe("CanvasEngineSceneAdapter", () => {
@@ -567,6 +573,96 @@ describe("CanvasEngineSceneAdapter", () => {
     });
   });
 
+  it("estimates data edge anchors from section edge-port catalogs without DOM handle positions", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 100, y: 80, w: 300, h: 210 }),
+          sectionB: createLayout({ x: 560, y: 140, w: 320, h: 240 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-estimated", "sectionA", "sectionB", {
+            sourcePortId: "out-2",
+            targetPortId: "in-3",
+          }),
+        ],
+        agenticEdges: [],
+        sectionEdgePortsBySectionId: {
+          sectionA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1", "out-2", "out-3"],
+          },
+          sectionB: {
+            inputPortIds: ["in-1", "in-2", "in-3", "in-4"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    expect(adapter.getDataEdgeById("edge-data-estimated")).toMatchObject({
+      sourceX: 400,
+      sourceY: 185,
+      targetX: 560,
+      targetY: 284,
+    });
+    expect(adapter.getDataEdgeAnchorsById("edge-data-estimated")).toEqual({
+      startX: 400,
+      startY: 185,
+      endX: 560,
+      endY: 284,
+    });
+  });
+
+  it("prefers measured handle positions and estimates only missing data-edge anchors", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 100, y: 80, w: 300, h: 210 }),
+          sectionB: createLayout({ x: 560, y: 140, w: 320, h: 240 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-hybrid", "sectionA", "sectionB", {
+            sourcePortId: "out-2",
+            targetPortId: "in-3",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("sectionA", "out-2", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionA",
+              portId: "out-2",
+              type: "source",
+              x: 405,
+              y: 177,
+            }),
+        },
+        sectionEdgePortsBySectionId: {
+          sectionA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1", "out-2", "out-3"],
+          },
+          sectionB: {
+            inputPortIds: ["in-1", "in-2", "in-3", "in-4"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    expect(adapter.getDataEdgeById("edge-data-hybrid")).toMatchObject({
+      sourceX: 405,
+      sourceY: 177,
+      targetX: 560,
+      targetY: 284,
+    });
+  });
+
   it("returns resolved data edge anchors by edge id", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
@@ -621,6 +717,7 @@ function createSceneInput(overrides: SceneInputOverrides): SceneInput {
     edges: overrides.edges,
     agenticEdges: overrides.agenticEdges,
     edgeHandlePositions: overrides.edgeHandlePositions ?? {},
+    sectionEdgePortsBySectionId: overrides.sectionEdgePortsBySectionId ?? {},
   };
 }
 

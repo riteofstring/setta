@@ -23,6 +23,11 @@ export type CanvasEngineEdgeHandlePosition = {
   y: number;
 };
 
+export type CanvasEngineSectionEdgePorts = {
+  inputPortIds: string[];
+  outputPortIds: string[];
+};
+
 export type CanvasEngineSceneAdapterConfig = {
   defaultSectionWidth: number;
   defaultSectionHeight: number;
@@ -36,6 +41,7 @@ export type CanvasEngineProjectSceneInput = {
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
   edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
+  sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>;
 };
 
 export type CanvasEngineScenePatchSummary = {
@@ -142,7 +148,10 @@ export class CanvasEngineSceneAdapter {
     );
     this.activeSectionIdSet = nextActiveSectionIdSet;
 
-    const dataEdgeSummary = this.applyDataEdges(input.edges);
+    const dataEdgeSummary = this.applyDataEdges(
+      input.edges,
+      input.sectionEdgePortsBySectionId,
+    );
     const agenticEdgeSummary = this.applyAgenticEdges(input.agenticEdges);
 
     const hasChanges =
@@ -734,6 +743,7 @@ export class CanvasEngineSceneAdapter {
 
   private applyDataEdges(
     edges: ProjectConfig["edges"],
+    sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>,
   ): Pick<
     CanvasEngineScenePatchSummary,
     "dataEdgesAdded" | "dataEdgesUpdated" | "dataEdgesRemoved"
@@ -748,6 +758,8 @@ export class CanvasEngineSceneAdapter {
       const nextEdgeRecord = createDataEdgeRecord(
         edge,
         this.edgeHandlePositionByKey,
+        this.rectById,
+        sectionEdgePortsBySectionId,
       );
       const previousEdgeRecord = this.dataEdgeById.get(edge.id);
       if (!previousEdgeRecord) {
@@ -862,6 +874,8 @@ function resolveSectionColor(
 function createDataEdgeRecord(
   edge: DataEdgeInput,
   edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>,
+  rectById: Map<string, CanvasEngineRect>,
+  sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>,
 ): CanvasEngineDataEdge {
   const sourceHandle = edgeHandlePositionByKey.get(
     buildDataHandleKey(edge.sourceSectionId, edge.sourcePortId, "source"),
@@ -869,6 +883,27 @@ function createDataEdgeRecord(
   const targetHandle = edgeHandlePositionByKey.get(
     buildDataHandleKey(edge.targetSectionId, edge.targetPortId, "target"),
   );
+  const sourceRect = rectById.get(edge.sourceSectionId) ?? null;
+  const targetRect = rectById.get(edge.targetSectionId) ?? null;
+  const estimatedSourceAnchor = sourceRect
+    ? resolveEstimatedDataPortAnchor({
+        rect: sourceRect,
+        portId: edge.sourcePortId,
+        portIds:
+          sectionEdgePortsBySectionId[edge.sourceSectionId]?.outputPortIds ??
+          [],
+        handleType: "source",
+      })
+    : null;
+  const estimatedTargetAnchor = targetRect
+    ? resolveEstimatedDataPortAnchor({
+        rect: targetRect,
+        portId: edge.targetPortId,
+        portIds:
+          sectionEdgePortsBySectionId[edge.targetSectionId]?.inputPortIds ?? [],
+        handleType: "target",
+      })
+    : null;
   return {
     id: edge.id,
     sourceSectionId: edge.sourceSectionId,
@@ -877,10 +912,10 @@ function createDataEdgeRecord(
     targetSectionId: edge.targetSectionId,
     targetVariantId: edge.targetVariantId,
     targetPortId: edge.targetPortId,
-    sourceX: sourceHandle?.x ?? null,
-    sourceY: sourceHandle?.y ?? null,
-    targetX: targetHandle?.x ?? null,
-    targetY: targetHandle?.y ?? null,
+    sourceX: sourceHandle?.x ?? estimatedSourceAnchor?.x ?? null,
+    sourceY: sourceHandle?.y ?? estimatedSourceAnchor?.y ?? null,
+    targetX: targetHandle?.x ?? estimatedTargetAnchor?.x ?? null,
+    targetY: targetHandle?.y ?? estimatedTargetAnchor?.y ?? null,
     hidden: edge.hidden,
     selected: edge.selected,
     zIndex: edge.zIndex,
@@ -918,6 +953,35 @@ function buildDataHandleKey(
   type: "source" | "target",
 ): string {
   return `${sectionId}:${portId}:${type}`;
+}
+
+function resolveEstimatedDataPortAnchor({
+  rect,
+  portId,
+  portIds,
+  handleType,
+}: {
+  rect: CanvasEngineRect;
+  portId: string;
+  portIds: string[];
+  handleType: "source" | "target";
+}): { x: number; y: number } {
+  const x = handleType === "source" ? rect.x + rect.width : rect.x;
+  if (portIds.length === 0) {
+    return {
+      x,
+      y: rect.y + rect.height / 2,
+    };
+  }
+  const portIndex = portIds.indexOf(portId);
+  if (portIndex < 0) {
+    return {
+      x,
+      y: rect.y + rect.height / 2,
+    };
+  }
+  const y = rect.y + ((portIndex + 1) / (portIds.length + 1)) * rect.height;
+  return { x, y };
 }
 
 function isAgenticHandlePortId(portId: string): boolean {

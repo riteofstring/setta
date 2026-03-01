@@ -9,6 +9,7 @@ import {
 import {
   CanvasEngineSceneAdapter,
   type CanvasEngineScenePatchSummary,
+  type CanvasEngineSectionEdgePorts,
 } from "canvas-engine/sceneAdapter";
 import type {
   CanvasEngineBackendSelection,
@@ -74,6 +75,7 @@ import {
 import {
   SectionTypeEnum,
   SelectionModeEnum,
+  isBaseSectionWithParamsImpl,
   type SectionSize,
   type SectionSizingPolicy,
 } from "utils/generatedTypes";
@@ -246,6 +248,11 @@ export function CanvasEngineHost() {
   const persistedViewport = useProjectState(
     (state) => state.projectConfig.viewport,
   );
+  const sectionVariantMap = useProjectState(
+    (state) => state.projectConfig.sectionVariantMap,
+  );
+  const sectionVariants = useProjectState((state) => state.sectionVariants);
+  const sectionImpls = useProjectState((state) => state.sectionImpls);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const { canEditStructure } = useShareCapabilities();
@@ -347,6 +354,41 @@ export function CanvasEngineHost() {
     [],
   );
 
+  const sectionEdgePortsBySectionId = useMemo(() => {
+    const bySectionId: Record<string, CanvasEngineSectionEdgePorts> = {};
+    for (const sectionId of Object.keys(topLevelSections)) {
+      const variantId = sectionVariantMap[sectionId];
+      if (!variantId) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      const variant = sectionVariants[variantId];
+      if (!variant) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      const impl = sectionImpls[variant.impl];
+      if (!impl || !isBaseSectionWithParamsImpl(impl)) {
+        bySectionId[sectionId] = {
+          inputPortIds: [],
+          outputPortIds: [],
+        };
+        continue;
+      }
+      bySectionId[sectionId] = {
+        inputPortIds: impl.edgeInputParams,
+        outputPortIds: impl.edgeOutputPorts.map((port) => port.id),
+      };
+    }
+    return bySectionId;
+  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
+
   useEffect(() => {
     const patchSummary = sceneAdapter.applyProjectState({
       topLevelSections,
@@ -354,6 +396,7 @@ export function CanvasEngineHost() {
       edges: dataEdges,
       agenticEdges,
       edgeHandlePositions,
+      sectionEdgePortsBySectionId,
     });
     setLastPatchSummary(patchSummary);
     if (patchSummary.hasChanges) {
@@ -364,6 +407,7 @@ export function CanvasEngineHost() {
     agenticEdges,
     dataEdges,
     edgeHandlePositions,
+    sectionEdgePortsBySectionId,
     sceneAdapter,
     topLevelSections,
   ]);
