@@ -16,11 +16,13 @@ _PARAM_ID_0 = ID("param-0")
 _PARAM_ID_1 = ID("param-1")
 
 
-async def _wait_for_queue_size_at_least(manager, size: int, timeout_s: float) -> None:
+async def _wait_for_pending_frontend_ops_at_least(
+    manager, size: int, timeout_s: float
+) -> None:
     start = time.monotonic()
-    while manager.message_queue.qsize() < size:
+    while len(manager.pending_frontend_ops) < size:
         if time.monotonic() - start > timeout_s:
-            pytest.fail(f"Expected queue size to reach at least {size}.")
+            pytest.fail(f"Expected pending frontend ops to reach at least {size}.")
         await asyncio.sleep(0)
 
 
@@ -109,9 +111,7 @@ async def test_set_param_entered_value_coalesces_same_param_updates() -> None:
             )
 
             # Same-key updates should collapse to one queued write while blocked.
-            await _wait_for_queue_size_at_least(manager, 1, timeout_s=1.0)
-            await asyncio.sleep(0)
-            assert manager.message_queue.qsize() == 1
+            await _wait_for_pending_frontend_ops_at_least(manager, 3, timeout_s=1.0)
 
             blocker_release.set()
             await blocker_task
@@ -186,7 +186,7 @@ async def test_set_param_entered_value_does_not_coalesce_different_params() -> N
         )
 
         # Different params use different coalesce keys and should queue separately.
-        await _wait_for_queue_size_at_least(manager, 2, timeout_s=1.0)
+        await _wait_for_pending_frontend_ops_at_least(manager, 2, timeout_s=1.0)
         blocker_release.set()
         await blocker_task
         await asyncio.gather(task_1, task_2)

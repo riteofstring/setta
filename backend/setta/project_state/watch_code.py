@@ -6,7 +6,7 @@ import sys
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -609,6 +609,26 @@ class WatchCodeManager:
         for debouncer in self._delete_debouncers.values():
             debouncer.cancel()
         self._delete_debouncers.clear()
+
+    @staticmethod
+    def _append_pending_debouncer_tasks(
+        debouncer: AsyncDebouncer,
+        tasks: list[asyncio.Task[Any]],
+    ) -> None:
+        schedule_task = getattr(debouncer, "_schedule_task", None)
+        if isinstance(schedule_task, asyncio.Task) and not schedule_task.done():
+            tasks.append(schedule_task)
+        execute_task = getattr(debouncer, "_task", None)
+        if isinstance(execute_task, asyncio.Task) and not execute_task.done():
+            tasks.append(execute_task)
+
+    def get_pending_debouncer_tasks(self) -> list[asyncio.Task[Any]]:
+        tasks: list[asyncio.Task[Any]] = []
+        for debouncer in self._debouncers.values():
+            self._append_pending_debouncer_tasks(debouncer, tasks)
+        for debouncer in self._delete_debouncers.values():
+            self._append_pending_debouncer_tasks(debouncer, tasks)
+        return tasks
 
     def sync_from_backend(self, backend: ProjectStateBackend) -> None:
         configs = backend.projectConfigs

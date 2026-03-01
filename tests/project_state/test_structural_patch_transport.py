@@ -660,10 +660,15 @@ async def test_code_section_terminal_routes_defer_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
@@ -791,10 +796,15 @@ async def test_move_sections_defers_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
@@ -903,10 +913,15 @@ async def test_group_and_ungroup_defer_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
@@ -1109,10 +1124,15 @@ async def test_remaining_section_lifecycle_routes_defer_codegen_refresh() -> Non
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):
@@ -1488,10 +1508,15 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):
@@ -1771,10 +1796,15 @@ async def test_watch_code_routes_defer_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):
@@ -1954,10 +1984,15 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
+            if next_state.projectConfig.id != project_config_id:
+                await original_refresh(next_state)
+                return
             refresh_calls += 1
             await original_refresh(next_state)
 
         def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            if project_config_id_for_refresh != project_config_id:
+                return
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):

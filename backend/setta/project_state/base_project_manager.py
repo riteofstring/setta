@@ -523,6 +523,12 @@ _R = TypeVar("_R")
 _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
 _EnqueueCoalesceKeyFn = Callable[[tuple[object, ...], dict[str, object]], str | None]
+_EnqueuePartitionKeyFn = Callable[
+    ["BaseProjectManager", tuple[object, ...], dict[str, object]],
+    str | None,
+]
+
+_GLOBAL_QUEUE_PARTITION_KEY = "__global__"
 
 PluginCodegenHashesByRelativePath = dict[str, str]
 PluginCodegenStatsByRelativePath = dict[str, tuple[int, int]]
@@ -825,8 +831,14 @@ class BaseProjectManager(ABC):
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
+        self._queue_partition_execution_lock = AsyncReadWriteLock()
         self.message_queue: asyncio.Queue[_QueueWorkItem] = asyncio.Queue()
-        self._queue_work_item_by_coalesce_key: dict[str, _QueueWorkItem] = {}
+        self._message_queues_by_partition: dict[str, asyncio.Queue[_QueueWorkItem]] = {
+            _GLOBAL_QUEUE_PARTITION_KEY: self.message_queue
+        }
+        self._queue_work_item_by_coalesce_key_by_partition: dict[
+            str, dict[str, _QueueWorkItem]
+        ] = {_GLOBAL_QUEUE_PARTITION_KEY: {}}
         self._queue_timing_metrics = _QueueTimingMetricsState()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
@@ -841,11 +853,17 @@ class BaseProjectManager(ABC):
         ] = contextvars.ContextVar("current_coalesced_frontend_op_ids", default=())
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
+        self._process_queue_task_started_by_partition: dict[str, asyncio.Event] = {
+            _GLOBAL_QUEUE_PARTITION_KEY: self._process_queue_task_started
+        }
         self.queue_task = spawn_background_task(
             self._process_queue,
             label=f"{type(self).__name__}-queue",
             extra_values={"project_manager": type(self).__name__},
         )
+        self._queue_task_by_partition: dict[str, asyncio.Task[Any]] = {
+            _GLOBAL_QUEUE_PARTITION_KEY: self.queue_task
+        }
         logger.debug("Queue task created with id %s", id(self.queue_task))
         self.autosave_debouncer = AsyncDebouncer(
             self.autosave,
@@ -895,41 +913,130 @@ class BaseProjectManager(ABC):
     def load_initial_state(self) -> ProjectStateBackend:
         pass
 
+    @staticmethod
+    def _normalize_queue_partition_key(queue_partition_key: str | None) -> str:
+        if queue_partition_key is None:
+            return _GLOBAL_QUEUE_PARTITION_KEY
+        if not queue_partition_key:
+            return _GLOBAL_QUEUE_PARTITION_KEY
+        return queue_partition_key
+
+    def _ensure_partition_queue_worker(
+        self,
+        queue_partition_key: str | None,
+    ) -> tuple[asyncio.Queue[_QueueWorkItem], asyncio.Event]:
+        normalized_partition_key = self._normalize_queue_partition_key(
+            queue_partition_key
+        )
+        existing_queue = self._message_queues_by_partition.get(normalized_partition_key)
+        if existing_queue is not None:
+            existing_started_event = self._process_queue_task_started_by_partition[
+                normalized_partition_key
+            ]
+            return existing_queue, existing_started_event
+
+        queue: asyncio.Queue[_QueueWorkItem] = asyncio.Queue()
+        started_event = asyncio.Event()
+        self._message_queues_by_partition[normalized_partition_key] = queue
+        self._process_queue_task_started_by_partition[normalized_partition_key] = (
+            started_event
+        )
+        self._queue_work_item_by_coalesce_key_by_partition[
+            normalized_partition_key
+        ] = {}
+        queue_task = spawn_background_task(
+            lambda partition_key=normalized_partition_key: self._process_partition_queue(
+                partition_key
+            ),
+            label=f"{type(self).__name__}-queue-partition",
+            extra_values={
+                "project_manager": type(self).__name__,
+                "queue_partition": normalized_partition_key,
+            },
+        )
+        self._queue_task_by_partition[normalized_partition_key] = queue_task
+        return queue, started_event
+
     async def _process_queue(self):
-        """Background task that processes messages one at a time"""
-        logger.debug("Starting _process_queue background task")
-        self._process_queue_task_started.set()
+        await self._process_partition_queue(_GLOBAL_QUEUE_PARTITION_KEY)
+
+    async def _process_partition_queue(self, queue_partition_key: str) -> None:
+        """Background task that processes one queue partition serially."""
+        queue = self._message_queues_by_partition[queue_partition_key]
+        started_event = self._process_queue_task_started_by_partition[
+            queue_partition_key
+        ]
+        logger.debug(
+            "Starting queue worker partition=%s queue_id=%s",
+            queue_partition_key,
+            id(queue),
+        )
+        started_event.set()
         while True:
-            logger.debug("Queue size before get: %s", self.message_queue.qsize())
-            # Get the next message handler and its arguments
-            logger.debug("Waiting for next message in queue...")
-            work_item = await self.message_queue.get()
-            if work_item.coalesce_key:
-                mapped_work_item = self._queue_work_item_by_coalesce_key.get(
-                    work_item.coalesce_key
+            logger.debug(
+                "Queue partition=%s size before get=%s",
+                queue_partition_key,
+                queue.qsize(),
+            )
+            work_item = await queue.get()
+            try:
+                await self._execute_queue_work_item(
+                    queue_partition_key=queue_partition_key,
+                    work_item=work_item,
                 )
-                if mapped_work_item is work_item:
-                    self._queue_work_item_by_coalesce_key.pop(work_item.coalesce_key)
-            coroutine = work_item.coroutine
-            futures = work_item.futures
-            frontend_op_id = work_item.frontend_op_id
-            coalesced_frontend_op_ids = tuple(work_item.coalesced_frontend_op_ids)
-            enqueued_at_seconds = work_item.enqueued_at_seconds
-            handler_name = self._describe_coroutine(coroutine)
+            finally:
+                queue.task_done()
+
+    async def _execute_queue_work_item(
+        self,
+        *,
+        queue_partition_key: str,
+        work_item: _QueueWorkItem,
+    ) -> None:
+        coroutine = work_item.coroutine
+        futures = work_item.futures
+        frontend_op_id = work_item.frontend_op_id
+        coalesced_frontend_op_ids = tuple(work_item.coalesced_frontend_op_ids)
+        enqueued_at_seconds = work_item.enqueued_at_seconds
+        handler_name = self._describe_coroutine(coroutine)
+        success = False
+
+        execution_lock = (
+            self._queue_partition_execution_lock.write_lock()
+            if queue_partition_key == _GLOBAL_QUEUE_PARTITION_KEY
+            else self._queue_partition_execution_lock.read_lock()
+        )
+        async with execution_lock:
+            if work_item.coalesce_key:
+                queue_coalesce_map = (
+                    self._queue_work_item_by_coalesce_key_by_partition.get(
+                        queue_partition_key
+                    )
+                )
+                if queue_coalesce_map is not None:
+                    mapped_work_item = queue_coalesce_map.get(work_item.coalesce_key)
+                    if mapped_work_item is work_item:
+                        queue_coalesce_map.pop(work_item.coalesce_key, None)
+
             processing_started_seconds = asyncio.get_running_loop().time()
             queue_wait_seconds = processing_started_seconds - enqueued_at_seconds
-            success = False
             coalesced_op_ids_token = self._current_coalesced_frontend_op_ids.set(
                 coalesced_frontend_op_ids
             )
             try:
-                # Execute the actual implementation
-                logger.debug("Starting handler %s", handler_name)
+                logger.debug(
+                    "Starting handler=%s partition=%s",
+                    handler_name,
+                    queue_partition_key,
+                )
                 async with self._track_frontend_op(frontend_op_id):
                     result = await coroutine
-                logger.debug("Completed handler %s", handler_name)
+                logger.debug(
+                    "Completed handler=%s partition=%s",
+                    handler_name,
+                    queue_partition_key,
+                )
                 success = True
-                # Set the result for the waiting call unless it was cancelled.
                 for future in futures:
                     if future.cancelled():
                         logger.debug("Skipping result for cancelled future")
@@ -937,10 +1044,8 @@ class BaseProjectManager(ABC):
                     if future.done():
                         logger.debug("Skipping result for completed future")
                         continue
-                    logger.debug("Setting result on future")
                     future.set_result(result)
             except Exception as exc:
-                # Propagate any exceptions back to the caller
                 log_failure(
                     exc,
                     label="project-manager-queue-handler",
@@ -948,6 +1053,7 @@ class BaseProjectManager(ABC):
                     context={
                         "handler_name": handler_name,
                         "project_manager": type(self).__name__,
+                        "queue_partition": queue_partition_key,
                     },
                 )
                 for future in futures:
@@ -985,49 +1091,60 @@ class BaseProjectManager(ABC):
                     ),
                     success=success,
                 )
-                # Mark the task as done
-                logger.debug("Marking queue task as done")
-                self.message_queue.task_done()
 
     async def _enqueue(
         self,
         coroutine: Coroutine[Any, Any, _T],
         frontend_op_id: str | None = None,
         coalesce_key: str | None = None,
+        queue_partition_key: str | None = None,
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
-        await self._process_queue_task_started.wait()
+        message_queue, queue_started_event = self._ensure_partition_queue_worker(
+            queue_partition_key
+        )
+        await queue_started_event.wait()
         self._raise_queue_task_issue_if_any()
 
+        normalized_partition_key = self._normalize_queue_partition_key(
+            queue_partition_key
+        )
+
         if logger.isEnabledFor(logging.DEBUG):
+            queue_task = self._queue_task_by_partition.get(normalized_partition_key)
             queue_exception: BaseException | None = None
-            if self.queue_task.done() and not self.queue_task.cancelled():
-                queue_exception = self.queue_task.exception()
+            queue_task_done = False
+            queue_task_cancelled = False
+            if queue_task is not None:
+                queue_task_done = queue_task.done()
+                queue_task_cancelled = queue_task.cancelled()
+                if queue_task_done and not queue_task_cancelled:
+                    queue_exception = queue_task.exception()
             logger.debug(
-                "Queue task status: cancelled=%s, done=%s, exception=%s",
-                self.queue_task.cancelled(),
-                self.queue_task.done(),
+                "Queue task status partition=%s cancelled=%s done=%s exception=%s",
+                normalized_partition_key,
+                queue_task_cancelled,
+                queue_task_done,
                 queue_exception,
             )
 
-        # Create a future to hold the result
         loop = asyncio.get_running_loop()
         future: asyncio.Future[_T] = loop.create_future()
-        logger.debug("Created future %s", id(future))
-
-        # Put the message in the queue
-        logger.debug("Putting message in queue")
         enqueued_at_seconds = loop.time()
         self._register_pending_frontend_op(frontend_op_id)
+        queue_coalesce_map = self._queue_work_item_by_coalesce_key_by_partition[
+            normalized_partition_key
+        ]
         if coalesce_key is not None:
-            existing_work_item = self._queue_work_item_by_coalesce_key.get(coalesce_key)
+            existing_work_item = queue_coalesce_map.get(coalesce_key)
             if existing_work_item is not None:
                 existing_work_item.coroutine.close()
                 existing_work_item.coroutine = coroutine
                 existing_work_item.futures.append(cast("asyncio.Future[Any]", future))
                 existing_work_item.append_frontend_op_id(frontend_op_id)
                 logger.debug(
-                    "Coalesced queued work item key=%s futures=%s op_ids=%s",
+                    "Coalesced queued work item partition=%s key=%s futures=%s op_ids=%s",
+                    normalized_partition_key,
                     coalesce_key,
                     len(existing_work_item.futures),
                     len(existing_work_item.coalesced_frontend_op_ids),
@@ -1040,11 +1157,10 @@ class BaseProjectManager(ABC):
                     enqueued_at_seconds=enqueued_at_seconds,
                     coalesce_key=coalesce_key,
                 )
-                self._queue_work_item_by_coalesce_key[coalesce_key] = work_item
-                await self.message_queue.put(work_item)
-                logger.debug("Message in queue, waiting for result")
+                queue_coalesce_map[coalesce_key] = work_item
+                await message_queue.put(work_item)
         else:
-            await self.message_queue.put(
+            await message_queue.put(
                 _QueueWorkItem(
                     coroutine=cast("Coroutine[Any, Any, Any]", coroutine),
                     futures=[cast("asyncio.Future[Any]", future)],
@@ -1052,10 +1168,7 @@ class BaseProjectManager(ABC):
                     enqueued_at_seconds=enqueued_at_seconds,
                 )
             )
-            logger.debug("Message in queue, waiting for result")
 
-        # Wait for the message to be processed and return the result
-        logger.debug("Awaiting future %s", id(future))
         start_time = loop.time()
         try:
             result = await future
@@ -1078,6 +1191,7 @@ class BaseProjectManager(ABC):
         *,
         require_serialization: bool = True,
         coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
+        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> _EnqueueCallable: ...
 
     @overload
@@ -1087,6 +1201,7 @@ class BaseProjectManager(ABC):
         *,
         require_serialization: bool = True,
         coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
+        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> Callable[[_EnqueueCallable], _EnqueueCallable]: ...
 
     @staticmethod
@@ -1095,6 +1210,7 @@ class BaseProjectManager(ABC):
         *,
         require_serialization: bool = True,
         coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
+        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> _EnqueueCallable | Callable[[_EnqueueCallable], _EnqueueCallable]:
         def decorator(actual_func: _EnqueueCallable) -> _EnqueueCallable:
             @wraps(actual_func)
@@ -1108,12 +1224,20 @@ class BaseProjectManager(ABC):
                         cast("tuple[object, ...]", args),
                         cast("dict[str, object]", kwargs),
                     )
+                queue_partition_key: str | None = None
+                if partition_key_fn is not None:
+                    queue_partition_key = partition_key_fn(
+                        self,
+                        cast("tuple[object, ...]", args),
+                        cast("dict[str, object]", kwargs),
+                    )
                 coroutine = actual_func(self, *args, **kwargs)
                 if require_serialization:
                     return await self._enqueue(
                         cast("Coroutine[Any, Any, _R]", coroutine),
                         frontend_op_id=frontend_op_id,
                         coalesce_key=coalesce_key,
+                        queue_partition_key=queue_partition_key,
                     )
 
                 self._register_pending_frontend_op(frontend_op_id)
@@ -1158,6 +1282,156 @@ class BaseProjectManager(ABC):
         if "x" in kwargs:
             return kwargs["x"]
         return None
+
+    @staticmethod
+    def _extract_project_config_id_for_enqueue(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> ID | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if request_obj is not None:
+            project_config_id = getattr(request_obj, "projectConfigId", None)
+            if project_config_id is not None:
+                return cast("ID", project_config_id)
+        if "projectConfigId" in kwargs:
+            return cast("ID", kwargs["projectConfigId"])
+        if args:
+            first_arg = args[0]
+            if isinstance(first_arg, str):
+                return cast("ID", first_arg)
+        return None
+
+    @staticmethod
+    def _build_project_config_queue_partition_key(project_config_id: ID) -> str:
+        return f"project-config:{project_config_id}"
+
+    def _section_id_is_shared_across_project_configs(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> bool:
+        for (
+            other_project_config_id,
+            other_project_config,
+        ) in self.project_state_backend.projectConfigs.items():
+            if other_project_config_id == project_config_id:
+                continue
+            if section_id in other_project_config.sectionVariantMap:
+                return True
+        return False
+
+    def _section_ids_are_shared_across_project_configs(
+        self,
+        *,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> bool:
+        for section_id in section_ids:
+            if self._section_id_is_shared_across_project_configs(
+                project_config_id=project_config_id,
+                section_id=section_id,
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _project_config_partition_key_for_queue(
+        _self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        project_config_id = BaseProjectManager._extract_project_config_id_for_enqueue(
+            args,
+            kwargs,
+        )
+        if project_config_id is None:
+            return None
+        return BaseProjectManager._build_project_config_queue_partition_key(
+            project_config_id
+        )
+
+    def _project_config_partition_key_for_section_scope(
+        self,
+        *,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> str | None:
+        if self._section_ids_are_shared_across_project_configs(
+            project_config_id=project_config_id,
+            section_ids=section_ids,
+        ):
+            return None
+        return self._build_project_config_queue_partition_key(project_config_id)
+
+    @staticmethod
+    def _set_param_entered_value_enqueue_partition_key(
+        self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetParamEnteredValueRequest):
+            return None
+        return self._project_config_partition_key_for_section_scope(
+            project_config_id=request_obj.projectConfigId,
+            section_ids=[request_obj.sectionId],
+        )
+
+    @staticmethod
+    def _set_section_sizes_enqueue_partition_key(
+        self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetSectionSizesRequest):
+            return None
+        return self._project_config_partition_key_for_section_scope(
+            project_config_id=request_obj.projectConfigId,
+            section_ids=sorted(request_obj.sectionSizes.keys()),
+        )
+
+    @staticmethod
+    def _set_viewport_enqueue_partition_key(
+        _self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetViewportRequest):
+            return None
+        return BaseProjectManager._build_project_config_queue_partition_key(
+            request_obj.projectConfigId
+        )
+
+    @staticmethod
+    def _set_section_column_width_enqueue_partition_key(
+        self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetSectionColumnWidthRequest):
+            return None
+        return self._project_config_partition_key_for_section_scope(
+            project_config_id=request_obj.projectConfigId,
+            section_ids=[request_obj.sectionId],
+        )
+
+    @staticmethod
+    def _set_browser_column_widths_enqueue_partition_key(
+        self: "BaseProjectManager",
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetBrowserColumnWidthsRequest):
+            return None
+        return self._project_config_partition_key_for_section_scope(
+            project_config_id=request_obj.projectConfigId,
+            section_ids=[request_obj.sectionId],
+        )
 
     @staticmethod
     def _set_param_entered_value_enqueue_coalesce_key(
@@ -1291,13 +1565,73 @@ class BaseProjectManager(ABC):
             return
         self._pending_ops_idle.set()
 
+    def _get_all_message_queues(self) -> list[asyncio.Queue[_QueueWorkItem]]:
+        return list(self._message_queues_by_partition.values())
+
+    def _get_total_queue_depth(self) -> int:
+        return sum(
+            queue.qsize() for queue in self._message_queues_by_partition.values()
+        )
+
+    def _get_all_queue_tasks(self) -> list[asyncio.Task[Any]]:
+        return list(self._queue_task_by_partition.values())
+
     def get_queue_timing_metrics_snapshot(self) -> dict[str, object]:
         return self._queue_timing_metrics.snapshot(
-            queue_depth=self.message_queue.qsize()
+            queue_depth=self._get_total_queue_depth()
         )
 
     def reset_queue_timing_metrics(self) -> None:
         self._queue_timing_metrics.reset()
+
+    @staticmethod
+    def _append_pending_debouncer_tasks(
+        debouncer: AsyncDebouncer,
+        tasks: list[asyncio.Task[Any]],
+    ) -> None:
+        schedule_task = getattr(debouncer, "_schedule_task", None)
+        if isinstance(schedule_task, asyncio.Task) and not schedule_task.done():
+            tasks.append(schedule_task)
+        execute_task = getattr(debouncer, "_task", None)
+        if isinstance(execute_task, asyncio.Task) and not execute_task.done():
+            tasks.append(execute_task)
+
+    def _get_pending_codegen_refresh_debouncer_tasks(self) -> list[asyncio.Task[Any]]:
+        tasks: list[asyncio.Task[Any]] = []
+        for (
+            debouncer
+        ) in self._deferred_codegen_refresh_debouncer_by_project_config.values():
+            self._append_pending_debouncer_tasks(debouncer, tasks)
+        for (
+            debouncer
+        ) in self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.values():
+            self._append_pending_debouncer_tasks(debouncer, tasks)
+        return tasks
+
+    def _get_pending_background_tasks(self) -> list[asyncio.Task[Any]]:
+        pending_tasks = self.watch_code_manager.get_pending_debouncer_tasks()
+        if not pending_tasks:
+            return []
+        unique_pending_tasks: list[asyncio.Task[Any]] = []
+        seen_task_ids: set[int] = set()
+        for pending_task in pending_tasks:
+            task_id = id(pending_task)
+            if task_id in seen_task_ids:
+                continue
+            seen_task_ids.add(task_id)
+            unique_pending_tasks.append(pending_task)
+        return unique_pending_tasks
+
+    async def _await_pending_background_tasks(self) -> None:
+        pending_tasks = self._get_pending_background_tasks()
+        if not pending_tasks:
+            return
+        results = await asyncio.gather(*pending_tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, asyncio.CancelledError):
+                continue
+            if isinstance(result, BaseException):
+                raise result
 
     def _flush_code_files(
         self, projectConfigId: ID
@@ -2253,7 +2587,10 @@ class BaseProjectManager(ABC):
         )
         await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
-    @enqueue_method(coalesce_key_fn=_set_section_sizes_enqueue_coalesce_key)
+    @enqueue_method(
+        coalesce_key_fn=_set_section_sizes_enqueue_coalesce_key,
+        partition_key_fn=_set_section_sizes_enqueue_partition_key,
+    )
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionSizes"]}
@@ -2462,7 +2799,8 @@ class BaseProjectManager(ABC):
         self._deferred_codegen_refresh_debouncer_by_project_config.clear()
         self._pending_deferred_codegen_refresh_revision_by_project_config.clear()
         self.autosave_debouncer.cancel()
-        self.queue_task.cancel()
+        for queue_task in self._queue_task_by_partition.values():
+            queue_task.cancel()
 
     def _cancel_pending_deferred_codegen_refresh(
         self,
@@ -2987,7 +3325,7 @@ class BaseProjectManager(ABC):
             )
         )
         if debouncer is not None:
-            debouncer.cancel_pending()
+            debouncer.cancel()
         await self._refresh_gen_code_prefix_suffix_now(project_config_id)
 
     def _get_deferred_codegen_refresh_debouncer(
@@ -3061,7 +3399,7 @@ class BaseProjectManager(ABC):
             project_config_id
         )
         if debouncer is not None:
-            debouncer.cancel_pending()
+            debouncer.cancel()
         await self._refresh_deferred_codegen_now(project_config_id)
 
     @enqueue_method
@@ -4065,7 +4403,10 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
 
-    @enqueue_method(coalesce_key_fn=_set_param_entered_value_enqueue_coalesce_key)
+    @enqueue_method(
+        coalesce_key_fn=_set_param_entered_value_enqueue_coalesce_key,
+        partition_key_fn=_set_param_entered_value_enqueue_partition_key,
+    )
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -6185,7 +6526,10 @@ class BaseProjectManager(ABC):
         project_config.activeIds = x.activeIds
         self._mark_current_backend_revision_dirty()
 
-    @enqueue_method(coalesce_key_fn=_set_viewport_enqueue_coalesce_key)
+    @enqueue_method(
+        coalesce_key_fn=_set_viewport_enqueue_coalesce_key,
+        partition_key_fn=_set_viewport_enqueue_partition_key,
+    )
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 
@@ -6596,7 +6940,10 @@ class BaseProjectManager(ABC):
             section_id=x.sectionId,
         )
 
-    @enqueue_method(coalesce_key_fn=_set_section_column_width_enqueue_coalesce_key)
+    @enqueue_method(
+        coalesce_key_fn=_set_section_column_width_enqueue_coalesce_key,
+        partition_key_fn=_set_section_column_width_enqueue_partition_key,
+    )
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
@@ -6701,7 +7048,10 @@ class BaseProjectManager(ABC):
             )
         )
 
-    @enqueue_method(coalesce_key_fn=_set_browser_column_widths_enqueue_coalesce_key)
+    @enqueue_method(
+        coalesce_key_fn=_set_browser_column_widths_enqueue_coalesce_key,
+        partition_key_fn=_set_browser_column_widths_enqueue_partition_key,
+    )
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
         self.add_new_history_entry(
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
@@ -10102,14 +10452,36 @@ class BaseProjectManager(ABC):
     async def finish_pending_operations(self, *, timeout: float | None = None) -> None:
         """Await completion of all queued and in-flight frontend operations."""
 
-        async def _drain():
+        async def _drain() -> None:
             await self._process_queue_task_started.wait()
-            self._raise_queue_task_issue_if_any()
-            await self.message_queue.join()
-            while self.pending_frontend_ops:
+            consecutive_idle_cycles = 0
+            while True:
                 self._raise_queue_task_issue_if_any()
-                await self._pending_ops_idle.wait()
-            self._raise_queue_task_issue_if_any()
+                await asyncio.gather(
+                    *(queue.join() for queue in self._get_all_message_queues())
+                )
+                while self.pending_frontend_ops:
+                    self._raise_queue_task_issue_if_any()
+                    await self._pending_ops_idle.wait()
+                await self._await_pending_background_tasks()
+                self._raise_queue_task_issue_if_any()
+                await asyncio.sleep(0)
+                has_pending_background_tasks = bool(
+                    self._get_pending_background_tasks()
+                )
+                has_pending_frontend_ops = bool(self.pending_frontend_ops)
+                has_pending_queue_work = self._get_total_queue_depth() > 0
+                if (
+                    has_pending_background_tasks
+                    or has_pending_frontend_ops
+                    or has_pending_queue_work
+                ):
+                    consecutive_idle_cycles = 0
+                    continue
+                consecutive_idle_cycles += 1
+                if consecutive_idle_cycles >= 2:
+                    self._raise_queue_task_issue_if_any()
+                    return
 
         if timeout is None:
             await _drain()
@@ -10117,13 +10489,16 @@ class BaseProjectManager(ABC):
         await asyncio.wait_for(_drain(), timeout)
 
     def _raise_queue_task_issue_if_any(self) -> None:
-        if not self.queue_task.done():
-            return
-        if self.queue_task.cancelled():
-            raise asyncio.CancelledError("BaseProjectManager queue task cancelled")
-        exception = self.queue_task.exception()
-        if exception:
-            raise exception
+        for queue_partition_key, queue_task in self._queue_task_by_partition.items():
+            if not queue_task.done():
+                continue
+            if queue_task.cancelled():
+                raise asyncio.CancelledError(
+                    f"BaseProjectManager queue task cancelled partition={queue_partition_key}"
+                )
+            exception = queue_task.exception()
+            if exception:
+                raise exception
 
     def watch_json_source_files(self):
         callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
