@@ -200,6 +200,12 @@
   - hitch budgets fail consistently,
   - parity cannot be preserved without UX regression.
 
+## Escalation Path
+- If the hybrid DOM/scene approach cannot satisfy both:
+  - benchmark-suite performance targets, and
+  - strict UX-parity gates,
+  then proceed to a full UI engine rewrite plan (GPU-native rendering + interaction layer) rather than accepting reduced UX fidelity.
+
 ## Immediate Next Step
 - Phase 0 benchmark hardening and threshold gating:
   - keep `Settings -> All Settings` plus non-settings large-project scenarios as the required suite,
