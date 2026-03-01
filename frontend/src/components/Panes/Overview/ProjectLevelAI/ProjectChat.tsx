@@ -1585,6 +1585,7 @@ export function ProjectChat() {
     projectChatAuxView === "slash_commands"
   ) ? (
       <ProjectChatSkillsMcpViewer
+        projectConfigId={projectConfigId}
         chatId={chatId}
         engineConfigId={effectiveEngineId}
         engineType={engineType}

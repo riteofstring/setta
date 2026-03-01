@@ -271,6 +271,55 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   await expect(page.getByTestId("skills-mcp-slash-resize-handle")).toHaveCount(
     0,
   );
+  const customCommandInput = page.getByTestId(
+    "project-chat-custom-slash-command-input",
+  );
+  const customPromptInput = page.getByTestId(
+    "project-chat-custom-slash-prompt-input",
+  );
+  const customAddButton = page.getByTestId("project-chat-custom-slash-add");
+  await customCommandInput.fill("/project-status");
+  await customPromptInput.fill("Summarize project health and open risks.");
+  await expect(customAddButton).toBeEnabled();
+  await customAddButton.click();
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/project-status",
+    }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        const byProject =
+          parsed?.state?.customProjectChatSlashCommandsByProjectConfigId;
+        if (!byProject || typeof byProject !== "object") {
+          return null;
+        }
+        return Object.values(byProject)
+          .flatMap((value) => (Array.isArray(value) ? value : []))
+          .map((entry) => entry.command)
+          .filter((entry) => typeof entry === "string");
+      }),
+    )
+    .toContain("/project-status");
+  await customCommandInput.fill("/new");
+  await customPromptInput.fill("this should collide");
+  await expect(customAddButton).toBeDisabled();
+  await page
+    .getByTestId("project-chat-custom-slash-remove")
+    .filter({ hasText: "Remove" })
+    .first()
+    .click();
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/project-status",
+    }),
+  ).toHaveCount(0);
   await expect(
     page.getByText("Agent-native slash commands apply to external agents."),
   ).toBeVisible();

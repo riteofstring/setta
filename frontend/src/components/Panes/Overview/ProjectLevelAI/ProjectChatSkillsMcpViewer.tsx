@@ -1,5 +1,10 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
+import {
+  buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
+  normalizeSlashCommandToken,
+} from "components/Chat/chatComposerControls";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
@@ -15,7 +20,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAIStore } from "state/definitions";
+import {
+  type ProjectChatCustomSlashCommand,
+  useAIStore,
+  useLocalStorage,
+} from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
@@ -51,6 +60,7 @@ type PathGroupHeaderProps = {
 };
 
 type ProjectChatSkillsMcpViewerProps = {
+  projectConfigId: string;
   chatId: string | null | undefined;
   engineConfigId: string | null;
   engineType: EngineConfig["engineType"] | null;
@@ -377,6 +387,7 @@ function PathGroupHeader({
 }
 
 export function ProjectChatSkillsMcpViewer({
+  projectConfigId,
   chatId,
   engineConfigId,
   engineType,
@@ -475,6 +486,8 @@ export function ProjectChatSkillsMcpViewer({
   const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
     string | null
   >(null);
+  const [newCustomSlashCommand, setNewCustomSlashCommand] = useState("");
+  const [newCustomSlashPrompt, setNewCustomSlashPrompt] = useState("");
   const [
     agentNativeSlashCommandsByEngineId,
     setAgentNativeSlashCommandsByEngineId,
@@ -484,6 +497,11 @@ export function ProjectChatSkillsMcpViewer({
     );
   });
   const [skillsRevision, setSkillsRevision] = useState(0);
+  const customProjectChatSlashCommands = useLocalStorage(
+    (state): ProjectChatCustomSlashCommand[] =>
+      state.customProjectChatSlashCommandsByProjectConfigId[projectConfigId] ??
+      [],
+  );
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
@@ -806,6 +824,41 @@ export function ProjectChatSkillsMcpViewer({
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
   }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
+  const customSlashCommandDefinitions = useMemo(() => {
+    return buildCustomPromptSlashCommandDefinitions(
+      customProjectChatSlashCommands,
+    );
+  }, [customProjectChatSlashCommands]);
+  const customSlashCommandTokens = useMemo(() => {
+    return new Set(
+      customSlashCommandDefinitions.map((entry) => entry.command),
+    );
+  }, [customSlashCommandDefinitions]);
+  const reservedSlashCommandTokens = useMemo(() => {
+    const reserved = new Set(
+      buildChatSlashCommands({
+        model: true,
+        permissions: true,
+        search: true,
+        appGenerationModes: true,
+      }).map((entry) => entry.command),
+    );
+    for (const slashCommandsForEngine of slashCommandsByEngine) {
+      for (const command of slashCommandsForEngine.commands) {
+        reserved.add(command.command);
+      }
+    }
+    for (const nativeEntry of Object.values(agentNativeSlashCommandsByEngineId)) {
+      for (const nativeCommand of nativeEntry.commands) {
+        const normalizedCommand = normalizeSlashCommandToken(nativeCommand);
+        if (!normalizedCommand) {
+          continue;
+        }
+        reserved.add(normalizedCommand);
+      }
+    }
+    return reserved;
+  }, [agentNativeSlashCommandsByEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
     if (slashCommandsByEngine.length === 0) {
@@ -867,6 +920,29 @@ export function ProjectChatSkillsMcpViewer({
   const showMcpSection = viewMode === "mcp";
   const showSlashCommandsSection = viewMode === "slash_commands";
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
+  const normalizedNewCustomSlashCommand = useMemo(() => {
+    return normalizeSlashCommandToken(newCustomSlashCommand);
+  }, [newCustomSlashCommand]);
+  const canAddCustomSlashCommand = useMemo(() => {
+    if (!normalizedNewCustomSlashCommand) {
+      return false;
+    }
+    if (!newCustomSlashPrompt.trim()) {
+      return false;
+    }
+    if (reservedSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+      return false;
+    }
+    if (customSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+      return false;
+    }
+    return true;
+  }, [
+    customSlashCommandTokens,
+    newCustomSlashPrompt,
+    normalizedNewCustomSlashCommand,
+    reservedSlashCommandTokens,
+  ]);
   const selectedSkill = useMemo(() => {
     if (!selectedSkillId) {
       return null;
@@ -963,6 +1039,95 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
   }, []);
+
+  const addCustomProjectChatSlashCommand = useCallback(() => {
+    const normalizedCommand = normalizeSlashCommandToken(newCustomSlashCommand);
+    if (!normalizedCommand) {
+      addTemporaryNotification(
+        "Provide a valid slash command (example: /triage-bugs).",
+      );
+      return;
+    }
+    const trimmedPrompt = newCustomSlashPrompt.trim();
+    if (!trimmedPrompt) {
+      addTemporaryNotification("Provide prompt text for the custom command.");
+      return;
+    }
+    if (
+      reservedSlashCommandTokens.has(normalizedCommand) ||
+      customSlashCommandTokens.has(normalizedCommand)
+    ) {
+      addTemporaryNotification(
+        `${normalizedCommand} collides with an existing slash command.`,
+      );
+      return;
+    }
+    useLocalStorage.setState((state) => {
+      const currentByProject =
+        state.customProjectChatSlashCommandsByProjectConfigId;
+      const currentCommands = currentByProject[projectConfigId] ?? [];
+      if (
+        currentCommands.some(
+          (entry) =>
+            normalizeSlashCommandToken(entry.command) === normalizedCommand,
+        )
+      ) {
+        return state;
+      }
+      return {
+        customProjectChatSlashCommandsByProjectConfigId: {
+          ...currentByProject,
+          [projectConfigId]: [
+            ...currentCommands,
+            {
+              command: normalizedCommand,
+              prompt: trimmedPrompt,
+            },
+          ],
+        },
+      };
+    });
+    setNewCustomSlashCommand("");
+    addTemporaryNotification(`Added ${normalizedCommand}.`);
+  }, [
+    customSlashCommandTokens,
+    newCustomSlashCommand,
+    newCustomSlashPrompt,
+    projectConfigId,
+    reservedSlashCommandTokens,
+  ]);
+
+  const removeCustomProjectChatSlashCommand = useCallback(
+    (commandToken: string) => {
+      const normalizedCommand = normalizeSlashCommandToken(commandToken);
+      if (!normalizedCommand) {
+        return;
+      }
+      useLocalStorage.setState((state) => {
+        const currentByProject =
+          state.customProjectChatSlashCommandsByProjectConfigId;
+        const currentCommands = currentByProject[projectConfigId] ?? [];
+        const nextCommands = currentCommands.filter(
+          (entry) =>
+            normalizeSlashCommandToken(entry.command) !== normalizedCommand,
+        );
+        if (nextCommands.length === currentCommands.length) {
+          return state;
+        }
+        const nextByProject = { ...currentByProject };
+        if (nextCommands.length === 0) {
+          delete nextByProject[projectConfigId];
+        } else {
+          nextByProject[projectConfigId] = nextCommands;
+        }
+        return {
+          customProjectChatSlashCommandsByProjectConfigId: nextByProject,
+        };
+      });
+      addTemporaryNotification(`Removed ${normalizedCommand}.`);
+    },
+    [projectConfigId],
+  );
 
   const createCustomSkill = useCallback(async () => {
     const relativePath = newCustomSkillRelativePath.trim();
@@ -1617,6 +1782,83 @@ export function ProjectChatSkillsMcpViewer({
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="grid min-w-0 gap-2">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      Custom Commands
+                    </div>
+                    <div className="grid min-w-0 gap-2 px-1">
+                      <input
+                        type="text"
+                        value={newCustomSlashCommand}
+                        onChange={(event) =>
+                          setNewCustomSlashCommand(event.target.value)
+                        }
+                        placeholder="/my-command"
+                        className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                        data-testid="project-chat-custom-slash-command-input"
+                      />
+                      <textarea
+                        value={newCustomSlashPrompt}
+                        onChange={(event) =>
+                          setNewCustomSlashPrompt(event.target.value)
+                        }
+                        placeholder="Prompt text to send when this command runs."
+                        className="min-h-20 w-full resize-y rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                        data-testid="project-chat-custom-slash-prompt-input"
+                      />
+                      <button
+                        type="button"
+                        className="inline-flex w-fit cursor-pointer items-center rounded border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                        data-testid="project-chat-custom-slash-add"
+                        onClick={addCustomProjectChatSlashCommand}
+                        disabled={!canAddCustomSlashCommand}
+                      >
+                        Add slash command
+                      </button>
+                      <div className="text-[10px] text-setta-500 dark:text-setta-400">
+                        Command names must be unique and cannot collide with
+                        built-in or discovered agent-native commands.
+                      </div>
+                    </div>
+                    {customSlashCommandDefinitions.length > 0 ? (
+                      <div className="grid min-w-0 gap-1">
+                        {customSlashCommandDefinitions.map((command) => (
+                          <div
+                            key={command.command}
+                            className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
+                          >
+                            <div className="min-w-0">
+                              <div
+                                className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                                data-testid="project-chat-custom-slash-command"
+                              >
+                                {command.command}
+                              </div>
+                              <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
+                                {command.promptTemplate}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                              data-testid="project-chat-custom-slash-remove"
+                              onClick={() =>
+                                removeCustomProjectChatSlashCommand(
+                                  command.command,
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-1 text-[10px] text-setta-500 dark:text-setta-400">
+                        No custom slash commands yet.
+                      </div>
+                    )}
                   </div>
                   {selectedSlashEngine?.engineType === "external_agent" ? (
                     <div className="grid min-w-0 gap-2">
