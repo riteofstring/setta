@@ -1618,10 +1618,10 @@ class BaseProjectManager(ABC):
             self._append_pending_debouncer_tasks(debouncer, tasks)
         return tasks
 
-    def _get_pending_background_tasks(self) -> list[asyncio.Task[Any]]:
-        pending_tasks = self.watch_code_manager.get_pending_debouncer_tasks()
-        if not pending_tasks:
-            return []
+    @staticmethod
+    def _dedupe_pending_tasks(
+        pending_tasks: list[asyncio.Task[Any]],
+    ) -> list[asyncio.Task[Any]]:
         unique_pending_tasks: list[asyncio.Task[Any]] = []
         seen_task_ids: set[int] = set()
         for pending_task in pending_tasks:
@@ -1631,6 +1631,13 @@ class BaseProjectManager(ABC):
             seen_task_ids.add(task_id)
             unique_pending_tasks.append(pending_task)
         return unique_pending_tasks
+
+    def _get_pending_background_tasks(self) -> list[asyncio.Task[Any]]:
+        pending_tasks = self.watch_code_manager.get_pending_debouncer_tasks()
+        pending_tasks.extend(self._get_pending_codegen_refresh_debouncer_tasks())
+        if not pending_tasks:
+            return []
+        return self._dedupe_pending_tasks(pending_tasks)
 
     async def _await_pending_background_tasks(self) -> None:
         pending_tasks = self._get_pending_background_tasks()
@@ -6632,6 +6639,32 @@ class BaseProjectManager(ABC):
         if x.activeViewModeId not in view_modes:
             raise KeyError(f"View mode {x.activeViewModeId} not found")
         current_view_mode = self._get_active_view_mode(project_state)
+        if x.activeViewModeId == current_view_mode.id:
+            project_top_level_sections = project_state.projectConfig.topLevelSections
+            project_viewport = project_state.projectConfig.viewport
+            project_viewport_initialized = (
+                project_state.projectConfig.viewportInitialized
+            )
+            is_top_level_sections_synced = (
+                current_view_mode.topLevelSections is project_top_level_sections
+                or current_view_mode.topLevelSections == project_top_level_sections
+            )
+            is_viewport_synced = (
+                current_view_mode.viewport is project_viewport
+                or current_view_mode.viewport == project_viewport
+            )
+            if (
+                is_top_level_sections_synced
+                and is_viewport_synced
+                and current_view_mode.viewportInitialized
+                == project_viewport_initialized
+            ):
+                return
+            current_view_mode.topLevelSections = project_top_level_sections
+            current_view_mode.viewport = project_viewport
+            current_view_mode.viewportInitialized = project_viewport_initialized
+            await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+            return
         current_view_mode.topLevelSections = (
             project_state.projectConfig.topLevelSections
         )

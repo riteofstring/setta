@@ -245,6 +245,24 @@ def _install_transport_capture(sender):
     return capture, restore
 
 
+def _install_immediate_transport_capture(manager):
+    capture, restore_transport = _install_transport_capture(
+        manager.websocket_msg_handler
+    )
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+
+    def restore() -> None:
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+        restore_transport()
+
+    return capture, restore
+
+
 @pytest.mark.asyncio
 class TestWatchCode:
     @pytest_asyncio.fixture(autouse=True)
@@ -542,13 +560,12 @@ class TestWatchCode:
                 fileToRead=normalize_workspace_path(self.code_section_path),
             ),
         )
-        sender = self.manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(self.manager)
         try:
             await self.manager.reload_code_sections(plan)
-            await self.manager.finish_pending_operations(timeout=5.0)
         finally:
             restore()
+        await self.manager.finish_pending_operations(timeout=5.0)
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == capture["structural_patch_calls"]
@@ -626,8 +643,9 @@ class TestWatchCode:
             "def existing(a):\n    return a\n\n"
             "def transport_added(value):\n    return value\n"
         )
-        sender = self.manager.websocket_msg_handler
-        create_capture, restore_create = _install_transport_capture(sender)
+        create_capture, restore_create = _install_immediate_transport_capture(
+            self.manager
+        )
         try:
             await self.manager.apply_watch_code_file_update(
                 self.project_config_id,
@@ -636,9 +654,9 @@ class TestWatchCode:
                 baseline_only=False,
                 moved_from=None,
             )
-            await self.manager.finish_pending_operations(timeout=5.0)
         finally:
             restore_create()
+        await self.manager.finish_pending_operations(timeout=5.0)
 
         assert 0 == create_capture["project_state_broadcast_calls"]
         assert 1 == create_capture["structural_patch_calls"]
@@ -657,7 +675,9 @@ class TestWatchCode:
             "def existing(a):\n    return a\n\n"
             "def transport_added(value, extra):\n    return value + extra\n"
         )
-        signature_capture, restore_signature = _install_transport_capture(sender)
+        signature_capture, restore_signature = _install_immediate_transport_capture(
+            self.manager
+        )
         try:
             await self.manager.apply_watch_code_file_update(
                 self.project_config_id,
@@ -666,9 +686,9 @@ class TestWatchCode:
                 baseline_only=False,
                 moved_from=None,
             )
-            await self.manager.finish_pending_operations(timeout=5.0)
         finally:
             restore_signature()
+        await self.manager.finish_pending_operations(timeout=5.0)
 
         assert 0 == signature_capture["project_state_broadcast_calls"]
         assert 0 == signature_capture["structural_patch_calls"]
@@ -685,15 +705,17 @@ class TestWatchCode:
         updated_entry = state_after_signature.projectConfig.watchCodeRegistry[identity]
         assert created_signature_hash != updated_entry.signatureHash
 
-        delete_capture, restore_delete = _install_transport_capture(sender)
+        delete_capture, restore_delete = _install_immediate_transport_capture(
+            self.manager
+        )
         try:
             await self.manager.apply_watch_code_file_delete(
                 self.project_config_id,
                 self.watch_file_path,
             )
-            await self.manager.finish_pending_operations(timeout=5.0)
         finally:
             restore_delete()
+        await self.manager.finish_pending_operations(timeout=5.0)
 
         assert 0 == delete_capture["project_state_broadcast_calls"]
         assert 1 == delete_capture["structural_patch_calls"]

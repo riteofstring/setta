@@ -103,6 +103,51 @@ async def test_set_gen_code_prefix_uses_project_config_patch_and_defers_refresh(
 
 
 @pytest.mark.asyncio
+async def test_finish_pending_operations_waits_for_gen_code_prefix_deferred_refresh() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        original_refresh_codegen_state = manager._refresh_codegen_state
+
+        async def record_refresh_codegen_state(project_state_for_refresh) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh_codegen_state(project_state_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh_codegen_state  # type: ignore[method-assign]
+        try:
+            await manager.set_gen_code_prefix(
+                SetGenCodePrefixRequest(
+                    projectConfigId=project_config_id,
+                    genCodePrefix="import pathlib\n",
+                )
+            )
+            # Prefix edits schedule deferred codegen refresh via debouncer.
+            assert (
+                project_config_id
+                in manager._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+            )
+            refresh_calls_before_wait = refresh_calls
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh_codegen_state  # type: ignore[method-assign]
+
+        assert refresh_calls == refresh_calls_before_wait + 1
+        assert (
+            project_config_id
+            not in manager._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+        )
+
+
+@pytest.mark.asyncio
 async def test_create_run_command_flushes_pending_gen_code_prefix_refresh() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

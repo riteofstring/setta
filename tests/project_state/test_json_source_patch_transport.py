@@ -190,6 +190,24 @@ def _install_transport_capture(sender):
     return capture, restore
 
 
+def _install_immediate_transport_capture(manager):
+    capture, restore_transport = _install_transport_capture(
+        manager.websocket_msg_handler
+    )
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+
+    def restore() -> None:
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+        restore_transport()
+
+    return capture, restore
+
+
 @pytest.mark.asyncio
 async def test_load_json_sources_uses_patch_transport() -> None:
     async with real_settings_manager() as fixture:
@@ -220,8 +238,7 @@ async def test_load_json_sources_uses_patch_transport() -> None:
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             processed = manager.json_source.process_json_object({"alpha": {"value": 1}})
             await manager.load_json_sources(
@@ -368,8 +385,7 @@ async def test_load_json_sources_skips_name_validation_for_reserved_settings_nam
         )
         await manager.finish_pending_operations(timeout=5.0)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             processed = manager.json_source.process_json_object({"alpha": {"value": 1}})
             await manager.load_json_sources(

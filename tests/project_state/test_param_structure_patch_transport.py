@@ -182,6 +182,33 @@ def _install_transport_capture(sender):
     return capture, restore
 
 
+async def _run_with_transport_capture(
+    manager,
+    operation,
+    *,
+    suppress_deferred_codegen_refresh: bool = True,
+):
+    sender = manager.websocket_msg_handler
+    capture, restore = _install_transport_capture(sender)
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    if suppress_deferred_codegen_refresh:
+        manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+    try:
+        result = await operation
+    finally:
+        if suppress_deferred_codegen_refresh:
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+        restore()
+    await manager.finish_pending_operations(timeout=5.0)
+    return capture, result
+
+
 def _get_callable_impl(
     manager, project_config_id: ID
 ) -> tuple[ID, CodeCallableCodeObjImpl]:
@@ -239,18 +266,15 @@ async def test_add_kwarg_uses_code_obj_and_section_impl_patch_transport() -> Non
         )
         before_child_count = len(callable_impl_before.children)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.add_kwarg(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.add_kwarg(
                 AddKwargRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -309,18 +333,15 @@ async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_ed
         removed_param_id = callable_impl_before.children[-1]
         before_child_count = len(callable_impl_before.children)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.delete_kwarg(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_kwarg(
                 DeleteKwargRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -387,18 +408,15 @@ async def test_delete_kwarg_includes_project_config_patch_when_deleting_edge_inp
         )
         before_child_count = len(callable_impl_before.children)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.delete_kwarg(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_kwarg(
                 DeleteKwargRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["project_config_patch_calls"])
@@ -463,19 +481,16 @@ async def test_delete_selected_params_uses_code_obj_and_section_patch_transport_
         assert PARAM_ONE_ID in callable_impl_before.children
         assert PARAM_TWO_ID in callable_impl_before.children
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.delete_selected_params(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_selected_params(
                 DeleteSelectedParamsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     paramInfoIds=[PARAM_ONE_ID, PARAM_TWO_ID],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -531,19 +546,16 @@ async def test_delete_selected_params_includes_project_config_patch_when_deletin
         assert PARAM_ONE_ID in callable_impl_before.children
         assert PARAM_TWO_ID in callable_impl_before.children
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.delete_selected_params(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_selected_params(
                 DeleteSelectedParamsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     paramInfoIds=[PARAM_ONE_ID, PARAM_TWO_ID],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["project_config_patch_calls"])
@@ -605,10 +617,9 @@ async def test_move_params_uses_code_obj_and_section_patch_transport() -> None:
         )
         assert PARAM_TWO_ID in callable_impl_before.children
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.move_params(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.move_params(
                 MoveParamsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
@@ -616,10 +627,8 @@ async def test_move_params_uses_code_obj_and_section_patch_transport() -> None:
                     newParentId=PARAM_ONE_ID,
                     newIndex=0,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -661,10 +670,9 @@ async def test_move_param_groups_uses_code_obj_and_section_patch_transport() -> 
         project_config_id = project_state.projectConfig.id
         callable_id, _ = _get_callable_impl(manager, project_config_id)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.move_param_groups(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.move_param_groups(
                 MoveParamGroupsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
@@ -681,10 +689,8 @@ async def test_move_param_groups_uses_code_obj_and_section_patch_transport() -> 
                         ),
                     ],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -730,19 +736,16 @@ async def test_indent_params_uses_code_obj_and_section_patch_transport() -> None
         )
         assert PARAM_TWO_ID in callable_impl_before.children
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.indent_params(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.indent_params(
                 IndentParamsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     paramIds=[PARAM_TWO_ID],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -793,19 +796,16 @@ async def test_unindent_params_uses_code_obj_and_section_patch_transport() -> No
         )
         await manager.finish_pending_operations(timeout=5.0)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.unindent_params(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.unindent_params(
                 UnindentParamsRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     paramIds=[PARAM_TWO_ID],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 0 == len(capture["project_config_patch_calls"])
@@ -847,20 +847,17 @@ async def test_set_callable_uses_code_obj_and_section_patch_transport() -> None:
         project_config_id = project_state.projectConfig.id
         current_callable_id, _ = _get_callable_impl(manager, project_config_id)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            response = await manager.set_callable(
+        capture, response = await _run_with_transport_capture(
+            manager,
+            manager.set_callable(
                 SetCallableRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     callableName="patch_transport_new_callable",
                     refetchParams=True,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert response.callableId is not None
         assert response.callableId != current_callable_id
@@ -898,20 +895,17 @@ async def test_set_callable_clear_uses_section_patch_transport() -> None:
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            response = await manager.set_callable(
+        capture, response = await _run_with_transport_capture(
+            manager,
+            manager.set_callable(
                 SetCallableRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     callableName="",
                     refetchParams=False,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert response.callableId is None
         assert 0 == capture["project_state_broadcast_calls"]

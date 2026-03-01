@@ -203,6 +203,59 @@ async def test_set_task_board_section_state_acks_via_patch_then_defers_refresh()
 
 
 @pytest.mark.asyncio
+async def test_finish_pending_operations_waits_for_task_board_deferred_refresh() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        task_board_section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.TaskBoard,
+            Position(x=900, y=120),
+            core_overrides={"name": "finish_pending_waits_for_task_board_refresh"},
+        )
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        original_refresh = manager._refresh_codegen_state
+
+        async def record_refresh(next_state):
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        try:
+            await manager.set_task_board_section_state(
+                build_task_board_state_request(
+                    project_config_id=project_config_id,
+                    section_id=task_board_section_id,
+                    iteration=2,
+                )
+            )
+            # The task board route schedules deferred refresh after patch transport.
+            assert (
+                project_config_id
+                in manager._pending_deferred_codegen_refresh_revision_by_project_config
+            )
+            refresh_calls_before_wait = refresh_calls
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+
+        assert refresh_calls == refresh_calls_before_wait + 1
+        assert (
+            project_config_id
+            not in manager._pending_deferred_codegen_refresh_revision_by_project_config
+        )
+
+
+@pytest.mark.asyncio
 async def test_create_run_command_flushes_pending_task_board_deferred_refresh() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

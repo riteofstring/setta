@@ -3,7 +3,10 @@ import pytest
 from setta.types.dependency_key import SectionDependencyKey, SectionParamDependencyKey
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import create_top_level_section, get_curr_top_level_param_ids
+from setta.types.helpers_lvl2 import (
+    create_top_level_section,
+    get_curr_top_level_param_ids,
+)
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_config import Position
@@ -165,10 +168,34 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_structural_patch = original_structural_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_section_impl_patch = (
+            original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_structural_patch = (
+            original_structural_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+    return capture, restore
+
+
+def _install_immediate_transport_capture(manager):
+    capture, restore_transport = _install_transport_capture(
+        manager.websocket_msg_handler
+    )
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+
+    def restore() -> None:
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+        restore_transport()
 
     return capture, restore
 
@@ -191,8 +218,7 @@ async def test_listener_emit_section_dependency_uses_section_patch_transport() -
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             await manager.apply_listener_emit_updates(
                 projectConfigId=project_config_id,
@@ -221,7 +247,9 @@ async def test_listener_emit_section_dependency_uses_section_patch_transport() -
 
 
 @pytest.mark.asyncio
-async def test_listener_emit_param_dependency_uses_code_obj_and_section_patches() -> None:
+async def test_listener_emit_param_dependency_uses_code_obj_and_section_patches() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -236,8 +264,7 @@ async def test_listener_emit_param_dependency_uses_code_obj_and_section_patches(
         assert top_level_param_ids
         target_param_id = top_level_param_ids[0]
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             await manager.apply_listener_emit_updates(
                 projectConfigId=project_config_id,
@@ -303,9 +330,7 @@ async def test_listener_emit_dependency_updates_defer_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before_refresh_calls = refresh_calls

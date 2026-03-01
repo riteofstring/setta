@@ -33,7 +33,11 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, ProjectCodegenPythonTarget, WatchCodeFolder
+from setta.types.project_config import (
+    Position,
+    ProjectCodegenPythonTarget,
+    WatchCodeFolder,
+)
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     SectionType,
@@ -202,21 +206,43 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_section_impl_patch = (
+            original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
     return capture, restore
 
 
-async def _run_with_transport_capture(manager, operation):
+async def _run_with_transport_capture(
+    manager,
+    operation,
+    *,
+    suppress_deferred_codegen_refresh: bool = True,
+):
     sender = manager.websocket_msg_handler
     capture, restore = _install_transport_capture(sender)
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    if suppress_deferred_codegen_refresh:
+        manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
     try:
         result = await operation
-        await manager.finish_pending_operations(timeout=5.0)
     finally:
+        if suppress_deferred_codegen_refresh:
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
         restore()
+    # Drain deferred refresh work outside the capture window so assertions stay
+    # scoped to the immediate transport payload of the route under test.
+    await manager.finish_pending_operations(timeout=5.0)
     return capture, result
 
 
@@ -271,19 +297,16 @@ async def test_set_section_variant_uses_structural_patch_transport() -> None:
             if variant_id != active_variant_id
         )
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.set_section_variant(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_section_variant(
                 SetSectionVariantRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     variantId=target_variant_id,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["structural_patch_calls"])
@@ -300,8 +323,9 @@ async def test_set_section_variant_uses_structural_patch_transport() -> None:
         assert 0 == capture["name_validation_broadcast_calls"]
 
         assert (
-            manager.get_single_config_state(project_config_id)
-            .projectConfig.sectionVariantMap[SECTION_ID]
+            manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.sectionVariantMap[SECTION_ID]
             == target_variant_id
         )
 
@@ -324,28 +348,25 @@ async def test_set_default_section_variant_uses_structural_patch_transport() -> 
         )
         await manager.finish_pending_operations(timeout=5.0)
 
-        section_core_before = manager.get_single_config_state(project_config_id).sections[
-            SECTION_ID
-        ]
+        section_core_before = manager.get_single_config_state(
+            project_config_id
+        ).sections[SECTION_ID]
         target_variant_id = next(
             variant_id
             for variant_id in section_core_before.variants
             if variant_id != section_core_before.defaultVariant
         )
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.set_default_section_variant(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_default_section_variant(
                 SetDefaultSectionVariantRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     variantId=target_variant_id,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["structural_patch_calls"])
@@ -362,9 +383,9 @@ async def test_set_default_section_variant_uses_structural_patch_transport() -> 
         assert 0 == capture["name_validation_broadcast_calls"]
 
         assert (
-            manager.get_single_config_state(project_config_id).sections[
-                SECTION_ID
-            ].defaultVariant
+            manager.get_single_config_state(project_config_id)
+            .sections[SECTION_ID]
+            .defaultVariant
             == target_variant_id
         )
 
@@ -392,19 +413,16 @@ async def test_set_section_variant_sort_order_uses_structural_patch_transport() 
         ]
         reversed_variant_order = list(reversed(section_core.variants))
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.set_section_variant_sort_order(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_section_variant_sort_order(
                 SetSectionVariantSortOrderRequest(
                     projectConfigId=project_config_id,
                     sectionId=SECTION_ID,
                     orderedVariantIds=reversed_variant_order,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["structural_patch_calls"])
@@ -456,19 +474,16 @@ async def test_variant_metadata_routes_use_structural_patch_transport() -> None:
             project_config_id
         ).projectConfig.sectionVariantMap[dict_section_id]
 
-        sender = manager.websocket_msg_handler
-        capture_toggle_json, restore_toggle_json = _install_transport_capture(sender)
-        try:
-            await manager.toggle_variant_json_source(
+        capture_toggle_json, _ = await _run_with_transport_capture(
+            manager,
+            manager.toggle_variant_json_source(
                 ToggleVariantJSONSourceRequest(
                     projectConfigId=project_config_id,
                     sectionId=dict_section_id,
                     variantId=variant_id,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_toggle_json()
+            ),
+        )
 
         assert 0 == capture_toggle_json["project_state_broadcast_calls"]
         assert 1 == len(capture_toggle_json["structural_patch_calls"])
@@ -477,20 +492,20 @@ async def test_variant_metadata_routes_use_structural_patch_transport() -> None:
         assert 0 == capture_toggle_json["section_impl_patch_calls"]
         assert 0 == capture_toggle_json["name_validation_broadcast_calls"]
 
-        before_is_frozen = manager.get_single_config_state(project_config_id).sectionVariants[
-            variant_id
-        ].isFrozen
-        capture_toggle_frozen, restore_toggle_frozen = _install_transport_capture(sender)
-        try:
-            await manager.toggle_variant_frozen(
+        before_is_frozen = (
+            manager.get_single_config_state(project_config_id)
+            .sectionVariants[variant_id]
+            .isFrozen
+        )
+        capture_toggle_frozen, _ = await _run_with_transport_capture(
+            manager,
+            manager.toggle_variant_frozen(
                 ToggleVariantFrozenRequest(
                     projectConfigId=project_config_id,
                     variantId=variant_id,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_toggle_frozen()
+            ),
+        )
 
         assert 0 == capture_toggle_frozen["project_state_broadcast_calls"]
         assert 1 == len(capture_toggle_frozen["structural_patch_calls"])
@@ -499,24 +514,22 @@ async def test_variant_metadata_routes_use_structural_patch_transport() -> None:
         assert 0 == capture_toggle_frozen["section_impl_patch_calls"]
         assert 0 == capture_toggle_frozen["name_validation_broadcast_calls"]
         assert (
-            manager.get_single_config_state(project_config_id).sectionVariants[
-                variant_id
-            ].isFrozen
+            manager.get_single_config_state(project_config_id)
+            .sectionVariants[variant_id]
+            .isFrozen
             != before_is_frozen
         )
 
-        capture_set_name, restore_set_name = _install_transport_capture(sender)
-        try:
-            await manager.set_section_variant_name(
+        capture_set_name, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_section_variant_name(
                 SetSectionVariantNameRequest(
                     projectConfigId=project_config_id,
                     variantId=variant_id,
                     name="Updated Variant Name",
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_set_name()
+            ),
+        )
 
         assert 0 == capture_set_name["project_state_broadcast_calls"]
         assert 1 == len(capture_set_name["structural_patch_calls"])
@@ -525,9 +538,9 @@ async def test_variant_metadata_routes_use_structural_patch_transport() -> None:
         assert 0 == capture_set_name["section_impl_patch_calls"]
         assert 0 == capture_set_name["name_validation_broadcast_calls"]
         assert (
-            manager.get_single_config_state(project_config_id).sectionVariants[
-                variant_id
-            ].name
+            manager.get_single_config_state(project_config_id)
+            .sectionVariants[variant_id]
+            .name
             == "Updated Variant Name"
         )
 
@@ -569,19 +582,16 @@ async def test_code_section_terminal_routes_use_structural_patch_transport() -> 
         code_section_id = create_code_response.sectionId
         terminal_section_id = create_terminal_response.sectionId
 
-        sender = manager.websocket_msg_handler
-        capture_attach, restore_attach = _install_transport_capture(sender)
-        try:
-            await manager.set_code_section_attached_terminal(
+        capture_attach, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_code_section_attached_terminal(
                 SetCodeSectionAttachedTerminalRequest(
                     projectConfigId=project_config_id,
                     sectionId=code_section_id,
                     terminalSectionId=terminal_section_id,
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_attach()
+            ),
+        )
 
         assert 0 == capture_attach["project_state_broadcast_calls"]
         assert 1 == len(capture_attach["structural_patch_calls"])
@@ -599,15 +609,13 @@ async def test_code_section_terminal_routes_use_structural_patch_transport() -> 
         )
         await manager.finish_pending_operations(timeout=5.0)
 
-        capture_ensure, restore_ensure = _install_transport_capture(sender)
-        try:
-            terminal_id = await manager.ensure_code_section_attached_terminal_for_run(
+        capture_ensure, terminal_id = await _run_with_transport_capture(
+            manager,
+            manager.ensure_code_section_attached_terminal_for_run(
                 project_config_id,
                 code_section_id,
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_ensure()
+            ),
+        )
 
         assert terminal_id is not None
         assert 0 == capture_ensure["project_state_broadcast_calls"]
@@ -674,9 +682,7 @@ async def test_code_section_terminal_routes_defer_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
 
@@ -742,10 +748,9 @@ async def test_move_sections_uses_structural_patch_transport() -> None:
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
-        try:
-            await manager.move_sections(
+        capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.move_sections(
                 MoveSectionsRequest(
                     projectConfigId=project_config_id,
                     sectionIds=[SECTION_ID],
@@ -755,10 +760,8 @@ async def test_move_sections_uses_structural_patch_transport() -> None:
                         SECTION_ID: Position(x=321.0, y=654.0),
                     },
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore()
+            ),
+        )
 
         assert 0 == capture["project_state_broadcast_calls"]
         assert 1 == len(capture["structural_patch_calls"])
@@ -810,9 +813,7 @@ async def test_move_sections_defers_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before_refresh_calls = refresh_calls
@@ -849,18 +850,15 @@ async def test_group_and_ungroup_use_structural_patch_transport() -> None:
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        sender = manager.websocket_msg_handler
-        group_capture, restore_group = _install_transport_capture(sender)
-        try:
-            await manager.group_sections(
+        group_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.group_sections(
                 GroupSectionsRequest(
                     projectConfigId=project_config_id,
                     sectionIds=[SECTION_ID],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_group()
+            ),
+        )
 
         assert 0 == group_capture["project_state_broadcast_calls"]
         assert 1 == len(group_capture["structural_patch_calls"])
@@ -874,17 +872,15 @@ async def test_group_and_ungroup_use_structural_patch_transport() -> None:
         assert group_id is not None
         assert group_id in grouped_state.sections
 
-        ungroup_capture, restore_ungroup = _install_transport_capture(sender)
-        try:
-            await manager.ungroup_groups(
+        ungroup_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.ungroup_groups(
                 UngroupGroupsRequest(
                     projectConfigId=project_config_id,
                     groupIds=[group_id],
                 )
-            )
-            await manager.finish_pending_operations(timeout=5.0)
-        finally:
-            restore_ungroup()
+            ),
+        )
 
         assert 0 == ungroup_capture["project_state_broadcast_calls"]
         assert 1 == len(ungroup_capture["structural_patch_calls"])
@@ -927,9 +923,7 @@ async def test_group_and_ungroup_defer_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before_group_refresh_calls = refresh_calls
@@ -942,9 +936,7 @@ async def test_group_and_ungroup_defer_codegen_refresh() -> None:
             )
             await manager.finish_pending_operations(timeout=5.0)
             assert refresh_calls == before_group_refresh_calls
-            assert (
-                len(scheduled_deferred_refreshes) == before_group_scheduled_count + 1
-            )
+            assert len(scheduled_deferred_refreshes) == before_group_scheduled_count + 1
             assert scheduled_deferred_refreshes[-1] == project_config_id
 
             grouped_state = manager.get_single_config_state(project_config_id)
@@ -1153,9 +1145,7 @@ async def test_remaining_section_lifecycle_routes_defer_codegen_refresh() -> Non
             return result
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
 
@@ -1371,7 +1361,10 @@ async def test_variant_name_and_paste_routes_use_structural_patch_transport() ->
             if variant_id != section_core_after_variant_create.defaultVariant
         )
 
-        delete_variant_capture, delete_variant_result = await _run_with_transport_capture(
+        (
+            delete_variant_capture,
+            delete_variant_result,
+        ) = await _run_with_transport_capture(
             manager,
             manager.delete_section_variant_or_ask(
                 DeleteSectionVariantOrAskRequest(
@@ -1547,9 +1540,7 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
         await manager.finish_pending_operations(timeout=5.0)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
 
@@ -1684,8 +1675,9 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
             expected_name_validation_calls=0,
         )
         assert (
-            manager.get_single_config_state(project_config_id)
-            .projectConfig.watchCodeEnabled
+            manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.watchCodeEnabled
             is True
         )
 
@@ -1767,7 +1759,9 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
                             recursive=True,
                         )
                     ],
-                    watchCodeFiles=["backend/setta/project_state/base_project_manager.py"],
+                    watchCodeFiles=[
+                        "backend/setta/project_state/base_project_manager.py"
+                    ],
                 )
             ),
         )
@@ -1820,9 +1814,7 @@ async def test_watch_code_routes_defer_codegen_refresh() -> None:
             return result
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
 
@@ -1931,12 +1923,14 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
         )
         assert (
             []
-            == manager.get_single_config_state(project_config_id)
-            .projectConfig.codegenTargets
+            == manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.codegenTargets
         )
         assert (
-            manager.get_single_config_state(project_config_id)
-            .singletonSections.GenPythonCode
+            manager.get_single_config_state(
+                project_config_id
+            ).singletonSections.GenPythonCode
             is None
         )
 
@@ -1963,8 +1957,9 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
             for target in targets_after_enable
         )
         assert (
-            manager.get_single_config_state(project_config_id)
-            .singletonSections.GenPythonCode
+            manager.get_single_config_state(
+                project_config_id
+            ).singletonSections.GenPythonCode
             is not None
         )
 
@@ -2008,9 +2003,7 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
             return result
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
 
@@ -2024,12 +2017,14 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
             )
             assert (
                 []
-                == manager.get_single_config_state(project_config_id)
-                .projectConfig.codegenTargets
+                == manager.get_single_config_state(
+                    project_config_id
+                ).projectConfig.codegenTargets
             )
             assert (
-                manager.get_single_config_state(project_config_id)
-                .singletonSections.GenPythonCode
+                manager.get_single_config_state(
+                    project_config_id
+                ).singletonSections.GenPythonCode
                 is None
             )
 
@@ -2049,8 +2044,9 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
                 for target in targets_after_enable
             )
             assert (
-                manager.get_single_config_state(project_config_id)
-                .singletonSections.GenPythonCode
+                manager.get_single_config_state(
+                    project_config_id
+                ).singletonSections.GenPythonCode
                 is not None
             )
         finally:
@@ -2095,9 +2091,8 @@ async def test_undo_redo_use_full_patch_transport() -> None:
         assert 0 == undo_capture["project_state_broadcast_calls"]
         assert undo_capture["structural_patch_calls"]
         assert 1 <= undo_capture["code_obj_patch_calls"]
-        assert (
-            undo_capture["code_obj_patch_calls"]
-            <= len(undo_capture["structural_patch_calls"])
+        assert undo_capture["code_obj_patch_calls"] <= len(
+            undo_capture["structural_patch_calls"]
         )
         assert 0 == undo_capture["project_config_patch_calls"]
         assert 0 == undo_capture["section_impl_patch_calls"]
@@ -2118,9 +2113,8 @@ async def test_undo_redo_use_full_patch_transport() -> None:
         assert 0 == redo_capture["project_state_broadcast_calls"]
         assert redo_capture["structural_patch_calls"]
         assert 1 <= redo_capture["code_obj_patch_calls"]
-        assert (
-            redo_capture["code_obj_patch_calls"]
-            <= len(redo_capture["structural_patch_calls"])
+        assert redo_capture["code_obj_patch_calls"] <= len(
+            redo_capture["structural_patch_calls"]
         )
         assert 0 == redo_capture["project_config_patch_calls"]
         assert 0 == redo_capture["section_impl_patch_calls"]

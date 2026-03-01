@@ -130,16 +130,42 @@ def _install_transport_capture(sender):
 
     def restore() -> None:
         sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_project_config_patch = original_project_config_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_project_config_patch = (
+            original_project_config_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_section_impl_patch = (
+            original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
     return capture, restore
 
 
+def _install_immediate_transport_capture(manager):
+    capture, restore_transport = _install_transport_capture(
+        manager.websocket_msg_handler
+    )
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+
+    def restore() -> None:
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+        restore_transport()
+
+    return capture, restore
+
+
 @pytest.mark.asyncio
-async def test_accept_rename_refactor_uses_code_obj_and_section_patch_transport() -> None:
+async def test_accept_rename_refactor_uses_code_obj_and_section_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -168,8 +194,7 @@ async def test_accept_rename_refactor_uses_code_obj_and_section_patch_transport(
             ],
         )
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             await manager.accept_rename_refactor(
                 AcceptRenameRefactorRequest(
@@ -188,7 +213,8 @@ async def test_accept_rename_refactor_uses_code_obj_and_section_patch_transport(
         assert callable_code_obj_before.id in code_obj_patch["codeObjIds"]
         assert 1 <= len(capture["section_impl_patch_calls"])
         assert any(
-            patch["sectionId"] == SECTION_ID for patch in capture["section_impl_patch_calls"]
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
         )
         assert 1 == capture["name_validation_broadcast_calls"]
 
@@ -247,9 +273,7 @@ async def test_accept_rename_refactor_defers_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before_refresh_calls = refresh_calls

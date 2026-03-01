@@ -197,11 +197,31 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
             original_section_impl_patch_broadcast
         )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+    return capture, restore
+
+
+def _install_immediate_transport_capture(manager):
+    capture, restore_transport = _install_transport_capture(
+        manager.websocket_msg_handler
+    )
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def _skip_deferred_refresh(_project_config_id: ID) -> None:
+        return
+
+    manager._schedule_deferred_codegen_refresh = _skip_deferred_refresh  # type: ignore[method-assign]
+
+    def restore() -> None:
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+        restore_transport()
 
     return capture, restore
 
@@ -359,8 +379,7 @@ async def test_set_section_edge_input_and_output_routes_use_patch_transport() ->
         )
         await manager.finish_pending_operations(timeout=5.0)
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             before = _capture_counts(capture)
             await manager.set_section_edge_outputs(
@@ -411,7 +430,9 @@ async def test_set_section_edge_input_and_output_routes_use_patch_transport() ->
             BaseSectionWithParamsImpl,
         )
         assert target_impl.edgeInputParams == []
-        assert [] == manager.get_single_config_state(project_config_id).projectConfig.edges
+        assert (
+            [] == manager.get_single_config_state(project_config_id).projectConfig.edges
+        )
 
 
 @pytest.mark.asyncio
@@ -443,8 +464,7 @@ async def test_edge_routes_use_patch_transport() -> None:
             target_two_section_id
         ]
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             before = _capture_counts(capture)
             await manager.create_edge(
@@ -466,9 +486,9 @@ async def test_edge_routes_use_patch_transport() -> None:
                 expected_code_obj_ids={target_one_param_id},
             )
 
-            created_edge = manager.get_single_config_state(project_config_id).projectConfig.edges[
-                0
-            ]
+            created_edge = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.edges[0]
             before = _capture_counts(capture)
             await manager.update_edge(
                 UpdateEdgeRequest(
@@ -516,7 +536,12 @@ async def test_edge_routes_use_patch_transport() -> None:
                 expected_project_config_patch_calls=1,
                 expected_code_obj_ids={target_two_param_id},
             )
-            assert [] == manager.get_single_config_state(project_config_id).projectConfig.edges
+            assert (
+                []
+                == manager.get_single_config_state(
+                    project_config_id
+                ).projectConfig.edges
+            )
 
             before = _capture_counts(capture)
             await manager.create_edge(
@@ -558,7 +583,9 @@ async def test_edge_routes_use_patch_transport() -> None:
         finally:
             restore()
 
-        assert [] == manager.get_single_config_state(project_config_id).projectConfig.edges
+        assert (
+            [] == manager.get_single_config_state(project_config_id).projectConfig.edges
+        )
 
 
 @pytest.mark.asyncio
@@ -586,8 +613,7 @@ async def test_agentic_edge_routes_use_patch_transport() -> None:
         project_config_id = project_state.projectConfig.id
         agentic_edge_id = ID(create_new_id())
 
-        sender = manager.websocket_msg_handler
-        capture, restore = _install_transport_capture(sender)
+        capture, restore = _install_immediate_transport_capture(manager)
         try:
             before = _capture_counts(capture)
             await manager.create_agentic_edge(
@@ -673,7 +699,9 @@ async def test_agentic_edge_routes_use_patch_transport() -> None:
 
         assert (
             []
-            == manager.get_single_config_state(project_config_id).projectConfig.agenticEdges
+            == manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.agenticEdges
         )
 
 
@@ -740,9 +768,7 @@ async def test_edge_and_agentic_edge_routes_defer_codegen_refresh() -> None:
             assert scheduled_deferred_refreshes[-1] == project_config_id
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await assert_deferred_refresh(
                 manager.create_edge(
@@ -762,7 +788,9 @@ async def test_edge_and_agentic_edge_routes_defer_codegen_refresh() -> None:
                     SetSectionEdgeOutputsRequest(
                         projectConfigId=project_config_id,
                         sectionId=source_section_id,
-                        edgeOutputPorts=[EdgePort(id=source_port_id, accessor=".deferred")],
+                        edgeOutputPorts=[
+                            EdgePort(id=source_port_id, accessor=".deferred")
+                        ],
                     )
                 )
             )
