@@ -8,6 +8,7 @@ from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
     ProjectStateProjectConfigPatch,
+    ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -58,6 +59,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     PatchFrontendProjectStateActiveViewMode = "PatchFrontendProjectStateActiveViewMode"
     PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
+    PatchFrontendProjectStateSectionImpl = "PatchFrontendProjectStateSectionImpl"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -217,6 +219,13 @@ class WebsocketMsgPatchFrontendProjectStateProjectConfig(FrontendWebsocketMsg):
     messageType: Literal[
         WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
     ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
+
+
+class WebsocketMsgPatchFrontendProjectStateSectionImpl(FrontendWebsocketMsg):
+    content: ProjectStateSectionImplPatch
+    messageType: Literal[
+        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
+    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):

@@ -12,6 +12,7 @@ from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
     ProjectStateProjectConfigPatch,
+    ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -48,6 +49,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.prompt import PromptTemplate, PromptTemplateList
+from setta.types.section_impls import BaseSectionImpl
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
@@ -69,6 +71,7 @@ from setta.types.websocket import (
     WebsocketMsgNotification,
     WebsocketMsgPatchFrontendProjectStateActiveViewMode,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
+    WebsocketMsgPatchFrontendProjectStateSectionImpl,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -431,6 +434,33 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                 content=ProjectStateProjectConfigPatch(
                     projectConfigId=projectConfigId,
                     projectConfig=projectConfig,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_section_impl_patch(
+        self,
+        projectConfigId: ID,
+        sectionId: ID,
+        sectionImpl: BaseSectionImpl,
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateSectionImpl(
+                content=ProjectStateSectionImplPatch(
+                    projectConfigId=projectConfigId,
+                    sectionId=sectionId,
+                    sectionImpl=sectionImpl,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

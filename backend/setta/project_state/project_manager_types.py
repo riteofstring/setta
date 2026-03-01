@@ -37,6 +37,7 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
+    BaseSectionImpl,
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatDictationMode,
@@ -1225,6 +1226,17 @@ class ProjectStateActiveViewModePatch:
 class ProjectStateProjectConfigPatch:
     projectConfigId: ID
     projectConfig: ProjectConfig
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateSectionImplPatch:
+    projectConfigId: ID
+    sectionId: ID
+    sectionImpl: BaseSectionImpl
     previousProjectStateRevision: int
     projectStateRevision: int
     completedOpIds: list[str]

@@ -415,6 +415,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
@@ -4717,7 +4718,10 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_tag_color(project_state, x.sectionId, x.tagColor)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4735,7 +4739,10 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_style_color(project_state, x.sectionId, x.styleColor)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4752,7 +4759,10 @@ class BaseProjectManager(ABC):
         set_meta_control_show_section_title(
             project_state, x.sectionId, x.showSectionTitle
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_text_block_heading_as_section_name(
@@ -4768,7 +4778,10 @@ class BaseProjectManager(ABC):
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_text_block_master_font_size(
@@ -4776,7 +4789,10 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_master_font_size(project_state, x.sectionId, x.masterFontSizePx)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_text_block_meta_control_style(
@@ -4786,7 +4802,10 @@ class BaseProjectManager(ABC):
         set_text_block_meta_control_style(
             project_state, x.sectionId, x.metaControlStyle
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
@@ -4896,31 +4915,46 @@ class BaseProjectManager(ABC):
             x.columnWidth,
             x.typesColumnWidth,
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_browser_saved_searches(self, x: SetBrowserSavedSearchesRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_saved_searches(project_state, x.sectionId, x.savedSearches)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
@@ -4949,7 +4983,10 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
@@ -5338,6 +5375,42 @@ class BaseProjectManager(ABC):
             project_state_revision=next_project_state_revision,
         )
 
+    async def _merge_and_broadcast_ui_only_section_impl_patch(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_id: ID,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+            next_project_state_revision = self.history.revision
+            section_variant_id = project_state.projectConfig.sectionVariantMap.get(
+                section_id
+            )
+            if section_variant_id is None:
+                raise KeyError(f"Section {section_id} missing section variant id.")
+            section_variant = project_state.sectionVariants.get(section_variant_id)
+            if section_variant is None:
+                raise KeyError(f"Section variant {section_variant_id} not found.")
+            section_impl = project_state.sectionImpls.get(section_variant.impl)
+            if section_impl is None:
+                raise KeyError(f"Section impl {section_variant.impl} not found.")
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        await self._broadcast_section_impl_patch(
+            project_config_id=project_state.projectConfig.id,
+            section_id=section_id,
+            section_impl=section_impl,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
@@ -5420,6 +5493,38 @@ class BaseProjectManager(ABC):
         await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
             project_config.id,
             project_config,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    async def _broadcast_section_impl_patch(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        section_impl: BaseSectionImpl,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_section_impl_patch project_config_id=%s section_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            section_id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_section_impl_patch(
+            project_config_id,
+            section_id,
+            section_impl,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,

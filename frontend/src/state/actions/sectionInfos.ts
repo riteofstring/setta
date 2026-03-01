@@ -53,6 +53,7 @@ import {
   ListRootViewModeEnum,
   ProjectStateActiveViewModePatch,
   ProjectStateProjectConfigPatch,
+  ProjectStateSectionImplPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
@@ -1131,6 +1132,51 @@ export function applyProjectConfigProjectStatePatch(
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
+}
+
+export function applySectionImplProjectStatePatch(
+  patch: ProjectStateSectionImplPatch,
+): boolean {
+  let applied = false;
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    const sectionVariantId =
+      state.projectConfig.sectionVariantMap[patch.sectionId];
+    if (!sectionVariantId) {
+      return;
+    }
+    const sectionVariant = state.sectionVariants[sectionVariantId];
+    if (!sectionVariant) {
+      return;
+    }
+    const sectionImplId = sectionVariant.impl;
+    const sectionImpl = state.sectionImpls[sectionImplId];
+    if (!sectionImpl) {
+      return;
+    }
+    if (patch.sectionImpl.id !== sectionImplId) {
+      return;
+    }
+    state.sectionImpls[sectionImplId] = patch.sectionImpl;
+    applied = true;
+  });
+  if (!applied) {
+    return false;
+  }
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  const completedIds = new Set(patch.completedOpIds);
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+  });
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
   setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);

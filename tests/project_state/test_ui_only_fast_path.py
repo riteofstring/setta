@@ -1051,6 +1051,97 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ui_only_text_chrome_routes_broadcast_section_impl_patch() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        sender = manager.websocket_msg_handler
+        project_state_broadcast_calls = 0
+        section_impl_patch_calls: list[dict[str, int | str | list[str]]] = []
+        original_project_state_broadcast = sender.broadcast_project_state
+        original_section_impl_patch_broadcast = (
+            sender.broadcast_project_state_section_impl_patch
+        )
+
+        async def record_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision=None,
+        ) -> None:
+            nonlocal project_state_broadcast_calls
+            project_state_broadcast_calls += 1
+            await original_project_state_broadcast(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+
+        async def record_section_impl_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            section_impl_patch_calls.append(
+                {
+                    "projectConfigId": project_config_id_for_patch,
+                    "sectionId": section_id_for_patch,
+                    "sectionImplId": section_impl_for_patch.id,
+                    "sectionImplType": section_impl_for_patch.type,
+                    "previousProjectStateRevision": previous_project_state_revision,
+                    "projectStateRevision": project_state_revision,
+                    "completedOpIds": list(completed_op_ids),
+                    "pendingOpIds": list(pending_op_ids),
+                }
+            )
+            await original_section_impl_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_project_state = project_state_broadcast_calls
+            await manager.set_text_block_display_mode(
+                SetTextBlockDisplayModeRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_ids.text_block_section_id,
+                    textDisplayMode=TextBlockDisplayMode.Edit,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_impl_patch_broadcast  # type: ignore[method-assign]
+            )
+
+        assert project_state_broadcast_calls == before_project_state
+        assert 1 == len(section_impl_patch_calls)
+        patch = section_impl_patch_calls[0]
+        assert patch["projectConfigId"] == project_config_id
+        assert patch["sectionId"] == section_ids.text_block_section_id
+        assert patch["sectionImplType"] == SectionType.TextBlock
+        assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+
+
+@pytest.mark.asyncio
 async def test_ui_only_fast_path_preserves_undo_redo_with_coalescing() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

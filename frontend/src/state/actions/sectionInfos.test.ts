@@ -3,6 +3,7 @@ import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   applyActiveViewModeProjectStatePatch,
   applyProjectConfigProjectStatePatch,
+  applySectionImplProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
@@ -1657,5 +1658,68 @@ describe("processProjectStateUpdateFromBackend", () => {
       useProjectState.getState().projectConfig.viewModes[viewModeAId].name,
     ).toBe("Renamed View");
     expect(getProjectStateRevision("project-1")).toBe(21);
+  });
+
+  it("applies section-impl patches and updates revision tracking", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "chat-impl-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createChatSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Chat,
+          inputText: "before",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applySectionImplProjectStatePatch({
+      projectConfigId: "project-1",
+      sectionId,
+      sectionImpl: createChatSectionImpl({
+        id: implId,
+        type: SectionTypeEnum.Chat,
+        inputText: "after",
+      }),
+      previousProjectStateRevision: 31,
+      projectStateRevision: 32,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(
+      (useProjectState.getState().sectionImpls[implId] as { inputText: string })
+        .inputText,
+    ).toBe("after");
+    expect(getProjectStateRevision("project-1")).toBe(32);
   });
 });
