@@ -45,7 +45,6 @@ function HandleComponent({
       side: position,
       element: handleRef.current,
     });
-    updateEdgeHandlePosition(key);
     const element = handleRef.current;
     if (!element || typeof ResizeObserver === "undefined") {
       return () => unregisterEdgeHandle(nodeId, handleId, type);

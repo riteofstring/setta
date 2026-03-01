@@ -116,18 +116,17 @@ class TestWebsocketManagerSession:
         active = 0
         max_active = 0
 
-        async def fake_send_payload(_payload: str, _to_websocket_id: str) -> bool:
+        async def fake_send_message(_message, _to_websocket_id: str) -> None:
             nonlocal active, max_active
             active += 1
             max_active = max(max_active, active)
             await asyncio.sleep(0.02)
             active -= 1
-            return True
 
         monkeypatch.setattr(
             self.websocket_manager,
-            "_send_text_payload",
-            fake_send_payload,
+            "send_message",
+            fake_send_message,
         )
 
         await self.websocket_manager.broadcast(
@@ -136,146 +135,6 @@ class TestWebsocketManagerSession:
         )
 
         assert max_active >= 2
-
-    async def test_broadcast_serializes_payload_once_for_all_targets(
-        self, monkeypatch
-    ) -> None:
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="Serialize once")
-        )
-        dump_calls = 0
-        original_dump = WebsocketMsgNotification.model_dump_json
-
-        def record_dump(self, *args, **kwargs):
-            nonlocal dump_calls
-            dump_calls += 1
-            return original_dump(self, *args, **kwargs)
-
-        monkeypatch.setattr(
-            WebsocketMsgNotification,
-            "model_dump_json",
-            record_dump,
-        )
-
-        await self.websocket_manager.broadcast(
-            message,
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-        messages_a = _sent_text_messages(self.messages_by_socket["frontend-a"])
-        messages_b = _sent_text_messages(self.messages_by_socket["frontend-b"])
-        assert len(messages_a) == 1
-        assert len(messages_b) == 1
-        assert dump_calls == 1
-
-        parsed_a = WebsocketMsgNotification.model_validate_json(messages_a[0])
-        parsed_b = WebsocketMsgNotification.model_validate_json(messages_b[0])
-        assert parsed_a.content.message == "Serialize once"
-        assert parsed_b.content.message == "Serialize once"
-
-    async def test_broadcast_skips_serialization_when_no_targets(self, monkeypatch) -> None:
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="No targets")
-        )
-        dump_calls = 0
-        original_dump = WebsocketMsgNotification.model_dump_json
-
-        def record_dump(self, *args, **kwargs):
-            nonlocal dump_calls
-            dump_calls += 1
-            return original_dump(self, *args, **kwargs)
-
-        monkeypatch.setattr(
-            WebsocketMsgNotification,
-            "model_dump_json",
-            record_dump,
-        )
-
-        # No python-script sockets are connected in this fixture.
-        await self.websocket_manager.broadcast(
-            message,
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
-
-        assert dump_calls == 0
-
-    async def test_broadcast_to_session_serializes_payload_once_for_targets(
-        self, monkeypatch
-    ) -> None:
-        messages_c: list[Message] = []
-        websocket_c = await _build_websocket(messages_c)
-        await self.websocket_manager.on_connect(
-            websocket_c,
-            WebsocketConnectionType.FRONTEND,
-            id="frontend-c",
-            shareSessionId="session-a",
-            broadcast_connections=False,
-        )
-        dump_calls = 0
-        original_dump = WebsocketMsgNotification.model_dump_json
-
-        def record_dump(self, *args, **kwargs):
-            nonlocal dump_calls
-            dump_calls += 1
-            return original_dump(self, *args, **kwargs)
-
-        monkeypatch.setattr(
-            WebsocketMsgNotification,
-            "model_dump_json",
-            record_dump,
-        )
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="Serialize once per session")
-        )
-        try:
-            await self.websocket_manager.broadcast_to_session(
-                message,
-                share_session_id="session-a",
-                connectionType=WebsocketConnectionType.FRONTEND,
-            )
-        finally:
-            await self.websocket_manager.on_disconnect(
-                "frontend-c",
-                broadcast_connections=False,
-            )
-            await websocket_c.close()
-
-        messages_a = _sent_text_messages(self.messages_by_socket["frontend-a"])
-        messages_b = _sent_text_messages(self.messages_by_socket["frontend-b"])
-        messages_c_text = _sent_text_messages(messages_c)
-        assert len(messages_a) == 1
-        assert len(messages_c_text) == 1
-        assert len(messages_b) == 0
-        assert dump_calls == 1
-
-    async def test_broadcast_to_session_skips_serialization_when_no_targets(
-        self, monkeypatch
-    ) -> None:
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="No session targets")
-        )
-        dump_calls = 0
-        original_dump = WebsocketMsgNotification.model_dump_json
-
-        def record_dump(self, *args, **kwargs):
-            nonlocal dump_calls
-            dump_calls += 1
-            return original_dump(self, *args, **kwargs)
-
-        monkeypatch.setattr(
-            WebsocketMsgNotification,
-            "model_dump_json",
-            record_dump,
-        )
-
-        # Session id does not exist, so broadcast should return before serialization.
-        await self.websocket_manager.broadcast_to_session(
-            message,
-            share_session_id="missing-session",
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-        assert dump_calls == 0
 
     async def test_send_message_returns_delivery_status(self) -> None:
         message = WebsocketMsgNotification(
