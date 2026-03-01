@@ -6690,13 +6690,17 @@ class BaseProjectManager(ABC):
                 project_config_id=x.projectConfigId,
             )
         else:
-            await self._update_and_broadcast_structural_patch(project_state)
+            await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+                project_state
+            )
 
     @enqueue_method
     async def ungroup_groups(self, x: UngroupGroupsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         ungroup_groups(project_state, x.groupIds)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
