@@ -36,6 +36,21 @@ async def _non_serialized_blocking(
     return payload.value
 
 
+@BaseProjectManager.enqueue_method(
+    partition_key_fn=BaseProjectManager._project_config_partition_key_for_queue
+)
+async def _partitioned_blocking(
+    self: BaseProjectManager, payload: SimpleNamespace
+) -> int:
+    manager = cast("Any", self)
+    manager.partitioned_started.append(payload.frontendOpId)
+    payload.entered.set()
+    await payload.release.wait()
+    manager.partitioned_finished.append(payload.frontendOpId)
+    payload.completed.set()
+    return payload.value
+
+
 @pytest.mark.asyncio
 class TestEnqueueMethod:
     @pytest_asyncio.fixture(autouse=True)
@@ -53,12 +68,17 @@ class TestEnqueueMethod:
         self.manager_hooks.serialized_finished = []
         self.manager_hooks.non_serialized_started = []
         self.manager_hooks.non_serialized_finished = []
+        self.manager_hooks.partitioned_started = []
+        self.manager_hooks.partitioned_finished = []
 
         # Bind helper coroutines onto the real manager so we exercise the live queue.
         self.manager_hooks.serialized_blocking = _serialized_blocking.__get__(
             self.manager, type(self.manager)
         )
         self.manager_hooks.non_serialized_blocking = _non_serialized_blocking.__get__(
+            self.manager, type(self.manager)
+        )
+        self.manager_hooks.partitioned_blocking = _partitioned_blocking.__get__(
             self.manager, type(self.manager)
         )
 
@@ -163,6 +183,89 @@ class TestEnqueueMethod:
         assert set(manager.completed_op_ids_since_last_broadcast) == {"op1", "op2"}
         assert manager._current_frontend_op_id.get() is None
 
+    async def test_queue_timing_metrics_capture_wait_and_execute_paths(self):
+        manager = self.manager
+        manager_hooks = self.manager_hooks
+        manager.reset_queue_timing_metrics()
+
+        payload1 = SimpleNamespace(
+            frontendOpId="metrics-serialized-1",
+            value=1,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+        payload2 = SimpleNamespace(
+            frontendOpId="metrics-serialized-2",
+            value=2,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+
+        # First request occupies the serialized queue so the second request waits.
+        task1 = asyncio.create_task(manager_hooks.serialized_blocking(payload1))
+        await asyncio.wait_for(payload1.entered.wait(), timeout=1)
+        task2 = asyncio.create_task(manager_hooks.serialized_blocking(payload2))
+        await asyncio.sleep(0)
+
+        payload1.release.set()
+        await asyncio.wait_for(payload1.completed.wait(), timeout=1)
+        await asyncio.wait_for(payload2.entered.wait(), timeout=1)
+        payload2.release.set()
+        await asyncio.wait_for(payload2.completed.wait(), timeout=1)
+        await asyncio.gather(task1, task2)
+
+        snapshot = manager.get_queue_timing_metrics_snapshot()
+        assert snapshot["queueDepth"] == 0
+        assert snapshot["calls"] == 2
+        assert snapshot["successes"] == 2
+        assert snapshot["failures"] == 0
+
+        queue_wait_snapshot = cast("dict[str, object]", snapshot["queueWaitSeconds"])
+        assert queue_wait_snapshot["count"] == 2
+        assert cast("float", queue_wait_snapshot["maxSeconds"]) > 0
+
+        by_handler = cast("dict[str, object]", snapshot["byHandler"])
+        assert "_serialized_blocking" in by_handler
+        serialized_handler_snapshot = cast(
+            "dict[str, object]",
+            by_handler["_serialized_blocking"],
+        )
+        assert serialized_handler_snapshot["calls"] == 2
+        assert serialized_handler_snapshot["successes"] == 2
+        assert serialized_handler_snapshot["failures"] == 0
+
+    async def test_queue_timing_metrics_capture_failures(self):
+        manager = self.manager
+        manager.reset_queue_timing_metrics()
+
+        async def fail() -> None:
+            raise RuntimeError("queue failure")
+
+        # Failure paths should still record queue wait/execute timings.
+        with pytest.raises(RuntimeError, match="queue failure"):
+            await manager._enqueue(fail())
+
+        snapshot = manager.get_queue_timing_metrics_snapshot()
+        assert snapshot["calls"] == 1
+        assert snapshot["successes"] == 0
+        assert snapshot["failures"] == 1
+        assert "fail" in cast("dict[str, object]", snapshot["byHandler"])
+
+    async def test_broadcast_status_omits_pending_op_ids_payload(self):
+        manager = self.manager
+        manager._register_pending_frontend_op("pending-op-id")
+
+        # Pending frontend-op tracking remains internal, but transport payload
+        # intentionally omits pending ids to keep patch sizes bounded.
+        completed_op_ids, pending_op_ids = (
+            manager._consume_frontend_op_status_for_broadcast()
+        )
+        assert completed_op_ids == []
+        assert pending_op_ids == []
+        assert "pending-op-id" in manager.pending_frontend_ops
+
     async def test_set_callable_hide_params_completes_without_queue_stall(self):
         manager = self.manager
         request = SetCallableHideParamsRequest(
@@ -181,3 +284,77 @@ class TestEnqueueMethod:
 
         assert manager.pending_frontend_ops == {}
         assert manager._current_frontend_op_id.get() is None
+
+    async def test_partitioned_serialized_calls_wait_within_same_project_config(self):
+        manager_hooks = self.manager_hooks
+        payload1 = SimpleNamespace(
+            projectConfigId=self.project_config_id,
+            frontendOpId="partitioned-same-1",
+            value=1,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+        payload2 = SimpleNamespace(
+            projectConfigId=self.project_config_id,
+            frontendOpId="partitioned-same-2",
+            value=2,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+
+        task1 = asyncio.create_task(manager_hooks.partitioned_blocking(payload1))
+        await asyncio.wait_for(payload1.entered.wait(), timeout=1)
+        task2 = asyncio.create_task(manager_hooks.partitioned_blocking(payload2))
+        await asyncio.sleep(0)
+        assert not payload2.entered.is_set()
+
+        payload1.release.set()
+        await asyncio.wait_for(payload1.completed.wait(), timeout=1)
+        await task1
+
+        await asyncio.wait_for(payload2.entered.wait(), timeout=1)
+        payload2.release.set()
+        await asyncio.wait_for(payload2.completed.wait(), timeout=1)
+        await task2
+
+        assert manager_hooks.partitioned_started == [
+            "partitioned-same-1",
+            "partitioned-same-2",
+        ]
+
+    async def test_partitioned_serialized_calls_run_in_parallel_across_configs(self):
+        manager_hooks = self.manager_hooks
+        payload1 = SimpleNamespace(
+            projectConfigId=self.project_config_id,
+            frontendOpId="partitioned-cross-1",
+            value=1,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+        payload2 = SimpleNamespace(
+            projectConfigId=ID("project-config-other"),
+            frontendOpId="partitioned-cross-2",
+            value=2,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+
+        task1 = asyncio.create_task(manager_hooks.partitioned_blocking(payload1))
+        await asyncio.wait_for(payload1.entered.wait(), timeout=1)
+        task2 = asyncio.create_task(manager_hooks.partitioned_blocking(payload2))
+        await asyncio.wait_for(payload2.entered.wait(), timeout=1)
+
+        payload1.release.set()
+        payload2.release.set()
+        await asyncio.wait_for(payload1.completed.wait(), timeout=1)
+        await asyncio.wait_for(payload2.completed.wait(), timeout=1)
+        await asyncio.gather(task1, task2)
+
+        assert set(manager_hooks.partitioned_started) == {
+            "partitioned-cross-1",
+            "partitioned-cross-2",
+        }
