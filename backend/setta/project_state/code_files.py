@@ -228,7 +228,6 @@ class CodeFiles:
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
         reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
-        project_state: "ProjectStateSingleConfig | None" = None,
     ) -> None:
         """
         Register callbacks with SpecificFileWatcher for any paths tracked under this
@@ -236,10 +235,7 @@ class CodeFiles:
         """
         previous_paths = set(self._get_category_bindings(callback_category))
         project_state_backend = project_state_backend_getter_fn()
-        if project_state is None:
-            self._refresh_bindings_from_backend(project_state_backend)
-        else:
-            self._refresh_bindings_for_config(project_state)
+        self._refresh_bindings_from_backend(project_state_backend)
         category_bindings = self._collect_bindings_for_backend(project_state_backend)
 
         current_paths = set(category_bindings)
@@ -262,14 +258,6 @@ class CodeFiles:
         self.specific_file_watcher.update_callbacks(
             callbacks, callback_category, fire_immediately
         )
-
-    def _refresh_bindings_for_config(
-        self,
-        project_state: "ProjectStateSingleConfig",
-    ) -> None:
-        project_config_id = project_state.projectConfig.id
-        bindings = self._generate_bindings_for_config(project_state)
-        self._replace_bindings_for_config(project_config_id, bindings)
 
     def _refresh_bindings_from_backend(
         self, project_state_backend: "ProjectStateBackend"

@@ -24,15 +24,7 @@ let lastCodeUpdateSectionId: string | null = null;
 let lastGenCodePrefixPromise: Promise<unknown> | null = null;
 let lastGenCodeSuffixPromise: Promise<unknown> | null = null;
 
-function logCodeUpdateEvent(event: string, payload: unknown): void {
-  console.log(`[code-updates-debug] ${event} ${JSON.stringify(payload)}`);
-}
-
 function applyCodeUpdate(sectionId: string, code: string) {
-  logCodeUpdateEvent("applyCodeUpdate.start", {
-    sectionId,
-    code,
-  });
   pendingCodeUpdate = null;
   lastCodeUpdateSectionId = sectionId;
   dispatchOptimisticProjectStateUpdate({
@@ -42,19 +34,11 @@ function applyCodeUpdate(sectionId: string, code: string) {
       });
     },
     send: (frontendOpId) => {
-      const payload = {
+      const promise = route_set_code({
         projectConfigId: getCurrProjectConfigId(),
         sectionId,
         code,
         frontendOpId,
-      };
-      logCodeUpdateEvent("applyCodeUpdate.send", payload);
-      const promise = route_set_code(payload);
-      void Promise.resolve(promise).then((response) => {
-        logCodeUpdateEvent("applyCodeUpdate.response", {
-          payload,
-          response,
-        });
       });
       lastCodeUpdatePromise = promise;
       return promise;
@@ -63,9 +47,6 @@ function applyCodeUpdate(sectionId: string, code: string) {
 }
 
 function applyGenCodePrefixUpdate(value: string) {
-  logCodeUpdateEvent("applyGenCodePrefixUpdate.start", {
-    value,
-  });
   pendingGenCodePrefix = null;
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
@@ -76,18 +57,10 @@ function applyGenCodePrefixUpdate(value: string) {
       pythonTarget.genCodePrefix = value;
     },
     send: (frontendOpId) => {
-      const payload = {
+      const promise = route_set_gen_code_prefix({
         projectConfigId: getCurrProjectConfigId(),
         genCodePrefix: value,
         frontendOpId,
-      };
-      logCodeUpdateEvent("applyGenCodePrefixUpdate.send", payload);
-      const promise = route_set_gen_code_prefix(payload);
-      void Promise.resolve(promise).then((response) => {
-        logCodeUpdateEvent("applyGenCodePrefixUpdate.response", {
-          payload,
-          response,
-        });
       });
       lastGenCodePrefixPromise = promise;
       return promise;
@@ -96,9 +69,6 @@ function applyGenCodePrefixUpdate(value: string) {
 }
 
 function applyGenCodeSuffixUpdate(value: string) {
-  logCodeUpdateEvent("applyGenCodeSuffixUpdate.start", {
-    value,
-  });
   pendingGenCodeSuffix = null;
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
@@ -109,18 +79,10 @@ function applyGenCodeSuffixUpdate(value: string) {
       pythonTarget.genCodeSuffix = value;
     },
     send: (frontendOpId) => {
-      const payload = {
+      const promise = route_set_gen_code_suffix({
         projectConfigId: getCurrProjectConfigId(),
         genCodeSuffix: value,
         frontendOpId,
-      };
-      logCodeUpdateEvent("applyGenCodeSuffixUpdate.send", payload);
-      const promise = route_set_gen_code_suffix(payload);
-      void Promise.resolve(promise).then((response) => {
-        logCodeUpdateEvent("applyGenCodeSuffixUpdate.response", {
-          payload,
-          response,
-        });
       });
       lastGenCodeSuffixPromise = promise;
       return promise;
@@ -133,36 +95,21 @@ const debouncedSetGenCodePrefix = _.debounce(applyGenCodePrefixUpdate, 50);
 const debouncedSetGenCodeSuffix = _.debounce(applyGenCodeSuffixUpdate, 50);
 
 export function queueCodeUpdate(sectionId: string, code: string) {
-  logCodeUpdateEvent("queueCodeUpdate", {
-    sectionId,
-    code,
-  });
   pendingCodeUpdate = { sectionId, code };
   debouncedSetCode(sectionId, code);
 }
 
 export function queueGenCodePrefixUpdate(value: string) {
-  logCodeUpdateEvent("queueGenCodePrefixUpdate", {
-    value,
-  });
   pendingGenCodePrefix = value;
   debouncedSetGenCodePrefix(value);
 }
 
 export function queueGenCodeSuffixUpdate(value: string) {
-  logCodeUpdateEvent("queueGenCodeSuffixUpdate", {
-    value,
-  });
   pendingGenCodeSuffix = value;
   debouncedSetGenCodeSuffix(value);
 }
 
 export async function flushPendingCodeUpdate(sectionId: string): Promise<void> {
-  logCodeUpdateEvent("flushPendingCodeUpdate.start", {
-    sectionId,
-    pendingCodeUpdate,
-    lastCodeUpdateSectionId,
-  });
   const hasPending =
     pendingCodeUpdate !== null && pendingCodeUpdate.sectionId === sectionId;
   if (hasPending) {
@@ -174,20 +121,9 @@ export async function flushPendingCodeUpdate(sectionId: string): Promise<void> {
   if (lastCodeUpdatePromise) {
     await lastCodeUpdatePromise;
   }
-  logCodeUpdateEvent("flushPendingCodeUpdate.end", {
-    sectionId,
-    pendingCodeUpdate,
-    lastCodeUpdateSectionId,
-  });
 }
 
 export async function flushPendingGenCodeUpdates(): Promise<void> {
-  logCodeUpdateEvent("flushPendingGenCodeUpdates.start", {
-    pendingGenCodePrefix,
-    pendingGenCodeSuffix,
-    hasLastGenCodePrefixPromise: lastGenCodePrefixPromise !== null,
-    hasLastGenCodeSuffixPromise: lastGenCodeSuffixPromise !== null,
-  });
   const pendingPromises: Array<Promise<unknown>> = [];
   if (pendingGenCodePrefix !== null) {
     debouncedSetGenCodePrefix.flush();
@@ -204,10 +140,4 @@ export async function flushPendingGenCodeUpdates(): Promise<void> {
   if (pendingPromises.length > 0) {
     await Promise.all(pendingPromises);
   }
-  logCodeUpdateEvent("flushPendingGenCodeUpdates.end", {
-    pendingGenCodePrefix,
-    pendingGenCodeSuffix,
-    hasLastGenCodePrefixPromise: lastGenCodePrefixPromise !== null,
-    hasLastGenCodeSuffixPromise: lastGenCodeSuffixPromise !== null,
-  });
 }
