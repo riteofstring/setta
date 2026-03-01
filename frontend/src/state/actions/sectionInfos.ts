@@ -17,12 +17,10 @@ import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
   useAllProjectMetadata,
-  useAppDefinition,
   useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
-  useProjectStateSync,
   useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
@@ -52,16 +50,8 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
-  ProjectStateActiveViewModePatch,
-  ProjectStateAppDefinitionPatch,
-  ProjectStateCodeObjsPatch,
-  ProjectStateOpStatusPatch,
-  ProjectStateProjectConfigPatch,
-  ProjectStateSectionImplPatch,
-  ProjectStateSectionImplsPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
-  ProjectStateStructuralPatch,
   SectionType,
   SectionTypeEnum,
   Variant,
@@ -211,14 +201,9 @@ function mergeStreamingChatSections(
       currentInputText.length > incomingInputText.length
         ? currentInputText
         : incomingInputText;
-    const incomingWaitingForResponse = Boolean(incomingChat.waitingForResponse);
-    const currentWaitingForResponse = Boolean(currentChat.waitingForResponse);
-    const preserveCurrentWaitingForResponse =
-      shouldMerge && currentWaitingForResponse && !incomingWaitingForResponse;
-    const mergedWaitingForResponse =
-      shouldPreserveStreaming || preserveCurrentWaitingForResponse
-        ? true
-        : incomingWaitingForResponse;
+    const mergedWaitingForResponse = shouldPreserveStreaming
+      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
+      : incomingChat.waitingForResponse;
     setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
       messages: mergedMessages,
       toolCallArguments: mergedToolArgs,
@@ -458,17 +443,10 @@ export function getCurrSectionVariantId(
   sectionId: string,
   preview = false,
 ) {
-  const activeVariantId = p.projectConfig.sectionVariantMap[sectionId];
-  let variantId = activeVariantId;
-  if (preview) {
-    const previewVariantId = p.previewSectionVariantMap[sectionId];
-    if (
-      previewVariantId !== undefined &&
-      Object.prototype.hasOwnProperty.call(p.sectionVariants, previewVariantId)
-    ) {
-      variantId = previewVariantId;
-    }
-  }
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
   if (variantId === undefined) {
     throw new Error();
   }
@@ -500,17 +478,10 @@ export function getCurrEffectiveSectionImplIfPresent(
   sectionId: string,
   preview = false,
 ): BaseSectionImplUnion | null {
-  const activeVariantId = p.projectConfig.sectionVariantMap[sectionId];
-  let variantId = activeVariantId;
-  if (preview) {
-    const previewVariantId = p.previewSectionVariantMap[sectionId];
-    if (
-      previewVariantId !== undefined &&
-      Object.prototype.hasOwnProperty.call(p.sectionVariants, previewVariantId)
-    ) {
-      variantId = previewVariantId;
-    }
-  }
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
   if (variantId === undefined) {
     return null;
   }
@@ -614,53 +585,29 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
   preview = false,
 ) {
-  const variant = getCurrCodeObjVariantIfPresent(
-    p,
-    sectionId,
-    codeObjId,
-    preview,
-  );
-  if (!variant) {
-    throw new Error();
-  }
-  return variant;
-}
-
-function getCurrCodeObjVariantIfPresent(
-  p: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-  preview = false,
-): Variant | null {
-  const sectionImpl = getCurrEffectiveSectionImplIfPresent(
-    p,
-    sectionId,
-    preview,
-  );
-  if (!sectionImpl) {
-    return null;
-  }
+  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
   if (isBaseSectionWithParamsImpl(sectionImpl)) {
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      return null;
+      throw new Error();
     }
-    const variant = p.codeObjVariants[variantId];
-    return variant ?? null;
+    return getCodeObjVariant(p, variantId);
   }
   if (sectionImpl.type === SectionTypeEnum.MetaControl) {
     const controlParamId = sectionImpl.metaControlParamId;
-    if (!controlParamId || controlParamId !== codeObjId) {
-      return null;
+    if (!controlParamId) {
+      throw new Error();
+    }
+    if (controlParamId !== codeObjId) {
+      throw new Error();
     }
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      return null;
+      throw new Error();
     }
-    const variant = p.codeObjVariants[variantId];
-    return variant ?? null;
+    return getCodeObjVariant(p, variantId);
   }
-  return null;
+  throw new Error();
 }
 
 export function getCurrEffectiveCodeObjImpl(
@@ -673,23 +620,6 @@ export function getCurrEffectiveCodeObjImpl(
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
-}
-
-export function getCurrEffectiveCodeObjImplIfPresent(
-  p: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-  preview = false,
-): BaseCodeObjImplUnion | null {
-  const sectionImpl = getCurrEffectiveSectionImplIfPresent(
-    p,
-    sectionId,
-    preview,
-  );
-  if (!sectionImpl) {
-    return null;
-  }
-  return getEffectiveCodeObjImplIfPresent(p, sectionImpl, codeObjId);
 }
 
 export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
@@ -812,29 +742,6 @@ export function setCurrEffectiveCodeObjImplValue<
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
-export function setCurrEffectiveCodeObjImplValueIfPresent<
-  K extends keyof ImplArgsBundleMap,
->(
-  state: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] | null {
-  const variant = getCurrCodeObjVariantIfPresent(state, sectionId, codeObjId);
-  if (!variant) {
-    return null;
-  }
-  const impl = state.codeObjImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  const core = state.codeObjs[codeObjId];
-  if (!core) {
-    return null;
-  }
-  return setEffectiveImplValue<K>(impl, core, variant, args);
-}
-
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   const section = p.sections[sectionId];
   if (!section) {
@@ -909,16 +816,7 @@ export function getCurrShownParamIds(
   isPinned: boolean,
   preview = false,
 ) {
-  if (preview) {
-    const previewVariantId = p.previewSectionVariantMap[sectionId];
-    if (previewVariantId !== undefined) {
-      const previewShown = p.shownParamIds[previewVariantId];
-      if (previewShown) {
-        return isPinned ? previewShown.pinned : previewShown.unpinned;
-      }
-    }
-  }
-  const variantId = getCurrSectionVariantId(p, sectionId, false);
+  const variantId = getCurrSectionVariantId(p, sectionId, preview);
   const shown = p.shownParamIds[variantId];
   if (!shown) {
     throw new Error();
@@ -1068,519 +966,6 @@ export function manualDndChildrenReset() {
   );
 }
 
-function normalizeProjectStateRevision(
-  revision: number | null | undefined,
-): number | null {
-  if (revision === null || revision === undefined) {
-    return null;
-  }
-  if (!Number.isInteger(revision) || revision < 0) {
-    return null;
-  }
-  return revision;
-}
-
-export function setProjectStateRevision(
-  projectConfigId: string,
-  revision: number | null | undefined,
-): void {
-  const normalizedRevision = normalizeProjectStateRevision(revision);
-  if (normalizedRevision === null) {
-    return;
-  }
-  useProjectStateSync.setState((state) => {
-    if (
-      state.revisionByProjectConfigId[projectConfigId] === normalizedRevision
-    ) {
-      return state;
-    }
-    return {
-      revisionByProjectConfigId: {
-        ...state.revisionByProjectConfigId,
-        [projectConfigId]: normalizedRevision,
-      },
-    };
-  });
-}
-
-export function getProjectStateRevision(
-  projectConfigId: string,
-): number | null {
-  return (
-    useProjectStateSync.getState().revisionByProjectConfigId[projectConfigId] ??
-    null
-  );
-}
-
-function reconcilePendingOperationsFromBackend(
-  completedOpIds: Array<string>,
-  pendingOpIds: Array<string>,
-): Array<PendingOperation> {
-  const backendPendingIds = new Set(pendingOpIds);
-  const completedIds = new Set(completedOpIds);
-  const currentPending = usePendingOperations.getState().pending;
-  return currentPending.reduce<Array<PendingOperation>>((acc, opInfo) => {
-    if (completedIds.has(opInfo.opId)) {
-      return acc;
-    }
-    const isBackendPending = backendPendingIds.has(opInfo.opId);
-    const acknowledged = opInfo.acknowledged || isBackendPending;
-    acc.push({
-      ...opInfo,
-      acknowledged,
-    });
-    return acc;
-  }, []);
-}
-
-export function applyProjectStateOpStatusPatch(
-  patch: ProjectStateOpStatusPatch,
-): boolean {
-  if (useProjectState.getState().projectConfig.id !== patch.projectConfigId) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  reconcilePendingTopLevelLayout(nextPending);
-  usePendingOperations.setState({ pending: nextPending });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyActiveViewModeProjectStatePatch(
-  patch: ProjectStateActiveViewModePatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    const currentActiveViewModeId = state.projectConfig.activeViewModeId;
-    if (!currentActiveViewModeId) {
-      return;
-    }
-    const currentViewMode =
-      state.projectConfig.viewModes[currentActiveViewModeId];
-    const nextViewMode = state.projectConfig.viewModes[patch.activeViewModeId];
-    if (!currentViewMode || !nextViewMode) {
-      return;
-    }
-    currentViewMode.topLevelSections = state.projectConfig.topLevelSections;
-    currentViewMode.viewport = state.projectConfig.viewport;
-    currentViewMode.viewportInitialized =
-      state.projectConfig.viewportInitialized;
-    if (_.isEmpty(nextViewMode.topLevelSections)) {
-      nextViewMode.topLevelSections = _.cloneDeep(
-        state.projectConfig.topLevelSections,
-      );
-    }
-    state.projectConfig.topLevelSections = nextViewMode.topLevelSections;
-    state.projectConfig.viewport = nextViewMode.viewport;
-    state.projectConfig.viewportInitialized = nextViewMode.viewportInitialized;
-    state.projectConfig.activeViewModeId = patch.activeViewModeId;
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyProjectConfigProjectStatePatch(
-  patch: ProjectStateProjectConfigPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (patch.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    state.projectConfig = _.merge(
-      _.cloneDeep(state.projectConfig),
-      patch.projectConfig,
-    );
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applySectionImplProjectStatePatch(
-  patch: ProjectStateSectionImplPatch,
-): boolean {
-  const sectionImplsPatch: ProjectStateSectionImplsPatch = {
-    projectConfigId: patch.projectConfigId,
-    sectionImpls: {
-      [patch.sectionId]: patch.sectionImpl,
-    },
-    previousProjectStateRevision: patch.previousProjectStateRevision,
-    projectStateRevision: patch.projectStateRevision,
-    completedOpIds: patch.completedOpIds,
-    pendingOpIds: patch.pendingOpIds,
-  };
-  return applySectionImplsProjectStatePatch(sectionImplsPatch);
-}
-
-export function applySectionImplsProjectStatePatch(
-  patch: ProjectStateSectionImplsPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    type SectionImplUpdate = {
-      nextPinnedParams: string[] | null;
-      nextSectionImpl: BaseSectionImplUnion;
-      sectionId: string;
-      sectionImplId: string;
-    };
-    const sectionImplUpdates: Array<SectionImplUpdate> = [];
-    for (const [sectionId, sectionImplPatch] of Object.entries(
-      patch.sectionImpls,
-    )) {
-      const sectionVariantId = state.projectConfig.sectionVariantMap[sectionId];
-      if (!sectionVariantId) {
-        return;
-      }
-      const sectionVariant = state.sectionVariants[sectionVariantId];
-      if (!sectionVariant) {
-        return;
-      }
-      const sectionImplId = sectionVariant.impl;
-      const sectionImpl = state.sectionImpls[sectionImplId];
-      if (!sectionImpl) {
-        return;
-      }
-      if (sectionImplPatch.id !== sectionImplId) {
-        return;
-      }
-      const nextSectionImpl = _.merge(
-        _.cloneDeep(sectionImpl),
-        sectionImplPatch,
-      );
-      let nextPinnedParams: string[] | null = null;
-      if (
-        isBaseSectionWithParamsImpl(sectionImpl) &&
-        isBaseSectionWithParamsImpl(nextSectionImpl) &&
-        !_.isEqual(sectionImpl.pinnedParams, nextSectionImpl.pinnedParams)
-      ) {
-        nextPinnedParams = nextSectionImpl.pinnedParams;
-      }
-      sectionImplUpdates.push({
-        sectionId,
-        sectionImplId,
-        nextSectionImpl,
-        nextPinnedParams,
-      });
-    }
-    if (sectionImplUpdates.length === 0) {
-      return;
-    }
-    for (const sectionImplUpdate of sectionImplUpdates) {
-      state.sectionImpls[sectionImplUpdate.sectionImplId] =
-        sectionImplUpdate.nextSectionImpl;
-      if (sectionImplUpdate.nextPinnedParams !== null) {
-        updateShownParamIdsForPinnedParams(
-          state,
-          sectionImplUpdate.sectionId,
-          sectionImplUpdate.nextPinnedParams,
-          false,
-        );
-      }
-    }
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-  });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyCodeObjsProjectStatePatch(
-  patch: ProjectStateCodeObjsPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (
-      Object.keys(patch.codeObjs).length === 0 &&
-      Object.keys(patch.codeObjVariants).length === 0 &&
-      Object.keys(patch.codeObjImpls).length === 0
-    ) {
-      return;
-    }
-    for (const [codeObjId, codeObj] of Object.entries(patch.codeObjs)) {
-      state.codeObjs[codeObjId] = codeObj;
-    }
-    for (const [variantId, variant] of Object.entries(patch.codeObjVariants)) {
-      state.codeObjVariants[variantId] = variant;
-    }
-    for (const [implId, impl] of Object.entries(patch.codeObjImpls)) {
-      state.codeObjImpls[implId] = impl;
-    }
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-  });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-function structuralPatchHasRequiredShownParamIds(
-  state: ZustandProjectState,
-  projectConfig: ProjectStateStructuralPatch["projectConfig"],
-  sectionVariants: ProjectStateStructuralPatch["sectionVariants"],
-  sectionImpls: ProjectStateStructuralPatch["sectionImpls"],
-): boolean {
-  for (const variantId of Object.values(projectConfig.sectionVariantMap)) {
-    const variant = sectionVariants[variantId];
-    if (!variant) {
-      return false;
-    }
-    const impl = sectionImpls[variant.impl];
-    if (!impl) {
-      return false;
-    }
-    if (!isBaseSectionWithParamsImpl(impl)) {
-      continue;
-    }
-    if (!state.shownParamIds[variantId]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function prunePreviewVariantsForStructuralPatch(
-  state: ZustandProjectState,
-  projectConfig: ProjectStateStructuralPatch["projectConfig"],
-  sections: ProjectStateStructuralPatch["sections"],
-  sectionVariants: ProjectStateStructuralPatch["sectionVariants"],
-): Record<string, string> {
-  const output: Record<string, string> = {};
-  for (const [sectionId, previewVariantId] of Object.entries(
-    state.previewSectionVariantMap,
-  )) {
-    if (
-      !Object.prototype.hasOwnProperty.call(
-        projectConfig.sectionVariantMap,
-        sectionId,
-      )
-    ) {
-      continue;
-    }
-    const section = sections[sectionId];
-    if (!section || !section.variants.includes(previewVariantId)) {
-      continue;
-    }
-    if (
-      !Object.prototype.hasOwnProperty.call(sectionVariants, previewVariantId)
-    ) {
-      continue;
-    }
-    output[sectionId] = previewVariantId;
-  }
-  return output;
-}
-
-export function applyStructuralProjectStatePatch(
-  patch: ProjectStateStructuralPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (patch.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    const isFullSnapshot = patch.isFullSnapshot !== false;
-    const nextSections = isFullSnapshot
-      ? patch.sections
-      : {
-          ...state.sections,
-          ...patch.sections,
-        };
-    const nextSectionVariants = isFullSnapshot
-      ? patch.sectionVariants
-      : {
-          ...state.sectionVariants,
-          ...patch.sectionVariants,
-        };
-    const nextSectionImpls = isFullSnapshot
-      ? patch.sectionImpls
-      : {
-          ...state.sectionImpls,
-          ...patch.sectionImpls,
-        };
-    const nextParentSectionMap = isFullSnapshot
-      ? patch.parentSectionMap
-      : {
-          ...state.parentSectionMap,
-          ...patch.parentSectionMap,
-        };
-    if (!isFullSnapshot) {
-      for (const sectionId of patch.removedSectionIds ?? []) {
-        delete nextSections[sectionId];
-      }
-      for (const variantId of patch.removedSectionVariantIds ?? []) {
-        delete nextSectionVariants[variantId];
-      }
-      for (const sectionImplId of patch.removedSectionImplIds ?? []) {
-        delete nextSectionImpls[sectionImplId];
-      }
-      for (const sectionId of patch.removedParentSectionIds ?? []) {
-        delete nextParentSectionMap[sectionId];
-      }
-    }
-    if (
-      !structuralPatchHasRequiredShownParamIds(
-        state,
-        patch.projectConfig,
-        nextSectionVariants,
-        nextSectionImpls,
-      )
-    ) {
-      return;
-    }
-    state.projectConfig = patch.projectConfig;
-    state.sections = nextSections;
-    state.sectionVariants = nextSectionVariants;
-    state.sectionImpls = nextSectionImpls;
-    state.parentSectionMap = nextParentSectionMap;
-    state.previewSectionVariantMap = prunePreviewVariantsForStructuralPatch(
-      state,
-      patch.projectConfig,
-      nextSections,
-      nextSectionVariants,
-    );
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyAppDefinitionProjectStatePatch(
-  patch: ProjectStateAppDefinitionPatch,
-): boolean {
-  useAppDefinition.setState({
-    appDefinition: patch.appDefinition,
-    appSpec: patch.appSpec,
-  });
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  usePendingOperations.setState({ pending: nextPending });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1590,11 +975,24 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
-  const nextPending = reconcilePendingOperationsFromBackend(
-    x.completedOpIds,
-    x.pendingOpIds,
-  );
+  const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
+  const currentPending = usePendingOperations.getState().pending;
+  const nextPending = currentPending.reduce<PendingOperation[]>(
+    (acc, opInfo) => {
+      if (completedIds.has(opInfo.opId)) {
+        return acc;
+      }
+      const isBackendPending = backendPendingIds.has(opInfo.opId);
+      const acknowledged = opInfo.acknowledged || isBackendPending;
+      acc.push({
+        ...opInfo,
+        acknowledged,
+      });
+      return acc;
+    },
+    [],
+  );
   reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
@@ -1613,7 +1011,6 @@ export function processProjectStateUpdateFromBackend(
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
 
-  setProjectStateRevision(projectConfigId, x.projectStateRevision);
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
   clearToolArgumentPreviewForProjectState(

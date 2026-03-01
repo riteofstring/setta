@@ -7,7 +7,6 @@ import {
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
-  syncProjectStateFromBackend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -18,6 +17,10 @@ type LatestProjectStateResponse = {
     >;
   };
 };
+
+function getModKey(): "Control" | "Meta" {
+  return process.platform === "darwin" ? "Meta" : "Control";
+}
 
 async function ensureAppearanceAccordionExpanded(
   uiEditorPane: Locator,
@@ -359,21 +362,12 @@ test.describe.serial("section style colors", () => {
         })
         .toBe("rgb(166, 255, 166)");
 
-      const firstParamRowId = await firstParamRow.getAttribute("id");
-      const pinnedParamId = firstParamRowId?.replace(
-        `ParamContainer-${sectionId}-`,
-        "",
-      );
-      if (!pinnedParamId || pinnedParamId === firstParamRowId) {
-        throw new Error("Unable to parse first selected param id.");
-      }
-
-      await postBackend(page, "/toggleParamSelected", {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        paramInfoId: pinnedParamId,
-      });
-      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
+      const modKey = getModKey();
+      await page.keyboard.down(modKey);
+      await page.keyboard.down("Shift");
+      await firstParamRow.click();
+      await page.keyboard.up("Shift");
+      await page.keyboard.up(modKey);
       await expect
         .poll(async () => {
           return await firstParamRow.evaluate((el) => {
@@ -395,12 +389,20 @@ test.describe.serial("section style colors", () => {
           textColor: "rgb(0, 0, 0)",
         });
 
+      const firstParamRowId = await firstParamRow.getAttribute("id");
+      const pinnedParamId = firstParamRowId?.replace(
+        `ParamContainer-${sectionId}-`,
+        "",
+      );
+      if (!pinnedParamId || pinnedParamId === firstParamRowId) {
+        throw new Error("Unable to parse first selected param id.");
+      }
+
       await postBackend(page, "/setSectionPinnedParams", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         pinnedParams: [pinnedParamId],
       });
-      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
       await expect(sectionChrome.getByText("Pinned Params")).toBeVisible({
         timeout: 20000,
       });
@@ -428,7 +430,6 @@ test.describe.serial("section style colors", () => {
         sectionId,
         edgeInputParams: [edgeParamId],
       });
-      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
 
       const pinnedHeading = sectionChrome.getByText("Pinned Params").first();
       await expect(pinnedHeading).toBeVisible();

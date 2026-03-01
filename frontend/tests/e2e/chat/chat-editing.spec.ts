@@ -41,8 +41,6 @@ test.describe.serial("chat editing", () => {
           toolCallArguments: {},
         },
       });
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
 
       const messageGroup = getMessageGroup(section, originalMessageText);
       await expect(messageGroup).toBeVisible();
@@ -220,8 +218,6 @@ test.describe.serial("chat editing", () => {
           toolCallArguments: {},
         },
       });
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
 
       const messageGroup = getMessageGroup(section, "Corner controls");
       await expect(messageGroup).toBeVisible();
