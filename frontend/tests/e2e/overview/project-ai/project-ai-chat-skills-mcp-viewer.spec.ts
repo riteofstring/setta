@@ -379,6 +379,8 @@ test("project ai chat keeps skill save disabled for truncated editable previews"
         created: false,
         rootPath: "/workspace/.agents/skills",
         skillDocPath: "/workspace/.agents/skills/custom/deploy-helper/SKILL.md",
+        editable: true,
+        editBlockedReason: null,
       }),
     });
   });
@@ -448,6 +450,8 @@ test("project ai chat blocks save for non-editable listed skills", async ({
         created: false,
         rootPath: "/workspace/.agents/skills",
         skillDocPath: "/workspace/.agents/skills/SKILL.md",
+        editable: false,
+        editBlockedReason: "Editing root-level SKILL.md is not supported.",
       }),
     });
   });
@@ -1810,6 +1814,165 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   ).toBeVisible();
 });
 
+test("project ai chat keeps newly-created custom skills editable when refresh fails", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  const skills = [
+    {
+      skillId: "user_agents_skills::custom-one",
+      name: "custom-one",
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: "custom-one",
+      description: "Custom skill",
+      editable: true,
+      editBlockedReason: null,
+    },
+  ];
+  let getSkillsRequestCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    getSkillsRequestCount += 1;
+    if (getSkillsRequestCount === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(skills),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Filesystem scan failed." }),
+    });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkills",
+    statuses: [500],
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  const contentBySkillId: Record<string, string> = {
+    "user_agents_skills::custom-one": "# custom-one\n\nInitial body",
+  };
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "user_agents_skills::custom-one";
+    const content = contentBySkillId[skillId] ?? "# unknown";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content,
+        truncated: false,
+        originalSizeBytes: content.length,
+      }),
+    });
+  });
+
+  const upsertPayloads: Array<{
+    skillId: string | null;
+    relativePath: string | null;
+    content: string;
+  }> = [];
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      skillId?: string | null;
+      relativePath?: string | null;
+      content?: string;
+    };
+    const skillId = payload.skillId ?? null;
+    const relativePath = payload.relativePath ?? null;
+    const content = payload.content ?? "";
+    upsertPayloads.push({
+      skillId,
+      relativePath,
+      content,
+    });
+    if (!skillId) {
+      const nextRelativePath = relativePath ?? "new-custom-skill";
+      const createdSkillId = `user_agents_skills::${nextRelativePath}`;
+      contentBySkillId[createdSkillId] = content;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skillId: createdSkillId,
+          created: true,
+          rootPath,
+          skillDocPath: `${rootPath}/${nextRelativePath}/SKILL.md`,
+          editable: true,
+          editBlockedReason: null,
+        }),
+      });
+      return;
+    }
+    contentBySkillId[skillId] = content;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        created: false,
+        rootPath,
+        skillDocPath: `${rootPath}/${skillId.split("::")[1] ?? "custom-one"}/SKILL.md`,
+        editable: true,
+        editBlockedReason: null,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await page
+    .getByTestId("project-chat-custom-skill-relative-path-input")
+    .fill("new-custom-skill");
+  await page.getByTestId("project-chat-custom-skill-create").click();
+  await expect.poll(() => upsertPayloads.length).toBe(1);
+  expect(upsertPayloads[0]).toMatchObject({
+    skillId: null,
+    relativePath: "new-custom-skill",
+  });
+
+  await expect(
+    page.getByText("Skills unavailable (Filesystem scan failed.)."),
+  ).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+    "# new-custom-skill",
+  );
+
+  const saveButton = page.getByTestId("project-chat-custom-skill-save");
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+  await expect.poll(() => upsertPayloads.length).toBe(2);
+  expect(upsertPayloads[1]).toMatchObject({
+    skillId: "user_agents_skills::new-custom-skill",
+    relativePath: null,
+  });
+  await expect(page.getByText("Saved custom skill.")).toBeVisible();
+});
+
 test("project ai chat can create and save custom skills from raw markdown mode", async ({
   page,
 }) => {
@@ -1909,6 +2072,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
           created: false,
           rootPath,
           skillDocPath: `${rootPath}/${skillDirName}/SKILL.md`,
+          editable: true,
+          editBlockedReason: null,
         }),
       });
       return;
@@ -1934,6 +2099,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
         created: true,
         rootPath,
         skillDocPath: `${rootPath}/${nextRelativePath}/SKILL.md`,
+        editable: true,
+        editBlockedReason: null,
       }),
     });
   });

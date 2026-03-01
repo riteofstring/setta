@@ -288,6 +288,13 @@ describe("chat history sync to section state", () => {
       }
       impl.messages = [
         {
+          id: "msg-local-assistant",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Local streaming text" })],
+          attachments: [],
+          tool_calls: null,
+        },
+        {
           id: "msg-local-activity",
           role: ChatRoleEnum.tool,
           tool_call_id: "call-local",
@@ -313,6 +320,7 @@ describe("chat history sync to section state", () => {
       SectionTypeEnum.Chat,
     );
     const messageIds = impl.messages.map((message) => message.id);
+    expect(messageIds).toContain("msg-local-assistant");
     expect(messageIds).toContain("msg-local-activity");
     expect(messageIds).toContain("msg-remote");
     expect(impl.waitingForResponse).toBe(true);
@@ -325,7 +333,12 @@ describe("chat history sync to section state", () => {
       throw new Error("Expected setChatSectionState call for merged hydrate.");
     }
     const persistedState = persistedCall[0].state;
-    expect(persistedState.messages).toHaveLength(2);
+    expect(persistedState.messages).toHaveLength(3);
+    expect(
+      persistedState.messages.some(
+        (message: { id: string }) => message.id === "msg-local-assistant",
+      ),
+    ).toBe(true);
     expect(
       persistedState.messages.some(
         (message: { id: string }) => message.id === "msg-local-activity",

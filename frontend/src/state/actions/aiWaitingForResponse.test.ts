@@ -255,7 +255,7 @@ describe("chat hydration waitingForResponse", () => {
     ]);
   });
 
-  it("keeps local-only activity rows while stream is active during hydrate", async () => {
+  it("keeps local-only assistant and activity rows while stream is active during hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
@@ -313,6 +313,7 @@ describe("chat hydration waitingForResponse", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details.messages.map((message) => message.id)).toEqual([
       "assistant-remote",
+      "assistant-local-only",
       "tool-local-activity",
     ]);
   });

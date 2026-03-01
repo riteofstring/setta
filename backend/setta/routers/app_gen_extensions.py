@@ -58,6 +58,8 @@ class UpsertAppGenCustomSkillResponse(BaseModel):
     created: bool
     rootPath: str
     skillDocPath: str
+    editable: bool
+    editBlockedReason: str | None
 
 
 def _extract_skill_description(skill_doc: Path) -> str:
@@ -371,11 +373,20 @@ def upsert_app_gen_custom_skill(
     except OSError as exc:
         raise ValueError(str(exc)) from exc
 
+    editable, edit_blocked_reason = _resolve_skill_editability(
+        root_id=target_root_id,
+        relative_path=target_relative_path,
+    )
+    if not editable:
+        raise ValueError(edit_blocked_reason or "Selected skill is read-only.")
+
     return UpsertAppGenCustomSkillResponse(
         skillId=f"{target_root_id}::{target_relative_path}",
         created=created,
         rootPath=str(target_root_path),
         skillDocPath=str(skill_doc),
+        editable=editable,
+        editBlockedReason=edit_blocked_reason,
     )
 
 

@@ -44,3 +44,12 @@
 - Narrowed hydrate reconciliation to preserve only local-only activity rows (tool messages or assistant activity rows), while converging canonical chat history to backend state.
 - Removed dead Watch Code `inPopover` branch and the redundant `showMoreAppTab` alias in overview navigation.
 - Added/updated backend route tests, frontend Vitest tests, and Playwright tests for non-editable skill save blocking and hydration activity-only preservation.
+
+## 2026-03-04 22:37:46 PST
+
+- Ran `pnpm -C frontend gcf`.
+- Fixed active-stream hydration so local assistant text rows are preserved while streaming is active, while inactive hydrates still converge to backend canonical history.
+- Extended hydrate merge controls to separate local activity-row preservation from assistant-row preservation and applied stream-aware flags at chat and section hydration call sites.
+- Updated custom-skill upsert responses to always include backend-authoritative `editable` and `editBlockedReason` metadata.
+- Updated Skills viewer to keep editability metadata keyed by `skillId` so create/save flows remain writable even when immediate post-create skills refresh fails.
+- Added/updated backend route tests, Vitest unit/integration tests, and Playwright e2e coverage for active-stream assistant-row preservation and create-then-refresh-fails editability behavior.

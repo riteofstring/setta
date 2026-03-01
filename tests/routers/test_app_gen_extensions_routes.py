@@ -524,6 +524,8 @@ class TestAppGenExtensionsRoutes:
             assert response.skillDocPath == str(
                 expected_skill_doc.resolve(strict=False)
             )
+            assert response.editable is True
+            assert response.editBlockedReason is None
             assert (
                 expected_skill_doc.read_text(encoding="utf-8")
                 == "# my-custom-skill\n\nBody.\n"
@@ -590,6 +592,8 @@ class TestAppGenExtensionsRoutes:
 
             assert response.skillId == "workspace_agents_skills::editable"
             assert response.created is False
+            assert response.editable is True
+            assert response.editBlockedReason is None
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
     def test_listed_skill_editability_matches_upsert_validation(
@@ -675,6 +679,8 @@ class TestAppGenExtensionsRoutes:
             )
             assert response.created is False
             assert response.skillId == "workspace_agents_skills::editable"
+            assert response.editable is True
+            assert response.editBlockedReason is None
             assert (
                 editable_skill_doc.read_text(encoding="utf-8")
                 == "# editable\n\nUpdated.\n"
@@ -936,6 +942,8 @@ class TestAppGenExtensionsRoutes:
         payload = response.json()
         assert payload["skillId"] == "user_agents_skills::route-created"
         assert payload["created"] is True
+        assert payload["editable"] is True
+        assert payload["editBlockedReason"] is None
         expected_skill_doc = (
             fake_home / ".agents" / "skills" / "route-created" / "SKILL.md"
         )
@@ -1071,6 +1079,8 @@ class TestAppGenExtensionsRoutes:
         payload = response.json()
         assert payload["skillId"] == "workspace_agents_skills::editable"
         assert payload["created"] is False
+        assert payload["editable"] is True
+        assert payload["editBlockedReason"] is None
         assert skill_doc.read_text(encoding="utf-8") == (
             "# editable\n\nUpdated from route.\n"
         )

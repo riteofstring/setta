@@ -95,6 +95,10 @@ type SkillContentAuthority =
   | "loaded_full"
   | "loaded_truncated"
   | "load_error";
+type SkillEditabilityMetadata = {
+  editable: boolean;
+  editBlockedReason: string | null;
+};
 type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
@@ -312,6 +316,9 @@ export function ProjectChatSkillsMcpViewer({
   const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
     string | null
   >(null);
+  const [skillEditabilityBySkillId, setSkillEditabilityBySkillId] = useState<
+    Record<string, SkillEditabilityMetadata>
+  >({});
   const [newCustomSlashCommand, setNewCustomSlashCommand] = useState("");
   const [newCustomSlashPrompt, setNewCustomSlashPrompt] = useState("");
   const [skillsRevision, setSkillsRevision] = useState(0);
@@ -353,6 +360,16 @@ export function ProjectChatSkillsMcpViewer({
       const nextSkills = res.data;
       skillContentCache.current.clear();
       setSkills(nextSkills);
+      setSkillEditabilityBySkillId((current) => {
+        const next = { ...current };
+        for (const skill of nextSkills) {
+          next[skill.skillId] = {
+            editable: skill.editable,
+            editBlockedReason: skill.editBlockedReason,
+          };
+        }
+        return next;
+      });
       setSkillsRevision((value) => value + 1);
       setSelectedSkillId((current) => {
         if (nextSkills.length === 0) {
@@ -781,17 +798,29 @@ export function ProjectChatSkillsMcpViewer({
     }
     return selectedSkillId.slice(0, separatorIndex);
   }, [selectedSkillId]);
-  const selectedSkillIsEditable = selectedSkill?.editable === true;
+  const selectedSkillEditability = useMemo(() => {
+    if (!selectedSkillId) {
+      return null;
+    }
+    if (selectedSkill) {
+      return {
+        editable: selectedSkill.editable,
+        editBlockedReason: selectedSkill.editBlockedReason,
+      };
+    }
+    return skillEditabilityBySkillId[selectedSkillId] ?? null;
+  }, [selectedSkill, selectedSkillId, skillEditabilityBySkillId]);
+  const selectedSkillIsEditable = selectedSkillEditability?.editable === true;
   const selectedSkillReadOnlyReason = useMemo(() => {
     if (selectedSkillIsEditable) {
       return null;
     }
-    if (!selectedSkill) {
+    if (!selectedSkillId) {
       return "Select or create a custom skill to edit.";
     }
-    const reason = selectedSkill.editBlockedReason?.trim();
+    const reason = selectedSkillEditability?.editBlockedReason?.trim();
     return reason || "Selected skill is read-only.";
-  }, [selectedSkill, selectedSkillIsEditable]);
+  }, [selectedSkillEditability, selectedSkillId, selectedSkillIsEditable]);
   const customSkillRootPath = useMemo(() => {
     if (
       selectedSkill &&
@@ -1006,6 +1035,13 @@ export function ProjectChatSkillsMcpViewer({
     setSkillMarkdownRawDraft(initialContent);
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(initialContent.length);
+    setSkillEditabilityBySkillId((current) => ({
+      ...current,
+      [res.data.skillId]: {
+        editable: res.data.editable,
+        editBlockedReason: res.data.editBlockedReason,
+      },
+    }));
     addTemporaryNotification(
       res.data.created
         ? `Created custom skill ${relativePath}.`
@@ -1055,6 +1091,13 @@ export function ProjectChatSkillsMcpViewer({
     setSelectedSkillContentAuthority("loaded_full");
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(skillMarkdownRawDraft.length);
+    setSkillEditabilityBySkillId((current) => ({
+      ...current,
+      [res.data.skillId]: {
+        editable: res.data.editable,
+        editBlockedReason: res.data.editBlockedReason,
+      },
+    }));
     const cacheEntry = {
       content: skillMarkdownRawDraft,
       truncated: false,

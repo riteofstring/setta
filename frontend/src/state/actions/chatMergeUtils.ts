@@ -42,16 +42,27 @@ export function reconcileHydratedChatMessages({
   backendMessages,
   localMessages,
   preserveLocalOnlyActivityMessages,
+  preserveLocalOnlyAssistantMessages,
 }: {
   backendMessages: Array<BaseChatMessageUnion>;
   localMessages: Array<BaseChatMessageUnion>;
   preserveLocalOnlyActivityMessages: boolean;
+  preserveLocalOnlyAssistantMessages: boolean;
 }): Array<BaseChatMessageUnion> {
   if (backendMessages.length === 0) {
-    if (!preserveLocalOnlyActivityMessages) {
+    if (
+      !preserveLocalOnlyActivityMessages &&
+      !preserveLocalOnlyAssistantMessages
+    ) {
       return [];
     }
-    return localMessages.filter(isLocalOnlyActivityMessage);
+    return localMessages.filter((message) =>
+      shouldPreserveLocalOnlyMessage({
+        message,
+        preserveLocalOnlyActivityMessages,
+        preserveLocalOnlyAssistantMessages,
+      }),
+    );
   }
   const localMessageById = new Map<string, BaseChatMessageUnion>();
   for (const message of localMessages) {
@@ -64,7 +75,10 @@ export function reconcileHydratedChatMessages({
     }
     return pickMoreCompleteMessage(backendMessage, localMessage);
   });
-  if (!preserveLocalOnlyActivityMessages) {
+  if (
+    !preserveLocalOnlyActivityMessages &&
+    !preserveLocalOnlyAssistantMessages
+  ) {
     return nextMessages;
   }
   const backendMessageIds = new Set(
@@ -74,12 +88,39 @@ export function reconcileHydratedChatMessages({
     if (backendMessageIds.has(localMessage.id)) {
       continue;
     }
-    if (!isLocalOnlyActivityMessage(localMessage)) {
+    if (
+      !shouldPreserveLocalOnlyMessage({
+        message: localMessage,
+        preserveLocalOnlyActivityMessages,
+        preserveLocalOnlyAssistantMessages,
+      })
+    ) {
       continue;
     }
     nextMessages.push(localMessage);
   }
   return nextMessages;
+}
+
+function shouldPreserveLocalOnlyMessage({
+  message,
+  preserveLocalOnlyActivityMessages,
+  preserveLocalOnlyAssistantMessages,
+}: {
+  message: BaseChatMessageUnion;
+  preserveLocalOnlyActivityMessages: boolean;
+  preserveLocalOnlyAssistantMessages: boolean;
+}): boolean {
+  if (
+    preserveLocalOnlyAssistantMessages &&
+    message.role === ChatRoleEnum.assistant
+  ) {
+    return true;
+  }
+  if (!preserveLocalOnlyActivityMessages) {
+    return false;
+  }
+  return isLocalOnlyActivityMessage(message);
 }
 
 function isLocalOnlyActivityMessage(message: BaseChatMessageUnion): boolean {

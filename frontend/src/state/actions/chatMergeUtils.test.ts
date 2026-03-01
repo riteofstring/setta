@@ -84,6 +84,7 @@ describe("chatMergeUtils", () => {
         },
       ],
       preserveLocalOnlyActivityMessages: false,
+      preserveLocalOnlyAssistantMessages: false,
     });
 
     expect(reconciled.map((message) => message.id)).toEqual(["msg-remote"]);
@@ -122,11 +123,48 @@ describe("chatMergeUtils", () => {
         },
       ],
       preserveLocalOnlyActivityMessages: true,
+      preserveLocalOnlyAssistantMessages: false,
     });
 
     expect(reconciled.map((message) => message.id)).toEqual([
       "msg-remote",
       "tool-local-activity",
+    ]);
+  });
+
+  it("keeps local assistant rows when hydrate is preserving local assistant overlays", () => {
+    const reconciled = reconcileHydratedChatMessages({
+      backendMessages: [
+        {
+          id: "msg-remote",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Remote message" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      localMessages: [
+        {
+          id: "assistant-local-only",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Local assistant" })],
+          attachments: [],
+          tool_calls: null,
+        },
+        {
+          id: "user-local-only",
+          role: ChatRoleEnum.user,
+          content: [createMessageTextContent({ text: "Speculative user" })],
+          attachments: [],
+        },
+      ],
+      preserveLocalOnlyActivityMessages: true,
+      preserveLocalOnlyAssistantMessages: true,
+    });
+
+    expect(reconciled.map((message) => message.id)).toEqual([
+      "msg-remote",
+      "assistant-local-only",
     ]);
   });
 });
