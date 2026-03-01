@@ -180,6 +180,8 @@ const DATA_HANDLE_HIT_TOLERANCE_WORLD = 10;
 const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
 const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
 const SELECTION_RECT_BORDER_COLOR = "rgba(0, 89, 220, 0.8)";
+const DOM_ISLAND_VIEWPORT_PADDING_PX = 240;
+const DOM_ISLAND_MIN_ZOOM = 0.35;
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -358,8 +360,24 @@ export function CanvasEngineHost() {
   );
   const domIslandRects = useMemo(() => {
     const rectMap = new Map<string, CanvasEngineRect>();
-    for (const rect of sceneSnapshot.rects) {
-      rectMap.set(rect.id, rect);
+    if (camera.zoom >= DOM_ISLAND_MIN_ZOOM) {
+      const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
+      const viewportRect = {
+        x: camera.x - worldPadding,
+        y: camera.y - worldPadding,
+        width: viewport.width / camera.zoom + worldPadding * 2,
+        height: viewport.height / camera.zoom + worldPadding * 2,
+      };
+      const sectionIdsInMountWindow = sceneAdapter.querySectionIdsInWorldRect(
+        viewportRect,
+        true,
+      );
+      for (const sectionId of sectionIdsInMountWindow) {
+        const rect = sceneAdapter.getRectById(sectionId);
+        if (rect) {
+          rectMap.set(sectionId, rect);
+        }
+      }
     }
     for (const sectionId of activeSectionIds) {
       if (rectMap.has(sectionId)) {
@@ -376,7 +394,7 @@ export function CanvasEngineHost() {
       }
       return left.zIndex - right.zIndex;
     });
-  }, [activeSectionIds, sceneAdapter, sceneSnapshot.rects]);
+  }, [activeSectionIds, camera, sceneAdapter, viewport]);
   const domIslandLayerTransform = useMemo(
     () => ({
       transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
