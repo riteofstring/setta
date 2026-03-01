@@ -456,10 +456,17 @@ export function getCurrSectionVariantId(
   sectionId: string,
   preview = false,
 ) {
-  const variantId = preview
-    ? p.previewSectionVariantMap[sectionId] ??
-      p.projectConfig.sectionVariantMap[sectionId]
-    : p.projectConfig.sectionVariantMap[sectionId];
+  const activeVariantId = p.projectConfig.sectionVariantMap[sectionId];
+  let variantId = activeVariantId;
+  if (preview) {
+    const previewVariantId = p.previewSectionVariantMap[sectionId];
+    if (
+      previewVariantId !== undefined &&
+      Object.prototype.hasOwnProperty.call(p.sectionVariants, previewVariantId)
+    ) {
+      variantId = previewVariantId;
+    }
+  }
   if (variantId === undefined) {
     throw new Error();
   }
@@ -491,10 +498,17 @@ export function getCurrEffectiveSectionImplIfPresent(
   sectionId: string,
   preview = false,
 ): BaseSectionImplUnion | null {
-  const variantId = preview
-    ? p.previewSectionVariantMap[sectionId] ??
-      p.projectConfig.sectionVariantMap[sectionId]
-    : p.projectConfig.sectionVariantMap[sectionId];
+  const activeVariantId = p.projectConfig.sectionVariantMap[sectionId];
+  let variantId = activeVariantId;
+  if (preview) {
+    const previewVariantId = p.previewSectionVariantMap[sectionId];
+    if (
+      previewVariantId !== undefined &&
+      Object.prototype.hasOwnProperty.call(p.sectionVariants, previewVariantId)
+    ) {
+      variantId = previewVariantId;
+    }
+  }
   if (variantId === undefined) {
     return null;
   }
@@ -829,7 +843,16 @@ export function getCurrShownParamIds(
   isPinned: boolean,
   preview = false,
 ) {
-  const variantId = getCurrSectionVariantId(p, sectionId, preview);
+  if (preview) {
+    const previewVariantId = p.previewSectionVariantMap[sectionId];
+    if (previewVariantId !== undefined) {
+      const previewShown = p.shownParamIds[previewVariantId];
+      if (previewShown) {
+        return isPinned ? previewShown.pinned : previewShown.unpinned;
+      }
+    }
+  }
+  const variantId = getCurrSectionVariantId(p, sectionId, false);
   const shown = p.shownParamIds[variantId];
   if (!shown) {
     throw new Error();
@@ -1258,6 +1281,64 @@ export function applyCodeObjsProjectStatePatch(
   return true;
 }
 
+function structuralPatchHasRequiredShownParamIds(
+  state: ZustandProjectState,
+  patch: ProjectStateStructuralPatch,
+): boolean {
+  for (const variantId of Object.values(
+    patch.projectConfig.sectionVariantMap,
+  )) {
+    const variant = patch.sectionVariants[variantId];
+    if (!variant) {
+      return false;
+    }
+    const impl = patch.sectionImpls[variant.impl];
+    if (!impl) {
+      return false;
+    }
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      continue;
+    }
+    if (!state.shownParamIds[variantId]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function prunePreviewVariantsForStructuralPatch(
+  state: ZustandProjectState,
+  patch: ProjectStateStructuralPatch,
+): Record<string, string> {
+  const output: Record<string, string> = {};
+  for (const [sectionId, previewVariantId] of Object.entries(
+    state.previewSectionVariantMap,
+  )) {
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        patch.projectConfig.sectionVariantMap,
+        sectionId,
+      )
+    ) {
+      continue;
+    }
+    const section = patch.sections[sectionId];
+    if (!section || !section.variants.includes(previewVariantId)) {
+      continue;
+    }
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        patch.sectionVariants,
+        previewVariantId,
+      )
+    ) {
+      continue;
+    }
+    output[sectionId] = previewVariantId;
+  }
+  return output;
+}
+
 export function applyStructuralProjectStatePatch(
   patch: ProjectStateStructuralPatch,
 ): boolean {
@@ -1269,11 +1350,18 @@ export function applyStructuralProjectStatePatch(
     if (patch.projectConfig.id !== patch.projectConfigId) {
       return;
     }
+    if (!structuralPatchHasRequiredShownParamIds(state, patch)) {
+      return;
+    }
     state.projectConfig = patch.projectConfig;
     state.sections = patch.sections;
     state.sectionVariants = patch.sectionVariants;
     state.sectionImpls = patch.sectionImpls;
     state.parentSectionMap = patch.parentSectionMap;
+    state.previewSectionVariantMap = prunePreviewVariantsForStructuralPatch(
+      state,
+      patch,
+    );
     applied = true;
   });
   if (!applied) {

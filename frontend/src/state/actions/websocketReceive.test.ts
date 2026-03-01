@@ -1068,6 +1068,85 @@ describe("openWebSocket", () => {
     ).toHaveBeenCalledWith(latestPayload);
   });
 
+  it("resyncs from backend when structural patch application fails", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    const latestPayload = {
+      projectState: projectConfig,
+      completedOpIds: [],
+      pendingOpIds: [],
+      projectStateRevision: 121,
+    };
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: latestPayload,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(120);
+    vi.mocked(sectionInfos.applyStructuralProjectStatePatch).mockReturnValue(
+      false,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(sectionInfos.processProjectStateUpdateFromBackend).mockClear();
+    vi.mocked(sectionInfos.applyStructuralProjectStatePatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "structural-patch-failed-apply",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural,
+        content: {
+          projectConfigId: "project-1",
+          projectConfig,
+          sections: {},
+          sectionVariants: {},
+          sectionImpls: {},
+          parentSectionMap: {},
+          previousProjectStateRevision: 120,
+          projectStateRevision: 121,
+          completedOpIds: [],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sectionInfos.applyStructuralProjectStatePatch).toHaveBeenCalled();
+    expect(route_get_latest_project_state).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(
+      sectionInfos.processProjectStateUpdateFromBackend,
+    ).toHaveBeenCalledWith(latestPayload);
+  });
+
   it("applies app-definition patches when revisions line up", async () => {
     const projectConfig = createProjectConfig({
       id: "project-1",
