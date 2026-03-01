@@ -643,6 +643,173 @@ test("settings all-settings forces unsupported section types to DOM islands", as
   }
 });
 
+test("settings all-settings keeps chart sections scene-compatible", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+    localStorage.setItem("setta.sceneGraphRenderer.backend", "webgl");
+    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "0");
+    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const labels = await readSceneGraphRendererPerfLabels(page);
+  test.skip(
+    labels.resolvedBackend !== "webgl",
+    "Compatibility scene-only assertions require the WebGL backend.",
+  );
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const baselineState = await page.evaluate(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      throw new Error("Missing .react-flow root.");
+    }
+    return {
+      sceneCompatibleCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-scene-compatible-section-count",
+        ) ?? "0",
+      ),
+      domOnlyCount: Number(
+        root.getAttribute("data-scene-graph-renderer-dom-only-section-count") ??
+          "0",
+      ),
+      unresolvedCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-unresolved-section-count",
+        ) ?? "0",
+      ),
+      forcedDomCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-forced-dom-section-count",
+        ) ?? "0",
+      ),
+    };
+  });
+
+  const createResponse = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Chart",
+      controlCodeObjType: null,
+      implOverrides: null,
+      position: { x: 2600, y: 1400 },
+      topLevelSections: null,
+      viewportBounds: null,
+    },
+  );
+  if (!createResponse?.sectionId) {
+    throw new Error("Failed to create chart top-level section.");
+  }
+
+  const chartSectionId = createResponse.sectionId;
+  try {
+    const latestState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, latestState);
+
+    await page.waitForFunction((baseline) => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      const sceneCompatibleCount = Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-scene-compatible-section-count",
+        ) ?? "0",
+      );
+      const domOnlyCount = Number(
+        root.getAttribute("data-scene-graph-renderer-dom-only-section-count") ??
+          "0",
+      );
+      const unresolvedCount = Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-unresolved-section-count",
+        ) ?? "0",
+      );
+      const forcedDomCount = Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-forced-dom-section-count",
+        ) ?? "0",
+      );
+      return (
+        sceneCompatibleCount >= baseline.sceneCompatibleCount + 1 &&
+        domOnlyCount === baseline.domOnlyCount &&
+        unresolvedCount === baseline.unresolvedCount &&
+        forcedDomCount === baseline.forcedDomCount
+      );
+    }, baselineState);
+
+    const compatibilityState = await page.evaluate(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        throw new Error("Missing .react-flow root.");
+      }
+      return {
+        sceneCompatibleCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-scene-compatible-section-count",
+          ) ?? "0",
+        ),
+        domOnlyCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-dom-only-section-count",
+          ) ?? "0",
+        ),
+        unresolvedCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-unresolved-section-count",
+          ) ?? "0",
+        ),
+        forcedDomCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-forced-dom-section-count",
+          ) ?? "0",
+        ),
+      };
+    });
+
+    expect(compatibilityState.sceneCompatibleCount).toBeGreaterThanOrEqual(
+      baselineState.sceneCompatibleCount + 1,
+    );
+    expect(compatibilityState.domOnlyCount).toBe(baselineState.domOnlyCount);
+    expect(compatibilityState.unresolvedCount).toBe(
+      baselineState.unresolvedCount,
+    );
+    expect(compatibilityState.forcedDomCount).toBe(
+      baselineState.forcedDomCount,
+    );
+  } finally {
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [chartSectionId],
+    });
+    const latestState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, latestState);
+  }
+});
+
 type SceneOnlyPromotionClickTarget = {
   sectionId: string;
   clientX: number;
