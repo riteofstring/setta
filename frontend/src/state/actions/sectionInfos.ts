@@ -17,12 +17,10 @@ import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
   useAllProjectMetadata,
-  useAppDefinition,
   useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
-  useProjectStateSync,
   useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
@@ -52,14 +50,8 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
-  ProjectStateActiveViewModePatch,
-  ProjectStateAppDefinitionPatch,
-  ProjectStateCodeObjsPatch,
-  ProjectStateProjectConfigPatch,
-  ProjectStateSectionImplPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
-  ProjectStateStructuralPatch,
   SectionType,
   SectionTypeEnum,
   Variant,
@@ -974,343 +966,6 @@ export function manualDndChildrenReset() {
   );
 }
 
-function normalizeProjectStateRevision(
-  revision: number | null | undefined,
-): number | null {
-  if (revision === null || revision === undefined) {
-    return null;
-  }
-  if (!Number.isInteger(revision) || revision < 0) {
-    return null;
-  }
-  return revision;
-}
-
-export function setProjectStateRevision(
-  projectConfigId: string,
-  revision: number | null | undefined,
-): void {
-  const normalizedRevision = normalizeProjectStateRevision(revision);
-  if (normalizedRevision === null) {
-    return;
-  }
-  useProjectStateSync.setState((state) => {
-    if (
-      state.revisionByProjectConfigId[projectConfigId] === normalizedRevision
-    ) {
-      return state;
-    }
-    return {
-      revisionByProjectConfigId: {
-        ...state.revisionByProjectConfigId,
-        [projectConfigId]: normalizedRevision,
-      },
-    };
-  });
-}
-
-export function getProjectStateRevision(
-  projectConfigId: string,
-): number | null {
-  return (
-    useProjectStateSync.getState().revisionByProjectConfigId[projectConfigId] ??
-    null
-  );
-}
-
-function reconcilePendingOperationsFromBackend(
-  completedOpIds: Array<string>,
-  pendingOpIds: Array<string>,
-): Array<PendingOperation> {
-  const backendPendingIds = new Set(pendingOpIds);
-  const completedIds = new Set(completedOpIds);
-  const currentPending = usePendingOperations.getState().pending;
-  return currentPending.reduce<Array<PendingOperation>>((acc, opInfo) => {
-    if (completedIds.has(opInfo.opId)) {
-      return acc;
-    }
-    const isBackendPending = backendPendingIds.has(opInfo.opId);
-    const acknowledged = opInfo.acknowledged || isBackendPending;
-    acc.push({
-      ...opInfo,
-      acknowledged,
-    });
-    return acc;
-  }, []);
-}
-
-export function applyActiveViewModeProjectStatePatch(
-  patch: ProjectStateActiveViewModePatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    const currentActiveViewModeId = state.projectConfig.activeViewModeId;
-    if (!currentActiveViewModeId) {
-      return;
-    }
-    const currentViewMode =
-      state.projectConfig.viewModes[currentActiveViewModeId];
-    const nextViewMode = state.projectConfig.viewModes[patch.activeViewModeId];
-    if (!currentViewMode || !nextViewMode) {
-      return;
-    }
-    currentViewMode.topLevelSections = state.projectConfig.topLevelSections;
-    currentViewMode.viewport = state.projectConfig.viewport;
-    currentViewMode.viewportInitialized =
-      state.projectConfig.viewportInitialized;
-    if (_.isEmpty(nextViewMode.topLevelSections)) {
-      nextViewMode.topLevelSections = _.cloneDeep(
-        state.projectConfig.topLevelSections,
-      );
-    }
-    state.projectConfig.topLevelSections = nextViewMode.topLevelSections;
-    state.projectConfig.viewport = nextViewMode.viewport;
-    state.projectConfig.viewportInitialized = nextViewMode.viewportInitialized;
-    state.projectConfig.activeViewModeId = patch.activeViewModeId;
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyProjectConfigProjectStatePatch(
-  patch: ProjectStateProjectConfigPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (patch.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    state.projectConfig = patch.projectConfig;
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applySectionImplProjectStatePatch(
-  patch: ProjectStateSectionImplPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    const sectionVariantId =
-      state.projectConfig.sectionVariantMap[patch.sectionId];
-    if (!sectionVariantId) {
-      return;
-    }
-    const sectionVariant = state.sectionVariants[sectionVariantId];
-    if (!sectionVariant) {
-      return;
-    }
-    const sectionImplId = sectionVariant.impl;
-    const sectionImpl = state.sectionImpls[sectionImplId];
-    if (!sectionImpl) {
-      return;
-    }
-    if (patch.sectionImpl.id !== sectionImplId) {
-      return;
-    }
-    let nextPinnedParams: string[] | null = null;
-    if (
-      isBaseSectionWithParamsImpl(sectionImpl) &&
-      isBaseSectionWithParamsImpl(patch.sectionImpl) &&
-      !_.isEqual(sectionImpl.pinnedParams, patch.sectionImpl.pinnedParams)
-    ) {
-      nextPinnedParams = patch.sectionImpl.pinnedParams;
-    }
-    state.sectionImpls[sectionImplId] = patch.sectionImpl;
-    if (nextPinnedParams !== null) {
-      updateShownParamIdsForPinnedParams(
-        state,
-        patch.sectionId,
-        nextPinnedParams,
-        false,
-      );
-    }
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-  });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyCodeObjsProjectStatePatch(
-  patch: ProjectStateCodeObjsPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (
-      Object.keys(patch.codeObjs).length === 0 &&
-      Object.keys(patch.codeObjVariants).length === 0 &&
-      Object.keys(patch.codeObjImpls).length === 0
-    ) {
-      return;
-    }
-    for (const [codeObjId, codeObj] of Object.entries(patch.codeObjs)) {
-      state.codeObjs[codeObjId] = codeObj;
-    }
-    for (const [variantId, variant] of Object.entries(patch.codeObjVariants)) {
-      state.codeObjVariants[variantId] = variant;
-    }
-    for (const [implId, impl] of Object.entries(patch.codeObjImpls)) {
-      state.codeObjImpls[implId] = impl;
-    }
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-  });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyStructuralProjectStatePatch(
-  patch: ProjectStateStructuralPatch,
-): boolean {
-  let applied = false;
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    if (patch.projectConfig.id !== patch.projectConfigId) {
-      return;
-    }
-    state.projectConfig = patch.projectConfig;
-    state.sections = patch.sections;
-    state.sectionVariants = patch.sectionVariants;
-    state.sectionImpls = patch.sectionImpls;
-    state.parentSectionMap = patch.parentSectionMap;
-    applied = true;
-  });
-  if (!applied) {
-    return false;
-  }
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  reconcilePendingTopLevelLayout(nextPending);
-  const completedIds = new Set(patch.completedOpIds);
-  const nextProjectState = useProjectState.getState();
-  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-  });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
-export function applyAppDefinitionProjectStatePatch(
-  patch: ProjectStateAppDefinitionPatch,
-): boolean {
-  useAppDefinition.setState({
-    appDefinition: patch.appDefinition,
-    appSpec: patch.appSpec,
-  });
-  const nextPending = reconcilePendingOperationsFromBackend(
-    patch.completedOpIds,
-    patch.pendingOpIds,
-  );
-  const completedIds = new Set(patch.completedOpIds);
-  usePendingOperations.setState({ pending: nextPending });
-  markRenameBroadcastsReady(completedIds);
-  maybeOpenNextRenamePrompt();
-  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
-  return true;
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1320,11 +975,24 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
-  const nextPending = reconcilePendingOperationsFromBackend(
-    x.completedOpIds,
-    x.pendingOpIds,
-  );
+  const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
+  const currentPending = usePendingOperations.getState().pending;
+  const nextPending = currentPending.reduce<PendingOperation[]>(
+    (acc, opInfo) => {
+      if (completedIds.has(opInfo.opId)) {
+        return acc;
+      }
+      const isBackendPending = backendPendingIds.has(opInfo.opId);
+      const acknowledged = opInfo.acknowledged || isBackendPending;
+      acc.push({
+        ...opInfo,
+        acknowledged,
+      });
+      return acc;
+    },
+    [],
+  );
   reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
@@ -1343,7 +1011,6 @@ export function processProjectStateUpdateFromBackend(
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
 
-  setProjectStateRevision(projectConfigId, x.projectStateRevision);
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
   clearToolArgumentPreviewForProjectState(
