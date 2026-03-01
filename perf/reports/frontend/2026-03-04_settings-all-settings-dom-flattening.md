@@ -916,3 +916,50 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase22.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase22.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase22_fitview.png`
+
+## After (continued)
+
+### Phase 23 (param filter host-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened section param-filter structure from `search > input` to a single `input` host node.
+  - Moved param-filter sort-icon rendering onto the `input` host using layered background gradients and host color variables.
+  - Updated E2E guardrails to assert zero legacy `search[data-param-filter-icon-host="true"]` hosts and positive flattened `input[data-param-filter-icon-host="true"]` hosts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4083` (down from `4125`, `-42`, `-1.0%` vs phase 22)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5179` (down from `5221`, `-42`)
+  - Per-node descendants: `avg 96.05`, `p95 183`, `max 791`
+  - Per-node max depth: `avg 6.07`, `p95 7`, `max 8`
+  - Legacy param-filter search hosts (`search[data-param-filter-icon-host="true"]`): `0` (down from `42`)
+  - Flattened param-filter input hosts (`input[data-param-filter-icon-host="true"]`): `42`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23.trace.json`
+- Trace signals (`phase23`):
+  - Duration: `17,528.77 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `341` (`19.45/s`)
+  - `DrawFrame`: `190` (`10.84/s`)
+  - `DroppedFrame`: `14` (`4.11%`)
+  - Main-thread work: `Layout 52.02 ms`, `UpdateLayoutTree 18.62 ms`, `Paint 124.69 ms`, `PrePaint 16.37 ms`
+
+## Conclusion (latest update)
+
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 4083` (`-4536`, `-52.6%`)
+  - Per-node descendants avg: `204.05 -> 96.05` (`-52.9%`)
+  - Per-node descendants max: `1854 -> 791` (`-57.3%`)
+  - Per-node depth avg/max: `12.74/17 -> 6.07/8`
+- DOM flattening now includes full removal of param-filter host wrappers in this benchmark path (`search` host count `42 -> 0`) while preserving existing behavior and guardrails.
+- Runtime traces remain run-to-run variable, but this phase showed a lower dropped-frame ratio than phase 22 alongside continued DOM-shape reduction.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23_fitview.png`

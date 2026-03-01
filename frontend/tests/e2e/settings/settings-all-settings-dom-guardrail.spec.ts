@@ -68,7 +68,7 @@ test("all settings DOM stays within flattening guardrails", async ({
       document.querySelectorAll('button[data-combobox-chevron-host="true"]'),
     );
     const paramFilterIconHosts = Array.from(
-      document.querySelectorAll('search[data-param-filter-icon-host="true"]'),
+      document.querySelectorAll('input[data-param-filter-icon-host="true"]'),
     );
     const legacyParamGroupOuterWrappers = Array.from(
       document.querySelectorAll("div"),
@@ -279,22 +279,23 @@ test("all settings DOM stays within flattening guardrails", async ({
       flattenedComboboxRightIconHostCount: comboboxChevronButtons.filter(
         (el) => el.children.length === 0,
       ).length,
-      legacyParamFilterIconWrapperCount: paramFilterIconHosts.filter((el) => {
+      legacyParamFilterIconWrapperCount: Array.from(
+        document.querySelectorAll("search"),
+      ).filter((el) => {
         const iconChildren = Array.from(el.children).filter(
           (child) =>
             child.tagName === "I" &&
             Array.from(child.classList).includes("gg-sort-az"),
         );
-        return iconChildren.length > 0;
-      }).length,
-      flattenedParamFilterIconHostCount: paramFilterIconHosts.filter((el) => {
-        const iconChildren = Array.from(el.children).filter(
+        if (iconChildren.length === 0) {
+          return false;
+        }
+        return Array.from(el.children).some(
           (child) =>
-            child.tagName === "I" &&
-            Array.from(child.classList).includes("gg-sort-az"),
+            child.tagName === "INPUT" && child.id.endsWith("-args-filter"),
         );
-        return iconChildren.length === 0;
       }).length,
+      flattenedParamFilterIconHostCount: paramFilterIconHosts.length,
       legacySectionTitleWrapperCount: document.querySelectorAll(
         "header.section-title > div.relative.flex.min-w-0.flex-1.flex-col",
       ).length,

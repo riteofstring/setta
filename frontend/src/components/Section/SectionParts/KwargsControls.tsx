@@ -487,27 +487,23 @@ function ParamFilter({
   }
 
   return (
-    <search
+    <input
+      id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
       data-param-filter-icon-host="true"
-      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center bg-[linear-gradient(currentColor,currentColor)] bg-[length:8px_2px] bg-[position:0.35rem_center] bg-no-repeat before:pointer-events-none before:absolute before:left-[0.15rem] before:top-1/2 before:h-[2px] before:w-[12px] before:-translate-y-[4px] before:rounded-[4px] before:bg-current before:content-[''] after:pointer-events-none after:absolute after:left-[0.55rem] after:top-1/2 after:h-[2px] after:w-[4px] after:translate-y-[4px] after:rounded-[4px] after:bg-current after:content-[''] ${sortIconColorClassName} ${
-        includeCallablePadding ? "py-1" : ""
+      value={paramFilterValue}
+      className={`nodrag mx-2 min-w-8 flex-1 cursor-auto truncate border-solid border-transparent bg-[linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color)),linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color)),linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color))] bg-no-repeat py-1 pl-3 text-xs outline-0 [--setta-param-filter-icon-color:hsl(220,_25%,_67%)] [background-position:0.15rem_calc(50%-4px),0.35rem_50%,0.55rem_calc(50%+4px)] [background-size:12px_2px,8px_2px,4px_2px] [border-width:0_0_1px_0] dark:[--setta-param-filter-icon-color:hsl(219,_25%,_34%)] ${sortIconColorClassName} ${inputColorClassName} ${
+        includeCallablePadding ? "my-1" : ""
       }`}
-    >
-      <input
-        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-        value={paramFilterValue}
-        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
-        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-        tabIndex={0}
-        onChange={onSearchChange}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            e.currentTarget.blur();
-            // focusOnSection(null, sectionId, false);
-          }
-        }}
-      />
-    </search>
+      placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+      tabIndex={0}
+      onChange={onSearchChange}
+      onKeyDown={(e) => {
+        if (e.code === "Escape") {
+          e.currentTarget.blur();
+          // focusOnSection(null, sectionId, false);
+        }
+      }}
+    />
   );
 }
 
