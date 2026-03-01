@@ -23,6 +23,7 @@ import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Connection } from "forks/xyflow/core/types";
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -177,6 +178,11 @@ type CanvasEngineSelectionRect = {
   y: number;
   width: number;
   height: number;
+};
+
+type CanvasEngineDomIslandEntry = {
+  rect: CanvasEngineRect;
+  retained: boolean;
 };
 
 const MIN_ZOOM = 0.1;
@@ -424,7 +430,7 @@ export function CanvasEngineHost() {
   const domIslandRetainedSectionIdSet =
     domIslandMountState.retainedSectionIdSet;
   const domIslandRenderEntries = useMemo(() => {
-    const entries: Array<{ rect: CanvasEngineRect; retained: boolean }> = [];
+    const entries: CanvasEngineDomIslandEntry[] = [];
     for (const sectionId of domIslandSectionIds) {
       const rect = sceneAdapter.getRectById(sectionId);
       if (rect) {
@@ -1476,24 +1482,11 @@ export function CanvasEngineHost() {
             style={domIslandLayerTransform}
           >
             {domIslandRenderEntries.map((entry) => (
-              <div
+              <CanvasEngineDomIsland
                 key={entry.rect.id}
-                className={`${entry.retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
-                data-canvas-engine-dom-island={entry.rect.id}
-                data-canvas-engine-dom-island-retained={String(entry.retained)}
-                style={
-                  entry.retained
-                    ? { display: "none" }
-                    : {
-                        left: entry.rect.x,
-                        top: entry.rect.y,
-                        width: entry.rect.width,
-                        height: entry.rect.height,
-                      }
-                }
-              >
-                <SectionContainer sectionId={entry.rect.id} isTopLevel={true} />
-              </div>
+                rect={entry.rect}
+                retained={entry.retained}
+              />
             ))}
           </div>
         </div>
@@ -1566,6 +1559,58 @@ function areSelectionRectsEqual(
     left.y === right.y &&
     left.width === right.width &&
     left.height === right.height
+  );
+}
+
+const CanvasEngineDomIsland = memo(function CanvasEngineDomIsland({
+  rect,
+  retained,
+}: CanvasEngineDomIslandEntry) {
+  return (
+    <div
+      className={`${retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
+      data-canvas-engine-dom-island={rect.id}
+      data-canvas-engine-dom-island-retained={String(retained)}
+      style={
+        retained
+          ? { display: "none" }
+          : {
+              left: rect.x,
+              top: rect.y,
+              width: rect.width,
+              height: rect.height,
+            }
+      }
+    >
+      <SectionContainer sectionId={rect.id} isTopLevel={true} />
+    </div>
+  );
+}, areDomIslandEntriesEqual);
+
+function areDomIslandEntriesEqual(
+  left: CanvasEngineDomIslandEntry,
+  right: CanvasEngineDomIslandEntry,
+): boolean {
+  if (left.retained !== right.retained) {
+    return false;
+  }
+  return areRectsEqual(left.rect, right.rect);
+}
+
+function areRectsEqual(
+  left: CanvasEngineRect,
+  right: CanvasEngineRect,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.zIndex === right.zIndex &&
+    left.selected === right.selected &&
+    left.active === right.active &&
+    left.type === right.type
   );
 }
 
