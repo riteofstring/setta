@@ -54,3 +54,14 @@ export type SceneGraphRenderSnapshotDiff = {
   edgeCountDelta: number;
   isEmpty: boolean;
 };
+
+export type SceneGraphResourceCacheStats = {
+  sectionCacheSize: number;
+  edgeCacheSize: number;
+  sectionCacheCapacity: number;
+  edgeCacheCapacity: number;
+  sectionEvictions: number;
+  edgeEvictions: number;
+  totalEvictions: number;
+  pressure: number;
+};

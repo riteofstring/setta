@@ -4,12 +4,37 @@ import type {
   SceneGraphFrameState,
   SceneGraphRenderSnapshot,
   SceneGraphRenderSnapshotDiff,
+  SceneGraphResourceCacheStats,
 } from "sceneGraphRenderer/types";
 import type { RendererBackend } from "./RendererBackend";
+
+const DEFAULT_SECTION_CACHE_CAPACITY = 2048;
+const DEFAULT_EDGE_CACHE_CAPACITY = 4096;
 
 export abstract class CanvasSceneBackendBase implements RendererBackend {
   private canvas: HTMLCanvasElement | null = null;
   private context: CanvasRenderingContext2D | null = null;
+  private readonly sectionResourceCache = new Map<string, number>();
+  private readonly edgeResourceCache = new Map<string, number>();
+  private cacheTouchCounter = 0;
+  private sectionEvictionCount = 0;
+  private edgeEvictionCount = 0;
+  private readonly sectionCacheCapacity: number;
+  private readonly edgeCacheCapacity: number;
+
+  protected constructor(cacheConfig?: {
+    sectionCacheCapacity?: number;
+    edgeCacheCapacity?: number;
+  }) {
+    this.sectionCacheCapacity = sanitizeCacheCapacity(
+      cacheConfig?.sectionCacheCapacity,
+      DEFAULT_SECTION_CACHE_CAPACITY,
+    );
+    this.edgeCacheCapacity = sanitizeCacheCapacity(
+      cacheConfig?.edgeCacheCapacity,
+      DEFAULT_EDGE_CACHE_CAPACITY,
+    );
+  }
 
   init(
     canvas: HTMLCanvasElement,
@@ -23,7 +48,24 @@ export abstract class CanvasSceneBackendBase implements RendererBackend {
     this.context = context;
   }
 
-  updateResources(_diff: SceneGraphRenderSnapshotDiff): void {}
+  updateResources(diff: SceneGraphRenderSnapshotDiff): void {
+    touchResourceIds(this.sectionResourceCache, diff.addedSectionIds, this);
+    touchResourceIds(this.sectionResourceCache, diff.changedSectionIds, this);
+    touchResourceIds(this.edgeResourceCache, diff.addedEdgeIds, this);
+    touchResourceIds(this.edgeResourceCache, diff.changedEdgeIds, this);
+
+    deleteResourceIds(this.sectionResourceCache, diff.removedSectionIds);
+    deleteResourceIds(this.edgeResourceCache, diff.removedEdgeIds);
+
+    this.sectionEvictionCount += evictOverflow(
+      this.sectionResourceCache,
+      this.sectionCacheCapacity,
+    );
+    this.edgeEvictionCount += evictOverflow(
+      this.edgeResourceCache,
+      this.edgeCacheCapacity,
+    );
+  }
 
   render(
     snapshot: SceneGraphRenderSnapshot,
@@ -59,11 +101,95 @@ export abstract class CanvasSceneBackendBase implements RendererBackend {
       this.context.setTransform(1, 0, 0, 1, 0, 0);
       this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
+    this.sectionResourceCache.clear();
+    this.edgeResourceCache.clear();
+    this.cacheTouchCounter = 0;
+    this.sectionEvictionCount = 0;
+    this.edgeEvictionCount = 0;
     this.canvas = null;
     this.context = null;
   }
 
+  getResourceCacheStats(): SceneGraphResourceCacheStats {
+    const sectionPressure = computePressure(
+      this.sectionResourceCache.size,
+      this.sectionCacheCapacity,
+    );
+    const edgePressure = computePressure(
+      this.edgeResourceCache.size,
+      this.edgeCacheCapacity,
+    );
+    return {
+      sectionCacheSize: this.sectionResourceCache.size,
+      edgeCacheSize: this.edgeResourceCache.size,
+      sectionCacheCapacity: this.sectionCacheCapacity,
+      edgeCacheCapacity: this.edgeCacheCapacity,
+      sectionEvictions: this.sectionEvictionCount,
+      edgeEvictions: this.edgeEvictionCount,
+      totalEvictions: this.sectionEvictionCount + this.edgeEvictionCount,
+      pressure: Math.max(sectionPressure, edgePressure),
+    };
+  }
+
+  nextCacheTouch(): number {
+    this.cacheTouchCounter += 1;
+    return this.cacheTouchCounter;
+  }
+
   protected abstract getDebugLabel(): string;
+}
+
+function sanitizeCacheCapacity(
+  capacity: number | undefined,
+  fallbackCapacity: number,
+): number {
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    return fallbackCapacity;
+  }
+  return capacity;
+}
+
+function touchResourceIds(
+  cache: Map<string, number>,
+  resourceIds: string[],
+  backend: CanvasSceneBackendBase,
+) {
+  for (const resourceId of resourceIds) {
+    cache.set(resourceId, backend.nextCacheTouch());
+  }
+}
+
+function deleteResourceIds(cache: Map<string, number>, resourceIds: string[]) {
+  for (const resourceId of resourceIds) {
+    cache.delete(resourceId);
+  }
+}
+
+function evictOverflow(cache: Map<string, number>, maxSize: number): number {
+  let evictionCount = 0;
+  while (cache.size > maxSize) {
+    let oldestResourceId: string | null = null;
+    let oldestTouch = Number.POSITIVE_INFINITY;
+    for (const [resourceId, touch] of cache.entries()) {
+      if (touch < oldestTouch) {
+        oldestTouch = touch;
+        oldestResourceId = resourceId;
+      }
+    }
+    if (!oldestResourceId) {
+      break;
+    }
+    cache.delete(oldestResourceId);
+    evictionCount += 1;
+  }
+  return evictionCount;
+}
+
+function computePressure(size: number, capacity: number): number {
+  if (capacity <= 0) {
+    return 0;
+  }
+  return Number((size / capacity).toFixed(4));
 }
 
 function resizeCanvas(

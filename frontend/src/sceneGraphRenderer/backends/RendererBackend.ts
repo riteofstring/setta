@@ -4,6 +4,7 @@ import type {
   SceneGraphFrameState,
   SceneGraphRenderSnapshot,
   SceneGraphRenderSnapshotDiff,
+  SceneGraphResourceCacheStats,
 } from "sceneGraphRenderer/types";
 
 export interface RendererBackend {
@@ -17,5 +18,6 @@ export interface RendererBackend {
     camera: SceneGraphCamera,
     frameState: SceneGraphFrameState,
   ) => void;
+  getResourceCacheStats: () => SceneGraphResourceCacheStats;
   dispose: () => void;
 }

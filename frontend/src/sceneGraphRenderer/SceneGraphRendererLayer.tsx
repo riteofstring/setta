@@ -8,10 +8,14 @@ import {
 } from "state/definitions";
 import { createRendererBackend } from "./backendFactory";
 import {
-  buildSceneGraphRenderSnapshot,
-  buildSceneGraphRenderSnapshotDiff,
   createEmptySceneGraphRenderSnapshot,
+  type SceneGraphSnapshotBuildInput,
 } from "./snapshot";
+import { SceneGraphSnapshotPipeline } from "./snapshotPipeline";
+import type {
+  SceneGraphRenderSnapshot,
+  SceneGraphResourceCacheStats,
+} from "./types";
 import type { SceneGraphRendererRuntimeState } from "./useSceneGraphRendererRuntime";
 
 type SceneGraphRendererLayerProps = {
@@ -26,9 +30,42 @@ type SceneGraphHoverState = {
   edgeId: string | null;
 };
 
+type SceneGraphPipelineInstrumentation = {
+  mode: "worker" | "main-thread";
+  snapshotBuildMs: number;
+  snapshotDiffMs: number;
+  snapshotTotalMs: number;
+  updateResourcesMs: number;
+  pendingRequestCount: number;
+  staleResponseCount: number;
+  resourceCacheStats: SceneGraphResourceCacheStats;
+};
+
 const EMPTY_HOVER_STATE: SceneGraphHoverState = {
   sectionId: null,
   edgeId: null,
+};
+
+const EMPTY_RESOURCE_CACHE_STATS: SceneGraphResourceCacheStats = {
+  sectionCacheSize: 0,
+  edgeCacheSize: 0,
+  sectionCacheCapacity: 0,
+  edgeCacheCapacity: 0,
+  sectionEvictions: 0,
+  edgeEvictions: 0,
+  totalEvictions: 0,
+  pressure: 0,
+};
+
+const EMPTY_PIPELINE_INSTRUMENTATION: SceneGraphPipelineInstrumentation = {
+  mode: "main-thread",
+  snapshotBuildMs: 0,
+  snapshotDiffMs: 0,
+  snapshotTotalMs: 0,
+  updateResourcesMs: 0,
+  pendingRequestCount: 0,
+  staleResponseCount: 0,
+  resourceCacheStats: EMPTY_RESOURCE_CACHE_STATS,
 };
 
 export function SceneGraphRendererLayer({
@@ -44,8 +81,16 @@ export function SceneGraphRendererLayer({
   const previousSnapshotRef = useRef(createEmptySceneGraphRenderSnapshot());
   const frameNumberRef = useRef(0);
   const hoverStateRef = useRef<SceneGraphHoverState>(EMPTY_HOVER_STATE);
+  const snapshotPipelineRef = useRef<SceneGraphSnapshotPipeline | null>(null);
+  const latestBuildRequestIdRef = useRef(0);
+  const staleBuildResponseCountRef = useRef(0);
   const [hoverState, setHoverState] =
     useState<SceneGraphHoverState>(EMPTY_HOVER_STATE);
+  const [snapshot, setSnapshot] = useState<SceneGraphRenderSnapshot>(() =>
+    createEmptySceneGraphRenderSnapshot(),
+  );
+  const [pipelineInstrumentation, setPipelineInstrumentation] =
+    useState<SceneGraphPipelineInstrumentation>(EMPTY_PIPELINE_INSTRUMENTATION);
   const nodesById = useNodeInternals((state) => state.x);
   const edgeHandlePositions = useEdgeHandleRegistry((state) => state.positions);
   const { edges, sectionVariantMap, activeIds } = useProjectState(
@@ -58,8 +103,8 @@ export function SceneGraphRendererLayer({
   );
   const transform = useReactFlow((state) => state.transform);
 
-  const snapshot = useMemo(() => {
-    return buildSceneGraphRenderSnapshot({
+  const snapshotBuildInput = useMemo<SceneGraphSnapshotBuildInput>(() => {
+    return {
       nodesById,
       edges,
       sectionVariantMap,
@@ -67,7 +112,7 @@ export function SceneGraphRendererLayer({
       activeSectionIds: activeIds,
       hoveredSectionId: hoverState.sectionId,
       hoveredEdgeId: hoverState.edgeId,
-    });
+    };
   }, [
     activeIds,
     edgeHandlePositions,
@@ -77,6 +122,21 @@ export function SceneGraphRendererLayer({
     nodesById,
     sectionVariantMap,
   ]);
+
+  useEffect(() => {
+    const pipeline = new SceneGraphSnapshotPipeline();
+    snapshotPipelineRef.current = pipeline;
+    setPipelineInstrumentation((current) => {
+      return {
+        ...current,
+        mode: pipeline.getMode(),
+      };
+    });
+    return () => {
+      pipeline.dispose();
+      snapshotPipelineRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -141,6 +201,15 @@ export function SceneGraphRendererLayer({
     backendRef.current = backend;
     previousSnapshotRef.current = createEmptySceneGraphRenderSnapshot();
     frameNumberRef.current = 0;
+    latestBuildRequestIdRef.current = 0;
+    staleBuildResponseCountRef.current = 0;
+    setSnapshot(createEmptySceneGraphRenderSnapshot());
+    setPipelineInstrumentation((current) => {
+      return {
+        ...EMPTY_PIPELINE_INSTRUMENTATION,
+        mode: current.mode,
+      };
+    });
 
     return () => {
       backend.dispose();
@@ -151,13 +220,70 @@ export function SceneGraphRendererLayer({
 
   useEffect(() => {
     const backend = backendRef.current;
-    if (!backend) {
+    const snapshotPipeline = snapshotPipelineRef.current;
+    if (!backend || !snapshotPipeline) {
       return;
     }
 
+    latestBuildRequestIdRef.current += 1;
+    const requestId = latestBuildRequestIdRef.current;
     const previousSnapshot = previousSnapshotRef.current;
-    const diff = buildSceneGraphRenderSnapshotDiff(previousSnapshot, snapshot);
-    backend.updateResources(diff);
+    let cancelled = false;
+
+    const buildSnapshot = async () => {
+      const buildResult = await snapshotPipeline.build({
+        previousSnapshot,
+        input: snapshotBuildInput,
+      });
+      if (cancelled) {
+        return;
+      }
+
+      if (requestId !== latestBuildRequestIdRef.current) {
+        staleBuildResponseCountRef.current += 1;
+        setPipelineInstrumentation((current) => {
+          return {
+            ...current,
+            pendingRequestCount: snapshotPipeline.getPendingRequestCount(),
+            staleResponseCount: staleBuildResponseCountRef.current,
+          };
+        });
+        return;
+      }
+
+      const updateResourcesStart = getNowMs();
+      backend.updateResources(buildResult.diff);
+      const updateResourcesMs = toMs(getNowMs() - updateResourcesStart);
+      const resourceCacheStats = backend.getResourceCacheStats();
+
+      previousSnapshotRef.current = buildResult.snapshot;
+      setSnapshot(buildResult.snapshot);
+      setPipelineInstrumentation({
+        mode: buildResult.metrics.mode,
+        snapshotBuildMs: buildResult.metrics.buildMs,
+        snapshotDiffMs: buildResult.metrics.diffMs,
+        snapshotTotalMs: buildResult.metrics.totalMs,
+        updateResourcesMs,
+        pendingRequestCount: snapshotPipeline.getPendingRequestCount(),
+        staleResponseCount: staleBuildResponseCountRef.current,
+        resourceCacheStats,
+      });
+    };
+
+    void buildSnapshot().catch(() => {
+      // A backend swap/dispose can race in-flight worker responses; stale requests are ignored.
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runtime.selection.resolvedBackend, snapshotBuildInput]);
+
+  useEffect(() => {
+    const backend = backendRef.current;
+    if (!backend) {
+      return;
+    }
 
     frameNumberRef.current += 1;
     backend.render(
@@ -186,7 +312,6 @@ export function SceneGraphRendererLayer({
         debugOverlay: runtime.flags.debugOverlay,
       },
     );
-    previousSnapshotRef.current = snapshot;
   }, [
     darkMode,
     runtime.flags.debugOverlay,
@@ -235,6 +360,51 @@ export function SceneGraphRendererLayer({
       data-scene-graph-layer-camera-x={String(transform[0])}
       data-scene-graph-layer-camera-y={String(transform[1])}
       data-scene-graph-layer-camera-zoom={String(transform[2])}
+      data-scene-graph-layer-snapshot-pipeline-mode={
+        pipelineInstrumentation.mode
+      }
+      data-scene-graph-layer-snapshot-build-ms={String(
+        pipelineInstrumentation.snapshotBuildMs,
+      )}
+      data-scene-graph-layer-snapshot-diff-ms={String(
+        pipelineInstrumentation.snapshotDiffMs,
+      )}
+      data-scene-graph-layer-snapshot-total-ms={String(
+        pipelineInstrumentation.snapshotTotalMs,
+      )}
+      data-scene-graph-layer-update-resources-ms={String(
+        pipelineInstrumentation.updateResourcesMs,
+      )}
+      data-scene-graph-layer-pending-build-requests={String(
+        pipelineInstrumentation.pendingRequestCount,
+      )}
+      data-scene-graph-layer-stale-build-responses={String(
+        pipelineInstrumentation.staleResponseCount,
+      )}
+      data-scene-graph-layer-section-cache-size={String(
+        pipelineInstrumentation.resourceCacheStats.sectionCacheSize,
+      )}
+      data-scene-graph-layer-section-cache-capacity={String(
+        pipelineInstrumentation.resourceCacheStats.sectionCacheCapacity,
+      )}
+      data-scene-graph-layer-edge-cache-size={String(
+        pipelineInstrumentation.resourceCacheStats.edgeCacheSize,
+      )}
+      data-scene-graph-layer-edge-cache-capacity={String(
+        pipelineInstrumentation.resourceCacheStats.edgeCacheCapacity,
+      )}
+      data-scene-graph-layer-section-cache-evictions={String(
+        pipelineInstrumentation.resourceCacheStats.sectionEvictions,
+      )}
+      data-scene-graph-layer-edge-cache-evictions={String(
+        pipelineInstrumentation.resourceCacheStats.edgeEvictions,
+      )}
+      data-scene-graph-layer-total-cache-evictions={String(
+        pipelineInstrumentation.resourceCacheStats.totalEvictions,
+      )}
+      data-scene-graph-layer-buffer-pressure={String(
+        pipelineInstrumentation.resourceCacheStats.pressure,
+      )}
     />
   );
 }
@@ -258,4 +428,15 @@ function readHoveredEdgeId(target: Element): string | null {
     return null;
   }
   return edgePath.id && edgePath.id.length > 0 ? edgePath.id : null;
+}
+
+function getNowMs(): number {
+  if (typeof performance === "undefined") {
+    return Date.now();
+  }
+  return performance.now();
+}
+
+function toMs(value: number): number {
+  return Number(value.toFixed(3));
 }

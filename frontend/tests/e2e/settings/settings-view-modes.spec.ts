@@ -169,6 +169,57 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
       cameraZoom: Number(
         layer.getAttribute("data-scene-graph-layer-camera-zoom") ?? "0",
       ),
+      snapshotPipelineMode:
+        layer.getAttribute("data-scene-graph-layer-snapshot-pipeline-mode") ??
+        "",
+      snapshotBuildMs: Number(
+        layer.getAttribute("data-scene-graph-layer-snapshot-build-ms") ?? "0",
+      ),
+      snapshotDiffMs: Number(
+        layer.getAttribute("data-scene-graph-layer-snapshot-diff-ms") ?? "0",
+      ),
+      snapshotTotalMs: Number(
+        layer.getAttribute("data-scene-graph-layer-snapshot-total-ms") ?? "0",
+      ),
+      updateResourcesMs: Number(
+        layer.getAttribute("data-scene-graph-layer-update-resources-ms") ?? "0",
+      ),
+      pendingBuildRequests: Number(
+        layer.getAttribute("data-scene-graph-layer-pending-build-requests") ??
+          "0",
+      ),
+      staleBuildResponses: Number(
+        layer.getAttribute("data-scene-graph-layer-stale-build-responses") ??
+          "0",
+      ),
+      sectionCacheSize: Number(
+        layer.getAttribute("data-scene-graph-layer-section-cache-size") ?? "0",
+      ),
+      sectionCacheCapacity: Number(
+        layer.getAttribute("data-scene-graph-layer-section-cache-capacity") ??
+          "0",
+      ),
+      edgeCacheSize: Number(
+        layer.getAttribute("data-scene-graph-layer-edge-cache-size") ?? "0",
+      ),
+      edgeCacheCapacity: Number(
+        layer.getAttribute("data-scene-graph-layer-edge-cache-capacity") ?? "0",
+      ),
+      sectionCacheEvictions: Number(
+        layer.getAttribute("data-scene-graph-layer-section-cache-evictions") ??
+          "0",
+      ),
+      edgeCacheEvictions: Number(
+        layer.getAttribute("data-scene-graph-layer-edge-cache-evictions") ??
+          "0",
+      ),
+      totalCacheEvictions: Number(
+        layer.getAttribute("data-scene-graph-layer-total-cache-evictions") ??
+          "0",
+      ),
+      bufferPressure: Number(
+        layer.getAttribute("data-scene-graph-layer-buffer-pressure") ?? "0",
+      ),
     };
   });
 
@@ -180,6 +231,24 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
     expect(layerState.activeSections).toBeGreaterThanOrEqual(0);
     expect(layerState.selectedEdges).toBeGreaterThanOrEqual(0);
     expect(layerState.cameraZoom).toBeGreaterThan(0);
+    expect(["worker", "main-thread"]).toContain(
+      layerState.snapshotPipelineMode,
+    );
+    expect(layerState.snapshotBuildMs).toBeGreaterThanOrEqual(0);
+    expect(layerState.snapshotDiffMs).toBeGreaterThanOrEqual(0);
+    expect(layerState.snapshotTotalMs).toBeGreaterThanOrEqual(0);
+    expect(layerState.updateResourcesMs).toBeGreaterThanOrEqual(0);
+    expect(layerState.pendingBuildRequests).toBeGreaterThanOrEqual(0);
+    expect(layerState.staleBuildResponses).toBeGreaterThanOrEqual(0);
+    expect(layerState.sectionCacheCapacity).toBeGreaterThan(0);
+    expect(layerState.edgeCacheCapacity).toBeGreaterThan(0);
+    expect(layerState.sectionCacheSize).toBeGreaterThanOrEqual(0);
+    expect(layerState.edgeCacheSize).toBeGreaterThanOrEqual(0);
+    expect(layerState.sectionCacheEvictions).toBeGreaterThanOrEqual(0);
+    expect(layerState.edgeCacheEvictions).toBeGreaterThanOrEqual(0);
+    expect(layerState.totalCacheEvictions).toBeGreaterThanOrEqual(0);
+    expect(layerState.bufferPressure).toBeGreaterThanOrEqual(0);
+    expect(layerState.bufferPressure).toBeLessThanOrEqual(1);
 
     let zoomBefore = layerState.cameraZoom;
     let firstNode = page.locator(".react-flow__node").first();
