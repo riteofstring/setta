@@ -1,5 +1,4 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
-import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -7,6 +6,7 @@ import {
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
@@ -77,7 +77,7 @@ export function SectionContainerCoreResizable({
       hasEmbeddedTerminal:
         embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
     };
-  }, _.isEqual);
+  }, shallow);
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
