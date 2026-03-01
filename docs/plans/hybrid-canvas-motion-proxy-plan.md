@@ -241,6 +241,22 @@
   - Treat viewport layer split as an experimental hook only.
   - Prioritize larger architectural motion wins (hybrid proxy redesign or equivalent) instead of further incremental tuning on this path.
 
+### Phase 0.5 Status Update (2026-03-03, Transform Fanout RAF-Throttle Spike)
+- A transform-update fanout reduction spike was implemented and benchmarked:
+  - throttled `reactFlow.transform` commits to one RAF per frame in `ZoomPane`,
+  - explicit end-of-interaction transform flush,
+  - deterministic A/B via localStorage experiment flag.
+- Result: **not kept** and fully rolled back.
+  - Playwright A/B stayed near parity for throughput, but stop-hitch regressed materially:
+    - control stop p95 around `8.3-8.6ms`,
+    - experiment stop p95 around `27.4-29.4ms`.
+  - CDP supplementary A/B confirmed the same direction (`~7.5ms` stop p95 control vs `~24.5ms` experiment).
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-transform-update-fanout-raf-throttle-spike.md`
+- Updated direction:
+  - Reject RAF-throttled transform commits for motion path due no-hitch requirement failure.
+  - Continue non-pan and motion investigations using approaches that do not defer final interaction work into stop frames.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
