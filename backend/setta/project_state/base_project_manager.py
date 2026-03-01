@@ -2949,14 +2949,49 @@ class BaseProjectManager(ABC):
                 await code_entry.type_check()
 
     @staticmethod
-    def _did_set_callable_update_section(
-        response: SetCallableResponse,
-        prev_callable_id: ID | None,
-    ) -> bool:
-        return (
-            response.lspStatus != SignatureHelpStatus.SKIPPED
-            or response.callableId != prev_callable_id
+    def _build_callable_refetch_snapshot(
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> tuple[
+        dict[str, Any],
+        list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]],
+    ]:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            CallableSectionImpl,
         )
+        section_snapshot = section_impl.model_dump(mode="json")
+        code_obj_snapshots: list[
+            tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]
+        ] = []
+        for code_obj_id in sorted(section_impl.codeObjVariantMap.keys()):
+            variant_id = section_impl.codeObjVariantMap[code_obj_id]
+            if code_obj_id not in project_state.codeObjs:
+                raise KeyError(
+                    f"Missing code object {code_obj_id} for section {section_id}."
+                )
+            if variant_id not in project_state.codeObjVariants:
+                raise KeyError(
+                    f"Missing code object variant {variant_id} for section {section_id}."
+                )
+            code_obj = project_state.codeObjs[code_obj_id]
+            code_obj_variant = project_state.codeObjVariants[variant_id]
+            impl_id = code_obj_variant.impl
+            if impl_id not in project_state.codeObjImpls:
+                raise KeyError(
+                    f"Missing code object impl {impl_id} for section {section_id}."
+                )
+            code_obj_impl = project_state.codeObjImpls[impl_id]
+            code_obj_snapshots.append(
+                (
+                    str(code_obj_id),
+                    code_obj.model_dump(mode="json"),
+                    code_obj_variant.model_dump(mode="json"),
+                    code_obj_impl.model_dump(mode="json"),
+                )
+            )
+        return section_snapshot, code_obj_snapshots
 
     @staticmethod
     def _collect_set_callable_code_obj_patch_ids(
@@ -2979,8 +3014,6 @@ class BaseProjectManager(ABC):
         self,
         projectConfigId: ID,
         sectionIds: set[ID],
-        *,
-        coalesce_key_prefix: str,
     ) -> None:
         if not sectionIds:
             return
@@ -3004,58 +3037,6 @@ class BaseProjectManager(ABC):
         if not refetch_targets:
             return
         gen_code = self._require_python_codegen(projectConfigId)
-        should_add_history = any(
-            create_dep_key(sectionId=section_id) in gen_code.code_generator.lines
-            for section_id, _ in refetch_targets
-        )
-        on_before_mutation = None
-        if should_add_history:
-            refetch_section_ids = [section_id for section_id, _ in refetch_targets]
-            coalesce_key = (
-                f"{coalesce_key_prefix}:{projectConfigId}:"
-                f"{','.join(map(str, refetch_section_ids))}"
-            )
-            history_section_ids: set[ID] = set(refetch_section_ids)
-            history_code_obj_ids: set[ID] = set()
-            for section_id in refetch_section_ids:
-                section_impl = self._get_param_section_impl_for_backend(
-                    project_config_id=projectConfigId,
-                    section_id=section_id,
-                )
-                if not isinstance(section_impl, CallableSectionImpl):
-                    raise TypeError(
-                        f"Section {section_id} has unsupported callable history type {section_impl.type}."
-                    )
-                if section_impl.callable is None:
-                    raise KeyError(
-                        f"Section {section_id} has no callable root code obj."
-                    )
-                history_code_obj_ids.add(section_impl.callable)
-            history_section_ids.update(
-                self._get_codegen_singleton_section_ids_for_history_entry(
-                    projectConfigId
-                )
-            )
-            history_recorded = False
-
-            def record_history() -> None:
-                nonlocal history_recorded
-                if history_recorded:
-                    return
-                history_recorded = True
-                self.add_new_history_entry(
-                    coalesce_key=coalesce_key,
-                    coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-                    project_config_id=projectConfigId,
-                    section_impl_only_ids=(
-                        history_section_ids if history_section_ids else None
-                    ),
-                    code_obj_only_ids=(
-                        history_code_obj_ids if history_code_obj_ids else None
-                    ),
-                )
-
-            on_before_mutation = record_history
         settings = self.settings_file.settings
         did_update = False
         section_patch_ids: list[ID] = []
@@ -3063,6 +3044,10 @@ class BaseProjectManager(ABC):
         seen_section_patch_ids: set[ID] = set()
         seen_code_obj_patch_ids: set[ID] = set()
         for section_id, callable_name in refetch_targets:
+            before_snapshot = self._build_callable_refetch_snapshot(
+                project_state,
+                section_id,
+            )
             prev_callable = get_curr_section_callable_code_obj(
                 project_state, section_id
             )
@@ -3073,9 +3058,16 @@ class BaseProjectManager(ABC):
                 section_id,
                 callable_name,
                 True,
-                on_before_mutation=on_before_mutation,
             )
-            if not self._did_set_callable_update_section(response, prev_callable_id):
+            after_snapshot = self._build_callable_refetch_snapshot(
+                project_state,
+                section_id,
+            )
+            did_mutate = (
+                response.callableId != prev_callable_id
+                or before_snapshot != after_snapshot
+            )
+            if not did_mutate:
                 continue
             did_update = True
             if section_id not in seen_section_patch_ids:
@@ -3101,6 +3093,8 @@ class BaseProjectManager(ABC):
                 code_obj_ids=code_obj_patch_ids,
                 section_ids=section_patch_scope,
             )
+            if self.settings_file.settings.backend.autosave:
+                self.autosave_debouncer.trigger()
 
     @enqueue_method
     async def auto_refetch_callable_params(
@@ -3108,11 +3102,7 @@ class BaseProjectManager(ABC):
         projectConfigId: ID,
         sectionIds: set[ID],
     ) -> None:
-        await self._refetch_callable_params(
-            projectConfigId,
-            sectionIds,
-            coalesce_key_prefix="autoRefetchCallable",
-        )
+        await self._refetch_callable_params(projectConfigId, sectionIds)
 
     @enqueue_method
     async def auto_refetch_callable_params_on_lsp_mismatch(
@@ -3129,11 +3119,7 @@ class BaseProjectManager(ABC):
             projectConfigId,
             sorted(sectionIds),
         )
-        await self._refetch_callable_params(
-            projectConfigId,
-            sectionIds,
-            coalesce_key_prefix="autoRefetchCallableMismatch",
-        )
+        await self._refetch_callable_params(projectConfigId, sectionIds)
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):

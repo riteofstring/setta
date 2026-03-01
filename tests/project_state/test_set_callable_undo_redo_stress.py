@@ -85,6 +85,84 @@ async def test_set_callable_burst_undo_redo_requests_do_not_raise() -> None:
 
 
 @pytest.mark.asyncio
+async def test_set_callable_undo_redo_with_auto_refetch_keeps_callable_name() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        manager.settings_file.settings.backend.autoRefetchCallableParamsOnLspMismatch = (
+            True
+        )
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        project_config_id = project_state.projectConfig.id
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=640.0, y=160.0),
+            )
+        )
+        section_id = create_response.sectionId
+
+        # The frontend uses refetchParams=False for callable selection. Use the same
+        # flow, then trigger the background mismatch refetch callback path.
+        await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=10.0)
+
+        state_after_set = manager.get_single_config_state(project_config_id)
+        section_impl_after_set = get_curr_effective_section_impl_with_type_guard(
+            state_after_set,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_id_after_set = section_impl_after_set.callable
+        assert callable_id_after_set is not None
+        assert state_after_set.codeObjs[callable_id_after_set].name == "math.sqrt"
+        history_len_after_set = len(manager.history._history)
+
+        await manager.auto_refetch_callable_params_on_lsp_mismatch(
+            project_config_id,
+            {section_id},
+        )
+        await manager.finish_pending_operations(timeout=10.0)
+
+        # Auto-refetch is a background reconciliation step and must not consume a
+        # user-visible undo slot.
+        assert len(manager.history._history) == history_len_after_set
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_undo = manager.get_single_config_state(project_config_id)
+        section_impl_after_undo = get_curr_effective_section_impl_with_type_guard(
+            state_after_undo,
+            section_id,
+            CallableSectionImpl,
+        )
+        assert section_impl_after_undo.callable is None
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_redo = manager.get_single_config_state(project_config_id)
+        section_impl_after_redo = get_curr_effective_section_impl_with_type_guard(
+            state_after_redo,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_id_after_redo = section_impl_after_redo.callable
+        assert callable_id_after_redo is not None
+        assert state_after_redo.codeObjs[callable_id_after_redo].name == "math.sqrt"
+
+
+@pytest.mark.asyncio
 async def test_mixed_mutation_bursts_keep_undo_redo_stable() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
