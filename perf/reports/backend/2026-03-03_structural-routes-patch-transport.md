@@ -264,3 +264,74 @@ Method:
 - Payload transport shrank by roughly `86-90%` for both converted routes.
 - Local latency remains mixed; these flows include structural mutations (section
   create/delete of codegen singleton sections) that can dominate wall time.
+
+---
+
+## Addendum: Rename acceptance patch transport (2026-03-03)
+
+### Goal
+
+Convert `accept_rename_refactor` from full snapshot transport to targeted patch
+transport.
+
+### Change
+
+- Added rename patch-scope extraction in `BaseProjectManager` via
+  `_collect_rename_result_patch_scope(...)`.
+- Converted `accept_rename_refactor` to
+  `_update_and_broadcast_code_obj_and_section_patches(...)` with:
+  - code-obj patch scope derived from rename dependency keys,
+  - section patch scope derived from touched sections (+ codegen singleton
+    expansion via existing helper).
+- Added `tests/project_state/test_rename_refactor_patch_transport.py` covering:
+  - no full snapshot broadcast,
+  - code-obj + section patch usage,
+  - name-validation broadcast parity,
+  - pending rename entry consumption and state update behavior.
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/base_project_manager.py tests/project_state/test_rename_refactor_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_rename_refactor_patch_transport.py tests/project_state/test_rename_refactor_broadcast.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_param_impl_patch_transport.py tests/project_state/test_set_param_entered_value_ux.py tests/project_state/test_ui_setting_reveal_leases.py tests/project_state/test_rename_refactor_patch_transport.py`
+
+### Benchmark scenario
+
+Synthetic callable state (`1000` params), autosave disabled.
+
+Route benchmarked:
+
+- `accept_rename_refactor`
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch
+  `_update_and_broadcast_code_obj_and_section_patches(...)` to call
+  `update_and_broadcast_project_state(...)`.
+- `patched`: native behavior.
+2. `3` warmup + `12` measured iterations.
+3. Each iteration seeds a pending rename entry for `section-1` callable name,
+   then calls `accept_rename_refactor`.
+4. Metrics:
+- ACK latency (`route(...)` + `finish_pending_operations(...)`)
+- websocket payload bytes from project-state transport message types:
+  - `UpdateFrontendProjectState`
+  - `PatchFrontendProjectStateProjectConfig`
+  - `PatchFrontendProjectStateSectionImpl`
+  - `PatchFrontendProjectStateCodeObjs`
+  - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `accept_rename_refactor` | latency median | 163.6664 ms | 164.8075 ms | -0.70% |
+| `accept_rename_refactor` | latency p95 | 264.3987 ms | 260.5715 ms | +1.45% faster |
+| `accept_rename_refactor` | payload median | 759,281.0 B | 13,372.0 B | -98.24% |
+| `accept_rename_refactor` | payload p95 | 759,282.0 B | 13,373.0 B | -98.24% |
+
+### Notes
+
+- Payload reduction is very large (`~98%`) for rename acceptance.
+- Local latency remained near-flat while transport overhead dropped sharply.

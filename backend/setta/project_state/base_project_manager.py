@@ -4737,6 +4737,44 @@ class BaseProjectManager(ABC):
                     )
                 project_state.codeObjs[callable_code_obj.id].name = new_value
 
+    def _collect_rename_result_patch_scope(
+        self,
+        project_state: ProjectStateSingleConfig,
+        changed_values: list[RenameReferenceChangedValue],
+    ) -> tuple[list[ID], list[ID]]:
+        code_obj_ids: list[ID] = []
+        section_ids: list[ID] = []
+        seen_code_obj_ids: set[ID] = set()
+        seen_section_ids: set[ID] = set()
+        for changed in changed_values:
+            dep_key = changed.depKey
+            if isinstance(dep_key, SectionParamDependencyKey):
+                if dep_key.codeObjId not in seen_code_obj_ids:
+                    seen_code_obj_ids.add(dep_key.codeObjId)
+                    code_obj_ids.append(dep_key.codeObjId)
+                if dep_key.sectionId not in seen_section_ids:
+                    seen_section_ids.add(dep_key.sectionId)
+                    section_ids.append(dep_key.sectionId)
+                continue
+            if isinstance(dep_key, SectionDependencyKey):
+                if dep_key.sectionId not in seen_section_ids:
+                    seen_section_ids.add(dep_key.sectionId)
+                    section_ids.append(dep_key.sectionId)
+                callable_code_obj = get_curr_section_callable_code_obj(
+                    project_state, dep_key.sectionId
+                )
+                if callable_code_obj is None:
+                    raise KeyError(
+                        f"Expected callable code object for section {dep_key.sectionId}"
+                    )
+                if callable_code_obj.id in seen_code_obj_ids:
+                    continue
+                seen_code_obj_ids.add(callable_code_obj.id)
+                code_obj_ids.append(callable_code_obj.id)
+                continue
+            raise TypeError(f"Unsupported dependency key type: {dep_key.type}")
+        return code_obj_ids, section_ids
+
     async def maybe_do_rename_refactor(
         self,
         project_state: ProjectStateSingleConfig,
@@ -4798,8 +4836,19 @@ class BaseProjectManager(ABC):
             )
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_rename_result_auto_mode(project_state, pending_values)
+        code_obj_patch_scope, section_patch_ids = (
+            self._collect_rename_result_patch_scope(project_state, pending_values)
+        )
         self.pending_rename_results.pop(frontend_op_id, None)
-        await self.update_and_broadcast_project_state(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=section_patch_ids,
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=code_obj_patch_scope,
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     async def decline_rename_refactor(self, x: DeclineRenameRefactorRequest):
