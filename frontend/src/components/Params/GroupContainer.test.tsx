@@ -198,6 +198,8 @@ describe("ParamGroupContainer layout", () => {
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
+    // UX guardrail: unlocked unpinned params keep their policy min-height.
+    expect(markup).toContain("min-height");
     expect(markup).toContain("section-row-pin-main");
   });
 });
