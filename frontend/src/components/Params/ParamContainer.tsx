@@ -20,7 +20,6 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   children,
   onResizeStart,
-  isKwarg,
   isNestedParam,
   hasSectionStyleTheme,
   isTopLevelWithPad,
@@ -81,60 +80,50 @@ function _ParamContainer({
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+  const nestedChildrenClassName =
+    "section-args-nested section-key-value relative grid gap-y-1 before:absolute before:bottom-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
   return !isNestedParam ? (
-    <>
-      <article
-        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
-        style={{
-          gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-          ...(dndStyle ?? {}),
-        }}
-        data-param-row="true"
-        {...getFloatingBoxHandlers(...tooltipContentArray)}
-        onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-        onClick={onClick}
-        ref={dndRef}
-        {...(dndAttributes ?? {})}
-        {...(dndListeners ?? {})}
-        tabIndex={-1}
-        role={undefined}
-      >
-        {!isKwarg ? (
-          <div
-            className="section-key overflow-hidden"
-            style={{ width: columnWidth }}
-          >
-            {children}
-          </div>
-        ) : (
-          <>{children}</>
-        )}
-        <ParamInput
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          maybeErrorMessage={errorMessage}
-        />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {hasError && (
-          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-        )}
-        {hasTempChild && (
-          <div className="section-args-nested section-key-value relative grid gap-y-1">
-            <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
-            <GetParamSwitch
-              sectionId={sectionId}
-              paramIds={renderChildren}
-              requiredParamIdsToPaths={requiredParamIdsToPaths}
-              onResizeStart={onResizeStart}
-              listKey={listKey}
-              hasSectionStyleTheme={hasSectionStyleTheme}
-            />
-          </div>
-        )}
-      </article>
-    </>
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...(dndStyle ?? {}),
+      }}
+      data-param-row="true"
+      {...getFloatingBoxHandlers(...tooltipContentArray)}
+      onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes ?? {})}
+      {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
+    >
+      {children}
+      <ParamInput
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        maybeErrorMessage={errorMessage}
+      />
+      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+      {hasError && (
+        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+      )}
+      {hasTempChild && (
+        <div className={nestedChildrenClassName}>
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
+      )}
+    </article>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
@@ -154,8 +143,7 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <div className="section-args-nested section-key-value relative grid gap-y-1">
-        <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+      <div className={nestedChildrenClassName}>
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={renderChildren}
