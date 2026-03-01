@@ -62,6 +62,35 @@ test("all settings DOM stays within flattening guardrails", async ({
     const switchRoots = Array.from(
       document.querySelectorAll("button.section-value.justify-self-start.self-center"),
     );
+    const legacyParamGroupOuterWrappers = Array.from(
+      document.querySelectorAll("div"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      if (
+        !classes.includes("section-row-pin-main") ||
+        !classes.includes("section-w-full") ||
+        !classes.includes("-mt-3") ||
+        !classes.includes("flex-col")
+      ) {
+        return false;
+      }
+      const onlyChild = el.children[0];
+      return (
+        el.children.length === 1 &&
+        onlyChild?.tagName === "DIV" &&
+        Array.from(onlyChild.classList).includes("section-args-nested")
+      );
+    });
+    const flattenedParamGroupHosts = Array.from(
+      document.querySelectorAll("div"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      return (
+        classes.includes("section-row-pin-main") &&
+        classes.includes("section-args-nested") &&
+        classes.includes("overflow-y-scroll")
+      );
+    });
 
     return {
       nodeCount: nodes.length,
@@ -161,6 +190,8 @@ test("all settings DOM stays within flattening guardrails", async ({
           el.children.length === 0 &&
           Array.from(el.classList).includes("before:block"),
       ).length,
+      legacyParamGroupOuterWrapperCount: legacyParamGroupOuterWrappers.length,
+      flattenedParamGroupHostCount: flattenedParamGroupHosts.length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -196,6 +227,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchThumbSpanCount).toBe(0);
   expect(metrics.flattenedSwitchThumbPseudoCount).toBeGreaterThan(0);
+  expect(metrics.legacyParamGroupOuterWrapperCount).toBe(0);
+  expect(metrics.flattenedParamGroupHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

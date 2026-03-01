@@ -455,6 +455,40 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `18` (`4.21%`)
   - Main-thread work: `Layout 52.47 ms`, `UpdateLayoutTree 24.62 ms`, `Paint 146.09 ms`, `PrePaint 18.85 ms`
 
+### Phase 13 (param-group outer-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Added a conditional wrapperless path for unpinned-only param groups (no spinner, no pinned area, no edge strip).
+  - Moved `section-row-pin-main` host classes onto the existing unpinned params container in that path and forwarded outer refs there.
+  - Extended guardrails to assert zero legacy param-group outer wrappers and positive flattened param-group hosts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4739` (down from `4781`, `-42`, `-0.9%` vs phase 12)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5835` (down from `5877`, `-42`)
+  - Per-node descendants: `avg 111.67`, `p95 201`, `max 863`
+  - Per-node max depth: `avg 7.5`, `p95 8`, `max 10`
+  - Legacy param-group outer wrappers: `0` (down from `42`)
+  - Flattened param-group hosts: `42`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13b.trace.json`
+- Notes on trace reliability:
+  - `phase13` showed a long/noisy interaction window.
+  - `phase13b` reduced long-task noise but still ran longer than phase 12; treat trace deltas as directional only.
+- Trace signals from lower-noise rerun (`phase13b`):
+  - Duration: `18,232.41 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `474` (`26.00/s`)
+  - `DrawFrame`: `230` (`12.62/s`)
+  - `DroppedFrame`: `25` (`5.27%`)
+  - Main-thread work: `Layout 92.37 ms`, `UpdateLayoutTree 21.18 ms`, `Paint 129.86 ms`, `PrePaint 21.12 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -464,15 +498,15 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, legacy switch-thumb span wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, legacy switch-thumb span wrappers, legacy param-group outer wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 4781` (`-3838`, `-44.5%`)
-  - Per-node descendants avg: `204.05 -> 112.67` (`-44.8%`)
-  - Per-node descendants max: `1854 -> 864` (`-53.4%`)
-  - Per-node depth avg/max: `12.74/17 -> 8.45/11`
+  - Viewport descendants: `8619 -> 4739` (`-3880`, `-45.0%`)
+  - Per-node descendants avg: `204.05 -> 111.67` (`-45.3%`)
+  - Per-node descendants max: `1854 -> 863` (`-53.5%`)
+  - Per-node depth avg/max: `12.74/17 -> 7.5/10`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
@@ -514,3 +548,7 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12b.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase13_fitview.png`
