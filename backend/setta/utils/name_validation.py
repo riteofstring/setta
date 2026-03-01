@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING
 from setta.code_gen.utils import sanitize_python_identifier, sanitize_slug
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl,
-    get_curr_effective_code_obj_impl_with_type_guard,
+    get_curr_effective_code_obj_impl_for_read,
+    get_curr_effective_code_obj_impl_for_read_with_type_guard,
     get_curr_effective_section_impl,
+    get_curr_effective_section_impl_for_read,
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
@@ -435,12 +436,35 @@ def _get_section_param_root_id(
     raise TypeError(f"Section {section_id} does not support params.")
 
 
-def _is_dict_param(
-    project_state: "ProjectStateSingleConfig",
-    section_id: "ID",
-) -> bool:
-    section_impl = get_curr_effective_section_impl(project_state, section_id)
-    return isinstance(section_impl, BaseDictSectionImpl)
+def _param_name_format_error_for_context(
+    normalized: str,
+    *,
+    code_obj_impl: BaseParamCodeObjImpl,
+    section_is_dict: bool,
+    is_dict_root_param: bool,
+    python_codegen_enabled: bool,
+) -> str | None:
+    if not normalized:
+        if code_obj_impl.coreNameEditable:
+            return None
+        if section_is_dict and is_dict_root_param:
+            return None
+        return "Param name cannot be empty."
+    if _contains_control_chars(normalized):
+        return "Param name cannot include control characters."
+    if not section_is_dict:
+        if "/" in normalized or "\\" in normalized:
+            return "Param name cannot include path separators."
+        if ".." in normalized:
+            return "Param name cannot include '..' path segments."
+        if normalized.lower() in PARAM_RESERVED_NAMES:
+            return f"Param name '{normalized}' is reserved."
+        if python_codegen_enabled:
+            if PYTHON_IDENTIFIER_REGEX.fullmatch(normalized) is None:
+                return "Param name must be a valid Python identifier."
+            if _is_python_keyword(normalized):
+                return "Param name cannot be a Python keyword."
+    return None
 
 
 def _param_name_format_error(
@@ -449,35 +473,22 @@ def _param_name_format_error(
     code_obj_id: "ID",
     normalized: str,
 ) -> str | None:
-    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+    code_obj_impl = get_curr_effective_code_obj_impl_for_read_with_type_guard(
         project_state, section_id, code_obj_id, BaseParamCodeObjImpl
     )
-    if not normalized:
-        if code_obj_impl.coreNameEditable:
-            return None
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if isinstance(section_impl, BaseDictSectionImpl):
-            if section_impl.topLevelParamId == code_obj_id:
-                return None
-        return "Param name cannot be empty."
-    if _contains_control_chars(normalized):
-        return "Param name cannot include control characters."
-    if not _is_dict_param(project_state, section_id):
-        if "/" in normalized or "\\" in normalized:
-            return "Param name cannot include path separators."
-        if ".." in normalized:
-            return "Param name cannot include '..' path segments."
-        if normalized.lower() in PARAM_RESERVED_NAMES:
-            return f"Param name '{normalized}' is reserved."
-        python_codegen_enabled = project_config_has_codegen_language(
-            project_state.projectConfig, ProjectCodegenLanguage.python
-        )
-        if python_codegen_enabled:
-            if PYTHON_IDENTIFIER_REGEX.fullmatch(normalized) is None:
-                return "Param name must be a valid Python identifier."
-            if _is_python_keyword(normalized):
-                return "Param name cannot be a Python keyword."
-    return None
+    section_impl = get_curr_effective_section_impl_for_read(project_state, section_id)
+    section_is_dict = isinstance(section_impl, BaseDictSectionImpl)
+    is_dict_root_param = section_is_dict and section_impl.topLevelParamId == code_obj_id
+    python_codegen_enabled = project_config_has_codegen_language(
+        project_state.projectConfig, ProjectCodegenLanguage.python
+    )
+    return _param_name_format_error_for_context(
+        normalized,
+        code_obj_impl=code_obj_impl,
+        section_is_dict=section_is_dict,
+        is_dict_root_param=is_dict_root_param,
+        python_codegen_enabled=python_codegen_enabled,
+    )
 
 
 def get_param_name_format_error(
@@ -668,6 +679,9 @@ def collect_param_name_errors(
 ) -> tuple[dict["ID", list[str]], dict["ID", list[str]]]:
     conflict_errors: dict["ID", list[str]] = {}
     format_errors: dict["ID", list[str]] = {}
+    python_codegen_enabled = project_config_has_codegen_language(
+        project_state.projectConfig, ProjectCodegenLanguage.python
+    )
 
     def add_conflict(param_id: "ID", message: str) -> None:
         conflict_errors.setdefault(param_id, []).append(message)
@@ -676,7 +690,9 @@ def collect_param_name_errors(
         format_errors.setdefault(param_id, []).append(message)
 
     for section_id in project_state.sections:
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        section_impl = get_curr_effective_section_impl_for_read(
+            project_state, section_id
+        )
         if isinstance(section_impl, BaseSectionWithParamsImpl):
             if (
                 isinstance(section_impl, CallableSectionImpl)
@@ -688,6 +704,10 @@ def collect_param_name_errors(
                 and section_impl.topLevelParamId is None
             ):
                 continue
+            section_is_dict = isinstance(section_impl, BaseDictSectionImpl)
+            dict_root_param_id = (
+                section_impl.topLevelParamId if section_is_dict else None
+            )
             _, _, children_map = _collect_param_hierarchy(
                 project_state, section_id, section_impl
             )
@@ -706,18 +726,22 @@ def collect_param_name_errors(
             for code_obj_id in section_impl.codeObjVariantMap:
                 if code_obj_id not in project_state.codeObjs:
                     raise KeyError(f"Missing code obj {code_obj_id} in project state.")
-                code_obj_impl = get_curr_effective_code_obj_impl(
+                code_obj_impl = get_curr_effective_code_obj_impl_for_read(
                     project_state,
                     section_id,
                     code_obj_id,
                 )
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
-                error = get_param_name_format_error(
-                    project_state,
-                    section_id,
-                    code_obj_id,
-                    project_state.codeObjs[code_obj_id].name,
+                normalized_name = _normalize_name(
+                    project_state.codeObjs[code_obj_id].name
+                )
+                error = _param_name_format_error_for_context(
+                    normalized_name,
+                    code_obj_impl=code_obj_impl,
+                    section_is_dict=section_is_dict,
+                    is_dict_root_param=(dict_root_param_id == code_obj_id),
+                    python_codegen_enabled=python_codegen_enabled,
                 )
                 if error:
                     add_format(code_obj_id, error)
@@ -734,18 +758,22 @@ def collect_param_name_errors(
             for code_obj_id in section_impl.codeObjVariantMap:
                 if code_obj_id not in project_state.codeObjs:
                     raise KeyError(f"Missing code obj {code_obj_id} in project state.")
-                code_obj_impl = get_curr_effective_code_obj_impl(
+                code_obj_impl = get_curr_effective_code_obj_impl_for_read(
                     project_state,
                     section_id,
                     code_obj_id,
                 )
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
-                error = get_param_name_format_error(
-                    project_state,
-                    section_id,
-                    code_obj_id,
-                    project_state.codeObjs[code_obj_id].name,
+                normalized_name = _normalize_name(
+                    project_state.codeObjs[code_obj_id].name
+                )
+                error = _param_name_format_error_for_context(
+                    normalized_name,
+                    code_obj_impl=code_obj_impl,
+                    section_is_dict=False,
+                    is_dict_root_param=False,
+                    python_codegen_enabled=python_codegen_enabled,
                 )
                 if error:
                     add_format(code_obj_id, error)

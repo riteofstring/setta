@@ -17,7 +17,6 @@ import _ from "lodash";
 import {
   type DragEventHandler,
   type ReactNode,
-  type RefObject,
   Suspense,
   lazy,
   useCallback,
@@ -306,7 +305,6 @@ function BrowserThumbnailContent({
 
 export function BrowserArea({ sectionId }: { sectionId: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const itemsColumnRef = useRef<HTMLDivElement | null>(null);
   const { width, hideColumn, viewMode, folder, savedSearches, isFrozen } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -347,7 +345,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
   const typesColumnWidth = "var(--browser-types-column-width, 220px)";
   const handleFilesColumnResizeStart = useBrowserColumnWidth({
     sectionId,
-    outerRef: itemsColumnRef,
+    outerRef: containerRef,
     widthKey: "columnWidth",
     cssVarName: "--browser-column-width",
     getBoundedWidth: (width, containerWidth) =>
@@ -388,7 +386,6 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
         sectionId={sectionId}
         viewMode={viewMode}
         folder={folder}
-        itemsColumnRef={itemsColumnRef}
         filesColumnWidth={filesColumnWidth}
         onFilesColumnResizeStart={handleFilesColumnResizeStart}
         savedSearches={savedSearches}
@@ -1100,7 +1097,6 @@ function ItemsColumn({
   sectionId,
   viewMode,
   folder,
-  itemsColumnRef,
   filesColumnWidth,
   onFilesColumnResizeStart,
   savedSearches,
@@ -1109,7 +1105,6 @@ function ItemsColumn({
   sectionId: string;
   viewMode: BrowserAreaViewMode;
   folder: string;
-  itemsColumnRef: RefObject<HTMLDivElement | null>;
   filesColumnWidth: string;
   onFilesColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   savedSearches: BrowserSavedSearch[];
@@ -2151,10 +2146,7 @@ function ItemsColumn({
   );
 
   return (
-    <div
-      ref={itemsColumnRef}
-      className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col"
-    >
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
       <div className="-mt-[4.5px] mb-1 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <FolderHistoryControls

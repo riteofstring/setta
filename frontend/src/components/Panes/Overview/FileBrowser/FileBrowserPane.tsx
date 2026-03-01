@@ -1569,7 +1569,6 @@ export function FileBrowserPane({
         }}
       >
         <div
-          data-testid="file-browser-list-header"
           className="group box-border grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
@@ -1605,21 +1604,20 @@ export function FileBrowserPane({
               )}
             </button>
             <div
-              data-testid="file-browser-list-column-resize-handle"
               className="group/resize nopan nodrag pointer-events-none absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
               onMouseDown={handleResizeStart}
             >
               <div className="h-4 w-1.5 rounded-full bg-setta-400/90 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/resize:bg-blue-400" />
             </div>
           </div>
-          <div className="flex items-center justify-start pl-3">
+          <div className="flex items-center justify-end pl-3">
             <button
               type="button"
-              className="flex w-full min-w-0 items-center justify-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="flex w-full min-w-0 items-center justify-end gap-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
               onClick={() => handleSort("modified")}
               aria-label={`Sort by date modified (${dateSortDirection === "asc" ? "oldest to newest" : "newest to oldest"})`}
             >
-              <span className="min-w-0 truncate text-left">Date modified</span>
+              <span className="min-w-0 truncate text-right">Date modified</span>
               {dateSortDirection === "asc" ? (
                 <HiChevronUp
                   className={
@@ -1958,7 +1956,7 @@ function FileBrowserRow({
         )}
       </div>
       <div
-        className="pl-3 text-left text-[11px] text-setta-400 dark:text-setta-500"
+        className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500"
         onDoubleClick={handleRowDoubleClick}
       >
         {modifiedLabel}

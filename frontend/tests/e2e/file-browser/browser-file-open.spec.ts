@@ -1,6 +1,6 @@
-import { type Page, expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
@@ -150,7 +150,8 @@ async function setBrowserPath(
   const normalizedCurrent = normalizePathForComparison(currentValue);
   const normalizedTarget = normalizePathForComparison(targetPath);
   const nextValue =
-    normalizedCurrent === normalizedTarget && !targetPath.endsWith(path.sep)
+    normalizedCurrent === normalizedTarget &&
+    !targetPath.endsWith(path.sep)
       ? `${targetPath}${path.sep}`
       : targetPath;
 
@@ -205,9 +206,7 @@ test("browser opens markdown and text files in text sections", async ({
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -248,7 +247,9 @@ test("browser opens markdown and text files in text sections", async ({
         sectionNode.locator('button[aria-label="Go forward"]'),
       ).toBeVisible();
 
-      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+      await sectionNode
+        .locator('button[aria-label="Carousel view"]')
+        .click();
 
       await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
@@ -264,9 +265,7 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Browser Test",
       });
 
-      const textTile = sectionNode
-        .locator(`button[aria-label="${textName}"]`)
-        .first();
+      const textTile = sectionNode.locator(`button[aria-label="${textName}"]`).first();
       await expect(textTile).toBeVisible({ timeout: 15000 });
       await textTile.dblclick();
 
@@ -300,9 +299,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -405,9 +402,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -467,9 +462,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
 
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(folderName);
       await expect(backButton).toBeEnabled();
@@ -477,9 +470,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await backButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(normalizedWorkspaceRoot);
 
@@ -487,9 +478,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await forwardButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(
-            await readCodeMirrorValue(page, pathInputId),
-          ),
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
         )
         .toContain(folderName);
     } finally {
@@ -542,7 +531,9 @@ test("browser path commits latest value on blur after fast typing", async ({
       `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
-    await sectionNode.locator('button[aria-label="Carousel view"]').click();
+    await sectionNode
+      .locator('button[aria-label="Carousel view"]')
+      .click();
 
     const pathInputId = `CodeMirror-${sectionId}-browser-path`;
     const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
@@ -558,9 +549,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     });
     await expect
       .poll(async () =>
-        normalizePathForComparison(
-          await readCodeMirrorValue(page, pathInputId),
-        ),
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
       )
       .toContain(normalizePathForComparison(workspaceRoot));
 
@@ -576,9 +565,7 @@ test("browser path commits latest value on blur after fast typing", async ({
 
     await expect
       .poll(async () =>
-        normalizePathForComparison(
-          await readCodeMirrorValue(page, pathInputId),
-        ),
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
       )
       .toContain(normalizedFolderPath);
   } finally {
@@ -587,139 +574,5 @@ test("browser path commits latest value on blur after fast typing", async ({
       sectionIds: [sectionId],
     });
     await fs.rm(folderPath, { force: true, recursive: true });
-  }
-});
-
-test("browser list divider moves left immediately after a right-edge overshoot drag", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1700, height: 1000 });
-  await ensureAppReady(page);
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-  const projectContext = await openIsolatedProject(page);
-  try {
-    const projectConfigId = projectContext.projectConfigId;
-    const viewportBounds = await getViewportBoundsForPlacement(page);
-    if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
-    }
-
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
-      },
-    );
-    const sectionId = browserSection?.sectionId;
-    if (!sectionId) {
-      throw new Error("Missing sectionId when creating browser section.");
-    }
-
-    try {
-      const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
-      );
-      await expect(sectionNode).toBeVisible();
-      await sectionNode.locator('button[aria-label="List view"]').click();
-
-      await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
-
-      const explorer = sectionNode.locator(
-        '[role="region"][aria-label="File explorer"]',
-      );
-      await expect(explorer).toBeVisible();
-      const listHeader = explorer.getByTestId("file-browser-list-header");
-      const resizeHandle = explorer.getByTestId(
-        "file-browser-list-column-resize-handle",
-      );
-
-      await listHeader.hover();
-      await expect(resizeHandle).toBeVisible();
-
-      const viewportSize = page.viewportSize();
-      const explorerBox = await explorer.boundingBox();
-      const initialHandleBox = await resizeHandle.boundingBox();
-      if (!viewportSize || !explorerBox || !initialHandleBox) {
-        throw new Error("Missing geometry for browser list divider drag test.");
-      }
-      const dateHeaderLabel = listHeader.getByText("Date modified", {
-        exact: true,
-      });
-      const dateHeaderLabelBox = await dateHeaderLabel.boundingBox();
-      if (!dateHeaderLabelBox) {
-        throw new Error(
-          "Missing Date modified header geometry in browser list test.",
-        );
-      }
-      // Keep the date header visually tied to the divider so the resize
-      // boundary remains obvious to users.
-      expect(dateHeaderLabelBox.x).toBeLessThan(
-        initialHandleBox.x + initialHandleBox.width + 24,
-      );
-
-      const dragStartX = initialHandleBox.x + initialHandleBox.width / 2;
-      const dragStartY = initialHandleBox.y + initialHandleBox.height / 2;
-      // Reproduce the user path: drag to clamp, then continue dragging right
-      // to create potential hidden overshoot.
-      const overshootTargetX = Math.min(
-        explorerBox.x + explorerBox.width + 220,
-        viewportSize.width - 4,
-      );
-      await page.mouse.move(dragStartX, dragStartY);
-      await page.mouse.down();
-      await page.mouse.move(overshootTargetX, dragStartY, { steps: 18 });
-      await page.mouse.up();
-
-      await listHeader.hover();
-      const clampedHandleBox = await resizeHandle.boundingBox();
-      if (!clampedHandleBox) {
-        throw new Error(
-          "Missing divider geometry after right-edge clamp in browser list test.",
-        );
-      }
-      const clampedHandleCenterX =
-        clampedHandleBox.x + clampedHandleBox.width / 2;
-      const clampedHandleCenterY =
-        clampedHandleBox.y + clampedHandleBox.height / 2;
-
-      // Regression check: the next left drag should move immediately, without a
-      // deadzone that "remembers" right-side overshoot.
-      await page.mouse.move(clampedHandleCenterX, clampedHandleCenterY);
-      await page.mouse.down();
-      await page.mouse.move(clampedHandleCenterX - 160, clampedHandleCenterY, {
-        steps: 12,
-      });
-      await page.mouse.up();
-
-      await listHeader.hover();
-      const afterLeftDragHandleBox = await resizeHandle.boundingBox();
-      if (!afterLeftDragHandleBox) {
-        throw new Error(
-          "Missing divider geometry after left drag in browser list test.",
-        );
-      }
-      const afterLeftDragCenterX =
-        afterLeftDragHandleBox.x + afterLeftDragHandleBox.width / 2;
-      expect(afterLeftDragCenterX).toBeLessThan(clampedHandleCenterX - 60);
-    } finally {
-      await postBackend(page, "/deleteSections", {
-        projectConfigId,
-        sectionIds: [sectionId],
-      });
-    }
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
   }
 });

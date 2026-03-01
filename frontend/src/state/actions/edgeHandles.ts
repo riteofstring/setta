@@ -119,9 +119,6 @@ export function updateEdgeHandlePosition(key: string) {
 
 export function recomputeEdgeHandlePositions() {
   const { handles } = useEdgeHandleRegistry.getState();
-  if (Object.keys(handles).length === 0) {
-    return;
-  }
   for (const [key, record] of Object.entries(handles)) {
     setHandlePosition(key, record);
   }
@@ -133,9 +130,6 @@ function updateEdgeHandlePositionsForSections(sectionIds: string[]) {
   }
   const sectionIdSet = new Set(sectionIds);
   const { handles } = useEdgeHandleRegistry.getState();
-  if (Object.keys(handles).length === 0) {
-    return;
-  }
   const flowPositionsByElement = new Map<
     HTMLElement,
     { x: number; y: number }
@@ -200,9 +194,6 @@ const pendingHandleSectionIds = new Set<string>();
 
 export function scheduleEdgeHandlePositionUpdate(sectionIds: string[]) {
   if (sectionIds.length === 0) {
-    return;
-  }
-  if (Object.keys(useEdgeHandleRegistry.getState().handles).length === 0) {
     return;
   }
   for (const sectionId of sectionIds) {

@@ -20,6 +20,7 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   children,
   onResizeStart,
+  isKwarg,
   isNestedParam,
   hasSectionStyleTheme,
   isTopLevelWithPad,
@@ -100,7 +101,16 @@ function _ParamContainer({
         tabIndex={-1}
         role={undefined}
       >
-        {children}
+        {!isKwarg ? (
+          <div
+            className="section-key overflow-hidden"
+            style={{ width: columnWidth }}
+          >
+            {children}
+          </div>
+        ) : (
+          <>{children}</>
+        )}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
