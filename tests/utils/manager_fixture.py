@@ -259,18 +259,22 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
     while True:
         try:
-            coroutine, future, frontend_op_id, _enqueued_at_seconds = (
-                manager.message_queue.get_nowait()
-            )
+            work_item = manager.message_queue.get_nowait()
         except asyncio.QueueEmpty:
             break
 
         # We are tearing down the manager and won't run the queue to completion.
         # Close the coroutine to avoid "coroutine was never awaited" warnings.
-        coroutine.close()
-        if not future.done():
-            future.cancel()
-        manager._finalize_frontend_op(frontend_op_id, success=False)
+        work_item.coroutine.close()
+        for future in work_item.futures:
+            if not future.done():
+                future.cancel()
+        manager._finalize_frontend_op(work_item.frontend_op_id, success=False)
+        manager._finalize_coalesced_frontend_ops(
+            work_item.frontend_op_id,
+            tuple(work_item.coalesced_frontend_op_ids),
+            success=False,
+        )
         manager.message_queue.task_done()
 
     try:

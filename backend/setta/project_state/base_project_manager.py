@@ -522,6 +522,7 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
+_EnqueueCoalesceKeyFn = Callable[[tuple[object, ...], dict[str, object]], str | None]
 
 PluginCodegenHashesByRelativePath = dict[str, str]
 PluginCodegenStatsByRelativePath = dict[str, tuple[int, int]]
@@ -644,6 +645,27 @@ class _QueueTimingMetricsState:
         total_snapshot["queueDepth"] = queue_depth
         total_snapshot["byHandler"] = by_handler_snapshot
         return total_snapshot
+
+
+@dataclass(slots=True)
+class _QueueWorkItem:
+    coroutine: Coroutine[Any, Any, Any]
+    futures: list[asyncio.Future[Any]]
+    frontend_op_id: str | None
+    enqueued_at_seconds: float
+    coalesce_key: str | None = None
+    coalesced_frontend_op_ids: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.append_frontend_op_id(self.frontend_op_id)
+
+    def append_frontend_op_id(self, frontend_op_id: str | None) -> None:
+        if not frontend_op_id:
+            return
+        if frontend_op_id in self.coalesced_frontend_op_ids:
+            return
+        self.coalesced_frontend_op_ids.append(frontend_op_id)
+        self.frontend_op_id = frontend_op_id
 
 
 def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
@@ -803,9 +825,8 @@ class BaseProjectManager(ABC):
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
-        self.message_queue: asyncio.Queue[
-            tuple[Coroutine, asyncio.Future, str | None, float]
-        ] = asyncio.Queue()
+        self.message_queue: asyncio.Queue[_QueueWorkItem] = asyncio.Queue()
+        self._queue_work_item_by_coalesce_key: dict[str, _QueueWorkItem] = {}
         self._queue_timing_metrics = _QueueTimingMetricsState()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
@@ -815,6 +836,9 @@ class BaseProjectManager(ABC):
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
+        self._current_coalesced_frontend_op_ids: contextvars.ContextVar[
+            tuple[str, ...]
+        ] = contextvars.ContextVar("current_coalesced_frontend_op_ids", default=())
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = spawn_background_task(
@@ -879,16 +903,25 @@ class BaseProjectManager(ABC):
             logger.debug("Queue size before get: %s", self.message_queue.qsize())
             # Get the next message handler and its arguments
             logger.debug("Waiting for next message in queue...")
-            (
-                coroutine,
-                future,
-                frontend_op_id,
-                enqueued_at_seconds,
-            ) = await self.message_queue.get()
+            work_item = await self.message_queue.get()
+            if work_item.coalesce_key:
+                mapped_work_item = self._queue_work_item_by_coalesce_key.get(
+                    work_item.coalesce_key
+                )
+                if mapped_work_item is work_item:
+                    self._queue_work_item_by_coalesce_key.pop(work_item.coalesce_key)
+            coroutine = work_item.coroutine
+            futures = work_item.futures
+            frontend_op_id = work_item.frontend_op_id
+            coalesced_frontend_op_ids = tuple(work_item.coalesced_frontend_op_ids)
+            enqueued_at_seconds = work_item.enqueued_at_seconds
             handler_name = self._describe_coroutine(coroutine)
             processing_started_seconds = asyncio.get_running_loop().time()
             queue_wait_seconds = processing_started_seconds - enqueued_at_seconds
             success = False
+            coalesced_op_ids_token = self._current_coalesced_frontend_op_ids.set(
+                coalesced_frontend_op_ids
+            )
             try:
                 # Execute the actual implementation
                 logger.debug("Starting handler %s", handler_name)
@@ -897,11 +930,13 @@ class BaseProjectManager(ABC):
                 logger.debug("Completed handler %s", handler_name)
                 success = True
                 # Set the result for the waiting call unless it was cancelled.
-                if future.cancelled():
-                    logger.debug("Skipping result for cancelled future")
-                elif future.done():
-                    logger.debug("Skipping result for completed future")
-                else:
+                for future in futures:
+                    if future.cancelled():
+                        logger.debug("Skipping result for cancelled future")
+                        continue
+                    if future.done():
+                        logger.debug("Skipping result for completed future")
+                        continue
                     logger.debug("Setting result on future")
                     future.set_result(result)
             except Exception as exc:
@@ -915,13 +950,27 @@ class BaseProjectManager(ABC):
                         "project_manager": type(self).__name__,
                     },
                 )
-                if future.cancelled():
-                    logger.debug("Skipping exception for cancelled future")
-                elif future.done():
-                    logger.debug("Skipping exception for completed future")
-                else:
+                for future in futures:
+                    if future.cancelled():
+                        logger.debug("Skipping exception for cancelled future")
+                        continue
+                    if future.done():
+                        logger.debug("Skipping exception for completed future")
+                        continue
                     future.set_exception(exc)
             finally:
+                self._finalize_coalesced_frontend_ops(
+                    frontend_op_id,
+                    coalesced_frontend_op_ids,
+                    success=success,
+                )
+                try:
+                    self._current_coalesced_frontend_op_ids.reset(
+                        coalesced_op_ids_token
+                    )
+                except ValueError:
+                    # See setta.logging.context.reset_logging_context for rationale.
+                    self._current_coalesced_frontend_op_ids.set(())
                 processing_completed_seconds = asyncio.get_running_loop().time()
                 self._queue_timing_metrics.record(
                     handler_name=handler_name,
@@ -944,6 +993,7 @@ class BaseProjectManager(ABC):
         self,
         coroutine: Coroutine[Any, Any, _T],
         frontend_op_id: str | None = None,
+        coalesce_key: str | None = None,
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
@@ -969,10 +1019,40 @@ class BaseProjectManager(ABC):
         logger.debug("Putting message in queue")
         enqueued_at_seconds = loop.time()
         self._register_pending_frontend_op(frontend_op_id)
-        await self.message_queue.put(
-            (coroutine, future, frontend_op_id, enqueued_at_seconds)
-        )
-        logger.debug("Message in queue, waiting for result")
+        if coalesce_key is not None:
+            existing_work_item = self._queue_work_item_by_coalesce_key.get(coalesce_key)
+            if existing_work_item is not None:
+                existing_work_item.coroutine.close()
+                existing_work_item.coroutine = coroutine
+                existing_work_item.futures.append(cast("asyncio.Future[Any]", future))
+                existing_work_item.append_frontend_op_id(frontend_op_id)
+                logger.debug(
+                    "Coalesced queued work item key=%s futures=%s op_ids=%s",
+                    coalesce_key,
+                    len(existing_work_item.futures),
+                    len(existing_work_item.coalesced_frontend_op_ids),
+                )
+            else:
+                work_item = _QueueWorkItem(
+                    coroutine=cast("Coroutine[Any, Any, Any]", coroutine),
+                    futures=[cast("asyncio.Future[Any]", future)],
+                    frontend_op_id=frontend_op_id,
+                    enqueued_at_seconds=enqueued_at_seconds,
+                    coalesce_key=coalesce_key,
+                )
+                self._queue_work_item_by_coalesce_key[coalesce_key] = work_item
+                await self.message_queue.put(work_item)
+                logger.debug("Message in queue, waiting for result")
+        else:
+            await self.message_queue.put(
+                _QueueWorkItem(
+                    coroutine=cast("Coroutine[Any, Any, Any]", coroutine),
+                    futures=[cast("asyncio.Future[Any]", future)],
+                    frontend_op_id=frontend_op_id,
+                    enqueued_at_seconds=enqueued_at_seconds,
+                )
+            )
+            logger.debug("Message in queue, waiting for result")
 
         # Wait for the message to be processed and return the result
         logger.debug("Awaiting future %s", id(future))
@@ -997,6 +1077,7 @@ class BaseProjectManager(ABC):
         func: _EnqueueCallable,
         *,
         require_serialization: bool = True,
+        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
     ) -> _EnqueueCallable: ...
 
     @overload
@@ -1005,6 +1086,7 @@ class BaseProjectManager(ABC):
         func: None = ...,
         *,
         require_serialization: bool = True,
+        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
     ) -> Callable[[_EnqueueCallable], _EnqueueCallable]: ...
 
     @staticmethod
@@ -1012,6 +1094,7 @@ class BaseProjectManager(ABC):
         func: _EnqueueCallable | None = None,
         *,
         require_serialization: bool = True,
+        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
     ) -> _EnqueueCallable | Callable[[_EnqueueCallable], _EnqueueCallable]:
         def decorator(actual_func: _EnqueueCallable) -> _EnqueueCallable:
             @wraps(actual_func)
@@ -1019,11 +1102,18 @@ class BaseProjectManager(ABC):
                 self: "BaseProjectManager", *args: _P.args, **kwargs: _P.kwargs
             ) -> _R:
                 frontend_op_id = self._extract_frontend_op_id(args, kwargs)
+                coalesce_key: str | None = None
+                if coalesce_key_fn is not None:
+                    coalesce_key = coalesce_key_fn(
+                        cast("tuple[object, ...]", args),
+                        cast("dict[str, object]", kwargs),
+                    )
                 coroutine = actual_func(self, *args, **kwargs)
                 if require_serialization:
                     return await self._enqueue(
                         cast("Coroutine[Any, Any, _R]", coroutine),
                         frontend_op_id=frontend_op_id,
+                        coalesce_key=coalesce_key,
                     )
 
                 self._register_pending_frontend_op(frontend_op_id)
@@ -1058,6 +1148,23 @@ class BaseProjectManager(ABC):
                 return frontend_op_id
         return None
 
+    @staticmethod
+    def _set_param_entered_value_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj: object | None = None
+        if args:
+            request_obj = args[0]
+        elif "x" in kwargs:
+            request_obj = kwargs["x"]
+        if not isinstance(request_obj, SetParamEnteredValueRequest):
+            return None
+        return (
+            "set-param-entered-value:"
+            f"{request_obj.projectConfigId}:{request_obj.sectionId}:{request_obj.paramInfoId}"
+        )
+
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
         # Runs after handler finishes; drop from pending and mark completed only on success
         if not frontend_op_id:
@@ -1067,6 +1174,18 @@ class BaseProjectManager(ABC):
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
         self._update_pending_ops_idle_event()
+
+    def _finalize_coalesced_frontend_ops(
+        self,
+        primary_frontend_op_id: str | None,
+        coalesced_frontend_op_ids: tuple[str, ...],
+        *,
+        success: bool,
+    ) -> None:
+        for frontend_op_id in coalesced_frontend_op_ids:
+            if frontend_op_id == primary_frontend_op_id:
+                continue
+            self._finalize_frontend_op(frontend_op_id, success=success)
 
     def _register_pending_frontend_op(self, frontend_op_id: str | None):
         if frontend_op_id:
@@ -1096,9 +1215,18 @@ class BaseProjectManager(ABC):
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
         frontend_op_id = self._current_frontend_op_id.get()
-        if frontend_op_id and frontend_op_id in self.pending_frontend_ops:
-            self.pending_frontend_ops.pop(frontend_op_id, None)
-            self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
+        candidate_op_ids: list[str] = []
+        for coalesced_frontend_op_id in self._current_coalesced_frontend_op_ids.get():
+            if coalesced_frontend_op_id in candidate_op_ids:
+                continue
+            candidate_op_ids.append(coalesced_frontend_op_id)
+        if frontend_op_id and frontend_op_id not in candidate_op_ids:
+            candidate_op_ids.append(frontend_op_id)
+        for candidate_op_id in candidate_op_ids:
+            if candidate_op_id not in self.pending_frontend_ops:
+                continue
+            self.pending_frontend_ops.pop(candidate_op_id, None)
+            self.completed_op_ids_since_last_broadcast.append(candidate_op_id)
         self._update_pending_ops_idle_event()
 
     def _update_pending_ops_idle_event(self) -> None:
@@ -3881,7 +4009,7 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
 
-    @enqueue_method
+    @enqueue_method(coalesce_key_fn=_set_param_entered_value_enqueue_coalesce_key)
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
