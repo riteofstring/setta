@@ -36,7 +36,7 @@ test.describe.serial("chat composer controls", () => {
         "__pw_chat_composer__",
       );
 
-      let section = findSectionByName(page, sectionName);
+      const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
 
       await setChatSectionState(page, {
@@ -58,9 +58,6 @@ test.describe.serial("chat composer controls", () => {
           branches: {},
         },
       });
-      await page.reload();
-      await page.waitForSelector(".react-flow__pane");
-      section = findSectionByName(page, sectionName);
 
       await expect(section.getByText("Existing thread message")).toBeVisible();
       await expect(section.getByRole("button", { name: "/new" })).toHaveCount(
@@ -516,12 +513,18 @@ test.describe.serial("chat composer controls", () => {
       if (!managedEngineId) {
         throw new Error("Missing managed LLM engine config.");
       }
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        managedEngineId,
-      );
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       const input = section.locator("textarea").first();
@@ -617,12 +620,18 @@ test.describe.serial("chat composer controls", () => {
       if (!managedEngineId) {
         throw new Error("Missing managed LLM engine config.");
       }
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        managedEngineId,
-      );
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       const input = section.locator("textarea").first();
@@ -714,12 +723,18 @@ test.describe.serial("chat composer controls", () => {
       if (!managedEngineId) {
         throw new Error("Missing managed LLM engine config.");
       }
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        managedEngineId,
-      );
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(section.locator("textarea").first()).toBeVisible();
@@ -806,12 +821,18 @@ test.describe.serial("chat composer controls", () => {
       if (!managedEngineId) {
         throw new Error("Missing managed LLM engine config.");
       }
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        managedEngineId,
-      );
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(section.locator("textarea").first()).toBeVisible();
@@ -914,12 +935,18 @@ test.describe.serial("chat composer controls", () => {
       if (!managedEngineId) {
         throw new Error("Missing managed LLM engine config.");
       }
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        managedEngineId,
-      );
+        managed: true,
+        engineConfigId: managedEngineId,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
 
@@ -1442,12 +1469,18 @@ test.describe.serial("chat composer controls", () => {
         "__pw_chat_history_refresh__",
       );
       historySectionId = sectionId;
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        historyEngineConfigId,
-      );
+        managed: true,
+        engineConfigId: historyEngineConfigId,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(
@@ -1483,28 +1516,34 @@ test.describe.serial("chat composer controls", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
+      const requestCountBeforeSection = getAgentRunsRequestCount;
       const { sectionId, sectionName } = await createChatSection(
         page,
         projectContext.projectConfigId,
         "__pw_chat_history_lazy__",
       );
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        null,
-      );
-      const requestCountBeforeHistoryOpen = getAgentRunsRequestCount;
+        managed: true,
+        engineConfigId: null,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
 
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await page.waitForTimeout(1200);
-      expect(getAgentRunsRequestCount).toBe(requestCountBeforeHistoryOpen);
+      expect(getAgentRunsRequestCount).toBe(requestCountBeforeSection);
 
       await section.getByRole("button", { name: "History" }).click();
       await expect
         .poll(() => getAgentRunsRequestCount, { timeout: 15000 })
-        .toBeGreaterThan(requestCountBeforeHistoryOpen);
+        .toBeGreaterThan(requestCountBeforeSection);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -1583,12 +1622,18 @@ test.describe.serial("chat composer controls", () => {
         "__pw_chat_history_idle__",
       );
       idleSectionId = sectionId;
-      await setManagedChatSectionSettings(
-        page,
-        projectContext.projectConfigId,
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
         sectionId,
-        idleEngineConfigId,
-      );
+        managed: true,
+        engineConfigId: idleEngineConfigId,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
 
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -1605,28 +1650,6 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 });
-
-async function setManagedChatSectionSettings(
-  page: Page,
-  projectConfigId: string,
-  sectionId: string,
-  engineConfigId: string | null,
-): Promise<void> {
-  await postBackend(page, "/setChatSectionSettings", {
-    projectConfigId,
-    sectionId,
-    managed: true,
-    engineConfigId,
-    transcriptionProfileId: null,
-    agentProfileId: null,
-    thinking: false,
-    permissionMode: "minimal",
-    searchEnabled: true,
-    dictationMode: "auto",
-  });
-  await page.reload();
-  await page.waitForSelector(".react-flow__pane");
-}
 
 function findSectionByName(page: Page, name: string): Locator {
   return page

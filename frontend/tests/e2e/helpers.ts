@@ -150,7 +150,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
       waitUntil: "domcontentloaded",
     });
     if (await isAppReady(page)) {
-      await waitForProjectLoadIdle(page);
       return;
     }
 
@@ -171,7 +170,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
       });
     }
     if (await isAppReady(page)) {
-      await waitForProjectLoadIdle(page);
       return;
     }
 
@@ -183,7 +181,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
           waitUntil: "domcontentloaded",
         });
         if (await isAppReady(page)) {
-          await waitForProjectLoadIdle(page);
           return;
         }
       }
@@ -332,11 +329,8 @@ export async function openIsolatedProject(
     throw new Error("Missing project config name.");
   }
   const url = new URL(name, BASE_URL).toString();
-  await page.goto(withBackendOriginOverride(url), {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
-  await waitForProjectLoadIdle(page);
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
@@ -989,25 +983,6 @@ async function isAppReady(page: Page): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function waitForProjectLoadIdle(page: Page): Promise<void> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    try {
-      const isIdle = await page.evaluate(async () => {
-        const { useProjectLoading } = await import("/src/state/definitions.ts");
-        return useProjectLoading.getState().projectIsLoading === false;
-      });
-      if (isIdle) {
-        return;
-      }
-    } catch {
-      // Navigation can invalidate execution context briefly; keep polling.
-    }
-    await page.waitForTimeout(50);
-  }
-  throw new Error("Project state did not finish loading.");
 }
 
 async function navigateToDefaultProject(page: Page): Promise<void> {

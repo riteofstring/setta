@@ -45,8 +45,8 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(paramZoom).toBeGreaterThanOrEqual(allZoom);
-  expect(coreZoom).toBeGreaterThanOrEqual(paramZoom);
+  expect(paramZoom).toBeGreaterThan(allZoom);
+  expect(coreZoom).toBeGreaterThan(paramZoom);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
