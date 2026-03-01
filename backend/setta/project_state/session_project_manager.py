@@ -340,12 +340,41 @@ class SessionProjectManager(BaseProjectManager):
                 work_item.source_backend,
                 default_id,
             )
-            work_item.payload = project_state.model_copy(deep=True)
+            work_item.payload = self._copy_single_config_for_save_payload(project_state)
             return
         if self.persistence_mode == SessionPersistenceMode.ide_main:
-            work_item.payload = work_item.source_backend.model_copy(deep=True)
+            work_item.payload = self._copy_backend_for_save_payload(
+                work_item.source_backend
+            )
             return
         raise ValueError(f"Unsupported persistence mode: {self.persistence_mode}")
+
+    @staticmethod
+    def _copy_single_config_for_save_payload(
+        project_state: ProjectStateSingleConfig,
+    ) -> ProjectStateSingleConfig:
+        payload = project_state.model_copy(deep=False)
+        payload.sections = dict(project_state.sections)
+        payload.sectionImpls = dict(project_state.sectionImpls)
+        payload.sectionVariants = dict(project_state.sectionVariants)
+        payload.codeObjs = dict(project_state.codeObjs)
+        payload.codeObjImpls = dict(project_state.codeObjImpls)
+        payload.codeObjVariants = dict(project_state.codeObjVariants)
+        return payload
+
+    @staticmethod
+    def _copy_backend_for_save_payload(
+        backend: ProjectStateBackend,
+    ) -> ProjectStateBackend:
+        payload = backend.model_copy(deep=False)
+        payload.sections = dict(backend.sections)
+        payload.sectionImpls = dict(backend.sectionImpls)
+        payload.sectionVariants = dict(backend.sectionVariants)
+        payload.codeObjs = dict(backend.codeObjs)
+        payload.codeObjImpls = dict(backend.codeObjImpls)
+        payload.codeObjVariants = dict(backend.codeObjVariants)
+        payload.projectConfigs = dict(backend.projectConfigs)
+        return payload
 
     def _build_save_work_item(self, revision: int) -> _SaveWorkItem:
         self.flush_code_files_for_all_configs()

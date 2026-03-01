@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 import threading
 import types
 from typing import Awaitable, Callable, cast
@@ -7,7 +8,22 @@ from unittest.mock import patch
 import pytest
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager_types import SetWatchCodeEnabledRequest
+from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseDictSectionImplArgsWithCallable,
+)
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl_with_type_guard,
+    get_curr_section_variant,
+    set_curr_effective_section_impl_value,
+)
+from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
+from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.section_impls import ConfigLanguage, SectionType
+from setta.utils.paths import normalize_workspace_path
 
 from tests.utils.manager_fixture import (
     real_project_manager,
@@ -40,6 +56,57 @@ def _bind_delayed_set_watch_code_enabled(
         await original(self, request)
 
     return types.MethodType(delayed_set_watch_code_enabled, manager)
+
+
+def _build_json_source_project_state(
+    manager: BaseProjectManager,
+) -> tuple[ProjectStateSingleConfig, ID, ID, Path]:
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="save-copy-on-write-json-source")
+    )
+    section_id = create_top_level_section(
+        manager.settings_file.settings,
+        project_state,
+        SectionType.Dict,
+        Position(),
+    )
+    set_curr_effective_section_impl_value(
+        project_state,
+        section_id,
+        BaseDictSectionImplArgsWithCallable(
+            isJsonSource=True,
+            jsonSourceKeys=[],
+            configLanguage=ConfigLanguage.json,
+        ),
+    )
+    section_variant = get_curr_section_variant(project_state, section_id)
+    json_source_path = normalize_workspace_path(Path("save-copy-on-write.json"))
+    section_variant.name = str(json_source_path)
+    return project_state, section_id, section_variant.id, json_source_path
+
+
+def _get_code_obj_value_by_name(
+    backend: ProjectStateBackend,
+    project_config_id: ID,
+    section_id: ID,
+    code_obj_name: str,
+) -> str:
+    project_state = convert_backend_to_single_config(backend, project_config_id)
+    code_obj_id: ID | None = None
+    for curr_code_obj_id, code_obj in project_state.codeObjs.items():
+        if code_obj.name != code_obj_name:
+            continue
+        code_obj_id = curr_code_obj_id
+        break
+    if code_obj_id is None:
+        raise KeyError(f"Missing code obj named {code_obj_name}")
+    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+        project_state,
+        section_id,
+        code_obj_id,
+        BaseChildlessCodeObjImpl,
+    )
+    return code_obj_impl.value
 
 
 @pytest.mark.asyncio
@@ -247,6 +314,58 @@ class TestSaveWorkerBehavior:
                 work_item.default_project_config_id
                 == manager.project_state_backend.defaultProjectConfigId
             )
+
+    async def test_project_save_payload_copy_on_write_preserves_live_json_source_values(
+        self,
+    ):
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            project_state, section_id, section_variant_id, json_source_path = (
+                _build_json_source_project_state(manager)
+            )
+            await manager.update(project_state, updateFileWatcher=True)
+            await manager.finish_pending_operations(timeout=5.0)
+            project_config_id = project_state.projectConfig.id
+
+            processed = manager.json_source.process_json_object({"alpha": "keep-live"})
+            await manager.load_json_sources(
+                {json_source_path: processed},
+                [(section_id, section_variant_id)],
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            source_value_before = _get_code_obj_value_by_name(
+                manager.project_state_backend,
+                project_config_id,
+                section_id,
+                "alpha",
+            )
+            assert source_value_before != ""
+
+            manager.add_new_history_entry(trigger_autosave=False)
+            revision = manager.history.revision
+            work_item = manager._build_save_work_item(revision)
+            manager._resolve_save_work_item_payload(work_item)
+            manager._persist_save_work_item(work_item)
+
+            # Save sanitization must not mutate the live backend revision.
+            source_value_after = _get_code_obj_value_by_name(
+                manager.project_state_backend,
+                project_config_id,
+                section_id,
+                "alpha",
+            )
+            assert source_value_after == source_value_before
+
+            # On-disk payload should still be sanitized for json-source sections.
+            on_disk_value = _get_code_obj_value_by_name(
+                fixture.dbe.read_project(),
+                project_config_id,
+                section_id,
+                "alpha",
+            )
+            assert on_disk_value == ""
 
     async def test_autosave_resolves_payload_in_save_worker_thread(self):
         async with real_settings_manager() as fixture:
