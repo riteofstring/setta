@@ -1500,12 +1500,12 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="flex flex-col border-b border-setta-100 dark:border-setta-800 [&_button]:cursor-pointer">
+        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800 [&_button]:cursor-pointer">
           <div className="flex w-full min-w-0 items-stretch">
             {showInlineThreads ? (
               <div
                 ref={handleInlineThreadsHeaderShellRef}
-                className="shrink-0 overflow-hidden border-r border-setta-200 pb-2 dark:border-setta-800"
+                className="shrink-0 overflow-hidden border-r border-setta-200 dark:border-setta-800"
                 style={{ width: `${resolvedInlineThreadsWidth}px` }}
               >
                 <div
@@ -1516,10 +1516,10 @@ export function ProjectChat() {
               </div>
             ) : null}
             <div
-              className={`min-w-0 flex-1 pb-2 @container ${showInlineThreads ? "pl-2" : ""}`}
+              className={`min-w-0 flex-1 @container ${showInlineThreads ? "pl-2" : ""}`}
             >
               <div className={PROJECT_CHAT_CONTENT_SHELL_CLASS}>
-                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[16.25rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
+                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[44rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
                   <div className="flex min-w-0 items-center gap-2">
                     {showReturnOnlyNav ? (
                       <button
@@ -1529,7 +1529,7 @@ export function ProjectChat() {
                         {...returnToChatTooltipHandlers}
                       >
                         <IoMdArrowRoundBack />
-                        <span className="hidden @[46rem]:block">
+                        <span className="hidden @[31.25rem]:block">
                           Return to chat
                         </span>
                       </button>
@@ -1542,7 +1542,7 @@ export function ProjectChat() {
                           {...newChatTooltipHandlers}
                         >
                           <MdAdd size={15} />
-                          <span className="hidden @[46rem]:block">New</span>
+                          <span className="hidden @[31.25rem]:block">New</span>
                         </button>
                         <button
                           className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -1553,14 +1553,14 @@ export function ProjectChat() {
                           {viewThreads && showInlineThreads ? (
                             <>
                               <RiChatHistoryLine size={15} />
-                              <span className="hidden @[46rem]:block">
+                              <span className="hidden @[31.25rem]:block">
                                 Hide Threads
                               </span>
                             </>
                           ) : (
                             <>
                               <RiChatHistoryLine size={15} />
-                              <span className="hidden @[46rem]:block">
+                              <span className="hidden @[31.25rem]:block">
                                 Threads
                               </span>
                             </>
@@ -1570,7 +1570,7 @@ export function ProjectChat() {
                     )}
                   </div>
                   {!isAuxView ? (
-                    <div className="flex items-center justify-self-end @[16.25rem]:col-start-3">
+                    <div className="flex items-center justify-self-end @[44rem]:col-start-3">
                       {showPlanModeBadge ? <PlanModeBadge /> : null}
                       <ProjectAISettingsPopover
                         engineGroups={engineGroups}
@@ -1621,7 +1621,7 @@ export function ProjectChat() {
                   ) : null}
                   {showConversationFilter ? (
                     <search
-                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1"
+                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[44rem]:col-span-1 @[44rem]:col-start-2 @[44rem]:row-start-1 @[44rem]:min-w-[11rem]"
                       data-testid="project-chat-conversation-filter"
                     >
                       <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">
@@ -2098,7 +2098,7 @@ function ProjectAISettingsPopover({
           {...settingsTooltipHandlers}
         >
           <IoSettingsOutline size={15} />
-          <span className="hidden @[46rem]:block">Settings</span>
+          <span className="hidden @[31.25rem]:block">Settings</span>
         </button>
       }
       contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
