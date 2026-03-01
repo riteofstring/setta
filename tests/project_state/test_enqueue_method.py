@@ -233,6 +233,19 @@ class TestEnqueueMethod:
         assert snapshot["failures"] == 1
         assert "fail" in cast("dict[str, object]", snapshot["byHandler"])
 
+    async def test_broadcast_status_omits_pending_op_ids_payload(self):
+        manager = self.manager
+        manager._register_pending_frontend_op("pending-op-id")
+
+        # Pending frontend-op tracking remains internal, but transport payload
+        # intentionally omits pending ids to keep patch sizes bounded.
+        completed_op_ids, pending_op_ids = (
+            manager._consume_frontend_op_status_for_broadcast()
+        )
+        assert completed_op_ids == []
+        assert pending_op_ids == []
+        assert "pending-op-id" in manager.pending_frontend_ops
+
     async def test_set_callable_hide_params_completes_without_queue_stall(self):
         manager = self.manager
         request = SetCallableHideParamsRequest(

@@ -8896,7 +8896,10 @@ class BaseProjectManager(ABC):
     def _consume_frontend_op_status_for_broadcast(self) -> tuple[list[str], list[str]]:
         self._mark_current_frontend_op_completed_before_broadcast()
         completed_op_ids = self.completed_op_ids_since_last_broadcast
-        pending_op_ids = list(self.pending_frontend_ops.keys())
+        # Frontend pending-op reconciliation only requires completed ids for
+        # correctness. Omitting pending ids keeps patch payloads bounded under
+        # queue backlog during high-frequency edits.
+        pending_op_ids: list[str] = []
         return completed_op_ids, pending_op_ids
 
     async def _broadcast_active_view_mode_patch(
