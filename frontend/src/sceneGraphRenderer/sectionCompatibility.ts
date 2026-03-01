@@ -22,7 +22,7 @@ const SCENE_GRAPH_SECTION_RENDER_MODE_BY_TYPE: Record<
   [SectionTypeEnum.TextBlock]: "scene",
   [SectionTypeEnum.Prompt]: "scene",
   [SectionTypeEnum.MetaControl]: "scene",
-  [SectionTypeEnum.Social]: "dom",
+  [SectionTypeEnum.Social]: "scene",
   [SectionTypeEnum.GlobalVariables]: "scene",
   [SectionTypeEnum.Code]: "scene",
   [SectionTypeEnum.GenPythonCode]: "scene",
