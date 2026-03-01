@@ -7,6 +7,7 @@ import {
   loadProjectConfig,
   openIsolatedProject,
   postBackend,
+  syncProjectStateFromBackend,
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
@@ -227,6 +228,7 @@ test.describe.serial("minimized callable edge handles", () => {
         projectConfigId,
         sectionId: sectionB,
       });
+      await syncProjectStateFromBackend(page, projectConfigId);
 
       const search = sectionBNode.locator("search.section-search");
       await expect(search).toHaveCount(0);
