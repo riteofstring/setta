@@ -66,6 +66,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks small_shell as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes small_shell from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "small-shell-config-id",
+          projectConfigName: "small_shell",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -86,11 +99,11 @@ describe("scene graph renderer rollout policy", () => {
       isSceneGraphRendererDefaultOnSurface(
         createSurface({
           projectConfigId: "other-project-config-id",
-          projectConfigName: "small_shell",
+          projectConfigName: "project_name_canary_target",
           activeViewModeName: "Overview",
         }),
         [],
-        ["small_shell"],
+        ["project_name_canary_target"],
       ),
     ).toBe(true);
   });
@@ -119,6 +132,18 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe("project_config_name_default");
   });
 
+  it("reports small_shell rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "small-shell-config-id",
+          projectConfigName: "small_shell",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
   it("reports canary rollout reasons for project id and project name", () => {
     expect(
       resolveSceneGraphRendererRolloutDefaultOnReason(
@@ -134,11 +159,11 @@ describe("scene graph renderer rollout policy", () => {
       resolveSceneGraphRendererRolloutDefaultOnReason(
         createSurface({
           projectConfigId: "other-project-config-id",
-          projectConfigName: "small_shell",
+          projectConfigName: "project_name_canary_target",
           activeViewModeName: "Overview",
         }),
         [],
-        ["small_shell"],
+        ["project_name_canary_target"],
       ),
     ).toBe("project_config_name_canary");
   });
@@ -234,12 +259,12 @@ describe("scene graph renderer rollout policy", () => {
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
       surface: createSurface({
         projectConfigId: "other-project-config-id",
-        projectConfigName: "small_shell",
+        projectConfigName: "project_name_canary_target",
         activeViewModeName: "Overview",
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
-      rolloutProjectConfigNames: ["small_shell"],
+      rolloutProjectConfigNames: ["project_name_canary_target"],
     });
 
     expect(effectiveFlags.enabled).toBe(true);
@@ -256,7 +281,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: true,
       rolloutProjectConfigIds: ["canary-project-config-id"],
-      rolloutProjectConfigNames: ["small_shell"],
+      rolloutProjectConfigNames: ["project_name_canary_target"],
     });
 
     expect(effectiveFlags.enabled).toBe(false);
