@@ -91,7 +91,6 @@ export function Overview() {
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
-  const showMoreAppTab = showAppTab;
   let effectiveTabName = selectedTabName;
   const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
   const selectedTabIsPluginPane =
@@ -259,7 +258,7 @@ export function Overview() {
               </i>
               <span className="ml-0.5">Custom Runs</span>
             </MenuItem>
-            {showMoreAppTab ? (
+            {showAppTab ? (
               <MenuItem
                 className={moreMenuItemClasses}
                 onClick={() => onOverviewTabClick(OverviewTabNameEnum.App)}

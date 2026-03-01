@@ -65,6 +65,8 @@ class TestAppGenExtensionsRoutes:
             assert row.skillId == "workspace_agents_skills::ui-layout"
             assert row.name == "ui-layout"
             assert row.description == "Create dense dashboard layouts."
+            assert row.editable is True
+            assert row.editBlockedReason is None
             assert not hasattr(row, "skillPath")
 
     def test_lists_workspace_claude_and_opencode_skills(
@@ -590,6 +592,94 @@ class TestAppGenExtensionsRoutes:
             assert response.created is False
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_listed_skill_editability_matches_upsert_validation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            workspace_skills_root = workspace_root / ".agents" / "skills"
+            workspace_skills_root.mkdir(parents=True, exist_ok=True)
+
+            (workspace_skills_root / "SKILL.md").write_text(
+                "# root\n\nRoot skill doc.\n",
+                encoding="utf-8",
+            )
+
+            editable_skill_doc = workspace_skills_root / "editable" / "SKILL.md"
+            editable_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            editable_skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            nested_skill_doc = (
+                workspace_skills_root / "nested" / "path" / "SKILL.md"
+            )
+            nested_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            nested_skill_doc.write_text("# nested\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            rows = list_app_gen_skills(workspace_root)
+            row_by_id = {row.skillId: row for row in rows}
+
+            root_row = row_by_id["workspace_agents_skills::."]
+            assert root_row.editable is False
+            assert (
+                root_row.editBlockedReason
+                == "Editing root-level SKILL.md is not supported."
+            )
+
+            nested_row = row_by_id["workspace_agents_skills::nested/path"]
+            assert nested_row.editable is False
+            assert nested_row.editBlockedReason is not None
+            assert (
+                "skillId must start with an alphanumeric character"
+                in nested_row.editBlockedReason
+            )
+
+            editable_row = row_by_id["workspace_agents_skills::editable"]
+            assert editable_row.editable is True
+            assert editable_row.editBlockedReason is None
+
+            with pytest.raises(
+                ValueError,
+                match="Editing root-level SKILL.md is not supported.",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=root_row.skillId,
+                    relative_path=None,
+                    content="# root\n\nUpdated.\n",
+                )
+
+            with pytest.raises(
+                ValueError,
+                match="skillId must start with an alphanumeric character",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=nested_row.skillId,
+                    relative_path=None,
+                    content="# nested\n\nUpdated.\n",
+                )
+
+            response = upsert_app_gen_custom_skill(
+                workspace_root=workspace_root,
+                skill_id=editable_row.skillId,
+                relative_path=None,
+                content="# editable\n\nUpdated.\n",
+            )
+            assert response.created is False
+            assert response.skillId == "workspace_agents_skills::editable"
+            assert (
+                editable_skill_doc.read_text(encoding="utf-8")
+                == "# editable\n\nUpdated.\n"
+            )
+
     def test_rejects_skill_id_that_canonicalizes_to_root_skill_doc(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -853,6 +943,46 @@ class TestAppGenExtensionsRoutes:
         assert (
             expected_skill_doc.read_text(encoding="utf-8")
             == "# route-created\n\nBody.\n"
+        )
+        clear_setta_paths_cache()
+
+    def test_get_app_gen_skills_route_includes_editability_metadata(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_skills_root = workspace_root / ".agents" / "skills"
+        nested_skill_doc = workspace_skills_root / "nested" / "path" / "SKILL.md"
+        nested_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        nested_skill_doc.write_text("# nested\n\nBody.\n", encoding="utf-8")
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        clear_setta_paths_cache()
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.get(f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}")
+
+        assert response.status_code == 200
+        payload = response.json()
+        nested_row = next(
+            row
+            for row in payload
+            if row["skillId"] == "workspace_agents_skills::nested/path"
+        )
+        assert nested_row["editable"] is False
+        assert "skillId must start with an alphanumeric character" in (
+            nested_row["editBlockedReason"] or ""
         )
         clear_setta_paths_cache()
 

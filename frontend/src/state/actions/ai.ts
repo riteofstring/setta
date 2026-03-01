@@ -1885,9 +1885,9 @@ function mergeChatSectionState(
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],
-    // Preserve local-only activity rows so thought/tool sequencing is not
-    // flattened by a hydration refresh.
-    preserveLocalOnlyMessages: true,
+    // Preserve only local-only activity rows so hydrate remains backend
+    // authoritative for canonical chat history.
+    preserveLocalOnlyActivityMessages: true,
   });
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
@@ -2046,7 +2046,7 @@ function applyLLMChatHydrationSuccess({
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: true,
+      preserveLocalOnlyActivityMessages: true,
     });
     return {
       chatDetails: {
@@ -2105,7 +2105,7 @@ function applyExternalChatHydrationSuccess({
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: true,
+      preserveLocalOnlyActivityMessages: true,
     });
     return {
       chatDetails: {

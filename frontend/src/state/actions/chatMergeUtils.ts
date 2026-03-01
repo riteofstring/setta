@@ -41,17 +41,17 @@ export function mergeChatMessages(
 export function reconcileHydratedChatMessages({
   backendMessages,
   localMessages,
-  preserveLocalOnlyMessages,
+  preserveLocalOnlyActivityMessages,
 }: {
   backendMessages: Array<BaseChatMessageUnion>;
   localMessages: Array<BaseChatMessageUnion>;
-  preserveLocalOnlyMessages: boolean;
+  preserveLocalOnlyActivityMessages: boolean;
 }): Array<BaseChatMessageUnion> {
   if (backendMessages.length === 0) {
-    if (!preserveLocalOnlyMessages) {
+    if (!preserveLocalOnlyActivityMessages) {
       return [];
     }
-    return [...localMessages];
+    return localMessages.filter(isLocalOnlyActivityMessage);
   }
   const localMessageById = new Map<string, BaseChatMessageUnion>();
   for (const message of localMessages) {
@@ -64,7 +64,7 @@ export function reconcileHydratedChatMessages({
     }
     return pickMoreCompleteMessage(backendMessage, localMessage);
   });
-  if (!preserveLocalOnlyMessages) {
+  if (!preserveLocalOnlyActivityMessages) {
     return nextMessages;
   }
   const backendMessageIds = new Set(
@@ -74,9 +74,36 @@ export function reconcileHydratedChatMessages({
     if (backendMessageIds.has(localMessage.id)) {
       continue;
     }
+    if (!isLocalOnlyActivityMessage(localMessage)) {
+      continue;
+    }
     nextMessages.push(localMessage);
   }
   return nextMessages;
+}
+
+function isLocalOnlyActivityMessage(message: BaseChatMessageUnion): boolean {
+  if (message.role === ChatRoleEnum.tool) {
+    return true;
+  }
+  if (message.role !== ChatRoleEnum.assistant) {
+    return false;
+  }
+  const hasToolCalls = Array.isArray(message.tool_calls)
+    ? message.tool_calls.length > 0
+    : false;
+  if (hasToolCalls) {
+    return true;
+  }
+  let hasThinking = false;
+  for (const block of message.content) {
+    if (block.type === "thinking") {
+      hasThinking = true;
+      continue;
+    }
+    return false;
+  }
+  return hasThinking;
 }
 
 export function getMessageCompletenessScore(

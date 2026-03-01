@@ -781,9 +781,17 @@ export function ProjectChatSkillsMcpViewer({
     }
     return selectedSkillId.slice(0, separatorIndex);
   }, [selectedSkillId]);
-  const selectedSkillIsEditable = selectedSkillRootId
-    ? CUSTOM_SKILL_ROOT_IDS.has(selectedSkillRootId)
-    : false;
+  const selectedSkillIsEditable = selectedSkill?.editable === true;
+  const selectedSkillReadOnlyReason = useMemo(() => {
+    if (selectedSkillIsEditable) {
+      return null;
+    }
+    if (!selectedSkill) {
+      return "Select or create a custom skill to edit.";
+    }
+    const reason = selectedSkill.editBlockedReason?.trim();
+    return reason || "Selected skill is read-only.";
+  }, [selectedSkill, selectedSkillIsEditable]);
   const customSkillRootPath = useMemo(() => {
     if (
       selectedSkill &&
@@ -823,7 +831,7 @@ export function ProjectChatSkillsMcpViewer({
     selectedSkillContentAuthority === "loaded_full";
   const saveSelectedSkillTitle = useMemo(() => {
     if (!selectedSkillIsEditable) {
-      return "Only custom skills can be edited.";
+      return selectedSkillReadOnlyReason ?? "Selected skill is read-only.";
     }
     if (selectedSkillContentAuthority === "loaded_truncated") {
       return "Cannot save while only a truncated preview is loaded.";
@@ -832,7 +840,11 @@ export function ProjectChatSkillsMcpViewer({
       return "Cannot save while skill content failed to load.";
     }
     return "Save selected custom skill";
-  }, [selectedSkillContentAuthority, selectedSkillIsEditable]);
+  }, [
+    selectedSkillContentAuthority,
+    selectedSkillIsEditable,
+    selectedSkillReadOnlyReason,
+  ]);
 
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
@@ -1008,7 +1020,8 @@ export function ProjectChatSkillsMcpViewer({
     }
     if (!selectedSkillIsEditable) {
       addTemporaryNotification(
-        "Selected skill is read-only. Create or pick a custom skill to edit.",
+        selectedSkillReadOnlyReason ??
+          "Selected skill is read-only. Create or pick a custom skill to edit.",
       );
       return;
     }
@@ -1057,6 +1070,7 @@ export function ProjectChatSkillsMcpViewer({
     selectedSkillContentAuthority,
     selectedSkillId,
     selectedSkillIsEditable,
+    selectedSkillReadOnlyReason,
     skillMarkdownRawDraft,
   ]);
 
@@ -1512,10 +1526,13 @@ export function ProjectChatSkillsMcpViewer({
                           </button>
                         </div>
                         {isRawMarkdownView ? (
-                          <div className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400">
+                          <div
+                            className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400"
+                            data-testid="project-chat-custom-skill-editability-message"
+                          >
                             {selectedSkillIsEditable
                               ? "Editing mode for custom skills."
-                              : "Read-only preview. Select or create a custom skill to edit."}
+                              : selectedSkillReadOnlyReason}
                           </div>
                         ) : null}
                         {!isRawMarkdownView ? (

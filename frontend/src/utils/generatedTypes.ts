@@ -8772,6 +8772,8 @@ const AppGenSkillEntrySchema = z.object({
   rootPath: z.string(),
   relativePath: z.string(),
   description: z.string().default("" as const),
+  editable: z.boolean().default(false),
+  editBlockedReason: z.union([z.string(), z.null()]).default(null),
 });
 
 export type AppGenSkillEntry = z.infer<typeof AppGenSkillEntrySchema>;

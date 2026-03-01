@@ -35,3 +35,12 @@
 - Removed duplicated runtime-activity count derivation drift by using `resolveProjectChatRuntimeActivityCounts` in the main `ProjectChatCore` render path.
 - Updated frontend Vitest and Playwright coverage for the canonical Watch Code tab flow and deployment-mode hiding behavior.
 - Ran `pnpm -C frontend gcf`.
+
+## 2026-03-04 22:21:05 PST
+
+- Ran `pnpm -C frontend gcf`.
+- Unified skill editability contract between list and upsert by introducing backend-authored `editable`/`editBlockedReason` metadata from the same validator used by writes.
+- Updated Skills viewer edit/save gating to rely on backend editability metadata (no root-id heuristics), and surfaced the blocked reason in raw mode/save tooltip.
+- Narrowed hydrate reconciliation to preserve only local-only activity rows (tool messages or assistant activity rows), while converging canonical chat history to backend state.
+- Removed dead Watch Code `inPopover` branch and the redundant `showMoreAppTab` alias in overview navigation.
+- Added/updated backend route tests, frontend Vitest tests, and Playwright tests for non-editable skill save blocking and hydration activity-only preservation.

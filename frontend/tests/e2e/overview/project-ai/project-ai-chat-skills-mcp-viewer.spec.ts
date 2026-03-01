@@ -396,6 +396,75 @@ test("project ai chat keeps skill save disabled for truncated editable previews"
   expect(upsertCallCount).toBe(0);
 });
 
+test("project ai chat blocks save for non-editable listed skills", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::.",
+          name: "skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: ".",
+          description: "Root-level skills doc.",
+          editable: false,
+          editBlockedReason: "Editing root-level SKILL.md is not supported.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "workspace_agents_skills::.",
+        content: "# skills\n\nRoot-level doc.",
+        truncated: false,
+        originalSizeBytes: 25,
+      }),
+    });
+  });
+
+  let upsertCallCount = 0;
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    upsertCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_agents_skills::.",
+        created: false,
+        rootPath: "/workspace/.agents/skills",
+        skillDocPath: "/workspace/.agents/skills/SKILL.md",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await expect(
+    page.getByTestId("project-chat-custom-skill-editability-message"),
+  ).toContainText("Editing root-level SKILL.md is not supported.");
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
+  expect(upsertCallCount).toBe(0);
+});
+
 test("project ai chat does not copy load errors into editable skill draft content", async ({
   page,
 }) => {
@@ -1757,6 +1826,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
     rootPath: string;
     relativePath: string;
     description: string;
+    editable: boolean;
+    editBlockedReason: string | null;
   }> = [
     {
       skillId: "user_agents_skills::custom-one",
@@ -1765,6 +1836,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
       rootPath,
       relativePath: "custom-one",
       description: "Custom skill",
+      editable: true,
+      editBlockedReason: null,
     },
   ];
   const contentBySkillId: Record<string, string> = {
@@ -1850,6 +1923,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
       rootPath,
       relativePath: nextRelativePath,
       description: "",
+      editable: true,
+      editBlockedReason: null,
     });
     await route.fulfill({
       status: 200,
