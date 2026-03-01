@@ -17,21 +17,17 @@ from setta.types.binary_content import BinaryContentRef
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.core import Core, Variant
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.unions import (
-    BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplArgsUnionWithDiscriminator,
-    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectCodegenTarget,
-    ProjectConfig,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -40,7 +36,6 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
-    BaseSectionImpl,
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatDictationMode,
@@ -1210,94 +1205,6 @@ class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithSection):
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-    projectStateRevision: int | None = None
-
-
-@dataclass
-class ProjectStateActiveViewModePatch:
-    projectConfigId: ID
-    activeViewModeId: ID
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateProjectConfigPatch:
-    projectConfigId: ID
-    projectConfig: ProjectConfig
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateSectionImplPatch:
-    projectConfigId: ID
-    sectionId: ID
-    sectionImpl: BaseSectionImpl
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateSectionImplsPatch:
-    projectConfigId: ID
-    sectionImpls: dict[ID, BaseSectionImpl]
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateCodeObjsPatch:
-    projectConfigId: ID
-    codeObjs: dict[ID, Core]
-    codeObjVariants: dict[ID, Variant]
-    codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator]
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateStructuralPatch:
-    projectConfigId: ID
-    projectConfig: ProjectConfig
-    sections: dict[ID, Core]
-    sectionVariants: dict[ID, Variant]
-    sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator]
-    parentSectionMap: dict[ID, ID | None]
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateAppDefinitionPatch:
-    projectConfigId: ID
-    appDefinition: AppDefinition | None
-    appSpec: JSONValue | None
-    previousProjectStateRevision: int
-    projectStateRevision: int
-    completedOpIds: list[str]
-    pendingOpIds: list[str]
-
-
-@dataclass
-class ProjectStateOpStatusPatch:
-    projectConfigId: ID
-    previousProjectStateRevision: int
-    projectStateRevision: int
     completedOpIds: list[str]
     pendingOpIds: list[str]
 

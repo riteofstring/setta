@@ -203,8 +203,7 @@ const firstFocusableElement = (container) => {
 };
 
 export function focusOnSectionSearch(sectionId: string) {
-  const element = document.getElementById(`${sectionId}-search`);
-  element?.focus({ preventScroll: true });
+  document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
 }
 
 const pendingSectionTextFocus = new Set<string>();
