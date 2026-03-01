@@ -259,4 +259,74 @@ async def test_set_param_entered_value_skips_file_watcher_refresh_calls() -> Non
         assert artifact_watch_calls - before_artifact == 0
         assert code_watch_calls - before_code == 0
         assert watch_code_sync_calls - before_sync == 0
+        assert refresh_calls - before_refresh == 0
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_incremental_codegen_matches_full_refresh_output() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        # Exercise the route fast path first.
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="incremental-value",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        incremental_codegen = manager.gen_code[project_config_id].code
+
+        # Force a full refresh from the same state and ensure outputs match.
+        refreshed_state = manager.get_single_config_state(project_config_id)
+        await manager.update(
+            refreshed_state,
+            updateFileWatcher=False,
+            validate_name_rules=False,
+        )
+        full_refresh_codegen = manager.gen_code[project_config_id].code
+        assert incremental_codegen == full_refresh_codegen
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_falls_back_to_full_refresh_without_python_codegen() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+        await manager.compare_and_set_python_codegen_enabled(project_config_id, False)
+
+        refresh_calls = 0
+        original_refresh = manager._refresh_codegen_state
+
+        async def record_refresh(next_state):
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh = refresh_calls
+            await manager.set_param_entered_value(
+                SetParamEnteredValueRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramInfoId=FIRST_PARAM_ID,
+                    value="fallback-refresh",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+
         assert refresh_calls - before_refresh > 0
+        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "fallback-refresh"

@@ -98,12 +98,13 @@ Expected impact:
 Goal: address the largest remaining cost (`DependencyGraph` rebuild) on typing-heavy routes.
 
 1. Introduce a dedicated value-update codegen path for `set_param_entered_value`:
-   - Use existing `change_value` pathway in generator/runtime state where graph shape is unchanged.
-   - Fall back to full refresh if invariants fail.
+   - Completed: Use existing `change_value` pathway in generator/runtime state where graph shape is unchanged.
+   - Completed: Fall back to full refresh if invariants fail.
 2. Keep semantics safe:
-   - On fallback conditions, run existing full path.
-   - Ensure run/type-check entry points force full refresh if state is marked dirty.
+   - Completed: On fallback conditions, run existing full path.
+   - Completed: Fallback is immediate, so no deferred dirty-state pathway is required.
 3. Add correctness tests that compare generated output from incremental path vs full refresh for representative section types.
+   - Completed: Added backend correctness/fallback tests for `set_param_entered_value`.
 
 Expected impact:
 - Major cut to `set_param_entered_value` latency by avoiding repeated `DependencyGraph` rebuild (`~858 ms` component).
