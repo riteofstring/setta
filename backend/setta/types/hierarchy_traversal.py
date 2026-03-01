@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -7,6 +8,8 @@ from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import BaseCodeObjImplUnion
 from setta.types.id import ID
 from setta.utils.utils import try_json
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,6 +34,7 @@ class TraversalOptions:  # setta-convert-pydantic-to-js: skip
     collect_all_visited: bool = (
         False  # If True, collect all nodes visited, not just filtered
     )
+    skip_missing_references: bool = False
 
 
 @dataclass
@@ -65,10 +69,60 @@ def traverse_hierarchy(
 
     result = HierarchyTraversalResult()
 
-    def get_impl(id: ID) -> BaseCodeObjImplUnion:
+    logged_missing_references: set[tuple[str, ID]] = set()
+
+    def _handle_missing_reference(
+        *,
+        reference_kind: str,
+        reference_id: ID,
+        current_id: ID,
+    ) -> None:
+        if not options.skip_missing_references:
+            raise KeyError(reference_id)
+        dedupe_key = (reference_kind, reference_id)
+        if dedupe_key in logged_missing_references:
+            return
+        logged_missing_references.add(dedupe_key)
+        logger.warning(
+            "traverse_hierarchy skipping missing reference kind=%s reference_id=%s current_id=%s",
+            reference_kind,
+            reference_id,
+            current_id,
+        )
+
+    def get_impl(id: ID) -> BaseCodeObjImplUnion | None:
+        if id not in codeObjVariantMap:
+            _handle_missing_reference(
+                reference_kind="code_obj_variant_map",
+                reference_id=id,
+                current_id=id,
+            )
+            return None
         variant_id = codeObjVariantMap[id]
+        if variant_id not in codeObjVariants:
+            _handle_missing_reference(
+                reference_kind="code_obj_variant",
+                reference_id=variant_id,
+                current_id=id,
+            )
+            return None
+        if id not in codeObjs:
+            _handle_missing_reference(
+                reference_kind="code_obj_core",
+                reference_id=id,
+                current_id=id,
+            )
+            return None
         variant = codeObjVariants[variant_id]
-        return get_effective_impl(codeObjImpls[variant.impl], codeObjs[id], variant)
+        impl_id = variant.impl
+        if impl_id not in codeObjImpls:
+            _handle_missing_reference(
+                reference_kind="code_obj_impl",
+                reference_id=impl_id,
+                current_id=id,
+            )
+            return None
+        return get_effective_impl(codeObjImpls[impl_id], codeObjs[id], variant)
 
     # Build stack with optional filtering
     stack: list[
@@ -76,13 +130,17 @@ def traverse_hierarchy(
     ] = []  # (id, id_path, name_path)
 
     if root_id:
-        if not options.traverse_filter or options.traverse_filter(get_impl(root_id)):
+        root_impl = get_impl(root_id)
+        if root_impl is not None and (
+            not options.traverse_filter or options.traverse_filter(root_impl)
+        ):
             stack.append((root_id, (), options.name_path_prefix))
     else:
         for top_level_id in top_level_ids:
-            if not options.traverse_filter or options.traverse_filter(
-                get_impl(top_level_id)
-            ):
+            top_level_impl = get_impl(top_level_id)
+            if top_level_impl is None:
+                continue
+            if not options.traverse_filter or options.traverse_filter(top_level_impl):
                 stack.append((top_level_id, (), options.name_path_prefix))
 
     stack.reverse()
@@ -93,8 +151,10 @@ def traverse_hierarchy(
         if not current_id or current_id in result.all_visited_ids:
             continue
 
-        result.all_visited_ids.add(current_id)
         impl = get_impl(current_id)
+        if impl is None:
+            continue
+        result.all_visited_ids.add(current_id)
 
         # Build paths
         new_id_path = current_id_path + (current_id,)
@@ -148,30 +208,36 @@ def traverse_hierarchy(
         # Process children
         if isinstance(impl, BaseParentCodeObjImpl):
             children = impl.children
+            valid_children: list[ID] = []
+            traversable_children: list[ID] = []
+            for child_id in children:
+                child_impl = get_impl(child_id)
+                if child_impl is None:
+                    continue
+                valid_children.append(child_id)
+                if options.traverse_filter and not options.traverse_filter(child_impl):
+                    continue
+                traversable_children.append(child_id)
 
             if options.build_children_map:
-                result.children_map[current_id] = children
+                result.children_map[current_id] = list(valid_children)
 
             if options.build_parent_map:
-                for child_id in children:
+                for child_id in valid_children:
                     result.parent_map[child_id] = current_id
 
             # Add children to stack if we should traverse them
             if not options.traverse_filter or options.traverse_filter(impl):
-                for child_id in reversed(children):
-                    child_impl = get_impl(child_id)
-                    if not options.traverse_filter or options.traverse_filter(
-                        child_impl
-                    ):
-                        # Determine paths for child
-                        child_id_path = result.id_to_id_path.get(
-                            current_id, new_id_path
-                        )
-                        stack.append((child_id, child_id_path, new_name_path))
+                for child_id in reversed(traversable_children):
+                    # Determine paths for child
+                    child_id_path = result.id_to_id_path.get(current_id, new_id_path)
+                    stack.append((child_id, child_id_path, new_name_path))
 
         # Check early stop
         if options.early_stop and result.collected_ids:
             last_impl = get_impl(result.collected_ids[-1])
+            if last_impl is None:
+                continue
             if options.early_stop(last_impl):
                 result.early_stopped = True
                 break
