@@ -46,18 +46,25 @@ def _snapshot_watcher_paths(manager) -> dict[str, set[str]]:
     return snapshots
 
 
-async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> None:
+async def _assert_skips_file_watcher_refresh_calls(
+    manager,
+    operation_coro,
+    *,
+    expected_project_config_id: ID,
+) -> None:
     json_source_watch_calls = 0
     artifact_watch_calls = 0
     code_watch_calls = 0
     watch_code_sync_calls = 0
     refresh_calls = 0
+    scheduled_deferred_refreshes: list[ID] = []
 
     original_watch_json_source_files = manager.watch_json_source_files
     original_watch_artifact_files = manager.watch_artifact_files
     original_watch_code_files = manager.watch_code_files
     original_watch_code_sync = manager.watch_code_manager.sync_from_backend
     original_refresh = manager._refresh_codegen_state
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
 
     def record_watch_json_source_files() -> None:
         nonlocal json_source_watch_calls
@@ -84,11 +91,17 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         refresh_calls += 1
         await original_refresh(next_state)
 
+    def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+        scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
     manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
     manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
     manager.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
     manager.watch_code_manager.sync_from_backend = record_watch_code_sync  # type: ignore[method-assign]
     manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+    manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+        record_schedule_deferred_refresh
+    )
     try:
         await manager.finish_pending_operations(timeout=5.0)
         before_json = json_source_watch_calls
@@ -96,6 +109,7 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         before_code = code_watch_calls
         before_sync = watch_code_sync_calls
         before_refresh = refresh_calls
+        before_scheduled_deferred_refreshes = len(scheduled_deferred_refreshes)
         await operation_coro
         await manager.finish_pending_operations(timeout=5.0)
     finally:
@@ -104,12 +118,17 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
         manager.watch_code_manager.sync_from_backend = original_watch_code_sync  # type: ignore[method-assign]
         manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            original_schedule_deferred_refresh
+        )
 
     assert json_source_watch_calls - before_json == 0
     assert artifact_watch_calls - before_artifact == 0
     assert code_watch_calls - before_code == 0
     assert watch_code_sync_calls - before_sync == 0
-    assert refresh_calls - before_refresh > 0
+    assert refresh_calls - before_refresh == 0
+    assert len(scheduled_deferred_refreshes) == before_scheduled_deferred_refreshes + 1
+    assert scheduled_deferred_refreshes[-1] == expected_project_config_id
 
 
 @pytest.mark.asyncio
@@ -653,6 +672,7 @@ async def test_set_param_name_and_value_skips_file_watcher_refresh_calls() -> No
                     value="888",
                 )
             ),
+            expected_project_config_id=project_config_id,
         )
 
 
@@ -674,4 +694,5 @@ async def test_set_code_obj_name_skips_file_watcher_refresh_calls() -> None:
                     name="skip_refresh_second_param",
                 )
             ),
+            expected_project_config_id=project_config_id,
         )

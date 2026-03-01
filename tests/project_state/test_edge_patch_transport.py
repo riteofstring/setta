@@ -675,3 +675,111 @@ async def test_agentic_edge_routes_use_patch_transport() -> None:
             []
             == manager.get_single_config_state(project_config_id).projectConfig.agenticEdges
         )
+
+
+@pytest.mark.asyncio
+async def test_edge_and_agentic_edge_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        (
+            project_state,
+            source_section_id,
+            source_port_id,
+            target_one_section_id,
+            target_one_param_id,
+            _,
+            _,
+        ) = _build_edge_test_state(manager.settings_file.settings)
+        agentic_source_section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Chat,
+            Position(x=1140, y=360),
+            core_overrides={"name": "agentic_deferred_source"},
+        )
+        agentic_target_section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Dict,
+            Position(x=1220, y=420),
+            core_overrides={"name": "agentic_deferred_target"},
+        )
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        state_before_edge = manager.get_single_config_state(project_config_id)
+        source_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            source_section_id
+        ]
+        target_one_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            target_one_section_id
+        ]
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro) -> None:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await assert_deferred_refresh(
+                manager.create_edge(
+                    CreateEdgeRequest(
+                        projectConfigId=project_config_id,
+                        sourceSectionId=source_section_id,
+                        sourceVariantId=source_variant_id,
+                        sourcePortId=source_port_id,
+                        targetSectionId=target_one_section_id,
+                        targetVariantId=target_one_variant_id,
+                        targetPortId=target_one_param_id,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_section_edge_outputs(
+                    SetSectionEdgeOutputsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=source_section_id,
+                        edgeOutputPorts=[EdgePort(id=source_port_id, accessor=".deferred")],
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.create_agentic_edge(
+                    CreateAgenticEdgeRequest(
+                        projectConfigId=project_config_id,
+                        id=ID(create_new_id()),
+                        sourceSectionId=agentic_source_section_id,
+                        targetSectionId=agentic_target_section_id,
+                        kind=AgenticEdgeKind.chat_section,
+                        contextMode=AgenticEdgeContextMode.reference_only,
+                    )
+                )
+            )
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )

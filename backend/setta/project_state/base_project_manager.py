@@ -3932,7 +3932,7 @@ class BaseProjectManager(ABC):
             section_ids=[x.sectionId],
             project_state=project_state,
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.codeObjId],
             section_ids=section_patch_scope,
@@ -3973,7 +3973,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=section_ids,
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.codeObjId],
             section_ids=section_patch_scope,
@@ -4317,7 +4317,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(edge_input_param_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -4360,7 +4360,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -4408,7 +4408,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.targetPortId],
             section_ids=section_patch_scope,
@@ -4429,7 +4429,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[],
             section_ids=section_patch_scope,
@@ -4457,7 +4457,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -4512,7 +4512,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -4540,7 +4540,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -4573,7 +4573,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[],
             section_ids=section_patch_scope,
@@ -4594,7 +4594,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[],
             section_ids=section_patch_scope,
@@ -4615,7 +4615,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[],
             section_ids=section_patch_scope,
@@ -4636,7 +4636,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[],
             section_ids=section_patch_scope,
@@ -6326,7 +6326,7 @@ class BaseProjectManager(ABC):
                     section_ids=section_patch_ids,
                 )
             )
-            await self._update_and_broadcast_code_obj_and_section_patches(
+            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
                 project_state,
                 code_obj_ids=code_obj_patch_ids,
                 section_ids=section_patch_scope,
@@ -7825,6 +7825,69 @@ class BaseProjectManager(ABC):
                 code_obj_impl_updates[impl_id] = project_state.codeObjImpls[impl_id]
         return code_obj_updates, code_obj_variant_updates, code_obj_impl_updates
 
+    async def _broadcast_code_obj_and_section_patch_payloads(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        code_obj_ids: list[ID],
+        section_ids: list[ID],
+        broadcast_project_config_patch: bool,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> bool:
+        has_broadcast_patch = False
+        if broadcast_project_config_patch:
+            await self._broadcast_project_config_patch(
+                project_config=project_state.projectConfig,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=project_state_revision,
+            )
+            has_broadcast_patch = True
+
+        if code_obj_ids:
+            (
+                code_obj_updates,
+                code_obj_variant_updates,
+                code_obj_impl_updates,
+            ) = self._collect_code_obj_updates_for_patch(
+                project_state,
+                code_obj_ids,
+            )
+            await self._broadcast_code_objs_patch(
+                project_config_id=project_state.projectConfig.id,
+                code_objs=code_obj_updates,
+                code_obj_variants=code_obj_variant_updates,
+                code_obj_impls=code_obj_impl_updates,
+                previous_project_state_revision=(
+                    previous_project_state_revision
+                    if not has_broadcast_patch
+                    else project_state_revision
+                ),
+                project_state_revision=project_state_revision,
+            )
+            has_broadcast_patch = True
+
+        if section_ids:
+            section_impl_updates = self._collect_section_impl_updates_for_patch(
+                project_state,
+                section_ids,
+            )
+            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+                await self._broadcast_section_impl_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    section_id=section_id,
+                    section_impl=section_impl,
+                    previous_project_state_revision=(
+                        previous_project_state_revision
+                        if idx == 0 and not has_broadcast_patch
+                        else project_state_revision
+                    ),
+                    project_state_revision=project_state_revision,
+                )
+            if section_impl_updates:
+                has_broadcast_patch = True
+        return has_broadcast_patch
+
     async def _update_and_broadcast_code_obj_and_section_patches(
         self,
         project_state: ProjectStateSingleConfig,
@@ -7854,58 +7917,14 @@ class BaseProjectManager(ABC):
                 await self._broadcast_name_validation_errors(project_state)
             return
 
-        has_broadcast_patch = False
-        if broadcast_project_config_patch:
-            await self._broadcast_project_config_patch(
-                project_config=project_state.projectConfig,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        if code_obj_ids:
-            (
-                code_obj_updates,
-                code_obj_variant_updates,
-                code_obj_impl_updates,
-            ) = self._collect_code_obj_updates_for_patch(
-                project_state,
-                code_obj_ids,
-            )
-            await self._broadcast_code_objs_patch(
-                project_config_id=project_state.projectConfig.id,
-                code_objs=code_obj_updates,
-                code_obj_variants=code_obj_variant_updates,
-                code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=(
-                    previous_project_state_revision
-                    if not has_broadcast_patch
-                    else next_project_state_revision
-                ),
-                project_state_revision=next_project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        if section_ids:
-            section_impl_updates = self._collect_section_impl_updates_for_patch(
-                project_state,
-                section_ids,
-            )
-            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
-                await self._broadcast_section_impl_patch(
-                    project_config_id=project_state.projectConfig.id,
-                    section_id=section_id,
-                    section_impl=section_impl,
-                    previous_project_state_revision=(
-                        previous_project_state_revision
-                        if idx == 0 and not has_broadcast_patch
-                        else next_project_state_revision
-                    ),
-                    project_state_revision=next_project_state_revision,
-                )
-            if section_impl_updates:
-                has_broadcast_patch = True
-
+        has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
+            project_state=project_state,
+            code_obj_ids=code_obj_ids,
+            section_ids=section_ids,
+            broadcast_project_config_patch=broadcast_project_config_patch,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
         if not has_broadcast_patch:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
@@ -7914,6 +7933,59 @@ class BaseProjectManager(ABC):
 
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
+
+    async def _merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        code_obj_ids: list[ID],
+        section_ids: list[ID],
+        broadcast_project_config_patch: bool = False,
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            project_state.validate_for_update(
+                validate_code_file_bindings=True,
+                validate_name_rules=validate_name_rules,
+            )
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=updateFileWatcher,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+
+        has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
+            project_state=project_state,
+            code_obj_ids=code_obj_ids,
+            section_ids=section_ids,
+            broadcast_project_config_patch=broadcast_project_config_patch,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+        if not has_broadcast_patch:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
+            return
+
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
     def _collect_referenced_code_obj_ids_for_project_state(
         self,

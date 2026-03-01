@@ -271,3 +271,65 @@ async def test_listener_emit_param_dependency_uses_code_obj_and_section_patches(
         assert SECTION_ID in patched_section_ids
         assert 0 == capture["structural_patch_calls"]
         assert 0 == capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_listener_emit_dependency_updates_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(20)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        top_level_param_ids = get_curr_top_level_param_ids(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+        )
+        assert top_level_param_ids
+        target_param_id = top_level_param_ids[0]
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await manager.apply_listener_emit_updates(
+                projectConfigId=project_config_id,
+                dependency_updates=[
+                    ListenerFrontendEmitKeyAndValue(
+                        dependencyKey=SectionParamDependencyKey(
+                            sectionId=SECTION_ID,
+                            codeObjId=target_param_id,
+                        ),
+                        value=LiteralDependencyValue("listener emit deferred refresh"),
+                    )
+                ],
+                artifact_updates=[],
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == project_config_id
