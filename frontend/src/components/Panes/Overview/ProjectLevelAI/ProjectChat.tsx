@@ -1879,6 +1879,7 @@ export function ProjectChat() {
                   draftThread={draftThreadHint}
                   selectedGroupId={selectedThreadGroupId}
                   onSelectedGroupChange={setSelectedThreadGroupId}
+                  onStartNewThread={handleNewChatClick}
                   onStartNewThreadInGroup={handleNewChatInThreadGroup}
                   headerPortalTarget={inlineThreadsHeaderPortalTarget}
                 />
@@ -1954,6 +1955,7 @@ export function ProjectChat() {
             draftThread={draftThreadHint}
             selectedGroupId={selectedThreadGroupId}
             onSelectedGroupChange={setSelectedThreadGroupId}
+            onStartNewThread={handleNewChatClick}
             onStartNewThreadInGroup={handleNewChatInThreadGroup}
           />
         ) : (

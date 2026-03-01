@@ -133,6 +133,56 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
   }
 });
 
+test("project ai shows styled empty state when no threads exist", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1360, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-threads-empty-state"),
+    ).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-threads-empty-state-title"),
+    ).toContainText("Start a new thread");
+    const startNewThreadButton = threadsPanel.getByTestId(
+      "project-chat-threads-empty-state-start-thread-button",
+    );
+    await expect(startNewThreadButton).toBeVisible();
+    await startNewThreadButton.click();
+    await expect(
+      threadsPanel.getByTestId("project-chat-thread-draft-entry"),
+    ).toBeVisible();
+    await expect(
+      threadsPanel.getByTestId("project-chat-threads-empty-state"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai thread spinner clears after polling observes run completion", async ({
   page,
 }) => {
@@ -433,7 +483,9 @@ test("project ai threads render folder groups and support group drag reorder", a
   expect(threadHeaderGeometry.badgeToggleClasses).toContain("text-xs");
   expect(threadHeaderGeometry.badgeToggleClasses).toContain("font-semibold");
   expect(threadHeaderGeometry.badgeToggleClasses).toContain("text-setta-600");
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain("dark:text-setta-300");
+  expect(threadHeaderGeometry.badgeToggleClasses).toContain(
+    "dark:text-setta-300",
+  );
   const masterSearchInput = overviewPane.getByTestId(
     "project-chat-master-search-input",
   );
