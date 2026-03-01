@@ -3428,7 +3428,7 @@ class BaseProjectManager(ABC):
             if code_obj_id in project_state.codeObjs
         ]
         if update_scope.structural_changed:
-            await self._update_and_broadcast_structural_and_code_obj_patches(
+            await self._merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
                 project_state,
                 code_obj_ids=code_obj_ids,
             )
@@ -7932,6 +7932,73 @@ class BaseProjectManager(ABC):
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
 
+    async def _merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        code_obj_ids: list[ID],
+        include_all_code_obj_variants: bool = False,
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            project_state.validate_for_update(
+                validate_code_file_bindings=True,
+                validate_name_rules=validate_name_rules,
+            )
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=updateFileWatcher,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+
+        filtered_code_obj_ids = [
+            code_obj_id
+            for code_obj_id in code_obj_ids
+            if code_obj_id in project_state.codeObjs
+        ]
+        has_broadcast_patch = False
+        if filtered_code_obj_ids:
+            (
+                code_obj_updates,
+                code_obj_variant_updates,
+                code_obj_impl_updates,
+            ) = self._collect_code_obj_updates_for_patch(
+                project_state,
+                filtered_code_obj_ids,
+                include_all_variants=include_all_code_obj_variants,
+            )
+            await self._broadcast_code_objs_patch(
+                project_config_id=project_state.projectConfig.id,
+                code_objs=code_obj_updates,
+                code_obj_variants=code_obj_variant_updates,
+                code_obj_impls=code_obj_impl_updates,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            has_broadcast_patch = True
+
+        await self._broadcast_structural_patch(
+            project_state=project_state,
+            previous_project_state_revision=(
+                next_project_state_revision
+                if has_broadcast_patch
+                else previous_project_state_revision
+            ),
+            project_state_revision=next_project_state_revision,
+        )
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
+
     def _collect_section_impl_updates_for_patch(
         self,
         project_state: ProjectStateSingleConfig,
@@ -8306,7 +8373,7 @@ class BaseProjectManager(ABC):
             )
             if not touched_section_ids and not touched_code_obj_ids:
                 continue
-            await self._update_and_broadcast_structural_and_code_obj_patches(
+            await self._merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
                 project_state,
                 code_obj_ids=touched_code_obj_ids,
                 include_all_code_obj_variants=True,

@@ -12,7 +12,14 @@ import pytest_asyncio
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps, stop_file_watcher, stop_lsps
+from setta.lsp.managers import (
+    LSPReaders,
+    LSPServers,
+    LSPWriters,
+    start_lsps,
+    stop_file_watcher,
+    stop_lsps,
+)
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFileReloadPlan, RegisteredCodeFileBinding
 from setta.project_state.code_files import CodeFiles
@@ -227,8 +234,12 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_section_impl_patch = (
+            original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
     return capture, restore
@@ -245,7 +256,12 @@ class TestWatchCode:
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
         self.backup_folder = self.setta_root / "backups"
-        for path in (self.setta_root, self.code_folder, self.artifacts_folder, self.backup_folder):
+        for path in (
+            self.setta_root,
+            self.code_folder,
+            self.artifacts_folder,
+            self.backup_folder,
+        ):
             path.mkdir(parents=True, exist_ok=True)
 
         self._stack = ExitStack()
@@ -288,7 +304,9 @@ class TestWatchCode:
             self._build_project_state()
         )
         backend = ProjectStateBackend(
-            projectConfigs={project_state.projectConfig.id: project_state.projectConfig},
+            projectConfigs={
+                project_state.projectConfig.id: project_state.projectConfig
+            },
             defaultProjectConfigId=project_state.projectConfig.id,
             sections=project_state.sections,
             sectionImpls=project_state.sectionImpls,
@@ -367,9 +385,13 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.watch_file_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.watch_file_path)
+        )
         callable_name = f"{module_path}.existing"
-        identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
+        identity = build_callable_identity(
+            callable_name, WatchCodeCallableKind.function
+        )
         baseline = state.projectConfig.watchCodeBaselineByPath
         assert str(normalize_workspace_path(self.watch_file_path)) in baseline
         assert identity in baseline[str(normalize_workspace_path(self.watch_file_path))]
@@ -452,9 +474,9 @@ class TestWatchCode:
         assert [folder.path for folder in state.projectConfig.watchCodeFolders] == [
             str(workspace_relative_path(inside_folder))
         ]
-        assert [folder.recursive for folder in state.projectConfig.watchCodeFolders] == [
-            False
-        ]
+        assert [
+            folder.recursive for folder in state.projectConfig.watchCodeFolders
+        ] == [False]
 
     async def test_auto_creates_callable_section_for_new_def(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -464,8 +486,7 @@ class TestWatchCode:
             )
         )
         new_code = (
-            "def existing(a):\n    return a\n\n"
-            "def new_func(x, y):\n    return x + y\n"
+            "def existing(a):\n    return a\n\ndef new_func(x, y):\n    return x + y\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -475,7 +496,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         callable_name = f"{module_path}.new_func"
         identity = f"{callable_name}:function"
         assert identity in state.projectConfig.watchCodeRegistry
@@ -539,7 +562,9 @@ class TestWatchCode:
             workspace_relative_path(self.code_section_path)
         )
         callable_name = f"{module_path}.external_added"
-        identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
+        identity = build_callable_identity(
+            callable_name, WatchCodeCallableKind.function
+        )
         assert identity in state.projectConfig.watchCodeRegistry
 
     async def test_scan_skips_when_watch_code_disabled(self) -> None:
@@ -557,8 +582,7 @@ class TestWatchCode:
             )
         )
         updated_code = (
-            "def existing(a):\n    return a\n\n"
-            "def added(value):\n    return value\n"
+            "def existing(a):\n    return a\n\ndef added(value):\n    return value\n"
         )
         self.watch_file_path.write_text(updated_code)
         await self.manager.set_watch_code_enabled(
@@ -622,7 +646,9 @@ class TestWatchCode:
         assert 1 == create_capture["code_obj_patch_calls"]
         assert 0 == create_capture["section_impl_patch_calls"]
         assert 1 == create_capture["name_validation_broadcast_calls"]
-        state_after_create = self.manager.get_single_config_state(self.project_config_id)
+        state_after_create = self.manager.get_single_config_state(
+            self.project_config_id
+        )
         assert identity in state_after_create.projectConfig.watchCodeRegistry
         created_entry = state_after_create.projectConfig.watchCodeRegistry[identity]
         created_signature_hash = created_entry.signatureHash
@@ -649,7 +675,9 @@ class TestWatchCode:
         assert 1 == signature_capture["project_config_patch_calls"]
         assert 1 == signature_capture["code_obj_patch_calls"]
         assert 1 <= signature_capture["section_impl_patch_calls"]
-        assert 1 == signature_capture["name_validation_broadcast_calls"]
+        # Signature-only updates do not change name-validation content and can be
+        # suppressed by unchanged-broadcast gating.
+        assert 0 == signature_capture["name_validation_broadcast_calls"]
         state_after_signature = self.manager.get_single_config_state(
             self.project_config_id
         )
@@ -672,9 +700,75 @@ class TestWatchCode:
         assert 0 == delete_capture["project_config_patch_calls"]
         assert 0 == delete_capture["code_obj_patch_calls"]
         assert 0 == delete_capture["section_impl_patch_calls"]
-        assert 1 == delete_capture["name_validation_broadcast_calls"]
-        state_after_delete = self.manager.get_single_config_state(self.project_config_id)
+        # Delete updates can also keep name-validation content unchanged.
+        assert 0 == delete_capture["name_validation_broadcast_calls"]
+        state_after_delete = self.manager.get_single_config_state(
+            self.project_config_id
+        )
         assert identity not in state_after_delete.projectConfig.watchCodeRegistry
+
+    async def test_watch_code_structural_update_defers_codegen_refresh(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = self.manager._refresh_codegen_state
+        original_schedule_deferred_refresh = (
+            self.manager._schedule_deferred_codegen_refresh
+        )
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        self.manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            record_schedule_deferred_refresh
+        )
+        try:
+            await self.manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            structural_code = (
+                "def existing(a):\n    return a\n\n"
+                "def deferred_structural(value):\n    return value\n"
+            )
+            await self.manager.apply_watch_code_file_update(
+                self.project_config_id,
+                self.watch_file_path,
+                structural_code,
+                baseline_only=False,
+                moved_from=None,
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            self.manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+                original_schedule_deferred_refresh
+            )
+
+        # Structural watch-code updates should ACK via stage-A patch transport and
+        # defer the extra update-path codegen refresh to stage-B. One refresh is
+        # still expected here from watch-code dependency graph synchronization.
+        assert refresh_calls - before_refresh_calls == 1
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == self.project_config_id
 
     async def test_watch_code_signature_update_defers_codegen_refresh(self) -> None:
         await self.manager.set_watch_code_inputs(
@@ -768,7 +862,10 @@ class TestWatchCode:
             self.watch_file_path,
             baseline_only=False,
         )
-        debouncer_key = (self.project_config_id, normalize_workspace_path(self.watch_file_path))
+        debouncer_key = (
+            self.project_config_id,
+            normalize_workspace_path(self.watch_file_path),
+        )
         assert debouncer_key in self.manager.watch_code_manager._debouncers
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
@@ -863,7 +960,10 @@ class TestWatchCode:
             self.watch_file_path,
             baseline_only=False,
         )
-        debouncer_key = (self.project_config_id, normalize_workspace_path(self.watch_file_path))
+        debouncer_key = (
+            self.project_config_id,
+            normalize_workspace_path(self.watch_file_path),
+        )
         assert debouncer_key in self.manager.watch_code_manager._debouncers
         self.manager._get_lsp_diagnostics_state(self.project_config_id)
         assert (
@@ -906,8 +1006,7 @@ class TestWatchCode:
             )
         )
         updated_code = (
-            bulk_path.read_text()
-            + "\n\ndef watched(flag):\n    return not flag\n"
+            bulk_path.read_text() + "\n\ndef watched(flag):\n    return not flag\n"
         )
         bulk_path.write_text(updated_code)
         await self.manager.watch_code_manager._scan_file(
@@ -925,9 +1024,7 @@ class TestWatchCode:
 
         moved_path = bulk_path.with_name("bulk_watch_moved.py")
         bulk_path.replace(moved_path)
-        self.manager.watch_code_manager._handle_event(
-            bulk_path, "moved", moved_path
-        )
+        self.manager.watch_code_manager._handle_event(bulk_path, "moved", moved_path)
         debouncer_key = (self.project_config_id, normalize_workspace_path(moved_path))
         debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
         await debouncer.flush(
@@ -977,9 +1074,7 @@ class TestWatchCode:
         )
 
         source_path.replace(dest_path)
-        self.manager.watch_code_manager._handle_event(
-            source_path, "moved", dest_path
-        )
+        self.manager.watch_code_manager._handle_event(source_path, "moved", dest_path)
         debouncer_key = (self.project_config_id, normalize_workspace_path(dest_path))
         debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
         await debouncer.flush(
@@ -1019,9 +1114,7 @@ class TestWatchCode:
             )
         )
 
-        src_path.write_text(
-            src_path.read_text() + "\n\ndef watched():\n    return 2\n"
-        )
+        src_path.write_text(src_path.read_text() + "\n\ndef watched():\n    return 2\n")
         await self.manager.watch_code_manager._scan_file(
             self.project_config_id,
             src_path,
@@ -1041,7 +1134,9 @@ class TestWatchCode:
         assert src_key not in state.projectConfig.watchCodeBaselineByPath
         for entry in state.projectConfig.watchCodeRegistry.values():
             assert entry.sourcePath != src_key
-        moved_module_path = convert_path_to_module_path(workspace_relative_path(dest_path))
+        moved_module_path = convert_path_to_module_path(
+            workspace_relative_path(dest_path)
+        )
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
         )
@@ -1138,7 +1233,9 @@ class TestWatchCode:
             assert entry.sourcePath != src_key
 
         dest_state = self.manager.get_single_config_state(secondary_config_id)
-        dest_module_path = convert_path_to_module_path(workspace_relative_path(dest_path))
+        dest_module_path = convert_path_to_module_path(
+            workspace_relative_path(dest_path)
+        )
         dest_identity = build_callable_identity(
             f"{dest_module_path}.moved", WatchCodeCallableKind.function
         )
@@ -1152,8 +1249,7 @@ class TestWatchCode:
             )
         )
         first_code = (
-            "def existing(a):\n    return a\n\n"
-            "def watched(value):\n    return value\n"
+            "def existing(a):\n    return a\n\ndef watched(value):\n    return value\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -1163,9 +1259,13 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         callable_name = f"{module_path}.watched"
-        identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
+        identity = build_callable_identity(
+            callable_name, WatchCodeCallableKind.function
+        )
         entry = state.projectConfig.watchCodeRegistry[identity]
         previous_hash = entry.signatureHash
         second_code = (
@@ -1191,8 +1291,7 @@ class TestWatchCode:
             )
         )
         first_code = (
-            "def existing(a):\n    return a\n\n"
-            "def watched(value):\n    return value\n"
+            "def existing(a):\n    return a\n\ndef watched(value):\n    return value\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -1202,13 +1301,15 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         identity = build_callable_identity(
             f"{module_path}.watched", WatchCodeCallableKind.function
         )
         assert identity in state.projectConfig.watchCodeRegistry
 
-        invalid_code = "def existing(a):\n    return a\n\n" "def watched("
+        invalid_code = "def existing(a):\n    return a\n\ndef watched("
         await self.manager.set_code(
             SetCodeRequest(
                 projectConfigId=self.project_config_id,
@@ -1238,17 +1339,20 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         callable_name = f"{module_path}.watched"
-        identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
+        identity = build_callable_identity(
+            callable_name, WatchCodeCallableKind.function
+        )
         entry = state.projectConfig.watchCodeRegistry[identity]
         section_id = entry.sectionIds[0]
         param_ids_before = get_curr_top_level_param_ids(state, section_id)
         assert len(param_ids_before) == 0
 
         second_code = (
-            "def existing(a):\n    return a\n\n"
-            "def watched(a):\n    return a\n"
+            "def existing(a):\n    return a\n\ndef watched(a):\n    return a\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -1280,7 +1384,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         original_name = f"{module_path}.original"
         original_identity = build_callable_identity(
             original_name, WatchCodeCallableKind.function
@@ -1328,7 +1434,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         original_name = f"{module_path}.original"
         original_identity = build_callable_identity(
             original_name, WatchCodeCallableKind.function
@@ -1374,8 +1482,7 @@ class TestWatchCode:
             )
         )
         first_code = (
-            "def existing(a):\n    return a\n\n"
-            "def watched(value):\n    return value\n"
+            "def existing(a):\n    return a\n\ndef watched(value):\n    return value\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -1385,7 +1492,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         watched_name = f"{module_path}.watched"
         watched_identity = build_callable_identity(
             watched_name, WatchCodeCallableKind.function
@@ -1402,10 +1511,7 @@ class TestWatchCode:
             )
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        assert (
-            watched_identity
-            not in updated_state.projectConfig.watchCodeRegistry
-        )
+        assert watched_identity not in updated_state.projectConfig.watchCodeRegistry
         assert watched_section_id not in updated_state.sections
 
     async def test_removed_callable_keeps_section_with_other_variants(self) -> None:
@@ -1428,7 +1534,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         alpha_identity = build_callable_identity(
             f"{module_path}.alpha", WatchCodeCallableKind.function
         )
@@ -1467,8 +1575,7 @@ class TestWatchCode:
         )
 
         second_code = (
-            "def existing(a):\n    return a\n\n"
-            "def beta(value):\n    return value + 1\n"
+            "def existing(a):\n    return a\n\ndef beta(value):\n    return value + 1\n"
         )
         await self.manager.set_code(
             SetCodeRequest(
@@ -1478,18 +1585,13 @@ class TestWatchCode:
             )
         )
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        assert (
-            alpha_identity
-            not in updated_state.projectConfig.watchCodeRegistry
-        )
+        assert alpha_identity not in updated_state.projectConfig.watchCodeRegistry
         assert alpha_section_id in updated_state.sections
         updated_core = updated_state.sections[alpha_section_id]
         assert updated_core.variants == [new_variant_id]
         active_variant = updated_state.projectConfig.sectionVariantMap[alpha_section_id]
         assert active_variant == new_variant_id
-        section_impl = get_curr_effective_section_impl(
-            updated_state, alpha_section_id
-        )
+        section_impl = get_curr_effective_section_impl(updated_state, alpha_section_id)
         assert isinstance(section_impl, CallableSectionImpl)
         callable_id = section_impl.callable
         assert callable_id is not None
@@ -1513,8 +1615,7 @@ class TestWatchCode:
             )
         )
         updated_code = (
-            "def existing(a):\n    return a\n\n"
-            "def added(value):\n    return value\n"
+            "def existing(a):\n    return a\n\ndef added(value):\n    return value\n"
         )
         self.watch_file_path.write_text(updated_code)
         await self.manager.watch_code_manager._scan_file(
@@ -1523,7 +1624,9 @@ class TestWatchCode:
             baseline_only=False,
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.watch_file_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.watch_file_path)
+        )
         added_identity = build_callable_identity(
             f"{module_path}.added", WatchCodeCallableKind.function
         )
@@ -1564,7 +1667,9 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.code_section_path)
+        )
         callable_name = f"{module_path}.Widget"
         identity = build_callable_identity(
             callable_name, WatchCodeCallableKind.class_init
@@ -1633,7 +1738,9 @@ class TestWatchCodeLspOrdering:
             self._build_project_state()
         )
         backend = ProjectStateBackend(
-            projectConfigs={project_state.projectConfig.id: project_state.projectConfig},
+            projectConfigs={
+                project_state.projectConfig.id: project_state.projectConfig
+            },
             defaultProjectConfigId=project_state.projectConfig.id,
             sections=project_state.sections,
             sectionImpls=project_state.sectionImpls,

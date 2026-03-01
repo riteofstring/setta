@@ -11,6 +11,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, SectionType
@@ -178,8 +179,12 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_section_impl_patch = (
+            original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
     return capture, restore
@@ -218,9 +223,7 @@ async def test_load_json_sources_uses_patch_transport() -> None:
         sender = manager.websocket_msg_handler
         capture, restore = _install_transport_capture(sender)
         try:
-            processed = manager.json_source.process_json_object(
-                {"alpha": {"value": 1}}
-            )
+            processed = manager.json_source.process_json_object({"alpha": {"value": 1}})
             await manager.load_json_sources(
                 {json_source_path: processed},
                 [(section_id, variant.id)],
@@ -259,3 +262,73 @@ async def test_load_json_sources_uses_patch_transport() -> None:
         )
         assert not updated_impl.jsonSourceMissing
         assert updated_impl.topLevelParamId is not None
+
+
+@pytest.mark.asyncio
+async def test_load_json_sources_defers_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="json-source-deferred-refresh")
+        )
+        section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        set_curr_effective_section_impl_value(
+            project_state,
+            section_id,
+            BaseDictSectionImplArgsWithCallable(
+                isJsonSource=True,
+                jsonSourceKeys=[],
+                configLanguage=ConfigLanguage.json,
+            ),
+        )
+        variant = get_curr_section_variant(project_state, section_id)
+        json_source_path = normalize_workspace_path(Path("json-source-deferred.json"))
+        variant.name = str(json_source_path)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            record_schedule_deferred_refresh
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            processed = manager.json_source.process_json_object({"alpha": {"value": 1}})
+            await manager.load_json_sources(
+                {json_source_path: processed},
+                [(section_id, variant.id)],
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+        # JSON-source mutation ACK should avoid synchronous refresh and schedule
+        # stage-B codegen work on the owning project config.
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == project_config_id
