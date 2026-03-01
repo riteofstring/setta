@@ -113,6 +113,10 @@ export class CanvasEngineSceneAdapter {
 
   private readonly spatialIndex: CanvasEngineSpatialIndex;
 
+  private readonly dataEdgeSpatialIndex: CanvasEngineSpatialIndex;
+
+  private readonly agenticEdgeSpatialIndex: CanvasEngineSpatialIndex;
+
   private readonly rectById: Map<string, CanvasEngineRect>;
 
   private readonly dataEdgeById: Map<string, CanvasEngineDataEdge>;
@@ -144,6 +148,12 @@ export class CanvasEngineSceneAdapter {
     this.spatialIndex = new CanvasEngineSpatialIndex({
       cellSize: this.config.spatialIndexCellSize,
     });
+    this.dataEdgeSpatialIndex = new CanvasEngineSpatialIndex({
+      cellSize: this.config.spatialIndexCellSize,
+    });
+    this.agenticEdgeSpatialIndex = new CanvasEngineSpatialIndex({
+      cellSize: this.config.spatialIndexCellSize,
+    });
     this.rectById = new Map();
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
@@ -170,6 +180,17 @@ export class CanvasEngineSceneAdapter {
       input.sectionEdgePortsBySectionId,
     );
     const agenticEdgeSummary = this.applyAgenticEdges(input.agenticEdges);
+    const shouldRebuildEdgeSpatialIndexes =
+      sectionSummary.sectionBoundsChanged ||
+      dataEdgeSummary.dataEdgesAdded > 0 ||
+      dataEdgeSummary.dataEdgesUpdated > 0 ||
+      dataEdgeSummary.dataEdgesRemoved > 0 ||
+      agenticEdgeSummary.agenticEdgesAdded > 0 ||
+      agenticEdgeSummary.agenticEdgesUpdated > 0 ||
+      agenticEdgeSummary.agenticEdgesRemoved > 0;
+    if (shouldRebuildEdgeSpatialIndexes) {
+      this.rebuildEdgeSpatialIndexes();
+    }
 
     const hasChanges =
       sectionSummary.sectionsAdded > 0 ||
@@ -184,7 +205,9 @@ export class CanvasEngineSceneAdapter {
 
     return {
       hasChanges,
-      ...sectionSummary,
+      sectionsAdded: sectionSummary.sectionsAdded,
+      sectionsUpdated: sectionSummary.sectionsUpdated,
+      sectionsRemoved: sectionSummary.sectionsRemoved,
       ...dataEdgeSummary,
       ...agenticEdgeSummary,
     };
@@ -363,8 +386,20 @@ export class CanvasEngineSceneAdapter {
       distance: number;
       drawOrder: number;
     } | null = null;
+    const edgeQueryRect = {
+      x: worldX - toleranceWorld,
+      y: worldY - toleranceWorld,
+      width: toleranceWorld * 2,
+      height: toleranceWorld * 2,
+    };
 
-    for (const edge of this.dataEdgeById.values()) {
+    const candidateDataEdgeIds =
+      this.dataEdgeSpatialIndex.queryRect(edgeQueryRect);
+    for (const edgeId of candidateDataEdgeIds) {
+      const edge = this.dataEdgeById.get(edgeId);
+      if (!edge) {
+        continue;
+      }
       if (edge.hidden) {
         continue;
       }
@@ -397,7 +432,13 @@ export class CanvasEngineSceneAdapter {
       }
     }
 
-    for (const edge of this.agenticEdgeById.values()) {
+    const candidateAgenticEdgeIds =
+      this.agenticEdgeSpatialIndex.queryRect(edgeQueryRect);
+    for (const edgeId of candidateAgenticEdgeIds) {
+      const edge = this.agenticEdgeById.get(edgeId);
+      if (!edge) {
+        continue;
+      }
       if (edge.hidden) {
         continue;
       }
@@ -693,17 +734,66 @@ export class CanvasEngineSceneAdapter {
     this.dataHandlePositionsBySectionId = nextDataBySectionId;
   }
 
+  private rebuildEdgeSpatialIndexes(): void {
+    this.dataEdgeSpatialIndex.clear();
+    for (const edge of this.dataEdgeById.values()) {
+      if (edge.hidden) {
+        continue;
+      }
+      const sourceRect = this.rectById.get(edge.sourceSectionId);
+      const targetRect = this.rectById.get(edge.targetSectionId);
+      if (!sourceRect || !targetRect) {
+        continue;
+      }
+      const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
+      this.dataEdgeSpatialIndex.upsert(
+        edge.id,
+        resolveSegmentBounds(
+          anchors.startX,
+          anchors.startY,
+          anchors.endX,
+          anchors.endY,
+        ),
+      );
+    }
+
+    this.agenticEdgeSpatialIndex.clear();
+    for (const edge of this.agenticEdgeById.values()) {
+      if (edge.hidden) {
+        continue;
+      }
+      const sourceRect = this.rectById.get(edge.sourceSectionId);
+      const targetRect = this.rectById.get(edge.targetSectionId);
+      if (!sourceRect || !targetRect) {
+        continue;
+      }
+      const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+      this.agenticEdgeSpatialIndex.upsert(
+        edge.id,
+        resolveSegmentBounds(
+          anchors.startX,
+          anchors.startY,
+          anchors.endX,
+          anchors.endY,
+        ),
+      );
+    }
+  }
+
   private applySections(
     topLevelSections: Record<string, TopLevelSectionLayout>,
     activeSectionIdSet: Set<string>,
   ): Pick<
     CanvasEngineScenePatchSummary,
     "sectionsAdded" | "sectionsUpdated" | "sectionsRemoved"
-  > {
+  > & {
+    sectionBoundsChanged: boolean;
+  } {
     const nextSectionIds = new Set(Object.keys(topLevelSections));
     let sectionsAdded = 0;
     let sectionsUpdated = 0;
     let sectionsRemoved = 0;
+    let sectionBoundsChanged = false;
 
     for (const [sectionId, layout] of Object.entries(topLevelSections)) {
       const nextRect = this.createRectRecord(
@@ -721,6 +811,7 @@ export class CanvasEngineSceneAdapter {
           height: nextRect.height,
         });
         sectionsAdded += 1;
+        sectionBoundsChanged = true;
         continue;
       }
 
@@ -741,6 +832,7 @@ export class CanvasEngineSceneAdapter {
           width: nextRect.width,
           height: nextRect.height,
         });
+        sectionBoundsChanged = true;
       }
       sectionsUpdated += 1;
     }
@@ -752,12 +844,14 @@ export class CanvasEngineSceneAdapter {
       this.rectById.delete(sectionId);
       this.spatialIndex.remove(sectionId);
       sectionsRemoved += 1;
+      sectionBoundsChanged = true;
     }
 
     return {
       sectionsAdded,
       sectionsUpdated,
       sectionsRemoved,
+      sectionBoundsChanged,
     };
   }
 
@@ -1041,6 +1135,27 @@ function resolveEstimatedDataPortAnchor({
   }
   const y = rect.y + ((portIndex + 1) / (portIds.length + 1)) * rect.height;
   return { x, y };
+}
+
+function resolveSegmentBounds(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const x = Math.min(startX, endX);
+  const y = Math.min(startY, endY);
+  return {
+    x,
+    y,
+    width: Math.max(0, Math.abs(endX - startX)),
+    height: Math.max(0, Math.abs(endY - startY)),
+  };
 }
 
 function isAgenticHandlePortId(portId: string): boolean {

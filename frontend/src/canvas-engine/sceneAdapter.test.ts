@@ -384,6 +384,70 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(adapter.hitTestEdgeAtWorldPoint(370, 121, 8)).toBe(null);
   });
 
+  it("hit-tests long data-edge segments away from section bounds", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 4000, y: 0, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [createDataEdge("edge-data-long", "sectionA", "sectionB")],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestEdgeAtWorldPoint(2160, 100, 8)).toEqual({
+      kind: "data",
+      id: "edge-data-long",
+    });
+  });
+
+  it("reindexes edge hit testing when section geometry changes", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 420, y: 0, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-moving", "sectionA", "sectionB"),
+        ],
+      }),
+    );
+
+    expect(adapter.hitTestEdgeAtWorldPoint(370, 100, 8)).toEqual({
+      kind: "agentic",
+      id: "edge-agentic-moving",
+    });
+
+    const patchSummary = adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 920, y: 300, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-moving", "sectionA", "sectionB"),
+        ],
+      }),
+    );
+
+    expect(patchSummary.sectionsUpdated).toBe(1);
+    expect(patchSummary.agenticEdgesUpdated).toBe(0);
+    expect(adapter.hitTestEdgeAtWorldPoint(620, 250, 8)).toEqual({
+      kind: "agentic",
+      id: "edge-agentic-moving",
+    });
+    expect(adapter.hitTestEdgeAtWorldPoint(370, 100, 8)).toBe(null);
+  });
+
   it("hit-tests agentic source and target handles in world space", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
