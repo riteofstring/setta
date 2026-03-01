@@ -281,7 +281,6 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
-    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -2365,12 +2364,9 @@ class BaseProjectManager(ABC):
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
-        project_state_before_history = self.get_single_config_state(x.projectConfigId)
-        history_code_obj_ids = (
-            self._get_callable_history_code_obj_ids_for_project_state(
-                project_state_before_history,
-                x.sectionId,
-            )
+        history_code_obj_ids = self._get_callable_history_code_obj_ids_for_backend(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
         )
         self._add_section_and_code_obj_scoped_history_entry(
             project_config_id=x.projectConfigId,
@@ -4858,28 +4854,12 @@ class BaseProjectManager(ABC):
     )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
-        project_state_before_history = self.get_single_config_state(x.projectConfigId)
-        history_section_ids: set[ID] = {x.sectionId}
-        history_code_obj_ids: set[ID] = set()
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state_before_history,
-            x.sectionId,
-            BaseSectionWithParamsImpl,
+        history_section_ids, history_code_obj_ids = (
+            self._get_add_kwarg_history_scope_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+            )
         )
-        if isinstance(section_impl, CallableSectionImpl):
-            if section_impl.callable is None:
-                raise KeyError(f"Section {x.sectionId} has no callable root code obj.")
-            history_code_obj_ids.add(section_impl.callable)
-        elif isinstance(section_impl, BaseDictSectionImpl):
-            top_level_param_id = section_impl.topLevelParamId
-            if top_level_param_id is not None:
-                history_code_obj_ids.add(top_level_param_id)
-                history_section_ids.update(
-                    self._find_section_ids_for_code_obj(
-                        project_state_before_history,
-                        top_level_param_id,
-                    )
-                )
         self._add_section_and_code_obj_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_ids=history_section_ids,
@@ -4917,13 +4897,11 @@ class BaseProjectManager(ABC):
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
-        project_state_before_history = self.get_single_config_state(x.projectConfigId)
-        (
-            root_code_obj_id,
-            removed_param_id,
-        ) = self._get_delete_kwarg_history_targets_for_project_state(
-            project_state_before_history,
-            x.sectionId,
+        root_code_obj_id, removed_param_id = (
+            self._get_delete_kwarg_history_targets_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+            )
         )
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
@@ -4957,11 +4935,12 @@ class BaseProjectManager(ABC):
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
-        project_state_before_history = self.get_single_config_state(x.projectConfigId)
-        parent_code_obj_ids = self._get_parent_code_obj_ids_for_section_params(
-            project_state_before_history,
-            x.sectionId,
-            x.paramInfoIds,
+        parent_code_obj_ids = (
+            self._get_parent_code_obj_ids_for_section_params_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+                param_ids=x.paramInfoIds,
+            )
         )
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
@@ -6691,64 +6670,52 @@ class BaseProjectManager(ABC):
             parent_code_obj_ids.append(parent_id)
         return parent_code_obj_ids
 
-    def _get_callable_history_code_obj_ids_for_project_state(
+    def _find_section_ids_for_code_obj_for_backend(
         self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-    ) -> set[ID]:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            CallableSectionImpl,
-        )
-        return set(section_impl.codeObjVariantMap.keys())
-
-    def _get_delete_kwarg_history_targets_for_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-    ) -> tuple[ID, ID]:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            BaseSectionWithParamsImpl,
-        )
-        if isinstance(section_impl, CallableSectionImpl):
-            callable_id = section_impl.callable
-            if callable_id is None:
-                raise ValueError
-            callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
-                project_state,
-                section_id,
-                callable_id,
-                BaseParentCodeObjImpl,
+        *,
+        project_config_id: ID,
+        code_obj_id: ID,
+    ) -> list[ID]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        matches: list[ID] = []
+        for section_id, section_variant_id in project_config.sectionVariantMap.items():
+            if section_id not in backend.sections:
+                raise KeyError(f"Missing section {section_id} in backend state.")
+            if section_variant_id not in backend.sectionVariants:
+                raise KeyError(
+                    f"Missing section variant {section_variant_id} in backend state."
+                )
+            section_variant = backend.sectionVariants[section_variant_id]
+            section_impl_id = section_variant.impl
+            if section_impl_id not in backend.sectionImpls:
+                raise KeyError(
+                    f"Missing section impl {section_impl_id} in backend state."
+                )
+            section_impl = get_effective_impl(
+                backend.sectionImpls[section_impl_id],
+                backend.sections[section_id],
+                section_variant,
             )
-            if not callable_impl.children:
-                raise ValueError(f"Section {section_id} has no kwargs to delete.")
-            return callable_id, callable_impl.children[-1]
-        if isinstance(section_impl, BaseDictSectionImpl):
-            top_level_param_id = section_impl.topLevelParamId
-            if top_level_param_id is None:
-                raise ValueError
-            top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
-                project_state,
-                section_id,
-                top_level_param_id,
-                BaseParentCodeObjImpl,
-            )
-            if not top_level_impl.children:
-                raise ValueError(f"Section {section_id} has no kwargs to delete.")
-            return top_level_param_id, top_level_impl.children[-1]
-        raise TypeError(
-            f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
-        )
+            if isinstance(section_impl, BaseSectionWithParamsImpl):
+                if code_obj_id in section_impl.codeObjVariantMap:
+                    matches.append(section_id)
+                continue
+            if isinstance(section_impl, MetaControlSectionImpl):
+                if code_obj_id in section_impl.codeObjVariantMap:
+                    matches.append(section_id)
+        if not matches:
+            raise KeyError(f"Code obj {code_obj_id} not found in any section.")
+        return matches
 
-    def _get_param_section_impl_and_parent_map_for_backend(
+    def _get_param_section_impl_for_backend(
         self,
         *,
         project_config_id: ID,
         section_id: ID,
-    ) -> tuple[BaseSectionWithParamsImpl, dict[ID, ID | None]]:
+    ) -> BaseSectionWithParamsImpl:
         backend = self.project_state_backend
         if project_config_id not in backend.projectConfigs:
             raise KeyError(f"Unknown project config: {project_config_id}")
@@ -6779,6 +6746,142 @@ class BaseProjectManager(ABC):
             raise TypeError(
                 f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
             )
+        return section_impl
+
+    def _get_callable_history_code_obj_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> set[ID]:
+        section_impl = self._get_param_section_impl_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+        )
+        if not isinstance(section_impl, CallableSectionImpl):
+            raise TypeError(
+                f"Section {section_id} has unsupported callable history type {section_impl.type}."
+            )
+        return set(section_impl.codeObjVariantMap.keys())
+
+    def _get_add_kwarg_history_scope_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> tuple[set[ID], set[ID]]:
+        section_impl = self._get_param_section_impl_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+        )
+        history_section_ids: set[ID] = {section_id}
+        history_code_obj_ids: set[ID] = set()
+        if isinstance(section_impl, CallableSectionImpl):
+            if section_impl.callable is None:
+                raise KeyError(f"Section {section_id} has no callable root code obj.")
+            history_code_obj_ids.add(section_impl.callable)
+            return history_section_ids, history_code_obj_ids
+        if isinstance(section_impl, BaseDictSectionImpl):
+            top_level_param_id = section_impl.topLevelParamId
+            if top_level_param_id is not None:
+                history_code_obj_ids.add(top_level_param_id)
+                history_section_ids.update(
+                    self._find_section_ids_for_code_obj_for_backend(
+                        project_config_id=project_config_id,
+                        code_obj_id=top_level_param_id,
+                    )
+                )
+            return history_section_ids, history_code_obj_ids
+        raise TypeError(
+            f"Section {section_id} has unsupported add_kwarg history type {section_impl.type}."
+        )
+
+    def _get_delete_kwarg_history_targets_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> tuple[ID, ID]:
+        backend = self.project_state_backend
+        section_impl = self._get_param_section_impl_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+        )
+        root_code_obj_id: ID | None
+        if isinstance(section_impl, CallableSectionImpl):
+            root_code_obj_id = section_impl.callable
+            if root_code_obj_id is None:
+                raise ValueError
+        elif isinstance(section_impl, BaseDictSectionImpl):
+            root_code_obj_id = section_impl.topLevelParamId
+            if root_code_obj_id is None:
+                raise ValueError
+        else:
+            raise TypeError(
+                f"Section {section_id} has unsupported delete_kwarg history type {section_impl.type}."
+            )
+        if root_code_obj_id not in section_impl.codeObjVariantMap:
+            raise KeyError(
+                f"Root param container {root_code_obj_id} missing for section {section_id}"
+            )
+        root_variant_id = section_impl.codeObjVariantMap[root_code_obj_id]
+        if root_variant_id not in backend.codeObjVariants:
+            raise KeyError(
+                f"Missing code obj variant {root_variant_id} in backend state."
+            )
+        root_variant = backend.codeObjVariants[root_variant_id]
+        if root_code_obj_id not in backend.codeObjs:
+            raise KeyError(f"Missing code obj {root_code_obj_id} in backend state.")
+        root_impl_id = root_variant.impl
+        if root_impl_id not in backend.codeObjImpls:
+            raise KeyError(f"Missing code obj impl {root_impl_id} in backend state.")
+        root_impl = get_effective_impl(
+            backend.codeObjImpls[root_impl_id],
+            backend.codeObjs[root_code_obj_id],
+            root_variant,
+        )
+        if not isinstance(root_impl, BaseParentCodeObjImpl):
+            raise TypeError(
+                f"Code obj {root_code_obj_id} is not a parent impl for section {section_id}."
+            )
+        if not root_impl.children:
+            raise ValueError(f"Section {section_id} has no kwargs to delete.")
+        return root_code_obj_id, root_impl.children[-1]
+
+    def _get_parent_code_obj_ids_for_section_params_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+    ) -> list[ID]:
+        _, parent_map = self._get_param_section_impl_and_parent_map_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+        )
+        parent_code_obj_ids: list[ID] = []
+        seen_parent_ids: set[ID] = set()
+        for param_id in dict.fromkeys(param_ids):
+            parent_id = parent_map.get(param_id)
+            if parent_id is None:
+                continue
+            if parent_id in seen_parent_ids:
+                continue
+            seen_parent_ids.add(parent_id)
+            parent_code_obj_ids.append(parent_id)
+        return parent_code_obj_ids
+
+    def _get_param_section_impl_and_parent_map_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> tuple[BaseSectionWithParamsImpl, dict[ID, ID | None]]:
+        backend = self.project_state_backend
+        section_impl = self._get_param_section_impl_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+        )
         if isinstance(section_impl, CallableSectionImpl):
             root_id: ID | None = section_impl.callable
         elif isinstance(section_impl, BaseDictSectionImpl):
