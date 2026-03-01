@@ -5,9 +5,11 @@ import pytest
 from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     RedoRequest,
+    SetSectionTagColorRequest,
     SetViewportRequest,
     UndoRequest,
 )
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
 from setta.types.project_config import Viewport
 from setta.types.section_impls import SectionType
@@ -77,6 +79,16 @@ def _expected_viewport_state(
     payload = viewport.model_dump() if viewport is not None else None
     initialized = viewport is not None
     return payload, initialized, payload, initialized
+
+
+def _snapshot_section_tag_color(
+    manager: "SessionProjectManager",
+    project_config_id: ID,
+    section_id: ID,
+) -> str | None:
+    project_state = manager.get_single_config_state(project_config_id)
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    return section_impl.tagColor
 
 
 @pytest.mark.asyncio
@@ -229,6 +241,177 @@ async def test_project_config_only_history_entry_copies_only_project_config() ->
             target_config_id
         ].name = "project-config-only-history-target"
         assert backend_before.projectConfigs[target_config_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_section_impl_only_history_entry_copies_only_targeted_section_graph() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        target_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert target_config_id is not None
+
+        target_section_id = await _create_dict_section(manager, target_config_id)
+        sibling_section_id = await _create_dict_section(manager, target_config_id)
+        other_config_id = await _create_project_config(manager)
+        other_section_id = await _create_dict_section(manager, other_config_id)
+
+        target_state = manager.get_single_config_state(target_config_id)
+        other_state = manager.get_single_config_state(other_config_id)
+
+        target_variant_id = target_state.projectConfig.sectionVariantMap[target_section_id]
+        sibling_variant_id = target_state.projectConfig.sectionVariantMap[sibling_section_id]
+        other_variant_id = other_state.projectConfig.sectionVariantMap[other_section_id]
+
+        target_impl_id = target_state.sectionVariants[target_variant_id].impl
+        sibling_impl_id = target_state.sectionVariants[sibling_variant_id].impl
+        other_impl_id = other_state.sectionVariants[other_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=target_config_id,
+            section_impl_only_ids={target_section_id},
+        )
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert backend_after is not backend_before
+        assert (
+            backend_after.sections[target_section_id]
+            is not backend_before.sections[target_section_id]
+        )
+        assert (
+            backend_after.sections[sibling_section_id]
+            is backend_before.sections[sibling_section_id]
+        )
+        assert (
+            backend_after.sections[other_section_id]
+            is backend_before.sections[other_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[target_variant_id]
+            is not backend_before.sectionVariants[target_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[sibling_variant_id]
+            is backend_before.sectionVariants[sibling_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[other_variant_id]
+            is backend_before.sectionVariants[other_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[target_impl_id]
+            is not backend_before.sectionImpls[target_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[sibling_impl_id]
+            is backend_before.sectionImpls[sibling_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[other_impl_id]
+            is backend_before.sectionImpls[other_impl_id]
+        )
+        assert (
+            backend_after.projectConfigs[target_config_id]
+            is backend_before.projectConfigs[target_config_id]
+        )
+        assert (
+            backend_after.projectConfigs[other_config_id]
+            is backend_before.projectConfigs[other_config_id]
+        )
+
+        original_name = backend_before.sections[target_section_id].name
+        backend_after.sections[target_section_id].name = "section-impl-only-history-target"
+        assert backend_before.sections[target_section_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_set_section_tag_color_undo_redo_remains_correct_across_project_configs() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        first_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert first_config_id is not None
+        second_config_id = await _create_project_config(manager)
+
+        first_section_id = await _create_dict_section(manager, first_config_id)
+        second_section_id = await _create_dict_section(manager, second_config_id)
+
+        baseline_first = _snapshot_section_tag_color(
+            manager, first_config_id, first_section_id
+        )
+        baseline_second = _snapshot_section_tag_color(
+            manager, second_config_id, second_section_id
+        )
+
+        history_len_before = len(manager.history._history)
+        await manager.set_section_tag_color(
+            SetSectionTagColorRequest(
+                projectConfigId=first_config_id,
+                sectionId=first_section_id,
+                tagColor="#111827",
+            )
+        )
+        await manager.set_section_tag_color(
+            SetSectionTagColorRequest(
+                projectConfigId=second_config_id,
+                sectionId=second_section_id,
+                tagColor="#22c55e",
+            )
+        )
+
+        assert len(manager.history._history) == history_len_before + 2
+        assert (
+            _snapshot_section_tag_color(manager, first_config_id, first_section_id)
+            == "#111827"
+        )
+        assert (
+            _snapshot_section_tag_color(manager, second_config_id, second_section_id)
+            == "#22c55e"
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=second_config_id, steps=1))
+        assert (
+            _snapshot_section_tag_color(manager, first_config_id, first_section_id)
+            == "#111827"
+        )
+        assert (
+            _snapshot_section_tag_color(manager, second_config_id, second_section_id)
+            == baseline_second
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=first_config_id, steps=1))
+        assert (
+            _snapshot_section_tag_color(manager, first_config_id, first_section_id)
+            == baseline_first
+        )
+        assert (
+            _snapshot_section_tag_color(manager, second_config_id, second_section_id)
+            == baseline_second
+        )
+
+        await manager.redo(RedoRequest(projectConfigId=first_config_id, steps=1))
+        assert (
+            _snapshot_section_tag_color(manager, first_config_id, first_section_id)
+            == "#111827"
+        )
+        assert (
+            _snapshot_section_tag_color(manager, second_config_id, second_section_id)
+            == baseline_second
+        )
+
+        await manager.redo(RedoRequest(projectConfigId=second_config_id, steps=1))
+        assert (
+            _snapshot_section_tag_color(manager, first_config_id, first_section_id)
+            == "#111827"
+        )
+        assert (
+            _snapshot_section_tag_color(manager, second_config_id, second_section_id)
+            == "#22c55e"
+        )
 
 
 @pytest.mark.asyncio

@@ -1899,12 +1899,14 @@ class BaseProjectManager(ABC):
     )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
-        section_ids = sorted(x.sectionSizes.keys())
+        target_section_ids = set(x.sectionSizes.keys())
+        section_ids = sorted(target_section_ids)
         coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids=target_section_ids,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
@@ -4869,6 +4871,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_tag_color(project_state, x.sectionId, x.tagColor)
@@ -4890,6 +4893,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_style_color(project_state, x.sectionId, x.styleColor)
@@ -4990,6 +4994,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
@@ -5061,6 +5066,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_column_widths(
@@ -5740,17 +5746,37 @@ class BaseProjectManager(ABC):
         coalesce_window_s: float | None = None,
         project_config_id: ID | None = None,
         project_config_only: bool = False,
+        section_impl_only_ids: set[ID] | None = None,
     ):
         if project_config_only and project_config_id is None:
             raise ValueError(
                 "project_config_only history entries require project_config_id."
             )
+        if section_impl_only_ids is not None and project_config_id is None:
+            raise ValueError(
+                "section_impl_only_ids history entries require project_config_id."
+            )
+        if project_config_only and section_impl_only_ids is not None:
+            raise ValueError(
+                "project_config_only and section_impl_only_ids are mutually exclusive."
+            )
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if project_config_id is not None:
+            frozen_section_impl_only_ids = (
+                frozenset(section_impl_only_ids)
+                if section_impl_only_ids is not None
+                else None
+            )
 
             def copy_project_config_backend(
                 backend: ProjectStateBackend,
             ) -> ProjectStateBackend:
+                if frozen_section_impl_only_ids is not None:
+                    return self._copy_backend_for_section_impl_only_history_entry(
+                        backend,
+                        project_config_id,
+                        frozen_section_impl_only_ids,
+                    )
                 if project_config_only:
                     return self._copy_backend_for_project_config_only_history_entry(
                         backend,
@@ -5770,6 +5796,66 @@ class BaseProjectManager(ABC):
         self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
+
+    def _copy_backend_for_section_impl_only_history_entry(
+        self,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+        section_ids: frozenset[ID],
+    ) -> ProjectStateBackend:
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+
+        sections = dict(backend.sections)
+        section_variants = dict(backend.sectionVariants)
+        section_impls = dict(backend.sectionImpls)
+
+        copied_variant_ids: set[ID] = set()
+        copied_impl_ids: set[ID] = set()
+
+        for section_id in section_ids:
+            if section_id not in backend.sections:
+                raise KeyError(f"Missing section {section_id} in backend state.")
+            if section_id not in project_config.sectionVariantMap:
+                raise KeyError(
+                    f"Section {section_id} is not present in project config {project_config_id}."
+                )
+            sections[section_id] = copy.deepcopy(backend.sections[section_id])
+
+            section_variant_id = project_config.sectionVariantMap[section_id]
+            if section_variant_id not in backend.sectionVariants:
+                raise KeyError(
+                    f"Missing section variant {section_variant_id} in backend state."
+                )
+            if section_variant_id not in copied_variant_ids:
+                section_variants[section_variant_id] = copy.deepcopy(
+                    backend.sectionVariants[section_variant_id]
+                )
+                copied_variant_ids.add(section_variant_id)
+
+            section_impl_id = backend.sectionVariants[section_variant_id].impl
+            if section_impl_id not in backend.sectionImpls:
+                raise KeyError(
+                    f"Missing section impl {section_impl_id} in backend state."
+                )
+            if section_impl_id not in copied_impl_ids:
+                section_impls[section_impl_id] = copy.deepcopy(
+                    backend.sectionImpls[section_impl_id]
+                )
+                copied_impl_ids.add(section_impl_id)
+
+        return ProjectStateBackend(
+            sections=sections,
+            sectionImpls=section_impls,
+            sectionVariants=section_variants,
+            codeObjs=backend.codeObjs,
+            codeObjImpls=backend.codeObjImpls,
+            codeObjVariants=backend.codeObjVariants,
+            projectConfigs=backend.projectConfigs,
+            defaultProjectConfigId=backend.defaultProjectConfigId,
+            appDefinition=backend.appDefinition,
+        )
 
     def _copy_backend_for_project_config_only_history_entry(
         self,
