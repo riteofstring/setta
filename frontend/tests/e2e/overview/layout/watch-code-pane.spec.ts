@@ -1,47 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { ensureAppReady, seedLocalStorage } from "../../helpers";
 
-const MIN_EXPECTED_PADDING = 6;
-
-test("watch code pane has right padding and visible toggle button", async ({
+test("watch code settings open from controls portal with all options", async ({
   page,
 }) => {
-  await seedLocalStorage(page, { overviewTab: "WatchCode", overviewVis: true });
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
   await ensureAppReady(page);
 
-  const heading = page.getByRole("heading", { name: "Watch Code" });
-  await expect(heading).toBeVisible();
+  await expect(page.getByTestId("overview-tab-watch-code")).toHaveCount(0);
 
-  const paneRoot = heading.locator("xpath=following-sibling::*[1]");
-  await expect(paneRoot).toBeVisible();
+  const watchCodeSettingsButton = page.getByTestId("rf__watch-code-settings");
+  await expect(watchCodeSettingsButton).toBeVisible();
+  await watchCodeSettingsButton.click();
 
-  const paddingRight = await paneRoot.evaluate((el) =>
-    Number.parseFloat(getComputedStyle(el).paddingRight),
-  );
-  expect(paddingRight).toBeGreaterThanOrEqual(MIN_EXPECTED_PADDING);
+  const portal = page.getByTestId("rf__watch-code-settings-portal");
+  await expect(portal).toBeVisible();
+  await expect(portal.getByRole("heading", { name: "Watch Code" })).toBeVisible();
 
-  const toggleButton = page.getByRole("button", {
+  const toggleButton = portal.getByRole("button", {
     name: /Enable Watch Code|Disable Watch Code/,
   });
   await expect(toggleButton).toBeVisible();
   await expect(
-    page.locator('[data-setting-anchor="core.watch_code.enabled"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.enabled"]'),
   ).toBeVisible();
   await expect(
-    page.locator('[data-setting-anchor="core.watch_code.folders"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.folders"]'),
   ).toBeVisible();
   await expect(
-    page.locator('[data-setting-anchor="core.watch_code.files"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.files"]'),
   ).toBeVisible();
-
-  const [paneBox, buttonBox] = await Promise.all([
-    paneRoot.boundingBox(),
-    toggleButton.boundingBox(),
-  ]);
-  if (!paneBox || !buttonBox) {
-    throw new Error("Expected watch code pane and toggle button to be visible.");
-  }
-  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(
-    paneBox.x + paneBox.width,
-  );
 });

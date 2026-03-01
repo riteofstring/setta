@@ -207,15 +207,6 @@ export function Overview() {
             icon={<IoMdGitBranch size={18} />}
           />
         )}
-        {showWatchCodeTab && (
-          <TabButton<OverviewTabKey>
-            tabName={OverviewTabNameEnum.WatchCode}
-            {...commonProps}
-            data-testid="overview-tab-watch-code"
-            {...getFloatingBoxHandlers({ content: "Watch Code" })}
-            icon={<RiRadarLine size={18} />}
-          />
-        )}
         {showAppTab && (
           <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.App}

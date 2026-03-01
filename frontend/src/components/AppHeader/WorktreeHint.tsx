@@ -37,7 +37,7 @@ export function WorktreeHint() {
       className="relative z-10 flex items-center gap-2"
       data-testid="worktree-hint"
     >
-      <div className="hidden items-center gap-2 lg:flex">
+      <div className="hidden items-center gap-1 lg:flex">
         <IoMdGitBranch
           aria-hidden="true"
           className="h-3.5 w-3.5 text-setta-400 dark:text-setta-500"
