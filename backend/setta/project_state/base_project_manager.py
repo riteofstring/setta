@@ -1149,20 +1149,76 @@ class BaseProjectManager(ABC):
         return None
 
     @staticmethod
+    def _extract_enqueue_request_obj(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> object | None:
+        if args:
+            return args[0]
+        if "x" in kwargs:
+            return kwargs["x"]
+        return None
+
+    @staticmethod
     def _set_param_entered_value_enqueue_coalesce_key(
         args: tuple[object, ...],
         kwargs: dict[str, object],
     ) -> str | None:
-        request_obj: object | None = None
-        if args:
-            request_obj = args[0]
-        elif "x" in kwargs:
-            request_obj = kwargs["x"]
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
         if not isinstance(request_obj, SetParamEnteredValueRequest):
             return None
         return (
             "set-param-entered-value:"
             f"{request_obj.projectConfigId}:{request_obj.sectionId}:{request_obj.paramInfoId}"
+        )
+
+    @staticmethod
+    def _set_section_sizes_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetSectionSizesRequest):
+            return None
+        section_ids = sorted(request_obj.sectionSizes.keys())
+        return (
+            f"set-section-sizes:{request_obj.projectConfigId}:{','.join(section_ids)}"
+        )
+
+    @staticmethod
+    def _set_viewport_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetViewportRequest):
+            return None
+        return f"set-viewport:{request_obj.projectConfigId}"
+
+    @staticmethod
+    def _set_section_column_width_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetSectionColumnWidthRequest):
+            return None
+        return (
+            "set-section-column-width:"
+            f"{request_obj.projectConfigId}:{request_obj.sectionId}"
+        )
+
+    @staticmethod
+    def _set_browser_column_widths_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetBrowserColumnWidthsRequest):
+            return None
+        return (
+            "set-browser-column-widths:"
+            f"{request_obj.projectConfigId}:{request_obj.sectionId}"
         )
 
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
@@ -2197,7 +2253,7 @@ class BaseProjectManager(ABC):
         )
         await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
-    @enqueue_method
+    @enqueue_method(coalesce_key_fn=_set_section_sizes_enqueue_coalesce_key)
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionSizes"]}
@@ -6129,7 +6185,7 @@ class BaseProjectManager(ABC):
         project_config.activeIds = x.activeIds
         self._mark_current_backend_revision_dirty()
 
-    @enqueue_method
+    @enqueue_method(coalesce_key_fn=_set_viewport_enqueue_coalesce_key)
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 
@@ -6540,7 +6596,7 @@ class BaseProjectManager(ABC):
             section_id=x.sectionId,
         )
 
-    @enqueue_method
+    @enqueue_method(coalesce_key_fn=_set_section_column_width_enqueue_coalesce_key)
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
@@ -6645,7 +6701,7 @@ class BaseProjectManager(ABC):
             )
         )
 
-    @enqueue_method
+    @enqueue_method(coalesce_key_fn=_set_browser_column_widths_enqueue_coalesce_key)
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
         self.add_new_history_entry(
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
