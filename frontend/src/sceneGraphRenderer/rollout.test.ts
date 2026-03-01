@@ -133,6 +133,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks feeling_tide as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes feeling_tide from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "feeling-tide-config-id",
+          projectConfigName: "feeling_tide",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -240,6 +253,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "sweet-bear-config-id",
           projectConfigName: "sweet_bear",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports feeling_tide rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "feeling-tide-config-id",
+          projectConfigName: "feeling_tide",
           activeViewModeName: "Overview",
         }),
       ),
