@@ -357,6 +357,66 @@ describe("CanvasEngineSceneAdapter", () => {
     ]);
   });
 
+  it("refreshes edge adjacency when edge endpoints change", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          nearA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          nearB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+          farA: createLayout({ x: 8000, y: 1200, w: 320, h: 200 }),
+          farB: createLayout({ x: 8420, y: 1280, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [createDataEdge("edge-moving", "nearA", "nearB")],
+        agenticEdges: [createAgenticEdge("agentic-moving", "nearA", "nearB")],
+      }),
+    );
+
+    const initialSnapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1400, height: 900, dpr: 1 },
+    );
+    expect(initialSnapshot.visibleDataEdgeCount).toBe(1);
+    expect(initialSnapshot.visibleAgenticEdgeCount).toBe(1);
+
+    const patchSummary = adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          nearA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          nearB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+          farA: createLayout({ x: 8000, y: 1200, w: 320, h: 200 }),
+          farB: createLayout({ x: 8420, y: 1280, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [createDataEdge("edge-moving", "farA", "farB")],
+        agenticEdges: [createAgenticEdge("agentic-moving", "farA", "farB")],
+      }),
+    );
+    expect(patchSummary.dataEdgesUpdated).toBe(1);
+    expect(patchSummary.agenticEdgesUpdated).toBe(1);
+
+    const nearSnapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1400, height: 900, dpr: 1 },
+    );
+    expect(nearSnapshot.visibleDataEdgeCount).toBe(0);
+    expect(nearSnapshot.visibleAgenticEdgeCount).toBe(0);
+
+    const farSnapshot = adapter.createSnapshot(
+      { x: 7800, y: 1100, zoom: 1 },
+      { width: 1400, height: 900, dpr: 1 },
+    );
+    expect(farSnapshot.visibleDataEdgeCount).toBe(1);
+    expect(farSnapshot.visibleAgenticEdgeCount).toBe(1);
+    expect(farSnapshot.snapshot.dataEdges.map((edge) => edge.id)).toEqual([
+      "edge-moving",
+    ]);
+    expect(farSnapshot.snapshot.agenticEdges.map((edge) => edge.id)).toEqual([
+      "agentic-moving",
+    ]);
+  });
+
   it("keeps edges connected to active offscreen sections in the snapshot", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
