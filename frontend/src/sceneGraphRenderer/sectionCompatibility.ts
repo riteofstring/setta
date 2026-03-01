@@ -30,7 +30,7 @@ const SCENE_GRAPH_SECTION_RENDER_MODE_BY_TYPE: Record<
   [SectionTypeEnum.Terminal]: "scene",
   [SectionTypeEnum.IFrame]: "dom",
   [SectionTypeEnum.Chat]: "dom",
-  [SectionTypeEnum.Browser]: "dom",
+  [SectionTypeEnum.Browser]: "scene",
   [SectionTypeEnum.Plugin]: "dom",
   [SectionTypeEnum.TaskBoard]: "scene",
   [SectionTypeEnum.Spreadsheet]: "scene",
