@@ -33,6 +33,25 @@
 - If guardrails fail, stop and pivot back to DOM-only motion lock + deferred hydration/windowing.
 - Before full proxy rollout, run a low-risk non-pan optimization tranche and re-measure to confirm residual motion gap.
 
+## Broader Technology Options (Before Full Implementation)
+- We should keep the option space explicit and evidence-driven before committing to a full path.
+- Practical assessment:
+  - Hybrid canvas motion proxy: high pan/zoom upside, medium-high complexity.
+  - DOM culling/virtualization/subscription work: medium motion upside, high non-pan upside, medium complexity.
+  - Worker/WASM compute acceleration: high non-pan upside, limited direct pan/zoom upside.
+  - Full scene-graph renderer (WebGL/WebGPU): highest upside, highest rewrite risk and complexity.
+  - CSS-only broad disables: low-to-medium temporary mitigation only.
+- Interpretation:
+  - WASM is a compute accelerator for filtering/indexing/derivations.
+  - WASM is not, by itself, a fix for DOM paint/compositing bottlenecks during pan/zoom.
+
+## Exploration Sequence
+- Run short gated spikes in this order:
+  1. Non-pan compute path (`Worker` + optional `WASM`) for per-keystroke/filter hotspots.
+  2. Hybrid proxy path with no-hitch lifecycle guarantees.
+  3. OffscreenCanvas/worker-backed proxy generation if main-thread proxy prep is still costly.
+- After each spike, compare against the same benchmark gates and continue only if gains are material.
+
 ## Non-Goals
 - No replacement of regular editable DOM UI.
 - No backend changes.
