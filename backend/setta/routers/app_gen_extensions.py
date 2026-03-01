@@ -364,6 +364,13 @@ def upsert_app_gen_custom_skill(
         if not skill_doc.is_relative_to(target_root_path):
             raise ValueError("Invalid skill path.")
 
+    editable, edit_blocked_reason = _resolve_skill_editability(
+        root_id=target_root_id,
+        relative_path=target_relative_path,
+    )
+    if not editable:
+        raise ValueError(edit_blocked_reason or "Selected skill is read-only.")
+
     created = False
     try:
         created = not selected_skill_id and not skill_doc.exists()
@@ -372,13 +379,6 @@ def upsert_app_gen_custom_skill(
             handle.write(content)
     except OSError as exc:
         raise ValueError(str(exc)) from exc
-
-    editable, edit_blocked_reason = _resolve_skill_editability(
-        root_id=target_root_id,
-        relative_path=target_relative_path,
-    )
-    if not editable:
-        raise ValueError(edit_blocked_reason or "Selected skill is read-only.")
 
     return UpsertAppGenCustomSkillResponse(
         skillId=f"{target_root_id}::{target_relative_path}",

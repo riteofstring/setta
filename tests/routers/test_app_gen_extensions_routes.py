@@ -565,6 +565,51 @@ class TestAppGenExtensionsRoutes:
                 == "# fallback-root-skill\n\nBody.\n"
             )
 
+    def test_rejects_non_editable_custom_skill_before_write(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            def force_read_only(
+                *,
+                root_id: str,
+                relative_path: str,
+            ) -> tuple[bool, str | None]:
+                if root_id == "" or relative_path == "":
+                    raise AssertionError("Expected non-empty editability inputs.")
+                return False, "forced read-only"
+
+            monkeypatch.setattr(
+                app_gen_extensions,
+                "_resolve_skill_editability",
+                force_read_only,
+            )
+
+            expected_skill_doc = (
+                fake_home
+                / ".agents"
+                / "skills"
+                / "blocked-before-write"
+                / "SKILL.md"
+            )
+            with pytest.raises(ValueError, match="forced read-only"):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="blocked-before-write",
+                    content="# blocked-before-write\n\nBody.\n",
+                )
+            assert expected_skill_doc.exists() is False
+
     def test_updates_existing_workspace_custom_skill_by_skill_id(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -952,6 +997,59 @@ class TestAppGenExtensionsRoutes:
             expected_skill_doc.read_text(encoding="utf-8")
             == "# route-created\n\nBody.\n"
         )
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_rejects_non_editable_target_before_write(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        def force_read_only(
+            *,
+            root_id: str,
+            relative_path: str,
+        ) -> tuple[bool, str | None]:
+            if root_id == "" or relative_path == "":
+                raise AssertionError("Expected non-empty editability inputs.")
+            return False, "forced read-only"
+
+        monkeypatch.setattr(
+            app_gen_extensions,
+            "_resolve_skill_editability",
+            force_read_only,
+        )
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "route-read-only",
+                    "content": "# route-read-only\n\nBody.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "forced read-only" in response.json()["detail"]
+        expected_skill_doc = (
+            fake_home / ".agents" / "skills" / "route-read-only" / "SKILL.md"
+        )
+        assert expected_skill_doc.exists() is False
         clear_setta_paths_cache()
 
     def test_get_app_gen_skills_route_includes_editability_metadata(

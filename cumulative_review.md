@@ -53,3 +53,13 @@
 - Updated custom-skill upsert responses to always include backend-authoritative `editable` and `editBlockedReason` metadata.
 - Updated Skills viewer to keep editability metadata keyed by `skillId` so create/save flows remain writable even when immediate post-create skills refresh fails.
 - Added/updated backend route tests, Vitest unit/integration tests, and Playwright e2e coverage for active-stream assistant-row preservation and create-then-refresh-fails editability behavior.
+
+## 2026-03-04 23:02:26 PST
+
+- Fixed Run menu `Custom Runs...` navigation to be open-only and idempotent when Overview is already on Custom Runs by introducing `openOverviewTab` and using it from the run dropdown.
+- Added a stable run-menu trigger test id for e2e targeting.
+- Fixed backend custom-skill upsert ordering to validate editability before any filesystem mutation (fail-fast for read-only targets).
+- Added Vitest unit coverage for `openOverviewTab` open/switch semantics.
+- Added backend unit and route regressions to assert non-editable targets fail before any `SKILL.md` write.
+- Added Playwright e2e coverage for run-menu Custom Runs shortcut idempotent-open behavior.
+- Ran `pnpm -C frontend gcf`.

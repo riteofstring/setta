@@ -54,3 +54,29 @@ test("custom runs pane avoids horizontal overflow at narrow overview width", asy
     OVERFLOW_TOLERANCE_PX,
   );
 });
+
+test("run menu custom-runs shortcut keeps overview open when already on custom runs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewVis: true,
+    overviewTab: "RunInstructions",
+  });
+  await ensureAppReady(page);
+
+  // Establish baseline: Custom Runs pane is already visible.
+  await expect(page.getByRole("heading", { name: "Custom Runs" })).toBeVisible();
+
+  // Re-opening Custom Runs from the Run menu should be idempotent and must not
+  // toggle the overview pane closed.
+  await page.getByTestId("run-button-menu-trigger").click();
+  const customRunsMenuItem = page
+    .getByRole("menuitem")
+    .filter({ hasText: "Custom Runs..." });
+  await expect(customRunsMenuItem).toBeVisible();
+  await customRunsMenuItem.click();
+
+  await expect(page.getByRole("heading", { name: "Custom Runs" })).toBeVisible();
+  await expect(page.getByTestId("overview-tab-content-shell")).toBeVisible();
+  await expect(page.getByTestId("run-instructions-scroll-region")).toBeVisible();
+});
