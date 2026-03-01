@@ -3359,6 +3359,110 @@ class BaseProjectManager(ABC):
             broadcast_project_config_patch=True,
         )
 
+    async def _broadcast_watch_code_mutation_scope_for_current_revision(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        update_scope: WatchCodeMutationScope,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        if not update_scope.did_update:
+            return
+        if project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+
+        code_obj_ids = [
+            code_obj_id
+            for code_obj_id in sorted(update_scope.code_obj_ids)
+            if code_obj_id in project_state.codeObjs
+        ]
+        if update_scope.structural_changed:
+            has_broadcast_patch = False
+            if code_obj_ids:
+                (
+                    code_obj_updates,
+                    code_obj_variant_updates,
+                    code_obj_impl_updates,
+                ) = self._collect_code_obj_updates_for_patch(
+                    project_state,
+                    code_obj_ids,
+                )
+                await self._broadcast_code_objs_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    code_objs=code_obj_updates,
+                    code_obj_variants=code_obj_variant_updates,
+                    code_obj_impls=code_obj_impl_updates,
+                    previous_project_state_revision=previous_project_state_revision,
+                    project_state_revision=project_state_revision,
+                )
+                has_broadcast_patch = True
+            await self._broadcast_structural_patch(
+                project_state=project_state,
+                previous_project_state_revision=(
+                    project_state_revision
+                    if has_broadcast_patch
+                    else previous_project_state_revision
+                ),
+                project_state_revision=project_state_revision,
+            )
+            return
+
+        section_scope = sorted(update_scope.section_ids)
+        if section_scope or code_obj_ids:
+            section_scope = self._build_section_patch_scope_with_codegen_singletons(
+                project_config_id=project_state.projectConfig.id,
+                section_ids=section_scope,
+                project_state=project_state,
+            )
+        has_broadcast_patch = False
+        await self._broadcast_project_config_patch(
+            project_config=project_state.projectConfig,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=project_state_revision,
+        )
+        has_broadcast_patch = True
+        if code_obj_ids:
+            (
+                code_obj_updates,
+                code_obj_variant_updates,
+                code_obj_impl_updates,
+            ) = self._collect_code_obj_updates_for_patch(
+                project_state,
+                code_obj_ids,
+            )
+            await self._broadcast_code_objs_patch(
+                project_config_id=project_state.projectConfig.id,
+                code_objs=code_obj_updates,
+                code_obj_variants=code_obj_variant_updates,
+                code_obj_impls=code_obj_impl_updates,
+                previous_project_state_revision=(
+                    previous_project_state_revision
+                    if not has_broadcast_patch
+                    else project_state_revision
+                ),
+                project_state_revision=project_state_revision,
+            )
+            has_broadcast_patch = True
+        if section_scope:
+            section_impl_updates = self._collect_section_impl_updates_for_patch(
+                project_state,
+                section_scope,
+            )
+            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+                await self._broadcast_section_impl_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    section_id=section_id,
+                    section_impl=section_impl,
+                    previous_project_state_revision=(
+                        previous_project_state_revision
+                        if idx == 0 and not has_broadcast_patch
+                        else project_state_revision
+                    ),
+                    project_state_revision=project_state_revision,
+                )
+
     async def _try_incremental_param_value_codegen_update(
         self,
         project_state: ProjectStateSingleConfig,
@@ -7910,10 +8014,16 @@ class BaseProjectManager(ABC):
             )
             return
 
-        states_to_broadcast: list[ProjectStateSingleConfig] = []
+        previous_project_state_revision = self.history.revision
+        next_project_state_revision = previous_project_state_revision
+        states_to_broadcast: list[
+            tuple[ProjectStateSingleConfig, WatchCodeMutationScope]
+        ] = []
         async with self._project_state_lock.write_lock():
             base_backend = self.project_state_backend
-            updated_configs: dict[ID, ProjectStateSingleConfig] = {}
+            updated_configs: dict[
+                ID, tuple[ProjectStateSingleConfig, WatchCodeMutationScope]
+            ] = {}
             for (
                 project_config_id,
                 config_bindings,
@@ -7921,6 +8031,7 @@ class BaseProjectManager(ABC):
                 single_state = convert_backend_to_single_config(
                     base_backend, project_config_id
                 )
+                config_update_scope = WatchCodeMutationScope()
 
                 for binding in config_bindings:
                     section_id = binding.section_id
@@ -7931,22 +8042,44 @@ class BaseProjectManager(ABC):
                             project_config_id,
                         )
                         continue
-                    set_code(single_state, section_id, plan.raw_content)
-                    await self.watch_code_manager.handle_code_section_update(
-                        single_state, section_id, plan.raw_content
+                    section_impl = get_curr_effective_section_impl(
+                        single_state, section_id
                     )
-                if config_bindings:
-                    updated_configs[project_config_id] = single_state
+                    previous_code = (
+                        section_impl.code
+                        if isinstance(section_impl, CodeSectionImpl)
+                        else None
+                    )
+                    set_code(single_state, section_id, plan.raw_content)
+                    if previous_code != plan.raw_content:
+                        config_update_scope.did_update = True
+                        config_update_scope.section_ids.add(section_id)
+                    watch_code_update_scope = (
+                        await self.watch_code_manager.handle_code_section_update(
+                            single_state, section_id, plan.raw_content
+                        )
+                    )
+                    config_update_scope.merge(watch_code_update_scope)
+                if config_update_scope.did_update:
+                    updated_configs[project_config_id] = (
+                        single_state,
+                        config_update_scope,
+                    )
 
             if not updated_configs:
                 return
 
             backend = base_backend
-            for single_state in updated_configs.values():
+            for single_state, _ in updated_configs.values():
                 backend = merge_single_config_into_backend(backend, single_state)
             self.project_state_backend = backend
+            self._mark_current_backend_revision_dirty()
+            next_project_state_revision = self.history.revision
 
-            for project_config_id, single_state in updated_configs.items():
+            for project_config_id, (
+                single_state,
+                config_update_scope,
+            ) in updated_configs.items():
                 code_entries = self.code_dict.setdefault(project_config_id, {})
                 config_bindings_for_id = plan.bindings_by_config.get(
                     project_config_id, []
@@ -7971,10 +8104,15 @@ class BaseProjectManager(ABC):
                         continue
                     await code_entry.handle_external_reload(section_impl.code)
 
-                states_to_broadcast.append(single_state)
+                states_to_broadcast.append((single_state, config_update_scope))
 
-        for single_state in states_to_broadcast:
-            await self._broadcast_project_state_snapshot(single_state)
+        for single_state, update_scope in states_to_broadcast:
+            await self._broadcast_watch_code_mutation_scope_for_current_revision(
+                project_state=single_state,
+                update_scope=update_scope,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
 
     def _should_defer_json_source_reload(
         self,

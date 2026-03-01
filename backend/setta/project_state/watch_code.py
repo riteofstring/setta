@@ -786,24 +786,25 @@ class WatchCodeManager:
         project_state: ProjectStateSingleConfig,
         section_id: ID,
         code: str,
-    ) -> bool:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         project_config = project_state.projectConfig
         if not project_config.watchCodeEnabled:
-            return False
+            return update_scope
         if not project_config_has_codegen_language(
             project_config, ProjectCodegenLanguage.python
         ):
-            return False
+            return update_scope
         if section_id not in project_state.sections:
             raise KeyError(f"Missing code section {section_id}.")
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
-            return False
+            return update_scope
         if section_impl.codeLanguage != CodeLanguage.python:
-            return False
+            return update_scope
         binding = section_impl.codeFileBinding
         if binding is None:
-            return False
+            return update_scope
         source_path = normalize_workspace_path(binding.canonical_path)
         logger.debug(
             "watch_code.handle_code_section_update section_id=%s source_path=%s code_len=%s",
@@ -817,7 +818,7 @@ class WatchCodeManager:
             code,
             baseline_only=False,
         )
-        return update_scope.did_update
+        return update_scope
 
     def _handle_directory_created(self, path: Path) -> None:
         if not self._pending_dirs:

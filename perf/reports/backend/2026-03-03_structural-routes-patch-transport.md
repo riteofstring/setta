@@ -633,3 +633,94 @@ Method:
 - Route-level latency and transport size both improved substantially in this
   benchmark because unrelated large callable state no longer rides on snapshot
   broadcasts.
+
+---
+
+## Addendum: `reload_code_sections` patch transport (2026-03-03)
+
+### Goal
+
+Remove full snapshot transport from code-file watcher reload while preserving
+watch-code mutation correctness.
+
+### Change
+
+Backend:
+
+- Updated `WatchCodeManager.handle_code_section_update(...)` to return
+  `WatchCodeMutationScope` (instead of only `bool`) so caller paths can
+  broadcast exact touched scope.
+- Converted `BaseProjectManager.reload_code_sections(...)` to:
+  - collect per-config `WatchCodeMutationScope` while applying code reloads,
+  - merge updated configs into backend once and mark the current history
+    revision dirty,
+  - broadcast scoped patch transport through new helper
+    `_broadcast_watch_code_mutation_scope_for_current_revision(...)`.
+- Added `_broadcast_watch_code_mutation_scope_for_current_revision(...)` to emit
+  revision-aware patch payloads without re-running `update(...)`:
+  - structural + code-obj patches for structural watch-code mutations,
+  - project-config + code-obj + section-impl patches for non-structural
+    mutations.
+
+Tests:
+
+- Updated `tests/project_state/test_watch_code.py`:
+  - `test_external_file_reload_creates_section` now asserts
+    `reload_code_sections(...)` uses patch transport (no full snapshot
+    broadcast).
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/base_project_manager.py backend/setta/project_state/watch_code.py tests/project_state/test_watch_code.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_watch_code.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py tests/project_state/test_watch_code.py`
+
+Result:
+
+- Watch-code suite: `25 passed`
+- Structural + watch-code slice: `36 passed`
+
+### Benchmark scenario
+
+Synthetic state:
+
+- callable section with `1000` params (large unrelated state),
+- one bound code section watched via `watchCodeFiles`.
+
+Route benchmarked:
+
+- `reload_code_sections` (code change adds a callable from on-disk file content).
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch
+  `_broadcast_watch_code_mutation_scope_for_current_revision(...)` to call
+  `_broadcast_project_state_snapshot(...)` (pre-change behavior).
+- `patched`: native scope-based patch behavior.
+2. `3` warmup + `12` measured iterations per mode.
+3. Each measured iteration:
+- reset file content to baseline via `reload_code_sections(...)` (outside timing),
+- run target reload (baseline -> callable-added content) and measure:
+  - ACK latency (`route(...)` + `finish_pending_operations(...)`),
+  - websocket payload bytes for project-state transport message types:
+    - `UpdateFrontendProjectState`
+    - `PatchFrontendProjectStateProjectConfig`
+    - `PatchFrontendProjectStateSectionImpl`
+    - `PatchFrontendProjectStateCodeObjs`
+    - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `reload_code_sections` | latency median | 130.6802 ms | 132.2715 ms | -1.22% |
+| `reload_code_sections` | latency p95 | 225.5298 ms | 221.9500 ms | +1.59% faster |
+| `reload_code_sections` | payload median | 763,958.5 B | 41,775.0 B | -94.53% |
+| `reload_code_sections` | payload p95 | 763,965.2 B | 41,776.9 B | -94.53% |
+
+### Notes
+
+- This removes full snapshot transport from code-file reload watcher flow.
+- Payload reduction is large (`~94.5%`) while latency remains near-flat in this
+  local run.

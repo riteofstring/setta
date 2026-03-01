@@ -519,7 +519,21 @@ class TestWatchCode:
                 fileToRead=normalize_workspace_path(self.code_section_path),
             ),
         )
-        await self.manager.reload_code_sections(plan)
+        sender = self.manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await self.manager.reload_code_sections(plan)
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 1 == capture["structural_patch_calls"]
+        assert 0 == capture["project_config_patch_calls"]
+        assert 1 == capture["code_obj_patch_calls"]
+        assert 0 == capture["section_impl_patch_calls"]
+        assert 0 == capture["name_validation_broadcast_calls"]
+
         state = self.manager.get_single_config_state(self.project_config_id)
         module_path = convert_path_to_module_path(
             workspace_relative_path(self.code_section_path)
