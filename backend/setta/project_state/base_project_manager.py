@@ -3422,7 +3422,10 @@ class BaseProjectManager(ABC):
         await self.watch_code_manager.handle_code_section_update(
             project_state, x.sectionId, x.code
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(
+            project_state,
+            updateFileWatcher=False,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4382,6 +4385,7 @@ class BaseProjectManager(ABC):
         set_text_block_text(project_state, x.sectionId, x.text)
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -4389,19 +4393,28 @@ class BaseProjectManager(ABC):
     async def set_prompt_template(self, x: SetPromptTemplateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_template(project_state, x.sectionId, x.template)
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            updateFileWatcher=False,
+        )
 
     @enqueue_method
     async def set_prompt_inputs(self, x: SetPromptInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            updateFileWatcher=False,
+        )
 
     @enqueue_method
     async def set_prompt_format(self, x: SetPromptFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_format(project_state, x.sectionId, x.format)
-        await self.update_and_broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(
+            project_state,
+            updateFileWatcher=False,
+        )
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
