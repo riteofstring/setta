@@ -155,9 +155,13 @@
 - Result: **not kept**. Controlled CDP A/B runs showed effectively unchanged frame-toggle behavior and only a small synthetic hover-loop gain.
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-03_settings-all-settings-lazy-overlay-mounting.md`
+- Item D trialed: observer/listener budget reductions (`useIsScrollable` observer narrowing/coalescing variants).
+- Result: **not kept**. Structural observer-option cleanup did not produce reliable Playwright typing improvement versus baseline/same-day control.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-observer-listener-budget.md`
 - Next Phase 0.5 focus:
-  - Revisit Item B with different boundaries.
-  - Trial Item D listener/observer budget reductions that preserve existing UX behavior.
+  - Optional: trial Item E scoped param virtualization only in heavy scroll-bounded param regions where full-list visibility is not required.
+  - Primary: proceed to Phase 1 minimal production-grade hybrid motion-proxy spike, since Items A-D did not yield a keepable win.
 
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
