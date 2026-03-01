@@ -4526,6 +4526,7 @@ class BaseProjectManager(ABC):
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_type_error_ignore(
@@ -7810,6 +7811,7 @@ class BaseProjectManager(ABC):
         project_config_id: ID | None,
         project_config_only: bool,
         include_project_config: bool,
+        include_project_config_targeted_patch_transport: bool,
         section_impl_only_ids: set[ID] | None,
         code_obj_only_ids: set[ID] | None,
         app_definition_only: bool,
@@ -7818,12 +7820,24 @@ class BaseProjectManager(ABC):
             return None
         if project_config_id is None:
             return None
-        if include_project_config:
-            return None
         if project_config_only:
             return {
                 project_config_id: _UndoRedoProjectConfigPatchScope(
                     project_config_only=True
+                )
+            }
+        if include_project_config:
+            if not include_project_config_targeted_patch_transport:
+                return None
+            return {
+                project_config_id: _UndoRedoProjectConfigPatchScope(
+                    project_config_only=True,
+                    section_impl_ids=(
+                        set(section_impl_only_ids) if section_impl_only_ids else set()
+                    ),
+                    code_obj_ids=(
+                        set(code_obj_only_ids) if code_obj_only_ids else set()
+                    ),
                 )
             }
         if section_impl_only_ids is None and code_obj_only_ids is None:
@@ -8809,6 +8823,7 @@ class BaseProjectManager(ABC):
         code_obj_ids: list[ID] | set[ID] | None = None,
         section_ids: list[ID] | set[ID] | None = None,
         include_codegen_singletons: bool = False,
+        include_project_config_targeted_patch_transport: bool = False,
     ) -> None:
         backend = self.project_state_backend
         if project_config_id not in backend.projectConfigs:
@@ -8840,6 +8855,9 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             project_config_id=project_config_id,
             include_project_config=True,
+            include_project_config_targeted_patch_transport=(
+                include_project_config_targeted_patch_transport
+            ),
             section_impl_only_ids=(scoped_section_ids if scoped_section_ids else None),
             code_obj_only_ids=scoped_code_obj_ids if scoped_code_obj_ids else None,
         )
@@ -10257,6 +10275,7 @@ class BaseProjectManager(ABC):
         project_config_id: ID | None = None,
         project_config_only: bool = False,
         include_project_config: bool = False,
+        include_project_config_targeted_patch_transport: bool = False,
         section_impl_only_ids: set[ID] | None = None,
         code_obj_only_ids: set[ID] | None = None,
         app_definition_only: bool = False,
@@ -10280,6 +10299,13 @@ class BaseProjectManager(ABC):
         if project_config_only and include_project_config:
             raise ValueError(
                 "project_config_only cannot be combined with include_project_config."
+            )
+        if (
+            include_project_config_targeted_patch_transport
+            and not include_project_config
+        ):
+            raise ValueError(
+                "include_project_config_targeted_patch_transport requires include_project_config."
             )
         if project_config_only and (
             section_impl_only_ids is not None or code_obj_only_ids is not None
@@ -10308,6 +10334,9 @@ class BaseProjectManager(ABC):
                 project_config_id=project_config_id,
                 project_config_only=project_config_only,
                 include_project_config=include_project_config,
+                include_project_config_targeted_patch_transport=(
+                    include_project_config_targeted_patch_transport
+                ),
                 section_impl_only_ids=section_impl_only_ids,
                 code_obj_only_ids=code_obj_only_ids,
                 app_definition_only=app_definition_only,

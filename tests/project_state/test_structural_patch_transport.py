@@ -2171,7 +2171,7 @@ async def test_undo_redo_code_obj_scoped_history_uses_targeted_patch_transport()
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_use_full_patch_transport() -> None:
+async def test_undo_redo_include_project_config_history_uses_targeted_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2186,6 +2186,133 @@ async def test_undo_redo_use_full_patch_transport() -> None:
                 sectionId=SECTION_ID,
                 paramInfoId=ID("param-0"),
                 ignoreTypeErrors=True,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 1 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["code_obj_patch_calls"]
+        assert 1 == undo_capture["section_impl_patch_calls"]
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 1 == redo_capture["project_config_patch_calls"]
+        assert 0 == redo_capture["code_obj_patch_calls"]
+        assert 1 == redo_capture["section_impl_patch_calls"]
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_unknown_scope_still_uses_full_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+        )
+        manager.project_state_backend.sections[SECTION_ID].name = "undo-redo-full-fallback"
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert undo_capture["structural_patch_calls"]
+        assert 1 <= undo_capture["code_obj_patch_calls"]
+        assert undo_capture["code_obj_patch_calls"] <= len(
+            undo_capture["structural_patch_calls"]
+        )
+        assert 0 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["section_impl_patch_calls"]
+        assert (
+            len(undo_capture["structural_patch_calls"])
+            == undo_capture["name_validation_broadcast_calls"]
+        )
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert redo_capture["structural_patch_calls"]
+        assert 1 <= redo_capture["code_obj_patch_calls"]
+        assert redo_capture["code_obj_patch_calls"] <= len(
+            redo_capture["structural_patch_calls"]
+        )
+        assert 0 == redo_capture["project_config_patch_calls"]
+        assert 0 == redo_capture["section_impl_patch_calls"]
+        assert (
+            len(redo_capture["structural_patch_calls"])
+            == redo_capture["name_validation_broadcast_calls"]
+        )
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_structural_include_project_config_history_uses_full_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_group_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Group,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=Position(x=1230.0, y=640.0),
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        group_id = create_group_response.sectionId
+        await manager.create_child_sections(
+            CreateChildSectionsRequest(
+                projectConfigId=project_config_id,
+                parentId=group_id,
+                implType=SectionType.TextBlock,
+                numChildren=1,
+                startIdx=0,
             )
         )
         await manager.finish_pending_operations(timeout=5.0)
