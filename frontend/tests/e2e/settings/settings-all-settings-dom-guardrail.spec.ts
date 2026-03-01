@@ -60,7 +60,9 @@ test("all settings DOM stays within flattening guardrails", async ({
       document.querySelectorAll("div.section-value.outline-none"),
     ).filter((el) => el.classList.contains("peer/textinput"));
     const switchRoots = Array.from(
-      document.querySelectorAll("button.section-value.justify-self-start.self-center"),
+      document.querySelectorAll(
+        "button.section-value.justify-self-start.self-center",
+      ),
     );
     const legacyParamGroupOuterWrappers = Array.from(
       document.querySelectorAll("div"),
@@ -113,19 +115,19 @@ test("all settings DOM stays within flattening guardrails", async ({
       const label = el.getAttribute("aria-label");
       return label === "Pin selected args" || label === "Unpin selected args";
     });
-    const minimizeButtons = Array.from(document.querySelectorAll("button")).filter(
-      (el) => {
-        const classes = Array.from(el.classList);
-        return (
-          classes.includes("focus-visible:ring-2") &&
-          classes.includes("nodrag") &&
-          classes.includes("justify-content-center") &&
-          classes.includes("mr-1") &&
-          classes.includes("h-4") &&
-          classes.includes("w-4")
-        );
-      },
-    );
+    const minimizeButtons = Array.from(
+      document.querySelectorAll("button"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      return (
+        classes.includes("focus-visible:ring-2") &&
+        classes.includes("nodrag") &&
+        classes.includes("justify-content-center") &&
+        classes.includes("mr-1") &&
+        classes.includes("h-4") &&
+        classes.includes("w-4")
+      );
+    });
     const deleteHideButtons = Array.from(
       document.querySelectorAll("button"),
     ).filter((el) => {
@@ -152,6 +154,21 @@ test("all settings DOM stays within flattening guardrails", async ({
         return hasFlattenedHostIcon || hasLegacyChildIcon;
       },
     );
+    const sectionMenuRootWrappers = Array.from(
+      document.querySelectorAll("div.setta-prevent-section-active-css"),
+    ).filter((el) => {
+      const onlyChild = el.children[0];
+      if (el.children.length !== 1 || onlyChild?.tagName !== "BUTTON") {
+        return false;
+      }
+      const classes = Array.from(onlyChild.classList);
+      return (
+        classes.includes("w-[14px]") &&
+        classes.includes("h-[14px]") &&
+        classes.includes("select-none") &&
+        classes.includes("aspect-square")
+      );
+    });
     const sectionMenuButtons = Array.from(document.querySelectorAll("button"))
       .filter((el) => {
         const classes = Array.from(el.classList);
@@ -254,7 +271,9 @@ test("all settings DOM stays within flattening guardrails", async ({
         "header.section-title > div.relative.flex.min-w-0.flex-1.flex-col",
       ).length,
       flattenedSectionTitleCount: Array.from(
-        document.querySelectorAll("header.section-title > p, header.section-title > input"),
+        document.querySelectorAll(
+          "header.section-title > p, header.section-title > input",
+        ),
       ).filter((el) => {
         const classes = Array.from(el.classList);
         return classes.includes("min-w-0") && classes.includes("flex-1");
@@ -282,16 +301,18 @@ test("all settings DOM stays within flattening guardrails", async ({
           (Array.from(el.classList).includes("gg-math-minus") ||
             Array.from(el.classList).includes("gg-math-plus")),
       ).length,
-      legacyKwargsConvertDeleteIconWrapperCount: kwargsConvertDeleteButtons.filter(
-        (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
-      ).length,
-      flattenedKwargsConvertDeleteIconHostCount: kwargsConvertDeleteButtons.filter(
-        (el) =>
-          el.children.length === 0 &&
-          (Array.from(el.classList).includes("gg-link") ||
-            Array.from(el.classList).includes("gg-unlink") ||
-            Array.from(el.classList).includes("gg-close")),
-      ).length,
+      legacyKwargsConvertDeleteIconWrapperCount:
+        kwargsConvertDeleteButtons.filter(
+          (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
+        ).length,
+      flattenedKwargsConvertDeleteIconHostCount:
+        kwargsConvertDeleteButtons.filter(
+          (el) =>
+            el.children.length === 0 &&
+            (Array.from(el.classList).includes("gg-link") ||
+              Array.from(el.classList).includes("gg-unlink") ||
+              Array.from(el.classList).includes("gg-close")),
+        ).length,
       legacyKwargsPinIconWrapperCount: kwargsPinButtons.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
       ).length,
@@ -348,6 +369,11 @@ test("all settings DOM stays within flattening guardrails", async ({
           el.children.length === 0 &&
           Array.from(el.classList).includes("gg-menu"),
       ).length,
+      legacySectionMenuRootWrapperCount: sectionMenuRootWrappers.length,
+      flattenedSectionMenuRootlessTriggerCount: sectionMenuButtons.filter(
+        (el) =>
+          Array.from(el.classList).includes("setta-prevent-section-active-css"),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -399,6 +425,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedLockIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacySectionMenuIconWrapperCount).toBe(0);
   expect(metrics.flattenedSectionMenuIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacySectionMenuRootWrapperCount).toBe(0);
+  expect(metrics.flattenedSectionMenuRootlessTriggerCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
