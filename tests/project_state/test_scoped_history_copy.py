@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 async def _create_project_config(manager: "SessionProjectManager") -> ID:
     existing_ids = set(manager.project_state_backend.projectConfigs.keys())
     await manager.create_project_config(previewImgColor="#00aa66")
-    created_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+    created_ids = (
+        set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+    )
     assert len(created_ids) == 1
     return next(iter(created_ids))
 
@@ -52,7 +54,9 @@ def _snapshot_viewport_state(
     assert active_view_mode_id is not None
     active_view_mode = project_config.viewModes[active_view_mode_id]
     project_viewport = (
-        project_config.viewport.model_dump() if project_config.viewport is not None else None
+        project_config.viewport.model_dump()
+        if project_config.viewport is not None
+        else None
     )
     mode_viewport = (
         active_view_mode.viewport.model_dump()
@@ -94,7 +98,9 @@ async def test_scoped_history_entry_only_deep_copies_target_project_graph() -> N
 
         target_section_id = next(iter(target_state.projectConfig.sectionVariantMap))
         other_section_id = next(iter(other_state.projectConfig.sectionVariantMap))
-        target_variant_id = target_state.projectConfig.sectionVariantMap[target_section_id]
+        target_variant_id = target_state.projectConfig.sectionVariantMap[
+            target_section_id
+        ]
         other_variant_id = other_state.projectConfig.sectionVariantMap[other_section_id]
         target_impl_id = target_state.sectionVariants[target_variant_id].impl
         other_impl_id = other_state.sectionVariants[other_variant_id].impl
@@ -117,12 +123,14 @@ async def test_scoped_history_entry_only_deep_copies_target_project_graph() -> N
             backend_after.projectConfigs[other_config_id]
             is backend_before.projectConfigs[other_config_id]
         )
-        assert backend_after.sections[target_section_id] is not backend_before.sections[
-            target_section_id
-        ]
-        assert backend_after.sections[other_section_id] is backend_before.sections[
-            other_section_id
-        ]
+        assert (
+            backend_after.sections[target_section_id]
+            is not backend_before.sections[target_section_id]
+        )
+        assert (
+            backend_after.sections[other_section_id]
+            is backend_before.sections[other_section_id]
+        )
         assert (
             backend_after.sectionVariants[target_variant_id]
             is not backend_before.sectionVariants[target_variant_id]
@@ -131,16 +139,95 @@ async def test_scoped_history_entry_only_deep_copies_target_project_graph() -> N
             backend_after.sectionVariants[other_variant_id]
             is backend_before.sectionVariants[other_variant_id]
         )
-        assert backend_after.sectionImpls[target_impl_id] is not backend_before.sectionImpls[
-            target_impl_id
-        ]
-        assert backend_after.sectionImpls[other_impl_id] is backend_before.sectionImpls[
-            other_impl_id
-        ]
+        assert (
+            backend_after.sectionImpls[target_impl_id]
+            is not backend_before.sectionImpls[target_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[other_impl_id]
+            is backend_before.sectionImpls[other_impl_id]
+        )
 
         # Mutating targeted objects after the scoped copy must not back-propagate.
         original_name = backend_before.projectConfigs[target_config_id].name
         backend_after.projectConfigs[target_config_id].name = "scoped-history-target"
+        assert backend_before.projectConfigs[target_config_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_project_config_only_history_entry_copies_only_project_config() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        target_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert target_config_id is not None
+
+        await _create_dict_section(manager, target_config_id)
+        other_config_id = await _create_project_config(manager)
+        await _create_dict_section(manager, other_config_id)
+
+        target_state = manager.get_single_config_state(target_config_id)
+        other_state = manager.get_single_config_state(other_config_id)
+        assert target_state.projectConfig.sectionVariantMap
+        assert other_state.projectConfig.sectionVariantMap
+
+        target_section_id = next(iter(target_state.projectConfig.sectionVariantMap))
+        other_section_id = next(iter(other_state.projectConfig.sectionVariantMap))
+        target_variant_id = target_state.projectConfig.sectionVariantMap[
+            target_section_id
+        ]
+        other_variant_id = other_state.projectConfig.sectionVariantMap[other_section_id]
+        target_impl_id = target_state.sectionVariants[target_variant_id].impl
+        other_impl_id = other_state.sectionVariants[other_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=target_config_id,
+            project_config_only=True,
+        )
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert backend_after is not backend_before
+        assert (
+            backend_after.projectConfigs[target_config_id]
+            is not backend_before.projectConfigs[target_config_id]
+        )
+        assert (
+            backend_after.projectConfigs[other_config_id]
+            is backend_before.projectConfigs[other_config_id]
+        )
+        assert (
+            backend_after.sections[target_section_id]
+            is backend_before.sections[target_section_id]
+        )
+        assert (
+            backend_after.sections[other_section_id]
+            is backend_before.sections[other_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[target_variant_id]
+            is backend_before.sectionVariants[target_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[other_variant_id]
+            is backend_before.sectionVariants[other_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[target_impl_id]
+            is backend_before.sectionImpls[target_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[other_impl_id]
+            is backend_before.sectionImpls[other_impl_id]
+        )
+
+        original_name = backend_before.projectConfigs[target_config_id].name
+        backend_after.projectConfigs[
+            target_config_id
+        ].name = "project-config-only-history-target"
         assert backend_before.projectConfigs[target_config_id].name == original_name
 
 

@@ -2405,6 +2405,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            project_config_only=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
@@ -2424,6 +2425,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            project_config_only=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
@@ -4607,6 +4609,7 @@ class BaseProjectManager(ABC):
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
             project_config_id=x.projectConfigId,
+            project_config_only=True,
         )
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.viewport = x.viewport
@@ -4622,7 +4625,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
@@ -4797,7 +4803,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         view_modes = project_state.projectConfig.viewModes
         if x.viewModeId not in view_modes:
@@ -5730,13 +5739,23 @@ class BaseProjectManager(ABC):
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
         project_config_id: ID | None = None,
+        project_config_only: bool = False,
     ):
+        if project_config_only and project_config_id is None:
+            raise ValueError(
+                "project_config_only history entries require project_config_id."
+            )
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if project_config_id is not None:
 
             def copy_project_config_backend(
                 backend: ProjectStateBackend,
             ) -> ProjectStateBackend:
+                if project_config_only:
+                    return self._copy_backend_for_project_config_only_history_entry(
+                        backend,
+                        project_config_id,
+                    )
                 return self._copy_backend_for_project_config_history_entry(
                     backend,
                     project_config_id,
@@ -5751,6 +5770,31 @@ class BaseProjectManager(ABC):
         self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
+
+    def _copy_backend_for_project_config_only_history_entry(
+        self,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+    ) -> ProjectStateBackend:
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+
+        project_configs = dict(backend.projectConfigs)
+        project_configs[project_config_id] = copy.deepcopy(
+            backend.projectConfigs[project_config_id]
+        )
+
+        return ProjectStateBackend(
+            sections=backend.sections,
+            sectionImpls=backend.sectionImpls,
+            sectionVariants=backend.sectionVariants,
+            codeObjs=backend.codeObjs,
+            codeObjImpls=backend.codeObjImpls,
+            codeObjVariants=backend.codeObjVariants,
+            projectConfigs=project_configs,
+            defaultProjectConfigId=backend.defaultProjectConfigId,
+            appDefinition=backend.appDefinition,
+        )
 
     def _copy_backend_for_project_config_history_entry(
         self,

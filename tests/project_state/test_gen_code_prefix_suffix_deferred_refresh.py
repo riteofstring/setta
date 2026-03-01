@@ -3,13 +3,17 @@ import pytest
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
     SetGenCodePrefixRequest,
+    UndoRequest,
 )
+from setta.types.project_config import get_python_codegen_target_with_type_guard
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
 
 @pytest.mark.asyncio
-async def test_set_gen_code_prefix_uses_project_config_patch_and_defers_refresh() -> None:
+async def test_set_gen_code_prefix_uses_project_config_patch_and_defers_refresh() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -158,3 +162,43 @@ async def test_create_run_command_flushes_pending_gen_code_prefix_refresh() -> N
             not in manager._pending_gen_code_prefix_suffix_refresh_revision_by_project_config  # type: ignore[attr-defined]
         )
         assert "import math" in manager.gen_code[project_config_id].code
+
+
+@pytest.mark.asyncio
+async def test_set_gen_code_prefix_undo_restores_previous_value() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        project_config = manager.project_state_backend.projectConfigs[project_config_id]
+        original_prefix = get_python_codegen_target_with_type_guard(
+            project_config
+        ).genCodePrefix
+
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math\n",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        updated_prefix = get_python_codegen_target_with_type_guard(
+            manager.project_state_backend.projectConfigs[project_config_id]
+        ).genCodePrefix
+        assert updated_prefix == "import math\n"
+
+        await manager.undo(
+            UndoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        reverted_prefix = get_python_codegen_target_with_type_guard(
+            manager.project_state_backend.projectConfigs[project_config_id]
+        ).genCodePrefix
+        assert reverted_prefix == original_prefix
