@@ -15,6 +15,7 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     UndoRequest,
 )
+from setta.types.app_definition import AppDefinition
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
 from setta.types.project_config import Viewport
@@ -255,6 +256,72 @@ async def test_project_config_only_history_entry_copies_only_project_config() ->
             target_config_id
         ].name = "project-config-only-history-target"
         assert backend_before.projectConfigs[target_config_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_app_definition_only_history_entry_copies_only_app_definition() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+        section_id = await _create_dict_section(manager, project_config_id)
+        project_state = manager.get_single_config_state(project_config_id)
+        section_variant_id = project_state.projectConfig.sectionVariantMap[section_id]
+        section_impl_id = project_state.sectionVariants[section_variant_id].impl
+        manager.project_state_backend = manager.project_state_backend.model_copy(
+            update={"appDefinition": AppDefinition(appSpecPath="app_specs/seed.json")}
+        )
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            app_definition_only=True,
+        )
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert backend_after is not backend_before
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is backend_before.projectConfigs[project_config_id]
+        )
+        assert backend_after.sections[section_id] is backend_before.sections[section_id]
+        assert (
+            backend_after.sectionVariants[section_variant_id]
+            is backend_before.sectionVariants[section_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[section_impl_id]
+            is backend_before.sectionImpls[section_impl_id]
+        )
+        assert backend_after.appDefinition is not None
+        assert backend_before.appDefinition is not None
+        assert backend_after.appDefinition is not backend_before.appDefinition
+
+        original_catalog_id = backend_before.appDefinition.catalogId
+        backend_after.appDefinition.catalogId = "setta.app.changed"
+        assert backend_before.appDefinition.catalogId == original_catalog_id
+
+
+@pytest.mark.asyncio
+async def test_app_definition_only_history_entry_rejects_project_config_scope() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        with pytest.raises(
+            ValueError,
+            match="app_definition_only cannot be combined with project_config_id",
+        ):
+            manager.add_new_history_entry(
+                trigger_autosave=False,
+                project_config_id=project_config_id,
+                app_definition_only=True,
+            )
 
 
 @pytest.mark.asyncio

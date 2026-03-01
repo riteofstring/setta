@@ -2864,7 +2864,7 @@ class BaseProjectManager(ABC):
     ) -> AppDefinitionResponse:
         """Replace the stored app UI spec and update app definition metadata."""
         previous_project_state_revision = self.history.revision
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         target_path = (
             x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
@@ -2903,7 +2903,7 @@ class BaseProjectManager(ABC):
         self, x: UpdateAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Apply a JSON merge patch to the stored app UI spec."""
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         self._get_default_project_state()
         app_definition = self.project_state_backend.appDefinition
         if app_definition is None or not app_definition.appSpecPath:
@@ -3013,7 +3013,7 @@ class BaseProjectManager(ABC):
             update={"appSpecPath": normalized_path, "catalogId": catalog_id}
         )
         previous_project_state_revision = self.history.revision
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
@@ -3047,7 +3047,7 @@ class BaseProjectManager(ABC):
             update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
         )
         previous_project_state_revision = self.history.revision
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
@@ -3080,7 +3080,7 @@ class BaseProjectManager(ABC):
             update={"appSpecPath": normalized_path}
         )
         previous_project_state_revision = self.history.revision
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
@@ -3120,7 +3120,7 @@ class BaseProjectManager(ABC):
             update={"appSpecPath": normalized_path, "theme": theme_payload}
         )
         previous_project_state_revision = self.history.revision
-        self.add_new_history_entry()
+        self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
@@ -8547,6 +8547,7 @@ class BaseProjectManager(ABC):
         include_project_config: bool = False,
         section_impl_only_ids: set[ID] | None = None,
         code_obj_only_ids: set[ID] | None = None,
+        app_definition_only: bool = False,
     ):
         if project_config_only and project_config_id is None:
             raise ValueError(
@@ -8574,8 +8575,23 @@ class BaseProjectManager(ABC):
             raise ValueError(
                 "project_config_only cannot be combined with section_impl_only_ids or code_obj_only_ids."
             )
+        if app_definition_only and project_config_id is not None:
+            raise ValueError(
+                "app_definition_only cannot be combined with project_config_id."
+            )
+        if app_definition_only and (
+            project_config_only
+            or include_project_config
+            or section_impl_only_ids is not None
+            or code_obj_only_ids is not None
+        ):
+            raise ValueError(
+                "app_definition_only cannot be combined with project_config scope arguments."
+            )
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
-        if project_config_id is not None:
+        if app_definition_only:
+            copy_func = self._copy_backend_for_app_definition_history_entry
+        elif project_config_id is not None:
             frozen_section_impl_only_ids = (
                 frozenset(section_impl_only_ids)
                 if section_impl_only_ids is not None
@@ -8880,6 +8896,22 @@ class BaseProjectManager(ABC):
             projectConfigs=backend.projectConfigs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
+        )
+
+    @staticmethod
+    def _copy_backend_for_app_definition_history_entry(
+        backend: ProjectStateBackend,
+    ) -> ProjectStateBackend:
+        return ProjectStateBackend(
+            sections=backend.sections,
+            sectionImpls=backend.sectionImpls,
+            sectionVariants=backend.sectionVariants,
+            codeObjs=backend.codeObjs,
+            codeObjImpls=backend.codeObjImpls,
+            codeObjVariants=backend.codeObjVariants,
+            projectConfigs=backend.projectConfigs,
+            defaultProjectConfigId=backend.defaultProjectConfigId,
+            appDefinition=copy.deepcopy(backend.appDefinition),
         )
 
     def _copy_backend_for_project_config_only_history_entry(

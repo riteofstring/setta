@@ -113,6 +113,65 @@ class TestAppDefinitionProjectManager:
 
         assert stored == payload
 
+    async def test_set_app_definition_uses_app_definition_only_history_scope(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            initial_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=initial_payload,
+                    appSpecPath="app_specs/initial.json",
+                    appSpecVersion="v1",
+                    catalogId="setta.app.default",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            history_len_before = len(manager.history._history)
+            backend_before = manager.project_state_backend
+            project_config_id = backend_before.defaultProjectConfigId
+            assert project_config_id is not None
+
+            next_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {
+                    "title": {
+                        "key": "title",
+                        "type": "Text",
+                        "props": {"value": "next"},
+                    }
+                },
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=next_payload,
+                    appSpecPath="app_specs/next.json",
+                    appSpecVersion="v2",
+                    catalogId="setta.app.default",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            backend_after = manager.project_state_backend
+            assert len(manager.history._history) == history_len_before + 1
+            assert backend_after is not backend_before
+            assert (
+                backend_after.projectConfigs[project_config_id]
+                is backend_before.projectConfigs[project_config_id]
+            )
+            assert backend_before.appDefinition is not None
+            assert backend_after.appDefinition is not None
+            assert backend_after.appDefinition is not backend_before.appDefinition
+
+            original_catalog_id = backend_before.appDefinition.catalogId
+            backend_after.appDefinition.catalogId = "setta.app.changed"
+            assert backend_before.appDefinition.catalogId == original_catalog_id
+
     async def test_set_app_definition_uses_app_definition_patch_transport(self) -> None:
         async with real_project_manager() as fixture:
             payload = {
