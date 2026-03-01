@@ -7,7 +7,6 @@ import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "state/actions/lspDiagnostics";
-import { queueTemporaryMiscStateUpdate } from "state/actions/temporaryMiscState";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -18,6 +17,7 @@ import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
+  useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
@@ -29,7 +29,6 @@ import {
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
-import { getElementVerticalMargin, getObservedElementHeight } from "../heightMeasurements";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -66,45 +65,31 @@ function _SectionHeader({
   useLayoutEffect(() => {
     const node = headerRef.current;
     if (!node) {
-      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
     let lastMeasuredHeight: number | null = null;
-    let cachedMarginHeight: number | null = null;
-    let cachedMarginSignature: string | null = null;
-    const refreshMarginHeight = () => {
-      const nextSignature = `${node.className}|${node.getAttribute("style") ?? ""}`;
-      if (cachedMarginSignature === nextSignature && cachedMarginHeight !== null) {
-        return;
-      }
-      cachedMarginSignature = nextSignature;
-      cachedMarginHeight = getElementVerticalMargin(node);
-    };
-    const updateHeight = (entry: ResizeObserverEntry | null) => {
-      refreshMarginHeight();
-      const measuredHeight =
-        getObservedElementHeight({
-          entry,
-          getFallbackOffsetHeight: () => node.offsetHeight,
-        }) + (cachedMarginHeight ?? 0);
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
       const nextHeight = Math.ceil(measuredHeight);
       if (lastMeasuredHeight === nextHeight) {
         return;
       }
       lastMeasuredHeight = nextHeight;
-      queueTemporaryMiscStateUpdate({
+      useTemporaryMiscState.setState({
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
     };
-    updateHeight(null);
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0] ?? null;
-      updateHeight(entry);
-    });
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
     observer.observe(node);
     return () => {
       observer.disconnect();
-      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
   }, [heightKey]);
 

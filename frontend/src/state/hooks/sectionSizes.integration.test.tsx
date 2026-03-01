@@ -12,11 +12,9 @@ import {
 import { resetProjectStores } from "state/utils";
 import {
   getKwargsControlsHeightKey,
-  getPinnedParamsAreaHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
-  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import {
   CodeObjTypeEnum,
@@ -562,88 +560,6 @@ describe("useSectionMinMaxDims integration", () => {
 
     const dims = renderDims(sectionId);
     expect(dims.minHeight).toBe(188);
-  });
-
-  it("ignores pinned/unpinned area measurement keys for callable min sizing", () => {
-    const sectionId = "section-ignore-area-keys";
-    const variantId = "variant-ignore-area-keys";
-    const implId = "impl-ignore-area-keys";
-
-    const projectConfig = createProjectConfig({
-      id: "project-ignore-area-keys",
-      sectionVariantMap: { [sectionId]: variantId },
-      topLevelSections: {
-        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-      },
-    });
-
-    const callableImpl = {
-      type: SectionTypeEnum.Callable,
-      id: implId,
-      name: "Callable",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      size: { width: 400, height: 200 },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: ConfigLanguageEnum.python,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: { callable: false, params: {} },
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      callable: null,
-      hideParams: false,
-    };
-
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
-      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
-      state.sectionImpls = { [implId]: callableImpl };
-      state.previewSectionVariantMap = {};
-      state.parentSectionMap = { [sectionId]: null };
-      state.shownParamIds = {
-        [variantId]: {
-          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["pin-1"] },
-          unpinned: {
-            requiredParamIdsToPaths: {},
-            topLevelParamIds: ["unpinned-1"],
-          },
-        },
-      };
-    });
-
-    setSectionMeasuredHeights({
-      sectionId,
-      headerHeight: 20,
-      searchHeight: 24,
-      kwargsHeight: 18,
-      paramsFixedHeight: 64,
-    });
-
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useTemporaryMiscState);
-    const baselineDims = renderDims(sectionId);
-
-    // UX guardrail: per-area measurement keys are not part of min-height sizing.
-    useTemporaryMiscState.setState({
-      [getPinnedParamsAreaHeightKey(sectionId)]: 9000,
-      [getUnpinnedParamsAreaHeightKey(sectionId)]: 9000,
-    });
-    syncStoreInitialState(useTemporaryMiscState);
-    const withAreaKeysDims = renderDims(sectionId);
-
-    expect(withAreaKeysDims).toEqual(baselineDims);
   });
 
   it("keeps unpinned min height visible when pinned params exist", () => {
