@@ -31,7 +31,10 @@ function isUndoRedoApiPath(rawUrl: string): boolean {
   }
 }
 
-async function repeatUndoShortcut(page: Page, repeatCount: number): Promise<void> {
+async function repeatUndoShortcut(
+  page: Page,
+  repeatCount: number,
+): Promise<void> {
   await page.keyboard.down(MODIFIER_KEY);
   try {
     for (let idx = 0; idx < repeatCount; idx += 1) {
@@ -42,7 +45,10 @@ async function repeatUndoShortcut(page: Page, repeatCount: number): Promise<void
   }
 }
 
-async function repeatRedoShortcut(page: Page, repeatCount: number): Promise<void> {
+async function repeatRedoShortcut(
+  page: Page,
+  repeatCount: number,
+): Promise<void> {
   await page.keyboard.down(MODIFIER_KEY);
   await page.keyboard.down("Shift");
   try {
@@ -96,6 +102,108 @@ async function readCallableNameFromBackend(
     return null;
   }
   return callableCore.name ?? null;
+}
+
+async function readCallableAndFirstParamValueFromBackend(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{
+  callableName: string | null;
+  firstParamId: string | null;
+  firstParamValue: string | null;
+}> {
+  const stateEnvelope = await postBackend<{
+    projectState?: {
+      projectConfig: { sectionVariantMap: Record<string, string> };
+      sectionVariants: Record<string, { impl: string }>;
+      sectionImpls: Record<
+        string,
+        {
+          type: string;
+          callable?: string | null;
+          codeObjVariantMap?: Record<string, string>;
+        }
+      >;
+      codeObjs: Record<string, { name?: string | null }>;
+      codeObjVariants: Record<string, { impl: string }>;
+      codeObjImpls: Record<string, { value?: string | null }>;
+    };
+  }>(page, "/getLatestProjectState", { projectConfigId });
+  if (!stateEnvelope?.projectState) {
+    return {
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+    };
+  }
+  const snapshot = stateEnvelope.projectState;
+  const sectionVariantId = snapshot.projectConfig.sectionVariantMap[sectionId];
+  if (!sectionVariantId) {
+    return {
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+    };
+  }
+  const sectionVariant = snapshot.sectionVariants[sectionVariantId];
+  if (!sectionVariant) {
+    return {
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+    };
+  }
+  const sectionImpl = snapshot.sectionImpls[sectionVariant.impl];
+  if (!sectionImpl || sectionImpl.type !== "Callable") {
+    return {
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+    };
+  }
+  const callableId =
+    "callable" in sectionImpl && typeof sectionImpl.callable === "string"
+      ? sectionImpl.callable
+      : null;
+  const callableName =
+    callableId && snapshot.codeObjs[callableId]
+      ? snapshot.codeObjs[callableId].name ?? null
+      : null;
+  const paramIds = Object.keys(sectionImpl.codeObjVariantMap ?? {}).filter(
+    (codeObjId) => codeObjId !== callableId,
+  );
+  const firstParamId = paramIds.length > 0 ? paramIds[0] ?? null : null;
+  if (!firstParamId) {
+    return {
+      callableName,
+      firstParamId: null,
+      firstParamValue: null,
+    };
+  }
+  const paramVariantId = sectionImpl.codeObjVariantMap?.[firstParamId];
+  if (!paramVariantId) {
+    return {
+      callableName,
+      firstParamId,
+      firstParamValue: null,
+    };
+  }
+  const paramVariant = snapshot.codeObjVariants[paramVariantId];
+  if (!paramVariant) {
+    return {
+      callableName,
+      firstParamId,
+      firstParamValue: null,
+    };
+  }
+  const paramImpl = snapshot.codeObjImpls[paramVariant.impl];
+  return {
+    callableName,
+    firstParamId,
+    firstParamValue:
+      paramImpl && typeof paramImpl.value === "string" ? paramImpl.value : null,
+  };
 }
 
 test.describe.serial("section undo/redo", () => {
@@ -427,6 +535,170 @@ test.describe.serial("section undo/redo", () => {
       expect(undoRedoErrorStatuses).toEqual([]);
       expect(undoRedoPageErrors).toEqual([]);
       expect(undoRedoConsoleErrors).toEqual([]);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("keyboard undo/redo restores callable + param semantics after ui-only layout updates", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createCallableSection(
+        page,
+        projectContext.projectConfigId,
+      );
+      const sectionNode = page.locator(`[data-testid="rf__node-${sectionId}"]`);
+      await expect(sectionNode).toBeVisible();
+
+      await postBackend(page, "/setGenCodePrefix", {
+        projectConfigId: projectContext.projectConfigId,
+        genCodePrefix: "import math",
+      });
+      await postBackend(page, "/setCallable", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        callableName: "math.sqrt",
+        refetchParams: false,
+      });
+
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "math.sqrt",
+        });
+
+      const beforeParamState = await readCallableAndFirstParamValueFromBackend(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+      if (!beforeParamState.firstParamId) {
+        throw new Error("Missing callable param id after setCallable.");
+      }
+      const paramId = beforeParamState.firstParamId;
+
+      await postBackend(page, "/setParamEnteredValue", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        paramInfoId: paramId,
+        value: "1",
+      });
+      await postBackend(page, "/setParamEnteredValue", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        paramInfoId: paramId,
+        value: "123",
+      });
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "math.sqrt",
+          firstParamId: paramId,
+          firstParamValue: "123",
+        });
+
+      // Reproduce noisy UI-only writes that previously polluted undo/redo behavior.
+      const stateWithLayout = await postBackend<{
+        projectState?: {
+          projectConfig: {
+            topLevelSections: Record<
+              string,
+              { x: number; y: number; zIndex: number; w: number; h: number }
+            >;
+          };
+        };
+      }>(page, "/getLatestProjectState", {
+        projectConfigId: projectContext.projectConfigId,
+      });
+      const currentTopLevelSections =
+        stateWithLayout?.projectState?.projectConfig.topLevelSections;
+      if (!currentTopLevelSections) {
+        throw new Error("Missing top-level layout state for layout update.");
+      }
+      const shiftedTopLevelSections = Object.fromEntries(
+        Object.entries(currentTopLevelSections).map(([id, layout]) => [
+          id,
+          {
+            ...layout,
+            x: layout.x + 3,
+            y: layout.y + 3,
+          },
+        ]),
+      );
+      await postBackend(page, "/setActiveIds", {
+        projectConfigId: projectContext.projectConfigId,
+        activeIds: [sectionId],
+      });
+      await postBackend(page, "/setTopLevelSectionLayout", {
+        projectConfigId: projectContext.projectConfigId,
+        topLevelSections: shiftedTopLevelSections,
+      });
+
+      // Ensure keyboard shortcuts are routed through the global undo/redo handlers.
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      });
+
+      const traversalBudget = 8;
+      let sawCallableCleared = false;
+      for (let step = 0; step < traversalBudget; step += 1) {
+        await repeatUndoShortcut(page, 1);
+        const stateAfterUndo = await readCallableAndFirstParamValueFromBackend(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+        );
+        if (stateAfterUndo.callableName === null) {
+          sawCallableCleared = true;
+          break;
+        }
+      }
+      expect(sawCallableCleared).toBe(true);
+
+      let sawCallableAndParamRestored = false;
+      for (let step = 0; step < traversalBudget; step += 1) {
+        await repeatRedoShortcut(page, 1);
+        const stateAfterRedo = await readCallableAndFirstParamValueFromBackend(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+        );
+        if (
+          stateAfterRedo.callableName === "math.sqrt" &&
+          stateAfterRedo.firstParamId === paramId &&
+          stateAfterRedo.firstParamValue === "123"
+        ) {
+          sawCallableAndParamRestored = true;
+          break;
+        }
+      }
+      expect(sawCallableAndParamRestored).toBe(true);
+
+      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
+      await expect(sectionNode.locator("search.section-search")).toContainText(
+        "math.sqrt",
+      );
+      await expect(
+        sectionNode.locator(`#ParamContainer-${sectionId}-${paramId}`),
+      ).toContainText("123");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

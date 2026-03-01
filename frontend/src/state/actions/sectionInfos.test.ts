@@ -2456,6 +2456,133 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(getProjectStateRevision("project-1")).toBe(71);
   });
 
+  it("keeps callable + param semantic data when structural delta only updates sections", () => {
+    const sectionId = "section-callable";
+    const variantId = "variant-callable";
+    const implId = "impl-callable";
+    const callableCodeObjId = "code-obj-callable";
+    const paramCodeObjId = "code-obj-param";
+    const paramVariantId = "variant-param";
+    const paramImplId = "impl-param";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 12, y: 20, zIndex: 0, w: 260, h: 180 },
+      },
+      activeIds: [sectionId],
+    });
+    const shownParams: ShownParamIds = {
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [paramCodeObjId],
+      },
+      unpinned: {
+        requiredParamIdsToPaths: { [paramCodeObjId]: [paramCodeObjId] },
+        topLevelParamIds: [paramCodeObjId],
+      },
+    };
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId, name: "callable-before" }),
+      },
+      sectionImpls: {
+        [implId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: implId,
+            callable: callableCodeObjId,
+            codeObjVariantMap: { [paramCodeObjId]: paramVariantId },
+            topLevelParamId: paramCodeObjId,
+          },
+        ),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {
+        [callableCodeObjId]: createCore({
+          id: callableCodeObjId,
+          name: "math.sqrt",
+        }),
+        [paramCodeObjId]: createCore({
+          id: paramCodeObjId,
+          name: "x",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjImpls: {
+        [paramImplId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: paramImplId,
+            value: "123",
+          },
+        ),
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: { [variantId]: shownParams },
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    const nextProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 40, y: 65, zIndex: 0, w: 260, h: 180 },
+      },
+      activeIds: [sectionId],
+    });
+    const applied = applyStructuralProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId, name: "callable-after" }),
+      },
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
+      previousProjectStateRevision: 71,
+      projectStateRevision: 72,
+      completedOpIds: [],
+      pendingOpIds: [],
+      isFullSnapshot: false,
+    });
+
+    expect(applied).toBe(true);
+    const nextState = useProjectState.getState();
+    const nextSectionImpl = nextState.sectionImpls[implId];
+    expect(nextState.sections[sectionId].name).toBe("callable-after");
+    expect(nextSectionImpl.type).toBe(SectionTypeEnum.Callable);
+    if (nextSectionImpl.type !== SectionTypeEnum.Callable) {
+      throw new Error("Expected callable section impl.");
+    }
+    expect(nextSectionImpl.callable).toBe(callableCodeObjId);
+    expect(nextState.codeObjs[callableCodeObjId].name).toBe("math.sqrt");
+    const nextParamImpl = nextState.codeObjImpls[paramImplId];
+    if (!isBaseChildlessCodeObjImpl(nextParamImpl)) {
+      throw new Error("Expected childless param impl.");
+    }
+    expect(nextParamImpl.value).toBe("123");
+    expect(getProjectStateRevision("project-1")).toBe(72);
+  });
+
   it("rejects structural delta patches when required variants are missing", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";

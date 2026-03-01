@@ -6,6 +6,7 @@ import json
 import logging
 import shutil
 from abc import ABC, abstractmethod
+from collections import deque
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import wraps
@@ -526,6 +527,9 @@ HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
 GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S = 0.2
 DEFERRED_CODEGEN_REFRESH_WAIT_S = 0.2
 SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS = 3
+RECENT_FRONTEND_OP_ID_CAP = 4096
+OP_ID_LOG_PREVIEW_LIMIT = 12
+TOKEN_LOG_PREVIEW_LIMIT = 12
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
     "type": "Stack",
@@ -900,6 +904,8 @@ class BaseProjectManager(ABC):
         self._queue_timing_metrics = _QueueTimingMetricsState()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
+        self._recent_frontend_op_ids_queue: deque[str] = deque()
+        self._recent_frontend_op_ids: set[str] = set()
         self._pending_ops_idle: asyncio.Event = asyncio.Event()
         self._pending_ops_idle.set()
         self._project_state_lock = AsyncReadWriteLock()
@@ -1201,11 +1207,14 @@ class BaseProjectManager(ABC):
                 existing_work_item.futures.append(cast("asyncio.Future[Any]", future))
                 existing_work_item.append_frontend_op_id(frontend_op_id)
                 logger.debug(
-                    "Coalesced queued work item partition=%s key=%s futures=%s op_ids=%s",
+                    "Coalesced queued work item partition=%s key=%s futures=%s op_ids=%s coalesced_frontend_op_ids=%s",
                     normalized_partition_key,
                     coalesce_key,
                     len(existing_work_item.futures),
                     len(existing_work_item.coalesced_frontend_op_ids),
+                    self._format_op_ids_for_log(
+                        existing_work_item.coalesced_frontend_op_ids
+                    ),
                 )
             else:
                 work_item = _QueueWorkItem(
@@ -1571,6 +1580,7 @@ class BaseProjectManager(ABC):
             self.pending_frontend_ops.pop(frontend_op_id, None)
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
+        self._remember_recent_frontend_op_id(frontend_op_id)
         self._update_pending_ops_idle_event()
 
     def _finalize_coalesced_frontend_ops(
@@ -1585,9 +1595,40 @@ class BaseProjectManager(ABC):
                 continue
             self._finalize_frontend_op(frontend_op_id, success=success)
 
+    def _remember_recent_frontend_op_id(self, frontend_op_id: str) -> None:
+        if frontend_op_id in self._recent_frontend_op_ids:
+            return
+        self._recent_frontend_op_ids_queue.append(frontend_op_id)
+        self._recent_frontend_op_ids.add(frontend_op_id)
+        while len(self._recent_frontend_op_ids_queue) > RECENT_FRONTEND_OP_ID_CAP:
+            evicted_op_id = self._recent_frontend_op_ids_queue.popleft()
+            if evicted_op_id in self._recent_frontend_op_ids:
+                self._recent_frontend_op_ids.remove(evicted_op_id)
+
     def _register_pending_frontend_op(self, frontend_op_id: str | None):
-        if frontend_op_id:
-            self.pending_frontend_ops[frontend_op_id] = None
+        if not frontend_op_id:
+            logger.debug(
+                "operation_idempotency.register skipped_missing_frontend_op_id=True pending_ops=%s completed_buffer_ops=%s",
+                len(self.pending_frontend_ops),
+                len(self.completed_op_ids_since_last_broadcast),
+            )
+            self._update_pending_ops_idle_event()
+            return
+        idempotency_state = "new"
+        if frontend_op_id in self.pending_frontend_ops:
+            idempotency_state = "duplicate_pending"
+        elif frontend_op_id in self._recent_frontend_op_ids:
+            idempotency_state = "duplicate_recent"
+        elif frontend_op_id in self.completed_op_ids_since_last_broadcast:
+            idempotency_state = "duplicate_completed_buffer"
+        logger.debug(
+            "operation_idempotency.register frontend_op_id=%s status=%s pending_ops=%s completed_buffer_ops=%s",
+            frontend_op_id,
+            idempotency_state,
+            len(self.pending_frontend_ops),
+            len(self.completed_op_ids_since_last_broadcast),
+        )
+        self.pending_frontend_ops[frontend_op_id] = None
         self._update_pending_ops_idle_event()
 
     @asynccontextmanager
@@ -1620,11 +1661,20 @@ class BaseProjectManager(ABC):
             candidate_op_ids.append(coalesced_frontend_op_id)
         if frontend_op_id and frontend_op_id not in candidate_op_ids:
             candidate_op_ids.append(frontend_op_id)
+        newly_completed_op_ids: list[str] = []
         for candidate_op_id in candidate_op_ids:
             if candidate_op_id not in self.pending_frontend_ops:
                 continue
             self.pending_frontend_ops.pop(candidate_op_id, None)
             self.completed_op_ids_since_last_broadcast.append(candidate_op_id)
+            newly_completed_op_ids.append(candidate_op_id)
+        if newly_completed_op_ids:
+            logger.debug(
+                "operation_idempotency.mark_completed current_frontend_op_id=%s newly_completed_op_ids=%s remaining_pending_ops=%s",
+                frontend_op_id,
+                self._format_op_ids_for_log(newly_completed_op_ids),
+                len(self.pending_frontend_ops),
+            )
         self._update_pending_ops_idle_event()
 
     def _update_pending_ops_idle_event(self) -> None:
@@ -2665,7 +2715,11 @@ class BaseProjectManager(ABC):
             raise KeyError(f"View mode {isolated_active_view_mode_id} not found")
         isolated_project_config.topLevelSections = merged_layouts
         isolated_view_mode.topLevelSections = merged_layouts
-        self._mark_current_backend_revision_dirty()
+        self._mark_current_backend_revision_dirty(
+            patch_scope_by_project_config=self._project_config_only_patch_scope(
+                x.projectConfigId
+            )
+        )
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -6543,7 +6597,11 @@ class BaseProjectManager(ABC):
         if self.project_state_backend.defaultProjectConfigId == projectConfigId:
             return
         self.project_state_backend.defaultProjectConfigId = projectConfigId
-        self._mark_current_backend_revision_dirty()
+        self._mark_current_backend_revision_dirty(
+            patch_scope_by_project_config=self._project_config_only_patch_scope(
+                projectConfigId
+            )
+        )
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
@@ -6571,7 +6629,11 @@ class BaseProjectManager(ABC):
         )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
         new_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        self._mark_current_backend_revision_dirty()
+        self._mark_current_backend_revision_dirty(
+            patch_scope_by_project_config=self._project_config_only_patch_scope(
+                projectConfigId
+            )
+        )
         if previous_output_root.exists() and old_name != new_name:
             shutil.rmtree(previous_output_root)
         if projectConfigId in self._plugin_codegen_output_root_by_project_config:
@@ -6810,7 +6872,11 @@ class BaseProjectManager(ABC):
         )
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.activeIds = x.activeIds
-        self._mark_current_backend_revision_dirty()
+        self._mark_current_backend_revision_dirty(
+            patch_scope_by_project_config=self._project_config_only_patch_scope(
+                x.projectConfigId
+            )
+        )
 
     @staticmethod
     def _resolve_active_view_mode_id_for_viewport(
@@ -8084,6 +8150,16 @@ class BaseProjectManager(ABC):
         return {
             project_config_id: scope.clone()
             for project_config_id, scope in scope_by_project_config.items()
+        }
+
+    @staticmethod
+    def _project_config_only_patch_scope(
+        project_config_id: ID,
+    ) -> dict[ID, _UndoRedoProjectConfigPatchScope]:
+        return {
+            project_config_id: _UndoRedoProjectConfigPatchScope(
+                project_config_only=True
+            )
         }
 
     @staticmethod
@@ -10273,6 +10349,27 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
 
+    @staticmethod
+    def _format_op_ids_for_log(op_ids: list[str]) -> list[str]:
+        if len(op_ids) <= OP_ID_LOG_PREVIEW_LIMIT:
+            return list(op_ids)
+        remaining = len(op_ids) - OP_ID_LOG_PREVIEW_LIMIT
+        return [
+            *op_ids[:OP_ID_LOG_PREVIEW_LIMIT],
+            f"...(+{remaining} more)",
+        ]
+
+    @staticmethod
+    def _format_tokens_for_log(tokens: list[int]) -> list[str]:
+        token_strings = [str(token) for token in tokens]
+        if len(token_strings) <= TOKEN_LOG_PREVIEW_LIMIT:
+            return token_strings
+        remaining = len(token_strings) - TOKEN_LOG_PREVIEW_LIMIT
+        return [
+            *token_strings[:TOKEN_LOG_PREVIEW_LIMIT],
+            f"...(+{remaining} more)",
+        ]
+
     async def _broadcast_project_state_op_status_patch(
         self,
         *,
@@ -10290,12 +10387,14 @@ class BaseProjectManager(ABC):
         ):
             return
         logger.debug(
-            "broadcast_project_state_op_status_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_state_op_status_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await self.websocket_msg_handler.broadcast_project_state_op_status_patch(
@@ -10318,7 +10417,7 @@ class BaseProjectManager(ABC):
         )
         project_state_revision = self.history.revision
         logger.debug(
-            "broadcast_project_state project_config_id=%s revision=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_state project_config_id=%s revision=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_state.projectConfig.id,
             project_state_revision,
             len(project_state.sections),
@@ -10326,6 +10425,8 @@ class BaseProjectManager(ABC):
             len(project_state.sectionVariants),
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await self.websocket_msg_handler.broadcast_project_state(
@@ -10374,12 +10475,14 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_active_view_mode_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_active_view_mode_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
@@ -10405,12 +10508,14 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_project_config_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_config_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config.id,
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await (
@@ -10466,7 +10571,7 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s removed_sections=%s removed_variants=%s removed_impls=%s removed_parent_sections=%s full_snapshot=%s completed_ops=%s pending_ops=%s",
+            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s removed_sections=%s removed_variants=%s removed_impls=%s removed_parent_sections=%s full_snapshot=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_state.projectConfig.id,
             previous_project_state_revision,
             project_state_revision,
@@ -10480,6 +10585,8 @@ class BaseProjectManager(ABC):
             is_full_snapshot,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         structural_patch_kwargs: dict[str, object] = {}
         if is_full_snapshot is not None:
@@ -10527,12 +10634,14 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_app_definition_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_app_definition_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await (
@@ -10563,13 +10672,15 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_section_impl_patch project_config_id=%s section_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_section_impl_patch project_config_id=%s section_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             section_id,
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await self.websocket_msg_handler.broadcast_project_state_section_impl_patch(
@@ -10597,13 +10708,15 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_section_impls_patch project_config_id=%s section_impls=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            "broadcast_section_impls_patch project_config_id=%s section_impls=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             len(section_impls),
             previous_project_state_revision,
             project_state_revision,
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await (
@@ -10634,7 +10747,7 @@ class BaseProjectManager(ABC):
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_code_objs_patch project_config_id=%s previous_revision=%s revision=%s code_objs=%s variants=%s impls=%s completed_ops=%s pending_ops=%s",
+            "broadcast_code_objs_patch project_config_id=%s previous_revision=%s revision=%s code_objs=%s variants=%s impls=%s completed_ops=%s pending_ops=%s completed_op_ids=%s pending_op_ids=%s",
             project_config_id,
             previous_project_state_revision,
             project_state_revision,
@@ -10643,6 +10756,8 @@ class BaseProjectManager(ABC):
             len(code_obj_impls),
             len(completed_op_ids),
             len(pending_op_ids),
+            self._format_op_ids_for_log(completed_op_ids),
+            self._format_op_ids_for_log(pending_op_ids),
         )
         try:
             await self.websocket_msg_handler.broadcast_project_state_code_objs_patch(
@@ -10956,6 +11071,25 @@ class BaseProjectManager(ABC):
                 app_definition_only=app_definition_only,
             )
         )
+        previous_entry_token = self.history.get_current_entry_token()
+        previous_revision = self.history.revision
+        previous_entry_count = len(self.history.get_entry_tokens())
+        frontend_op_id = self._current_frontend_op_id.get()
+        logger.debug(
+            "history_transaction.start frontend_op_id=%s coalesce_key=%s coalesce_window_s=%s project_config_id=%s project_config_only=%s include_project_config=%s section_impl_only_count=%s code_obj_only_count=%s app_definition_only=%s prev_entry_token=%s prev_revision=%s prev_entry_count=%s",
+            frontend_op_id,
+            coalesce_key,
+            coalesce_window_s,
+            project_config_id,
+            project_config_only,
+            include_project_config,
+            0 if section_impl_only_ids is None else len(section_impl_only_ids),
+            0 if code_obj_only_ids is None else len(code_obj_only_ids),
+            app_definition_only,
+            previous_entry_token,
+            previous_revision,
+            previous_entry_count,
+        )
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if app_definition_only:
             copy_func = self._copy_backend_for_app_definition_history_entry
@@ -11011,6 +11145,25 @@ class BaseProjectManager(ABC):
             coalesce_key=coalesce_key,
             coalesce_window_s=coalesce_window_s,
             copy_func=copy_func,
+        )
+        next_entry_token = self.history.get_current_entry_token()
+        next_revision = self.history.revision
+        next_entry_count = len(self.history.get_entry_tokens())
+        transaction_outcome = (
+            "commit"
+            if next_entry_token != previous_entry_token
+            else "coalesce_or_in_place"
+        )
+        logger.debug(
+            "history_transaction.%s frontend_op_id=%s coalesce_key=%s next_entry_token=%s next_revision=%s next_entry_count=%s entry_token_changed=%s revision_delta=%s",
+            transaction_outcome,
+            frontend_op_id,
+            coalesce_key,
+            next_entry_token,
+            next_revision,
+            next_entry_count,
+            next_entry_token != previous_entry_token,
+            next_revision - previous_revision,
         )
         self._register_current_history_entry_scope(history_entry_project_config_scope)
         self._register_current_history_entry_undo_redo_patch_scope(
@@ -11561,16 +11714,26 @@ class BaseProjectManager(ABC):
             isolate_shared_project_config_reference
         )
 
-    def _mark_current_backend_revision_dirty(self) -> None:
+    def _mark_current_backend_revision_dirty(
+        self,
+        *,
+        patch_scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope]
+        | None = None,
+    ) -> None:
         # Some lightweight metadata paths intentionally mutate the current backend
         # object in place (without pushing a new history entry). Bump revision so
         # revision-keyed caches and save dedupe stay correct for those paths.
         current_entry_token = self.history.get_current_entry_token()
         self.history.set_current(self.project_state_backend)
-        # In-place metadata mutations can bypass scoped patch registration.
-        # Force unknown-scope fallback for this history entry so undo/redo uses
-        # deterministic diff transport instead of stale scoped assumptions.
-        self._register_current_history_entry_undo_redo_patch_scope(None)
+        if patch_scope_by_project_config is None:
+            # In-place metadata mutations can bypass scoped patch registration.
+            # Force unknown-scope fallback for this history entry so undo/redo uses
+            # deterministic diff transport instead of stale scoped assumptions.
+            self._register_current_history_entry_undo_redo_patch_scope(None)
+        else:
+            self._register_current_history_entry_undo_redo_patch_scope(
+                patch_scope_by_project_config
+            )
         self._normalized_history_entry_tokens.discard(current_entry_token)
         self._invalidate_single_config_state_cache()
 
@@ -11640,8 +11803,23 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
-        if x.steps <= 0 or not self.history.can_undo(x.steps):
+        if x.steps <= 0:
+            logger.debug(
+                "undo_redo.navigation.skip action=undo reason=non_positive_steps requested_steps=%s current_entry_token=%s current_revision=%s",
+                x.steps,
+                self.history.get_current_entry_token(),
+                self.history.revision,
+            )
             return
+        if not self.history.can_undo(x.steps):
+            logger.debug(
+                "undo_redo.navigation.skip action=undo reason=cannot_undo requested_steps=%s current_entry_token=%s current_revision=%s",
+                x.steps,
+                self.history.get_current_entry_token(),
+                self.history.revision,
+            )
+            return
+        previous_entry_token = self.history.get_current_entry_token()
         navigation_entry_tokens = self._collect_undo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_backend = self.project_state_backend
@@ -11659,6 +11837,20 @@ class BaseProjectManager(ABC):
                 navigation_entry_tokens
             )
         )
+        logger.debug(
+            "undo_redo.navigation action=undo requested_steps=%s traversed_tokens=%s previous_entry_token=%s next_entry_token=%s previous_revision=%s next_revision=%s affected_project_configs=%s",
+            x.steps,
+            self._format_tokens_for_log(navigation_entry_tokens),
+            previous_entry_token,
+            self.history.get_current_entry_token(),
+            previous_project_state_revision,
+            self.history.revision,
+            (
+                None
+                if affected_project_config_ids is None
+                else sorted(affected_project_config_ids)
+            ),
+        )
         await self.update_and_broadcast_all_project_state(
             previous_project_state_revision=previous_project_state_revision,
             project_config_ids=affected_project_config_ids,
@@ -11670,8 +11862,23 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
-        if x.steps <= 0 or not self.history.can_redo(x.steps):
+        if x.steps <= 0:
+            logger.debug(
+                "undo_redo.navigation.skip action=redo reason=non_positive_steps requested_steps=%s current_entry_token=%s current_revision=%s",
+                x.steps,
+                self.history.get_current_entry_token(),
+                self.history.revision,
+            )
             return
+        if not self.history.can_redo(x.steps):
+            logger.debug(
+                "undo_redo.navigation.skip action=redo reason=cannot_redo requested_steps=%s current_entry_token=%s current_revision=%s",
+                x.steps,
+                self.history.get_current_entry_token(),
+                self.history.revision,
+            )
+            return
+        previous_entry_token = self.history.get_current_entry_token()
         navigation_entry_tokens = self._collect_redo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_backend = self.project_state_backend
@@ -11688,6 +11895,20 @@ class BaseProjectManager(ABC):
             self._resolve_undo_redo_patch_scope_for_navigation_tokens(
                 navigation_entry_tokens
             )
+        )
+        logger.debug(
+            "undo_redo.navigation action=redo requested_steps=%s traversed_tokens=%s previous_entry_token=%s next_entry_token=%s previous_revision=%s next_revision=%s affected_project_configs=%s",
+            x.steps,
+            self._format_tokens_for_log(navigation_entry_tokens),
+            previous_entry_token,
+            self.history.get_current_entry_token(),
+            previous_project_state_revision,
+            self.history.revision,
+            (
+                None
+                if affected_project_config_ids is None
+                else sorted(affected_project_config_ids)
+            ),
         )
         await self.update_and_broadcast_all_project_state(
             previous_project_state_revision=previous_project_state_revision,
