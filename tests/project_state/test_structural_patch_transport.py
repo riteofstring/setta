@@ -2,8 +2,9 @@ import asyncio
 
 import pytest
 
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
+    CreateEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -17,23 +18,32 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     SetCodeSectionAttachedTerminalRequest,
+    SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetParamEnteredValueRequest,
-    SetTypeErrorIgnoreRequest,
     SetSectionNameRequest,
     SetTextBlockHeadingAsSectionNameRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
+    SetTypeErrorIgnoreRequest,
     SetViewportRequest,
-    UndoRequest,
     RedoRequest,
+    UndoRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UngroupGroupsRequest,
+)
+from setta.types.edges import EdgePort
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.types.helpers_lvl2 import (
+    add_kwarg,
+    create_top_level_section,
+    set_section_edge_inputs,
+    set_section_edge_outputs,
 )
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -52,6 +62,44 @@ from tests.utils.manager_fixture import real_settings_manager
 
 
 SECTION_ID = ID("section-1")
+
+
+def _build_edge_test_state_for_undo_redo(settings):
+    project_state = build_callable_project_state(20)
+    source_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Dict,
+        Position(x=900, y=0),
+        core_overrides={"name": "edge_source"},
+    )
+    target_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Dict,
+        Position(x=980, y=120),
+        core_overrides={"name": "edge_target"},
+    )
+    source_port_id = create_new_id()
+    target_param_id = add_kwarg(settings, project_state, target_section_id)
+    set_section_edge_outputs(
+        project_state,
+        source_section_id,
+        [EdgePort(id=source_port_id, accessor=".foo")],
+    )
+    set_section_edge_inputs(
+        settings,
+        project_state,
+        target_section_id,
+        [target_param_id],
+    )
+    return (
+        project_state,
+        source_section_id,
+        source_port_id,
+        target_section_id,
+        target_param_id,
+    )
 
 
 def _install_transport_capture(sender):
@@ -2220,6 +2268,146 @@ async def test_undo_redo_include_project_config_history_uses_targeted_patch_tran
         assert 1 == redo_capture["project_config_patch_calls"]
         assert 0 == redo_capture["code_obj_patch_calls"]
         assert 1 == redo_capture["section_impl_patch_calls"]
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_code_section_diagnostics_mute_include_project_config_uses_targeted_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        code_section_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Code,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=Position(x=1360.0, y=700.0),
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        await manager.set_code_section_diagnostics_mute(
+            SetCodeSectionDiagnosticsMuteRequest(
+                projectConfigId=project_config_id,
+                sectionId=code_section_response.sectionId,
+                mute=True,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 1 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["code_obj_patch_calls"]
+        assert 1 <= undo_capture["section_impl_patch_calls"]
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 1 == redo_capture["project_config_patch_calls"]
+        assert 0 == redo_capture["code_obj_patch_calls"]
+        assert 1 <= redo_capture["section_impl_patch_calls"]
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_create_edge_include_project_config_uses_targeted_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        (
+            project_state,
+            source_section_id,
+            source_port_id,
+            target_section_id,
+            target_param_id,
+        ) = _build_edge_test_state_for_undo_redo(manager.settings_file.settings)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        state_before_edge = manager.get_single_config_state(project_config_id)
+        source_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            source_section_id
+        ]
+        target_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            target_section_id
+        ]
+
+        await manager.create_edge(
+            CreateEdgeRequest(
+                projectConfigId=project_config_id,
+                sourceSectionId=source_section_id,
+                sourceVariantId=source_variant_id,
+                sourcePortId=source_port_id,
+                targetSectionId=target_section_id,
+                targetVariantId=target_variant_id,
+                targetPortId=target_param_id,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 1 == undo_capture["project_config_patch_calls"]
+        assert 1 <= undo_capture["code_obj_patch_calls"]
+        assert 1 <= (
+            undo_capture["code_obj_patch_calls"]
+            + undo_capture["section_impl_patch_calls"]
+        )
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 1 == redo_capture["project_config_patch_calls"]
+        assert 1 <= redo_capture["code_obj_patch_calls"]
+        assert 1 <= (
+            redo_capture["code_obj_patch_calls"]
+            + redo_capture["section_impl_patch_calls"]
+        )
         assert 1 == redo_capture["name_validation_broadcast_calls"]
 
 

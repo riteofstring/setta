@@ -4579,6 +4579,7 @@ class BaseProjectManager(ABC):
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
@@ -4607,6 +4608,7 @@ class BaseProjectManager(ABC):
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostic_code_suppression(
@@ -4902,6 +4904,7 @@ class BaseProjectManager(ABC):
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         canonical_path = normalize_workspace_path(x.binding.canonical_path)
@@ -5284,6 +5287,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             code_obj_ids=[x.targetPortId],
             include_codegen_singletons=True,
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         edge = Edge(
@@ -5351,6 +5355,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_edges(project_state, x.edgeIds)
@@ -5391,6 +5396,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         reconnect_edge(
@@ -5442,6 +5448,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
+            include_project_config_targeted_patch_transport=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
@@ -5971,6 +5978,7 @@ class BaseProjectManager(ABC):
                 code_obj_ids=[root_code_obj_id, removed_param_id],
                 section_ids=[x.sectionId],
                 include_codegen_singletons=True,
+                include_project_config_targeted_patch_transport=True,
             )
         else:
             self._add_section_and_code_obj_scoped_history_entry(
@@ -6018,6 +6026,7 @@ class BaseProjectManager(ABC):
                 code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
                 section_ids=[x.sectionId],
                 include_codegen_singletons=True,
+                include_project_config_targeted_patch_transport=True,
             )
         else:
             self._add_section_and_code_obj_scoped_history_entry(
