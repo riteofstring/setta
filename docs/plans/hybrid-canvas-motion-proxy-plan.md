@@ -308,6 +308,26 @@
   - This validates large motion headroom from shell-level rendering.
   - Next motion work should target a no-hitch switch lifecycle between full DOM and shell representation, instead of static shell mode as a shipped UX.
 
+### Phase 0.5 Status Update (2026-03-03, Viewport Motion-Shell Switch Spike)
+- A no-canvas motion-shell switch spike was implemented and benchmarked:
+  - added a default-off experiment flag (`setta.viewportMotionShell.enabled`),
+  - kept full section DOM mounted while adding a pre-mounted lightweight shell layer,
+  - switched shell/full visibility during active pan/zoom via viewport motion state,
+  - wired deterministic Playwright A/B control (`PLAYWRIGHT_ENABLE_VIEWPORT_MOTION_SHELL=0|1`).
+- Result: **kept as experiment-only path** (default off).
+  - Playwright A/B showed large sustained motion uplift:
+    - control pan/zoom around `35 / 32`,
+    - motion-shell pan/zoom around `111 / 111` (~`3.2-3.4x`).
+  - Hitch profile stayed in acceptable bands for this pass:
+    - start p95 moved from about `3-4ms` to about `5-7ms`,
+    - stop p95 moved from about `8ms` to about `9ms`.
+  - CDP lifecycle validation confirmed active state is temporary (`false -> true -> false` with idle settle).
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-motion-shell-switch-spike.md`
+- Updated direction:
+  - Prioritize hardening this no-canvas motion-shell switch before revisiting hybrid canvas proxy work.
+  - Keep hybrid canvas as a fallback path only if this switch cannot maintain correctness and hitch bounds across broader scenarios.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.

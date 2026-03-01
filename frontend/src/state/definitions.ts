@@ -651,6 +651,7 @@ export const useMisc = withProjectState(
     subscribeWithSelector(
       withResetFn(() => ({
         isPanScrolling: false,
+        viewportMotionShellActive: false,
         lastMouseDownLocation: null,
         lastMouseUpLocation: null,
         mouseDownDrawArea: false,

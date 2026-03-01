@@ -10,6 +10,9 @@ const VIEWPORT_LAYER_SPLIT_OVERRIDE =
 const VIEWPORT_SHELL_MODE_KEY = "setta.viewportShellMode.enabled";
 const VIEWPORT_SHELL_MODE_OVERRIDE =
   process.env.PLAYWRIGHT_ENABLE_VIEWPORT_SHELL_MODE ?? null;
+const VIEWPORT_MOTION_SHELL_KEY = "setta.viewportMotionShell.enabled";
+const VIEWPORT_MOTION_SHELL_OVERRIDE =
+  process.env.PLAYWRIGHT_ENABLE_VIEWPORT_MOTION_SHELL ?? null;
 
 type HitchStats = {
   avgMs: number;
@@ -36,6 +39,8 @@ type DomStats = {
   iconLikeNodeCount: number;
   viewportLayerSplitEnabled: boolean;
   viewportShellModeEnabled: boolean;
+  viewportMotionShellEnabled: boolean;
+  viewportMotionShellActive: boolean;
 };
 
 type BaselineMetrics = {
@@ -75,6 +80,20 @@ test("settings all-settings perf baseline harness", async ({
     await page.addInitScript((key) => {
       window.localStorage.removeItem(key);
     }, VIEWPORT_SHELL_MODE_KEY);
+  }
+
+  if (VIEWPORT_MOTION_SHELL_OVERRIDE === "1") {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "1");
+    }, VIEWPORT_MOTION_SHELL_KEY);
+  } else if (VIEWPORT_MOTION_SHELL_OVERRIDE === "0") {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "0");
+    }, VIEWPORT_MOTION_SHELL_KEY);
+  } else {
+    await page.addInitScript((key) => {
+      window.localStorage.removeItem(key);
+    }, VIEWPORT_MOTION_SHELL_KEY);
   }
 
   await ensureAppReady(page);
@@ -331,6 +350,14 @@ test("settings all-settings perf baseline harness", async ({
         viewportShellModeEnabled:
           viewportContainer?.getAttribute("data-viewport-shell-mode") ===
           "true",
+        viewportMotionShellEnabled:
+          viewportContainer?.getAttribute(
+            "data-viewport-motion-shell-enabled",
+          ) === "true",
+        viewportMotionShellActive:
+          viewportContainer?.getAttribute(
+            "data-viewport-motion-shell-active",
+          ) === "true",
       };
     };
 

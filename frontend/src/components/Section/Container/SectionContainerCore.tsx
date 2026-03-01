@@ -33,6 +33,7 @@ type SectionContainerCoreProps = {
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
   forceShellMode?: boolean;
+  enableMotionShell?: boolean;
 };
 
 function _SectionContainerCore({
@@ -43,6 +44,7 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
   forceShellMode = false,
+  enableMotionShell = false,
 }: SectionContainerCoreProps) {
   const {
     isActiveSection,
@@ -205,6 +207,7 @@ function _SectionContainerCore({
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
         forceShellMode={forceShellMode}
+        enableMotionShell={enableMotionShell}
       />
     </section>
   );
