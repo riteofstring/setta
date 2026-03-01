@@ -8,7 +8,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
 )
 from setta.types.helpers_lvl1 import (
-    get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
     get_variant_effective_section_impl,
 )
@@ -163,6 +162,10 @@ def add_key_path_to_dict(output: dict, key_path: list[str]):
 
 
 def remove_json_source_values(p: ProjectStateCore):
+    copied_code_obj_ids: set[str] = set()
+    copied_code_obj_variant_ids: set[str] = set()
+    copied_code_obj_impl_ids: set[str] = set()
+
     for section in p.sections.values():
         for variant_id in section.variants:
             impl = get_variant_effective_section_impl(p, section.id, variant_id)
@@ -170,12 +173,38 @@ def remove_json_source_values(p: ProjectStateCore):
                 continue
             code_obj_variant_map = impl.codeObjVariantMap
             for cid, cvariant_id in code_obj_variant_map.items():
-                cobj = p.codeObjs[cid]
-                cvariant, cbase_impl, _ = get_variant_base_and_effective_code_obj_impl(
-                    p, cobj, cvariant_id
-                )
+                if cid not in p.codeObjs:
+                    raise KeyError(f"Missing code obj {cid} while clearing json source")
+                if cvariant_id not in p.codeObjVariants:
+                    raise KeyError(
+                        f"Missing code obj variant {cvariant_id} while clearing json source"
+                    )
+                cvariant = p.codeObjVariants[cvariant_id]
+                code_obj_impl_id = cvariant.impl
+                if code_obj_impl_id not in p.codeObjImpls:
+                    raise KeyError(
+                        f"Missing code obj impl {code_obj_impl_id} while clearing json source"
+                    )
+                cbase_impl = p.codeObjImpls[code_obj_impl_id]
                 if not isinstance(cbase_impl, BaseChildlessCodeObjImpl):
                     continue
+                if cid not in copied_code_obj_ids:
+                    p.codeObjs[cid] = p.codeObjs[cid].model_copy(deep=True)
+                    copied_code_obj_ids.add(cid)
+                if cvariant_id not in copied_code_obj_variant_ids:
+                    p.codeObjVariants[cvariant_id] = p.codeObjVariants[
+                        cvariant_id
+                    ].model_copy(deep=True)
+                    copied_code_obj_variant_ids.add(cvariant_id)
+                if code_obj_impl_id not in copied_code_obj_impl_ids:
+                    p.codeObjImpls[code_obj_impl_id] = p.codeObjImpls[
+                        code_obj_impl_id
+                    ].model_copy(deep=True)
+                    copied_code_obj_impl_ids.add(code_obj_impl_id)
+
+                cobj = p.codeObjs[cid]
+                cvariant = p.codeObjVariants[cvariant_id]
+                cbase_impl = p.codeObjImpls[code_obj_impl_id]
                 set_effective_impl_value(
                     cbase_impl,
                     cobj,

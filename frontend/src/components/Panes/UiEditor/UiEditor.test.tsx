@@ -116,4 +116,24 @@ describe("UiEditor rail offsets", () => {
 
     expect(style).toContain("bottom:36px");
   });
+
+  it("does not crash when active selection references a removed section", () => {
+    const removedSectionId = "section-removed";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeIds: [removedSectionId],
+      sectionVariantMap: {},
+      topLevelSections: {},
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+    });
+    syncStoreInitialState(useProjectState);
+
+    expect(() => renderToStaticMarkup(<UiEditor />)).not.toThrow();
+  });
 });
