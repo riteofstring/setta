@@ -88,6 +88,30 @@ Benchmark context: `http://127.0.0.1:3054/settings`, `Settings` project, `All Se
   - `pinned-params-area-height-*` and `unpinned-params-area-height-*` keys are produced in `GroupContainer.tsx`.
   - Repo search shows no consumers outside `GroupContainer.tsx` and constants declarations.
 
+### Big-Swing Findings (2026-03-01)
+- DOM concentration is in params content, not header chrome:
+  - Total elements in `All Settings`: `9715`.
+  - Elements under `.section-row-pin-main`: `6848` (`70.5%` of page DOM).
+  - Section node subtree total: `8612` elements across `42` nodes.
+- Heavy outliers are dominated by param rows:
+  - `sectionSizingPolicy`: `1855` elements total, `1813` inside params subtree.
+  - `shortcuts`: `665` elements total, `623` inside params subtree.
+  - Total param rows (`[data-param-row="true"]`): `697` (with `196` in `sectionSizingPolicy` alone).
+- ResizeObserver churn is high but no longer the main limiting factor:
+  - One `Core -> All Settings` transition created `518` observers in measured callsites:
+    - `Handle/index.tsx`: `148`
+    - `sectionSizes.ts`: `74`
+    - `useColumnWidthDrag.ts`: `74`
+    - `SectionHeader.tsx`: `74`
+    - `KwargsControls.tsx`: `74`
+    - `GroupContainer.tsx`: `74`
+  - Runtime patch experiments that disabled observer groups showed only small/no interaction gains (roughly `~0-2%` in measured medians).
+- Ceiling probe for DOM-reduction strategy:
+  - A CSS-only experiment that hid params subtrees (while still mounting JS/hooks) improved `Core -> All Settings` medians from roughly:
+    - elapsed `1450.6 ms` -> `1339.6 ms` (`~7.7%`)
+    - long-task `1199 ms` -> `1074 ms` (`~10.4%`)
+  - Since this probe did not skip React mount/hook work, true mount deferral should have materially higher upside.
+
 ## Prioritized Plan
 
 ### 1) Remove dead pinned/unpinned param-area height measurement pipeline
@@ -169,6 +193,51 @@ Why fourth:
 - Prevents regressions after improvements land.
 - Keeps optimization effort focused on real user interactions.
 
+## Big-Swing Track (New Primary)
+
+### A) Defer heavy section body mount for non-active sections
+Impact: Very High  
+Complexity: High  
+Confidence: Medium-High
+
+Changes:
+- Introduce an explicit render policy for dense views (for example: `full`, `progressive`, `active-section`).
+- In `SectionContainerCoreResizable`, keep header/shell mounted but defer `AreaSwitch` body mount for non-active sections.
+- Preserve stable container dimensions while deferred so node/edge geometry does not thrash.
+- Hydrate deferred bodies in small batches per frame (or on section activation).
+
+Why first:
+- Targets the dominant cost center (`~70%` of total DOM under params subtree).
+- Directly attacks both DOM/style work and React mount/subscription volume.
+
+### B) Virtualize large param lists in `ParamDndList`
+Impact: High  
+Complexity: High  
+Confidence: Medium
+
+Changes:
+- Add row windowing for large lists in `GetParamSwitch` / `ParamDndList` / `ParamContainer`.
+- Keep drag/drop behavior for active list interactions; use non-DnD rendering path when not selecting params.
+- Start with largest offenders (`sectionSizingPolicy`, `shortcuts`) and then generalize.
+
+Why second:
+- One section contributes `196` param rows alone; total is `697`.
+- Reducing mounted rows has multiplicative effect on inputs/buttons/nested subtree size.
+
+### C) Read-only row rendering for inactive sections
+Impact: High  
+Complexity: Medium-High  
+Confidence: High
+
+Changes:
+- For inactive sections, render lightweight read-only param value rows instead of full interactive `ParamInput` controls.
+- Mount full editors only on activation/focus.
+- Keep explicit mode flag so behavior is deterministic and reversible.
+
+Why third:
+- Preserves user visibility while removing large amounts of input/editor/UI control overhead.
+- Lower correctness risk than full virtualization as a first implementation step.
+
 ## Acceptance Criteria
 - `Core -> All Settings` long-task total reduced by at least `25%` from current post-Priority-1 baseline (`~1125 ms` median).
 - Temporary height state writes during one `Core -> All Settings` transition reduced by at least `60%` from current (`629` calls).
@@ -201,3 +270,6 @@ Why fourth:
 3. Priority 3 (trim header/kwargs/group layout reads)
 4. Priority 4 (cache viewport origin in edge-handle recomputes)
 5. Priority 5 (Playwright perf guardrail + final profiling pass)
+6. Big-Swing A (defer heavy section body mount in dense views)
+7. Big-Swing C (read-only inactive row rendering)
+8. Big-Swing B (param-list virtualization for largest lists)
