@@ -94,6 +94,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks slow_leaf as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes slow_leaf from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "slow-leaf-config-id",
+          projectConfigName: "slow_leaf",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -165,6 +178,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "jumping-moon-config-id",
           projectConfigName: "jumping_moon",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports slow_leaf rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "slow-leaf-config-id",
+          projectConfigName: "slow_leaf",
           activeViewModeName: "Overview",
         }),
       ),

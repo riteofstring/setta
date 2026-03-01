@@ -15,7 +15,13 @@ export type SceneGraphRendererRolloutDefaultOnReason =
   | "surface_exact_match";
 
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES: ReadonlySet<string> =
-  new Set(["settings", "chief_quick", "small_shell", "jumping_moon"]);
+  new Set([
+    "settings",
+    "chief_quick",
+    "small_shell",
+    "jumping_moon",
+    "slow_leaf",
+  ]);
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_IDS: ReadonlySet<string> =
   new Set();
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_SURFACES: readonly SceneGraphRendererRolloutSurface[] =
