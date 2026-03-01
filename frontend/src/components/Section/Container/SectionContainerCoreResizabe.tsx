@@ -45,8 +45,6 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
-  forceShellMode?: boolean;
-  enableMotionShell?: boolean;
 };
 
 export function SectionContainerCoreResizable({
@@ -58,8 +56,6 @@ export function SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
-  forceShellMode = false,
-  enableMotionShell = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -157,35 +153,13 @@ export function SectionContainerCoreResizable({
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      {forceShellMode ? (
-        <div className="h-8 w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
-      ) : enableMotionShell ? (
-        <>
-          <div
-            className="setta-motion-shell-layer section-w-full pointer-events-none [grid-row:search/bottom-gutter]"
-            aria-hidden="true"
-          >
-            <div className="h-full w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
-          </div>
-          <div className="setta-motion-shell-full-layer contents">
-            <AreaSwitch
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-              bgColor={bgColor}
-              isMinimized={isMinimized}
-              isUserView={isUserView}
-            />
-          </div>
-        </>
-      ) : (
-        <AreaSwitch
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-          isUserView={isUserView}
-        />
-      )}
+      <AreaSwitch
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
     </CustomResizable>
   );
 }
