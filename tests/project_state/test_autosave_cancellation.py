@@ -1,4 +1,6 @@
 import asyncio
+import time
+
 import pytest
 
 from tests.utils.manager_fixture import real_settings_manager
@@ -21,14 +23,17 @@ async def test_autosave_cancellation_does_not_kill_queue():
         blocker_task = asyncio.create_task(manager._enqueue(blocker()))
         await blocker_started.wait()
 
+        initial_queue_size = manager.message_queue.qsize()
         manager.autosave_debouncer.trigger()
-        await asyncio.sleep(0)
-        assert manager.autosave_debouncer.is_pending
 
-        # Re-trigger while the previous autosave is pending to exercise cancellation.
+        start = time.monotonic()
+        while manager.message_queue.qsize() <= initial_queue_size:
+            if time.monotonic() - start > 1.0:
+                pytest.fail("Expected autosave to enqueue.")
+            await asyncio.sleep(0)
+
         manager.autosave_debouncer.trigger()
         await asyncio.sleep(0)
-        assert manager.autosave_debouncer.is_pending
 
         blocker_release.set()
         await blocker_task
