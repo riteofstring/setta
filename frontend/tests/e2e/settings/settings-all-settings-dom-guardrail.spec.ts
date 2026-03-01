@@ -216,6 +216,9 @@ test("all settings DOM stays within flattening guardrails", async ({
             Array.from(child.classList).includes("gg-lock-unlock")),
       ),
     );
+    const agenticHandles = Array.from(
+      document.querySelectorAll(".react-flow__handle.agentic-handle"),
+    );
 
     return {
       nodeCount: nodes.length,
@@ -426,6 +429,13 @@ test("all settings DOM stays within flattening guardrails", async ({
       ).length,
       legacySectionHeaderControlWrapperCount: sectionHeaderControlWrappers.length,
       flattenedSectionHeaderControlHostCount: sectionHeaderControlHosts.length,
+      legacyAgenticSafeZoneWrapperCount: document.querySelectorAll(
+        "div.agentic-handle-safe-zone",
+      ).length,
+      flattenedAgenticSafeZoneHostCount: agenticHandles.filter((el) => {
+        const beforeContent = window.getComputedStyle(el, "::before").content;
+        return beforeContent !== "none";
+      }).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -485,6 +495,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSectionMenuRootlessTriggerCount).toBeGreaterThan(0);
   expect(metrics.legacySectionHeaderControlWrapperCount).toBe(0);
   expect(metrics.flattenedSectionHeaderControlHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyAgenticSafeZoneWrapperCount).toBe(0);
+  expect(metrics.flattenedAgenticSafeZoneHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

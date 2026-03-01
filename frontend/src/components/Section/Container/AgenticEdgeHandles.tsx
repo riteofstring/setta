@@ -48,10 +48,6 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
 
   return (
     <>
-      <div
-        aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
-      />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.target}
         type="target"
@@ -66,10 +62,6 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         {...getFloatingBoxHandlers({
           content: "Agentic link target",
         })}
-      />
-      <div
-        aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.source}

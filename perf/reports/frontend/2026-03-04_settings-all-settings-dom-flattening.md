@@ -1011,3 +1011,51 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24_fitview.png`
+
+## After (continued)
+
+### Phase 25 (agentic safe-zone wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx`
+  - `frontend/src/forks/xyflow/core/styles/style.css`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened agentic safe zones by removing dedicated `div.agentic-handle-safe-zone` wrapper nodes from `AgenticEdgeHandles`.
+  - Replaced wrapper-based safe-zone rendering with handle-host `::before` pseudo-elements on the existing left/right agentic handles.
+  - Extended E2E guardrails to assert zero legacy safe-zone wrappers and positive pseudo-host counts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `3957` (down from `4041`, `-84`, `-2.1%` vs phase 24)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5053` (down from `5137`, `-84`)
+  - Per-node descendants: `avg 93.05`, `p95 180`, `max 788`
+  - Per-node max depth: `avg 6.07`, `p95 7`, `max 8`
+  - Legacy agentic safe-zone wrappers (`div.agentic-handle-safe-zone`): `0` (down from `84`)
+  - Flattened agentic safe-zone pseudo hosts (`.react-flow__handle.agentic-handle::before`): `84`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25.trace.json`
+- Trace signals (`phase25`):
+  - Duration: `15,585.58 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `342` (`21.94/s`)
+  - `DrawFrame`: `189` (`12.13/s`)
+  - `DroppedFrame`: `15` (`4.39%`)
+  - Main-thread work: `Layout 48.22 ms`, `UpdateLayoutTree 18.5 ms`, `Paint 116.41 ms`, `PrePaint 15.09 ms`
+
+## Conclusion (latest update)
+
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 3957` (`-4662`, `-54.1%`)
+  - Per-node descendants avg: `204.05 -> 93.05` (`-54.4%`)
+  - Per-node descendants max: `1854 -> 788` (`-57.5%`)
+  - Per-node depth avg/max: `12.74/17 -> 6.07/8`
+- DOM flattening now includes full removal of standalone agentic safe-zone wrappers (`84 -> 0`) while preserving agentic edge behavior in targeted E2E coverage.
+- Runtime traces remain variable run-to-run, but later-phase dropped-frame ratios remain materially below baseline while DOM-shape reduction continues.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25_fitview.png`

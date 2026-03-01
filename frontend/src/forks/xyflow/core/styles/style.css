@@ -88,8 +88,7 @@
   display: none;
 }
 
-.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle,
-.react-flow[data-show-agentic-edges="false"] .agentic-handle-safe-zone {
+.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle {
   display: none !important;
 }
 
@@ -270,30 +269,26 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
   top: var(--agentic-handle-top, 50%);
 }
 
-.agentic-handle-safe-zone {
+.react-flow__handle.agentic-handle::before {
+  content: "";
   position: absolute;
-  top: var(--agentic-handle-top, 50%);
+  top: 50%;
   transform: translateY(-50%);
   width: calc(var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang));
   height: calc(
     var(--agentic-handle-size) + (2 * var(--agentic-handle-safe-y-pad))
   );
-  z-index: 0; /* should never block handles; only fills empty space */
   background: transparent;
   pointer-events: auto;
 }
 
-.agentic-handle-safe-zone--left {
-  left: calc(
-    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
-  );
+.react-flow__handle.agentic-handle.react-flow__handle-left::before {
+  left: calc(100% - var(--agentic-handle-safe-overhang));
   clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
 }
 
-.agentic-handle-safe-zone--right {
-  right: calc(
-    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
-  );
+.react-flow__handle.agentic-handle.react-flow__handle-right::before {
+  left: calc(-1 * var(--agentic-handle-gap));
   clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
 }
 
