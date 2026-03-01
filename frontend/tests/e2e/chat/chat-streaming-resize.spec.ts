@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -35,10 +35,15 @@ type LatestProjectStateResponse = {
     sectionVariants?: Record<string, { impl?: string }>;
   };
 };
+type LatestProjectStateSnapshot = Record<string, unknown>;
 
 test("chat streaming stays visible during resize", async ({ page }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await page.route(
+    "**/api/setChatSectionState",
+    suppressFrontendChatSectionStateWrites,
+  );
 
   try {
     const { sectionId } = await createChatSection(
@@ -46,6 +51,9 @@ test("chat streaming stays visible during resize", async ({ page }) => {
       projectContext.projectConfigId,
       "__pw_chat_stream_resize__",
     );
+    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    await expect(node).toBeVisible({ timeout: 10000 });
+
     const chatId = `chat-stream-${Date.now()}`;
     await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
@@ -54,27 +62,63 @@ test("chat streaming stays visible during resize", async ({ page }) => {
     });
 
     const streamMessageId = "msg-stream";
+    const streamBranchId = `branch-stream-${Date.now()}`;
+    const streamBranchCreatedAt = Date.now();
     await setChatSectionState(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       state: {
-        messages: [
-          {
-            id: streamMessageId,
-            role: "assistant",
-            content: [{ type: "text", text: "Streaming" }],
-            attachments: [],
-            tool_calls: null,
+        messages: [],
+        inputText: "",
+        waitingForResponse: false,
+        toolCallArguments: {},
+        activeBranchId: streamBranchId,
+        branches: {
+          [streamBranchId]: {
+            messages: [],
+            createdAt: streamBranchCreatedAt,
+            parentBranchId: null,
+            branchFromMessageId: null,
           },
-        ],
+        },
+      },
+    });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
+
+    const streamingMessage = {
+      id: streamMessageId,
+      role: "assistant",
+      content: [{ type: "text", text: "Streaming" }],
+      attachments: [],
+      tool_calls: null,
+    };
+    await setChatSectionState(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      state: {
+        messages: [streamingMessage],
         inputText: "",
         waitingForResponse: true,
         toolCallArguments: {},
+        activeBranchId: streamBranchId,
+        branches: {
+          [streamBranchId]: {
+            messages: [streamingMessage],
+            createdAt: streamBranchCreatedAt,
+            parentBranchId: null,
+            branchFromMessageId: null,
+          },
+        },
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    await expect(node).toBeVisible();
     await expect(node.getByText("Streaming", { exact: false })).toBeVisible({
       timeout: 10000,
     });
@@ -99,6 +143,10 @@ test("chat streaming stays visible during resize", async ({ page }) => {
         },
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
     await expect
       .poll(
@@ -116,29 +164,45 @@ test("chat streaming stays visible during resize", async ({ page }) => {
 
     await expect(node.getByText("Streaming", { exact: false })).toBeVisible();
 
+    const resizedStreamingMessage = {
+      id: streamMessageId,
+      role: "assistant",
+      content: [{ type: "text", text: "Streaming after resize" }],
+      attachments: [],
+      tool_calls: null,
+    };
     await setChatSectionState(page, {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       state: {
-        messages: [
-          {
-            id: streamMessageId,
-            role: "assistant",
-            content: [{ type: "text", text: "Streaming after resize" }],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
+        messages: [resizedStreamingMessage],
         inputText: "",
         waitingForResponse: true,
         toolCallArguments: {},
+        activeBranchId: streamBranchId,
+        branches: {
+          [streamBranchId]: {
+            messages: [resizedStreamingMessage],
+            createdAt: streamBranchCreatedAt,
+            parentBranchId: null,
+            branchFromMessageId: null,
+          },
+        },
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
     await expect(
       node.getByText("Streaming after resize", { exact: false }),
     ).toBeVisible({ timeout: 10000 });
   } finally {
+    await page.unroute(
+      "**/api/setChatSectionState",
+      suppressFrontendChatSectionStateWrites,
+    );
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -148,6 +212,10 @@ test("assistant reasoning card matches bubble width with compact padding", async
 }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await page.route(
+    "**/api/setChatSectionState",
+    suppressFrontendChatSectionStateWrites,
+  );
 
   try {
     const { sectionId } = await createChatSection(
@@ -155,6 +223,9 @@ test("assistant reasoning card matches bubble width with compact padding", async
       projectContext.projectConfigId,
       "__pw_reasoning_width__",
     );
+    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    await expect(node).toBeVisible({ timeout: 10000 });
+
     const chatId = `chat-reasoning-${Date.now()}`;
     await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
@@ -191,8 +262,11 @@ test("assistant reasoning card matches bubble width with compact padding", async
         toolCallArguments: {},
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
     const reasoningCard = node
       .locator('[data-chat-assistant-reasoning-card="true"]')
       .first();
@@ -257,6 +331,10 @@ test("assistant reasoning card matches bubble width with compact padding", async
         },
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
     await expect
       .poll(
@@ -316,6 +394,10 @@ test("assistant reasoning card matches bubble width with compact padding", async
       Math.abs(resizedSizing.cardWidth - resizedSizing.bubbleWidth),
     ).toBeLessThan(1);
   } finally {
+    await page.unroute(
+      "**/api/setChatSectionState",
+      suppressFrontendChatSectionStateWrites,
+    );
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -325,6 +407,10 @@ test("summary-only reasoning expands only when the summary is truncated", async 
 }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await page.route(
+    "**/api/setChatSectionState",
+    suppressFrontendChatSectionStateWrites,
+  );
 
   try {
     const { sectionId } = await createChatSection(
@@ -332,6 +418,9 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       projectContext.projectConfigId,
       "__pw_reasoning_summary_expand__",
     );
+    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    await expect(node).toBeVisible({ timeout: 10000 });
+
     const chatId = `chat-reasoning-summary-${Date.now()}`;
     await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
@@ -364,8 +453,11 @@ test("summary-only reasoning expands only when the summary is truncated", async 
         toolCallArguments: {},
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
     const activityTrigger = node.locator(
       '[data-chat-assistant-activity-trigger="true"]',
     );
@@ -403,6 +495,10 @@ test("summary-only reasoning expands only when the summary is truncated", async 
         },
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
     const longSummary =
       "This summary is intentionally very long so it overflows the available title width and requires expansion to read in full.";
@@ -431,6 +527,10 @@ test("summary-only reasoning expands only when the summary is truncated", async 
         toolCallArguments: {},
       },
     });
+    await applyLatestProjectStateFromBackend(
+      page,
+      projectContext.projectConfigId,
+    );
 
     await expect(trigger).toHaveAttribute("data-chat-thinking-expandable", "true");
     const longCursor = await trigger.evaluate(
@@ -440,6 +540,10 @@ test("summary-only reasoning expands only when the summary is truncated", async 
     await trigger.click();
     await expect(expandedSummary).toContainText(longSummary);
   } finally {
+    await page.unroute(
+      "**/api/setChatSectionState",
+      suppressFrontendChatSectionStateWrites,
+    );
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -626,4 +730,51 @@ async function setChatSectionState(
   },
 ): Promise<void> {
   await postBackend(page, "/setChatSectionState", payload);
+}
+
+async function applyLatestProjectStateFromBackend(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  const payload = await postBackend<LatestProjectStateSnapshot>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  if (!payload) {
+    throw new Error("Missing project state payload.");
+  }
+  await page.evaluate(async (stateUpdate) => {
+    const mod = await import("/src/state/actions/sectionInfos");
+    mod.processProjectStateUpdateFromBackend(stateUpdate);
+  }, payload);
+}
+
+async function suppressFrontendChatSectionStateWrites(
+  route: Route,
+  request: Request,
+): Promise<void> {
+  if (request.method() !== "POST") {
+    await route.continue();
+    return;
+  }
+  let payload: unknown = null;
+  try {
+    payload = request.postDataJSON();
+  } catch {
+    payload = null;
+  }
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Object.hasOwn(payload, "frontendOpId")
+  ) {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "null",
+    });
+    return;
+  }
+  await route.continue();
 }

@@ -12,16 +12,9 @@ import ZoomPane from "./ZoomPane";
 type FlowRendererProps = {
   children: ReactNode;
   wrapperDimensions: { width: number; height: number };
-  renderSceneOnlySections: boolean;
-  domIslandSectionIds: ReadonlySet<string>;
 };
 
-const FlowRenderer = ({
-  children,
-  wrapperDimensions,
-  renderSceneOnlySections,
-  domIslandSectionIds,
-}: FlowRendererProps) => {
+const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
   const { zoomActivationKeyPressed, selectionKeyPressed } = useReactFlow(
     (x) => {
       return {
@@ -73,8 +66,6 @@ const FlowRenderer = ({
       <Pane
         panOnDrag={!isFollowTransitioning && panOnDrag}
         isSelecting={!!selectionKeyPressed}
-        renderSceneOnlySections={renderSceneOnlySections}
-        domIslandSectionIds={domIslandSectionIds}
       >
         <NodesSelectionDragHandleWrapper />
         {children}
