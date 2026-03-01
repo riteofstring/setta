@@ -8,13 +8,14 @@ from setta.project_state.project_manager_types import (
     SetBrowserColumnWidthsRequest,
     SetSectionColumnWidthRequest,
     SetSectionSizesRequest,
+    SetTopLevelSectionLayoutRequest,
     SetViewportRequest,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import create_top_level_section
 from setta.types.id import ID
-from setta.types.project_config import Position, Viewport
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BrowserSectionImpl, CallableSectionImpl, SectionSize, SectionType
 
@@ -73,6 +74,91 @@ def _get_handler_call_count(manager, handler_name: str) -> int:
 
 def _set_op_ids(completed_op_ids_by_patch: list[list[str]]) -> set[str]:
     return {op_id for ids in completed_op_ids_by_patch for op_id in ids}
+
+
+@pytest.mark.asyncio
+async def test_set_top_level_section_layout_coalesces_same_key_updates() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = _build_drag_route_project_state()
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        project_state_before = manager.get_single_config_state(project_config_id)
+        base_layouts = dict(project_state_before.projectConfig.topLevelSections)
+        target_section_id = section_ids.callable_section_id
+
+        blocker_started = asyncio.Event()
+        blocker_release = asyncio.Event()
+
+        async def blocker() -> None:
+            blocker_started.set()
+            await blocker_release.wait()
+
+        blocker_task = asyncio.create_task(manager._enqueue(blocker()))
+        await blocker_started.wait()
+
+        manager.reset_queue_timing_metrics()
+
+        def build_layouts(x: float, y: float) -> dict[ID, TopLevelSectionLayout]:
+            next_layouts = dict(base_layouts)
+            next_layouts[target_section_id] = TopLevelSectionLayout(x=x, y=y)
+            return next_layouts
+
+        task_1 = asyncio.create_task(
+            manager.set_top_level_section_layout(
+                SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections=build_layouts(220.0, 180.0),
+                    frontendOpId="top-level-layout-1",
+                )
+            )
+        )
+        task_2 = asyncio.create_task(
+            manager.set_top_level_section_layout(
+                SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections=build_layouts(350.0, 260.0),
+                    frontendOpId="top-level-layout-2",
+                )
+            )
+        )
+        task_3 = asyncio.create_task(
+            manager.set_top_level_section_layout(
+                SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections=build_layouts(480.0, 320.0),
+                    frontendOpId="top-level-layout-3",
+                )
+            )
+        )
+
+        await _wait_for_pending_frontend_ops_at_least(manager, 3, timeout_s=1.0)
+
+        blocker_release.set()
+        await blocker_task
+        await asyncio.gather(task_1, task_2, task_3)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        project_state_after = manager.get_single_config_state(project_config_id)
+        top_level_layout = project_state_after.projectConfig.topLevelSections[
+            target_section_id
+        ]
+        assert top_level_layout.x == 480.0
+        assert top_level_layout.y == 320.0
+
+        active_view_mode_id = project_state_after.projectConfig.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        view_mode = project_state_after.projectConfig.viewModes.get(active_view_mode_id)
+        if view_mode is None:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        view_mode_layout = view_mode.topLevelSections[target_section_id]
+        assert view_mode_layout.x == 480.0
+        assert view_mode_layout.y == 320.0
+        assert _get_handler_call_count(manager, "set_top_level_section_layout") == 1
 
 
 @pytest.mark.asyncio

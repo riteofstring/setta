@@ -1447,6 +1447,16 @@ class BaseProjectManager(ABC):
         )
 
     @staticmethod
+    def _set_top_level_section_layout_enqueue_coalesce_key(
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> str | None:
+        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
+        if not isinstance(request_obj, SetTopLevelSectionLayoutRequest):
+            return None
+        return f"set-top-level-section-layout:{request_obj.projectConfigId}"
+
+    @staticmethod
     def _set_section_sizes_enqueue_coalesce_key(
         args: tuple[object, ...],
         kwargs: dict[str, object],
@@ -2537,7 +2547,10 @@ class BaseProjectManager(ABC):
             await self.update(projectState)
         return projectState
 
-    @enqueue_method
+    @enqueue_method(
+        coalesce_key_fn=_set_top_level_section_layout_enqueue_coalesce_key,
+        partition_key_fn=_project_config_partition_key_for_queue,
+    )
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["topLevelSections"]}
