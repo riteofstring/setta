@@ -378,6 +378,7 @@ export function ProjectChat() {
     string | null
   >(null);
   const [thinking, setThinking] = useState(true);
+  const [draftMessage, setDraftMessage] = useState("");
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
@@ -1897,6 +1898,8 @@ export function ProjectChat() {
               ) : (
                 <ProjectChatCore
                   chatId={chatId}
+                  draftMessage={draftMessage}
+                  setDraftMessage={setDraftMessage}
                   placeholderText={placeholderText}
                   conversationFilterText={conversationFilterText}
                   requiresNewThreadContinuation={
@@ -1963,6 +1966,8 @@ export function ProjectChat() {
           <>
             <ProjectChatCore
               chatId={chatId}
+              draftMessage={draftMessage}
+              setDraftMessage={setDraftMessage}
               placeholderText={placeholderText}
               conversationFilterText={conversationFilterText}
               requiresNewThreadContinuation={requiresNewThreadForEngineSwitch}

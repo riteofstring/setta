@@ -1013,6 +1013,8 @@ function EmptyChatState({
 
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
+  draftMessage,
+  setDraftMessage,
   placeholderText,
   conversationFilterText,
   requiresNewThreadContinuation = false,
@@ -1039,6 +1041,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onPermissionModeChange,
 }: {
   chatId: string | null | undefined;
+  draftMessage: string;
+  setDraftMessage: Dispatch<SetStateAction<string>>;
   placeholderText: string;
   conversationFilterText: string;
   requiresNewThreadContinuation?: boolean;
@@ -1101,7 +1105,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
-  const [draftMessage, setDraftMessage] = useState("");
   const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
     useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =

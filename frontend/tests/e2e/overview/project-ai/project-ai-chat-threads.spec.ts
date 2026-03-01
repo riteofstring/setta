@@ -849,6 +849,39 @@ test("project ai threads default to chat on narrow resize and remember explicit 
   ).toHaveCount(0);
 });
 
+test("project ai preserves draft text when resize reveals inline threads", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 700,
+    overviewTrueWidth: 700,
+  });
+  await seedAIStorePersistence(page, {
+    viewThreads: false,
+    projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+  });
+
+  await ensureAppReady(page);
+
+  const overviewPane = page.locator("#OverviewPane");
+  const composerInput = overviewPane.getByPlaceholder("Type a message...");
+  await expect(composerInput).toBeVisible();
+  const draftText = "keep this draft while resizing";
+  await composerInput.fill(draftText);
+  await expect(composerInput).toHaveValue(draftText);
+
+  await page.getByTestId("overview-pane-fullscreen-button").click();
+  const inlineThreadsPanel = overviewPane.getByTestId(
+    "project-chat-threads-panel",
+  );
+  await expect(inlineThreadsPanel).toBeVisible();
+  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
+  await expect(composerInput).toHaveValue(draftText);
+});
+
 test("project ai ignores legacy viewHistory in persisted ai store", async ({
   page,
 }) => {
