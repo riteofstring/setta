@@ -14,6 +14,7 @@ import type {
   CanvasEngineRect,
   CanvasEngineViewport,
 } from "canvas-engine/types";
+import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Connection } from "forks/xyflow/core/types";
@@ -354,6 +355,34 @@ export function CanvasEngineHost() {
       hoveredEdge,
     }),
     [connectionPreview, hoveredEdge, sceneSnapshot],
+  );
+  const domIslandRects = useMemo(() => {
+    const rectMap = new Map<string, CanvasEngineRect>();
+    for (const rect of sceneSnapshot.rects) {
+      rectMap.set(rect.id, rect);
+    }
+    for (const sectionId of activeSectionIds) {
+      if (rectMap.has(sectionId)) {
+        continue;
+      }
+      const rect = sceneAdapter.getRectById(sectionId);
+      if (rect) {
+        rectMap.set(sectionId, rect);
+      }
+    }
+    return Array.from(rectMap.values()).sort((left, right) => {
+      if (left.zIndex === right.zIndex) {
+        return left.id.localeCompare(right.id);
+      }
+      return left.zIndex - right.zIndex;
+    });
+  }, [activeSectionIds, sceneAdapter, sceneSnapshot.rects]);
+  const domIslandLayerTransform = useMemo(
+    () => ({
+      transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
+      transformOrigin: "top left",
+    }),
+    [camera],
   );
 
   useEffect(() => {
@@ -1328,6 +1357,34 @@ export function CanvasEngineHost() {
         onWheel={handleWheel}
         style={{ touchAction: "none" }}
       />
+      {domIslandRects.length > 0 ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          data-canvas-engine-dom-layer="v1"
+        >
+          <div
+            className="absolute left-0 top-0"
+            style={domIslandLayerTransform}
+          >
+            {domIslandRects.map((rect) => (
+              <div
+                key={rect.id}
+                className="absolute overflow-hidden"
+                data-canvas-engine-dom-island={rect.id}
+                style={{
+                  left: rect.x,
+                  top: rect.y,
+                  width: rect.width,
+                  height: rect.height,
+                }}
+              >
+                <SectionContainer sectionId={rect.id} isTopLevel={true} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {selectionRect ? (
         <div
           aria-hidden="true"

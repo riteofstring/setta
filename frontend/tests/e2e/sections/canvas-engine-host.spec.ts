@@ -166,6 +166,9 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
     await expect
       .poll(async () => await readRectCount(host))
       .toBeGreaterThanOrEqual(3);
+    await expect
+      .poll(async () => await readDomIslandCount(host))
+      .toBeGreaterThanOrEqual(3);
 
     const activeBackend = await host.getAttribute(
       "data-canvas-engine-active-backend",
@@ -1977,6 +1980,10 @@ async function readRectCount(host: Locator): Promise<number> {
     throw new Error(`Invalid rect count attribute: ${String(value)}`);
   }
   return parsed;
+}
+
+async function readDomIslandCount(host: Locator): Promise<number> {
+  return await host.locator("[data-canvas-engine-dom-island]").count();
 }
 
 async function readAgenticEdgeCount(host: Locator): Promise<number> {
