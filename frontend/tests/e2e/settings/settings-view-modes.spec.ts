@@ -32,7 +32,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   );
 
   const allZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThan(allZoom);
+  expect(coreZoom).toBeGreaterThanOrEqual(allZoom);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",

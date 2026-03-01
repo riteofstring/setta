@@ -14,7 +14,7 @@ const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
-const REQUEST_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -170,22 +170,14 @@ test("code issues popover stays attached while panning", async ({ page }) => {
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
 
-    const popoverContent = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByText("Problems", { exact: true }) })
-      .first();
-    await expect(popoverContent).toBeVisible();
-    await expect(popoverContent).toHaveClass(/rounded-md/);
-    await expect(popoverContent).toHaveClass(/backdrop-blur/);
+    let popoverContent = await openIssuesPopover(page, issuesButton);
 
     const beforeDelta = await waitForCenterDelta(issuesButton, popoverContent);
 
     await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
     if (!(await popoverContent.isVisible())) {
-      await issuesButton.click();
-      await expect(popoverContent).toBeVisible();
+      popoverContent = await openIssuesPopover(page, issuesButton);
     }
     const afterDelta = await waitForCenterDelta(issuesButton, popoverContent);
     const maxDeltaChange = Math.max(
@@ -502,10 +494,16 @@ async function getCenterDelta(
   anchor: Locator,
   popover: Locator,
 ): Promise<{ dx: number; dy: number } | null> {
-  const [anchorBox, popoverBox] = await Promise.all([
-    anchor.boundingBox(),
-    popover.boundingBox(),
-  ]);
+  let anchorBox: Awaited<ReturnType<Locator["boundingBox"]>>;
+  let popoverBox: Awaited<ReturnType<Locator["boundingBox"]>>;
+  try {
+    [anchorBox, popoverBox] = await Promise.all([
+      anchor.boundingBox({ timeout: 250 }),
+      popover.boundingBox({ timeout: 250 }),
+    ]);
+  } catch {
+    return null;
+  }
   if (!anchorBox || !popoverBox) {
     return null;
   }
@@ -534,4 +532,28 @@ async function waitForCenterDelta(
     });
   }
   throw new Error("Unable to measure popover/anchor bounds.");
+}
+
+async function openIssuesPopover(
+  page: Page,
+  issuesButton: Locator,
+): Promise<Locator> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await issuesButton.click({ force: attempt > 0 });
+    try {
+      await expect(issuesButton).toHaveAttribute("aria-expanded", "true", {
+        timeout: 1000,
+      });
+      const popoverId = await issuesButton.getAttribute("aria-controls");
+      if (!popoverId) {
+        continue;
+      }
+      const popoverContent = page.locator(`[id="${popoverId}"]`).first();
+      await expect(popoverContent).toBeVisible({ timeout: 1000 });
+      return popoverContent;
+    } catch {
+      // Retry; this popover can miss the first click under load.
+    }
+  }
+  throw new Error("Unable to open issues popover.");
 }

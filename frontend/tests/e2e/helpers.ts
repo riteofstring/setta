@@ -121,6 +121,7 @@ export type ProjectStateSingleConfigResponse = {
   sectionImpls: Record<string, ProjectStateSectionImpl>;
   sections: Record<string, ProjectStateSectionCore>;
 };
+type LatestProjectStateSnapshot = Record<string, unknown>;
 
 export async function ensureAppReady(page: Page): Promise<void> {
   installUnexpectedApiErrorGuard(page);
@@ -546,6 +547,7 @@ export async function setChatSectionState(
   },
 ): Promise<void> {
   await postBackend(page, "/setChatSectionState", payload);
+  await syncProjectStateFromBackend(page, payload.projectConfigId);
 }
 
 export async function stopLatestProjectChat(
@@ -608,6 +610,24 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
   }
 
   throw new Error("Unable to resolve projectConfigName for test.");
+}
+
+async function syncProjectStateFromBackend(
+  page: Page,
+  projectConfigId: string,
+): Promise<void> {
+  const stateUpdate = await postBackend<LatestProjectStateSnapshot>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  if (!stateUpdate) {
+    throw new Error("Missing project state payload.");
+  }
+  await page.evaluate(async (payload) => {
+    const mod = await import("/src/state/actions/sectionInfos");
+    mod.processProjectStateUpdateFromBackend(payload);
+  }, stateUpdate);
 }
 
 export async function loadProjectConfig(
