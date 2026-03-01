@@ -11,6 +11,8 @@ type CreateTopLevelSectionResponse = {
   sectionId?: string;
 };
 
+type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
+
 type FlowViewportBounds = {
   x: number;
   y: number;
@@ -28,10 +30,11 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
     if (!viewportBounds) {
       throw new Error("Unable to resolve initial viewport bounds.");
     }
+    const createdTopLevelSectionIds: string[] = [];
 
     // Seed deterministic top-level sections before switching engines.
     for (let index = 0; index < 3; index += 1) {
-      await createTopLevelSection({
+      const sectionId = await createTopLevelSection({
         page,
         projectConfigId: projectContext.projectConfigId,
         implType: "Callable",
@@ -41,6 +44,7 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
           y: viewportBounds.y + 140,
         },
       });
+      createdTopLevelSectionIds.push(sectionId);
     }
 
     await seedLocalStorage(page, { useCanvasEngineV1: true });
@@ -61,7 +65,7 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
 
     const rectCountBeforeCreate = await readRectCount(host);
     const engineViewportBounds = await getEngineViewportBounds(page);
-    await createTopLevelSection({
+    const createdTextBlockSectionId = await createTopLevelSection({
       page,
       projectConfigId: projectContext.projectConfigId,
       implType: "TextBlock",
@@ -71,11 +75,38 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
         y: engineViewportBounds.y + 420,
       },
     });
+    createdTopLevelSectionIds.push(createdTextBlockSectionId);
 
     // Ensure section-state updates continue to flow into the new host.
     await expect
       .poll(async () => await readRectCount(host))
       .toBeGreaterThan(rectCountBeforeCreate);
+
+    if (createdTopLevelSectionIds.length < 2) {
+      throw new Error("Expected at least two top-level sections.");
+    }
+    const createdChatSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Chat",
+      viewportBounds: engineViewportBounds,
+      position: {
+        x: engineViewportBounds.x + 520,
+        y: engineViewportBounds.y + 420,
+      },
+    });
+    createdTopLevelSectionIds.push(createdChatSectionId);
+    await createAgenticEdge({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId: createdTopLevelSectionIds[0],
+      targetSectionId: createdChatSectionId,
+      kind: "section_chat",
+    });
+
+    await expect
+      .poll(async () => await readAgenticEdgeCount(host))
+      .toBeGreaterThanOrEqual(1);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -128,4 +159,41 @@ async function readRectCount(host: Locator): Promise<number> {
     throw new Error(`Invalid rect count attribute: ${String(value)}`);
   }
   return parsed;
+}
+
+async function readAgenticEdgeCount(host: Locator): Promise<number> {
+  const value = await host.getAttribute(
+    "data-canvas-engine-agentic-edge-count",
+  );
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid agentic edge count attribute: ${String(value)}`);
+  }
+  return parsed;
+}
+
+async function createAgenticEdge({
+  page,
+  projectConfigId,
+  sourceSectionId,
+  targetSectionId,
+  kind,
+}: {
+  page: Page;
+  projectConfigId: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+}): Promise<void> {
+  await postBackend(page, "/createAgenticEdge", {
+    projectConfigId,
+    id: null,
+    sourceSectionId,
+    targetSectionId,
+    kind,
+    contextMode: "reference_only",
+    style: null,
+    hidden: false,
+    zIndex: 0,
+  });
 }

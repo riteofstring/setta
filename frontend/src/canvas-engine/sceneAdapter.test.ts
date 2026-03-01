@@ -40,7 +40,9 @@ describe("CanvasEngineSceneAdapter", () => {
     );
     expect(snapshot.totalRectCount).toBe(2);
     expect(snapshot.visibleRectCount).toBe(2);
+    expect(snapshot.visibleDataEdgeCount).toBe(1);
     expect(snapshot.totalDataEdgeCount).toBe(1);
+    expect(snapshot.visibleAgenticEdgeCount).toBe(1);
     expect(snapshot.totalAgenticEdgeCount).toBe(1);
     expect(snapshot.snapshot.rects.map((record) => record.id)).toEqual([
       "sectionA",
@@ -124,7 +126,9 @@ describe("CanvasEngineSceneAdapter", () => {
       { width: 1600, height: 900, dpr: 1 },
     );
     expect(snapshot.totalRectCount).toBe(1);
+    expect(snapshot.visibleDataEdgeCount).toBe(0);
     expect(snapshot.totalDataEdgeCount).toBe(0);
+    expect(snapshot.visibleAgenticEdgeCount).toBe(0);
     expect(snapshot.totalAgenticEdgeCount).toBe(0);
     expect(snapshot.snapshot.rects.map((record) => record.id)).toEqual([
       "sectionB",
@@ -201,6 +205,46 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(patchSummary.sectionsAdded).toBe(0);
     expect(patchSummary.sectionsRemoved).toBe(0);
     expect(patchSummary.sectionsUpdated).toBe(1);
+  });
+
+  it("culls edge records outside the visible interaction window", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          nearA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          nearB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+          farA: createLayout({ x: 8000, y: 1200, w: 320, h: 200 }),
+          farB: createLayout({ x: 8420, y: 1280, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-visible", "nearA", "nearB"),
+          createDataEdge("edge-culled", "farA", "farB"),
+        ],
+        agenticEdges: [
+          createAgenticEdge("agentic-visible", "nearA", "nearB"),
+          createAgenticEdge("agentic-culled", "farA", "farB"),
+        ],
+      }),
+    );
+
+    const snapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1400, height: 900, dpr: 1 },
+    );
+    expect(snapshot.totalRectCount).toBe(4);
+    expect(snapshot.visibleRectCount).toBe(2);
+    expect(snapshot.totalDataEdgeCount).toBe(2);
+    expect(snapshot.visibleDataEdgeCount).toBe(1);
+    expect(snapshot.totalAgenticEdgeCount).toBe(2);
+    expect(snapshot.visibleAgenticEdgeCount).toBe(1);
+    expect(snapshot.snapshot.dataEdges.map((edge) => edge.id)).toEqual([
+      "edge-visible",
+    ]);
+    expect(snapshot.snapshot.agenticEdges.map((edge) => edge.id)).toEqual([
+      "agentic-visible",
+    ]);
   });
 });
 

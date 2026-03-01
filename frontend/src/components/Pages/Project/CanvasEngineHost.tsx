@@ -316,7 +316,13 @@ export function CanvasEngineHost() {
       data-canvas-engine-fallback-reason={backendSelection.fallbackReason ?? ""}
       data-canvas-engine-rect-count={snapshotResult.totalRectCount}
       data-canvas-engine-visible-rect-count={snapshotResult.visibleRectCount}
+      data-canvas-engine-visible-data-edge-count={
+        snapshotResult.visibleDataEdgeCount
+      }
       data-canvas-engine-data-edge-count={snapshotResult.totalDataEdgeCount}
+      data-canvas-engine-visible-agentic-edge-count={
+        snapshotResult.visibleAgenticEdgeCount
+      }
       data-canvas-engine-agentic-edge-count={
         snapshotResult.totalAgenticEdgeCount
       }

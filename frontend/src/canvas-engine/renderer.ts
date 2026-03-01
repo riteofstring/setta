@@ -96,6 +96,16 @@ const DEFAULT_CLEAR_COLOR: [number, number, number] = [0.06, 0.07, 0.08];
 const FLOATS_PER_VERTEX = 5;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
+const DATA_EDGE_COLOR: [number, number, number] = [0.27, 0.52, 0.9];
+const DATA_EDGE_SELECTED_COLOR: [number, number, number] = [0.58, 0.78, 1.0];
+const AGENTIC_EDGE_COLOR: [number, number, number] = [0.96, 0.66, 0.24];
+const AGENTIC_EDGE_SELECTED_COLOR: [number, number, number] = [1.0, 0.83, 0.52];
+const ACTIVE_RECT_OUTLINE_COLOR: [number, number, number] = [0.92, 0.96, 1.0];
+const ACTIVE_HANDLE_COLOR: [number, number, number] = [0.73, 0.84, 0.99];
+const EDGE_THICKNESS_PX = 2.4;
+const SELECTED_EDGE_THICKNESS_PX = 3.8;
+const OUTLINE_THICKNESS_PX = 2.0;
+const HANDLE_HALF_SIZE_PX = 4.0;
 
 const WEBGPU_SHADER = `
 struct VertexInput {
@@ -349,7 +359,7 @@ function createWebGpuRenderer(
         }
         configureContext(pixelWidth, pixelHeight);
 
-        const vertexData = buildRectVertexData(scene, viewport);
+        const vertexData = buildSceneVertexData(scene, viewport);
         ensureVertexBufferCapacity(vertexData.byteLength);
         if (vertexData.byteLength > 0) {
           device.queue.writeBuffer(vertexBuffer, 0, vertexData);
@@ -478,7 +488,7 @@ function createWebGl2Renderer(
         gl.clearColor(clearColor[0], clearColor[1], clearColor[2], 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        const vertexData = buildRectVertexData(scene, viewport);
+        const vertexData = buildSceneVertexData(scene, viewport);
         if (vertexData.length === 0) {
           return;
         }
@@ -616,7 +626,7 @@ function compileWebGlShader(
   return shader;
 }
 
-function buildRectVertexData(
+function buildSceneVertexData(
   scene: CanvasEngineSceneSnapshot,
   viewport: CanvasEngineViewport,
 ): Float32Array {
@@ -628,7 +638,12 @@ function buildRectVertexData(
     return left.zIndex - right.zIndex;
   });
 
+  const rectById = new Map(sortedRects.map((rect) => [rect.id, rect]));
   const values: number[] = [];
+
+  appendDataEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
+  appendAgenticEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
+
   for (const rect of sortedRects) {
     if (rect.width <= 0 || rect.height <= 0) {
       continue;
@@ -638,12 +653,122 @@ function buildRectVertexData(
     const y0 = (rect.y - scene.camera.y) * clampedZoom;
     const x1 = x0 + rect.width * clampedZoom;
     const y1 = y0 + rect.height * clampedZoom;
-    const color = rect.color;
 
-    appendRectTriangles(values, viewport, x0, y0, x1, y1, color);
+    appendRectTriangles(values, viewport, x0, y0, x1, y1, rect.color);
+    if (rect.isActive) {
+      appendActiveRectOverlays(values, viewport, x0, y0, x1, y1);
+    }
   }
 
   return new Float32Array(values);
+}
+
+function appendDataEdgePrimitives(
+  destination: number[],
+  scene: CanvasEngineSceneSnapshot,
+  viewport: CanvasEngineViewport,
+  zoom: number,
+  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+): void {
+  const edges = [...scene.dataEdges].sort((left, right) => {
+    if (left.zIndex === right.zIndex) {
+      return left.id.localeCompare(right.id);
+    }
+    return left.zIndex - right.zIndex;
+  });
+
+  for (const edge of edges) {
+    if (edge.hidden) {
+      continue;
+    }
+    const sourceRect = rectById.get(edge.sourceSectionId);
+    const targetRect = rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      continue;
+    }
+
+    const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+    const start = worldToScreen(
+      anchors.startX,
+      anchors.startY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+    const end = worldToScreen(
+      anchors.endX,
+      anchors.endY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+
+    appendLineSegmentQuad(
+      destination,
+      viewport,
+      start.x,
+      start.y,
+      end.x,
+      end.y,
+      edge.selected ? SELECTED_EDGE_THICKNESS_PX : EDGE_THICKNESS_PX,
+      edge.selected ? DATA_EDGE_SELECTED_COLOR : DATA_EDGE_COLOR,
+    );
+  }
+}
+
+function appendAgenticEdgePrimitives(
+  destination: number[],
+  scene: CanvasEngineSceneSnapshot,
+  viewport: CanvasEngineViewport,
+  zoom: number,
+  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+): void {
+  const edges = [...scene.agenticEdges].sort((left, right) => {
+    if (left.zIndex === right.zIndex) {
+      return left.id.localeCompare(right.id);
+    }
+    return left.zIndex - right.zIndex;
+  });
+
+  for (const edge of edges) {
+    if (edge.hidden) {
+      continue;
+    }
+    const sourceRect = rectById.get(edge.sourceSectionId);
+    const targetRect = rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      continue;
+    }
+
+    const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+    const start = worldToScreen(
+      anchors.startX,
+      anchors.startY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+    const end = worldToScreen(
+      anchors.endX,
+      anchors.endY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+
+    appendLineSegmentQuad(
+      destination,
+      viewport,
+      start.x,
+      start.y,
+      end.x,
+      end.y,
+      edge.selected
+        ? SELECTED_EDGE_THICKNESS_PX + 0.8
+        : EDGE_THICKNESS_PX + 0.6,
+      edge.selected ? AGENTIC_EDGE_SELECTED_COLOR : AGENTIC_EDGE_COLOR,
+    );
+  }
 }
 
 function appendRectTriangles(
@@ -669,6 +794,200 @@ function appendRectTriangles(
   pushVertex(destination, right, top, color);
   pushVertex(destination, left, bottom, color);
   pushVertex(destination, right, bottom, color);
+}
+
+function appendActiveRectOverlays(
+  destination: number[],
+  viewport: CanvasEngineViewport,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): void {
+  const thickness = OUTLINE_THICKNESS_PX;
+
+  appendRectTriangles(
+    destination,
+    viewport,
+    x0 - thickness,
+    y0 - thickness,
+    x1 + thickness,
+    y0,
+    ACTIVE_RECT_OUTLINE_COLOR,
+  );
+  appendRectTriangles(
+    destination,
+    viewport,
+    x0 - thickness,
+    y1,
+    x1 + thickness,
+    y1 + thickness,
+    ACTIVE_RECT_OUTLINE_COLOR,
+  );
+  appendRectTriangles(
+    destination,
+    viewport,
+    x0 - thickness,
+    y0,
+    x0,
+    y1,
+    ACTIVE_RECT_OUTLINE_COLOR,
+  );
+  appendRectTriangles(
+    destination,
+    viewport,
+    x1,
+    y0,
+    x1 + thickness,
+    y1,
+    ACTIVE_RECT_OUTLINE_COLOR,
+  );
+
+  const centerX = (x0 + x1) / 2;
+  const centerY = (y0 + y1) / 2;
+  appendHandleSquare(destination, viewport, x0, centerY);
+  appendHandleSquare(destination, viewport, x1, centerY);
+  appendHandleSquare(destination, viewport, centerX, y0);
+  appendHandleSquare(destination, viewport, centerX, y1);
+}
+
+function appendHandleSquare(
+  destination: number[],
+  viewport: CanvasEngineViewport,
+  centerX: number,
+  centerY: number,
+): void {
+  appendRectTriangles(
+    destination,
+    viewport,
+    centerX - HANDLE_HALF_SIZE_PX,
+    centerY - HANDLE_HALF_SIZE_PX,
+    centerX + HANDLE_HALF_SIZE_PX,
+    centerY + HANDLE_HALF_SIZE_PX,
+    ACTIVE_HANDLE_COLOR,
+  );
+}
+
+function resolveEdgeAnchors(
+  sourceRect: CanvasEngineSceneSnapshot["rects"][number],
+  targetRect: CanvasEngineSceneSnapshot["rects"][number],
+): {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+} {
+  const sourceCenterX = sourceRect.x + sourceRect.width / 2;
+  const sourceCenterY = sourceRect.y + sourceRect.height / 2;
+  const targetCenterX = targetRect.x + targetRect.width / 2;
+  const targetCenterY = targetRect.y + targetRect.height / 2;
+  const targetOnRight = targetCenterX >= sourceCenterX;
+
+  return {
+    startX: targetOnRight ? sourceRect.x + sourceRect.width : sourceRect.x,
+    startY: sourceCenterY,
+    endX: targetOnRight ? targetRect.x : targetRect.x + targetRect.width,
+    endY: targetCenterY,
+  };
+}
+
+function worldToScreen(
+  worldX: number,
+  worldY: number,
+  cameraX: number,
+  cameraY: number,
+  zoom: number,
+): { x: number; y: number } {
+  return {
+    x: (worldX - cameraX) * zoom,
+    y: (worldY - cameraY) * zoom,
+  };
+}
+
+function appendLineSegmentQuad(
+  destination: number[],
+  viewport: CanvasEngineViewport,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  thicknessPx: number,
+  color: [number, number, number],
+): void {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const length = Math.hypot(deltaX, deltaY);
+  if (length <= 0.001) {
+    return;
+  }
+
+  const halfThickness = thicknessPx / 2;
+  const normalX = (-deltaY / length) * halfThickness;
+  const normalY = (deltaX / length) * halfThickness;
+  const topLeft = { x: startX + normalX, y: startY + normalY };
+  const bottomLeft = { x: startX - normalX, y: startY - normalY };
+  const topRight = { x: endX + normalX, y: endY + normalY };
+  const bottomRight = { x: endX - normalX, y: endY - normalY };
+
+  appendQuadTriangles(
+    destination,
+    viewport,
+    topLeft,
+    bottomLeft,
+    topRight,
+    bottomRight,
+    color,
+  );
+}
+
+function appendQuadTriangles(
+  destination: number[],
+  viewport: CanvasEngineViewport,
+  topLeft: { x: number; y: number },
+  bottomLeft: { x: number; y: number },
+  topRight: { x: number; y: number },
+  bottomRight: { x: number; y: number },
+  color: [number, number, number],
+): void {
+  // Triangle 1: top-left, bottom-left, top-right.
+  pushVertex(
+    destination,
+    toClipX(topLeft.x, viewport.width),
+    toClipY(topLeft.y, viewport.height),
+    color,
+  );
+  pushVertex(
+    destination,
+    toClipX(bottomLeft.x, viewport.width),
+    toClipY(bottomLeft.y, viewport.height),
+    color,
+  );
+  pushVertex(
+    destination,
+    toClipX(topRight.x, viewport.width),
+    toClipY(topRight.y, viewport.height),
+    color,
+  );
+
+  // Triangle 2: top-right, bottom-left, bottom-right.
+  pushVertex(
+    destination,
+    toClipX(topRight.x, viewport.width),
+    toClipY(topRight.y, viewport.height),
+    color,
+  );
+  pushVertex(
+    destination,
+    toClipX(bottomLeft.x, viewport.width),
+    toClipY(bottomLeft.y, viewport.height),
+    color,
+  );
+  pushVertex(
+    destination,
+    toClipX(bottomRight.x, viewport.width),
+    toClipY(bottomRight.y, viewport.height),
+    color,
+  );
 }
 
 function pushVertex(

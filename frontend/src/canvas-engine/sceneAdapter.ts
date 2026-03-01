@@ -46,7 +46,9 @@ export type CanvasEngineSceneSnapshotResult = {
   snapshot: CanvasEngineSceneSnapshot;
   visibleRectCount: number;
   totalRectCount: number;
+  visibleDataEdgeCount: number;
   totalDataEdgeCount: number;
+  visibleAgenticEdgeCount: number;
   totalAgenticEdgeCount: number;
 };
 
@@ -135,10 +137,34 @@ export class CanvasEngineSceneAdapter {
     }
     rects.sort(compareRectRecords);
 
-    const dataEdges = Array.from(this.dataEdgeById.values());
+    const dataEdges: CanvasEngineDataEdge[] = [];
+    for (const edge of this.dataEdgeById.values()) {
+      if (
+        !isEdgeVisible(
+          edge.sourceSectionId,
+          edge.targetSectionId,
+          visibleSectionSet,
+        )
+      ) {
+        continue;
+      }
+      dataEdges.push(edge);
+    }
     dataEdges.sort(compareDataEdgeRecords);
 
-    const agenticEdges = Array.from(this.agenticEdgeById.values());
+    const agenticEdges: CanvasEngineAgenticEdge[] = [];
+    for (const edge of this.agenticEdgeById.values()) {
+      if (
+        !isEdgeVisible(
+          edge.sourceSectionId,
+          edge.targetSectionId,
+          visibleSectionSet,
+        )
+      ) {
+        continue;
+      }
+      agenticEdges.push(edge);
+    }
     agenticEdges.sort(compareAgenticEdgeRecords);
 
     return {
@@ -151,8 +177,10 @@ export class CanvasEngineSceneAdapter {
       },
       visibleRectCount: rects.length,
       totalRectCount: this.rectById.size,
-      totalDataEdgeCount: dataEdges.length,
-      totalAgenticEdgeCount: agenticEdges.length,
+      visibleDataEdgeCount: dataEdges.length,
+      totalDataEdgeCount: this.dataEdgeById.size,
+      visibleAgenticEdgeCount: agenticEdges.length,
+      totalAgenticEdgeCount: this.agenticEdgeById.size,
     };
   }
 
@@ -414,6 +442,17 @@ function createAgenticEdgeRecord(
     selected: edge.selected,
     zIndex: edge.zIndex,
   };
+}
+
+function isEdgeVisible(
+  sourceSectionId: string,
+  targetSectionId: string,
+  visibleSectionSet: Set<string>,
+): boolean {
+  return (
+    visibleSectionSet.has(sourceSectionId) ||
+    visibleSectionSet.has(targetSectionId)
+  );
 }
 
 function areRectRecordsEqual(
