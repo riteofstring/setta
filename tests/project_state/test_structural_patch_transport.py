@@ -20,6 +20,8 @@ from setta.project_state.project_manager_types import (
     SetCodeSectionAttachedTerminalRequest,
     SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
+    SetCallableRequest,
+    SetGenCodePrefixRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
@@ -2124,7 +2126,9 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_project_config_only_history_uses_project_config_patch_transport() -> None:
+async def test_undo_redo_project_config_only_history_uses_project_config_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2175,7 +2179,280 @@ async def test_undo_redo_project_config_only_history_uses_project_config_patch_t
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_code_obj_scoped_history_uses_targeted_patch_transport() -> None:
+async def test_undo_redo_gen_code_prefix_entry_skips_noop_deferred_section_patch() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        await manager.compare_and_set_python_codegen_enabled(project_config_id, False)
+        await manager.finish_pending_operations(timeout=5.0)
+        await manager.compare_and_set_python_codegen_enabled(project_config_id, True)
+        await manager.finish_pending_operations(timeout=5.0)
+        singleton_section_id = manager.get_single_config_state(
+            project_config_id
+        ).singletonSections.GenPythonCode
+        if singleton_section_id is None:
+            raise KeyError("Missing GenPythonCode singleton section.")
+
+        # Prefix edits create a project-config-only history entry. If deferred
+        # codegen refresh is a no-op, redo should not emit synthetic section patches.
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math\n",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        await manager.undo(
+            UndoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        sender = manager.websocket_msg_handler
+        original_snapshot_patch = sender.broadcast_project_state
+        original_structural_patch = sender.broadcast_project_state_structural_patch
+        original_project_config_patch = (
+            sender.broadcast_project_state_project_config_patch
+        )
+        original_code_obj_patch = sender.broadcast_project_state_code_objs_patch
+        original_section_patch = sender.broadcast_project_state_section_impl_patch
+        original_name_validation = sender.broadcast_name_validation_errors
+        capture = {
+            "project_state_broadcast_calls": 0,
+            "structural_patch_calls": 0,
+            "project_config_patch_calls": 0,
+            "code_obj_patch_calls": 0,
+            "name_validation_broadcast_calls": 0,
+        }
+        redo_section_patch_ids: list[ID] = []
+
+        async def record_snapshot_patch(
+            project_state_for_patch,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision=None,
+        ) -> None:
+            capture["project_state_broadcast_calls"] += 1
+            await original_snapshot_patch(
+                project_state_for_patch,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+
+        async def record_structural_patch(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            sections_for_patch,
+            section_variants_for_patch,
+            section_impls_for_patch,
+            parent_section_map_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+            isFullSnapshot=None,
+            removedSectionIds=None,
+            removedSectionVariantIds=None,
+            removedSectionImplIds=None,
+            removedParentSectionIds=None,
+        ) -> None:
+            capture["structural_patch_calls"] += 1
+            await original_structural_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                sections_for_patch,
+                section_variants_for_patch,
+                section_impls_for_patch,
+                parent_section_map_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+                isFullSnapshot=isFullSnapshot,
+                removedSectionIds=removedSectionIds,
+                removedSectionVariantIds=removedSectionVariantIds,
+                removedSectionImplIds=removedSectionImplIds,
+                removedParentSectionIds=removedParentSectionIds,
+            )
+
+        async def record_project_config_patch(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            capture["project_config_patch_calls"] += 1
+            await original_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def record_code_obj_patch(
+            project_config_id_for_patch,
+            code_objs_for_patch,
+            code_obj_variants_for_patch,
+            code_obj_impls_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            capture["code_obj_patch_calls"] += 1
+            await original_code_obj_patch(
+                project_config_id_for_patch,
+                code_objs_for_patch,
+                code_obj_variants_for_patch,
+                code_obj_impls_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def record_section_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            redo_section_patch_ids.append(section_id_for_patch)
+            await original_section_patch(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def record_name_validation(content) -> None:
+            capture["name_validation_broadcast_calls"] += 1
+            await original_name_validation(content)
+
+        sender.broadcast_project_state = record_snapshot_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_structural_patch = record_structural_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_project_config_patch = (
+            record_project_config_patch  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_code_objs_patch = record_code_obj_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_patch  # type: ignore[method-assign]
+        sender.broadcast_name_validation_errors = record_name_validation  # type: ignore[method-assign]
+        try:
+            await manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_project_state = original_snapshot_patch  # type: ignore[method-assign]
+            sender.broadcast_project_state_structural_patch = original_structural_patch  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                original_project_config_patch  # type: ignore[method-assign]
+            )
+            sender.broadcast_project_state_code_objs_patch = original_code_obj_patch  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = original_section_patch  # type: ignore[method-assign]
+            sender.broadcast_name_validation_errors = original_name_validation  # type: ignore[method-assign]
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == capture["structural_patch_calls"]
+        assert 1 == capture["project_config_patch_calls"]
+        assert 0 == capture["code_obj_patch_calls"]
+        assert [] == redo_section_patch_ids
+        assert 1 == capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_set_callable_flush_keeps_deferred_codegen_scope_off_intervening_entry() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        await manager.compare_and_set_python_codegen_enabled(project_config_id, False)
+        await manager.finish_pending_operations(timeout=5.0)
+        await manager.compare_and_set_python_codegen_enabled(project_config_id, True)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=620, y=240),
+            )
+        )
+        # Leave create's deferred codegen refresh pending, then create a distinct
+        # history entry before forcing a flush via set_callable.
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math\n",
+            )
+        )
+        await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=create_response.sectionId,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        await manager.undo(
+            UndoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 1 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["code_obj_patch_calls"]
+        assert 0 == undo_capture["section_impl_patch_calls"]
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_code_obj_scoped_history_uses_targeted_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2234,7 +2511,9 @@ async def test_undo_redo_code_obj_scoped_history_uses_targeted_patch_transport()
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_include_project_config_history_uses_targeted_patch_transport() -> None:
+async def test_undo_redo_include_project_config_history_uses_targeted_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2287,7 +2566,9 @@ async def test_undo_redo_include_project_config_history_uses_targeted_patch_tran
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_code_section_diagnostics_mute_include_project_config_uses_targeted_patch_transport() -> None:
+async def test_undo_redo_code_section_diagnostics_mute_include_project_config_uses_targeted_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2352,7 +2633,9 @@ async def test_undo_redo_code_section_diagnostics_mute_include_project_config_us
 
 
 @pytest.mark.asyncio
-async def test_undo_redo_create_edge_include_project_config_uses_targeted_patch_transport() -> None:
+async def test_undo_redo_create_edge_include_project_config_uses_targeted_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -2441,7 +2724,9 @@ async def test_undo_redo_unknown_scope_uses_diff_aware_fallback_transport() -> N
             project_config_id=project_config_id,
             undo_redo_full_patch_fallback=True,
         )
-        manager.project_state_backend.sections[SECTION_ID].name = "undo-redo-full-fallback"
+        manager.project_state_backend.sections[
+            SECTION_ID
+        ].name = "undo-redo-full-fallback"
 
         undo_capture, _ = await _run_with_transport_capture(
             manager,

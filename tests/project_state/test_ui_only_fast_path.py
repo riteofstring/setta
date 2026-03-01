@@ -1112,7 +1112,9 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ui_only_set_section_pinned_params_broadcasts_section_impl_patch() -> None:
+async def test_ui_only_set_section_pinned_params_broadcasts_section_impl_patch() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -1402,9 +1404,8 @@ async def test_ui_only_section_size_routes_broadcast_section_impl_patch() -> Non
             assert column_patch["projectConfigId"] == project_config_id
             assert column_patch["sectionId"] == section_ids.callable_section_id
             assert column_patch["sectionImplType"] == SectionType.Callable
-            assert (
-                int(column_patch["previousProjectStateRevision"])
-                < int(column_patch["projectStateRevision"])
+            assert int(column_patch["previousProjectStateRevision"]) < int(
+                column_patch["projectStateRevision"]
             )
 
             await manager.set_section_sizes(
@@ -1432,19 +1433,19 @@ async def test_ui_only_section_size_routes_broadcast_section_impl_patch() -> Non
         assert project_state_broadcast_calls == before_project_state
         size_patches = section_impl_patch_calls[before_patch_count + 1 :]
         assert len(size_patches) == 2
-        assert {
-            patch["sectionId"] for patch in size_patches
-        } == {section_ids.callable_section_id, section_ids.browser_section_id}
-        assert size_patches[0]["projectStateRevision"] == size_patches[1][
-            "projectStateRevision"
-        ]
+        assert {patch["sectionId"] for patch in size_patches} == {
+            section_ids.callable_section_id,
+            section_ids.browser_section_id,
+        }
         assert (
-            int(size_patches[0]["previousProjectStateRevision"])
-            < int(size_patches[0]["projectStateRevision"])
+            size_patches[0]["projectStateRevision"]
+            == size_patches[1]["projectStateRevision"]
         )
-        assert (
-            int(size_patches[1]["previousProjectStateRevision"])
-            == int(size_patches[1]["projectStateRevision"])
+        assert int(size_patches[0]["previousProjectStateRevision"]) < int(
+            size_patches[0]["projectStateRevision"]
+        )
+        assert int(size_patches[1]["previousProjectStateRevision"]) == int(
+            size_patches[1]["projectStateRevision"]
         )
 
 
@@ -1667,9 +1668,10 @@ async def test_ui_only_group_layout_routes_broadcast_section_impl_patch() -> Non
         patches = section_impl_patch_calls[before_patch_count:]
         assert len(patches) == 5
         assert {patch["projectConfigId"] for patch in patches} == {project_config_id}
-        assert {
-            patch["sectionId"] for patch in patches[:3]
-        } == {section_ids.callable_section_id, section_ids.group_section_id}
+        assert {patch["sectionId"] for patch in patches[:3]} == {
+            section_ids.callable_section_id,
+            section_ids.group_section_id,
+        }
         assert all(
             patch["previousProjectStateRevision"] < patch["projectStateRevision"]
             for patch in patches[:3]
@@ -1677,9 +1679,10 @@ async def test_ui_only_group_layout_routes_broadcast_section_impl_patch() -> Non
 
         position_lock_patches = patches[3:]
         assert len(position_lock_patches) == 2
-        assert {
-            patch["sectionId"] for patch in position_lock_patches
-        } == {section_ids.callable_section_id, section_ids.group_section_id}
+        assert {patch["sectionId"] for patch in position_lock_patches} == {
+            section_ids.callable_section_id,
+            section_ids.group_section_id,
+        }
         assert (
             position_lock_patches[0]["projectStateRevision"]
             == position_lock_patches[1]["projectStateRevision"]

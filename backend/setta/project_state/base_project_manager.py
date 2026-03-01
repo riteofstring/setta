@@ -695,6 +695,12 @@ class _UndoRedoProjectConfigPatchScope:
         self.code_obj_ids.update(other.code_obj_ids)
 
 
+@dataclass(slots=True, frozen=True)
+class _DeferredRefreshRegistration:
+    history_revision: int
+    history_entry_token: int
+
+
 @dataclass(slots=True)
 class _StructuralDeltaPatch:
     sections: dict[ID, Core]
@@ -912,14 +918,14 @@ class BaseProjectManager(ABC):
         self._gen_code_prefix_suffix_refresh_debouncer_by_project_config: dict[
             ID, AsyncDebouncer
         ] = {}
-        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config: dict[
-            ID, int
+        self._pending_gen_code_prefix_suffix_refresh_by_project_config: dict[
+            ID, _DeferredRefreshRegistration
         ] = {}
         self._deferred_codegen_refresh_debouncer_by_project_config: dict[
             ID, AsyncDebouncer
         ] = {}
-        self._pending_deferred_codegen_refresh_revision_by_project_config: dict[
-            ID, int
+        self._pending_deferred_codegen_refresh_by_project_config: dict[
+            ID, _DeferredRefreshRegistration
         ] = {}
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
@@ -2850,13 +2856,13 @@ class BaseProjectManager(ABC):
         ) in self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.values():
             debouncer.cancel()
         self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.clear()
-        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.clear()
+        self._pending_gen_code_prefix_suffix_refresh_by_project_config.clear()
         for (
             debouncer
         ) in self._deferred_codegen_refresh_debouncer_by_project_config.values():
             debouncer.cancel()
         self._deferred_codegen_refresh_debouncer_by_project_config.clear()
-        self._pending_deferred_codegen_refresh_revision_by_project_config.clear()
+        self._pending_deferred_codegen_refresh_by_project_config.clear()
         self.autosave_debouncer.cancel()
         for queue_task in self._queue_task_by_partition.values():
             queue_task.cancel()
@@ -2867,10 +2873,10 @@ class BaseProjectManager(ABC):
     ) -> None:
         if (
             project_config_id
-            not in self._pending_deferred_codegen_refresh_revision_by_project_config
+            not in self._pending_deferred_codegen_refresh_by_project_config
         ):
             return
-        self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+        self._pending_deferred_codegen_refresh_by_project_config.pop(
             project_config_id,
             None,
         )
@@ -2886,10 +2892,10 @@ class BaseProjectManager(ABC):
     ) -> None:
         if (
             project_config_id
-            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+            not in self._pending_gen_code_prefix_suffix_refresh_by_project_config
         ):
             return
-        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+        self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
             project_config_id,
             None,
         )
@@ -2903,11 +2909,11 @@ class BaseProjectManager(ABC):
 
     def _cancel_all_pending_codegen_refreshes(self) -> None:
         for project_config_id in list(
-            self._pending_deferred_codegen_refresh_revision_by_project_config.keys()
+            self._pending_deferred_codegen_refresh_by_project_config.keys()
         ):
             self._cancel_pending_deferred_codegen_refresh(project_config_id)
         for project_config_id in list(
-            self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.keys()
+            self._pending_gen_code_prefix_suffix_refresh_by_project_config.keys()
         ):
             self._cancel_pending_gen_code_prefix_suffix_refresh(project_config_id)
 
@@ -3321,14 +3327,19 @@ class BaseProjectManager(ABC):
         self,
         project_config_id: ID,
     ) -> None:
-        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config[
+        self._pending_gen_code_prefix_suffix_refresh_by_project_config[
             project_config_id
-        ] = self.history.revision
+        ] = _DeferredRefreshRegistration(
+            history_revision=self.history.revision,
+            history_entry_token=self.history.get_current_entry_token(),
+        )
         self._get_gen_code_prefix_suffix_refresh_debouncer(project_config_id).trigger()
 
     async def _run_deferred_codegen_refresh_with_patch_transport(
         self,
         project_state: ProjectStateSingleConfig,
+        *,
+        history_entry_token_for_patch_scope: int | None = None,
     ) -> None:
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=project_state.projectConfig.id,
@@ -3341,28 +3352,41 @@ class BaseProjectManager(ABC):
                 updateFileWatcher=False,
                 validate_name_rules=False,
                 broadcast_name_validation_errors=False,
+                history_entry_token_for_patch_scope=(
+                    history_entry_token_for_patch_scope
+                ),
+                filter_unchanged_patch_payloads=True,
             )
             return
         await self._update_and_broadcast_project_config_patch_no_name_validation(
             project_state,
             updateFileWatcher=False,
+            history_entry_token_for_patch_scope=history_entry_token_for_patch_scope,
+            filter_unchanged_patch_payloads=True,
         )
 
     async def _refresh_gen_code_prefix_suffix_now(self, project_config_id: ID) -> None:
-        if (
-            project_config_id
-            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
-        ):
+        pending_registration = (
+            self._pending_gen_code_prefix_suffix_refresh_by_project_config.get(
+                project_config_id
+            )
+        )
+        if pending_registration is None:
             return
         if project_config_id not in self.project_state_backend.projectConfigs:
-            self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+            self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
                 project_config_id,
                 None,
             )
             return
         project_state = self.get_single_config_state(project_config_id)
-        await self._run_deferred_codegen_refresh_with_patch_transport(project_state)
-        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+        await self._run_deferred_codegen_refresh_with_patch_transport(
+            project_state,
+            history_entry_token_for_patch_scope=(
+                pending_registration.history_entry_token
+            ),
+        )
+        self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
             project_config_id,
             None,
         )
@@ -3380,7 +3404,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if (
             project_config_id
-            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+            not in self._pending_gen_code_prefix_suffix_refresh_by_project_config
         ):
             return
         debouncer = (
@@ -3419,26 +3443,36 @@ class BaseProjectManager(ABC):
         self,
         project_config_id: ID,
     ) -> None:
-        self._pending_deferred_codegen_refresh_revision_by_project_config[
-            project_config_id
-        ] = self.history.revision
+        self._pending_deferred_codegen_refresh_by_project_config[project_config_id] = (
+            _DeferredRefreshRegistration(
+                history_revision=self.history.revision,
+                history_entry_token=self.history.get_current_entry_token(),
+            )
+        )
         self._get_deferred_codegen_refresh_debouncer(project_config_id).trigger()
 
     async def _refresh_deferred_codegen_now(self, project_config_id: ID) -> None:
-        if (
-            project_config_id
-            not in self._pending_deferred_codegen_refresh_revision_by_project_config
-        ):
+        pending_registration = (
+            self._pending_deferred_codegen_refresh_by_project_config.get(
+                project_config_id
+            )
+        )
+        if pending_registration is None:
             return
         if project_config_id not in self.project_state_backend.projectConfigs:
-            self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+            self._pending_deferred_codegen_refresh_by_project_config.pop(
                 project_config_id,
                 None,
             )
             return
         project_state = self.get_single_config_state(project_config_id)
-        await self._run_deferred_codegen_refresh_with_patch_transport(project_state)
-        self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+        await self._run_deferred_codegen_refresh_with_patch_transport(
+            project_state,
+            history_entry_token_for_patch_scope=(
+                pending_registration.history_entry_token
+            ),
+        )
+        self._pending_deferred_codegen_refresh_by_project_config.pop(
             project_config_id,
             None,
         )
@@ -3456,7 +3490,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if (
             project_config_id
-            not in self._pending_deferred_codegen_refresh_revision_by_project_config
+            not in self._pending_deferred_codegen_refresh_by_project_config
         ):
             return
         debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
@@ -7878,25 +7912,28 @@ class BaseProjectManager(ABC):
             )
         }
 
-    def _register_current_history_entry_undo_redo_patch_scope(
+    def _register_history_entry_undo_redo_patch_scope(
         self,
+        *,
+        history_entry_token: int,
         patch_scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope]
         | None,
     ) -> None:
-        current_entry_token = self.history.get_current_entry_token()
+        if history_entry_token not in self.history.get_entry_tokens():
+            return
         has_existing_scope = (
-            current_entry_token in self._history_patch_scope_by_entry_token
+            history_entry_token in self._history_patch_scope_by_entry_token
         )
         existing_scope = self._history_patch_scope_by_entry_token.get(
-            current_entry_token
+            history_entry_token
         )
         if has_existing_scope and existing_scope is None:
             return
         if patch_scope_by_project_config is None:
-            self._history_patch_scope_by_entry_token[current_entry_token] = None
+            self._history_patch_scope_by_entry_token[history_entry_token] = None
             return
         if existing_scope is None:
-            self._history_patch_scope_by_entry_token[current_entry_token] = (
+            self._history_patch_scope_by_entry_token[history_entry_token] = (
                 self._clone_undo_redo_patch_scope_by_project_config(
                     patch_scope_by_project_config
                 )
@@ -7911,6 +7948,59 @@ class BaseProjectManager(ABC):
                 existing_scope[project_config_id] = project_config_scope.clone()
                 continue
             existing_project_config_scope.merge(project_config_scope)
+
+    def _register_current_history_entry_undo_redo_patch_scope(
+        self,
+        patch_scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope]
+        | None,
+    ) -> None:
+        self._register_history_entry_undo_redo_patch_scope(
+            history_entry_token=self.history.get_current_entry_token(),
+            patch_scope_by_project_config=patch_scope_by_project_config,
+        )
+
+    def _register_current_history_entry_patch_scope_from_patch_transport(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        section_ids: list[ID] | set[ID] | None = None,
+        code_obj_ids: list[ID] | set[ID] | None = None,
+        include_project_config: bool = False,
+        history_entry_token: int | None = None,
+    ) -> None:
+        scoped_section_ids: set[ID] = set()
+        if section_ids:
+            for section_id in section_ids:
+                if section_id not in project_state.sections:
+                    continue
+                scoped_section_ids.add(section_id)
+        scoped_code_obj_ids: set[ID] = set()
+        if code_obj_ids:
+            for code_obj_id in code_obj_ids:
+                if code_obj_id not in project_state.codeObjs:
+                    continue
+                scoped_code_obj_ids.add(code_obj_id)
+        if (
+            not include_project_config
+            and not scoped_section_ids
+            and not scoped_code_obj_ids
+        ):
+            return
+        target_entry_token = (
+            self.history.get_current_entry_token()
+            if history_entry_token is None
+            else history_entry_token
+        )
+        self._register_history_entry_undo_redo_patch_scope(
+            history_entry_token=target_entry_token,
+            patch_scope_by_project_config={
+                project_state.projectConfig.id: _UndoRedoProjectConfigPatchScope(
+                    project_config_only=include_project_config,
+                    section_impl_ids=scoped_section_ids,
+                    code_obj_ids=scoped_code_obj_ids,
+                )
+            },
+        )
 
     def _collect_undo_navigation_entry_tokens(self, steps: int) -> tuple[int, ...]:
         entry_tokens = self.history.get_entry_tokens()
@@ -9187,6 +9277,50 @@ class BaseProjectManager(ABC):
             section_impl_updates.append((section_id, section_impl))
         return section_impl_updates
 
+    def _collect_backend_section_impl_snapshots_for_patch(
+        self,
+        *,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> dict[ID, BaseSectionImpl]:
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            return {}
+        project_config = self.project_state_backend.projectConfigs[project_config_id]
+        section_impl_snapshots: dict[ID, BaseSectionImpl] = {}
+        seen_section_ids: set[ID] = set()
+        for section_id in section_ids:
+            if section_id in seen_section_ids:
+                continue
+            seen_section_ids.add(section_id)
+            if section_id not in self.project_state_backend.sections:
+                continue
+            section_variant_id = project_config.sectionVariantMap.get(section_id)
+            if section_variant_id is None:
+                continue
+            section_variant = self.project_state_backend.sectionVariants.get(
+                section_variant_id
+            )
+            if section_variant is None:
+                continue
+            section_impl = self.project_state_backend.sectionImpls.get(
+                section_variant.impl
+            )
+            if section_impl is None:
+                continue
+            section_impl_snapshots[section_id] = copy.deepcopy(section_impl)
+        return section_impl_snapshots
+
+    def _get_backend_project_config_snapshot(
+        self,
+        *,
+        project_config_id: ID,
+    ) -> ProjectConfig | None:
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            return None
+        return copy.deepcopy(
+            self.project_state_backend.projectConfigs[project_config_id]
+        )
+
     def _get_active_code_obj_variant_ids_for_project_state(
         self,
         project_state: ProjectStateSingleConfig,
@@ -9394,6 +9528,12 @@ class BaseProjectManager(ABC):
                 )
             return
 
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            section_ids=section_ids,
+            code_obj_ids=code_obj_ids,
+            include_project_config=broadcast_project_config_patch,
+        )
         has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
             project_state=project_state,
             code_obj_ids=code_obj_ids,
@@ -9477,6 +9617,12 @@ class BaseProjectManager(ABC):
                 )
             return
 
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            section_ids=section_ids,
+            code_obj_ids=code_obj_ids,
+            include_project_config=broadcast_project_config_patch,
+        )
         has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
             project_state=project_state,
             code_obj_ids=code_obj_ids,
@@ -9578,6 +9724,8 @@ class BaseProjectManager(ABC):
         updateFileWatcher: bool = True,
         validate_name_rules: bool = True,
         broadcast_name_validation_errors: bool = True,
+        history_entry_token_for_patch_scope: int | None = None,
+        filter_unchanged_patch_payloads: bool = False,
     ) -> None:
         if not section_ids:
             project_state_revision = self.history.revision
@@ -9589,6 +9737,14 @@ class BaseProjectManager(ABC):
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
+        previous_section_impl_by_section_id: dict[ID, BaseSectionImpl] = {}
+        if filter_unchanged_patch_payloads:
+            previous_section_impl_by_section_id = (
+                self._collect_backend_section_impl_snapshots_for_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    section_ids=section_ids,
+                )
+            )
         previous_project_state_revision = self.history.revision
         await self.update(
             project_state,
@@ -9617,7 +9773,37 @@ class BaseProjectManager(ABC):
             project_state,
             section_ids,
         )
-        for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+        changed_section_impl_updates = section_impl_updates
+        if filter_unchanged_patch_payloads:
+            changed_section_impl_updates = []
+            for section_id, section_impl in section_impl_updates:
+                previous_section_impl = previous_section_impl_by_section_id.get(
+                    section_id
+                )
+                if (
+                    previous_section_impl is not None
+                    and previous_section_impl == section_impl
+                ):
+                    continue
+                changed_section_impl_updates.append((section_id, section_impl))
+        if not changed_section_impl_updates:
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
+            return
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            section_ids=[section_id for section_id, _ in changed_section_impl_updates],
+            history_entry_token=history_entry_token_for_patch_scope,
+        )
+        for idx, (section_id, section_impl) in enumerate(changed_section_impl_updates):
             await self._broadcast_section_impl_patch(
                 project_config_id=project_state.projectConfig.id,
                 section_id=section_id,
@@ -9676,6 +9862,10 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
             return
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            section_ids=[section_id],
+        )
         section_variant_id = project_state.projectConfig.sectionVariantMap.get(
             section_id
         )
@@ -9701,7 +9891,14 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         *,
         updateFileWatcher: bool = True,
+        history_entry_token_for_patch_scope: int | None = None,
+        filter_unchanged_patch_payloads: bool = False,
     ) -> None:
+        previous_project_config: ProjectConfig | None = None
+        if filter_unchanged_patch_payloads:
+            previous_project_config = self._get_backend_project_config_snapshot(
+                project_config_id=project_state.projectConfig.id,
+            )
         previous_project_state_revision = self.history.revision
         await self.update(
             project_state,
@@ -9716,6 +9913,22 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
             return
+        if (
+            filter_unchanged_patch_payloads
+            and previous_project_config is not None
+            and previous_project_config == project_state.projectConfig
+        ):
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            return
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            include_project_config=True,
+            history_entry_token=history_entry_token_for_patch_scope,
+        )
         await self._broadcast_project_config_patch(
             project_config=project_state.projectConfig,
             previous_project_state_revision=previous_project_state_revision,
@@ -9754,6 +9967,10 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
             return
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            include_project_config=True,
+        )
         await self._broadcast_project_config_patch(
             project_config=project_state.projectConfig,
             previous_project_state_revision=previous_project_state_revision,
@@ -9805,6 +10022,10 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
             return
+        self._register_current_history_entry_patch_scope_from_patch_transport(
+            project_state=project_state,
+            section_ids=section_ids,
+        )
         if (
             len(section_impl_updates) >= SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS
             and section_impl_updates
@@ -11043,6 +11264,10 @@ class BaseProjectManager(ABC):
         # revision-keyed caches and save dedupe stay correct for those paths.
         current_entry_token = self.history.get_current_entry_token()
         self.history.set_current(self.project_state_backend)
+        # In-place metadata mutations can bypass scoped patch registration.
+        # Force unknown-scope fallback for this history entry so undo/redo uses
+        # deterministic diff transport instead of stale scoped assumptions.
+        self._register_current_history_entry_undo_redo_patch_scope(None)
         self._normalized_history_entry_tokens.discard(current_entry_token)
         self._invalidate_single_config_state_cache()
 

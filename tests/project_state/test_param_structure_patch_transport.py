@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from setta.project_state.project_manager_types import (
@@ -999,7 +1001,9 @@ async def test_first_set_callable_redo_includes_code_obj_patch_transport() -> No
 
 
 @pytest.mark.asyncio
-async def test_set_callable_redo_after_gen_prefix_history_keeps_callable_patch_transport() -> None:
+async def test_set_callable_redo_after_gen_prefix_history_keeps_callable_patch_transport() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -1092,9 +1096,12 @@ async def test_set_callable_flushes_pending_deferred_refresh() -> None:
             await original_refresh(next_state)
 
         def mark_pending_refresh_only(project_config_id_for_refresh: ID) -> None:
-            manager._pending_deferred_codegen_refresh_revision_by_project_config[  # type: ignore[attr-defined]
+            manager._pending_deferred_codegen_refresh_by_project_config[  # type: ignore[attr-defined]
                 project_config_id_for_refresh
-            ] = manager.history.revision
+            ] = SimpleNamespace(
+                history_revision=manager.history.revision,
+                history_entry_token=manager.history.get_current_entry_token(),
+            )
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
         manager._schedule_deferred_codegen_refresh = mark_pending_refresh_only  # type: ignore[method-assign]

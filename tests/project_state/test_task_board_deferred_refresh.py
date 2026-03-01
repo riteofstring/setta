@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 
 from setta.project_state.project_manager_types import (
@@ -241,7 +243,7 @@ async def test_finish_pending_operations_waits_for_task_board_deferred_refresh()
             # The task board route schedules deferred refresh after patch transport.
             assert (
                 project_config_id
-                in manager._pending_deferred_codegen_refresh_revision_by_project_config
+                in manager._pending_deferred_codegen_refresh_by_project_config
             )
             refresh_calls_before_wait = refresh_calls
             await manager.finish_pending_operations(timeout=5.0)
@@ -251,7 +253,7 @@ async def test_finish_pending_operations_waits_for_task_board_deferred_refresh()
         assert refresh_calls == refresh_calls_before_wait + 1
         assert (
             project_config_id
-            not in manager._pending_deferred_codegen_refresh_revision_by_project_config
+            not in manager._pending_deferred_codegen_refresh_by_project_config
         )
 
 
@@ -283,9 +285,12 @@ async def test_create_run_command_flushes_pending_task_board_deferred_refresh() 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
 
         def mark_pending_refresh_only(project_config_id_for_refresh: ID) -> None:
-            manager._pending_deferred_codegen_refresh_revision_by_project_config[  # type: ignore[attr-defined]
+            manager._pending_deferred_codegen_refresh_by_project_config[  # type: ignore[attr-defined]
                 project_config_id_for_refresh
-            ] = manager.history.revision
+            ] = SimpleNamespace(
+                history_revision=manager.history.revision,
+                history_entry_token=manager.history.get_current_entry_token(),
+            )
 
         manager._schedule_deferred_codegen_refresh = mark_pending_refresh_only  # type: ignore[method-assign]
         try:
@@ -318,7 +323,7 @@ async def test_create_run_command_flushes_pending_task_board_deferred_refresh() 
         assert 1 == refresh_calls
         assert (
             project_config_id
-            not in manager._pending_deferred_codegen_refresh_revision_by_project_config  # type: ignore[attr-defined]
+            not in manager._pending_deferred_codegen_refresh_by_project_config  # type: ignore[attr-defined]
         )
 
 
@@ -340,9 +345,12 @@ async def test_flush_pending_task_board_deferred_refresh_uses_patch_transport() 
         project_config_id = project_state.projectConfig.id
 
         def mark_pending_refresh_only(project_config_id_for_refresh: ID) -> None:
-            manager._pending_deferred_codegen_refresh_revision_by_project_config[  # type: ignore[attr-defined]
+            manager._pending_deferred_codegen_refresh_by_project_config[  # type: ignore[attr-defined]
                 project_config_id_for_refresh
-            ] = manager.history.revision
+            ] = SimpleNamespace(
+                history_revision=manager.history.revision,
+                history_entry_token=manager.history.get_current_entry_token(),
+            )
 
         manager._schedule_deferred_codegen_refresh = mark_pending_refresh_only  # type: ignore[method-assign]
 
@@ -350,11 +358,13 @@ async def test_flush_pending_task_board_deferred_refresh_uses_patch_transport() 
         snapshot_calls = 0
         section_impl_patch_calls = 0
         project_config_patch_calls = 0
+        op_status_patch_calls = 0
         original_snapshot = sender.broadcast_project_state
         original_section_patch = sender.broadcast_project_state_section_impl_patch
         original_project_config_patch = (
             sender.broadcast_project_state_project_config_patch
         )
+        original_op_status_patch = sender.broadcast_project_state_op_status_patch
 
         async def record_snapshot(
             project_state,
@@ -411,11 +421,29 @@ async def test_flush_pending_task_board_deferred_refresh_uses_patch_transport() 
                 pending_op_ids,
             )
 
+        async def record_op_status_patch(
+            project_config_id_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal op_status_patch_calls
+            op_status_patch_calls += 1
+            await original_op_status_patch(
+                project_config_id_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
         sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
         sender.broadcast_project_state_section_impl_patch = record_section_patch  # type: ignore[method-assign]
         sender.broadcast_project_state_project_config_patch = (
             record_project_config_patch  # type: ignore[method-assign]
         )
+        sender.broadcast_project_state_op_status_patch = record_op_status_patch  # type: ignore[method-assign]
         try:
             await manager.set_task_board_section_state(
                 build_task_board_state_request(
@@ -429,6 +457,7 @@ async def test_flush_pending_task_board_deferred_refresh_uses_patch_transport() 
             snapshot_calls = 0
             section_impl_patch_calls = 0
             project_config_patch_calls = 0
+            op_status_patch_calls = 0
 
             await manager._flush_pending_deferred_codegen_refresh(project_config_id)
             await manager.finish_pending_operations(timeout=5.0)
@@ -438,6 +467,12 @@ async def test_flush_pending_task_board_deferred_refresh_uses_patch_transport() 
             sender.broadcast_project_state_project_config_patch = (
                 original_project_config_patch  # type: ignore[method-assign]
             )
+            sender.broadcast_project_state_op_status_patch = original_op_status_patch  # type: ignore[method-assign]
 
         assert 0 == snapshot_calls
-        assert section_impl_patch_calls + project_config_patch_calls >= 1
+        assert (
+            section_impl_patch_calls
+            + project_config_patch_calls
+            + op_status_patch_calls
+            >= 1
+        )
