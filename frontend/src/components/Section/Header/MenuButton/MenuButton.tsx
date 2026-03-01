@@ -5,7 +5,11 @@ import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
-import { HeaderIcon } from "../HeaderIcon";
+import {
+  getDefaultHeaderMenuIconClassName,
+  HeaderIcon,
+  usesDefaultHeaderMenuIcon,
+} from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
 import { CreateNewVariantButton } from "./CreateNewVariantButton";
@@ -47,6 +51,13 @@ function MenuButton({
   const metaControlIconVisibilityClassName = textBlockMetaControlStyle
     ? "opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto"
     : "";
+  const canFlattenDefaultMenuIcon =
+    !isListElement &&
+    !isInOtherProjectConfigs &&
+    usesDefaultHeaderMenuIcon(sectionTypeName);
+  const defaultMenuIconClassName = getDefaultHeaderMenuIconClassName(
+    hasSectionStyleTheme,
+  );
   const iconWrapperClassName = hasSectionStyleTheme
     ? `nodrag w-[14px] h-[14px] flex cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none transition-colors duration-150 hover:bg-setta-100 hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-2 focus-visible:ring-[var(--setta-section-style-outline)] dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-[color:var(--setta-section-style-outline)] ${metaControlIconVisibilityClassName}`
     : `nodrag w-[14px] h-[14px] flex cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 ${metaControlIconVisibilityClassName}`;
@@ -57,23 +68,12 @@ function MenuButton({
 
   if (menuItems.length === 0) {
     return (
-      <div className={unClickableIconWrapperClassName}>
-        <HeaderIcon
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isListElement={isListElement}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
-      <CardHeaderMenuButton
-        triggerClassName={iconWrapperClassName}
-        trigger={
+      <div
+        className={`${unClickableIconWrapperClassName} ${
+          canFlattenDefaultMenuIcon ? defaultMenuIconClassName : ""
+        }`}
+      >
+        {canFlattenDefaultMenuIcon ? null : (
           <HeaderIcon
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
@@ -81,6 +81,27 @@ function MenuButton({
             isListElement={isListElement}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
+      <CardHeaderMenuButton
+        triggerClassName={`${iconWrapperClassName} ${
+          canFlattenDefaultMenuIcon ? defaultMenuIconClassName : ""
+        }`}
+        trigger={
+          canFlattenDefaultMenuIcon ? null : (
+            <HeaderIcon
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              isInOtherProjectConfigs={isInOtherProjectConfigs}
+              isListElement={isListElement}
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+          )
         }
       >
         {menuItems.map((Component, idx) => (

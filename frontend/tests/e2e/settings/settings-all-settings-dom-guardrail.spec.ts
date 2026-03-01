@@ -152,6 +152,26 @@ test("all settings DOM stays within flattening guardrails", async ({
         return hasFlattenedHostIcon || hasLegacyChildIcon;
       },
     );
+    const sectionMenuButtons = Array.from(document.querySelectorAll("button"))
+      .filter((el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("w-[14px]") &&
+          classes.includes("h-[14px]") &&
+          classes.includes("select-none") &&
+          classes.includes("aspect-square")
+        );
+      })
+      .filter((el) => {
+        const hasFlattenedHostIcon = Array.from(el.classList).includes(
+          "gg-menu",
+        );
+        const hasLegacyChildIcon =
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          Array.from(el.children[0].classList).includes("gg-menu");
+        return hasFlattenedHostIcon || hasLegacyChildIcon;
+      });
 
     return {
       nodeCount: nodes.length,
@@ -317,6 +337,17 @@ test("all settings DOM stays within flattening guardrails", async ({
           (Array.from(el.classList).includes("gg-lock") ||
             Array.from(el.classList).includes("gg-lock-unlock")),
       ).length,
+      legacySectionMenuIconWrapperCount: sectionMenuButtons.filter(
+        (el) =>
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          Array.from(el.children[0].classList).includes("gg-menu"),
+      ).length,
+      flattenedSectionMenuIconHostCount: sectionMenuButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          Array.from(el.classList).includes("gg-menu"),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -366,6 +397,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedDeleteHideIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyLockIconWrapperCount).toBe(0);
   expect(metrics.flattenedLockIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacySectionMenuIconWrapperCount).toBe(0);
+  expect(metrics.flattenedSectionMenuIconHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
