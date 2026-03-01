@@ -1251,11 +1251,7 @@ export function ProjectChatHistory({
       </search>
       <button
         type="button"
-        className={`nodrag relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 ${
-          showThreadAgentBadges
-            ? "bg-setta-200/80 text-setta-700 hover:bg-setta-300/80 dark:bg-setta-700/90 dark:text-setta-100 dark:hover:bg-setta-600/90"
-            : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-        }`}
+        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
         onClick={() => {
           setShowThreadAgentBadges((prev) => !prev);
         }}
