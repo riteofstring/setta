@@ -18,9 +18,8 @@ from setta.types.generated.unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl_for_read,
+    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
-    get_curr_effective_section_impl_for_read,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl2 import (
@@ -207,35 +206,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             self.validate_code_file_bindings()
         return self
 
-    def validate_for_param_value_update(
-        self,
-        *,
-        section_id: ID,
-        param_id: ID,
-    ):
-        # Param value edits are non-structural: they must not mutate layout/name
-        # derived state. Keep this check explicit and cheap while still failing
-        # loudly if the targeted section/param linkage is invalid.
-        if section_id not in self.sections:
-            raise KeyError(f"Missing section {section_id} in project state.")
-        if section_id not in self.projectConfig.sectionVariantMap:
-            raise KeyError(f"Missing sectionVariantMap entry for section {section_id}.")
-        if param_id not in self.codeObjs:
-            raise KeyError(f"Missing code obj {param_id} in project state.")
-
-        section_impl = get_curr_effective_section_impl_for_read(self, section_id)
-        if not isinstance(
-            section_impl, (BaseSectionWithParamsImpl, MetaControlSectionImpl)
-        ):
-            raise TypeError(f"Section {section_id} does not expose parameter values.")
-        if param_id not in section_impl.codeObjVariantMap:
-            raise KeyError(f"Param {param_id} is not linked to section {section_id}.")
-
-        # Resolve the current effective impl to guarantee section/param variant maps
-        # remain internally consistent for this edit.
-        get_curr_effective_code_obj_impl_for_read(self, section_id, param_id)
-        return self
-
     def validate_singleton_sections(self):
         output = SingletonSections()
         found = set()
@@ -285,20 +255,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.shownParamIds = output
         return self
 
-    def refresh_shown_param_ids_for_section(self, section_id: ID):
-        if section_id not in self.sections:
-            raise KeyError(f"Missing section {section_id} in project state.")
-        section = self.sections[section_id]
-        for variant_id in section.variants:
-            _, _, impl = get_variant_base_and_effective_section_impl(
-                self, section, variant_id
-            )
-            if not isinstance(impl, BaseSectionWithParamsImpl):
-                self.shownParamIds.pop(variant_id, None)
-                continue
-            self.shownParamIds[variant_id] = get_param_ids_to_show(self, impl)
-        return self
-
     def validate_required_decoded_images(self):
         output: set[str] = set()
         for s in self.sections.values():
@@ -320,14 +276,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         )
         for section_id, section in self.sections.items():
             validate_section_name_format(section.name)
-            section_impl = get_curr_effective_section_impl_for_read(self, section_id)
+            section_impl = get_curr_effective_section_impl(self, section_id)
             if isinstance(section_impl, BaseSectionWithParamsImpl):
                 for code_obj_id in section_impl.codeObjVariantMap:
                     if code_obj_id not in self.codeObjs:
                         raise KeyError(
                             f"Missing code obj {code_obj_id} in project state."
                         )
-                    code_obj_impl = get_curr_effective_code_obj_impl_for_read(
+                    code_obj_impl = get_curr_effective_code_obj_impl(
                         self,
                         section_id,
                         code_obj_id,
@@ -347,7 +303,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                         raise KeyError(
                             f"Missing code obj {code_obj_id} in project state."
                         )
-                    code_obj_impl = get_curr_effective_code_obj_impl_for_read(
+                    code_obj_impl = get_curr_effective_code_obj_impl(
                         self,
                         section_id,
                         code_obj_id,
