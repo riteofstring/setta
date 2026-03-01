@@ -6224,27 +6224,12 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
-        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
+        self._add_param_tree_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_id=x.sectionId,
             param_ids=x.paramIds,
             new_parent_ids=[x.newParentId],
         )
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
-        )
-        if history_code_obj_ids:
-            self.add_new_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_only_ids=history_code_obj_ids,
-                section_impl_only_ids=(
-                    codegen_singleton_section_ids
-                    if codegen_singleton_section_ids
-                    else None
-                ),
-            )
-        else:
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
             project_state,
@@ -6286,34 +6271,18 @@ class BaseProjectManager(ABC):
     async def move_param_groups(self, x: MoveParamGroupsRequest):
         history_param_ids = [param_id for move in x.moves for param_id in move.paramIds]
         history_new_parent_ids = [move.newParentId for move in x.moves]
-        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
+        self._add_param_tree_scoped_history_entry(
             project_config_id=x.projectConfigId,
             section_id=x.sectionId,
             param_ids=history_param_ids,
             new_parent_ids=history_new_parent_ids,
         )
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
-        )
-        if history_code_obj_ids:
-            self.add_new_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_only_ids=history_code_obj_ids,
-                section_impl_only_ids=(
-                    codegen_singleton_section_ids
-                    if codegen_singleton_section_ids
-                    else None
-                ),
-            )
-        else:
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
-        next_state = copy.deepcopy(project_state)
         code_obj_ids_for_patch: list[ID] = []
         for move in x.moves:
             parent_code_obj_ids_before = (
                 self._get_parent_code_obj_ids_for_section_params(
-                    next_state,
+                    project_state,
                     x.sectionId,
                     move.paramIds,
                 )
@@ -6322,7 +6291,7 @@ class BaseProjectManager(ABC):
             code_obj_ids_for_patch.append(move.newParentId)
             move_params_to_parent(
                 self.settings_file.settings,
-                next_state,
+                project_state,
                 x.sectionId,
                 move.paramIds,
                 move.newParentId,
@@ -6330,7 +6299,7 @@ class BaseProjectManager(ABC):
             )
             parent_code_obj_ids_after = (
                 self._get_parent_code_obj_ids_for_section_params(
-                    next_state,
+                    project_state,
                     x.sectionId,
                     move.paramIds,
                 )
@@ -6341,14 +6310,23 @@ class BaseProjectManager(ABC):
             section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_code_obj_and_section_patches(
-            next_state,
+            project_state,
             code_obj_ids=list(dict.fromkeys(code_obj_ids_for_patch)),
             section_ids=section_patch_scope,
         )
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_param_tree_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+            param_ids=x.paramIds,
+            new_parent_ids=self._get_indent_new_parent_ids_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+                param_ids=x.paramIds,
+            ),
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
             project_state,
@@ -6377,7 +6355,16 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def unindent_params(self, x: UnindentParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_param_tree_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+            param_ids=x.paramIds,
+            new_parent_ids=self._get_unindent_new_parent_ids_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+                param_ids=x.paramIds,
+            ),
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
             project_state,
@@ -6607,14 +6594,12 @@ class BaseProjectManager(ABC):
             parent_code_obj_ids.append(parent_id)
         return parent_code_obj_ids
 
-    def _get_param_move_history_code_obj_ids_for_backend(
+    def _get_param_section_impl_and_parent_map_for_backend(
         self,
         *,
         project_config_id: ID,
         section_id: ID,
-        param_ids: list[ID],
-        new_parent_ids: list[ID],
-    ) -> set[ID]:
+    ) -> tuple[BaseSectionWithParamsImpl, dict[ID, ID | None]]:
         backend = self.project_state_backend
         if project_config_id not in backend.projectConfigs:
             raise KeyError(f"Unknown project config: {project_config_id}")
@@ -6654,7 +6639,7 @@ class BaseProjectManager(ABC):
                 f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
             )
         if root_id is None:
-            return set()
+            return section_impl, {}
         if root_id not in section_impl.codeObjVariantMap:
             raise KeyError(
                 f"Root param container {root_id} missing for section {section_id}"
@@ -6668,9 +6653,25 @@ class BaseProjectManager(ABC):
             root_id=root_id,
             options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
         )
+        return section_impl, traversal.parent_map
+
+    def _get_param_move_history_code_obj_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+        new_parent_ids: list[ID],
+    ) -> set[ID]:
+        section_impl, parent_map = (
+            self._get_param_section_impl_and_parent_map_for_backend(
+                project_config_id=project_config_id,
+                section_id=section_id,
+            )
+        )
         history_code_obj_ids: set[ID] = set()
         for param_id in dict.fromkeys(param_ids):
-            parent_id = traversal.parent_map.get(param_id)
+            parent_id = parent_map.get(param_id)
             if parent_id is None:
                 continue
             history_code_obj_ids.add(parent_id)
@@ -6679,6 +6680,156 @@ class BaseProjectManager(ABC):
             if new_parent_id in active_code_obj_ids:
                 history_code_obj_ids.add(new_parent_id)
         return history_code_obj_ids
+
+    def _get_indent_new_parent_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+    ) -> set[ID]:
+        section_impl, parent_map = (
+            self._get_param_section_impl_and_parent_map_for_backend(
+                project_config_id=project_config_id,
+                section_id=section_id,
+            )
+        )
+        ordered_param_ids = list(dict.fromkeys(param_ids))
+        if not ordered_param_ids:
+            return set()
+
+        selected_parent_ids: list[ID] = []
+        for param_id in ordered_param_ids:
+            parent_id = parent_map.get(param_id)
+            if parent_id is None:
+                continue
+            if parent_id in selected_parent_ids:
+                continue
+            selected_parent_ids.append(parent_id)
+        if len(selected_parent_ids) != 1:
+            return set()
+        parent_id = selected_parent_ids[0]
+
+        if parent_id not in section_impl.codeObjVariantMap:
+            return set()
+        backend = self.project_state_backend
+        parent_variant_id = section_impl.codeObjVariantMap[parent_id]
+        if parent_variant_id not in backend.codeObjVariants:
+            raise KeyError(
+                f"Missing code obj variant {parent_variant_id} in backend state."
+            )
+        parent_variant = backend.codeObjVariants[parent_variant_id]
+        if parent_id not in backend.codeObjs:
+            raise KeyError(f"Missing code obj {parent_id} in backend state.")
+        parent_impl_id = parent_variant.impl
+        if parent_impl_id not in backend.codeObjImpls:
+            raise KeyError(f"Missing code obj impl {parent_impl_id} in backend state.")
+        parent_impl = get_effective_impl(
+            backend.codeObjImpls[parent_impl_id],
+            backend.codeObjs[parent_id],
+            parent_variant,
+        )
+        if not isinstance(parent_impl, BaseParentCodeObjImpl):
+            return set()
+
+        children = list(parent_impl.children)
+        selected_set = set(ordered_param_ids)
+        ordered_selected_ids = [
+            child_id for child_id in children if child_id in selected_set
+        ]
+        if len(ordered_selected_ids) != len(selected_set):
+            return set()
+        child_indices = {child_id: idx for idx, child_id in enumerate(children)}
+        groups: list[list[ID]] = []
+        current_group: list[ID] = []
+        for child_id in children:
+            if child_id in selected_set:
+                current_group.append(child_id)
+                continue
+            if current_group:
+                groups.append(current_group)
+                current_group = []
+        if current_group:
+            groups.append(current_group)
+
+        new_parent_ids: set[ID] = set()
+        for group in groups:
+            first_id = group[0]
+            first_index = child_indices[first_id]
+            for idx in range(first_index - 1, -1, -1):
+                candidate = children[idx]
+                if candidate in selected_set:
+                    continue
+                if candidate in section_impl.codeObjVariantMap:
+                    new_parent_ids.add(candidate)
+                break
+        return new_parent_ids
+
+    def _get_unindent_new_parent_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+    ) -> set[ID]:
+        section_impl, parent_map = (
+            self._get_param_section_impl_and_parent_map_for_backend(
+                project_config_id=project_config_id,
+                section_id=section_id,
+            )
+        )
+        ordered_param_ids = list(dict.fromkeys(param_ids))
+        if not ordered_param_ids:
+            return set()
+
+        selected_parent_ids: list[ID] = []
+        for param_id in ordered_param_ids:
+            parent_id = parent_map.get(param_id)
+            if parent_id is None:
+                continue
+            if parent_id in selected_parent_ids:
+                continue
+            selected_parent_ids.append(parent_id)
+
+        active_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
+        new_parent_ids: set[ID] = set()
+        for parent_id in selected_parent_ids:
+            grandparent_id = parent_map.get(parent_id)
+            if grandparent_id is None:
+                continue
+            if grandparent_id in active_code_obj_ids:
+                new_parent_ids.add(grandparent_id)
+        return new_parent_ids
+
+    def _add_param_tree_scoped_history_entry(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+        new_parent_ids: list[ID] | set[ID],
+    ) -> None:
+        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
+            project_config_id=project_config_id,
+            section_id=section_id,
+            param_ids=param_ids,
+            new_parent_ids=list(new_parent_ids),
+        )
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
+        )
+        if history_code_obj_ids:
+            self.add_new_history_entry(
+                project_config_id=project_config_id,
+                code_obj_only_ids=history_code_obj_ids,
+                section_impl_only_ids=(
+                    codegen_singleton_section_ids
+                    if codegen_singleton_section_ids
+                    else None
+                ),
+            )
+            return
+        self.add_new_history_entry(project_config_id=project_config_id)
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)

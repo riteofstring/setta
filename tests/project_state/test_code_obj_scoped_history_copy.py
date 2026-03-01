@@ -1,9 +1,11 @@
 import pytest
 
 from setta.project_state.project_manager_types import (
+    IndentParamsRequest,
     MoveParamsRequest,
     RedoRequest,
     SetParamEnteredValueRequest,
+    UnindentParamsRequest,
     UndoRequest,
 )
 from setta.types.code_obj_impls import (
@@ -13,6 +15,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -363,3 +366,102 @@ async def test_move_params_history_copy_isolates_parents_and_codegen_singletons(
             BaseParentCodeObjImpl,
         )
         assert SIBLING_PARAM_ID in new_parent_impl_after_redo.children
+
+
+@pytest.mark.asyncio
+async def test_indent_unindent_scoped_history_undo_redo_remains_correct() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_state = manager.get_single_config_state(project_config_id)
+        callable_impl = get_curr_effective_section_impl_with_type_guard(
+            callable_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        callable_id = callable_impl.callable
+        assert callable_id is not None
+
+        def snapshot() -> tuple[list[ID], bool, list[ID]]:
+            state = manager.get_single_config_state(project_config_id)
+            callable_after = get_curr_effective_code_obj_impl_with_type_guard(
+                state,
+                SECTION_ID,
+                callable_id,
+                CodeCallableCodeObjImpl,
+            )
+            target_impl = get_curr_effective_code_obj_impl(
+                state,
+                SECTION_ID,
+                TARGET_PARAM_ID,
+            )
+            if isinstance(target_impl, BaseParentCodeObjImpl):
+                return list(callable_after.children), True, list(target_impl.children)
+            return list(callable_after.children), False, []
+
+        baseline_children, baseline_is_parent, baseline_parent_children = snapshot()
+        assert SIBLING_PARAM_ID in baseline_children
+        assert baseline_is_parent is False
+        assert baseline_parent_children == []
+
+        await manager.indent_params(
+            IndentParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramIds=[SIBLING_PARAM_ID],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        indent_children, indent_is_parent, indent_parent_children = snapshot()
+        assert SIBLING_PARAM_ID not in indent_children
+        assert indent_is_parent is True
+        assert SIBLING_PARAM_ID in indent_parent_children
+
+        await manager.unindent_params(
+            UnindentParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramIds=[SIBLING_PARAM_ID],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        unindent_children, unindent_is_parent, unindent_parent_children = snapshot()
+        assert SIBLING_PARAM_ID in unindent_children
+        assert unindent_is_parent is False
+        assert unindent_parent_children == []
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undo_children, undo_is_parent, undo_parent_children = snapshot()
+        assert undo_children == indent_children
+        assert undo_is_parent == indent_is_parent
+        assert undo_parent_children == indent_parent_children
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undo_baseline_children, undo_baseline_is_parent, undo_baseline_parent_children = (
+            snapshot()
+        )
+        assert undo_baseline_children == baseline_children
+        assert undo_baseline_is_parent == baseline_is_parent
+        assert undo_baseline_parent_children == baseline_parent_children
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        redo_children, redo_is_parent, redo_parent_children = snapshot()
+        assert redo_children == indent_children
+        assert redo_is_parent == indent_is_parent
+        assert redo_parent_children == indent_parent_children
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        redo_unindent_children, redo_unindent_is_parent, redo_unindent_parent_children = (
+            snapshot()
+        )
+        assert redo_unindent_children == unindent_children
+        assert redo_unindent_is_parent == unindent_is_parent
+        assert redo_unindent_parent_children == unindent_parent_children
