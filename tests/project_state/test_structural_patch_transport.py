@@ -1,22 +1,38 @@
 import pytest
 
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.project_state.project_manager_types import (
+    CreateChildSectionsRequest,
+    CreateChildSectionsViaIncrementerRequest,
+    DeleteChildSectionsViaDecrementerRequest,
+    DeleteSectionsRequest,
+    DeleteSectionVariantOrAskRequest,
     CreateTopLevelSectionRequest,
     CreateNewSectionVariantRequest,
     GroupSectionsRequest,
     MoveSectionsRequest,
+    PasteSectionsRequest,
+    PrepareSectionsForCopyRequest,
     SetCodeSectionAttachedTerminalRequest,
     SetDefaultSectionVariantRequest,
+    SetSectionNameRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
+    SetWatchCodeEnabledRequest,
+    SetWatchCodeInputsRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UngroupGroupsRequest,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position
-from setta.types.section_impls import SectionType
+from setta.types.project_config import Position, WatchCodeFolder
+from setta.types.section_impls import (
+    BaseParentSectionImpl,
+    SectionType,
+    TextBlockSectionImpl,
+)
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -185,6 +201,38 @@ def _install_transport_capture(sender):
         sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
     return capture, restore
+
+
+async def _run_with_transport_capture(manager, operation):
+    sender = manager.websocket_msg_handler
+    capture, restore = _install_transport_capture(sender)
+    try:
+        result = await operation
+        await manager.finish_pending_operations(timeout=5.0)
+    finally:
+        restore()
+    return capture, result
+
+
+def _assert_single_structural_patch(
+    capture,
+    project_config_id: ID,
+    *,
+    expected_name_validation_calls: int,
+) -> dict[str, object]:
+    assert 0 == capture["project_state_broadcast_calls"]
+    assert 1 == len(capture["structural_patch_calls"])
+    structural_patch = capture["structural_patch_calls"][0]
+    assert structural_patch["projectConfigId"] == project_config_id
+    assert (
+        structural_patch["previousProjectStateRevision"]
+        < structural_patch["projectStateRevision"]
+    )
+    assert 0 == capture["project_config_patch_calls"]
+    assert 0 == capture["code_obj_patch_calls"]
+    assert 0 == capture["section_impl_patch_calls"]
+    assert expected_name_validation_calls == capture["name_validation_broadcast_calls"]
+    return structural_patch
 
 
 @pytest.mark.asyncio
@@ -670,3 +718,415 @@ async def test_group_and_ungroup_use_structural_patch_transport() -> None:
         ungrouped_state = manager.get_single_config_state(project_config_id)
         assert ungrouped_state.parentSectionMap[SECTION_ID] is None
         assert group_id not in ungrouped_state.sections
+
+
+@pytest.mark.asyncio
+async def test_remaining_section_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_group_capture, create_group_result = await _run_with_transport_capture(
+            manager,
+            manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Group,
+                    controlCodeObjType=None,
+                    implOverrides=None,
+                    position=Position(x=777.0, y=111.0),
+                    topLevelSections=None,
+                    viewportBounds=None,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            create_group_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        group_id = create_group_result.sectionId
+        assert group_id in manager.get_single_config_state(project_config_id).sections
+
+        create_child_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.create_child_sections(
+                CreateChildSectionsRequest(
+                    projectConfigId=project_config_id,
+                    parentId=group_id,
+                    implType=SectionType.TextBlock,
+                    numChildren=1,
+                    startIdx=0,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            create_child_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        group_impl_after_create = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            group_id,
+            BaseParentSectionImpl,
+        )
+        assert 1 == len(group_impl_after_create.children)
+
+        via_incrementer_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.create_child_sections_via_incrementer(
+                CreateChildSectionsViaIncrementerRequest(
+                    projectConfigId=project_config_id,
+                    calledBy=group_id,
+                    numChildren=1,
+                    implType=SectionType.TextBlock,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            via_incrementer_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        group_impl_after_incrementer = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            group_id,
+            BaseParentSectionImpl,
+        )
+        assert 2 == len(group_impl_after_incrementer.children)
+
+        temp_terminal_id = ID("structural-patch-temp-terminal")
+        create_temp_terminal_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.create_temporary_terminal(project_config_id, temp_terminal_id),
+        )
+        _assert_single_structural_patch(
+            create_temp_terminal_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert (
+            temp_terminal_id
+            in manager.get_single_config_state(project_config_id).sections
+        )
+
+        delete_child_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_child_sections_via_decrementer(
+                DeleteChildSectionsViaDecrementerRequest(
+                    projectConfigId=project_config_id,
+                    calledBy=group_id,
+                    numChildren=1,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            delete_child_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        group_impl_after_delete_child = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            group_id,
+            BaseParentSectionImpl,
+        )
+        assert 1 == len(group_impl_after_delete_child.children)
+        remaining_child_id = group_impl_after_delete_child.children[0]
+
+        delete_section_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.delete_sections(
+                DeleteSectionsRequest(
+                    projectConfigId=project_config_id,
+                    sectionIds=[remaining_child_id],
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            delete_section_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert (
+            remaining_child_id
+            not in manager.get_single_config_state(project_config_id).sections
+        )
+
+
+@pytest.mark.asyncio
+async def test_variant_name_and_paste_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_text_capture, create_text_result = await _run_with_transport_capture(
+            manager,
+            manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.TextBlock,
+                    controlCodeObjType=None,
+                    implOverrides=None,
+                    position=Position(x=910.0, y=210.0),
+                    topLevelSections=None,
+                    viewportBounds=None,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            create_text_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        text_section_id = create_text_result.sectionId
+
+        rename_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_section_name(
+                SetSectionNameRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    name="structural-patch-renamed",
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            rename_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert (
+            "structural-patch-renamed"
+            == manager.get_single_config_state(project_config_id)
+            .sections[SECTION_ID]
+            .name
+        )
+
+        heading_toggle_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_text_block_heading_as_section_name(
+                SetTextBlockHeadingAsSectionNameRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=text_section_id,
+                    headingAsSectionName=True,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            heading_toggle_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        text_impl_after_toggle = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            text_section_id,
+            TextBlockSectionImpl,
+        )
+        assert text_impl_after_toggle.headingAsSectionName is True
+
+        create_variant_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.create_new_section_variant(
+                CreateNewSectionVariantRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            create_variant_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        section_core_after_variant_create = manager.get_single_config_state(
+            project_config_id
+        ).sections[SECTION_ID]
+        assert 2 == len(section_core_after_variant_create.variants)
+        variant_to_delete = next(
+            variant_id
+            for variant_id in section_core_after_variant_create.variants
+            if variant_id != section_core_after_variant_create.defaultVariant
+        )
+
+        delete_variant_capture, delete_variant_result = await _run_with_transport_capture(
+            manager,
+            manager.delete_section_variant_or_ask(
+                DeleteSectionVariantOrAskRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    variantId=variant_to_delete,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            delete_variant_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert delete_variant_result is None
+        section_core_after_variant_delete = manager.get_single_config_state(
+            project_config_id
+        ).sections[SECTION_ID]
+        assert 1 == len(section_core_after_variant_delete.variants)
+        assert variant_to_delete not in section_core_after_variant_delete.variants
+
+        copy_payload = await manager.prepare_sections_for_copy(
+            PrepareSectionsForCopyRequest(
+                projectConfigId=project_config_id,
+                sectionIds=[SECTION_ID],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        section_count_before_paste = len(
+            manager.get_single_config_state(project_config_id).sections
+        )
+        paste_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.paste_sections(
+                PasteSectionsRequest(
+                    projectConfigId=project_config_id,
+                    data=copy_payload.data,
+                    position=Position(x=1440.0, y=550.0),
+                    asRef=False,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            paste_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        section_count_after_paste = len(
+            manager.get_single_config_state(project_config_id).sections
+        )
+        assert section_count_after_paste > section_count_before_paste
+
+
+@pytest.mark.asyncio
+async def test_watch_code_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        set_enabled_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_watch_code_enabled(
+                SetWatchCodeEnabledRequest(
+                    projectConfigId=project_config_id,
+                    enabled=True,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            set_enabled_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert (
+            manager.get_single_config_state(project_config_id)
+            .projectConfig.watchCodeEnabled
+            is True
+        )
+
+        cas_enabled_capture, cas_enabled_result = await _run_with_transport_capture(
+            manager,
+            manager.compare_and_set_watch_code_enabled(
+                SetWatchCodeEnabledRequest(
+                    projectConfigId=project_config_id,
+                    enabled=False,
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            cas_enabled_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        enabled_old, enabled_new = cas_enabled_result
+        assert enabled_old is True
+        assert enabled_new is False
+
+        set_inputs_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_watch_code_inputs(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=project_config_id,
+                    watchCodeFolders=[
+                        WatchCodeFolder(
+                            path="backend/setta/project_state",
+                            recursive=False,
+                        )
+                    ],
+                    watchCodeFiles=["backend/setta/project_state/watch_code.py"],
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            set_inputs_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+
+        cas_folders_capture, cas_folders_result = await _run_with_transport_capture(
+            manager,
+            manager.compare_and_set_watch_code_folders(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=project_config_id,
+                    watchCodeFolders=[
+                        WatchCodeFolder(
+                            path="backend/setta/project_state",
+                            recursive=True,
+                        )
+                    ],
+                    watchCodeFiles=["backend/setta/project_state/watch_code.py"],
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            cas_folders_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        folders_old, folders_new = cas_folders_result
+        assert 1 == len(folders_old)
+        assert 1 == len(folders_new)
+        assert "backend/setta/project_state" == folders_old[0]["path"]
+        assert "backend/setta/project_state" == folders_new[0]["path"]
+        assert folders_old[0]["recursive"] is False
+        assert folders_new[0]["recursive"] is True
+
+        cas_files_capture, cas_files_result = await _run_with_transport_capture(
+            manager,
+            manager.compare_and_set_watch_code_files(
+                SetWatchCodeInputsRequest(
+                    projectConfigId=project_config_id,
+                    watchCodeFolders=[
+                        WatchCodeFolder(
+                            path="backend/setta/project_state",
+                            recursive=True,
+                        )
+                    ],
+                    watchCodeFiles=["backend/setta/project_state/base_project_manager.py"],
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            cas_files_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        files_old, files_new = cas_files_result
+        assert ["backend/setta/project_state/watch_code.py"] == files_old
+        assert ["backend/setta/project_state/base_project_manager.py"] == files_new

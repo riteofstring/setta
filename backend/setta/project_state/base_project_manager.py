@@ -3070,7 +3070,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -3092,7 +3092,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not old_value:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
         return old_value, project_state.projectConfig.watchCodeEnabled
 
     @enqueue_method
@@ -3111,7 +3111,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -3150,7 +3150,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
         updated_folders = [
             {
                 "path": folder.path,
@@ -3184,7 +3184,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
         return old_files, list(project_state.projectConfig.watchCodeFiles)
 
     @enqueue_method
@@ -4441,7 +4441,7 @@ class BaseProjectManager(ABC):
             if x.implType == SectionType.MetaControl
             else None
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
         return CreateTopLevelSectionResponse(
             sectionId=sectionId,
             metaControlParamId=meta_control_param_id,
@@ -4467,7 +4467,7 @@ class BaseProjectManager(ABC):
             x.numChildren,
             x.startIdx,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4489,7 +4489,7 @@ class BaseProjectManager(ABC):
             x.implType,
             x.numChildren,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
@@ -4502,7 +4502,7 @@ class BaseProjectManager(ABC):
             Position(),
             core_overrides={"id": terminalId},
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4516,7 +4516,7 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4532,7 +4532,7 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4568,7 +4568,7 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4940,7 +4940,7 @@ class BaseProjectManager(ABC):
         )
         if filepath_to_delete:
             return str(filepath_to_delete)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
@@ -5047,7 +5047,7 @@ class BaseProjectManager(ABC):
             )
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
-            await self.update_and_broadcast_project_state(project_state)
+            await self._update_and_broadcast_structural_patch(project_state)
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Variant and file deleted",
                 project_config_id=x.projectConfigId,
@@ -5381,7 +5381,7 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
-        await self.update_and_broadcast_project_state(
+        await self._update_and_broadcast_structural_patch(
             project_state,
             validate_name_rules=False,
         )
@@ -5458,7 +5458,7 @@ class BaseProjectManager(ABC):
         set_text_block_heading_as_section_name(
             project_state, x.sectionId, x.headingAsSectionName
         )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
@@ -6155,7 +6155,7 @@ class BaseProjectManager(ABC):
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         paste_sections(project_state, x.data, x.position, x.asRef)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
