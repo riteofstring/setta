@@ -72,6 +72,12 @@ test("all settings DOM stays within flattening guardrails", async ({
         max: depths.length === 0 ? 0 : depths[depths.length - 1],
       },
       // These count wrapper patterns previously removed during DOM flattening.
+      legacyFocusOutlineWrapperCount: document.querySelectorAll(
+        "div.focus-visible\\:outline-none",
+      ).length,
+      flattenedFocusOutlineSectionCount: document.querySelectorAll(
+        "section.focus-visible\\:outline-none",
+      ).length,
       groupResizeCount: Array.from(document.querySelectorAll("*")).filter(
         (el) => Array.from(el.classList).includes("group/resize"),
       ).length,
@@ -157,6 +163,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.descendants.max).toBeLessThanOrEqual(MAX_MAX_NODE_DESCENDANTS);
   expect(metrics.depth.max).toBeLessThanOrEqual(MAX_MAX_NODE_DEPTH);
 
+  expect(metrics.legacyFocusOutlineWrapperCount).toBe(0);
+  expect(metrics.flattenedFocusOutlineSectionCount).toBeGreaterThan(0);
   expect(metrics.groupResizeCount).toBe(0);
   expect(metrics.spanValueBorderCount).toBe(0);
   expect(metrics.legacyComboboxContainerDivCount).toBe(0);

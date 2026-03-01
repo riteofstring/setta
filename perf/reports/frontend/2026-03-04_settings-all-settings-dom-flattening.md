@@ -352,6 +352,43 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `9` (`2.34%`)
   - Main-thread work: `Layout 31.17 ms`, `UpdateLayoutTree 8.18 ms`, `Paint 51.53 ms`, `PrePaint 6.58 ms`
 
+### Phase 10 (non-group container-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Container/ContainerSwitch.tsx`
+  - `frontend/src/components/Section/Container/TopLevelContainer.tsx`
+  - `frontend/src/components/Section/Container/ContainerWrappers.tsx`
+  - `frontend/src/components/Section/Container/ContainerCore.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+- Change:
+  - Flattened the non-group `ContainerCore` wrapper (`div.focus-visible:outline-none`) when the section has no nested sections.
+  - Moved ref/listener/style/tabIndex responsibilities onto `SectionContainerCore` in the flattened path.
+  - Kept the wrapper path for grouped/nested layouts to preserve behavior.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `5307` (down from `5349`, `-42`, `-0.8%` vs phase 9)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `6403` (down from `6445`, `-42`)
+  - Per-node descendants: `avg 125.19`, `p95 158`, `max 990`
+  - Per-node max depth: `avg 8.71`, `p95 9`, `max 11`
+  - Legacy focus-outline wrappers (`div.focus-visible:outline-none`): `0` (down from `42`)
+  - Flattened section hosts (`section.focus-visible:outline-none`): `42`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10b.trace.json`
+- Notes on trace reliability:
+  - Initial phase 10 run (`phase10`) had high dropped-frame noise.
+  - Use `phase10b` as the normalized rerun.
+- Trace signals from normalized rerun (`phase10b`):
+  - Duration: `16,100.56 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `219` (`13.60/s`)
+  - `DrawFrame`: `101` (`6.27/s`)
+  - `DroppedFrame`: `9` (`4.11%`)
+  - Main-thread work: `Layout 30.35 ms`, `UpdateLayoutTree 8.16 ms`, `Paint 47.33 ms`, `PrePaint 7.35 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -361,15 +398,15 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 5349` (`-3270`, `-37.9%`)
-  - Per-node descendants avg: `204.05 -> 126.19` (`-38.2%`)
-  - Per-node descendants max: `1854 -> 991` (`-46.5%`)
-  - Per-node depth avg/max: `12.74/17 -> 9.71/12`
+  - Viewport descendants: `8619 -> 5307` (`-3312`, `-38.4%`)
+  - Per-node descendants avg: `204.05 -> 125.19` (`-38.6%`)
+  - Per-node descendants max: `1854 -> 990` (`-46.6%`)
+  - Per-node depth avg/max: `12.74/17 -> 8.71/11`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
@@ -400,3 +437,7 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10b.trace.json`

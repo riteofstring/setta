@@ -23,19 +23,45 @@ function _Container({
   className,
   style,
   trueDragListeners,
+  flattenNonGroupWrapper,
   isEditingViewMode,
   isUserView,
   children,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
 
-  function totalRef(e) {
-    refForPosition.current = e;
-    droppableRef && droppableRef(e);
-    draggableRef && draggableRef(e);
-  }
+  const totalRef = React.useCallback(
+    (element) => {
+      refForPosition.current = element;
+      if (droppableRef) {
+        droppableRef(element);
+      }
+      if (draggableRef) {
+        draggableRef(element);
+      }
+    },
+    [draggableRef, droppableRef, refForPosition],
+  );
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
+  const mergedClassName = [className, "focus-visible:outline-none"]
+    .filter(Boolean)
+    .join(" ");
+
+  if (
+    !isGroup &&
+    flattenNonGroupWrapper &&
+    React.isValidElement(children) &&
+    !Array.isArray(children)
+  ) {
+    return React.cloneElement(children, {
+      containerClassName: mergedClassName,
+      containerStyle: style,
+      containerRef: totalRef,
+      containerDragListeners: trueDragListeners,
+      containerTabIndex: -1,
+    });
+  }
 
   return isGroup ? (
     <ContainerGroup
@@ -51,7 +77,7 @@ function _Container({
     </ContainerGroup>
   ) : (
     <div
-      className={`${className} focus-visible:outline-none`}
+      className={mergedClassName}
       style={style}
       {...commonProps}
       tabIndex={-1} // keeps section focusable for programmatic focus
