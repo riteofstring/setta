@@ -65,6 +65,10 @@ async function createCallableSectionAndFocus(page: Page): Promise<void> {
     throw new Error("Failed to create callable section for overflow test.");
   }
 
+  const sectionNode = page
+    .locator(`.react-flow__node[data-id="${sectionId}"]`)
+    .first();
+  await expect(sectionNode).toBeVisible({ timeout: 10000 });
   await page.evaluate(async (targetSectionId: string) => {
     const { applyActiveSectionChange } = await import(
       "/src/state/actions/activeSectionController"
@@ -74,6 +78,9 @@ async function createCallableSectionAndFocus(page: Page): Promise<void> {
       sectionId: targetSectionId,
     });
   }, sectionId);
+  await expect(
+    page.getByRole("heading", { name: "Select A Section to Edit" }),
+  ).toHaveCount(0, { timeout: 10000 });
 }
 
 async function assertPaneContentHasHorizontalInset(
@@ -144,7 +151,9 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
     "overview-tab-notifications",
   ];
   for (const tabTestId of overviewTabs) {
-    await page.getByTestId(tabTestId).click();
+    const tab = page.getByTestId(tabTestId).first();
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.click();
     await assertPaneHasNoRightBleed(
       page,
       "#OverviewPane aside",
@@ -165,7 +174,9 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
     "ui-editor-tab-section-config",
   ];
   for (const tabTestId of uiEditorTabs) {
-    await page.getByTestId(tabTestId).click();
+    const tab = page.getByTestId(tabTestId).first();
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.click();
     await assertPaneHasNoRightBleed(
       page,
       "#UiEditorPane aside",
