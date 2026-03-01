@@ -228,7 +228,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                       onClick={() => removeFolder(index)}
                       type="button"
                     >
-                      <i className="gg-trash scale-[0.75]" />
+                      <i className="gg-trash" />
                     </button>
                   </div>
                 </div>
@@ -287,7 +287,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                     onClick={() => removeFile(index)}
                     type="button"
                   >
-                    <i className="gg-trash scale-[0.75]" />
+                    <i className="gg-trash" />
                   </button>
                 </div>
               </div>
