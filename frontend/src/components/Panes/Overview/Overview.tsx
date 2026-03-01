@@ -43,6 +43,7 @@ import { useTabScope } from "utils/focusManager";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
+  openOverviewTab,
   TabButton,
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
@@ -250,7 +251,7 @@ export function Overview() {
             <MenuItem
               className={moreMenuItemClasses}
               onClick={() =>
-                onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
+                openOverviewTab(OverviewTabNameEnum.RunInstructions)
               }
             >
               <i className="w-3 opacity-80">
@@ -261,7 +262,7 @@ export function Overview() {
             {showAppTab ? (
               <MenuItem
                 className={moreMenuItemClasses}
-                onClick={() => onOverviewTabClick(OverviewTabNameEnum.App)}
+                onClick={() => openOverviewTab(OverviewTabNameEnum.App)}
               >
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
@@ -271,7 +272,7 @@ export function Overview() {
             ) : null}
             <MenuItem
               className={moreMenuItemClasses}
-              onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
+              onClick={() => openOverviewTab(OverviewTabNameEnum.Plugins)}
             >
               <i className="w-3 opacity-80">
                 <MdExtension />

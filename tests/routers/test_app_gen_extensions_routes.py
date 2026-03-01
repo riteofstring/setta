@@ -761,6 +761,39 @@ class TestAppGenExtensionsRoutes:
                 )
             assert root_skill_doc.read_text(encoding="utf-8") == "# root\n\nInitial.\n"
 
+    def test_rejects_skill_id_alias_for_existing_editable_skill(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            with pytest.raises(
+                ValueError,
+                match=(
+                    "skillId must use canonical path: "
+                    "workspace_agents_skills::editable"
+                ),
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::foo/../editable",
+                    relative_path=None,
+                    content="# editable\n\nUpdated.\n",
+                )
+            assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nInitial.\n"
+
     def test_rejects_skill_id_with_non_canonical_relative_path(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1264,6 +1297,47 @@ class TestAppGenExtensionsRoutes:
             "detail"
         ]
         assert root_skill_doc.read_text(encoding="utf-8") == "# root\n\nInitial.\n"
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_rejects_skill_id_alias_for_existing_skill(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        skill_dir = workspace_root / ".agents" / "skills" / "editable"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_doc = skill_dir / "SKILL.md"
+        skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::foo/../editable",
+                    "relativePath": None,
+                    "content": "# editable\n\nUpdated.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "skillId must use canonical path: workspace_agents_skills::editable"
+        )
+        assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nInitial.\n"
         clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_reports_when_no_writable_root_is_available(

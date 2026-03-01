@@ -206,6 +206,17 @@ def _validate_custom_skill_id_editability(
     )
 
 
+def _validate_canonical_custom_skill_id_for_write(
+    *,
+    skill_id: str,
+    root_id: str,
+    relative_path: str,
+) -> None:
+    skill_root_id, skill_relative_path = _split_skill_id(skill_id)
+    if skill_root_id != root_id or skill_relative_path.strip() != relative_path:
+        raise ValueError(f"skillId must use canonical path: {root_id}::{relative_path}")
+
+
 def _resolve_skill_editability(
     *,
     root_id: str,
@@ -343,6 +354,11 @@ def upsert_app_gen_custom_skill(
         target_relative_path = _validate_custom_skill_id_editability(
             root_id=existing_root_id,
             relative_path=existing_relative_path,
+        )
+        _validate_canonical_custom_skill_id_for_write(
+            skill_id=selected_skill_id,
+            root_id=existing_root_id,
+            relative_path=target_relative_path,
         )
         skill_doc = existing_skill_doc
         try:

@@ -80,3 +80,49 @@ test("run menu custom-runs shortcut keeps overview open when already on custom r
   await expect(page.getByTestId("overview-tab-content-shell")).toBeVisible();
   await expect(page.getByTestId("run-instructions-scroll-region")).toBeVisible();
 });
+
+test("overview more-menu custom-runs shortcut keeps overview open when already on custom runs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewVis: true,
+    overviewTab: "RunInstructions",
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByRole("heading", { name: "Custom Runs" })).toBeVisible();
+
+  await page.getByTestId("overview-tab-more").click();
+  const customRunsMenuItem = page
+    .getByRole("menuitem")
+    .filter({ hasText: "Custom Runs" });
+  await expect(customRunsMenuItem).toBeVisible();
+  await customRunsMenuItem.click();
+
+  await expect(page.getByRole("heading", { name: "Custom Runs" })).toBeVisible();
+  await expect(page.getByTestId("overview-tab-content-shell")).toBeVisible();
+  await expect(page.getByTestId("run-instructions-scroll-region")).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem("setta_data");
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw) as {
+            state?: {
+              overviewVis?: boolean;
+              overviewTab?: string;
+            };
+          };
+          const state = parsed.state ?? {};
+          return {
+            overviewVis: state.overviewVis ?? null,
+            overviewTab:
+              typeof state.overviewTab === "string" ? state.overviewTab : null,
+          };
+        }),
+    )
+    .toEqual({ overviewVis: true, overviewTab: "RunInstructions" });
+});

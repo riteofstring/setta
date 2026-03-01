@@ -788,8 +788,8 @@ export function ProjectChatHistory({
     [],
   );
 
-  const placeholderText = useMemo(() => {
-    return getPlaceholderText(
+  const placeholderState = useMemo(() => {
+    return getProjectChatPlaceholderState(
       agentRunsInitialLoadComplete,
       agentRunsLoadError,
       sortedEntries.length,
@@ -1186,9 +1186,12 @@ export function ProjectChatHistory({
     searchableGroupSections.length > 0 || ungroupedEntries.length > 0;
   const emptyStateText = hasMasterSearch
     ? "No conversations match this filter."
-    : placeholderText;
-  const showNoThreadsPlaceholder =
-    !hasAnyContent && emptyStateText === "No threads yet";
+    : placeholderState.text;
+  const showNoThreadsPlaceholder = shouldShowProjectChatNoThreadsPlaceholder({
+    hasAnyContent,
+    hasMasterSearch,
+    placeholderKind: placeholderState.kind,
+  });
   const newGroupTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
@@ -3250,21 +3253,50 @@ function ThreadDropZone({
   );
 }
 
-function getPlaceholderText(
+type ProjectChatPlaceholderKind =
+  | "load_error"
+  | "loading"
+  | "no_threads"
+  | "none";
+
+type ProjectChatPlaceholderState = {
+  kind: ProjectChatPlaceholderKind;
+  text: string;
+};
+
+export function getProjectChatPlaceholderState(
   initialLoadComplete: boolean,
   loadError: string | null,
   entryCount: number,
-): string {
+): ProjectChatPlaceholderState {
   if (loadError) {
-    return loadError;
+    return { kind: "load_error", text: loadError };
   }
   if (!initialLoadComplete) {
-    return "Loading threads...";
+    return { kind: "loading", text: "Loading threads..." };
   }
   if (entryCount === 0) {
-    return "No threads yet";
+    return { kind: "no_threads", text: "No threads yet" };
   }
-  return "";
+  return { kind: "none", text: "" };
+}
+
+export function shouldShowProjectChatNoThreadsPlaceholder({
+  hasAnyContent,
+  hasMasterSearch,
+  placeholderKind,
+}: {
+  hasAnyContent: boolean;
+  hasMasterSearch: boolean;
+  placeholderKind: ProjectChatPlaceholderKind;
+}): boolean {
+  if (hasAnyContent) {
+    return false;
+  }
+  if (hasMasterSearch) {
+    return false;
+  }
+  return placeholderKind === "no_threads";
 }
 
 function normalizeThreadGroupNameForEditing(name: string): string | null {

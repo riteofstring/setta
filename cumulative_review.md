@@ -63,3 +63,11 @@
 - Added backend unit and route regressions to assert non-editable targets fail before any `SKILL.md` write.
 - Added Playwright e2e coverage for run-menu Custom Runs shortcut idempotent-open behavior.
 - Ran `pnpm -C frontend gcf`.
+
+## 2026-03-04 23:21:48 PST
+
+- Ran `pnpm -C frontend gcf`.
+- Hardened custom skill upsert updates so `skillId` writes require the canonical resolved path (`root::normalizedRelativePath`), preventing alias updates like `foo/../editable`.
+- Updated Overview More-menu actions (`Custom Runs`, `App Gen`, `Plugins`) to use open-only tab navigation so selecting the active tab does not close the Overview pane.
+- Replaced Project Chat empty-state CTA gating by copy-string comparison with explicit placeholder state (`kind` + `text`) and a deterministic `shouldShowProjectChatNoThreadsPlaceholder` predicate.
+- Added backend unit and route regression tests for canonical `skillId` enforcement, Vitest coverage for placeholder-state behavior, and Playwright e2e coverage for More-menu Custom Runs idempotent-open behavior.
