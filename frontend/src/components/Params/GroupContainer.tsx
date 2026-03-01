@@ -78,6 +78,26 @@ function _ParamGroupContainer({
   const pendingFixedHeightRef = useRef<number | null>(null);
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   const waitingForResultRef = useRef(waitingForResult);
+  const { hasPinnedParams, hasEdges } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const pinned = getCurrShownParamIds(state, sectionId, true, true);
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    return {
+      hasPinnedParams: filteredPinned.topLevelParamIds.length > 0,
+      hasEdges:
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0,
+    };
+  }, _.isEqual);
+  const flattenUnpinnedOnlyWrapper =
+    !waitingForResult && !hasPinnedParams && !hasEdges;
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -201,32 +221,42 @@ function _ParamGroupContainer({
     });
   }, [paramsFixedHeightKey, waitingForResult]);
 
+  const unpinnedHostClassName =
+    "section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2";
+
   return (
     <ParamDndContext>
-      <div
-        className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
-        ref={setOuterRef}
-      >
-        {waitingForResult && (
-          <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">
-            <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
-          </div>
-        )}
-        <>
-          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-          <GetPinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-            sectionTypeName={sectionTypeName}
-          />
-          <GetUnpinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-          />
-        </>
-      </div>
+      {flattenUnpinnedOnlyWrapper ? (
+        <GetUnpinnedParams
+          sectionId={sectionId}
+          handleColumnResizeStart={handleColumnResizeStart}
+          setMaxNestedDepth={setMaxNestedDepth}
+          containerClassName={unpinnedHostClassName}
+          containerRef={setOuterRef}
+        />
+      ) : (
+        <div className={unpinnedHostClassName} ref={setOuterRef}>
+          {waitingForResult && (
+            <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">
+              <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
+            </div>
+          )}
+          <>
+            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+            <GetPinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              sectionTypeName={sectionTypeName}
+            />
+            <GetUnpinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+            />
+          </>
+        </div>
+      )}
     </ParamDndContext>
   );
 }
@@ -679,6 +709,8 @@ type GetUnpinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
+  containerClassName?: string;
+  containerRef?: (node: HTMLDivElement | null) => void;
 };
 
 function GetPinnedParams({
@@ -805,38 +837,34 @@ function PinnedParamsArea({
 
   return (
     <section
-      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b pb-3 pt-2 shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
+      ref={contentRef}
     >
-      <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
-        ref={contentRef}
-      >
-        <header className="flex w-full gap-1 px-2" ref={headerRef}>
-          <i
-            className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
-          />
-          <p
-            className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
-          >
-            Pinned Params
-          </p>
-        </header>
-
-        <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-          ref={rowsRef}
+      <header className="flex w-full gap-1 px-2" ref={headerRef}>
+        <i
+          className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
+        />
+        <p
+          className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
         >
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="pinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+          Pinned Params
+        </p>
+      </header>
+
+      <div
+        className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
+        ref={rowsRef}
+      >
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey="pinned"
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </div>
     </section>
   );
@@ -846,6 +874,8 @@ function GetUnpinnedParams({
   sectionId,
   handleColumnResizeStart,
   setMaxNestedDepth,
+  containerClassName,
+  containerRef: containerHostRef,
 }: GetUnpinnedParamsProps) {
   const {
     hideUnpinnedParams,
@@ -924,8 +954,11 @@ function GetUnpinnedParams({
     (node: HTMLDivElement | null) => {
       containerRef.current = node;
       scrollRef.current = node;
+      if (containerHostRef) {
+        containerHostRef(node);
+      }
     },
-    [scrollRef],
+    [containerHostRef, scrollRef],
   );
 
   useEffect(() => {
@@ -941,28 +974,26 @@ function GetUnpinnedParams({
   });
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
-          isScrollable ? "nowheel" : ""
-        }`}
-        ref={setContainerRef}
-        style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
-        }
-      >
-        {!hideUnpinnedParams && (
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="unpinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-      </div>
+    <div
+      className={`${containerClassName ?? ""} section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+        isScrollable ? "nowheel" : ""
+      }`.trim()}
+      ref={setContainerRef}
+      style={
+        shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+      }
+    >
+      {!hideUnpinnedParams && (
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey="unpinned"
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
     </div>
   );
 }

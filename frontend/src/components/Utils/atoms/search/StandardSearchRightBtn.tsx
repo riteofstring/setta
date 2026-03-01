@@ -6,10 +6,11 @@ export const StandardSearchRightBtn = React.forwardRef<
     rounded?: string;
     bg?: string;
     size?: string;
-    icon: React.ReactNode;
+    icon?: React.ReactNode;
+    iconHostClassName?: string;
   } & React.ButtonHTMLAttributes<HTMLButtonElement>
 >(function StandardSearchRightBtn(
-  { rounded, bg, size, icon, className, ...props },
+  { rounded, bg, size, icon, iconHostClassName, className, ...props },
   ref,
 ) {
   const classes = [
@@ -20,6 +21,7 @@ export const StandardSearchRightBtn = React.forwardRef<
     "p-0",
     size || "h-10 w-10",
     "hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100",
+    iconHostClassName,
     className,
   ]
     .filter(Boolean)

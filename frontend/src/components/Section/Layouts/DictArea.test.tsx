@@ -167,5 +167,12 @@ describe("DictArea layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
+    expect(markup).not.toContain('aria-label="Remove arg"><i');
+    expect(markup).not.toContain('aria-label="Add arg"><i');
+    expect(markup).not.toContain('aria-label="Pin selected args"><i');
+    expect(markup).not.toContain('aria-label="Convert to edge connectors"><i');
+    expect(markup).not.toContain('aria-label="Delete selected args"><i');
+    expect(markup).toContain('data-param-filter-icon-host="true"');
+    expect(markup).not.toContain('<i class="gg-sort-az');
   });
 });
