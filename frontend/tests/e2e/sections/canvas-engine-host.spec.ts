@@ -53,6 +53,8 @@ type CanvasEngineCameraSnapshot = {
 
 const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
+const MULTI_SELECTION_MODIFIER_KEY =
+  process.platform === "darwin" ? "Meta" : "Control";
 
 test("canvas engine host path mounts and tracks top-level section geometry", async ({
   page,
@@ -230,6 +232,104 @@ test("canvas engine host supports section click selection and pane click clear",
 
     await clearSelectionByPaneClick(page, host);
     await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host preserves modifier-click multi-section selection", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const firstPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.38,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const secondPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.74,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const firstSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: firstPosition,
+    });
+    const secondSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: secondPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    const firstLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    await clickWorldPoint(page, host, {
+      x: firstLayout.x + 40,
+      y: firstLayout.y + 40,
+    });
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await clickWorldPoint(page, host, {
+        x: secondLayout.x + 40,
+        y: secondLayout.y + 40,
+      });
+      await expect
+        .poll(async () => await readActiveSectionIds(host))
+        .toEqual([firstSectionId, secondSectionId]);
+
+      await clickWorldPoint(page, host, {
+        x: firstLayout.x + 40,
+        y: firstLayout.y + 40,
+      });
+      await expect
+        .poll(async () => await readActiveSectionIds(host))
+        .toEqual([secondSectionId]);
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
