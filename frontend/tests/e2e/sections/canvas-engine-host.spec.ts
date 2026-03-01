@@ -1118,10 +1118,27 @@ test("canvas engine host creates agentic edges via handle drag", async ({
       side: "target",
     });
 
-    await dragWorldPoint(page, host, {
-      start: sourceHandle,
-      end: targetHandle,
+    const sourceHandleScreen = await worldPointToScreen(host, sourceHandle);
+    const targetHandleScreen = await worldPointToScreen(host, targetHandle);
+    await page.mouse.move(sourceHandleScreen.x, sourceHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(targetHandleScreen.x, targetHandleScreen.y, {
+      steps: 10,
     });
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "agentic-connect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
 
     await expect
       .poll(async () => await readAgenticEdgeCount(host))

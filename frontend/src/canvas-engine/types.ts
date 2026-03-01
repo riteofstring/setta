@@ -59,7 +59,7 @@ export type CanvasEngineAgenticEdge = {
 };
 
 export type CanvasEngineConnectionPreview = {
-  kind: "data-connect" | "data-reconnect";
+  kind: "agentic-connect" | "data-connect" | "data-reconnect";
   startX: number;
   startY: number;
   endX: number;

@@ -112,6 +112,20 @@ const CONNECTION_PREVIEW_TARGET_COLOR: [number, number, number] = [
 const CONNECTION_PREVIEW_TARGET_INVALID_COLOR: [number, number, number] = [
   0.68, 0.73, 0.79,
 ];
+const AGENTIC_CONNECTION_PREVIEW_COLOR: [number, number, number] = [
+  1.0, 0.84, 0.58,
+];
+const AGENTIC_CONNECTION_PREVIEW_INVALID_COLOR: [number, number, number] = [
+  0.76, 0.67, 0.54,
+];
+const AGENTIC_CONNECTION_PREVIEW_TARGET_COLOR: [number, number, number] = [
+  1.0, 0.9, 0.72,
+];
+const AGENTIC_CONNECTION_PREVIEW_TARGET_INVALID_COLOR: [
+  number,
+  number,
+  number,
+] = [0.83, 0.75, 0.64];
 const EDGE_THICKNESS_PX = 2.4;
 const SELECTED_EDGE_THICKNESS_PX = 3.8;
 const OUTLINE_THICKNESS_PX = 2.0;
@@ -809,6 +823,21 @@ function appendConnectionPreviewPrimitives(
     scene.camera.y,
     zoom,
   );
+  const isAgenticPreview = preview.kind === "agentic-connect";
+  const lineColor = isAgenticPreview
+    ? preview.targetValid
+      ? AGENTIC_CONNECTION_PREVIEW_COLOR
+      : AGENTIC_CONNECTION_PREVIEW_INVALID_COLOR
+    : preview.targetValid
+      ? CONNECTION_PREVIEW_COLOR
+      : CONNECTION_PREVIEW_INVALID_COLOR;
+  const targetColor = isAgenticPreview
+    ? preview.targetValid
+      ? AGENTIC_CONNECTION_PREVIEW_TARGET_COLOR
+      : AGENTIC_CONNECTION_PREVIEW_TARGET_INVALID_COLOR
+    : preview.targetValid
+      ? CONNECTION_PREVIEW_TARGET_COLOR
+      : CONNECTION_PREVIEW_TARGET_INVALID_COLOR;
 
   appendLineSegmentQuad(
     destination,
@@ -818,9 +847,7 @@ function appendConnectionPreviewPrimitives(
     end.x,
     end.y,
     CONNECTION_PREVIEW_THICKNESS_PX,
-    preview.targetValid
-      ? CONNECTION_PREVIEW_COLOR
-      : CONNECTION_PREVIEW_INVALID_COLOR,
+    lineColor,
   );
 
   if (
@@ -841,9 +868,7 @@ function appendConnectionPreviewPrimitives(
       targetHandle.y - CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
       targetHandle.x + CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
       targetHandle.y + CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
-      preview.targetValid
-        ? CONNECTION_PREVIEW_TARGET_COLOR
-        : CONNECTION_PREVIEW_TARGET_INVALID_COLOR,
+      targetColor,
     );
   }
 }

@@ -115,6 +115,8 @@ type PointerSession =
       pointerId: number;
       kind: "agentic-connect";
       sourceSectionId: string;
+      sourceHandleWorldX: number;
+      sourceHandleWorldY: number;
     }
   | {
       pointerId: number;
@@ -388,7 +390,19 @@ export function CanvasEngineHost() {
           pointerId: event.pointerId,
           kind: "agentic-connect",
           sourceSectionId: agenticHandleHit.sectionId,
+          sourceHandleWorldX: agenticHandleHit.handleWorldX,
+          sourceHandleWorldY: agenticHandleHit.handleWorldY,
         };
+        updateConnectionPreview({
+          kind: "agentic-connect",
+          startX: agenticHandleHit.handleWorldX,
+          startY: agenticHandleHit.handleWorldY,
+          endX: worldPoint.x,
+          endY: worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
@@ -658,6 +672,50 @@ export function CanvasEngineHost() {
         setTopLevelSectionLayoutRect(pointerSession.sectionId, {
           x: nextX,
           y: nextY,
+        });
+        return;
+      }
+      if (pointerSession.kind === "agentic-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+        );
+
+        let endX = worldPoint.x;
+        let endY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+
+        if (targetHandleHit) {
+          targetHandleX = targetHandleHit.handleWorldX;
+          targetHandleY = targetHandleHit.handleWorldY;
+          const connection = createAgenticConnection({
+            sourceSectionId: pointerSession.sourceSectionId,
+            targetSectionId: targetHandleHit.sectionId,
+            targetHandleType: targetHandleHit.handleType,
+          });
+          if (isValidAgenticEdgeConnection(connection)) {
+            targetValid = true;
+            endX = targetHandleHit.handleWorldX;
+            endY = targetHandleHit.handleWorldY;
+          }
+        }
+
+        updateConnectionPreview({
+          kind: "agentic-connect",
+          startX: pointerSession.sourceHandleWorldX,
+          startY: pointerSession.sourceHandleWorldY,
+          endX,
+          endY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
         });
         return;
       }
