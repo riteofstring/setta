@@ -112,8 +112,8 @@ Expected impact:
 ### Phase 4: Cheap Serialization/Conversion Wins
 Goal: remove avoidable CPU overhead in hot paths.
 
-1. Pre-serialize websocket message payload once per broadcast target set (instead of per socket).
-2. Add revision-keyed cache for single-config slicing in read-heavy call sites, with explicit invalidation by history revision.
+1. Completed: Pre-serialize websocket message payload once per broadcast target set (instead of per socket).
+2. Completed: Add revision-keyed cache for single-config slicing in read-heavy call sites, with explicit invalidation by history revision.
 
 Expected impact:
 - Moderate CPU reduction, especially with larger projects and multiple frontend sockets.

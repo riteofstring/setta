@@ -633,6 +633,10 @@ class BaseProjectManager(ABC):
         self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
+        self._single_config_state_cache_by_project_config: dict[
+            ID, ProjectStateSingleConfig
+        ] = {}
+        self._single_config_state_cache_revision = self.history.revision
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -4218,6 +4222,7 @@ class BaseProjectManager(ABC):
                 project_config_id, None
             )
         self.project_state_backend.validate_default_project_id()
+        self._invalidate_single_config_state_cache()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
 
@@ -5157,10 +5162,28 @@ class BaseProjectManager(ABC):
             raise KeyError("Missing default project config.")
         return self.get_single_config_state(default_id)
 
+    def _invalidate_single_config_state_cache(self) -> None:
+        self._single_config_state_cache_by_project_config.clear()
+        self._single_config_state_cache_revision = self.history.revision
+
+    def _refresh_single_config_state_cache_for_revision(self) -> None:
+        history_revision = self.history.revision
+        if history_revision == self._single_config_state_cache_revision:
+            return
+        self._single_config_state_cache_by_project_config.clear()
+        self._single_config_state_cache_revision = history_revision
+
     def get_single_config_state(self, projectConfigId: ID):
-        return convert_backend_to_single_config(
-            self.project_state_backend, projectConfigId
-        )
+        self._refresh_single_config_state_cache_for_revision()
+        backend = self.project_state_backend
+        if projectConfigId not in backend.projectConfigs:
+            self._single_config_state_cache_by_project_config.pop(projectConfigId, None)
+            return convert_backend_to_single_config(backend, projectConfigId)
+        if projectConfigId not in self._single_config_state_cache_by_project_config:
+            self._single_config_state_cache_by_project_config[projectConfigId] = (
+                convert_backend_to_single_config(backend, projectConfigId)
+            )
+        return self._single_config_state_cache_by_project_config[projectConfigId]
 
     def _find_section_ids_for_code_obj(
         self,
@@ -5291,6 +5314,7 @@ class BaseProjectManager(ABC):
     @project_state_backend.setter
     def project_state_backend(self, x: ProjectStateBackend):
         self.history.set_current(x)
+        self._invalidate_single_config_state_cache()
 
     def project_state_backend_getter_fn(self):
         return self.project_state_backend
@@ -5304,17 +5328,20 @@ class BaseProjectManager(ABC):
         self.history.add_current_copy(
             coalesce_key=coalesce_key, coalesce_window_s=coalesce_window_s
         )
+        self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
         self.history.undo(x.steps)
+        self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state()
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
         self.history.redo(x.steps)
+        self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state()
 
     async def update_and_broadcast_all_project_state(self):
@@ -5328,9 +5355,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         """Return the most recent project state snapshot for the requested config."""
-        projectState = convert_backend_to_single_config(
-            self.project_state_backend, x.projectConfigId
-        )
+        projectState = self.get_single_config_state(x.projectConfigId)
         return projectState
 
     @enqueue_method
