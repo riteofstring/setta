@@ -20,6 +20,7 @@ import {
 } from "state/actions/websocketConnectionList";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useAppDefinition,
   useServerMode,
   useShareSession,
 } from "state/definitions";
@@ -29,6 +30,7 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
+  route_get_app_definition,
   route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
@@ -43,6 +45,7 @@ import {
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
   ProjectStateActiveViewModePatch,
+  ProjectStateAppDefinitionPatch,
   ProjectStateCodeObjsPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
@@ -93,6 +96,7 @@ import {
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   applyActiveViewModeProjectStatePatch,
+  applyAppDefinitionProjectStatePatch,
   applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
   applySectionImplProjectStatePatch,
@@ -560,6 +564,9 @@ function receiveMessage(message: string, socketGeneration: number) {
     case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural:
       void handleStructuralProjectStatePatch(m.content);
       return;
+    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition:
+      void handleAppDefinitionProjectStatePatch(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
@@ -704,6 +711,24 @@ async function handleStructuralProjectStatePatch(
   await resyncProjectStateFromBackend(patch.projectConfigId);
 }
 
+async function handleAppDefinitionProjectStatePatch(
+  patch: ProjectStateAppDefinitionPatch,
+): Promise<void> {
+  const currentRevision = getProjectStateRevision(patch.projectConfigId);
+  if (
+    currentRevision !== null &&
+    currentRevision !== patch.previousProjectStateRevision
+  ) {
+    await resyncProjectStateAndAppDefinitionFromBackend(patch.projectConfigId);
+    return;
+  }
+  const applied = applyAppDefinitionProjectStatePatch(patch);
+  if (applied) {
+    return;
+  }
+  await resyncProjectStateAndAppDefinitionFromBackend(patch.projectConfigId);
+}
+
 async function resyncProjectStateFromBackend(
   projectConfigId: string,
 ): Promise<void> {
@@ -716,6 +741,28 @@ async function resyncProjectStateFromBackend(
     return;
   }
   processProjectStateUpdateFromBackend(res.data);
+}
+
+async function resyncProjectStateAndAppDefinitionFromBackend(
+  projectConfigId: string,
+): Promise<void> {
+  const [projectStateResponse, appDefinitionResponse] = await Promise.all([
+    route_get_latest_project_state({ projectConfigId }),
+    route_get_app_definition({}),
+  ]);
+  if (res200(projectStateResponse)) {
+    if (useServerMode.getState().mode === "app") {
+      processAppProjectStateUpdateFromBackend(projectStateResponse.data);
+    } else {
+      processProjectStateUpdateFromBackend(projectStateResponse.data);
+    }
+  }
+  if (res200(appDefinitionResponse)) {
+    useAppDefinition.setState({
+      appDefinition: appDefinitionResponse.data.appDefinition ?? null,
+      appSpec: appDefinitionResponse.data.appSpec ?? null,
+    });
+  }
 }
 
 function enqueueUISettingRevealMessage(

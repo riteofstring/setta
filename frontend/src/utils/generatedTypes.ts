@@ -954,6 +954,8 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
   PatchFrontendProjectStateCodeObjs: "PatchFrontendProjectStateCodeObjs",
   PatchFrontendProjectStateStructural: "PatchFrontendProjectStateStructural",
+  PatchFrontendProjectStateAppDefinition:
+    "PatchFrontendProjectStateAppDefinition",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5249,6 +5251,119 @@ const WebsocketMsgPatchFrontendProjectStateStructuralSchema = z.object({
     ),
 });
 
+const AppRouteSchema = z.object({
+  path: z.string(),
+  name: z.union([z.string(), z.null()]).default(null),
+  rootKey: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AppRoute = z.infer<typeof AppRouteSchema>;
+
+const AppDefinitionSchema = z.object({
+  appSpecVersion: z.string().default("v1" as const),
+  catalogId: z.string().default("setta.app.default" as const),
+  appSpecPath: z.union([z.string(), z.null()]).default(null),
+  routes: z.array(AppRouteSchema).default(() => []),
+  dataBindings: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+  actions: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+  theme: z
+    .union([
+      z.record(
+        z.string(),
+        z.union([
+          z.record(z.string(), z.any()),
+          z.array(z.any()),
+          z.string(),
+          z.int(),
+          z.number(),
+          z.boolean(),
+          z.null(),
+        ]),
+      ),
+      z.null(),
+    ])
+    .default(null),
+  assets: z
+    .array(
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default(() => []),
+});
+
+export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
+
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return AppDefinitionSchema.parse(options);
+}
+
+const ProjectStateAppDefinitionPatchSchema = z.object({
+  projectConfigId: IDSchema,
+  appDefinition: z.union([AppDefinitionSchema, z.null()]),
+  appSpec: z.union([
+    z.record(z.string(), z.any()),
+    z.array(z.any()),
+    z.string(),
+    z.int(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+  ]),
+  previousProjectStateRevision: z.int(),
+  projectStateRevision: z.int(),
+  completedOpIds: z.array(z.string()),
+  pendingOpIds: z.array(z.string()),
+});
+
+export type ProjectStateAppDefinitionPatch = z.infer<
+  typeof ProjectStateAppDefinitionPatchSchema
+>;
+
+const WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateAppDefinitionPatchSchema,
+  messageType: z
+    .literal("PatchFrontendProjectStateAppDefinition")
+    .default(
+      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition,
+    ),
+});
+
 const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -7311,6 +7426,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
   WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
   WebsocketMsgPatchFrontendProjectStateStructuralSchema,
+  WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
@@ -7617,87 +7733,6 @@ const AgenticSummaryCacheStatusSchema = z.object({
 export type AgenticSummaryCacheStatus = z.infer<
   typeof AgenticSummaryCacheStatusSchema
 >;
-
-const AppRouteSchema = z.object({
-  path: z.string(),
-  name: z.union([z.string(), z.null()]).default(null),
-  rootKey: z.union([z.string(), z.null()]).default(null),
-});
-
-export type AppRoute = z.infer<typeof AppRouteSchema>;
-
-const AppDefinitionSchema = z.object({
-  appSpecVersion: z.string().default("v1" as const),
-  catalogId: z.string().default("setta.app.default" as const),
-  appSpecPath: z.union([z.string(), z.null()]).default(null),
-  routes: z.array(AppRouteSchema).default(() => []),
-  dataBindings: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  actions: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  theme: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-  assets: z
-    .array(
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default(() => []),
-});
-
-export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
-
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return AppDefinitionSchema.parse(options);
-}
 
 const AppDeploymentMetadataSchema = z.object({
   deploymentName: z.string(),

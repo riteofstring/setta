@@ -1272,6 +1272,17 @@ class ProjectStateStructuralPatch:
     pendingOpIds: list[str]
 
 
+@dataclass
+class ProjectStateAppDefinitionPatch:
+    projectConfigId: ID
+    appDefinition: AppDefinition | None
+    appSpec: JSONValue | None
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
 class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithProjectConfig):
     newConfigName: str
     withRefs: bool

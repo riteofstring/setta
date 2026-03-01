@@ -11,6 +11,7 @@ from setta.logging.levels import parse_log_level
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
+    ProjectStateAppDefinitionPatch,
     ProjectStateCodeObjsPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
@@ -26,7 +27,9 @@ from setta.types.agentic import (
     TranscriptionProfile,
     TranscriptionProfileList,
 )
+from setta.types.app_definition import AppDefinition
 from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat_messages import JSONValue
 from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
@@ -77,6 +80,7 @@ from setta.types.websocket import (
     WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
     WebsocketMsgPatchFrontendProjectStateActiveViewMode,
+    WebsocketMsgPatchFrontendProjectStateAppDefinition,
     WebsocketMsgPatchFrontendProjectStateCodeObjs,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPatchFrontendProjectStateSectionImpl,
@@ -532,6 +536,33 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     sectionVariants=sectionVariants,
                     sectionImpls=sectionImpls,
                     parentSectionMap=parentSectionMap,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_app_definition_patch(
+        self,
+        projectConfigId: ID,
+        appDefinition: AppDefinition | None,
+        appSpec: JSONValue | None,
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateAppDefinition(
+                content=ProjectStateAppDefinitionPatch(
+                    projectConfigId=projectConfigId,
+                    appDefinition=appDefinition,
+                    appSpec=appSpec,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

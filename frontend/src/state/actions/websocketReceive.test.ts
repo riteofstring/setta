@@ -1,5 +1,6 @@
 import {
   useAIStore,
+  useAppDefinition,
   useListenerCoverage,
   useProjectState,
 } from "state/definitions";
@@ -18,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
   route_get_auth_refresh_status: vi.fn(),
+  route_get_app_definition: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("state/actions/sectionInfos", async () => {
   return {
     ...actual,
     applyActiveViewModeProjectStatePatch: vi.fn(),
+    applyAppDefinitionProjectStatePatch: vi.fn(),
     applyCodeObjsProjectStatePatch: vi.fn(),
     applyProjectConfigProjectStatePatch: vi.fn(),
     applySectionImplProjectStatePatch: vi.fn(),
@@ -180,12 +183,20 @@ describe("openWebSocket", () => {
     const { route_get_auth_refresh_status } = await import(
       "utils/generatedEndpoints"
     );
+    const { route_get_app_definition } = await import(
+      "utils/generatedEndpoints"
+    );
     const { route_get_listener_coverage } = await import(
       "utils/generatedEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_app_definition).mockResolvedValue({
+      status: 200,
+      data: { appDefinition: null, appSpec: null },
       hasResponse: true,
     });
     vi.mocked(route_get_listener_coverage).mockResolvedValue({
@@ -1055,6 +1066,221 @@ describe("openWebSocket", () => {
     expect(
       sectionInfos.processProjectStateUpdateFromBackend,
     ).toHaveBeenCalledWith(latestPayload);
+  });
+
+  it("applies app-definition patches when revisions line up", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const {
+      route_get_app_definition,
+      route_get_latest_project_state,
+      route_get_latest_lsp_diagnostics,
+    } = await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: {
+        projectState: projectConfig,
+        completedOpIds: [],
+        pendingOpIds: [],
+        projectStateRevision: 120,
+      },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(120);
+    vi.mocked(sectionInfos.applyAppDefinitionProjectStatePatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(route_get_app_definition).mockClear();
+    vi.mocked(sectionInfos.applyAppDefinitionProjectStatePatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "app-definition-patch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition,
+        content: {
+          projectConfigId: "project-1",
+          appDefinition: {
+            appSpecPath: "app_specs/custom.json",
+            appSpecVersion: "v2",
+            catalogId: "setta.app.custom",
+            routes: [],
+            dataBindings: {},
+            actions: {},
+            theme: {},
+            assets: [],
+          },
+          appSpec: {
+            root: { key: "root", type: "Stack" },
+            elements: {},
+          },
+          previousProjectStateRevision: 120,
+          projectStateRevision: 121,
+          completedOpIds: [],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+
+    expect(
+      sectionInfos.applyAppDefinitionProjectStatePatch,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        previousProjectStateRevision: 120,
+        projectStateRevision: 121,
+      }),
+    );
+    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+    expect(route_get_app_definition).not.toHaveBeenCalled();
+  });
+
+  it("resyncs app-definition patches from backend when revision mismatches", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const {
+      route_get_app_definition,
+      route_get_latest_project_state,
+      route_get_latest_lsp_diagnostics,
+    } = await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    const latestPayload = {
+      projectState: projectConfig,
+      completedOpIds: [],
+      pendingOpIds: [],
+      projectStateRevision: 131,
+    };
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: latestPayload,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_app_definition).mockResolvedValue({
+      status: 200,
+      data: {
+        appDefinition: {
+          appSpecPath: "app_specs/custom.json",
+          appSpecVersion: "v2",
+          catalogId: "setta.app.custom",
+          routes: [],
+          dataBindings: {},
+          actions: {},
+          theme: {},
+          assets: [],
+        },
+        appSpec: {
+          root: { key: "root", type: "Stack" },
+          elements: {},
+        },
+      },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(130);
+    vi.mocked(sectionInfos.applyAppDefinitionProjectStatePatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(route_get_app_definition).mockClear();
+    vi.mocked(sectionInfos.processProjectStateUpdateFromBackend).mockClear();
+    vi.mocked(sectionInfos.applyAppDefinitionProjectStatePatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "app-definition-patch-mismatch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition,
+        content: {
+          projectConfigId: "project-1",
+          appDefinition: {
+            appSpecPath: "app_specs/custom.json",
+            appSpecVersion: "v2",
+            catalogId: "setta.app.custom",
+            routes: [],
+            dataBindings: {},
+            actions: {},
+            theme: {},
+            assets: [],
+          },
+          appSpec: {
+            root: { key: "root", type: "Stack" },
+            elements: {},
+          },
+          previousProjectStateRevision: 131,
+          projectStateRevision: 132,
+          completedOpIds: [],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      sectionInfos.applyAppDefinitionProjectStatePatch,
+    ).not.toHaveBeenCalled();
+    expect(route_get_latest_project_state).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(route_get_app_definition).toHaveBeenCalledWith({});
+    expect(
+      sectionInfos.processProjectStateUpdateFromBackend,
+    ).toHaveBeenCalledWith(latestPayload);
+    expect(useAppDefinition.getState().appDefinition?.catalogId).toBe(
+      "setta.app.custom",
+    );
+    expect(useAppDefinition.getState().appSpec).toEqual({
+      root: { key: "root", type: "Stack" },
+      elements: {},
+    });
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {

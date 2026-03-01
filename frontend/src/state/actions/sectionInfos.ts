@@ -17,6 +17,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
   useAllProjectMetadata,
+  useAppDefinition,
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -52,6 +53,7 @@ import {
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ProjectStateActiveViewModePatch,
+  ProjectStateAppDefinitionPatch,
   ProjectStateCodeObjsPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
@@ -1284,6 +1286,25 @@ export function applyStructuralProjectStatePatch(
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
+}
+
+export function applyAppDefinitionProjectStatePatch(
+  patch: ProjectStateAppDefinitionPatch,
+): boolean {
+  useAppDefinition.setState({
+    appDefinition: patch.appDefinition,
+    appSpec: patch.appSpec,
+  });
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  const completedIds = new Set(patch.completedOpIds);
+  usePendingOperations.setState({ pending: nextPending });
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
   setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);

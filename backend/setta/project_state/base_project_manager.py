@@ -2863,8 +2863,8 @@ class BaseProjectManager(ABC):
         self, x: SetAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Replace the stored app UI spec and update app definition metadata."""
+        previous_project_state_revision = self.history.revision
         self.add_new_history_entry()
-        project_state = self._get_default_project_state()
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         target_path = (
             x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
@@ -2886,19 +2886,12 @@ class BaseProjectManager(ABC):
         if x.assets is not None:
             updates["assets"] = x.assets
         updated_definition = app_definition.model_copy(update=updates)
-        validate_app_theme_or_raise(updated_definition.theme)
-        validate_app_action_definitions(updated_definition.actions)
-        validate_app_spec(
-            x.appSpec,
-            catalog_id=updated_definition.catalogId,
-            action_definitions=updated_definition.actions,
-            data_bindings=updated_definition.dataBindings,
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=x.appSpec,
+            app_spec_path=normalized_path,
+            previous_project_state_revision=previous_project_state_revision,
         )
-        self.project_state_backend = self.project_state_backend.model_copy(
-            update={"appDefinition": updated_definition}
-        )
-        write_app_spec(self.dbe, normalized_path, x.appSpec)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return AppDefinitionResponse(
             appSpec=x.appSpec,
             appDefinition=updated_definition,
@@ -2968,6 +2961,7 @@ class BaseProjectManager(ABC):
         updated_definition: AppDefinition,
         app_spec: JSONValue,
         app_spec_path: str,
+        previous_project_state_revision: int,
     ) -> None:
         project_state = self._get_default_project_state()
         validate_app_theme_or_raise(updated_definition.theme)
@@ -2982,7 +2976,17 @@ class BaseProjectManager(ABC):
             update={"appDefinition": updated_definition}
         )
         write_app_spec(self.dbe, app_spec_path, app_spec)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        await self._broadcast_app_definition_patch(
+            project_config_id=project_state.projectConfig.id,
+            app_definition=updated_definition,
+            app_spec=app_spec,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
 
     @enqueue_method
     async def compare_and_set_app_definition_catalog_id(
@@ -3008,11 +3012,13 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "catalogId": catalog_id}
         )
+        previous_project_state_revision = self.history.revision
         self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
+            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, updated_definition.catalogId
 
@@ -3040,11 +3046,13 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
         )
+        previous_project_state_revision = self.history.revision
         self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
+            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, updated_definition.appSpecVersion
 
@@ -3071,11 +3079,13 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path}
         )
+        previous_project_state_revision = self.history.revision
         self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
+            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, normalized_path
 
@@ -3109,11 +3119,13 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "theme": theme_payload}
         )
+        previous_project_state_revision = self.history.revision
         self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
+            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, self._resolve_app_theme_mode(updated_definition)
 
@@ -8372,6 +8384,37 @@ class BaseProjectManager(ABC):
             project_state.sectionVariants,
             project_state.sectionImpls,
             project_state.parentSectionMap,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    async def _broadcast_app_definition_patch(
+        self,
+        *,
+        project_config_id: ID,
+        app_definition: AppDefinition | None,
+        app_spec: JSONValue | None,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_app_definition_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_app_definition_patch(
+            project_config_id,
+            app_definition,
+            app_spec,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,

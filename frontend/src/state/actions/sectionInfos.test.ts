@@ -2,6 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   applyActiveViewModeProjectStatePatch,
+  applyAppDefinitionProjectStatePatch,
   applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
   applySectionImplProjectStatePatch,
@@ -22,6 +23,7 @@ import {
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
+  useAppDefinition,
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -1910,6 +1912,46 @@ describe("processProjectStateUpdateFromBackend", () => {
     ).toBeNull();
     expect(useNodeInternals.getState().x.has(nextSectionId)).toBe(true);
     expect(getProjectStateRevision("project-1")).toBe(61);
+  });
+
+  it("applies app-definition patches and updates revision tracking", () => {
+    useAppDefinition.setState({
+      appDefinition: null,
+      appSpec: null,
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applyAppDefinitionProjectStatePatch({
+      projectConfigId: "project-1",
+      appDefinition: {
+        appSpecPath: "app_specs/custom.json",
+        appSpecVersion: "v2",
+        catalogId: "setta.app.custom",
+        routes: [],
+        dataBindings: {},
+        actions: {},
+        theme: {},
+        assets: [],
+      },
+      appSpec: {
+        root: { key: "root", type: "Stack" },
+        elements: {},
+      },
+      previousProjectStateRevision: 70,
+      projectStateRevision: 71,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useAppDefinition.getState().appDefinition?.catalogId).toBe(
+      "setta.app.custom",
+    );
+    expect(useAppDefinition.getState().appSpec).toEqual({
+      root: { key: "root", type: "Stack" },
+      elements: {},
+    });
+    expect(getProjectStateRevision("project-1")).toBe(71);
   });
 
   it("recomputes shown param ids when pinned params change in a section-impl patch", () => {
