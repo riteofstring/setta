@@ -338,11 +338,38 @@ export async function openIsolatedProject(
   });
   await page.waitForSelector(READY_SELECTOR);
   await waitForProjectLoadIdle(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+  const projectConfigId = await resolveProjectConfigIdByName(page, name);
   return {
     projectConfigId,
     defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
   };
+}
+
+async function resolveProjectConfigIdByName(
+  page: Page,
+  projectConfigName: string,
+): Promise<string> {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      throw new Error("Missing project metadata response.");
+    }
+    const match = metadata.projectMetadata.find(
+      (entry) => entry.name === projectConfigName,
+    );
+    if (match?.id) {
+      return match.id;
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error(
+    `Unable to resolve projectConfigId for created project ${projectConfigName}.`,
+  );
 }
 
 export async function cleanupIsolatedProject(
