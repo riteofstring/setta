@@ -643,7 +643,7 @@ test("settings all-settings forces unsupported section types to DOM islands", as
   }
 });
 
-test("settings all-settings keeps chart sections scene-compatible", async ({
+test("settings all-settings keeps chart and spreadsheet sections scene-compatible", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -707,59 +707,76 @@ test("settings all-settings keeps chart sections scene-compatible", async ({
     };
   });
 
-  const createResponse = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Chart",
-      controlCodeObjType: null,
-      implOverrides: null,
-      position: { x: 2600, y: 1400 },
-      topLevelSections: null,
-      viewportBounds: null,
-    },
-  );
-  if (!createResponse?.sectionId) {
-    throw new Error("Failed to create chart top-level section.");
-  }
-
-  const chartSectionId = createResponse.sectionId;
+  const sectionIdsToDelete: string[] = [];
+  const sceneCompatibleImplTypes: Array<"Chart" | "Spreadsheet"> = [
+    "Chart",
+    "Spreadsheet",
+  ];
   try {
-    const latestState = await getLatestProjectState(page, projectConfigId);
-    await applyProjectStateUpdate(page, latestState);
-
-    await page.waitForFunction((baseline) => {
-      const root = document.querySelector(".react-flow");
-      if (!(root instanceof HTMLElement)) {
-        return false;
+    for (let index = 0; index < sceneCompatibleImplTypes.length; index += 1) {
+      const implType = sceneCompatibleImplTypes[index];
+      const createResponse = await postBackend<CreateTopLevelSectionResponse>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId,
+          implType,
+          controlCodeObjType: null,
+          implOverrides: null,
+          position: {
+            x: 2600 + index * 220,
+            y: 1400 + index * 180,
+          },
+          topLevelSections: null,
+          viewportBounds: null,
+        },
+      );
+      if (!createResponse?.sectionId) {
+        throw new Error(`Failed to create ${implType} top-level section.`);
       }
-      const sceneCompatibleCount = Number(
-        root.getAttribute(
-          "data-scene-graph-renderer-scene-compatible-section-count",
-        ) ?? "0",
-      );
-      const domOnlyCount = Number(
-        root.getAttribute("data-scene-graph-renderer-dom-only-section-count") ??
-          "0",
-      );
-      const unresolvedCount = Number(
-        root.getAttribute(
-          "data-scene-graph-renderer-unresolved-section-count",
-        ) ?? "0",
-      );
-      const forcedDomCount = Number(
-        root.getAttribute(
-          "data-scene-graph-renderer-forced-dom-section-count",
-        ) ?? "0",
-      );
-      return (
-        sceneCompatibleCount >= baseline.sceneCompatibleCount + 1 &&
-        domOnlyCount === baseline.domOnlyCount &&
-        unresolvedCount === baseline.unresolvedCount &&
-        forcedDomCount === baseline.forcedDomCount
-      );
-    }, baselineState);
+      sectionIdsToDelete.push(createResponse.sectionId);
+
+      const latestState = await getLatestProjectState(page, projectConfigId);
+      await applyProjectStateUpdate(page, latestState);
+
+      await page.waitForFunction((expectedState) => {
+        const root = document.querySelector(".react-flow");
+        if (!(root instanceof HTMLElement)) {
+          return false;
+        }
+        const sceneCompatibleCount = Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-scene-compatible-section-count",
+          ) ?? "0",
+        );
+        const domOnlyCount = Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-dom-only-section-count",
+          ) ?? "0",
+        );
+        const unresolvedCount = Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-unresolved-section-count",
+          ) ?? "0",
+        );
+        const forcedDomCount = Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-forced-dom-section-count",
+          ) ?? "0",
+        );
+        return (
+          sceneCompatibleCount >= expectedState.sceneCompatibleCount &&
+          domOnlyCount === expectedState.domOnlyCount &&
+          unresolvedCount === expectedState.unresolvedCount &&
+          forcedDomCount === expectedState.forcedDomCount
+        );
+      }, {
+        sceneCompatibleCount: baselineState.sceneCompatibleCount + index + 1,
+        domOnlyCount: baselineState.domOnlyCount,
+        unresolvedCount: baselineState.unresolvedCount,
+        forcedDomCount: baselineState.forcedDomCount,
+      });
+    }
 
     const compatibilityState = await page.evaluate(() => {
       const root = document.querySelector(".react-flow");
@@ -791,7 +808,7 @@ test("settings all-settings keeps chart sections scene-compatible", async ({
     });
 
     expect(compatibilityState.sceneCompatibleCount).toBeGreaterThanOrEqual(
-      baselineState.sceneCompatibleCount + 1,
+      baselineState.sceneCompatibleCount + sceneCompatibleImplTypes.length,
     );
     expect(compatibilityState.domOnlyCount).toBe(baselineState.domOnlyCount);
     expect(compatibilityState.unresolvedCount).toBe(
@@ -801,12 +818,14 @@ test("settings all-settings keeps chart sections scene-compatible", async ({
       baselineState.forcedDomCount,
     );
   } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: [chartSectionId],
-    });
-    const latestState = await getLatestProjectState(page, projectConfigId);
-    await applyProjectStateUpdate(page, latestState);
+    if (sectionIdsToDelete.length > 0) {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: sectionIdsToDelete,
+      });
+      const latestState = await getLatestProjectState(page, projectConfigId);
+      await applyProjectStateUpdate(page, latestState);
+    }
   }
 });
 

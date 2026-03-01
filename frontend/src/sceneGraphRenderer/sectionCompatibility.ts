@@ -33,7 +33,7 @@ const SCENE_GRAPH_SECTION_RENDER_MODE_BY_TYPE: Record<
   [SectionTypeEnum.Browser]: "dom",
   [SectionTypeEnum.Plugin]: "dom",
   [SectionTypeEnum.TaskBoard]: "dom",
-  [SectionTypeEnum.Spreadsheet]: "dom",
+  [SectionTypeEnum.Spreadsheet]: "scene",
 };
 
 const EMPTY_FORCED_DOM_SECTION_IDS: ReadonlySet<string> = new Set();
