@@ -43,6 +43,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
 
+
 class FormatCodeTestManager(BaseProjectManager):
     def __init__(
         self,
@@ -76,8 +77,295 @@ class FormatCodeTestManager(BaseProjectManager):
     def save(self):  # pragma: no cover - not exercised in tests
         return None
 
-    async def save_as_new_project_config(self, x):  # pragma: no cover
+    async def save_as_new_project_config(self, _x):  # pragma: no cover
         return None
+
+
+def _snapshot_watcher_paths(manager) -> dict[str, set[str]]:
+    snapshots: dict[str, set[str]] = {}
+    callbacks = manager.specific_file_watcher.callbacks
+    for category, callback_map in callbacks.items():
+        snapshots[category] = {str(path) for path in callback_map}
+    return snapshots
+
+
+async def _assert_skips_file_watcher_refresh_calls(
+    manager,
+    operation_coro,
+    *,
+    expected_deferred_codegen_refresh: bool = False,
+    expected_project_config_id: ID | None = None,
+) -> None:
+    json_source_watch_calls = 0
+    artifact_watch_calls = 0
+    code_watch_calls = 0
+    watch_code_sync_calls = 0
+    refresh_calls = 0
+    scheduled_deferred_refreshes: list[ID] = []
+
+    original_watch_json_source_files = manager.watch_json_source_files
+    original_watch_artifact_files = manager.watch_artifact_files
+    original_watch_code_files = manager.watch_code_files
+    original_watch_code_sync = manager.watch_code_manager.sync_from_backend
+    original_refresh = manager._refresh_codegen_state
+    original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+    def record_watch_json_source_files() -> None:
+        nonlocal json_source_watch_calls
+        json_source_watch_calls += 1
+        original_watch_json_source_files()
+
+    def record_watch_artifact_files() -> None:
+        nonlocal artifact_watch_calls
+        artifact_watch_calls += 1
+        original_watch_artifact_files()
+
+    def record_watch_code_files(*args, **kwargs) -> None:
+        nonlocal code_watch_calls
+        code_watch_calls += 1
+        original_watch_code_files(*args, **kwargs)
+
+    def record_watch_code_sync(backend) -> None:
+        nonlocal watch_code_sync_calls
+        watch_code_sync_calls += 1
+        original_watch_code_sync(backend)
+
+    async def record_refresh(next_state):
+        nonlocal refresh_calls
+        refresh_calls += 1
+        await original_refresh(next_state)
+
+    def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+        scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+    manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
+    manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
+    manager.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+    manager.watch_code_manager.sync_from_backend = record_watch_code_sync  # type: ignore[method-assign]
+    manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+    manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+        record_schedule_deferred_refresh
+    )
+    try:
+        await manager.finish_pending_operations(timeout=5.0)
+        before_json = json_source_watch_calls
+        before_artifact = artifact_watch_calls
+        before_code = code_watch_calls
+        before_sync = watch_code_sync_calls
+        before_refresh = refresh_calls
+        before_scheduled = len(scheduled_deferred_refreshes)
+        await operation_coro
+        await manager.finish_pending_operations(timeout=5.0)
+    finally:
+        manager.watch_json_source_files = original_watch_json_source_files  # type: ignore[method-assign]
+        manager.watch_artifact_files = original_watch_artifact_files  # type: ignore[method-assign]
+        manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+        manager.watch_code_manager.sync_from_backend = original_watch_code_sync  # type: ignore[method-assign]
+        manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
+
+    assert json_source_watch_calls - before_json == 0
+    assert artifact_watch_calls - before_artifact == 0
+    assert code_watch_calls - before_code == 0
+    assert watch_code_sync_calls - before_sync == 0
+    if expected_deferred_codegen_refresh:
+        assert refresh_calls - before_refresh == 0
+        assert len(scheduled_deferred_refreshes) == before_scheduled + 1
+        if expected_project_config_id is not None:
+            assert scheduled_deferred_refreshes[-1] == expected_project_config_id
+        return
+    assert refresh_calls - before_refresh > 0
+    assert len(scheduled_deferred_refreshes) == before_scheduled
+
+
+async def _assert_preserves_broadcast_shape(
+    manager, request: FormatCodeRequest
+) -> None:
+    sender = manager.websocket_msg_handler
+    project_state_broadcast_calls = 0
+    project_config_patch_calls = 0
+    section_impl_patch_calls = 0
+    code_obj_patch_calls = 0
+    structural_patch_calls = 0
+    name_validation_broadcast_calls = 0
+    original_project_state_broadcast = sender.broadcast_project_state
+    original_project_config_patch_broadcast = (
+        sender.broadcast_project_state_project_config_patch
+    )
+    original_section_impl_patch_broadcast = (
+        sender.broadcast_project_state_section_impl_patch
+    )
+    original_code_obj_patch_broadcast = sender.broadcast_project_state_code_objs_patch
+    original_structural_patch_broadcast = (
+        sender.broadcast_project_state_structural_patch
+    )
+    original_name_validation_broadcast = sender.broadcast_name_validation_errors
+
+    async def record_project_state_broadcast(
+        project_state,
+        completed_op_ids,
+        pending_op_ids,
+        project_state_revision=None,
+    ) -> None:
+        nonlocal project_state_broadcast_calls
+        project_state_broadcast_calls += 1
+        await original_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision,
+        )
+
+    async def record_project_config_patch(
+        project_config_id_for_patch,
+        project_config_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        nonlocal project_config_patch_calls
+        project_config_patch_calls += 1
+        await original_project_config_patch_broadcast(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_section_impl_patch(
+        project_config_id_for_patch,
+        section_id_for_patch,
+        section_impl_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        nonlocal section_impl_patch_calls
+        section_impl_patch_calls += 1
+        await original_section_impl_patch_broadcast(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_code_obj_patch(
+        project_config_id_for_patch,
+        code_objs_for_patch,
+        code_obj_variants_for_patch,
+        code_obj_impls_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        nonlocal code_obj_patch_calls
+        code_obj_patch_calls += 1
+        await original_code_obj_patch_broadcast(
+            project_config_id_for_patch,
+            code_objs_for_patch,
+            code_obj_variants_for_patch,
+            code_obj_impls_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_structural_patch(
+        project_config_id_for_patch,
+        project_config_for_patch,
+        sections_for_patch,
+        section_variants_for_patch,
+        section_impls_for_patch,
+        parent_section_map_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        nonlocal structural_patch_calls
+        structural_patch_calls += 1
+        await original_structural_patch_broadcast(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            sections_for_patch,
+            section_variants_for_patch,
+            section_impls_for_patch,
+            parent_section_map_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_name_validation_broadcast(content) -> None:
+        nonlocal name_validation_broadcast_calls
+        name_validation_broadcast_calls += 1
+        await original_name_validation_broadcast(content)
+
+    sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+    sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+        record_project_config_patch
+    )
+    sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+    sender.broadcast_project_state_code_objs_patch = record_code_obj_patch  # type: ignore[method-assign]
+    sender.broadcast_project_state_structural_patch = record_structural_patch  # type: ignore[method-assign]
+    sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+    try:
+        await manager.finish_pending_operations(timeout=5.0)
+        before_project_state = project_state_broadcast_calls
+        before_project_config_patch = project_config_patch_calls
+        before_section_impl_patch = section_impl_patch_calls
+        before_code_obj_patch = code_obj_patch_calls
+        before_structural_patch = structural_patch_calls
+        before_name_validation = name_validation_broadcast_calls
+        await manager.format_code(request)
+        await manager.finish_pending_operations(timeout=5.0)
+    finally:
+        sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+            original_project_config_patch_broadcast
+        )
+        sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
+            original_section_impl_patch_broadcast
+        )
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
+        sender.broadcast_project_state_structural_patch = (  # type: ignore[method-assign]
+            original_structural_patch_broadcast
+        )
+        sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+    state = manager.get_single_config_state(request.projectConfigId)
+    variant_id = state.projectConfig.sectionVariantMap[request.sectionId]
+    section_variant = state.sectionVariants[variant_id]
+    section_impl = state.sectionImpls[section_variant.impl]
+
+    # Formatting should stay on patch transport and skip name-validation broadcasts.
+    assert project_state_broadcast_calls - before_project_state == 0
+    assert code_obj_patch_calls - before_code_obj_patch == 0
+    assert structural_patch_calls - before_structural_patch == 0
+    assert name_validation_broadcast_calls - before_name_validation == 0
+    if isinstance(section_impl, CodeSectionImpl):
+        assert project_config_patch_calls - before_project_config_patch == 0
+        assert section_impl_patch_calls - before_section_impl_patch >= 1
+        return
+    if isinstance(section_impl, GenPythonCodeSectionImpl):
+        assert project_config_patch_calls - before_project_config_patch == 1
+        assert section_impl_patch_calls - before_section_impl_patch >= 1
+        return
+    raise TypeError(
+        f"Unsupported section impl type for format_code: {section_impl.type}"
+    )
 
 
 @pytest.mark.asyncio
@@ -451,3 +739,81 @@ class TestFormatCode:
         )
         assert "SettaState" in python_target.genCodePrefix
         assert "SettaState" in python_target.genCodeSuffix
+
+    async def test_format_code_preserves_broadcast_shape_for_python_section(self):
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.section_id,
+        )
+
+        await _assert_preserves_broadcast_shape(self.manager, request)
+
+    async def test_format_code_preserves_broadcast_shape_for_gen_python_section(self):
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.gen_section_id,
+        )
+
+        await _assert_preserves_broadcast_shape(self.manager, request)
+
+    async def test_format_code_preserves_watcher_path_registration_for_python_section(
+        self,
+    ) -> None:
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.section_id,
+        )
+        await self.manager.finish_pending_operations(timeout=5.0)
+        before_paths = _snapshot_watcher_paths(self.manager)
+
+        await self.manager.format_code(request)
+        await self.manager.finish_pending_operations(timeout=5.0)
+
+        after_paths = _snapshot_watcher_paths(self.manager)
+        assert after_paths == before_paths
+
+    async def test_format_code_preserves_watcher_path_registration_for_gen_python_section(
+        self,
+    ) -> None:
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.gen_section_id,
+        )
+        await self.manager.finish_pending_operations(timeout=5.0)
+        before_paths = _snapshot_watcher_paths(self.manager)
+
+        await self.manager.format_code(request)
+        await self.manager.finish_pending_operations(timeout=5.0)
+
+        after_paths = _snapshot_watcher_paths(self.manager)
+        assert after_paths == before_paths
+
+    async def test_format_code_skips_file_watcher_refresh_for_python_section(
+        self,
+    ) -> None:
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.section_id,
+        )
+
+        await _assert_skips_file_watcher_refresh_calls(
+            self.manager,
+            self.manager.format_code(request),
+            expected_deferred_codegen_refresh=True,
+            expected_project_config_id=self.project_config_id,
+        )
+
+    async def test_format_code_skips_file_watcher_refresh_for_gen_python_section(
+        self,
+    ) -> None:
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.gen_section_id,
+        )
+
+        await _assert_skips_file_watcher_refresh_calls(
+            self.manager,
+            self.manager.format_code(request),
+            expected_deferred_codegen_refresh=True,
+            expected_project_config_id=self.project_config_id,
+        )
