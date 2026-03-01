@@ -5,6 +5,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     DeleteChildSectionsViaDecrementerRequest,
+    DeleteJSONSourceFileAndVariantRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     CreateTopLevelSectionRequest,
@@ -1398,6 +1399,222 @@ async def test_variant_name_and_paste_routes_use_structural_patch_transport() ->
 
 
 @pytest.mark.asyncio
+async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.create_new_section_variant(
+            CreateNewSectionVariantRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+            )
+        )
+        create_dict_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        create_text_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.TextBlock,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=Position(x=930.0, y=230.0),
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.create_new_section_variant(
+            CreateNewSectionVariantRequest(
+                projectConfigId=project_config_id,
+                sectionId=create_dict_response.sectionId,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        section_core = manager.get_single_config_state(project_config_id).sections[
+            SECTION_ID
+        ]
+        active_variant_id = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.sectionVariantMap[SECTION_ID]
+        target_variant_id = next(
+            variant_id
+            for variant_id in section_core.variants
+            if variant_id != active_variant_id
+        )
+        reversed_variant_order = list(reversed(section_core.variants))
+        variant_to_delete = next(
+            variant_id
+            for variant_id in section_core.variants
+            if variant_id != section_core.defaultVariant
+        )
+
+        dict_section_id = create_dict_response.sectionId
+        dict_section_core = manager.get_single_config_state(project_config_id).sections[
+            dict_section_id
+        ]
+        dict_active_variant_id = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.sectionVariantMap[dict_section_id]
+        dict_variant_to_delete = next(
+            variant_id
+            for variant_id in dict_section_core.variants
+            if variant_id != dict_section_core.defaultVariant
+        )
+        text_section_id = create_text_response.sectionId
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro):
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            result = await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+            return result
+
+        temp_json_source_file = (
+            fixture.setta_root.parent
+            / "tmp-structural-transport-delete-json-source-file.json"
+        )
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+
+            await assert_deferred_refresh(
+                manager.set_section_variant(
+                    SetSectionVariantRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        variantId=target_variant_id,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_default_section_variant(
+                    SetDefaultSectionVariantRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        variantId=target_variant_id,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_section_variant_sort_order(
+                    SetSectionVariantSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        orderedVariantIds=reversed_variant_order,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.toggle_variant_json_source(
+                    ToggleVariantJSONSourceRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=dict_section_id,
+                        variantId=dict_active_variant_id,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.toggle_variant_frozen(
+                    ToggleVariantFrozenRequest(
+                        projectConfigId=project_config_id,
+                        variantId=dict_active_variant_id,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_section_variant_name(
+                    SetSectionVariantNameRequest(
+                        projectConfigId=project_config_id,
+                        variantId=dict_active_variant_id,
+                        name="deferred-variant-name",
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_section_name(
+                    SetSectionNameRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        name="deferred-section-name",
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_text_block_heading_as_section_name(
+                    SetTextBlockHeadingAsSectionNameRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=text_section_id,
+                        headingAsSectionName=True,
+                    )
+                )
+            )
+            delete_variant_result = await assert_deferred_refresh(
+                manager.delete_section_variant_or_ask(
+                    DeleteSectionVariantOrAskRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        variantId=variant_to_delete,
+                    )
+                )
+            )
+            assert delete_variant_result is None
+
+            temp_json_source_file.write_text("{}", encoding="utf-8")
+            await assert_deferred_refresh(
+                manager.delete_json_source_file_and_variant(
+                    DeleteJSONSourceFileAndVariantRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=dict_section_id,
+                        variantId=dict_variant_to_delete,
+                        filepath=str(temp_json_source_file),
+                    )
+                )
+            )
+            assert not temp_json_source_file.exists()
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+            if temp_json_source_file.exists():
+                temp_json_source_file.unlink()
+
+
+@pytest.mark.asyncio
 async def test_watch_code_routes_use_structural_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
@@ -1520,6 +1737,125 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
 
 
 @pytest.mark.asyncio
+async def test_watch_code_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro):
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            result = await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+            return result
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+
+            await assert_deferred_refresh(
+                manager.set_watch_code_enabled(
+                    SetWatchCodeEnabledRequest(
+                        projectConfigId=project_config_id,
+                        enabled=True,
+                    )
+                )
+            )
+
+            enabled_old, enabled_new = await assert_deferred_refresh(
+                manager.compare_and_set_watch_code_enabled(
+                    SetWatchCodeEnabledRequest(
+                        projectConfigId=project_config_id,
+                        enabled=False,
+                    )
+                )
+            )
+            assert enabled_old is True
+            assert enabled_new is False
+
+            await assert_deferred_refresh(
+                manager.set_watch_code_inputs(
+                    SetWatchCodeInputsRequest(
+                        projectConfigId=project_config_id,
+                        watchCodeFolders=[
+                            WatchCodeFolder(
+                                path="backend/setta/project_state",
+                                recursive=False,
+                            )
+                        ],
+                        watchCodeFiles=["backend/setta/project_state/watch_code.py"],
+                    )
+                )
+            )
+
+            folders_old, folders_new = await assert_deferred_refresh(
+                manager.compare_and_set_watch_code_folders(
+                    SetWatchCodeInputsRequest(
+                        projectConfigId=project_config_id,
+                        watchCodeFolders=[
+                            WatchCodeFolder(
+                                path="backend/setta/project_state",
+                                recursive=True,
+                            )
+                        ],
+                        watchCodeFiles=["backend/setta/project_state/watch_code.py"],
+                    )
+                )
+            )
+            assert 1 == len(folders_old)
+            assert 1 == len(folders_new)
+            assert folders_old[0]["recursive"] is False
+            assert folders_new[0]["recursive"] is True
+
+            files_old, files_new = await assert_deferred_refresh(
+                manager.compare_and_set_watch_code_files(
+                    SetWatchCodeInputsRequest(
+                        projectConfigId=project_config_id,
+                        watchCodeFolders=[
+                            WatchCodeFolder(
+                                path="backend/setta/project_state",
+                                recursive=True,
+                            )
+                        ],
+                        watchCodeFiles=[
+                            "backend/setta/project_state/base_project_manager.py"
+                        ],
+                    )
+                )
+            )
+            assert ["backend/setta/project_state/watch_code.py"] == files_old
+            assert ["backend/setta/project_state/base_project_manager.py"] == files_new
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+
+@pytest.mark.asyncio
 async def test_codegen_target_routes_use_structural_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
@@ -1581,6 +1917,92 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
             .singletonSections.GenPythonCode
             is not None
         )
+
+
+@pytest.mark.asyncio
+async def test_codegen_target_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro):
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            result = await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+            return result
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+
+            await assert_deferred_refresh(
+                manager.set_project_config_codegen_targets(
+                    SetProjectConfigCodegenTargetsRequest(
+                        projectConfigId=project_config_id,
+                        codegenTargets=[],
+                    )
+                )
+            )
+            assert (
+                []
+                == manager.get_single_config_state(project_config_id)
+                .projectConfig.codegenTargets
+            )
+            assert (
+                manager.get_single_config_state(project_config_id)
+                .singletonSections.GenPythonCode
+                is None
+            )
+
+            enabled_old, enabled_new = await assert_deferred_refresh(
+                manager.compare_and_set_python_codegen_enabled(
+                    project_config_id,
+                    True,
+                )
+            )
+            assert enabled_old is False
+            assert enabled_new is True
+            targets_after_enable = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.codegenTargets
+            assert any(
+                isinstance(target, ProjectCodegenPythonTarget)
+                for target in targets_after_enable
+            )
+            assert (
+                manager.get_single_config_state(project_config_id)
+                .singletonSections.GenPythonCode
+                is not None
+            )
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
 
 
 @pytest.mark.asyncio

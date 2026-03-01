@@ -2692,7 +2692,7 @@ class BaseProjectManager(ABC):
             project_state=project_state,
             codegen_targets=x.codegenTargets,
         )
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
         )
@@ -2839,7 +2839,7 @@ class BaseProjectManager(ABC):
             project_state=project_state,
             codegen_targets=next_targets,
         )
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
         )
@@ -3211,7 +3211,9 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -3233,7 +3235,9 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not old_value:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
         return old_value, project_state.projectConfig.watchCodeEnabled
 
     @enqueue_method
@@ -3252,7 +3256,9 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -3291,7 +3297,9 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
         updated_folders = [
             {
                 "path": folder.path,
@@ -3325,7 +3333,9 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
         return old_files, list(project_state.projectConfig.watchCodeFiles)
 
     @enqueue_method
@@ -4708,7 +4718,9 @@ class BaseProjectManager(ABC):
         """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4721,7 +4733,9 @@ class BaseProjectManager(ABC):
         """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4755,7 +4769,9 @@ class BaseProjectManager(ABC):
                 )
             seen.add(variant_id)
         section.variants = ordered_ids
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -5500,13 +5516,15 @@ class BaseProjectManager(ABC):
         )
         if filepath_to_delete:
             return str(filepath_to_delete)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,
@@ -5571,7 +5589,7 @@ class BaseProjectManager(ABC):
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_frozen(project_state, x.variantId)
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,
@@ -5607,7 +5625,9 @@ class BaseProjectManager(ABC):
             )
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
-            await self._update_and_broadcast_structural_patch(project_state)
+            await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+                project_state
+            )
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Variant and file deleted",
                 project_config_id=x.projectConfigId,
@@ -5674,7 +5694,7 @@ class BaseProjectManager(ABC):
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,
@@ -5941,7 +5961,7 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
         )
@@ -6018,7 +6038,9 @@ class BaseProjectManager(ABC):
         set_text_block_heading_as_section_name(
             project_state, x.sectionId, x.headingAsSectionName
         )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
