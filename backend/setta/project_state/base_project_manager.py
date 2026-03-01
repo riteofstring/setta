@@ -5367,13 +5367,14 @@ class BaseProjectManager(ABC):
                 )
             )
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         """Return the most recent project state snapshot for the requested config."""
-        projectState = self.get_single_config_state(x.projectConfigId)
-        return projectState
+        async with self._project_state_lock.read_lock():
+            projectState = self.get_single_config_state(x.projectConfigId)
+            return projectState
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     @project_state_tool(
         tool_type=SettaToolType.init,
         access_type="read",
@@ -5383,10 +5384,11 @@ class BaseProjectManager(ABC):
         self, x: GetLatestProjectStateSummaryRequest
     ):
         """Return a lightweight summary for the requested project config."""
-        project_state = convert_backend_to_single_config(
-            self.project_state_backend, x.projectConfigId
-        )
-        return build_project_state_summary(project_state)
+        async with self._project_state_lock.read_lock():
+            project_state = convert_backend_to_single_config(
+                self.project_state_backend, x.projectConfigId
+            )
+            return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(
