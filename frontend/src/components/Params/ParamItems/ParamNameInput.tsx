@@ -313,7 +313,7 @@ export function ParamNameInput({
   const isDisabled = !canEditStructure;
 
   return (
-    <>
+    <div className="contents">
       <TextInputCodeMirror
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -355,7 +355,7 @@ export function ParamNameInput({
           document.getElementById(`${sectionId}-CustomResizable`) ??
             document.body,
         )}
-    </>
+    </div>
   );
 }
 
