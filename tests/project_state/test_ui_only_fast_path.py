@@ -28,6 +28,8 @@ from setta.project_state.project_manager_types import (
     SetTextBlockMetaControlStyleRequest,
     SetViewModeNameRequest,
     SetViewModeSortOrderRequest,
+    ToggleIsEditingViewModeRequest,
+    ToggleParamSelectedRequest,
     ToggleSectionVisibilityRequest,
     ToggleGroupOrientationRequest,
     ToggleMinimizedRequest,
@@ -35,6 +37,7 @@ from setta.project_state.project_manager_types import (
     ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UndoRequest,
+    UnselectAllParamsRequest,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -309,6 +312,22 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.toggle_param_selected(
+                    ToggleParamSelectedRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        paramInfoId=pinned_param_id,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.unselect_all_params(
+                    UnselectAllParamsRequest(projectConfigId=project_config_id)
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.set_meta_control_show_section_title(
                     SetMetaControlShowSectionTitleRequest(
                         projectConfigId=project_config_id,
@@ -419,6 +438,12 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.toggle_is_editing_view_mode(
+                    ToggleIsEditingViewModeRequest(projectConfigId=project_config_id)
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.toggle_section_visibility(
                     ToggleSectionVisibilityRequest(
                         projectConfigId=project_config_id,
@@ -490,6 +515,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         assert callable_impl.hideParams is True
         assert callable_impl.hideUnpinnedParams is True
         assert callable_impl.pinnedParams == [pinned_param_id]
+        assert callable_impl.selectedParams == []
         callable_variant_id = updated.projectConfig.sectionVariantMap[
             section_ids.callable_section_id
         ]
@@ -531,6 +557,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         assert social_impl.url == "https://example.com"
 
         assert updated.projectConfig.activeViewModeId == default_view_mode_id
+        assert updated.projectConfig.isEditingViewMode is False
         default_view_mode = updated.projectConfig.viewModes[default_view_mode_id]
         secondary_view_mode = updated.projectConfig.viewModes[secondary_view_mode_id]
         assert (
@@ -770,6 +797,22 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
             )
             await assert_watcher_delta(
                 0,
+                manager.toggle_param_selected(
+                    ToggleParamSelectedRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        paramInfoId=pinned_param_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.unselect_all_params(
+                    UnselectAllParamsRequest(projectConfigId=project_config_id)
+                ),
+            )
+            await assert_watcher_delta(
+                0,
                 manager.set_meta_control_show_section_title(
                     SetMetaControlShowSectionTitleRequest(
                         projectConfigId=project_config_id,
@@ -876,6 +919,12 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
                         projectConfigId=project_config_id,
                         activeViewModeId=default_view_mode_id,
                     )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_is_editing_view_mode(
+                    ToggleIsEditingViewModeRequest(projectConfigId=project_config_id)
                 ),
             )
             await assert_watcher_delta(
