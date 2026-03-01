@@ -947,6 +947,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateFrontendViewModeState: "UpdateFrontendViewModeState",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5057,6 +5058,30 @@ const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
 });
 
+const FrontendViewModeStateUpdateContentSchema = z.object({
+  projectConfigId: IDSchema,
+  activeViewModeId: z.union([IDSchema, z.null()]).default(null),
+  isEditingViewMode: z.boolean(),
+  topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
+  viewport: z.union([ViewportSchema, z.null()]).default(null),
+  viewportInitialized: z.boolean().default(false),
+  updatedViewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
+  completedOpIds: z.array(z.string()).default(() => []),
+  pendingOpIds: z.array(z.string()).default(() => []),
+});
+
+export type FrontendViewModeStateUpdateContent = z.infer<
+  typeof FrontendViewModeStateUpdateContentSchema
+>;
+
+const WebsocketMsgUpdateFrontendViewModeStateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: FrontendViewModeStateUpdateContentSchema,
+  messageType: z
+    .literal("UpdateFrontendViewModeState")
+    .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendViewModeState),
+});
+
 const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -7114,6 +7139,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgNameValidationErrorsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
+  WebsocketMsgUpdateFrontendViewModeStateSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,

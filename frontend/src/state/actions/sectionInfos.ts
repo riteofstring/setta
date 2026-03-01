@@ -44,6 +44,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  FrontendViewModeStateUpdateContent,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
@@ -975,25 +976,10 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
-  const backendPendingIds = new Set(x.pendingOpIds);
-  const completedIds = new Set(x.completedOpIds);
-  const currentPending = usePendingOperations.getState().pending;
-  const nextPending = currentPending.reduce<PendingOperation[]>(
-    (acc, opInfo) => {
-      if (completedIds.has(opInfo.opId)) {
-        return acc;
-      }
-      const isBackendPending = backendPendingIds.has(opInfo.opId);
-      const acknowledged = opInfo.acknowledged || isBackendPending;
-      acc.push({
-        ...opInfo,
-        acknowledged,
-      });
-      return acc;
-    },
-    [],
+  const { completedIds, nextPending } = reconcilePendingOperationsWithBackend(
+    x.completedOpIds,
+    x.pendingOpIds,
   );
-  reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
@@ -1019,11 +1005,93 @@ export function processProjectStateUpdateFromBackend(
   );
 }
 
+export function processViewModeStateUpdateFromBackend(
+  x: FrontendViewModeStateUpdateContent,
+) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (x.projectConfigId !== projectConfigId) {
+    return;
+  }
+
+  const { completedIds, nextPending } = reconcilePendingOperationsWithBackend(
+    x.completedOpIds,
+    x.pendingOpIds,
+  );
+  const previousProjectConfig = useProjectState.getState().projectConfig;
+  let shouldRequestFitView = false;
+
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeViewModeId = x.activeViewModeId;
+      state.projectConfig.isEditingViewMode = x.isEditingViewMode;
+      state.projectConfig.topLevelSections = x.topLevelSections;
+      state.projectConfig.viewport = x.viewport;
+      state.projectConfig.viewportInitialized = x.viewportInitialized;
+      state.projectConfig.viewModes = {
+        ...state.projectConfig.viewModes,
+        ...x.updatedViewModes,
+      };
+      for (const opInfo of nextPending) {
+        opInfo.apply(state);
+      }
+    });
+    const nextProjectState = useProjectState.getState();
+    shouldRequestFitView = applyViewportFromProjectState(
+      nextProjectState,
+      previousProjectConfig,
+    );
+    const nextNodesMap = createNodesMapFromProjectConfigChildren(
+      nextProjectState,
+      useNodeInternals.getState().x,
+    );
+    useNodeInternals.setState({ x: nextNodesMap });
+  });
+
+  if (shouldRequestFitView) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  clearToolArgumentPreviewForProjectState(
+    projectConfigId,
+    useProjectState.getState(),
+  );
+}
+
+function reconcilePendingOperationsWithBackend(
+  completedOpIds: string[],
+  pendingOpIds: string[],
+): { completedIds: Set<string>; nextPending: PendingOperation[] } {
+  const backendPendingIds = new Set(pendingOpIds);
+  const completedIds = new Set(completedOpIds);
+  const currentPending = usePendingOperations.getState().pending;
+  const nextPending = currentPending.reduce<PendingOperation[]>(
+    (acc, opInfo) => {
+      if (completedIds.has(opInfo.opId)) {
+        return acc;
+      }
+      const isBackendPending = backendPendingIds.has(opInfo.opId);
+      const acknowledged = opInfo.acknowledged || isBackendPending;
+      acc.push({
+        ...opInfo,
+        acknowledged,
+      });
+      return acc;
+    },
+    [],
+  );
+  reconcilePendingTopLevelLayout(nextPending);
+  return { completedIds, nextPending };
+}
+
 function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
+  currentConfig: ProjectStateSingleConfig["projectConfig"] = useProjectState
+    .getState()
+    .projectConfig,
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;

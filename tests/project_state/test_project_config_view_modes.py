@@ -15,6 +15,8 @@ from setta.project_state.project_manager_types import (
     SetViewModeSortOrderRequest,
     SetViewportRequest,
     ToggleViewModeTabRequest,
+    ToggleIsEditingViewModeRequest,
+    ToggleSectionVisibilityRequest,
 )
 from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.section_impls import SectionType
@@ -287,6 +289,68 @@ class TestProjectConfigViewModes:
             assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(
                 1.6
             )
+
+    async def test_view_mode_interactions_use_view_mode_delta_broadcast(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            section_id, initial_state = await ensure_top_level_section(
+                manager, project_config_id
+            )
+            first_view_mode_id = initial_state.projectConfig.activeViewModeId
+            assert first_view_mode_id is not None
+            second_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+            await manager.set_active_view_mode(
+                SetActiveViewModeRequest(
+                    projectConfigId=project_config_id,
+                    activeViewModeId=first_view_mode_id,
+                )
+            )
+
+            sender = manager.websocket_msg_handler
+            view_mode_broadcast_calls = 0
+            project_state_broadcast_calls = 0
+            original_view_mode_broadcast = sender.broadcast_view_mode_state
+            original_project_state_broadcast = sender.broadcast_project_state
+
+            async def record_view_mode_broadcast(*args, **kwargs) -> None:
+                nonlocal view_mode_broadcast_calls
+                view_mode_broadcast_calls += 1
+                await original_view_mode_broadcast(*args, **kwargs)
+
+            async def record_project_state_broadcast(*args, **kwargs) -> None:
+                nonlocal project_state_broadcast_calls
+                project_state_broadcast_calls += 1
+                await original_project_state_broadcast(*args, **kwargs)
+
+            sender.broadcast_view_mode_state = record_view_mode_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+            try:
+                await manager.set_active_view_mode(
+                    SetActiveViewModeRequest(
+                        projectConfigId=project_config_id,
+                        activeViewModeId=second_view_mode_id,
+                    )
+                )
+                await manager.toggle_is_editing_view_mode(
+                    ToggleIsEditingViewModeRequest(projectConfigId=project_config_id)
+                )
+                await manager.toggle_section_visibility(
+                    ToggleSectionVisibilityRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[section_id],
+                    )
+                )
+            finally:
+                sender.broadcast_view_mode_state = original_view_mode_broadcast  # type: ignore[method-assign]
+                sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+
+            assert view_mode_broadcast_calls == 3
+            assert project_state_broadcast_calls == 0
 
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:

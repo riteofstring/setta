@@ -12,6 +12,7 @@ import {
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
+  processViewModeStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -35,6 +36,7 @@ import {
   createUserDefaultChatSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
+  type FrontendViewModeStateUpdateContent,
   ListRootViewModeEnum,
   SectionTypeEnum,
   type ProjectStateSingleConfigWithCompletedOpIds,
@@ -1451,5 +1453,207 @@ describe("processProjectStateUpdateFromBackend", () => {
     processProjectStateUpdateFromBackend(update);
 
     expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
+  });
+});
+
+describe("processViewModeStateUpdateFromBackend", () => {
+  it("applies view-mode delta updates and replays pending optimistic ops", () => {
+    const sectionVisible = "section-visible";
+    const sectionHidden = "section-hidden";
+    const sectionVisibleVariantId = "variant-visible";
+    const sectionHiddenVariantId = "variant-hidden";
+    const sectionVisibleImplId = "impl-visible";
+    const sectionHiddenImplId = "impl-hidden";
+    const viewModeAId = "view-a";
+    const viewModeBId = "view-b";
+    const layoutA = { x: 10, y: 20, zIndex: 0, w: 200, h: 160 };
+    const layoutB = { x: 200, y: 150, zIndex: 3, w: 220, h: 170 };
+    const pendingViewport = { x: 99, y: -42, zoom: 1.25 };
+    const viewModeA: ViewModeConfig = {
+      id: viewModeAId,
+      name: "View A",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: true,
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+      topLevelSections: {
+        [sectionVisible]: { ...layoutA },
+        [sectionHidden]: { ...layoutA },
+      },
+    };
+    const viewModeB: ViewModeConfig = {
+      id: viewModeBId,
+      name: "View B",
+      sortIndex: 1,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: false,
+      },
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {
+        [sectionVisible]: { ...layoutB },
+        [sectionHidden]: { ...layoutB },
+      },
+    };
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [sectionVisible]: sectionVisibleVariantId,
+          [sectionHidden]: sectionHiddenVariantId,
+        },
+        topLevelSections: {
+          [sectionVisible]: { ...layoutA },
+          [sectionHidden]: { ...layoutA },
+        },
+        viewModes: {
+          [viewModeAId]: viewModeA,
+          [viewModeBId]: viewModeB,
+        },
+        activeViewModeId: viewModeAId,
+        isEditingViewMode: false,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportInitialized: true,
+      }),
+      sections: {
+        [sectionVisible]: createCore({ id: sectionVisible }),
+        [sectionHidden]: createCore({ id: sectionHidden }),
+      },
+      sectionImpls: {
+        [sectionVisibleImplId]: createTerminalSectionImpl({
+          id: sectionVisibleImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+        [sectionHiddenImplId]: createTerminalSectionImpl({
+          id: sectionHiddenImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [sectionVisibleVariantId]: createVariant({
+          id: sectionVisibleVariantId,
+          impl: sectionVisibleImplId,
+          nonPresetImpls: [],
+        }),
+        [sectionHiddenVariantId]: createVariant({
+          id: sectionHiddenVariantId,
+          impl: sectionHiddenImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionVisible]: null,
+        [sectionHidden]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({
+      pending: [
+        {
+          opId: "op-viewport",
+          acknowledged: false,
+          apply: (state) => {
+            state.projectConfig.viewport = pendingViewport;
+            state.projectConfig.viewportInitialized = true;
+          },
+        },
+      ],
+    });
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          sectionVisible,
+          {
+            id: sectionVisible,
+            position: { x: 1, y: 2 },
+            width: 180,
+            height: 140,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          sectionHidden,
+          {
+            id: sectionHidden,
+            position: { x: 3, y: 4 },
+            width: 160,
+            height: 120,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+    useMisc.setState({ requestUpdateNodeDimensions: false });
+
+    const delta: FrontendViewModeStateUpdateContent = {
+      projectConfigId: "project-1",
+      activeViewModeId: viewModeBId,
+      isEditingViewMode: false,
+      topLevelSections: {
+        [sectionVisible]: { ...layoutB },
+        [sectionHidden]: { ...layoutB },
+      },
+      viewport: null,
+      viewportInitialized: false,
+      updatedViewModes: {
+        [viewModeBId]: {
+          ...viewModeB,
+          topLevelSections: {
+            [sectionVisible]: { ...layoutB },
+            [sectionHidden]: { ...layoutB },
+          },
+        },
+      },
+      completedOpIds: [],
+      pendingOpIds: ["op-viewport"],
+    };
+
+    processViewModeStateUpdateFromBackend(delta);
+
+    const nextProjectState = useProjectState.getState();
+    expect(nextProjectState.projectConfig.activeViewModeId).toBe(viewModeBId);
+    expect(nextProjectState.projectConfig.viewport).toEqual(pendingViewport);
+    expect(nextProjectState.projectConfig.viewportInitialized).toBe(true);
+    expect(nextProjectState.sections[sectionVisible]).toBeDefined();
+    expect(nextProjectState.sections[sectionHidden]).toBeDefined();
+
+    const nextPending = usePendingOperations.getState().pending;
+    expect(nextPending).toHaveLength(1);
+    expect(nextPending[0]?.acknowledged).toBe(true);
+
+    const nodes = useNodeInternals.getState().x;
+    expect(Array.from(nodes.keys())).toEqual([sectionVisible]);
+
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.transform).toEqual([
+      pendingViewport.x,
+      pendingViewport.y,
+      pendingViewport.zoom,
+    ]);
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
   });
 });

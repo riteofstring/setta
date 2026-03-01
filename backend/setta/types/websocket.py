@@ -39,6 +39,7 @@ from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.managed_api_keys import ManagedAPIKeysSnapshot
 from setta.types.name_validation import SettaProjectNameValidationErrors
 from setta.types.notifications import SettaBackendLogEvent, SettaNotification
+from setta.types.project_config import TopLevelSectionLayout, ViewModeConfig, Viewport
 from setta.types.project_state import AllProjectMetadata
 from setta.types.prompt import PromptTemplateList
 
@@ -54,6 +55,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMStreamingResponse = "LLMStreamingResponse"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
+    UpdateFrontendViewModeState = "UpdateFrontendViewModeState"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -198,6 +200,25 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     content: ProjectStateSingleConfigWithCompletedOpIds
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
+    )
+
+
+class FrontendViewModeStateUpdateContent(BaseModel):
+    projectConfigId: ID
+    activeViewModeId: ID | None = None
+    isEditingViewMode: bool
+    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
+    viewport: Viewport | None = None
+    viewportInitialized: bool = False
+    updatedViewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
+    completedOpIds: list[str] = Field(default_factory=list)
+    pendingOpIds: list[str] = Field(default_factory=list)
+
+
+class WebsocketMsgUpdateFrontendViewModeState(FrontendWebsocketMsg):
+    content: FrontendViewModeStateUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendViewModeState] = (
+        WebsocketMsgTypeForFrontend.UpdateFrontendViewModeState
     )
 
 

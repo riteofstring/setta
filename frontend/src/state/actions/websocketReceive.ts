@@ -89,6 +89,7 @@ import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
+  processViewModeStateUpdateFromBackend,
   updateAllProjectMetadata,
 } from "./sectionInfos";
 import { updateSettings } from "./settings";
@@ -534,6 +535,8 @@ function receiveMessage(message: string, socketGeneration: number) {
         return processAppProjectStateUpdateFromBackend(m.content);
       }
       return processProjectStateUpdateFromBackend(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UpdateFrontendViewModeState:
+      return processViewModeStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:

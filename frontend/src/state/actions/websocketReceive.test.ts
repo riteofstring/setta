@@ -55,6 +55,7 @@ vi.mock("state/actions/sectionInfos", async () => {
   return {
     ...actual,
     processProjectStateUpdateFromBackend: vi.fn(),
+    processViewModeStateUpdateFromBackend: vi.fn(),
   };
 });
 
@@ -371,6 +372,41 @@ describe("openWebSocket", () => {
     expect(state.apiKeysRevision).toBe(4);
     expect(state.apiKeysLoadError).toBeNull();
     expect(state.apiKeysAuthoritative).toBe(true);
+  });
+
+  it("routes view-mode delta websocket updates to the targeted processor", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { processViewModeStateUpdateFromBackend } = await import(
+      "state/actions/sectionInfos"
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    const content = {
+      projectConfigId: "project-1",
+      activeViewModeId: "view-2",
+      isEditingViewMode: false,
+      topLevelSections: {},
+      viewport: null,
+      viewportInitialized: false,
+      updatedViewModes: {},
+      completedOpIds: [],
+      pendingOpIds: [],
+    };
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: null,
+        messageType: WebsocketMsgTypeForFrontendEnum.UpdateFrontendViewModeState,
+        content,
+      }),
+    });
+
+    expect(processViewModeStateUpdateFromBackend).toHaveBeenCalledWith(content);
   });
 
   it("does not set frontend websocket affinity from AllConnections payloads", async () => {
