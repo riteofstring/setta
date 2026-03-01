@@ -106,6 +106,7 @@ const DEFAULT_CONFIG: CanvasEngineSceneAdapterConfig = {
 
 const AGENTIC_HANDLE_GAP_WORLD = 12;
 const AGENTIC_HANDLE_HALF_SIZE_WORLD = 7;
+const DATA_HANDLE_EXTENT_WORLD = 16;
 
 export class CanvasEngineSceneAdapter {
   private readonly config: CanvasEngineSceneAdapterConfig;
@@ -119,6 +120,14 @@ export class CanvasEngineSceneAdapter {
   private readonly agenticEdgeById: Map<string, CanvasEngineAgenticEdge>;
 
   private edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>;
+
+  private dataHandlePositionsBySectionId: Map<
+    string,
+    {
+      source: Map<string, CanvasEngineEdgeHandlePosition>;
+      target: Map<string, CanvasEngineEdgeHandlePosition>;
+    }
+  >;
 
   private sectionEdgePortsBySectionId: Record<
     string,
@@ -139,6 +148,7 @@ export class CanvasEngineSceneAdapter {
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
     this.edgeHandlePositionByKey = new Map();
+    this.dataHandlePositionsBySectionId = new Map();
     this.sectionEdgePortsBySectionId = {};
     this.activeSectionIdSet = new Set();
   }
@@ -519,102 +529,58 @@ export class CanvasEngineSceneAdapter {
       zIndex: number;
       distance: number;
     } | null = null;
-    const measuredHandleKeySet = new Set<string>();
+    const queryToleranceWorld = toleranceWorld + DATA_HANDLE_EXTENT_WORLD;
+    const candidateSectionIds = this.spatialIndex.queryRect({
+      x: worldX - queryToleranceWorld,
+      y: worldY - queryToleranceWorld,
+      width: queryToleranceWorld * 2,
+      height: queryToleranceWorld * 2,
+    });
 
-    for (const [handleKey, handle] of this.edgeHandlePositionByKey.entries()) {
-      if (options?.handleType && handle.type !== options.handleType) {
-        continue;
-      }
-      if (isAgenticHandlePortId(handle.portId)) {
-        continue;
-      }
-      const rect = this.rectById.get(handle.sectionId);
+    for (const sectionId of candidateSectionIds) {
+      const rect = this.rectById.get(sectionId);
       if (!rect) {
         continue;
       }
-      measuredHandleKeySet.add(handleKey);
-      const candidate = createDataHandleHitCandidate({
-        sectionId: handle.sectionId,
-        portId: handle.portId,
-        handleType: handle.type,
-        handleWorldX: handle.x,
-        handleWorldY: handle.y,
-        zIndex: rect.zIndex,
-        worldX,
-        worldY,
-        toleranceWorld,
-      });
-      if (!candidate) {
+      const measuredSectionHandles =
+        this.dataHandlePositionsBySectionId.get(sectionId) ?? null;
+      const sectionPorts = this.sectionEdgePortsBySectionId[sectionId];
+      if (!sectionPorts && !measuredSectionHandles) {
         continue;
       }
-      if (
-        !hitCandidate ||
-        isDataHandleHitCandidateAbove(candidate, hitCandidate)
-      ) {
-        hitCandidate = candidate;
+      if (!options?.handleType || options.handleType === "source") {
+        const sourcePortIds = resolvePortIdsForHandleType(
+          sectionPorts?.outputPortIds ?? [],
+          measuredSectionHandles?.source ?? null,
+        );
+        hitCandidate = selectDataHandleHitCandidateForPortIds({
+          currentHit: hitCandidate,
+          sectionId,
+          portIds: sourcePortIds,
+          handleType: "source",
+          rect,
+          measuredPositionsByPortId: measuredSectionHandles?.source ?? null,
+          worldX,
+          worldY,
+          toleranceWorld,
+        });
       }
-    }
-
-    if (!hitCandidate) {
-      for (const [sectionId, rect] of this.rectById.entries()) {
-        const sectionPorts = this.sectionEdgePortsBySectionId[sectionId];
-        if (!sectionPorts) {
-          continue;
-        }
-        const handleGroups: Array<{
-          handleType: "source" | "target";
-          portIds: string[];
-        }> = [];
-        if (!options?.handleType || options.handleType === "source") {
-          handleGroups.push({
-            handleType: "source",
-            portIds: sectionPorts.outputPortIds,
-          });
-        }
-        if (!options?.handleType || options.handleType === "target") {
-          handleGroups.push({
-            handleType: "target",
-            portIds: sectionPorts.inputPortIds,
-          });
-        }
-        for (const handleGroup of handleGroups) {
-          for (const portId of handleGroup.portIds) {
-            const handleKey = buildDataHandleKey(
-              sectionId,
-              portId,
-              handleGroup.handleType,
-            );
-            if (measuredHandleKeySet.has(handleKey)) {
-              continue;
-            }
-            const estimatedAnchor = resolveEstimatedDataPortAnchor({
-              rect,
-              portId,
-              portIds: handleGroup.portIds,
-              handleType: handleGroup.handleType,
-            });
-            const candidate = createDataHandleHitCandidate({
-              sectionId,
-              portId,
-              handleType: handleGroup.handleType,
-              handleWorldX: estimatedAnchor.x,
-              handleWorldY: estimatedAnchor.y,
-              zIndex: rect.zIndex,
-              worldX,
-              worldY,
-              toleranceWorld,
-            });
-            if (!candidate) {
-              continue;
-            }
-            if (
-              !hitCandidate ||
-              isDataHandleHitCandidateAbove(candidate, hitCandidate)
-            ) {
-              hitCandidate = candidate;
-            }
-          }
-        }
+      if (!options?.handleType || options.handleType === "target") {
+        const targetPortIds = resolvePortIdsForHandleType(
+          sectionPorts?.inputPortIds ?? [],
+          measuredSectionHandles?.target ?? null,
+        );
+        hitCandidate = selectDataHandleHitCandidateForPortIds({
+          currentHit: hitCandidate,
+          sectionId,
+          portIds: targetPortIds,
+          handleType: "target",
+          rect,
+          measuredPositionsByPortId: measuredSectionHandles?.target ?? null,
+          worldX,
+          worldY,
+          toleranceWorld,
+        });
       }
     }
 
@@ -701,10 +667,30 @@ export class CanvasEngineSceneAdapter {
     edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>,
   ): void {
     const nextByKey = new Map<string, CanvasEngineEdgeHandlePosition>();
+    const nextDataBySectionId = new Map<
+      string,
+      {
+        source: Map<string, CanvasEngineEdgeHandlePosition>;
+        target: Map<string, CanvasEngineEdgeHandlePosition>;
+      }
+    >();
     for (const [key, handle] of Object.entries(edgeHandlePositions)) {
       nextByKey.set(key, handle);
+      if (isAgenticHandlePortId(handle.portId)) {
+        continue;
+      }
+      let byType = nextDataBySectionId.get(handle.sectionId);
+      if (!byType) {
+        byType = {
+          source: new Map(),
+          target: new Map(),
+        };
+        nextDataBySectionId.set(handle.sectionId, byType);
+      }
+      byType[handle.type].set(handle.portId, handle);
     }
     this.edgeHandlePositionByKey = nextByKey;
+    this.dataHandlePositionsBySectionId = nextDataBySectionId;
   }
 
   private applySections(
@@ -1139,6 +1125,102 @@ function isDataHandleHitCandidateAbove(
     return candidate.sectionId.localeCompare(current.sectionId) > 0;
   }
   return candidate.portId.localeCompare(current.portId) > 0;
+}
+
+function selectDataHandleHitCandidateForPortIds({
+  currentHit,
+  sectionId,
+  portIds,
+  handleType,
+  rect,
+  measuredPositionsByPortId,
+  worldX,
+  worldY,
+  toleranceWorld,
+}: {
+  currentHit: {
+    sectionId: string;
+    portId: string;
+    handleType: "source" | "target";
+    handleWorldX: number;
+    handleWorldY: number;
+    zIndex: number;
+    distance: number;
+  } | null;
+  sectionId: string;
+  portIds: string[];
+  handleType: "source" | "target";
+  rect: CanvasEngineRect;
+  measuredPositionsByPortId: Map<string, CanvasEngineEdgeHandlePosition> | null;
+  worldX: number;
+  worldY: number;
+  toleranceWorld: number;
+}): {
+  sectionId: string;
+  portId: string;
+  handleType: "source" | "target";
+  handleWorldX: number;
+  handleWorldY: number;
+  zIndex: number;
+  distance: number;
+} | null {
+  let nextHit = currentHit;
+  for (const portId of portIds) {
+    if (isAgenticHandlePortId(portId)) {
+      continue;
+    }
+    const measuredHandle = measuredPositionsByPortId?.get(portId);
+    const anchor = measuredHandle
+      ? {
+          x: measuredHandle.x,
+          y: measuredHandle.y,
+        }
+      : resolveEstimatedDataPortAnchor({
+          rect,
+          portId,
+          portIds,
+          handleType,
+        });
+    const candidate = createDataHandleHitCandidate({
+      sectionId,
+      portId,
+      handleType,
+      handleWorldX: anchor.x,
+      handleWorldY: anchor.y,
+      zIndex: rect.zIndex,
+      worldX,
+      worldY,
+      toleranceWorld,
+    });
+    if (!candidate) {
+      continue;
+    }
+    if (!nextHit || isDataHandleHitCandidateAbove(candidate, nextHit)) {
+      nextHit = candidate;
+    }
+  }
+  return nextHit;
+}
+
+function resolvePortIdsForHandleType(
+  declaredPortIds: string[],
+  measuredPositionsByPortId: Map<string, CanvasEngineEdgeHandlePosition> | null,
+): string[] {
+  if (!measuredPositionsByPortId || measuredPositionsByPortId.size === 0) {
+    return declaredPortIds;
+  }
+  if (declaredPortIds.length === 0) {
+    return Array.from(measuredPositionsByPortId.keys());
+  }
+  const merged = [...declaredPortIds];
+  const seen = new Set(declaredPortIds);
+  for (const portId of measuredPositionsByPortId.keys()) {
+    if (seen.has(portId)) {
+      continue;
+    }
+    merged.push(portId);
+  }
+  return merged;
 }
 
 function createDataHandleHitCandidate({
