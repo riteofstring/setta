@@ -2382,6 +2382,28 @@ class BaseProjectManager(ABC):
         ] = self.history.revision
         self._get_gen_code_prefix_suffix_refresh_debouncer(project_config_id).trigger()
 
+    async def _run_deferred_codegen_refresh_with_patch_transport(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=project_state.projectConfig.id,
+            section_ids=[],
+        )
+        if section_patch_scope:
+            await self._update_and_broadcast_section_impl_patches(
+                project_state,
+                section_ids=section_patch_scope,
+                updateFileWatcher=False,
+                validate_name_rules=False,
+                broadcast_name_validation_errors=False,
+            )
+            return
+        await self._update_and_broadcast_project_config_patch_no_name_validation(
+            project_state,
+            updateFileWatcher=False,
+        )
+
     async def _refresh_gen_code_prefix_suffix_now(self, project_config_id: ID) -> None:
         if (
             project_config_id
@@ -2395,12 +2417,7 @@ class BaseProjectManager(ABC):
             )
             return
         project_state = self.get_single_config_state(project_config_id)
-        await self.update(
-            project_state,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-        )
-        await self._broadcast_project_state_snapshot(project_state)
+        await self._run_deferred_codegen_refresh_with_patch_transport(project_state)
         self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
             project_config_id,
             None,
@@ -2476,12 +2493,7 @@ class BaseProjectManager(ABC):
             )
             return
         project_state = self.get_single_config_state(project_config_id)
-        await self.update(
-            project_state,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-        )
-        await self._broadcast_project_state_snapshot(project_state)
+        await self._run_deferred_codegen_refresh_with_patch_transport(project_state)
         self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
             project_config_id,
             None,

@@ -202,3 +202,120 @@ async def test_set_gen_code_prefix_undo_restores_previous_value() -> None:
             manager.project_state_backend.projectConfigs[project_config_id]
         ).genCodePrefix
         assert reverted_prefix == original_prefix
+
+
+@pytest.mark.asyncio
+async def test_flush_pending_gen_code_prefix_refresh_uses_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        def mark_pending_refresh_only(project_config_id_for_refresh: str) -> None:
+            manager._pending_gen_code_prefix_suffix_refresh_revision_by_project_config[  # type: ignore[attr-defined]
+                project_config_id_for_refresh
+            ] = manager.history.revision
+
+        manager._schedule_deferred_gen_code_prefix_suffix_refresh = (  # type: ignore[method-assign]
+            mark_pending_refresh_only
+        )
+
+        sender = manager.websocket_msg_handler
+        snapshot_calls = 0
+        section_impl_patch_calls = 0
+        project_config_patch_calls = 0
+        original_snapshot = sender.broadcast_project_state
+        original_section_patch = sender.broadcast_project_state_section_impl_patch
+        original_project_config_patch = (
+            sender.broadcast_project_state_project_config_patch
+        )
+
+        async def record_snapshot(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision=None,
+        ) -> None:
+            nonlocal snapshot_calls
+            snapshot_calls += 1
+            await original_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+
+        async def record_section_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal section_impl_patch_calls
+            section_impl_patch_calls += 1
+            await original_section_patch(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def record_project_config_patch(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal project_config_patch_calls
+            project_config_patch_calls += 1
+            await original_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_project_config_patch = (
+            record_project_config_patch  # type: ignore[method-assign]
+        )
+        try:
+            await manager.set_gen_code_prefix(
+                SetGenCodePrefixRequest(
+                    projectConfigId=project_config_id,
+                    genCodePrefix="import math\n",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            snapshot_calls = 0
+            section_impl_patch_calls = 0
+            project_config_patch_calls = 0
+
+            await manager._flush_pending_gen_code_prefix_suffix_refresh(
+                project_config_id
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = original_section_patch  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                original_project_config_patch  # type: ignore[method-assign]
+            )
+
+        assert 0 == snapshot_calls
+        assert section_impl_patch_calls + project_config_patch_calls >= 1
