@@ -142,6 +142,46 @@ describe("resolveSceneGraphRendererBackend", () => {
       reason: "forced_webgl_unavailable",
     });
   });
+
+  it("keeps forced GPU backends when capabilities are available", () => {
+    // Forced backends should stay explicit (no auto-* reason) when checks pass.
+    const capabilities = createCapabilities({
+      webgpu: {
+        available: true,
+        reason: null,
+        missingRequiredFeatures: [],
+        adapterIsFallback: false,
+      },
+      webgl2: {
+        available: true,
+        reason: null,
+        renderer: "Renderer",
+        vendor: "Vendor",
+        majorPerformanceCaveat: false,
+      },
+    });
+
+    expect(
+      resolveSceneGraphRendererBackend(
+        createFlags({ enabled: true, backend: "webgpu" }),
+        capabilities,
+      ),
+    ).toEqual({
+      requestedBackend: "webgpu",
+      resolvedBackend: "webgpu",
+      reason: "forced_webgpu_selected",
+    });
+    expect(
+      resolveSceneGraphRendererBackend(
+        createFlags({ enabled: true, backend: "webgl" }),
+        capabilities,
+      ),
+    ).toEqual({
+      requestedBackend: "webgl",
+      resolvedBackend: "webgl",
+      reason: "forced_webgl_selected",
+    });
+  });
 });
 
 describe("buildSceneGraphRendererPerfLabels", () => {

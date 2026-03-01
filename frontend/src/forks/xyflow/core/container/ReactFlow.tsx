@@ -8,6 +8,7 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
+import { SceneGraphRendererLayer } from "sceneGraphRenderer/SceneGraphRendererLayer";
 import { useSceneGraphRendererRuntime } from "sceneGraphRenderer/useSceneGraphRendererRuntime";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
@@ -132,6 +133,12 @@ const ReactFlow = () => {
           left: `${SCROLL_INIT}px`,
         }}
       >
+        <SceneGraphRendererLayer
+          runtime={sceneGraphRendererRuntime}
+          wrapperDimensions={wrapperDimensions}
+          wireColor={wireColor}
+          darkMode={darkMode}
+        />
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
           <ViewportWrapper>
             {readyToRender && (

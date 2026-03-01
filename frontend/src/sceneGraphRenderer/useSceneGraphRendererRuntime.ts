@@ -16,7 +16,7 @@ import {
   type SceneGraphRendererPerfLabels,
 } from "./runtime";
 
-type SceneGraphRendererRuntimeState = {
+export type SceneGraphRendererRuntimeState = {
   flags: SceneGraphRendererFlags;
   capabilities: SceneGraphRendererCapabilities;
   selection: SceneGraphRendererBackendSelection;
