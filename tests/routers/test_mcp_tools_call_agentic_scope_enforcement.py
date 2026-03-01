@@ -56,19 +56,10 @@ class _DummyProjectManager:
         )
         self.history = History(backend)
         self.summary_calls = 0
-        self.single_config_state_reads = 0
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
         return self.history.get_current()
-
-    def get_single_config_state(
-        self, project_config_id: ID
-    ) -> ProjectStateSingleConfig:
-        if project_config_id != self._single.projectConfig.id:
-            raise KeyError(f"Unexpected project config id: {project_config_id}")
-        self.single_config_state_reads += 1
-        return self._single
 
     async def get_latest_project_state_summary(self, _request):
         self.summary_calls += 1
@@ -318,7 +309,6 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
     payload = response.json()
     assert payload["isError"] is False
     assert manager.summary_calls == 0
-    assert manager.single_config_state_reads == 1
 
     content = payload.get("content") or []
     assert isinstance(content, list) and content, (

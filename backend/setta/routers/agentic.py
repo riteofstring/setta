@@ -63,6 +63,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.prompt import PromptFormat, PromptTemplate
@@ -608,7 +609,10 @@ async def route_get_agentic_summary_cache_status(
         x.projectConfigId,
         share_session_id=ctx.share_session_id,
     )
-    project_state = manager.get_single_config_state(x.projectConfigId)
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        x.projectConfigId,
+    )
     return build_agentic_summary_cache_status_for_chat_section(
         ctx.state.dbe,
         project_state,

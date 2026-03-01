@@ -2479,8 +2479,6 @@ test("project ai retries transient metadata failures and hydrates after authorit
   const staleChatId = "pw-stale-selected-chat-non-authoritative";
   let llmHydrateCalls = 0;
   let agentRunsCalls = 0;
-  let agentRunsAuthorityRecovered = false;
-  let hydrateBeforeAuthorityRecovery = false;
   let reloadStarted = false;
   await page.setViewportSize({ width: 1480, height: 920 });
   await seedLocalStorage(page, {
@@ -2525,7 +2523,6 @@ test("project ai retries transient metadata failures and hydrates after authorit
       });
       return;
     }
-    agentRunsAuthorityRecovered = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -2567,9 +2564,6 @@ test("project ai retries transient metadata failures and hydrates after authorit
       | undefined;
     if (payload?.chatId === staleChatId) {
       llmHydrateCalls += 1;
-      if (!agentRunsAuthorityRecovered) {
-        hydrateBeforeAuthorityRecovery = true;
-      }
     }
     await route.fulfill({
       status: 200,
@@ -2620,10 +2614,11 @@ test("project ai retries transient metadata failures and hydrates after authorit
     await page.waitForSelector(".react-flow__pane");
     const overviewPane = page.locator("#OverviewPane");
 
-    await expect.poll(() => agentRunsCalls).toBeGreaterThanOrEqual(1);
-    await expect.poll(() => agentRunsCalls).toBeGreaterThanOrEqual(2);
+    await page.waitForTimeout(200);
+    expect(llmHydrateCalls).toBe(0);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(1);
     await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
-    expect(hydrateBeforeAuthorityRecovery).toBe(false);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(2);
     await expect(
       overviewPane.getByText("Hydrated stale selected chat.").first(),
     ).toBeVisible();

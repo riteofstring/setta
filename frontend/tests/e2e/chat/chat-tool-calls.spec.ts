@@ -659,22 +659,19 @@ test.describe.serial("chat tool calls", () => {
       );
       await expect(plainOutputBottomHandle).toHaveCount(1);
       await plainOutputBottomHandle.scrollIntoViewIfNeeded();
-      const outputPaneBox = await plainOutputPane.boundingBox();
-      if (!outputPaneBox) {
-        throw new Error("Expected output pane bounds before hover checks.");
-      }
-      const awayX = Math.max(1, outputPaneBox.x - 40);
-      const awayY = Math.max(1, outputPaneBox.y - 40);
-      await page.mouse.move(awayX, awayY);
-      await expect
-        .poll(async () =>
-          plainOutputBottomHandle.evaluate((element) =>
-            Number.parseFloat(
-              window.getComputedStyle(element as HTMLElement).opacity,
-            ),
+      await page.mouse.move(10, 10);
+      await page.evaluate(() => {
+        return new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+      const handleOpacityBeforeHover = await plainOutputBottomHandle.evaluate(
+        (element) =>
+          Number.parseFloat(
+            window.getComputedStyle(element as HTMLElement).opacity,
           ),
-        )
-        .toBeLessThan(0.5);
+      );
+      expect(handleOpacityBeforeHover).toBeLessThan(0.5);
       await plainOutputPane.hover();
       await expect
         .poll(async () =>
