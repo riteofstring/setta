@@ -57,7 +57,35 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 
 ## After
 
-(Append after each refactor phase using the same scenario + method.)
+### Phase 1 (wrapper flattening pass)
+
+- Scope:
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/ParamContainer.tsx`
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx`
+  - `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `7838` (down from `8619`, `-781`, `-9.1%`)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Per-node descendants: `avg 185.45` (down from `204.05`)
+  - Per-node descendants p95: `290` (down from `314`)
+  - Per-node descendants max: `1656` (down from `1854`)
+  - Per-node max depth: `avg 11.74` / `max 16` (down from `12.74` / `17`)
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase1.trace.json`
+- Trace signals from this phase run:
+  - Duration: `18,026.11 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `4`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `325` (`18.03/s`)
+  - `DrawFrame`: `171` (`9.49/s`)
+  - `DroppedFrame`: `21` (`6.46%`)
+  - Main-thread work: `Layout 82.67 ms`, `UpdateLayoutTree 18.22 ms`, `Paint 139.61 ms`
+- Notes:
+  - DOM-shape improvements are clear and stable in this pass.
+  - Trace-window duration differs from baseline, so final comparison should be re-run once after all flattening passes land.
 
 ## Conclusion
 
