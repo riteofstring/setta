@@ -6358,8 +6358,30 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
-        deleted_any = False
+        unique_project_config_ids: list[ID] = []
+        seen_project_config_ids: set[ID] = set()
         for project_config_id in project_config_ids:
+            if project_config_id in seen_project_config_ids:
+                continue
+            seen_project_config_ids.add(project_config_id)
+            unique_project_config_ids.append(project_config_id)
+
+        missing_project_config_ids = [
+            project_config_id
+            for project_config_id in unique_project_config_ids
+            if project_config_id not in self.project_state_backend.projectConfigs
+        ]
+        if missing_project_config_ids:
+            missing_project_config_id_str = ", ".join(
+                str(project_config_id)
+                for project_config_id in missing_project_config_ids
+            )
+            raise KeyError(
+                f"Unknown project config(s): {missing_project_config_id_str}"
+            )
+
+        deleted_any = False
+        for project_config_id in unique_project_config_ids:
             project_config = self.project_state_backend.projectConfigs[
                 project_config_id
             ]
