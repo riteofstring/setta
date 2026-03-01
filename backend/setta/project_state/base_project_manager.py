@@ -4196,7 +4196,15 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.selectedId,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[x.paramInfoId],
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4347,7 +4355,15 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
-        await self.update_and_broadcast_project_state(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[x.paramInfoId],
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     @project_state_tool(
