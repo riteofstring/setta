@@ -63,7 +63,7 @@ const AgenticEdgeRenderer = () => {
     width: state.width,
     height: state.height,
     multiSelectionActive: state.multiSelectionActive,
-  }));
+  }), shallow);
   const {
     agenticEdges,
     topLevelSections,

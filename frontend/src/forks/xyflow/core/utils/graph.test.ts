@@ -1,19 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screenToFlowPosition } from "../hooks/useViewportHelper";
+import { describe, expect, it } from "vitest";
 import type { ReactFlowState } from "../types";
 import { getPaneRect } from "./graph";
 
-vi.mock("../hooks/useViewportHelper", () => ({
-  screenToFlowPosition: vi.fn((point) => point),
-}));
-
-const mockedScreenToFlowPosition = vi.mocked(screenToFlowPosition);
-
 describe("getPaneRect", () => {
-  beforeEach(() => {
-    mockedScreenToFlowPosition.mockClear();
-  });
-
   it("uses transform math when the dom node is missing", () => {
     const state = {
       domNode: null,
@@ -25,10 +14,9 @@ describe("getPaneRect", () => {
     const result = getPaneRect(state, 50, 75);
 
     expect(result).toEqual({ x: 20, y: -10, width: 100, height: 50 });
-    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
   });
 
-  it("derives the visible rect from the dom node bounds", () => {
+  it("derives the visible rect from the dom node bounds using transform math", () => {
     const domNode = {
       getBoundingClientRect: () => ({
         left: 100,
@@ -40,21 +28,35 @@ describe("getPaneRect", () => {
 
     const state = {
       domNode,
-      transform: [0, 0, 1],
+      transform: [10, 20, 2],
       width: 0,
       height: 0,
     } as ReactFlowState;
 
     const result = getPaneRect(state, 50, 100);
 
-    expect(result).toEqual({ x: 150, y: 200, width: 350, height: 400 });
-    expect(mockedScreenToFlowPosition).toHaveBeenCalledWith(
-      { x: 150, y: 200 },
-      true,
-    );
-    expect(mockedScreenToFlowPosition).toHaveBeenCalledWith(
-      { x: 500, y: 600 },
-      true,
-    );
+    expect(result).toEqual({ x: 20, y: -10, width: 175, height: 200 });
+  });
+
+  it("uses an override transform when provided", () => {
+    const domNode = {
+      getBoundingClientRect: () => ({
+        left: 100,
+        top: 200,
+        width: 500,
+        height: 400,
+      }),
+    } as HTMLDivElement;
+
+    const state = {
+      domNode,
+      transform: [10, 20, 2],
+      width: 0,
+      height: 0,
+    } as ReactFlowState;
+
+    const result = getPaneRect(state, 50, 100, [30, 50, 4]);
+
+    expect(result).toEqual({ x: 5, y: -12.5, width: 87.5, height: 100 });
   });
 });

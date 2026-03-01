@@ -57,6 +57,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       transform: [x, y, zoom],
+      renderTransform: [x, y, zoom],
     });
   }
   useProjectState.setState({ ...p, previewSectionVariantMap: {} });

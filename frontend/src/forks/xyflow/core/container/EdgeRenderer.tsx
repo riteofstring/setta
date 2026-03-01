@@ -13,6 +13,7 @@ import StraightEdge from "../components/Edges/StraightEdge";
 import wrapEdge from "../components/Edges/wrapEdge";
 import { useReactFlow } from "../store";
 import type { Connection } from "../types";
+import { shallow } from "zustand/shallow";
 
 const WrappedBezierEdge = wrapEdge(BezierEdge);
 const WrappedStraightEdge = wrapEdge(StraightEdge);
@@ -36,7 +37,7 @@ const EdgeRenderer = () => {
   const { width, height } = useReactFlow((state) => ({
     width: state.width,
     height: state.height,
-  }));
+  }), shallow);
 
   useEffect(() => {
     recomputeEdgeHandlePositions();

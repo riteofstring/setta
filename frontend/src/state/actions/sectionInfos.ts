@@ -1046,6 +1046,7 @@ function applyViewportFromProjectState(
     fitViewOnInitDone: true,
     fitViewOnInitOptions: undefined,
     transform: [viewport.x, viewport.y, viewport.zoom],
+    renderTransform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
 }

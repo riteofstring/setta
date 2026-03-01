@@ -1020,6 +1020,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     useNodeInternals.setState({ x: new Map() });
     useReactFlow.setState({
       transform: [0, 0, 1],
+      renderTransform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
     });
@@ -1094,6 +1095,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     useNodeInternals.setState({ x: new Map() });
     useReactFlow.setState({
       transform: [0, 0, 1],
+      renderTransform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
     });
@@ -1131,6 +1133,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     const reactFlowState = useReactFlow.getState();
     expect(reactFlowState.transform).toEqual([10, -20, 1.5]);
+    expect(reactFlowState.renderTransform).toEqual([10, -20, 1.5]);
     expect(reactFlowState.fitViewOnInit).toBe(false);
     expect(reactFlowState.fitViewOnInitDone).toBe(true);
   });

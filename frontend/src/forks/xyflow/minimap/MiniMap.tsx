@@ -72,7 +72,12 @@ function getSelector(
   uiEditorWidth: number,
 ) {
   return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
+    const viewBB: Rect = getPaneRect(
+      s,
+      overviewWidth,
+      uiEditorWidth,
+      s.renderTransform,
+    );
 
     return {
       viewBB,

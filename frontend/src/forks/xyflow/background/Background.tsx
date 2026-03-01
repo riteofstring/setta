@@ -71,7 +71,7 @@ const BackgroundCore = memo(
     isCross: boolean;
     isDots: boolean;
   }) => {
-    const transform = useReactFlow((x) => x.transform, shallow);
+    const transform = useReactFlow((x) => x.renderTransform, shallow);
     const scaledGap: [number, number] = [
       gapXY[0] * transform[2] || 1,
       gapXY[1] * transform[2] || 1,
