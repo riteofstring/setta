@@ -403,6 +403,149 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
   }
 });
 
+test("canvas engine host drags selected section groups together", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const firstPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.36,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const secondPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.68,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const firstSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: firstPosition,
+    });
+    const secondSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: secondPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    const firstLayoutBefore = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayoutBefore = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    await clickWorldPoint(page, host, {
+      x: firstLayoutBefore.x + 40,
+      y: firstLayoutBefore.y + 40,
+    });
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
+    try {
+      await clickWorldPoint(page, host, {
+        x: secondLayoutBefore.x + 40,
+        y: secondLayoutBefore.y + 40,
+      });
+    } finally {
+      await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
+    }
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+
+    const dragDelta = { x: 140, y: 90 };
+    await dragWorldPoint(page, host, {
+      start: {
+        x: firstLayoutBefore.x + 70,
+        y: firstLayoutBefore.y + 60,
+      },
+      end: {
+        x: firstLayoutBefore.x + 70 + dragDelta.x,
+        y: firstLayoutBefore.y + 60 + dragDelta.y,
+      },
+    });
+
+    await expect
+      .poll(async () => {
+        const firstLayoutAfter = await readTopLevelSectionLayout(
+          page,
+          projectContext.projectConfigId,
+          firstSectionId,
+        );
+        return (
+          Math.abs(firstLayoutAfter.x - (firstLayoutBefore.x + dragDelta.x)) <=
+            0.5 &&
+          Math.abs(firstLayoutAfter.y - (firstLayoutBefore.y + dragDelta.y)) <=
+            0.5
+        );
+      })
+      .toBe(true);
+
+    const firstLayoutAfter = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayoutAfter = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+
+    const firstDeltaX = firstLayoutAfter.x - firstLayoutBefore.x;
+    const firstDeltaY = firstLayoutAfter.y - firstLayoutBefore.y;
+    const secondDeltaX = secondLayoutAfter.x - secondLayoutBefore.x;
+    const secondDeltaY = secondLayoutAfter.y - secondLayoutBefore.y;
+
+    expect(Math.abs(firstDeltaX - dragDelta.x)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(firstDeltaY - dragDelta.y)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(secondDeltaX - dragDelta.x)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(secondDeltaY - dragDelta.y)).toBeLessThanOrEqual(0.5);
+
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports shift-drag marquee section selection", async ({
   page,
 }) => {

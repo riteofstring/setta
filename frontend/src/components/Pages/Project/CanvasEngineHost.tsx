@@ -82,8 +82,12 @@ type PointerSession =
       sectionId: string;
       anchorWorldX: number;
       anchorWorldY: number;
-      sectionStartX: number;
-      sectionStartY: number;
+      draggedSections: Array<{
+        sectionId: string;
+        sectionStartX: number;
+        sectionStartY: number;
+      }>;
+      selectionAppliedOnPointerDown: boolean;
       moved: boolean;
     }
   | {
@@ -597,27 +601,53 @@ export function CanvasEngineHost() {
           event.currentTarget.setPointerCapture(event.pointerId);
           return;
         }
-        const sectionLayout = topLevelSections[sectionId];
-        const sectionStartX =
-          sectionLayout && typeof sectionLayout.x === "number"
-            ? sectionLayout.x
-            : 0;
-        const sectionStartY =
-          sectionLayout && typeof sectionLayout.y === "number"
-            ? sectionLayout.y
-            : 0;
-        applyActiveSectionChange({
-          interaction: "section-click",
-          sectionId,
-        });
+        const sectionWasActiveAtPointerDown =
+          activeSectionIds.includes(sectionId);
+        const preserveExistingSelectionForDrag =
+          sectionWasActiveAtPointerDown && activeSectionIds.length > 1;
+        let selectionAppliedOnPointerDown = false;
+        if (!preserveExistingSelectionForDrag) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId,
+          });
+          selectionAppliedOnPointerDown = true;
+        }
+        const candidateDraggedSectionIds = sectionWasActiveAtPointerDown
+          ? activeSectionIds
+          : [sectionId];
+        const draggedSections = candidateDraggedSectionIds.flatMap(
+          (candidateSectionId) => {
+            const sectionLayout = topLevelSections[candidateSectionId];
+            if (!sectionLayout) {
+              return [];
+            }
+            return [
+              {
+                sectionId: candidateSectionId,
+                sectionStartX:
+                  typeof sectionLayout.x === "number" ? sectionLayout.x : 0,
+                sectionStartY:
+                  typeof sectionLayout.y === "number" ? sectionLayout.y : 0,
+              },
+            ];
+          },
+        );
+        if (draggedSections.length === 0) {
+          draggedSections.push({
+            sectionId,
+            sectionStartX: sectionRect?.x ?? 0,
+            sectionStartY: sectionRect?.y ?? 0,
+          });
+        }
         pointerSessionRef.current = {
           pointerId: event.pointerId,
           kind: "section",
           sectionId,
           anchorWorldX: worldPoint.x,
           anchorWorldY: worldPoint.y,
-          sectionStartX,
-          sectionStartY,
+          draggedSections,
+          selectionAppliedOnPointerDown,
           moved: false,
         };
       } else {
@@ -675,6 +705,7 @@ export function CanvasEngineHost() {
       event.currentTarget.setPointerCapture(event.pointerId);
     },
     [
+      activeSectionIds,
       camera,
       canEditStructure,
       sceneAdapter,
@@ -750,20 +781,21 @@ export function CanvasEngineHost() {
         }
         const deltaX = worldPoint.x - pointerSession.anchorWorldX;
         const deltaY = worldPoint.y - pointerSession.anchorWorldY;
-        const nextX = pointerSession.sectionStartX + deltaX;
-        const nextY = pointerSession.sectionStartY + deltaY;
-        const hasPositionChangeFromStart =
-          nextX !== pointerSession.sectionStartX ||
-          nextY !== pointerSession.sectionStartY;
+        const hasPositionChangeFromStart = deltaX !== 0 || deltaY !== 0;
         if (!hasPositionChangeFromStart && !pointerSession.moved) {
           return;
         }
         pointerSession.moved =
           pointerSession.moved || hasPositionChangeFromStart;
-        setTopLevelSectionLayoutRect(pointerSession.sectionId, {
-          x: nextX,
-          y: nextY,
-        });
+        setTopLevelSectionLayoutRects(
+          pointerSession.draggedSections.map((section) => ({
+            sectionId: section.sectionId,
+            nextLayoutPatch: {
+              x: section.sectionStartX + deltaX,
+              y: section.sectionStartY + deltaY,
+            },
+          })),
+        );
         return;
       }
       if (pointerSession.kind === "selection-rect") {
@@ -1026,13 +1058,20 @@ export function CanvasEngineHost() {
           topLevelSections: latestLayouts,
         });
       }
-      if (pointerSession.kind === "section" && pointerSession.moved) {
-        const latestLayouts =
-          useProjectState.getState().projectConfig.topLevelSections;
-        void route_set_top_level_section_layout({
-          projectConfigId,
-          topLevelSections: latestLayouts,
-        });
+      if (pointerSession.kind === "section") {
+        if (pointerSession.moved) {
+          const latestLayouts =
+            useProjectState.getState().projectConfig.topLevelSections;
+          void route_set_top_level_section_layout({
+            projectConfigId,
+            topLevelSections: latestLayouts,
+          });
+        } else if (!pointerSession.selectionAppliedOnPointerDown) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId: pointerSession.sectionId,
+          });
+        }
       }
       if (pointerSession.kind === "agentic-connect") {
         const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
@@ -1428,25 +1467,54 @@ function createAgenticConnection({
   };
 }
 
+type TopLevelSectionLayoutPatch = {
+  sectionId: string;
+  nextLayoutPatch: { x?: number; y?: number; w?: number; h?: number };
+};
+
+function setTopLevelSectionLayoutRects(
+  patches: TopLevelSectionLayoutPatch[],
+): void {
+  if (patches.length === 0) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    const { activeViewModeId, viewModes } = state.projectConfig;
+    const activeViewTopLevelSections =
+      activeViewModeId && viewModes[activeViewModeId]
+        ? viewModes[activeViewModeId].topLevelSections
+        : null;
+    for (const patch of patches) {
+      const existingLayout =
+        state.projectConfig.topLevelSections[patch.sectionId];
+      if (!existingLayout) {
+        continue;
+      }
+      const nextLayout = {
+        ...existingLayout,
+        ...patch.nextLayoutPatch,
+      };
+      if (
+        existingLayout.x === nextLayout.x &&
+        existingLayout.y === nextLayout.y &&
+        existingLayout.w === nextLayout.w &&
+        existingLayout.h === nextLayout.h
+      ) {
+        continue;
+      }
+      state.projectConfig.topLevelSections[patch.sectionId] = nextLayout;
+      if (activeViewTopLevelSections) {
+        activeViewTopLevelSections[patch.sectionId] = nextLayout;
+      }
+    }
+  });
+}
+
 function setTopLevelSectionLayoutRect(
   sectionId: string,
   nextLayoutPatch: { x?: number; y?: number; w?: number; h?: number },
 ): void {
-  useProjectState.setState((state) => {
-    const existingLayout = state.projectConfig.topLevelSections[sectionId];
-    if (!existingLayout) {
-      return;
-    }
-    const nextLayout = {
-      ...existingLayout,
-      ...nextLayoutPatch,
-    };
-    state.projectConfig.topLevelSections[sectionId] = nextLayout;
-    const { activeViewModeId, viewModes } = state.projectConfig;
-    if (activeViewModeId && viewModes[activeViewModeId]) {
-      viewModes[activeViewModeId].topLevelSections[sectionId] = nextLayout;
-    }
-  });
+  setTopLevelSectionLayoutRects([{ sectionId, nextLayoutPatch }]);
 }
 
 function applySectionSizeInProjectState(
