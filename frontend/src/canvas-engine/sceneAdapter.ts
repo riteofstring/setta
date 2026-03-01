@@ -57,6 +57,30 @@ export type CanvasEngineScenePatchSummary = {
   agenticEdgesRemoved: number;
 };
 
+type CanvasEngineApplySectionsSummary = Pick<
+  CanvasEngineScenePatchSummary,
+  "sectionsAdded" | "sectionsUpdated" | "sectionsRemoved"
+> & {
+  sectionBoundsChanged: boolean;
+  changedSectionIds: Set<string>;
+};
+
+type CanvasEngineApplyDataEdgesSummary = Pick<
+  CanvasEngineScenePatchSummary,
+  "dataEdgesAdded" | "dataEdgesUpdated" | "dataEdgesRemoved"
+> & {
+  changedEdgeIds: Set<string>;
+  removedEdgeIds: Set<string>;
+};
+
+type CanvasEngineApplyAgenticEdgesSummary = Pick<
+  CanvasEngineScenePatchSummary,
+  "agenticEdgesAdded" | "agenticEdgesUpdated" | "agenticEdgesRemoved"
+> & {
+  changedEdgeIds: Set<string>;
+  removedEdgeIds: Set<string>;
+};
+
 export type CanvasEngineSceneSnapshotResult = {
   snapshot: CanvasEngineSceneSnapshot;
   visibleRectCount: number;
@@ -205,17 +229,13 @@ export class CanvasEngineSceneAdapter {
       input.sectionEdgePortsBySectionId,
     );
     const agenticEdgeSummary = this.applyAgenticEdges(input.agenticEdges);
-    const shouldRebuildEdgeSpatialIndexes =
-      sectionSummary.sectionBoundsChanged ||
-      dataEdgeSummary.dataEdgesAdded > 0 ||
-      dataEdgeSummary.dataEdgesUpdated > 0 ||
-      dataEdgeSummary.dataEdgesRemoved > 0 ||
-      agenticEdgeSummary.agenticEdgesAdded > 0 ||
-      agenticEdgeSummary.agenticEdgesUpdated > 0 ||
-      agenticEdgeSummary.agenticEdgesRemoved > 0;
-    if (shouldRebuildEdgeSpatialIndexes) {
-      this.rebuildEdgeSpatialIndexes();
-    }
+    this.syncEdgeSpatialIndexes({
+      changedSectionIds: sectionSummary.changedSectionIds,
+      changedDataEdgeIds: dataEdgeSummary.changedEdgeIds,
+      removedDataEdgeIds: dataEdgeSummary.removedEdgeIds,
+      changedAgenticEdgeIds: agenticEdgeSummary.changedEdgeIds,
+      removedAgenticEdgeIds: agenticEdgeSummary.removedEdgeIds,
+    });
 
     const hasChanges =
       sectionSummary.sectionsAdded > 0 ||
@@ -233,8 +253,12 @@ export class CanvasEngineSceneAdapter {
       sectionsAdded: sectionSummary.sectionsAdded,
       sectionsUpdated: sectionSummary.sectionsUpdated,
       sectionsRemoved: sectionSummary.sectionsRemoved,
-      ...dataEdgeSummary,
-      ...agenticEdgeSummary,
+      dataEdgesAdded: dataEdgeSummary.dataEdgesAdded,
+      dataEdgesUpdated: dataEdgeSummary.dataEdgesUpdated,
+      dataEdgesRemoved: dataEdgeSummary.dataEdgesRemoved,
+      agenticEdgesAdded: agenticEdgeSummary.agenticEdgesAdded,
+      agenticEdgesUpdated: agenticEdgeSummary.agenticEdgesUpdated,
+      agenticEdgesRemoved: agenticEdgeSummary.agenticEdgesRemoved,
     };
   }
 
@@ -752,102 +776,169 @@ export class CanvasEngineSceneAdapter {
     this.dataHandlePositionsBySectionId = nextDataBySectionId;
   }
 
-  private rebuildEdgeSpatialIndexes(): void {
-    this.dataEdgeSpatialIndex.clear();
-    this.dataEdgeEndpointSpatialIndex.clear();
-    const nextDataEdgeEndpointByKey = new Map<
-      string,
-      {
-        edgeId: string;
-        endpointType: "source" | "target";
-        x: number;
-        y: number;
-        zIndex: number;
-      }
-    >();
-    for (const edge of this.dataEdgeById.values()) {
-      if (edge.hidden) {
-        continue;
-      }
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
-      if (!sourceRect || !targetRect) {
-        continue;
-      }
-      const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
-      this.dataEdgeSpatialIndex.upsert(
-        edge.id,
-        resolveSegmentBounds(
-          anchors.startX,
-          anchors.startY,
-          anchors.endX,
-          anchors.endY,
-        ),
-      );
-      const sourceEndpointKey = buildDataEdgeEndpointKey(edge.id, "source");
-      nextDataEdgeEndpointByKey.set(sourceEndpointKey, {
-        edgeId: edge.id,
-        endpointType: "source",
-        x: anchors.startX,
-        y: anchors.startY,
-        zIndex: edge.zIndex,
-      });
-      this.dataEdgeEndpointSpatialIndex.upsert(
-        sourceEndpointKey,
-        resolvePointBounds(anchors.startX, anchors.startY),
-      );
-      const targetEndpointKey = buildDataEdgeEndpointKey(edge.id, "target");
-      nextDataEdgeEndpointByKey.set(targetEndpointKey, {
-        edgeId: edge.id,
-        endpointType: "target",
-        x: anchors.endX,
-        y: anchors.endY,
-        zIndex: edge.zIndex,
-      });
-      this.dataEdgeEndpointSpatialIndex.upsert(
-        targetEndpointKey,
-        resolvePointBounds(anchors.endX, anchors.endY),
-      );
-    }
-    this.dataEdgeEndpointByKey = nextDataEdgeEndpointByKey;
+  private syncEdgeSpatialIndexes({
+    changedSectionIds,
+    changedDataEdgeIds,
+    removedDataEdgeIds,
+    changedAgenticEdgeIds,
+    removedAgenticEdgeIds,
+  }: {
+    changedSectionIds: Set<string>;
+    changedDataEdgeIds: Set<string>;
+    removedDataEdgeIds: Set<string>;
+    changedAgenticEdgeIds: Set<string>;
+    removedAgenticEdgeIds: Set<string>;
+  }): void {
+    const dataEdgeIdsToRefresh = new Set(changedDataEdgeIds);
+    const agenticEdgeIdsToRefresh = new Set(changedAgenticEdgeIds);
 
-    this.agenticEdgeSpatialIndex.clear();
-    for (const edge of this.agenticEdgeById.values()) {
-      if (edge.hidden) {
-        continue;
-      }
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
-      if (!sourceRect || !targetRect) {
-        continue;
-      }
-      const anchors = resolveEdgeAnchors(sourceRect, targetRect);
-      this.agenticEdgeSpatialIndex.upsert(
-        edge.id,
-        resolveSegmentBounds(
-          anchors.startX,
-          anchors.startY,
-          anchors.endX,
-          anchors.endY,
-        ),
-      );
+    const sectionLinkedDataEdgeIds = this.collectEdgeIdsForSections(
+      changedSectionIds,
+      this.dataEdgeIdsBySectionId,
+    );
+    for (const edgeId of sectionLinkedDataEdgeIds) {
+      dataEdgeIdsToRefresh.add(edgeId);
     }
+    const sectionLinkedAgenticEdgeIds = this.collectEdgeIdsForSections(
+      changedSectionIds,
+      this.agenticEdgeIdsBySectionId,
+    );
+    for (const edgeId of sectionLinkedAgenticEdgeIds) {
+      agenticEdgeIdsToRefresh.add(edgeId);
+    }
+
+    for (const edgeId of removedDataEdgeIds) {
+      this.removeDataEdgeFromSpatialIndexes(edgeId);
+      dataEdgeIdsToRefresh.delete(edgeId);
+    }
+    for (const edgeId of dataEdgeIdsToRefresh) {
+      this.upsertDataEdgeInSpatialIndexes(edgeId);
+    }
+
+    for (const edgeId of removedAgenticEdgeIds) {
+      this.removeAgenticEdgeFromSpatialIndex(edgeId);
+      agenticEdgeIdsToRefresh.delete(edgeId);
+    }
+    for (const edgeId of agenticEdgeIdsToRefresh) {
+      this.upsertAgenticEdgeInSpatialIndex(edgeId);
+    }
+  }
+
+  private collectEdgeIdsForSections(
+    sectionIds: Set<string>,
+    edgeIdsBySectionId: Map<string, Set<string>>,
+  ): Set<string> {
+    const edgeIds = new Set<string>();
+    for (const sectionId of sectionIds) {
+      const linkedEdgeIds = edgeIdsBySectionId.get(sectionId);
+      if (!linkedEdgeIds) {
+        continue;
+      }
+      for (const edgeId of linkedEdgeIds) {
+        edgeIds.add(edgeId);
+      }
+    }
+    return edgeIds;
+  }
+
+  private removeDataEdgeFromSpatialIndexes(edgeId: string): void {
+    this.dataEdgeSpatialIndex.remove(edgeId);
+    const sourceEndpointKey = buildDataEdgeEndpointKey(edgeId, "source");
+    this.dataEdgeEndpointSpatialIndex.remove(sourceEndpointKey);
+    this.dataEdgeEndpointByKey.delete(sourceEndpointKey);
+    const targetEndpointKey = buildDataEdgeEndpointKey(edgeId, "target");
+    this.dataEdgeEndpointSpatialIndex.remove(targetEndpointKey);
+    this.dataEdgeEndpointByKey.delete(targetEndpointKey);
+  }
+
+  private upsertDataEdgeInSpatialIndexes(edgeId: string): void {
+    const edge = this.dataEdgeById.get(edgeId);
+    if (!edge || edge.hidden) {
+      this.removeDataEdgeFromSpatialIndexes(edgeId);
+      return;
+    }
+    const sourceRect = this.rectById.get(edge.sourceSectionId);
+    const targetRect = this.rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      this.removeDataEdgeFromSpatialIndexes(edgeId);
+      return;
+    }
+    const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
+    this.dataEdgeSpatialIndex.upsert(
+      edge.id,
+      resolveSegmentBounds(
+        anchors.startX,
+        anchors.startY,
+        anchors.endX,
+        anchors.endY,
+      ),
+    );
+
+    const sourceEndpointKey = buildDataEdgeEndpointKey(edge.id, "source");
+    this.dataEdgeEndpointByKey.set(sourceEndpointKey, {
+      edgeId: edge.id,
+      endpointType: "source",
+      x: anchors.startX,
+      y: anchors.startY,
+      zIndex: edge.zIndex,
+    });
+    this.dataEdgeEndpointSpatialIndex.upsert(
+      sourceEndpointKey,
+      resolvePointBounds(anchors.startX, anchors.startY),
+    );
+
+    const targetEndpointKey = buildDataEdgeEndpointKey(edge.id, "target");
+    this.dataEdgeEndpointByKey.set(targetEndpointKey, {
+      edgeId: edge.id,
+      endpointType: "target",
+      x: anchors.endX,
+      y: anchors.endY,
+      zIndex: edge.zIndex,
+    });
+    this.dataEdgeEndpointSpatialIndex.upsert(
+      targetEndpointKey,
+      resolvePointBounds(anchors.endX, anchors.endY),
+    );
+  }
+
+  private removeAgenticEdgeFromSpatialIndex(edgeId: string): void {
+    this.agenticEdgeSpatialIndex.remove(edgeId);
+  }
+
+  private upsertAgenticEdgeInSpatialIndex(edgeId: string): void {
+    const edge = this.agenticEdgeById.get(edgeId);
+    if (!edge || edge.hidden) {
+      this.removeAgenticEdgeFromSpatialIndex(edgeId);
+      return;
+    }
+    const sourceRect = this.rectById.get(edge.sourceSectionId);
+    const targetRect = this.rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      this.removeAgenticEdgeFromSpatialIndex(edgeId);
+      return;
+    }
+    const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+    this.agenticEdgeSpatialIndex.upsert(
+      edge.id,
+      resolveSegmentBounds(
+        anchors.startX,
+        anchors.startY,
+        anchors.endX,
+        anchors.endY,
+      ),
+    );
   }
 
   private applySections(
     topLevelSections: Record<string, TopLevelSectionLayout>,
     activeSectionIdSet: Set<string>,
-  ): Pick<
-    CanvasEngineScenePatchSummary,
-    "sectionsAdded" | "sectionsUpdated" | "sectionsRemoved"
-  > & {
-    sectionBoundsChanged: boolean;
-  } {
+  ): CanvasEngineApplySectionsSummary {
     const nextSectionIds = new Set(Object.keys(topLevelSections));
     let sectionsAdded = 0;
     let sectionsUpdated = 0;
     let sectionsRemoved = 0;
     let sectionBoundsChanged = false;
+    const changedSectionIds = new Set<string>();
 
     for (const [sectionId, layout] of Object.entries(topLevelSections)) {
       const nextRect = this.createRectRecord(
@@ -866,6 +957,7 @@ export class CanvasEngineSceneAdapter {
         });
         sectionsAdded += 1;
         sectionBoundsChanged = true;
+        changedSectionIds.add(sectionId);
         continue;
       }
 
@@ -887,6 +979,7 @@ export class CanvasEngineSceneAdapter {
           height: nextRect.height,
         });
         sectionBoundsChanged = true;
+        changedSectionIds.add(sectionId);
       }
       sectionsUpdated += 1;
     }
@@ -899,6 +992,7 @@ export class CanvasEngineSceneAdapter {
       this.spatialIndex.remove(sectionId);
       sectionsRemoved += 1;
       sectionBoundsChanged = true;
+      changedSectionIds.add(sectionId);
     }
 
     return {
@@ -906,6 +1000,7 @@ export class CanvasEngineSceneAdapter {
       sectionsUpdated,
       sectionsRemoved,
       sectionBoundsChanged,
+      changedSectionIds,
     };
   }
 
@@ -951,15 +1046,14 @@ export class CanvasEngineSceneAdapter {
   private applyDataEdges(
     edges: ProjectConfig["edges"],
     sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>,
-  ): Pick<
-    CanvasEngineScenePatchSummary,
-    "dataEdgesAdded" | "dataEdgesUpdated" | "dataEdgesRemoved"
-  > {
+  ): CanvasEngineApplyDataEdgesSummary {
     const nextEdgeIds = new Set<string>();
     const nextEdgeIdsBySectionId = new Map<string, Set<string>>();
     let dataEdgesAdded = 0;
     let dataEdgesUpdated = 0;
     let dataEdgesRemoved = 0;
+    const changedEdgeIds = new Set<string>();
+    const removedEdgeIds = new Set<string>();
 
     for (const edge of edges) {
       nextEdgeIds.add(edge.id);
@@ -979,6 +1073,7 @@ export class CanvasEngineSceneAdapter {
       if (!previousEdgeRecord) {
         this.dataEdgeById.set(edge.id, nextEdgeRecord);
         dataEdgesAdded += 1;
+        changedEdgeIds.add(edge.id);
         continue;
       }
       if (areDataEdgeRecordsEqual(previousEdgeRecord, nextEdgeRecord)) {
@@ -986,6 +1081,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.dataEdgeById.set(edge.id, nextEdgeRecord);
       dataEdgesUpdated += 1;
+      changedEdgeIds.add(edge.id);
     }
 
     for (const edgeId of this.dataEdgeById.keys()) {
@@ -994,6 +1090,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.dataEdgeById.delete(edgeId);
       dataEdgesRemoved += 1;
+      removedEdgeIds.add(edgeId);
     }
     this.dataEdgeIdsBySectionId = nextEdgeIdsBySectionId;
 
@@ -1001,20 +1098,21 @@ export class CanvasEngineSceneAdapter {
       dataEdgesAdded,
       dataEdgesUpdated,
       dataEdgesRemoved,
+      changedEdgeIds,
+      removedEdgeIds,
     };
   }
 
   private applyAgenticEdges(
     edges: ProjectConfig["agenticEdges"],
-  ): Pick<
-    CanvasEngineScenePatchSummary,
-    "agenticEdgesAdded" | "agenticEdgesUpdated" | "agenticEdgesRemoved"
-  > {
+  ): CanvasEngineApplyAgenticEdgesSummary {
     const nextEdgeIds = new Set<string>();
     const nextEdgeIdsBySectionId = new Map<string, Set<string>>();
     let agenticEdgesAdded = 0;
     let agenticEdgesUpdated = 0;
     let agenticEdgesRemoved = 0;
+    const changedEdgeIds = new Set<string>();
+    const removedEdgeIds = new Set<string>();
 
     for (const edge of edges) {
       nextEdgeIds.add(edge.id);
@@ -1029,6 +1127,7 @@ export class CanvasEngineSceneAdapter {
       if (!previousEdgeRecord) {
         this.agenticEdgeById.set(edge.id, nextEdgeRecord);
         agenticEdgesAdded += 1;
+        changedEdgeIds.add(edge.id);
         continue;
       }
       if (areAgenticEdgeRecordsEqual(previousEdgeRecord, nextEdgeRecord)) {
@@ -1036,6 +1135,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.agenticEdgeById.set(edge.id, nextEdgeRecord);
       agenticEdgesUpdated += 1;
+      changedEdgeIds.add(edge.id);
     }
 
     for (const edgeId of this.agenticEdgeById.keys()) {
@@ -1044,6 +1144,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.agenticEdgeById.delete(edgeId);
       agenticEdgesRemoved += 1;
+      removedEdgeIds.add(edgeId);
     }
     this.agenticEdgeIdsBySectionId = nextEdgeIdsBySectionId;
 
@@ -1051,6 +1152,8 @@ export class CanvasEngineSceneAdapter {
       agenticEdgesAdded,
       agenticEdgesUpdated,
       agenticEdgesRemoved,
+      changedEdgeIds,
+      removedEdgeIds,
     };
   }
 }
