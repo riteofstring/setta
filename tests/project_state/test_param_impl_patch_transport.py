@@ -300,3 +300,68 @@ async def test_change_param_impl_uses_code_obj_patch_transport() -> None:
             PARAM_ID,
             TextParamCodeObjImpl,
         )
+
+
+@pytest.mark.asyncio
+async def test_param_impl_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro) -> None:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await assert_deferred_refresh(
+                manager.update_param_impl_config(
+                    UpdateParamImplConfigRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramInfoId=PARAM_ID,
+                        newConfig={"coreNameEditable": False},
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.change_param_impl(
+                    ChangeParamImplRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramInfoId=PARAM_ID,
+                        selectedId=ID(CodeObjType.TextParam.value),
+                    )
+                )
+            )
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )

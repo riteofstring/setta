@@ -32,6 +32,8 @@ SECTION_ID = ID("section-1")
 PARAM_ONE_ID = ID("param-1")
 PARAM_TWO_ID = ID("param-2")
 PARAM_THREE_ID = ID("param-3")
+PARAM_FIVE_ID = ID("param-5")
+PARAM_SIX_ID = ID("param-6")
 
 
 def _install_transport_capture(sender):
@@ -903,3 +905,135 @@ async def test_set_callable_clear_uses_section_patch_transport() -> None:
             CallableSectionImpl,
         )
         assert section_impl.callable is None
+
+
+@pytest.mark.asyncio
+async def test_param_structure_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        _set_callable_param_core_names_editable(project_state, 8)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro) -> None:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await assert_deferred_refresh(
+                manager.add_kwarg(
+                    AddKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.delete_kwarg(
+                    DeleteKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.move_params(
+                    MoveParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramIds=[PARAM_TWO_ID],
+                        newParentId=PARAM_ONE_ID,
+                        newIndex=0,
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.move_param_groups(
+                    MoveParamGroupsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        moves=[
+                            MoveParamGroup(
+                                paramIds=[PARAM_THREE_ID],
+                                newParentId=PARAM_ONE_ID,
+                                newIndex=1,
+                            )
+                        ],
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.indent_params(
+                    IndentParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramIds=[PARAM_FIVE_ID],
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.unindent_params(
+                    UnindentParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramIds=[PARAM_FIVE_ID],
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.delete_selected_params(
+                    DeleteSelectedParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        paramInfoIds=[PARAM_SIX_ID],
+                    )
+                )
+            )
+            await assert_deferred_refresh(
+                manager.set_callable(
+                    SetCallableRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                        callableName="deferred_refresh_callable",
+                        refetchParams=True,
+                    )
+                )
+            )
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        assert section_impl.callable is not None

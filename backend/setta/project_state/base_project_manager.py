@@ -2413,7 +2413,7 @@ class BaseProjectManager(ABC):
             code_obj_ids_for_patch = self._collect_set_callable_code_obj_patch_ids(
                 result
             )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=code_obj_ids_for_patch,
             section_ids=section_patch_scope,
@@ -4731,7 +4731,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.paramInfoId],
             section_ids=section_patch_scope,
@@ -4941,7 +4941,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.paramInfoId],
             section_ids=section_patch_scope,
@@ -5009,7 +5009,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=changed_section_ids,
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[root_code_obj_id, new_param_id],
             section_ids=section_patch_scope,
@@ -5056,7 +5056,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[root_code_obj_id, removed_param_id],
             section_ids=section_patch_scope,
@@ -5101,7 +5101,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[*parent_code_obj_ids, *removed_param_ids],
             section_ids=section_patch_scope,
@@ -6483,7 +6483,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(
                 dict.fromkeys(
@@ -6539,7 +6539,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(dict.fromkeys(code_obj_ids_for_patch)),
             section_ids=section_patch_scope,
@@ -6575,7 +6575,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(
                 dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
@@ -6613,7 +6613,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=list(
                 dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
