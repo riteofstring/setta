@@ -16,10 +16,25 @@ import {
 
 const routeUndoMock = vi.fn();
 const routeRedoMock = vi.fn();
+const flushAllPendingCodeUpdatesMock = vi.fn();
+const flushPendingGenCodeUpdatesMock = vi.fn();
+const flushPendingParamEnteredValueUpdatesMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_undo: (...args: unknown[]) => routeUndoMock(...args),
   route_redo: (...args: unknown[]) => routeRedoMock(...args),
+}));
+
+vi.mock("./codeUpdates", () => ({
+  flushAllPendingCodeUpdates: (...args: unknown[]) =>
+    flushAllPendingCodeUpdatesMock(...args),
+  flushPendingGenCodeUpdates: (...args: unknown[]) =>
+    flushPendingGenCodeUpdatesMock(...args),
+}));
+
+vi.mock("./paramValueUpdates", () => ({
+  flushPendingParamEnteredValueUpdates: (...args: unknown[]) =>
+    flushPendingParamEnteredValueUpdatesMock(...args),
 }));
 
 vi.mock("./sectionInfos", () => ({
@@ -34,6 +49,12 @@ describe("undo actions", () => {
     clearProjectChatThreadStorageUndoStackForTests();
     routeUndoMock.mockReset();
     routeRedoMock.mockReset();
+    flushAllPendingCodeUpdatesMock.mockReset();
+    flushPendingGenCodeUpdatesMock.mockReset();
+    flushPendingParamEnteredValueUpdatesMock.mockReset();
+    flushAllPendingCodeUpdatesMock.mockResolvedValue(undefined);
+    flushPendingGenCodeUpdatesMock.mockResolvedValue(undefined);
+    flushPendingParamEnteredValueUpdatesMock.mockResolvedValue(undefined);
     useLocalStorage.setState({
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
@@ -48,10 +69,22 @@ describe("undo actions", () => {
     undoProjectState();
     await flushUndoRedoQueueForTests();
 
+    expect(flushAllPendingCodeUpdatesMock).toHaveBeenCalledTimes(1);
+    expect(flushPendingGenCodeUpdatesMock).toHaveBeenCalledTimes(1);
+    expect(flushPendingParamEnteredValueUpdatesMock).toHaveBeenCalledTimes(1);
     expect(routeUndoMock).toHaveBeenCalledWith({
       steps: 1,
       projectConfigId: "project-a",
     });
+    expect(
+      flushAllPendingCodeUpdatesMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(routeUndoMock.mock.invocationCallOrder[0]);
+    expect(
+      flushPendingGenCodeUpdatesMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(routeUndoMock.mock.invocationCallOrder[0]);
+    expect(
+      flushPendingParamEnteredValueUpdatesMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(routeUndoMock.mock.invocationCallOrder[0]);
   });
 
   it("routes undo to backend even when local thread deletions exist", async () => {
@@ -140,5 +173,23 @@ describe("undo actions", () => {
       steps: 2,
       projectConfigId: "project-a",
     });
+  });
+
+  it("waits for pending write flushes before dispatching undo", async () => {
+    let resolveParamFlush: (() => void) | null = null;
+    const paramFlushPromise = new Promise<void>((resolve) => {
+      resolveParamFlush = resolve;
+    });
+    flushPendingParamEnteredValueUpdatesMock.mockReturnValueOnce(
+      paramFlushPromise,
+    );
+
+    undoProjectState();
+    await Promise.resolve();
+    expect(routeUndoMock).not.toHaveBeenCalled();
+
+    resolveParamFlush?.();
+    await flushUndoRedoQueueForTests();
+    expect(routeUndoMock).toHaveBeenCalledTimes(1);
   });
 });

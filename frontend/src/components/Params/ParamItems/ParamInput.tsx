@@ -1,10 +1,12 @@
 import _ from "lodash";
 import React from "react";
 import {
-  dispatchOptimisticProjectStateUpdate,
+  queueDirectParamEnteredValueUpdate,
+  queueOptimisticParamEnteredValueUpdate,
+} from "state/actions/paramValueUpdates";
+import {
   getCurrEffectiveCodeObjImplIfPresent,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValueIfPresent,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -14,10 +16,7 @@ import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_get_password_param_value,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
+import { route_get_password_param_value } from "utils/generatedEndpoints";
 import {
   BinaryDependencyValue,
   CodeObjTypeEnum,
@@ -98,9 +97,20 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     }
     if (!options?.skipBackendUpdate) {
       if (isPasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
+        queueDirectParamEnteredValueUpdate(
+          getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          vStr,
+          "param-input:onChange:password",
+        );
       } else {
-        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+        queueOptimisticParamEnteredValueUpdate(
+          sectionId,
+          paramInfoId,
+          vStr,
+          "param-input:onChange",
+        );
       }
     }
   }
@@ -192,44 +202,5 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     />
   );
 }
-
-const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          {
-            value,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_param_entered_value({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          value,
-          frontendOpId,
-        }),
-      debugSource: "param-input:onChange:debounce_flush",
-    });
-  },
-  50,
-);
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
-    });
-  },
-  50,
-);
 
 export const ParamInput = React.memo(_ParamInput);

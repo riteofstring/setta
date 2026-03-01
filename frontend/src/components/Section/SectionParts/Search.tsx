@@ -48,6 +48,17 @@ function logSectionSearchEvent(event: string, payload: unknown): void {
   console.log(`[section-search-debug] ${event} ${JSON.stringify(payload)}`);
 }
 
+const pendingSetCallableRequestKeys = new Set<string>();
+
+function buildSetCallableRequestKey(
+  projectConfigId: string,
+  sectionId: string,
+  callableName: string,
+  refetchParams: boolean,
+): string {
+  return `${projectConfigId}:${sectionId}:${callableName}:${String(refetchParams)}`;
+}
+
 type SetCallableSource =
   | "keydown-enter"
   | "keydown-alt-enter"
@@ -484,8 +495,16 @@ async function setCallable(
   refetchParams = false,
   source: SetCallableSource = "manual",
 ) {
+  const projectConfigId = getCurrProjectConfigId();
   const frontendOpId = createNewId();
+  const requestKey = buildSetCallableRequestKey(
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams,
+  );
   logSectionSearchEvent("setCallable.start", {
+    projectConfigId,
     sectionId,
     callableName,
     canUseLsp,
@@ -503,8 +522,42 @@ async function setCallable(
     });
     return;
   }
+  if (pendingSetCallableRequestKeys.has(requestKey)) {
+    logSectionSearchEvent("setCallable.skipInFlightDuplicate", {
+      projectConfigId,
+      sectionId,
+      callableName,
+      refetchParams,
+      source,
+      frontendOpId,
+    });
+    return;
+  }
+  if (!refetchParams) {
+    const projectState = useProjectState.getState();
+    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      projectState,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const existingCallableId = sectionImpl.callable;
+    if (existingCallableId) {
+      const existingCallableName = getCodeObjCore(
+        projectState,
+        existingCallableId,
+      ).name;
+      if (existingCallableName === callableName) {
+        logSectionSearchEvent("setCallable.skipNoopSameCallable", {
+          sectionId,
+          callableName,
+          source,
+          frontendOpId,
+        });
+        return;
+      }
+    }
+  }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const projectConfigId = getCurrProjectConfigId();
   const payload = {
     projectConfigId,
     sectionId,
@@ -516,18 +569,23 @@ async function setCallable(
     payload,
     source,
   });
-  const res = await route_set_callable(payload);
-  logSectionSearchEvent("setCallable.response", {
-    payload,
-    source,
-    response: res,
-  });
-  if (res200(res)) {
-    // state update occurs by websocket
-    setToNotWaiting();
-    logSectionSearchEvent("setCallable.success", {
+  pendingSetCallableRequestKeys.add(requestKey);
+  try {
+    const res = await route_set_callable(payload);
+    logSectionSearchEvent("setCallable.response", {
       payload,
       source,
+      response: res,
     });
+    if (res200(res)) {
+      // state update occurs by websocket
+      setToNotWaiting();
+      logSectionSearchEvent("setCallable.success", {
+        payload,
+        source,
+      });
+    }
+  } finally {
+    pendingSetCallableRequestKeys.delete(requestKey);
   }
 }

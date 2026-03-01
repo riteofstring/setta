@@ -1,4 +1,9 @@
 import { route_redo, route_undo } from "utils/generatedEndpoints";
+import {
+  flushAllPendingCodeUpdates,
+  flushPendingGenCodeUpdates,
+} from "./codeUpdates";
+import { flushPendingParamEnteredValueUpdates } from "./paramValueUpdates";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 let queuedUndoRedoDelta = 0;
@@ -13,6 +18,9 @@ async function runUndoRedoQueue(): Promise<void> {
   while (queuedUndoRedoDelta !== 0) {
     const deltaToApply = queuedUndoRedoDelta;
     queuedUndoRedoDelta = 0;
+    await flushAllPendingCodeUpdates();
+    await flushPendingGenCodeUpdates();
+    await flushPendingParamEnteredValueUpdates();
     const isUndo = deltaToApply < 0;
     const payload = {
       steps: Math.abs(deltaToApply),

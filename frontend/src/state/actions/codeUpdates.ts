@@ -206,6 +206,25 @@ export async function flushPendingCodeUpdate(sectionId: string): Promise<void> {
   });
 }
 
+export async function flushAllPendingCodeUpdates(): Promise<void> {
+  logCodeUpdateEvent("flushAllPendingCodeUpdates.start", {
+    pendingCodeUpdate,
+    lastCodeUpdateSectionId,
+    hasLastCodeUpdatePromise: lastCodeUpdatePromise !== null,
+  });
+  if (pendingCodeUpdate !== null) {
+    debouncedSetCode.flush();
+  }
+  if (lastCodeUpdatePromise) {
+    await lastCodeUpdatePromise;
+  }
+  logCodeUpdateEvent("flushAllPendingCodeUpdates.end", {
+    pendingCodeUpdate,
+    lastCodeUpdateSectionId,
+    hasLastCodeUpdatePromise: lastCodeUpdatePromise !== null,
+  });
+}
+
 export async function flushPendingGenCodeUpdates(): Promise<void> {
   logCodeUpdateEvent("flushPendingGenCodeUpdates.start", {
     pendingGenCodePrefix,

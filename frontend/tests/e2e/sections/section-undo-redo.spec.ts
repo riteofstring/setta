@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
@@ -58,6 +58,24 @@ async function repeatRedoShortcut(
   } finally {
     await page.keyboard.up("Shift");
     await page.keyboard.up(MODIFIER_KEY);
+  }
+}
+
+async function replaceCodeMirrorValue(
+  page: Page,
+  activationTarget: Locator,
+  editorId: string,
+  value: string,
+  submitKey: "Enter" | "Tab" | null = null,
+): Promise<void> {
+  await activationTarget.click({ force: true });
+  const editorContent = page.locator(`#${editorId} .cm-content`);
+  await expect(editorContent).toBeVisible();
+  await editorContent.click();
+  await page.keyboard.press(`${MODIFIER_KEY}+A`);
+  await page.keyboard.type(value);
+  if (submitKey !== null) {
+    await page.keyboard.press(submitKey);
   }
 }
 
@@ -203,6 +221,176 @@ async function readCallableAndFirstParamValueFromBackend(
     firstParamId,
     firstParamValue:
       paramImpl && typeof paramImpl.value === "string" ? paramImpl.value : null,
+  };
+}
+
+async function readGenCodePrefixFromBackend(
+  page: Page,
+  projectConfigId: string,
+): Promise<string | null> {
+  const stateEnvelope = await postBackend<{
+    projectState?: {
+      projectConfig?: {
+        codegenTargets?: Array<{
+          language?: string;
+          genCodePrefix?: string | null;
+        }>;
+      };
+    };
+  }>(page, "/getLatestProjectState", { projectConfigId });
+  const codegenTargets = stateEnvelope?.projectState?.projectConfig?.codegenTargets;
+  if (!codegenTargets) {
+    return null;
+  }
+  const pythonTarget = codegenTargets.find(
+    (target) => target.language === "python",
+  );
+  if (!pythonTarget) {
+    return null;
+  }
+  return typeof pythonTarget.genCodePrefix === "string"
+    ? pythonTarget.genCodePrefix
+    : null;
+}
+
+type UndoWorkflowState = {
+  genCodePrefix: string | null;
+  callableName: string | null;
+  firstParamId: string | null;
+  firstParamValue: string | null;
+  viewport: { x: number; y: number; zoom: number } | null;
+};
+
+async function readUndoWorkflowState(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<UndoWorkflowState> {
+  const stateEnvelope = await postBackend<{
+    projectState?: {
+      projectConfig?: {
+        sectionVariantMap: Record<string, string>;
+        viewport?: { x: number; y: number; zoom: number } | null;
+        codegenTargets?: Array<{
+          language?: string;
+          genCodePrefix?: string | null;
+        }>;
+      };
+      sectionVariants: Record<string, { impl: string }>;
+      sectionImpls: Record<
+        string,
+        {
+          type: string;
+          callable?: string | null;
+          codeObjVariantMap?: Record<string, string>;
+        }
+      >;
+      codeObjs: Record<string, { name?: string | null }>;
+      codeObjVariants: Record<string, { impl: string }>;
+      codeObjImpls: Record<string, { value?: string | null }>;
+    };
+  }>(page, "/getLatestProjectState", { projectConfigId });
+
+  const projectState = stateEnvelope?.projectState;
+  if (!projectState || !projectState.projectConfig) {
+    return {
+      genCodePrefix: null,
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+      viewport: null,
+    };
+  }
+
+  const codegenTargets = projectState.projectConfig.codegenTargets ?? [];
+  const pythonTarget = codegenTargets.find(
+    (target) => target.language === "python",
+  );
+  const genCodePrefix =
+    pythonTarget && typeof pythonTarget.genCodePrefix === "string"
+      ? pythonTarget.genCodePrefix
+      : null;
+  const viewport = projectState.projectConfig.viewport ?? null;
+
+  const sectionVariantId = projectState.projectConfig.sectionVariantMap[sectionId];
+  if (!sectionVariantId) {
+    return {
+      genCodePrefix,
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const sectionVariant = projectState.sectionVariants[sectionVariantId];
+  if (!sectionVariant) {
+    return {
+      genCodePrefix,
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const sectionImpl = projectState.sectionImpls[sectionVariant.impl];
+  if (!sectionImpl || sectionImpl.type !== "Callable") {
+    return {
+      genCodePrefix,
+      callableName: null,
+      firstParamId: null,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const callableId =
+    "callable" in sectionImpl && typeof sectionImpl.callable === "string"
+      ? sectionImpl.callable
+      : null;
+  const callableName =
+    callableId && projectState.codeObjs[callableId]
+      ? projectState.codeObjs[callableId].name ?? null
+      : null;
+  const paramIds = Object.keys(sectionImpl.codeObjVariantMap ?? {}).filter(
+    (codeObjId) => codeObjId !== callableId,
+  );
+  const firstParamId = paramIds.length > 0 ? paramIds[0] ?? null : null;
+  if (!firstParamId) {
+    return {
+      genCodePrefix,
+      callableName,
+      firstParamId: null,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const paramVariantId = sectionImpl.codeObjVariantMap?.[firstParamId];
+  if (!paramVariantId) {
+    return {
+      genCodePrefix,
+      callableName,
+      firstParamId,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const paramVariant = projectState.codeObjVariants[paramVariantId];
+  if (!paramVariant) {
+    return {
+      genCodePrefix,
+      callableName,
+      firstParamId,
+      firstParamValue: null,
+      viewport,
+    };
+  }
+  const paramImpl = projectState.codeObjImpls[paramVariant.impl];
+  return {
+    genCodePrefix,
+    callableName,
+    firstParamId,
+    firstParamValue:
+      paramImpl && typeof paramImpl.value === "string" ? paramImpl.value : null,
+    viewport,
   };
 }
 
@@ -540,7 +728,7 @@ test.describe.serial("section undo/redo", () => {
     }
   });
 
-  test("keyboard undo/redo restores callable + param semantics after ui-only layout updates", async ({
+  test("undo/redo restores callable + param semantics after ui-only layout updates", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -650,17 +838,16 @@ test.describe.serial("section undo/redo", () => {
         topLevelSections: shiftedTopLevelSections,
       });
 
-      // Ensure keyboard shortcuts are routed through the global undo/redo handlers.
-      await page.evaluate(() => {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
-        }
-      });
-
-      const traversalBudget = 8;
+      // This flow should be undoable within a small semantic budget:
+      // prefix edit, callable selection, and param value edit. A larger count
+      // risks traversing unrelated history from earlier project snapshots.
+      const traversalBudget = 4;
       let sawCallableCleared = false;
       for (let step = 0; step < traversalBudget; step += 1) {
-        await repeatUndoShortcut(page, 1);
+        await postBackend(page, "/undo", {
+          projectConfigId: projectContext.projectConfigId,
+          steps: 1,
+        });
         const stateAfterUndo = await readCallableAndFirstParamValueFromBackend(
           page,
           projectContext.projectConfigId,
@@ -675,7 +862,10 @@ test.describe.serial("section undo/redo", () => {
 
       let sawCallableAndParamRestored = false;
       for (let step = 0; step < traversalBudget; step += 1) {
-        await repeatRedoShortcut(page, 1);
+        await postBackend(page, "/redo", {
+          projectConfigId: projectContext.projectConfigId,
+          steps: 1,
+        });
         const stateAfterRedo = await readCallableAndFirstParamValueFromBackend(
           page,
           projectContext.projectConfigId,
@@ -699,6 +889,153 @@ test.describe.serial("section undo/redo", () => {
       await expect(
         sectionNode.locator(`#ParamContainer-${sectionId}-${paramId}`),
       ).toContainText("123");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("prefix/callable/param workflow keeps undo-redo as exactly three semantic steps", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createCallableSection(
+        page,
+        projectContext.projectConfigId,
+      );
+      const baselineState = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+
+      await postBackend(page, "/setGenCodePrefix", {
+        projectConfigId: projectContext.projectConfigId,
+        genCodePrefix: "import math",
+      });
+      await expect
+        .poll(() =>
+          readGenCodePrefixFromBackend(page, projectContext.projectConfigId),
+        )
+        .toBe("import math");
+      const stateAfterPrefix = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+
+      const sectionNode = page.locator(`[data-testid="rf__node-${sectionId}"]`);
+      await expect(sectionNode).toBeVisible();
+      await postBackend(page, "/setActiveIds", {
+        projectConfigId: projectContext.projectConfigId,
+        activeIds: [sectionId],
+      });
+      await replaceCodeMirrorValue(
+        page,
+        sectionNode.locator("search.section-search"),
+        `CodeMirror-${sectionId}-null`,
+        "sorted",
+        "Enter",
+      );
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "sorted",
+        });
+      const stateAfterCallable = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+      if (!stateAfterCallable.firstParamId) {
+        throw new Error("Missing callable parameter id after setting callable.");
+      }
+      const paramId = stateAfterCallable.firstParamId;
+
+      await postBackend(page, "/setParamEnteredValue", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        paramInfoId: paramId,
+        value: "123",
+      });
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "sorted",
+          firstParamId: paramId,
+          firstParamValue: "123",
+        });
+      const finalState = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+      expect(finalState.genCodePrefix).toBe("import math");
+      expect(finalState.callableName).toBe("sorted");
+      expect(finalState.firstParamId).toBe(paramId);
+      expect(finalState.firstParamValue).toBe("123");
+
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      });
+
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterCallable);
+
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterPrefix);
+
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(baselineState);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterPrefix);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterCallable);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(finalState);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
