@@ -170,3 +170,56 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase3b.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2_fitview.png`
+
+## After (continued)
+
+### Phase 4 (nested param wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Params/ParamContainer.tsx`
+- Change:
+  - Removed the always-rendered nested-child wrapper around `GetParamSwitch` in the nested-param branch.
+  - Moved connector pseudo-element styling onto the parent nested article row.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `6088` (down from `6158`, `-70`, `-1.1%` vs phase 3)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Per-node descendants: `avg 143.79`, `p95 183`, `max 1178`
+  - Per-node max depth: `avg 11.38`, `max 14`
+  - Nested connector wrappers (previous class pattern): `0` (down from `70`)
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4.trace.json`
+- Trace signals from this phase run:
+  - Duration: `18,703.01 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `5`
+  - Renderer main long tasks (`>=50ms`): `3`
+  - `BeginFrame`: `429` (`22.94/s`)
+  - `DrawFrame`: `122` (`6.52/s`)
+  - `DroppedFrame`: `42` (`9.79%`)
+  - Main-thread work: `Layout 28.21 ms`, `UpdateLayoutTree 7.47 ms`, `Paint 82.24 ms`, `PrePaint 7.19 ms`
+
+### Guardrail Automation
+
+- Added automated structural benchmark guardrail:
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Guardrails enforced in test:
+  - viewport descendant budget
+  - total element budget
+  - per-node descendant budgets
+  - max node depth budget
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans)
+
+## Conclusion (latest)
+
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 6088` (`-2531`, `-29.4%`)
+  - Per-node descendants avg: `204.05 -> 143.79` (`-29.5%`)
+  - Per-node descendants max: `1854 -> 1178` (`-36.5%`)
+  - Per-node depth avg/max: `12.74/17 -> 11.38/14`
+- DOM flattening now has both manual profiling artifacts and an automated E2E structural guardrail.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4_fitview.png`

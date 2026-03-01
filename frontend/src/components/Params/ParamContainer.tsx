@@ -127,7 +127,7 @@ function _ParamContainer({
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm before:absolute before:bottom-0 before:left-[0.75rem] before:top-[1.1rem] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20 ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       style={{
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
@@ -143,16 +143,14 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <div className={nestedChildrenClassName}>
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={renderChildren}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </div>
+      <GetParamSwitch
+        sectionId={sectionId}
+        paramIds={renderChildren}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
     </article>
   );
 }
