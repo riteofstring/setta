@@ -7,7 +7,12 @@ import {
   deleteProjectChatThreadGroup,
   setProjectChatThreadGroupAssignment,
 } from "./projectChatThreads";
-import { redoProjectState, undoProjectState } from "./undo";
+import {
+  flushUndoRedoQueueForTests,
+  redoProjectState,
+  resetUndoRedoQueueForTests,
+  undoProjectState,
+} from "./undo";
 
 const routeUndoMock = vi.fn();
 const routeRedoMock = vi.fn();
@@ -22,7 +27,9 @@ vi.mock("./sectionInfos", () => ({
 }));
 
 describe("undo actions", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await flushUndoRedoQueueForTests();
+    resetUndoRedoQueueForTests();
     resetProjectStores();
     clearProjectChatThreadStorageUndoStackForTests();
     routeUndoMock.mockReset();
@@ -37,8 +44,9 @@ describe("undo actions", () => {
     });
   });
 
-  it("routes to backend undo when no local thread mutation is pending", () => {
+  it("routes to backend undo when no local thread mutation is pending", async () => {
     undoProjectState();
+    await flushUndoRedoQueueForTests();
 
     expect(routeUndoMock).toHaveBeenCalledWith({
       steps: 1,
@@ -46,7 +54,7 @@ describe("undo actions", () => {
     });
   });
 
-  it("routes undo to backend even when local thread deletions exist", () => {
+  it("routes undo to backend even when local thread deletions exist", async () => {
     const groupId = createProjectChatThreadGroup("project-a", "Backend");
     if (!groupId) {
       throw new Error("Expected thread group id.");
@@ -56,6 +64,7 @@ describe("undo actions", () => {
     expect(deleted).toBe(true);
 
     undoProjectState();
+    await flushUndoRedoQueueForTests();
 
     expect(routeUndoMock).toHaveBeenCalledWith({
       steps: 1,
@@ -73,11 +82,62 @@ describe("undo actions", () => {
     ).toBeUndefined();
   });
 
-  it("routes redo through backend endpoint", () => {
+  it("routes redo through backend endpoint", async () => {
     redoProjectState();
+    await flushUndoRedoQueueForTests();
 
     expect(routeRedoMock).toHaveBeenCalledWith({
       steps: 1,
+      projectConfigId: "project-a",
+    });
+  });
+
+  it("coalesces repeated undo intents into a multi-step request", async () => {
+    undoProjectState();
+    undoProjectState();
+    undoProjectState();
+    await flushUndoRedoQueueForTests();
+
+    expect(routeUndoMock).toHaveBeenCalledTimes(1);
+    expect(routeUndoMock).toHaveBeenCalledWith({
+      steps: 3,
+      projectConfigId: "project-a",
+    });
+  });
+
+  it("cancels opposite-direction key repeat deltas before dispatch", async () => {
+    undoProjectState();
+    redoProjectState();
+    undoProjectState();
+    redoProjectState();
+    await flushUndoRedoQueueForTests();
+
+    expect(routeUndoMock).not.toHaveBeenCalled();
+    expect(routeRedoMock).not.toHaveBeenCalled();
+  });
+
+  it("queues opposite-direction intents while one request is in flight", async () => {
+    let resolveUndoRequest: ((value: unknown) => void) | null = null;
+    const undoRequest = new Promise((resolve) => {
+      resolveUndoRequest = resolve;
+    });
+    routeUndoMock.mockReturnValueOnce(undoRequest);
+
+    undoProjectState();
+    await Promise.resolve();
+    redoProjectState();
+    redoProjectState();
+    resolveUndoRequest?.({ data: null, status: 200, hasResponse: true });
+    await flushUndoRedoQueueForTests();
+
+    expect(routeUndoMock).toHaveBeenCalledTimes(1);
+    expect(routeUndoMock).toHaveBeenCalledWith({
+      steps: 1,
+      projectConfigId: "project-a",
+    });
+    expect(routeRedoMock).toHaveBeenCalledTimes(1);
+    expect(routeRedoMock).toHaveBeenCalledWith({
+      steps: 2,
       projectConfigId: "project-a",
     });
   });

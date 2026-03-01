@@ -1,9 +1,6 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  OverviewNotificationsPaneTabEnum,
-  OverviewTabNameEnum,
-} from "utils/constants";
+import { OverviewTabNameEnum } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   setColorModePreference,
@@ -71,47 +68,6 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("falls back to Overview for deprecated BackendLogs overview tab values", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { overviewTab: "BackendLogs" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
-  });
-
-  it("falls back to Overview for deprecated ProjectAISettings overview tab values", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
-  });
-
-  it("sanitizes invalid notifications pane tab values", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { overviewNotificationsPaneTab: "invalid-tab" } as Record<
-        string,
-        unknown
-      >,
-      current,
-    ) as typeof current;
-
-    expect(merged.overviewNotificationsPaneTab).toBe(
-      OverviewNotificationsPaneTabEnum.Notifications,
-    );
-  });
-
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
@@ -134,36 +90,6 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneVis).toBe(true);
     expect(merged.homeSelectedProjectPaneWidth).toBe(280);
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(280);
-  });
-
-  it("normalizes persisted custom slash command rows by project config", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      {
-        customProjectChatSlashCommandsByProjectConfigId: {
-          "project-a": [
-            { command: " /deploy ", prompt: "  Deploy the project.  " },
-            {
-              command: "deploy",
-              prompt: "Duplicate command should be dropped.",
-            },
-            { command: "/empty", prompt: "   " },
-            { command: 42, prompt: "Invalid command type." },
-            "invalid entry",
-          ],
-          "project-b": "invalid-project-value",
-          "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
-        },
-      } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.customProjectChatSlashCommandsByProjectConfigId).toEqual({
-      "project-a": [{ command: "/deploy", prompt: "Deploy the project." }],
-      "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
-    });
   });
 
   it("keeps canonical home pane values when persisted values are valid", () => {

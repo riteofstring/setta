@@ -41,7 +41,18 @@ import {
   route_set_callable,
 } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+
+function logSectionSearchEvent(event: string, payload: unknown): void {
+  console.log(`[section-search-debug] ${event} ${JSON.stringify(payload)}`);
+}
+
+type SetCallableSource =
+  | "keydown-enter"
+  | "keydown-alt-enter"
+  | "tab-no-completion"
+  | "manual";
 
 export function SectionSearch({
   sectionId,
@@ -74,12 +85,24 @@ export function SectionSearch({
   );
   const lspEnabled = !isDeploymentMode;
 
-  function onEnter(value: string) {
-    setCallable(sectionId, value, lspEnabled);
+  function onEnter(value: string, source: SetCallableSource) {
+    logSectionSearchEvent("SectionSearch.onEnter", {
+      sectionId,
+      value,
+      lspEnabled,
+      source,
+    });
+    setCallable(sectionId, value, lspEnabled, false, source);
   }
 
-  function onShiftEnter(value: string) {
-    setCallable(sectionId, value, lspEnabled, true);
+  function onShiftEnter(value: string, source: SetCallableSource) {
+    logSectionSearchEvent("SectionSearch.onShiftEnter", {
+      sectionId,
+      value,
+      lspEnabled,
+      source,
+    });
+    setCallable(sectionId, value, lspEnabled, true, source);
   }
 
   return (
@@ -118,8 +141,8 @@ function SectionSearchCore({
 }: {
   sectionId: string;
   callable: string | null;
-  onEnter: (x: string) => void;
-  onShiftEnter: (x: string) => void;
+  onEnter: (x: string, source: SetCallableSource) => void;
+  onShiftEnter: (x: string, source: SetCallableSource) => void;
   dummyCodeClassName: string;
   realCodeClassName: string;
   isDisabled: boolean;
@@ -278,15 +301,35 @@ function SectionSearchCore({
   }, [codeInfoName]);
 
   function onBlur() {
+    logSectionSearchEvent("SectionSearchCore.onBlur", {
+      sectionId,
+      shouldResetValueOnBlur: shouldResetValueOnBlur.current,
+      lspEnabled,
+      codeInfoName,
+      draftCallableName,
+    });
     if (shouldResetValueOnBlur.current) {
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       if (lspEnabled) {
-        route_clear_text_field_completion({
+        const payload = {
           projectConfigId,
           sectionId,
           paramInfoId: null,
+        };
+        logSectionSearchEvent(
+          "SectionSearchCore.clearCompletion.request",
+          payload,
+        );
+        const request = route_clear_text_field_completion({
+          ...payload,
+        });
+        void Promise.resolve(request).then((response) => {
+          logSectionSearchEvent("SectionSearchCore.clearCompletion.response", {
+            payload,
+            response,
+          });
         });
       }
       shouldResetValueOnBlur.current = false;
@@ -296,6 +339,12 @@ function SectionSearchCore({
   }
 
   function onEscape(completionResult: boolean) {
+    logSectionSearchEvent("SectionSearchCore.onEscape", {
+      sectionId,
+      completionResult,
+      codeInfoName,
+      draftCallableName,
+    });
     if (!completionResult) {
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
@@ -305,14 +354,25 @@ function SectionSearchCore({
   }
 
   function onTab(value: string, completionResult: boolean) {
+    logSectionSearchEvent("SectionSearchCore.onTab", {
+      sectionId,
+      value,
+      completionResult,
+    });
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
       clearApplyIndicator();
-      onEnter(value);
+      onEnter(value, "tab-no-completion");
     }
   }
 
   function onChange(value: string) {
+    logSectionSearchEvent("SectionSearchCore.onChange", {
+      sectionId,
+      value,
+      codeInfoName,
+      draftCallableName,
+    });
     setDraftCallableName(value);
     setValueAndCheckConsistency(value);
   }
@@ -325,11 +385,11 @@ function SectionSearchCore({
   const keyComboActions = {
     Enter: (value: string) => {
       clearApplyIndicator();
-      onEnter(value);
+      onEnter(value, "keydown-enter");
     },
     "Alt-Enter": (value: string) => {
       clearApplyIndicator();
-      onShiftEnter(value);
+      onShiftEnter(value, "keydown-alt-enter");
     },
   };
 
@@ -422,8 +482,25 @@ async function setCallable(
   callableName: string,
   canUseLsp: boolean,
   refetchParams = false,
+  source: SetCallableSource = "manual",
 ) {
+  const frontendOpId = createNewId();
+  logSectionSearchEvent("setCallable.start", {
+    sectionId,
+    callableName,
+    canUseLsp,
+    refetchParams,
+    source,
+    frontendOpId,
+  });
   if (!canUseLsp) {
+    logSectionSearchEvent("setCallable.skipLspDisabled", {
+      sectionId,
+      callableName,
+      refetchParams,
+      source,
+      frontendOpId,
+    });
     return;
   }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
@@ -433,10 +510,24 @@ async function setCallable(
     sectionId,
     callableName,
     refetchParams,
+    frontendOpId,
   };
+  logSectionSearchEvent("setCallable.request", {
+    payload,
+    source,
+  });
   const res = await route_set_callable(payload);
+  logSectionSearchEvent("setCallable.response", {
+    payload,
+    source,
+    response: res,
+  });
   if (res200(res)) {
     // state update occurs by websocket
     setToNotWaiting();
+    logSectionSearchEvent("setCallable.success", {
+      payload,
+      source,
+    });
   }
 }

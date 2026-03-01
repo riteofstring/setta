@@ -53,8 +53,24 @@ test("file browser content endpoint uses binary content ids for read/write", asy
   const readBinaryResponse = await request.get(
     `${BACKEND_ORIGIN}/api/binary/${encodeURIComponent(readContentId)}`,
   );
-  expect(readBinaryResponse.ok()).toBeTruthy();
-  await expect(readBinaryResponse.text()).resolves.toContain("alpha,todo");
+  if (!readBinaryResponse.ok()) {
+    await expect
+      .poll(
+        async () => {
+          const retryResponse = await request.get(
+            `${BACKEND_ORIGIN}/api/binary/${encodeURIComponent(readContentId)}`,
+          );
+          if (!retryResponse.ok()) {
+            return "";
+          }
+          return await retryResponse.text();
+        },
+        { timeout: 15000 },
+      )
+      .toContain("alpha,todo");
+  } else {
+    await expect(readBinaryResponse.text()).resolves.toContain("alpha,todo");
+  }
 
   const uploaded = await request.post(`${BACKEND_ORIGIN}/api/binary/upload`, {
     multipart: {

@@ -1,6 +1,5 @@
 import {
   buildPluginPaneOverviewTabName,
-  isOverviewTabKey,
   parsePluginPaneOverviewTabName,
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabNameEnum,
@@ -35,11 +34,6 @@ describe("plugin overview tab key helpers", () => {
     expect(
       parsePluginPaneOverviewTabName("PluginPane:plugin:%E0%A4%A"),
     ).toBeNull();
-  });
-
-  it("rejects deprecated overview tab keys", () => {
-    expect(isOverviewTabKey("BackendLogs")).toBe(false);
-    expect(isOverviewTabKey("ProjectAISettings")).toBe(false);
   });
 });
 

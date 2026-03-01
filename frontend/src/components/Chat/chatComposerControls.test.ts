@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildChatSlashCommands,
-  buildCustomPromptSlashCommandDefinitions,
   CREATE_PROJECT_STARTER_PROMPT,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   getSlashCommandSuggestions,
-  normalizeSlashCommandToken,
   parseSlashCommand,
   resolvePermissionModeArg,
   resolveToggleArg,
@@ -130,74 +128,6 @@ describe("chatComposerControls", () => {
     ]);
   });
 
-  it("includes app-generation slash commands when capability is enabled", () => {
-    const commands = buildChatSlashCommands({
-      model: false,
-      permissions: false,
-      search: false,
-      appGenerationModes: true,
-    });
-
-    expect(commands.map((entry) => entry.command)).toEqual([
-      "/new",
-      "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
-      "/help",
-    ]);
-  });
-
-  it("normalizes and validates slash command tokens", () => {
-    expect(normalizeSlashCommandToken("  TriAge ")).toBe("/triage");
-    expect(normalizeSlashCommandToken("/PROMPT_1")).toBe("/prompt_1");
-    expect(normalizeSlashCommandToken("")).toBeNull();
-    expect(normalizeSlashCommandToken("no-spaces allowed")).toBeNull();
-  });
-
-  it("builds custom prompt slash commands from normalized unique tokens", () => {
-    const commands = buildCustomPromptSlashCommandDefinitions([
-      { command: "  triage  ", prompt: "Summarize regressions." },
-      { command: "/triage", prompt: "Duplicate should be ignored." },
-      { command: "/invalid command", prompt: "skip" },
-      { command: "/empty", prompt: "   " },
-    ]);
-
-    expect(commands).toEqual([
-      {
-        command: "/triage",
-        action: "custom_prompt",
-        summary: "Run a saved custom prompt.",
-        promptTemplate: "Summarize regressions.",
-      },
-    ]);
-
-    const parsed = parseSlashCommand("/triage", commands);
-    expect(parsed).not.toBeNull();
-    expect(parsed?.action).toBe("custom_prompt");
-    expect(parsed?.promptTemplate).toBe("Summarize regressions.");
-  });
-
-  it("drops malformed custom prompt slash command entries without throwing", () => {
-    const commands = buildCustomPromptSlashCommandDefinitions([
-      { command: "/triage", prompt: "Summarize regressions." },
-      null,
-      { command: 123, prompt: "invalid command" },
-      { command: "/broken", prompt: 42 },
-      { command: "/empty", prompt: "   " },
-    ]);
-
-    expect(commands).toEqual([
-      {
-        command: "/triage",
-        action: "custom_prompt",
-        summary: "Run a saved custom prompt.",
-        promptTemplate: "Summarize regressions.",
-      },
-    ]);
-  });
-
   it("creates shared managed execution setting handlers without clobbering sibling settings", () => {
     let currentSettings: ManagedChatExecutionSettings = {
       permissionMode: "minimal",
@@ -277,7 +207,6 @@ describe("chatComposerControls", () => {
     const onResumeLatestChat = vi.fn(async () => true);
     const onSetPermissionMode = vi.fn();
     const onSetSearchEnabled = vi.fn();
-    const onSetAppGenerationMode = vi.fn();
     const slashCommands = buildChatSlashCommands({
       model: true,
       permissions: true,
@@ -297,8 +226,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
     });
     expect(newResult).toEqual({ feedback: "Started a new chat thread." });
     expect(onStartNewChat).toHaveBeenCalledTimes(1);
@@ -316,8 +243,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
     });
     expect(resumeResult).toEqual({ feedback: "Resumed." });
 
@@ -334,8 +259,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
     });
     expect(permissionsResult).toEqual({ feedback: "Permissions set to yolo." });
     expect(onSetPermissionMode).toHaveBeenCalledWith("yolo");
@@ -353,8 +276,6 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
     });
     expect(searchResult).toEqual({ feedback: "Search disabled." });
     expect(onSetSearchEnabled).toHaveBeenCalledWith(false);
@@ -372,46 +293,10 @@ describe("chatComposerControls", () => {
       modelFeedback: "Model picker",
       searchEnabled: true,
       onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
     });
     expect(modelResult).toEqual({
       feedback: "Model picker",
       keepInput: true,
-    });
-  });
-
-  it("executes app-generation mode slash commands", async () => {
-    const onSetPermissionMode = vi.fn();
-    const onSetSearchEnabled = vi.fn();
-    const onSetAppGenerationMode = vi.fn();
-    const slashCommands = buildChatSlashCommands({
-      model: false,
-      permissions: true,
-      search: true,
-      appGenerationModes: true,
-    });
-
-    const appModeResult = await executeManagedChatSlashCommand({
-      command: { action: "app_mcp_server", args: [] },
-      slashCommands,
-      onSetPermissionMode,
-      onStartNewChat: vi.fn(),
-      onResumeLatestChat: vi.fn(async () => false),
-      resumeFeedback: {
-        success: "Resumed.",
-        notFound: "No chat.",
-      },
-      modelFeedback: null,
-      searchEnabled: true,
-      onSetSearchEnabled,
-      appGenerationMode: "json_render",
-      onSetAppGenerationMode,
-    });
-
-    expect(onSetAppGenerationMode).toHaveBeenCalledWith("mcp_server");
-    expect(appModeResult).toEqual({
-      feedback: "App mode set to MCP Server.",
     });
   });
 

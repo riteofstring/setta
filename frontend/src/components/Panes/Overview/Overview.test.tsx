@@ -171,17 +171,6 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain('aria-label="Open settings"');
   });
 
-  it("renders Watch Code as a rail tab and removes the controls trigger path", () => {
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain('data-testid="overview-tab-watch-code"');
-    expect(markup).not.toContain('data-testid="rf__watch-code-settings"');
-  });
-
   it("renders the View Modes pane content when the view modes tab is selected", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({
@@ -287,21 +276,6 @@ describe("Overview rail offsets", () => {
     expect(chatIndex).toBeGreaterThanOrEqual(0);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(chatIndex).toBeLessThan(overviewIndex);
-    expect(markup).not.toContain(
-      'data-testid="overview-tab-project-ai-settings"',
-    );
-    expect(markup).not.toContain('data-testid="overview-tab-backend-logs"');
-    expect(markup).toContain('data-testid="overview-tab-more"');
-    expect(markup).not.toContain('data-testid="overview-tab-run-instructions"');
-    expect(markup).not.toContain('data-testid="overview-tab-app"');
-    expect(markup).not.toContain('id="overview-tab-plugins"');
-    const notificationsIndex = markup.indexOf(
-      'data-testid="overview-tab-notifications"',
-    );
-    const moreIndex = markup.indexOf('data-testid="overview-tab-more"');
-    expect(notificationsIndex).toBeGreaterThanOrEqual(0);
-    expect(moreIndex).toBeGreaterThanOrEqual(0);
-    expect(moreIndex).toBeGreaterThan(notificationsIndex);
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {
@@ -320,29 +294,6 @@ describe("Overview rail offsets", () => {
 
     expect(markup).toContain('data-testid="overview-tab-content-shell"');
     expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
-    expect(markup).not.toContain('data-testid="overview-tab-watch-code"');
-    expect(markup).toContain(">Overview<");
-  });
-
-  it("falls back to overview content for deprecated project ai settings tab keys", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-    const merged = merge(
-      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-    useLocalStorage.setState(merged);
-    syncStoreInitialState(useLocalStorage);
-
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).not.toContain(
-      'data-testid="project-ai-settings-scroll-region"',
-    );
     expect(markup).toContain(">Overview<");
   });
 });

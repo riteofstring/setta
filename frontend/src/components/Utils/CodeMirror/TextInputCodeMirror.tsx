@@ -1,6 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -11,6 +11,40 @@ import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
+
+type ActivationEvent = "tab" | { clientX: number; clientY: number };
+
+function stringifyDebugPayload(payload: unknown): string {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(payload, (_key, value) => {
+    if (typeof value !== "object" || value === null) {
+      return value;
+    }
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+    seen.add(value);
+    return value;
+  });
+}
+
+function logTextInputCodeMirrorEvent(event: string, payload: unknown): void {
+  console.log(
+    `[text-input-codemirror-debug] ${event} ${stringifyDebugPayload(payload)}`,
+  );
+}
+
+function describeActivationEvent(
+  activationEvent: ActivationEvent | null,
+): ActivationEvent | null {
+  if (activationEvent === null || activationEvent === "tab") {
+    return activationEvent;
+  }
+  return {
+    clientX: activationEvent.clientX,
+    clientY: activationEvent.clientY,
+  };
+}
 
 export function TextInputCodeMirror({
   sectionId,
@@ -36,15 +70,26 @@ export function TextInputCodeMirror({
   isDisabled = false,
   completionsFn,
 }) {
-  const [activationEvent, setActivationEvent] = useState(null);
+  const [activationEvent, setActivationEvent] =
+    useState<ActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
+    logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnBlur", {
+      sectionId,
+      paramInfoId,
+      activationEvent: describeActivationEvent(activationEvent),
+      realIsInitialized,
+    });
     // hack to prevent codemirror from
     // blocking other inputs on blur
     // https://github.com/uiwjs/react-codemirror/issues/677
     setTimeout(() => {
+      logTextInputCodeMirrorEvent("TextInputCodeMirror.blurTimeoutReset", {
+        sectionId,
+        paramInfoId,
+      });
       setActivationEvent(null);
       setRealIsInitialized(false);
     }, 0);
@@ -53,13 +98,22 @@ export function TextInputCodeMirror({
 
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
-  function localOnMouseDownCapture(event) {
+  function localOnMouseDownCapture(event: MouseEvent) {
+    logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnMouseDownCapture", {
+      sectionId,
+      paramInfoId,
+      isDisabled,
+      button: event.button,
+    });
     if (isDisabled) {
       onMouseDown?.(event);
       return;
     }
     if (event.button === 0) {
-      setActivationEvent(event);
+      setActivationEvent({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
       applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
@@ -67,6 +121,12 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
+    logTextInputCodeMirrorEvent("TextInputCodeMirror.onFocus", {
+      sectionId,
+      paramInfoId,
+      isDisabled,
+      activationEvent: describeActivationEvent(activationEvent),
+    });
     if (isDisabled) {
       return;
     }
@@ -187,6 +247,19 @@ function CoreCodeMirror({
     defaultVal,
   });
 
+  function onCodeMirrorChange(nextValue: string, viewUpdate) {
+    logTextInputCodeMirrorEvent("CoreCodeMirror.onChange", {
+      sectionId,
+      paramInfoId,
+      divId,
+      nextValue,
+      hasViewUpdate: viewUpdate != null,
+      docChanged: viewUpdate?.docChanged ?? null,
+      transactionCount: viewUpdate?.transactions?.length ?? null,
+    });
+    onChange(nextValue);
+  }
+
   return (
     <CodeMirror
       id={divId}
@@ -202,7 +275,7 @@ function CoreCodeMirror({
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
-      onChange={onChange}
+      onChange={onCodeMirrorChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
       tabIndex={0} // keep focusable for tab navigation
