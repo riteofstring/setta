@@ -613,7 +613,7 @@ function SwitchParamConfigured({
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      outerDivClassName="section-value flex justify-self-start self-center"
+      rootClassName="section-value justify-self-start self-center"
     />
   );
 }

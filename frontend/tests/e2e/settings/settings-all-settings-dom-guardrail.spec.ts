@@ -103,6 +103,12 @@ test("all settings DOM stays within flattening guardrails", async ({
           classes.includes("overflow-visible")
         );
       }).length,
+      legacySwitchWrapperCount: document.querySelectorAll(
+        "div.section-value.flex.justify-self-start.self-center",
+      ).length,
+      flattenedSwitchRootCount: document.querySelectorAll(
+        "button.section-value.justify-self-start.self-center",
+      ).length,
     };
   });
 
@@ -121,4 +127,6 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.spanValueBorderCount).toBe(0);
   expect(metrics.legacyComboboxContainerDivCount).toBe(0);
   expect(metrics.comboboxSearchContainerCount).toBeGreaterThan(0);
+  expect(metrics.legacySwitchWrapperCount).toBe(0);
+  expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
 });

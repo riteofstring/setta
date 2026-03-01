@@ -1148,7 +1148,7 @@ function AppParamUI({
           onChange={(next) => onChange(next)}
           onEscape={onEscape}
           isDisabled={isDisabled}
-          outerDivClassName="section-value flex justify-self-start self-center"
+          rootClassName="section-value justify-self-start self-center"
           rootThemeClassName="bg-[color:var(--app-surface-alt)] data-[state='checked']:bg-[color:var(--app-accent)] focus-visible:ring-[color:var(--app-accent)]"
           thumbThemeClassName="bg-[color:var(--app-surface)]"
         />

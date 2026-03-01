@@ -233,6 +233,36 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `153` (`46.22%`)
   - Main-thread work: `Layout 33.66 ms`, `UpdateLayoutTree 7.68 ms`, `Paint 55.64 ms`, `PrePaint 8.32 ms`
 
+### Phase 6 (switch wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`
+- Change:
+  - Added a wrapperless path in `SwitchInput` so switch layout classes can be applied directly on `Switch.Root`.
+  - Updated settings-oriented switch callsites to use root-level classes and avoid rendering the extra wrapper `<div>`.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `5893` (down from `6012`, `-119`, `-2.0%` vs phase 5)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `6989` (down from `7108`, `-119`)
+  - Per-node descendants: `avg 139.14`, `p95 228`, `max 1148`
+  - Per-node max depth: `avg 10.69`, `p95 11`, `max 13`
+  - Legacy switch wrappers (`div.section-value.flex.justify-self-start.self-center`): `0`
+  - Flattened switch roots (`button.section-value.justify-self-start.self-center`): `119`
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6.trace.json`
+- Trace signals from this phase run:
+  - Duration: `18,630.93 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `6`
+  - Renderer main long tasks (`>=50ms`): `1`
+  - `BeginFrame`: `327` (`17.55/s`)
+  - `DrawFrame`: `96` (`5.15/s`)
+  - `DroppedFrame`: `135` (`41.28%`)
+  - Main-thread work: `Layout 29.1 ms`, `UpdateLayoutTree 8.64 ms`, `Paint 92.15 ms`, `PrePaint 8.62 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -242,17 +272,17 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs)
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy switch wrappers)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 6012` (`-2607`, `-30.2%`)
-  - Per-node descendants avg: `204.05 -> 141.98` (`-30.4%`)
+  - Viewport descendants: `8619 -> 5893` (`-2726`, `-31.6%`)
+  - Per-node descendants avg: `204.05 -> 139.14` (`-31.8%`)
   - Per-node descendants max: `1854 -> 1148` (`-38.1%`)
   - Per-node depth avg/max: `12.74/17 -> 10.69/13`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
-- Runtime traces in this phase were noisy and do not support a strong throughput claim from the combobox-only flattening step by itself.
+- Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
 ## Raw Artifacts (additional local-only)
 
@@ -266,3 +296,6 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5_fitview.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6_fitview.png`
