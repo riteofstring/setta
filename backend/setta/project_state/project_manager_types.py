@@ -28,6 +28,7 @@ from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectCodegenTarget,
+    ProjectConfig,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -1214,6 +1215,16 @@ class ProjectStateSingleConfigWithCompletedOpIds:
 class ProjectStateActiveViewModePatch:
     projectConfigId: ID
     activeViewModeId: ID
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateProjectConfigPatch:
+    projectConfigId: ID
+    projectConfig: ProjectConfig
     previousProjectStateRevision: int
     projectStateRevision: int
     completedOpIds: list[str]

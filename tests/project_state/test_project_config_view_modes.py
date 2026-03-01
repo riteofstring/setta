@@ -379,6 +379,95 @@ class TestProjectConfigViewModes:
             assert patch["activeViewModeId"] == first_view_mode_id
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
+    async def test_toggle_view_mode_tab_broadcasts_project_config_patch(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            project_state = manager.get_single_config_state(project_config_id)
+            view_mode_id = next(iter(project_state.projectConfig.viewModes.keys()))
+            initial_is_tab = project_state.projectConfig.viewModes[view_mode_id].isTab
+
+            sender = manager.websocket_msg_handler
+            snapshot_calls = 0
+            project_config_patch_calls: list[dict[str, int | str | bool]] = []
+            original_snapshot = sender.broadcast_project_state
+            original_project_config_patch = (
+                sender.broadcast_project_state_project_config_patch
+            )
+
+            async def record_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision=None,
+            ) -> None:
+                nonlocal snapshot_calls
+                snapshot_calls += 1
+                await original_snapshot(
+                    project_state,
+                    completed_op_ids,
+                    pending_op_ids,
+                    project_state_revision,
+                )
+
+            async def record_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            ) -> None:
+                project_config_patch_calls.append(
+                    {
+                        "projectConfigId": project_config_id_for_patch,
+                        "viewModeIsTab": project_config_for_patch.viewModes[
+                            view_mode_id
+                        ].isTab,
+                        "previousProjectStateRevision": previous_project_state_revision,
+                        "projectStateRevision": project_state_revision,
+                        "completedOpCount": len(completed_op_ids),
+                        "pendingOpCount": len(pending_op_ids),
+                    }
+                )
+                await original_project_config_patch(
+                    project_config_id_for_patch,
+                    project_config_for_patch,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+
+            sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                record_project_config_patch  # type: ignore[method-assign]
+            )
+            try:
+                await manager.finish_pending_operations(timeout=5.0)
+                baseline_snapshot_calls = snapshot_calls
+                await manager.toggle_view_mode_tab(
+                    ToggleViewModeTabRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=view_mode_id,
+                    )
+                )
+                await manager.finish_pending_operations(timeout=5.0)
+            finally:
+                sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+                sender.broadcast_project_state_project_config_patch = (
+                    original_project_config_patch  # type: ignore[method-assign]
+                )
+
+            assert snapshot_calls == baseline_snapshot_calls
+            assert 1 == len(project_config_patch_calls)
+            patch = project_config_patch_calls[0]
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["viewModeIsTab"] == (not initial_is_tab)
+            assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager

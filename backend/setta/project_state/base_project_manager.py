@@ -4570,7 +4570,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = (
             not project_state.projectConfig.isEditingViewMode
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def toggle_section_visibility(
@@ -4600,7 +4600,7 @@ class BaseProjectManager(ABC):
         next_visibility = not all_visible
         for section_id in x.sectionIds:
             visibility_by_section_id[section_id] = next_visibility
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def toggle_view_mode_user_facing(
@@ -4609,14 +4609,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isTab = not view_mode.isTab
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
@@ -4624,7 +4624,7 @@ class BaseProjectManager(ABC):
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         normalized_name = validate_view_mode_name(project_state, x.viewModeId, x.name)
         view_mode.name = normalized_name
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def set_view_mode_sort_order(self, x: SetViewModeSortOrderRequest) -> None:
@@ -4647,7 +4647,7 @@ class BaseProjectManager(ABC):
             seen.add(view_mode_id)
         for index, view_mode_id in enumerate(ordered_ids):
             view_modes[view_mode_id].sortIndex = index
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
@@ -5317,6 +5317,27 @@ class BaseProjectManager(ABC):
             )
         await self._broadcast_project_state_snapshot(project_state)
 
+    async def _merge_and_broadcast_ui_only_project_config_patch(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        await self._broadcast_project_config_patch(
+            project_config=project_state.projectConfig,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
@@ -5371,6 +5392,34 @@ class BaseProjectManager(ABC):
         await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
             project_config_id,
             active_view_mode_id,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    async def _broadcast_project_config_patch(
+        self,
+        *,
+        project_config: ProjectConfig,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_project_config_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config.id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
+            project_config.id,
+            project_config,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,

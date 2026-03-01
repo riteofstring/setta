@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
+    ProjectStateProjectConfigPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -56,6 +57,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     PatchFrontendProjectStateActiveViewMode = "PatchFrontendProjectStateActiveViewMode"
+    PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -208,6 +210,13 @@ class WebsocketMsgPatchFrontendProjectStateActiveViewMode(FrontendWebsocketMsg):
     messageType: Literal[
         WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
     ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
+
+
+class WebsocketMsgPatchFrontendProjectStateProjectConfig(FrontendWebsocketMsg):
+    content: ProjectStateProjectConfigPatch
+    messageType: Literal[
+        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
+    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):

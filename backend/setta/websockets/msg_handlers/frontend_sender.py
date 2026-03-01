@@ -11,6 +11,7 @@ from setta.logging.levels import parse_log_level
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
+    ProjectStateProjectConfigPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -67,6 +68,7 @@ from setta.types.websocket import (
     WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
     WebsocketMsgPatchFrontendProjectStateActiveViewMode,
+    WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -404,6 +406,31 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                 content=ProjectStateActiveViewModePatch(
                     projectConfigId=projectConfigId,
                     activeViewModeId=activeViewModeId,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_project_config_patch(
+        self,
+        projectConfigId: ID,
+        projectConfig: ProjectConfig,
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateProjectConfig(
+                content=ProjectStateProjectConfigPatch(
+                    projectConfigId=projectConfigId,
+                    projectConfig=projectConfig,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

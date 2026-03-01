@@ -2,6 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   applyActiveViewModeProjectStatePatch,
+  applyProjectConfigProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
@@ -1582,5 +1583,79 @@ describe("processProjectStateUpdateFromBackend", () => {
       zoom: 1.25,
     });
     expect(getProjectStateRevision("project-1")).toBe(12);
+  });
+
+  it("applies project-config patches and updates revision tracking", () => {
+    const viewModeAId = "view-a";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: viewModeAId,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+      topLevelSections: {},
+      viewModes: {
+        [viewModeAId]: {
+          id: viewModeAId,
+          name: "View A",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: true,
+          topLevelSections: {},
+        },
+      },
+      sectionVariantMap: {},
+      activeIds: [],
+      isEditingViewMode: false,
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    const nextProjectConfig = createProjectConfig({
+      ...initialProjectConfig,
+      id: "project-1",
+      isEditingViewMode: true,
+      viewModes: {
+        ...initialProjectConfig.viewModes,
+        [viewModeAId]: {
+          ...initialProjectConfig.viewModes[viewModeAId],
+          name: "Renamed View",
+        },
+      },
+    });
+    const applied = applyProjectConfigProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      previousProjectStateRevision: 20,
+      projectStateRevision: 21,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().projectConfig.isEditingViewMode).toBe(
+      true,
+    );
+    expect(
+      useProjectState.getState().projectConfig.viewModes[viewModeAId].name,
+    ).toBe("Renamed View");
+    expect(getProjectStateRevision("project-1")).toBe(21);
   });
 });

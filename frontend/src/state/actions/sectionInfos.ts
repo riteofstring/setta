@@ -52,6 +52,7 @@ import {
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ProjectStateActiveViewModePatch,
+  ProjectStateProjectConfigPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
@@ -1064,6 +1065,48 @@ export function applyActiveViewModeProjectStatePatch(
     state.projectConfig.viewport = nextViewMode.viewport;
     state.projectConfig.viewportInitialized = nextViewMode.viewportInitialized;
     state.projectConfig.activeViewModeId = patch.activeViewModeId;
+    applied = true;
+  });
+  if (!applied) {
+    return false;
+  }
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  reconcilePendingTopLevelLayout(nextPending);
+  const completedIds = new Set(patch.completedOpIds);
+  const nextProjectState = useProjectState.getState();
+  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    nextProjectState,
+    useNodeInternals.getState().x,
+  );
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+    useNodeInternals.setState({ x: nextNodesMap });
+  });
+  if (shouldRequestFitView) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
+}
+
+export function applyProjectConfigProjectStatePatch(
+  patch: ProjectStateProjectConfigPatch,
+): boolean {
+  let applied = false;
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    if (patch.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    state.projectConfig = patch.projectConfig;
     applied = true;
   });
   if (!applied) {

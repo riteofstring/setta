@@ -43,6 +43,7 @@ import {
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
   ProjectStateActiveViewModePatch,
+  ProjectStateProjectConfigPatch,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
@@ -89,6 +90,7 @@ import {
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   applyActiveViewModeProjectStatePatch,
+  applyProjectConfigProjectStatePatch,
   getCurrProjectConfigId,
   getProjectStateRevision,
   processProjectStateUpdateFromBackend,
@@ -540,6 +542,9 @@ function receiveMessage(message: string, socketGeneration: number) {
     case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode:
       void handleActiveViewModeProjectStatePatch(m.content);
       return;
+    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateProjectConfig:
+      void handleProjectConfigProjectStatePatch(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
@@ -594,6 +599,27 @@ async function handleActiveViewModeProjectStatePatch(
     return;
   }
   const applied = applyActiveViewModeProjectStatePatch(patch);
+  if (applied) {
+    return;
+  }
+  await resyncProjectStateFromBackend(patch.projectConfigId);
+}
+
+async function handleProjectConfigProjectStatePatch(
+  patch: ProjectStateProjectConfigPatch,
+): Promise<void> {
+  if (useServerMode.getState().mode === "app") {
+    return;
+  }
+  if (patch.projectConfigId !== getCurrProjectConfigId()) {
+    return;
+  }
+  const currentRevision = getProjectStateRevision(patch.projectConfigId);
+  if (currentRevision !== patch.previousProjectStateRevision) {
+    await resyncProjectStateFromBackend(patch.projectConfigId);
+    return;
+  }
+  const applied = applyProjectConfigProjectStatePatch(patch);
   if (applied) {
     return;
   }
