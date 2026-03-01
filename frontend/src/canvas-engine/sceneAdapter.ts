@@ -120,6 +120,11 @@ export class CanvasEngineSceneAdapter {
 
   private edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>;
 
+  private sectionEdgePortsBySectionId: Record<
+    string,
+    CanvasEngineSectionEdgePorts
+  >;
+
   private activeSectionIdSet: Set<string>;
 
   public constructor(config?: Partial<CanvasEngineSceneAdapterConfig>) {
@@ -134,6 +139,7 @@ export class CanvasEngineSceneAdapter {
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
     this.edgeHandlePositionByKey = new Map();
+    this.sectionEdgePortsBySectionId = {};
     this.activeSectionIdSet = new Set();
   }
 
@@ -141,6 +147,7 @@ export class CanvasEngineSceneAdapter {
     input: CanvasEngineProjectSceneInput,
   ): CanvasEngineScenePatchSummary {
     this.applyEdgeHandlePositions(input.edgeHandlePositions);
+    this.sectionEdgePortsBySectionId = input.sectionEdgePortsBySectionId;
     const nextActiveSectionIdSet = new Set(input.activeSectionIds);
     const sectionSummary = this.applySections(
       input.topLevelSections,
@@ -512,8 +519,9 @@ export class CanvasEngineSceneAdapter {
       zIndex: number;
       distance: number;
     } | null = null;
+    const measuredHandleKeySet = new Set<string>();
 
-    for (const handle of this.edgeHandlePositionByKey.values()) {
+    for (const [handleKey, handle] of this.edgeHandlePositionByKey.entries()) {
       if (options?.handleType && handle.type !== options.handleType) {
         continue;
       }
@@ -524,24 +532,89 @@ export class CanvasEngineSceneAdapter {
       if (!rect) {
         continue;
       }
-      const distance = Math.hypot(worldX - handle.x, worldY - handle.y);
-      if (distance > toleranceWorld) {
-        continue;
-      }
-      const candidate = {
+      measuredHandleKeySet.add(handleKey);
+      const candidate = createDataHandleHitCandidate({
         sectionId: handle.sectionId,
         portId: handle.portId,
         handleType: handle.type,
         handleWorldX: handle.x,
         handleWorldY: handle.y,
         zIndex: rect.zIndex,
-        distance,
-      };
+        worldX,
+        worldY,
+        toleranceWorld,
+      });
+      if (!candidate) {
+        continue;
+      }
       if (
         !hitCandidate ||
         isDataHandleHitCandidateAbove(candidate, hitCandidate)
       ) {
         hitCandidate = candidate;
+      }
+    }
+
+    if (!hitCandidate) {
+      for (const [sectionId, rect] of this.rectById.entries()) {
+        const sectionPorts = this.sectionEdgePortsBySectionId[sectionId];
+        if (!sectionPorts) {
+          continue;
+        }
+        const handleGroups: Array<{
+          handleType: "source" | "target";
+          portIds: string[];
+        }> = [];
+        if (!options?.handleType || options.handleType === "source") {
+          handleGroups.push({
+            handleType: "source",
+            portIds: sectionPorts.outputPortIds,
+          });
+        }
+        if (!options?.handleType || options.handleType === "target") {
+          handleGroups.push({
+            handleType: "target",
+            portIds: sectionPorts.inputPortIds,
+          });
+        }
+        for (const handleGroup of handleGroups) {
+          for (const portId of handleGroup.portIds) {
+            const handleKey = buildDataHandleKey(
+              sectionId,
+              portId,
+              handleGroup.handleType,
+            );
+            if (measuredHandleKeySet.has(handleKey)) {
+              continue;
+            }
+            const estimatedAnchor = resolveEstimatedDataPortAnchor({
+              rect,
+              portId,
+              portIds: handleGroup.portIds,
+              handleType: handleGroup.handleType,
+            });
+            const candidate = createDataHandleHitCandidate({
+              sectionId,
+              portId,
+              handleType: handleGroup.handleType,
+              handleWorldX: estimatedAnchor.x,
+              handleWorldY: estimatedAnchor.y,
+              zIndex: rect.zIndex,
+              worldX,
+              worldY,
+              toleranceWorld,
+            });
+            if (!candidate) {
+              continue;
+            }
+            if (
+              !hitCandidate ||
+              isDataHandleHitCandidateAbove(candidate, hitCandidate)
+            ) {
+              hitCandidate = candidate;
+            }
+          }
+        }
       }
     }
 
@@ -1066,6 +1139,50 @@ function isDataHandleHitCandidateAbove(
     return candidate.sectionId.localeCompare(current.sectionId) > 0;
   }
   return candidate.portId.localeCompare(current.portId) > 0;
+}
+
+function createDataHandleHitCandidate({
+  sectionId,
+  portId,
+  handleType,
+  handleWorldX,
+  handleWorldY,
+  zIndex,
+  worldX,
+  worldY,
+  toleranceWorld,
+}: {
+  sectionId: string;
+  portId: string;
+  handleType: "source" | "target";
+  handleWorldX: number;
+  handleWorldY: number;
+  zIndex: number;
+  worldX: number;
+  worldY: number;
+  toleranceWorld: number;
+}): {
+  sectionId: string;
+  portId: string;
+  handleType: "source" | "target";
+  handleWorldX: number;
+  handleWorldY: number;
+  zIndex: number;
+  distance: number;
+} | null {
+  const distance = Math.hypot(worldX - handleWorldX, worldY - handleWorldY);
+  if (distance > toleranceWorld) {
+    return null;
+  }
+  return {
+    sectionId,
+    portId,
+    handleType,
+    handleWorldX,
+    handleWorldY,
+    zIndex,
+    distance,
+  };
 }
 
 function isDataEdgeEndpointHitCandidateAbove(

@@ -3,6 +3,11 @@ import {
   resolveDomIslandMountPolicy,
 } from "canvas-engine/domIslandMountPolicy";
 import {
+  areEdgeHandlePositionMapsEqual,
+  buildConnectedDataEdgeHandleKeys,
+  pickEdgeHandlePositionsByKeys,
+} from "canvas-engine/edgeHandlePositionSelectors";
+import {
   createCanvasEngineRenderer,
   type CanvasEngineRenderer,
 } from "canvas-engine/renderer";
@@ -256,7 +261,21 @@ export function CanvasEngineHost() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const { canEditStructure } = useShareCapabilities();
-  const edgeHandlePositions = useEdgeHandleRegistry((state) => state.positions);
+  const connectedDataEdgeHandleKeys = useMemo(
+    () => buildConnectedDataEdgeHandleKeys(dataEdges),
+    [dataEdges],
+  );
+  const edgeHandlePositions = useEdgeHandleRegistry(
+    useCallback(
+      (state) =>
+        pickEdgeHandlePositionsByKeys(
+          state.positions,
+          connectedDataEdgeHandleKeys,
+        ),
+      [connectedDataEdgeHandleKeys],
+    ),
+    areEdgeHandlePositionMapsEqual,
+  );
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);

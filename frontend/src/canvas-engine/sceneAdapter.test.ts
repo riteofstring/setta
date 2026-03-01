@@ -485,6 +485,64 @@ describe("CanvasEngineSceneAdapter", () => {
     });
   });
 
+  it("hit-tests data handles from estimated section-port anchors when handle registry entries are missing", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 80, y: 80, w: 320, h: 200, zIndex: 1 }),
+          sectionB: createLayout({ x: 520, y: 120, w: 320, h: 200, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge(
+            "edge-data-estimated-handles",
+            "sectionA",
+            "sectionB",
+            {
+              sourcePortId: "out-2",
+              targetPortId: "in-3",
+            },
+          ),
+        ],
+        agenticEdges: [],
+        sectionEdgePortsBySectionId: {
+          sectionA: {
+            inputPortIds: [],
+            outputPortIds: ["out-1", "out-2", "out-3"],
+          },
+          sectionB: {
+            inputPortIds: ["in-1", "in-2", "in-3", "in-4"],
+            outputPortIds: [],
+          },
+        },
+      }),
+    );
+
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(400, 180, 8, {
+        handleType: "source",
+      }),
+    ).toEqual({
+      sectionId: "sectionA",
+      portId: "out-2",
+      handleType: "source",
+      handleWorldX: 400,
+      handleWorldY: 180,
+    });
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(520, 240, 8, {
+        handleType: "target",
+      }),
+    ).toEqual({
+      sectionId: "sectionB",
+      portId: "in-3",
+      handleType: "target",
+      handleWorldX: 520,
+      handleWorldY: 240,
+    });
+  });
+
   it("updates data edge anchor coordinates when handle positions move", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
