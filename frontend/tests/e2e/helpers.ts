@@ -543,6 +543,36 @@ export async function openIsolatedProject(
   };
 }
 
+export async function openProjectByName(
+  page: Page,
+  projectConfigName: string,
+): Promise<void> {
+  installUnexpectedApiErrorGuard(page);
+  throwIfUnexpectedApiError(page);
+
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const hasProjectConfig = metadata.projectMetadata.some(
+    (entry) => entry.name === projectConfigName,
+  );
+  if (!hasProjectConfig) {
+    throw new Error(
+      `Missing project config '${projectConfigName}' in metadata response.`,
+    );
+  }
+  const url = withBackendOriginOverride(
+    new URL(projectConfigName, BASE_URL).toString(),
+  );
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+}
+
 export async function cleanupIsolatedProject(
   page: Page,
   context: IsolatedProjectContext | null,

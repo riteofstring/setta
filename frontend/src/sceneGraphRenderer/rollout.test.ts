@@ -53,6 +53,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks chief_quick as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes chief_quick from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "chief-quick-config-id",
+          projectConfigName: "chief_quick",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -73,11 +86,11 @@ describe("scene graph renderer rollout policy", () => {
       isSceneGraphRendererDefaultOnSurface(
         createSurface({
           projectConfigId: "other-project-config-id",
-          projectConfigName: "chief_quick",
+          projectConfigName: "small_shell",
           activeViewModeName: "Overview",
         }),
         [],
-        ["chief_quick"],
+        ["small_shell"],
       ),
     ).toBe(true);
   });
@@ -89,6 +102,18 @@ describe("scene graph renderer rollout policy", () => {
           projectConfigId: "settings-config-id",
           projectConfigName: "settings",
           activeViewModeName: "Core",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports chief_quick rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "chief-quick-config-id",
+          projectConfigName: "chief_quick",
+          activeViewModeName: "Overview",
         }),
       ),
     ).toBe("project_config_name_default");
@@ -109,11 +134,11 @@ describe("scene graph renderer rollout policy", () => {
       resolveSceneGraphRendererRolloutDefaultOnReason(
         createSurface({
           projectConfigId: "other-project-config-id",
-          projectConfigName: "chief_quick",
+          projectConfigName: "small_shell",
           activeViewModeName: "Overview",
         }),
         [],
-        ["chief_quick"],
+        ["small_shell"],
       ),
     ).toBe("project_config_name_canary");
   });
@@ -209,12 +234,12 @@ describe("scene graph renderer rollout policy", () => {
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
       surface: createSurface({
         projectConfigId: "other-project-config-id",
-        projectConfigName: "chief_quick",
+        projectConfigName: "small_shell",
         activeViewModeName: "Overview",
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
-      rolloutProjectConfigNames: ["chief_quick"],
+      rolloutProjectConfigNames: ["small_shell"],
     });
 
     expect(effectiveFlags.enabled).toBe(true);
@@ -231,7 +256,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: true,
       rolloutProjectConfigIds: ["canary-project-config-id"],
-      rolloutProjectConfigNames: ["chief_quick"],
+      rolloutProjectConfigNames: ["small_shell"],
     });
 
     expect(effectiveFlags.enabled).toBe(false);
