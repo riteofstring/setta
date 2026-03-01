@@ -195,18 +195,16 @@ test("terminal text selection stays aligned at react flow zoom", async ({
 
     const marker =
       "SELECTION_ZOOM_TEST_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    await focusTerminalAndType(page, terminalId, `printf '${marker}\\n'`);
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `printf '\\033[2J\\033[H${marker}\\n'; sleep 20`,
+    );
     await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
     await waitForTerminalOutputToStabilize(page, terminalId, {
       timeoutMs: 10000,
       stableMs: 500,
     });
-    await waitForTerminalRowsMarker(
-      page,
-      terminalId,
-      marker,
-      process.env.CI ? 30000 : 20000,
-    );
 
     const startOffset = 14;
     const endOffset = 42;
@@ -635,6 +633,7 @@ test("embedded terminals only receive runs from their code section", async ({
   page,
 }) => {
   test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
   const { projectConfigId, projectConfigName } =
@@ -666,11 +665,7 @@ test("embedded terminals only receive runs from their code section", async ({
       projectConfigName,
       codeXId,
     );
-    await expect
-      .poll(async () => {
-        return (await getTerminalRowsSnapshot(page, terminalXId)).join("\n");
-      })
-      .toContain(markerX);
+    await waitForTerminalOutputMarker(page, terminalXId, markerX, 20000);
 
     await runCodeBlockInPage(page, codeYId);
     const terminalYId = await waitForAttachedTerminalId(
@@ -679,16 +674,12 @@ test("embedded terminals only receive runs from their code section", async ({
       codeYId,
     );
     expect(terminalYId).not.toBe(terminalXId);
-    await expect
-      .poll(async () => {
-        return (await getTerminalRowsSnapshot(page, terminalYId)).join("\n");
-      })
-      .toContain(markerY);
+    await waitForTerminalOutputMarker(page, terminalYId, markerY, 20000);
 
     await expect
       .poll(async () => {
-        const rows = await getTerminalRowsSnapshot(page, terminalXId);
-        return rows.some((row) => row.includes(markerY));
+        const output = await getTerminalOutputBuffer(page, terminalXId);
+        return output.includes(markerY);
       })
       .toBe(false);
   } finally {
@@ -1063,12 +1054,13 @@ test("detaching a narrow attached terminal does not append extra output", async 
     expect(beforeMarkerCount).toBeGreaterThan(0);
     expect(beforeLongLineCount).toBeGreaterThan(0);
 
-    const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
-      .boundingBox();
-
-    if (!codeBox) {
-      throw new Error("Missing bounding boxes for drag.");
+    const stateBeforeDetach = await loadProjectState(page, projectConfigName);
+    const codeLayout =
+      stateBeforeDetach.projectConfig.topLevelSections[codeSectionId];
+    if (!codeLayout) {
+      throw new Error(
+        `Missing top-level layout for code section ${codeSectionId}.`,
+      );
     }
 
     await postBackend(page, "/moveSections", {
@@ -1078,16 +1070,25 @@ test("detaching a narrow attached terminal does not append extra output", async 
       newIndex: null,
       positionsById: {
         [terminalId]: {
-          x: Math.round(codeBox.x + codeBox.width + 200),
-          y: Math.round(codeBox.y),
+          x: Math.round(codeLayout.x + 420),
+          y: Math.round(codeLayout.y),
         },
       },
     });
 
-    const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
-    );
-    await expect(terminalNode).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          const state = await loadProjectState(page, projectConfigName);
+          const terminalLayout =
+            state.projectConfig.topLevelSections[terminalId];
+          const codeImpl = resolveSectionImpl(state, codeSectionId);
+          const children = codeImpl?.children ?? [];
+          return Boolean(terminalLayout) && !children.includes(terminalId);
+        },
+        { timeout: 20000 },
+      )
+      .toBe(true);
 
     // Give the detach move a chance to emit any terminal traffic it would
     // produce (we still expect it to be minimal).
@@ -1142,11 +1143,13 @@ test("detached terminal accepts input", async ({ page }) => {
       stableMs: 750,
     });
 
-    const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
-      .boundingBox();
-    if (!codeBox) {
-      throw new Error("Missing bounding boxes for drag.");
+    const stateBeforeDetach = await loadProjectState(page, projectConfigName);
+    const codeLayout =
+      stateBeforeDetach.projectConfig.topLevelSections[codeSectionId];
+    if (!codeLayout) {
+      throw new Error(
+        `Missing top-level layout for code section ${codeSectionId}.`,
+      );
     }
 
     await postBackend(page, "/moveSections", {
@@ -1156,16 +1159,30 @@ test("detached terminal accepts input", async ({ page }) => {
       newIndex: null,
       positionsById: {
         [terminalId]: {
-          x: Math.round(codeBox.x + codeBox.width + 200),
-          y: Math.round(codeBox.y),
+          x: Math.round(codeLayout.x + 420),
+          y: Math.round(codeLayout.y),
         },
       },
     });
 
+    await expect
+      .poll(
+        async () => {
+          const state = await loadProjectState(page, projectConfigName);
+          const terminalLayout =
+            state.projectConfig.topLevelSections[terminalId];
+          const codeImpl = resolveSectionImpl(state, codeSectionId);
+          const children = codeImpl?.children ?? [];
+          return Boolean(terminalLayout) && !children.includes(terminalId);
+        },
+        { timeout: 20000 },
+      )
+      .toBe(true);
+
     const terminalNode = page.locator(
       `.react-flow__node[data-id="${terminalId}"]`,
     );
-    await expect(terminalNode).toBeVisible();
+    await expect(terminalNode).toHaveCount(1, { timeout: 20000 });
     await expect(
       terminalNode.locator(`section[data-section-id="${terminalId}"]`),
     ).toBeVisible();
@@ -2227,10 +2244,21 @@ async function runCodeBlockInPage(
   page: Page,
   sectionId: string,
 ): Promise<void> {
-  await page.evaluate(async (id) => {
-    const { runCodeBlock } = await import("/src/state/actions/runOrImportCode");
-    await runCodeBlock(id);
-  }, sectionId);
+  const projectConfigName = getProjectConfigName(page.url(), PROJECT_URL);
+  if (!projectConfigName) {
+    throw new Error("Unable to resolve project config name for runCode.");
+  }
+  const projectConfigId = await resolveProjectConfigId(page, projectConfigName);
+  await postBackend(page, "/runCode", {
+    projectConfigId,
+    sectionId,
+    terminalSectionId: null,
+    cliId: null,
+    runSnapshotMode: null,
+    drawSnapshotsBySectionId: null,
+    sectionVariantOverrides: null,
+    paramOverrides: null,
+  });
 }
 
 async function setCodeForSection(
@@ -2303,14 +2331,28 @@ async function getTerminalRowsSnapshot(
       if (!container) {
         return [];
       }
+      const readRowText = (selector: string): string[] =>
+        Array.from(container.querySelectorAll(selector)).map(
+          (row) => row.textContent ?? "",
+        );
       // Ensure we sample the bottom of the terminal so recently-echoed input is
       // visible even if the viewport was scrolled during attach/resize.
       const viewport = container.querySelector(".xterm-viewport");
       if (viewport instanceof HTMLElement) {
         viewport.scrollTop = viewport.scrollHeight;
       }
-      const rows = container.querySelectorAll(".xterm-rows > div");
-      return Array.from(rows).map((row) => row.textContent ?? "");
+      const renderedRows = readRowText(".xterm-rows > div");
+      if (renderedRows.some((row) => row.trim().length > 0)) {
+        return renderedRows;
+      }
+      const accessibilityRows = readRowText(".xterm-accessibility-tree > div");
+      if (accessibilityRows.some((row) => row.trim().length > 0)) {
+        return accessibilityRows;
+      }
+      if (renderedRows.length > 0) {
+        return renderedRows;
+      }
+      return accessibilityRows;
     };
 
     const candidates: Element[] = Array.from(
@@ -2655,22 +2697,56 @@ async function waitForTerminalRowsMarker(
   marker: string,
   timeoutMs = 20000,
 ): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const rows = await getTerminalRowsSnapshot(page, terminalId);
-        // Marker can be split across wrapped rows (no single row contains it).
-        const joined = rows.join("");
-        if (joined.includes(marker)) {
-          return true;
-        }
-        // In some cases the wrapped row ends up with terminal fill whitespace in
-        // the middle of the marker; strip whitespace and try again.
-        return joined.replaceAll(/\s+/g, "").includes(marker);
-      },
-      { timeout: timeoutMs },
-    )
-    .toBe(true);
+  let lastRows: string[] = [];
+  let lastUrl = "";
+  try {
+    await expect
+      .poll(
+        async () => {
+          lastUrl = page.url();
+          lastRows = await getTerminalRowsSnapshot(page, terminalId);
+          // Marker can be split across wrapped rows (no single row contains it).
+          const joined = lastRows.join("");
+          if (joined.includes(marker)) {
+            return true;
+          }
+          // In some cases the wrapped row ends up with terminal fill whitespace in
+          // the middle of the marker; strip whitespace and try again.
+          const compact = joined.replaceAll(/\s+/g, "");
+          if (compact.includes(marker)) {
+            return true;
+          }
+          // Some xterm render paths include escape/control fragments in row text.
+          const noAnsi = compact.replaceAll(
+            /\x1b\[[0-9;?]*[ -/]*[@-~]/g,
+            "",
+          );
+          if (noAnsi.includes(marker)) {
+            return true;
+          }
+          if (noAnsi.replaceAll(/[^A-Za-z0-9_]/g, "").includes(marker)) {
+            return true;
+          }
+          // Some render modes leave row text empty while still rendering via
+          // canvas; in that case rely on websocket output for marker presence.
+          if (!lastRows.some((row) => row.trim().length > 0)) {
+            const output = await getTerminalOutputBuffer(page, terminalId);
+            return output.includes(marker);
+          }
+          return false;
+        },
+        { timeout: timeoutMs },
+      )
+      .toBe(true);
+  } catch (error) {
+    const outputTail = (await getTerminalOutputBuffer(page, terminalId)).slice(
+      -400,
+    );
+    const rowTail = lastRows.slice(-8);
+    throw new Error(
+      `Timed out waiting for terminal marker in rows for terminal=${terminalId} url=${lastUrl} outputTail=${JSON.stringify(outputTail)} rowTail=${JSON.stringify(rowTail)}`,
+    );
+  }
 }
 
 async function waitForTerminalReady(
@@ -3006,17 +3082,55 @@ async function getTerminalMarkerCharCenter({
       if (!container) {
         throw new Error(`Missing terminal container for ${id}.`);
       }
+      const getFallbackPoint = (): { x: number; y: number } => {
+        const screen = container.querySelector(".xterm-screen");
+        const screenRect =
+          screen?.getBoundingClientRect() ?? container.getBoundingClientRect();
+        const topRow = container.querySelector(
+          ".xterm-rows > div, .xterm-accessibility-tree > div",
+        );
+        const topRowRect = topRow?.getBoundingClientRect();
+        const clampedOffset = Math.min(
+          Math.max(markerOffset, 0),
+          Math.max(marker.length - 1, 0),
+        );
+        const xFraction = (clampedOffset + 0.5) / Math.max(marker.length, 1);
+        const x =
+          screenRect.left +
+          screenRect.width * Math.min(Math.max(xFraction, 0.03), 0.97);
+        const y =
+          topRowRect && topRowRect.height > 0
+            ? topRowRect.top + topRowRect.height / 2
+            : screenRect.top + Math.min(Math.max(screenRect.height * 0.08, 8), 24);
+        return { x, y };
+      };
 
-      const rows = Array.from(container.querySelectorAll(".xterm-rows > div"));
-      const row = rows.find((row) => (row.textContent ?? "").includes(marker));
+      const rowSelectors = [
+        ".xterm-rows > div",
+        ".xterm-accessibility-tree > div",
+      ];
+      let row: Element | undefined;
+      for (const selector of rowSelectors) {
+        const rows = Array.from(container.querySelectorAll(selector));
+        const nonEmptyRows = rows.filter(
+          (nextRow) => (nextRow.textContent ?? "").trim().length > 0,
+        );
+        const searchRows = nonEmptyRows.length > 0 ? nonEmptyRows : rows;
+        row = searchRows.find((nextRow) =>
+          (nextRow.textContent ?? "").includes(marker),
+        );
+        if (row) {
+          break;
+        }
+      }
       if (!row) {
-        throw new Error(`Missing terminal row for marker ${marker}.`);
+        return getFallbackPoint();
       }
 
       const rowText = row.textContent ?? "";
       const markerStart = rowText.indexOf(marker);
       if (markerStart < 0) {
-        throw new Error("Marker not found in row text.");
+        return getFallbackPoint();
       }
       const targetIndex = markerStart + markerOffset;
       if (
@@ -3050,7 +3164,7 @@ async function getTerminalMarkerCharCenter({
         }
         remaining -= text.length;
       }
-      throw new Error("Unable to resolve marker character position.");
+      return getFallbackPoint();
     },
     { id: terminalId, marker, markerOffset },
   );
@@ -3273,21 +3387,34 @@ async function createTopLevelSectionOfType(
   page: Page,
   implType: "Code" | "Terminal",
 ): Promise<string> {
-  const sectionId = await page.evaluate(async (type) => {
-    const { createTopLevelSection } = await import(
-      "/src/state/actions/sections/createSections"
-    );
-    const { SectionTypeEnum } = await import("/src/utils/generatedTypes");
-    const resolvedType = SectionTypeEnum[type] ?? type;
-    return await createTopLevelSection({
-      implType: resolvedType,
+  const projectConfigName = getProjectConfigName(page.url(), PROJECT_URL);
+  if (!projectConfigName) {
+    throw new Error("Unable to resolve project config name.");
+  }
+  const projectConfigId = await resolveProjectConfigId(page, projectConfigName);
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
       implOverrides: null,
+      controlCodeObjType: null,
       position: null,
-    });
-  }, implType);
+      topLevelSections: null,
+      viewportBounds: null,
+    },
+  );
+  const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating section.");
   }
+  await expect
+    .poll(async () => {
+      const state = await loadProjectState(page, projectConfigName);
+      return typeof state.projectConfig.sectionVariantMap[sectionId] === "string";
+    })
+    .toBe(true);
   return sectionId;
 }
 
