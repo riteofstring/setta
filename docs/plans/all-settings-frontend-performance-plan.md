@@ -12,6 +12,12 @@ The request text says "backend performance", but the benchmark and measured bott
   - Current plan Priority 2: batched temporary height updates for `GroupContainer`, `SectionHeader`, and `KwargsControls`.
     - Measured transition write churn dropped from `407` `useTemporaryMiscState.setState` calls to `3` batched calls (with `222` merged height-key writes).
     - Interaction timing stayed in the same range; no clear long-task reduction from this item alone.
+  - Current plan Priority 3 (partial): reduced repeated layout reads in `SectionHeader` and `KwargsControls`.
+    - `Core -> All Settings` instrumentation deltas:
+      - `getComputedStyle` total `333` -> `259`; `SectionHeader` `111` -> `74`; `KwargsControls` `111` -> `74`.
+      - `offsetHeight` total `270` -> `196`; `SectionHeader` `111` -> `74`; `KwargsControls` `111` -> `74`.
+    - 5-run timing medians moved modestly in the right direction:
+      - `Core -> All Settings`: elapsed `1428.9 ms` -> `1407.1 ms`; long-task `1170 ms` -> `1158 ms`.
   - Priority 1 from the prior plan (edge-handle no-op guards + redundant update removal).
 - Investigated and de-prioritized:
   - `re-resizable` mount gating (prior Priority 2): negligible startup gain with clear lock/unlock regressions in our benchmark.

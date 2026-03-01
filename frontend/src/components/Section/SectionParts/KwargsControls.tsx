@@ -36,6 +36,7 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
+import { getElementVerticalMargin, getObservedElementHeight } from "../heightMeasurements";
 
 type KwargsControlsProps = {
   sectionId: string;
@@ -53,12 +54,23 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
       queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
       return;
     }
-    const updateHeight = () => {
-      const style = window.getComputedStyle(node);
-      const marginHeight =
-        (Number.parseFloat(style.marginTop) || 0) +
-        (Number.parseFloat(style.marginBottom) || 0);
-      const measuredHeight = node.offsetHeight + marginHeight;
+    let cachedMarginHeight: number | null = null;
+    let cachedMarginSignature: string | null = null;
+    const refreshMarginHeight = () => {
+      const nextSignature = `${node.className}|${node.getAttribute("style") ?? ""}`;
+      if (cachedMarginSignature === nextSignature && cachedMarginHeight !== null) {
+        return;
+      }
+      cachedMarginSignature = nextSignature;
+      cachedMarginHeight = getElementVerticalMargin(node);
+    };
+    const updateHeight = (entry: ResizeObserverEntry | null) => {
+      refreshMarginHeight();
+      const measuredHeight =
+        getObservedElementHeight({
+          entry,
+          getFallbackOffsetHeight: () => node.offsetHeight,
+        }) + (cachedMarginHeight ?? 0);
       const nextHeight = Math.ceil(measuredHeight);
       if (lastMeasuredHeightRef.current === nextHeight) {
         return;
@@ -68,9 +80,10 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
     };
-    updateHeight();
-    const observer = new ResizeObserver(() => {
-      updateHeight();
+    updateHeight(null);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0] ?? null;
+      updateHeight(entry);
     });
     observer.observe(node);
     return () => {
