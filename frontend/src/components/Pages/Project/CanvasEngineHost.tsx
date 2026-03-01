@@ -186,6 +186,8 @@ const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
 const SELECTION_RECT_BORDER_COLOR = "rgba(0, 89, 220, 0.8)";
 const DOM_ISLAND_VIEWPORT_PADDING_PX = 240;
 const DOM_ISLAND_MIN_ZOOM = 0.35;
+const DOM_ISLAND_RETENTION_MS = 280;
+const DOM_ISLAND_MAX_RETAINED_SECTIONS = 96;
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -242,6 +244,11 @@ export function CanvasEngineHost() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
+  const domIslandMountedSectionIdsRef = useRef<string[]>([]);
+  const domIslandRetentionExpiryByIdRef = useRef<Map<string, number>>(
+    new Map(),
+  );
+  const domIslandRetentionTimerIdRef = useRef<number | null>(null);
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   if (!sceneAdapterRef.current) {
     sceneAdapterRef.current = new CanvasEngineSceneAdapter();
@@ -250,6 +257,8 @@ export function CanvasEngineHost() {
 
   const [rendererRevision, setRendererRevision] = useState(0);
   const [projectSceneRevision, setProjectSceneRevision] = useState(0);
+  const [domIslandRetentionRevision, setDomIslandRetentionRevision] =
+    useState(0);
   const [backendSelection, setBackendSelection] =
     useState<CanvasEngineBackendSelection>(INITIAL_BACKEND_SELECTION);
   const [lastPatchSummary, setLastPatchSummary] =
@@ -362,43 +371,121 @@ export function CanvasEngineHost() {
     }),
     [connectionPreview, hoveredEdge, sceneSnapshot],
   );
-  const domIslandRects = useMemo(() => {
-    const rectMap = new Map<string, CanvasEngineRect>();
-    if (camera.zoom >= DOM_ISLAND_MIN_ZOOM) {
-      const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
-      const viewportRect = {
-        x: camera.x - worldPadding,
-        y: camera.y - worldPadding,
-        width: viewport.width / camera.zoom + worldPadding * 2,
-        height: viewport.height / camera.zoom + worldPadding * 2,
-      };
-      const sectionIdsInMountWindow = sceneAdapter.querySectionIdsInWorldRect(
-        viewportRect,
-        true,
-      );
-      for (const sectionId of sectionIdsInMountWindow) {
-        const rect = sceneAdapter.getRectById(sectionId);
-        if (rect) {
-          rectMap.set(sectionId, rect);
+  const domIslandViewportSectionIds = useMemo(() => {
+    if (camera.zoom < DOM_ISLAND_MIN_ZOOM) {
+      return [];
+    }
+    const worldPadding = DOM_ISLAND_VIEWPORT_PADDING_PX / camera.zoom;
+    const viewportRect = {
+      x: camera.x - worldPadding,
+      y: camera.y - worldPadding,
+      width: viewport.width / camera.zoom + worldPadding * 2,
+      height: viewport.height / camera.zoom + worldPadding * 2,
+    };
+    const sectionIdsInMountWindow = sceneAdapter.querySectionIdsInWorldRect(
+      viewportRect,
+      true,
+    );
+    return sortSectionIdsByZIndexThenId(sectionIdsInMountWindow, sceneAdapter);
+  }, [
+    camera,
+    domIslandRetentionRevision,
+    projectSceneRevision,
+    sceneAdapter,
+    viewport,
+  ]);
+  const domIslandSectionIds = useMemo(() => {
+    const nowMs = Date.now();
+    const expiryById = domIslandRetentionExpiryByIdRef.current;
+    const keepMountedSet = new Set<string>(domIslandViewportSectionIds);
+    for (const activeSectionId of activeSectionIds) {
+      keepMountedSet.add(activeSectionId);
+    }
+
+    for (const sectionId of keepMountedSet) {
+      expiryById.delete(sectionId);
+    }
+    for (const sectionId of domIslandMountedSectionIdsRef.current) {
+      if (keepMountedSet.has(sectionId)) {
+        continue;
+      }
+      if (!sceneAdapter.getRectById(sectionId)) {
+        expiryById.delete(sectionId);
+        continue;
+      }
+      if (!expiryById.has(sectionId)) {
+        expiryById.set(sectionId, nowMs + DOM_ISLAND_RETENTION_MS);
+      }
+    }
+    for (const [sectionId, expiryMs] of Array.from(expiryById.entries())) {
+      if (!sceneAdapter.getRectById(sectionId) || expiryMs <= nowMs) {
+        expiryById.delete(sectionId);
+      }
+    }
+    if (expiryById.size > DOM_ISLAND_MAX_RETAINED_SECTIONS) {
+      const retainedEntriesByExpiryAscending = Array.from(
+        expiryById.entries(),
+      ).sort((left, right) => left[1] - right[1]);
+      const overflowCount =
+        retainedEntriesByExpiryAscending.length - DOM_ISLAND_MAX_RETAINED_SECTIONS;
+      for (let index = 0; index < overflowCount; index += 1) {
+        const entry = retainedEntriesByExpiryAscending[index];
+        if (entry) {
+          expiryById.delete(entry[0]);
         }
       }
     }
-    for (const sectionId of activeSectionIds) {
-      if (rectMap.has(sectionId)) {
-        continue;
-      }
+
+    const mountedSectionIds = new Set<string>(keepMountedSet);
+    for (const sectionId of expiryById.keys()) {
+      mountedSectionIds.add(sectionId);
+    }
+    const nextMountedIds = sortSectionIdsByZIndexThenId(
+      Array.from(mountedSectionIds),
+      sceneAdapter,
+    );
+    domIslandMountedSectionIdsRef.current = nextMountedIds;
+    return nextMountedIds;
+  }, [activeSectionIds, domIslandRetentionRevision, domIslandViewportSectionIds, sceneAdapter]);
+  const domIslandRects = useMemo(() => {
+    const rects: CanvasEngineRect[] = [];
+    for (const sectionId of domIslandSectionIds) {
       const rect = sceneAdapter.getRectById(sectionId);
       if (rect) {
-        rectMap.set(sectionId, rect);
+        rects.push(rect);
       }
     }
-    return Array.from(rectMap.values()).sort((left, right) => {
-      if (left.zIndex === right.zIndex) {
-        return left.id.localeCompare(right.id);
+    return rects;
+  }, [domIslandSectionIds, projectSceneRevision, sceneAdapter]);
+  useEffect(() => {
+    const expiryById = domIslandRetentionExpiryByIdRef.current;
+    if (domIslandRetentionTimerIdRef.current !== null) {
+      window.clearTimeout(domIslandRetentionTimerIdRef.current);
+      domIslandRetentionTimerIdRef.current = null;
+    }
+    let nextExpiryMs: number | null = null;
+    for (const expiryMs of expiryById.values()) {
+      if (nextExpiryMs === null || expiryMs < nextExpiryMs) {
+        nextExpiryMs = expiryMs;
       }
-      return left.zIndex - right.zIndex;
-    });
-  }, [activeSectionIds, camera, projectSceneRevision, sceneAdapter, viewport]);
+    }
+    if (nextExpiryMs === null) {
+      return;
+    }
+    const delayMs = Math.max(0, nextExpiryMs - Date.now());
+    domIslandRetentionTimerIdRef.current = window.setTimeout(() => {
+      domIslandRetentionTimerIdRef.current = null;
+      setDomIslandRetentionRevision((value) => value + 1);
+    }, delayMs);
+  }, [domIslandSectionIds]);
+  useEffect(() => {
+    return () => {
+      if (domIslandRetentionTimerIdRef.current !== null) {
+        window.clearTimeout(domIslandRetentionTimerIdRef.current);
+        domIslandRetentionTimerIdRef.current = null;
+      }
+    };
+  }, []);
   const domIslandLayerTransform = useMemo(
     () => ({
       transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
@@ -1504,6 +1591,23 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
     }
   }
   return true;
+}
+
+function sortSectionIdsByZIndexThenId(
+  sectionIds: string[],
+  sceneAdapter: CanvasEngineSceneAdapter,
+): string[] {
+  return Array.from(new Set(sectionIds)).sort((leftId, rightId) => {
+    const leftRect = sceneAdapter.getRectById(leftId);
+    const rightRect = sceneAdapter.getRectById(rightId);
+    if (!leftRect || !rightRect) {
+      return leftId.localeCompare(rightId);
+    }
+    if (leftRect.zIndex !== rightRect.zIndex) {
+      return leftRect.zIndex - rightRect.zIndex;
+    }
+    return leftId.localeCompare(rightId);
+  });
 }
 
 function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {

@@ -112,6 +112,7 @@ const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
 const SECTION_BODY_CLICK_OFFSET_X = 140;
 const SECTION_BODY_CLICK_OFFSET_Y = 110;
+const DOM_ISLAND_RETENTION_TEST_WAIT_MS = 900;
 const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
@@ -387,6 +388,74 @@ test("canvas engine host mounts dom islands for newly visible sections", async (
             .count(),
       )
       .toBe(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host briefly retains offscreen dom islands", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const createdSectionPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.52,
+        y: hostBounds.y + hostBounds.height * 0.52,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const createdSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: createdSectionPosition,
+    });
+    const createdSectionIsland = host.locator(
+      `[data-canvas-engine-dom-island="${createdSectionId}"]`,
+    );
+    await expect(createdSectionIsland).toHaveCount(1);
+
+    await clearSelectionByPaneClick(page, host);
+    await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+
+    const cameraBeforePan = await readCamera(host);
+    const createdSectionLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      createdSectionId,
+    );
+    const targetCameraX =
+      createdSectionLayout.x + DEFAULT_SECTION_WIDTH_FOR_HIT_TEST + 140;
+    const requiredCameraDeltaX = Math.max(0, targetCameraX - cameraBeforePan.x);
+    if (requiredCameraDeltaX > 0) {
+      await panCanvasHostByPixelDelta(page, host, {
+        x: -Math.ceil(requiredCameraDeltaX * cameraBeforePan.zoom + 220),
+        y: 0,
+      });
+    }
+
+    await expect(createdSectionIsland).toHaveCount(1);
+
+    await page.waitForTimeout(DOM_ISLAND_RETENTION_TEST_WAIT_MS);
+    await expect(createdSectionIsland).toHaveCount(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -2426,6 +2495,83 @@ async function clearSelectionByPaneClick(
   }
 
   throw new Error("Unable to clear active section ids via pane click targets.");
+}
+
+async function resolvePaneScreenPoint(
+  page: Page,
+  host: Locator,
+): Promise<{ x: number; y: number }> {
+  const bounds = await host.boundingBox();
+  if (!bounds) {
+    throw new Error("Unable to resolve canvas host bounds for pane point.");
+  }
+  const xOffsets = [
+    24,
+    bounds.width * 0.2,
+    bounds.width * 0.4,
+    bounds.width * 0.6,
+    bounds.width * 0.8,
+    Math.max(24, bounds.width - 24),
+  ];
+  const yOffsets = [
+    24,
+    bounds.height * 0.2,
+    bounds.height * 0.4,
+    bounds.height * 0.6,
+    bounds.height * 0.8,
+    Math.max(24, bounds.height - 24),
+  ];
+  for (const yOffset of yOffsets) {
+    for (const xOffset of xOffsets) {
+      const point = { x: bounds.x + xOffset, y: bounds.y + yOffset };
+      const isPanePoint = await page.evaluate((candidate) => {
+        const target = document.elementFromPoint(candidate.x, candidate.y);
+        if (!(target instanceof Element)) {
+          return false;
+        }
+        if (!target.closest('[data-canvas-engine-host="v1"]')) {
+          return false;
+        }
+        if (target.closest("[data-canvas-engine-dom-island]")) {
+          return false;
+        }
+        if (
+          target.closest(
+            [
+              "button",
+              "a[href]",
+              "input",
+              "textarea",
+              "select",
+              "[role='button']",
+              "[role='menuitem']",
+            ].join(","),
+          )
+        ) {
+          return false;
+        }
+        return true;
+      }, point);
+      if (isPanePoint) {
+        return point;
+      }
+    }
+  }
+  throw new Error("Unable to resolve a pane screen point for canvas drag.");
+}
+
+async function panCanvasHostByPixelDelta(
+  page: Page,
+  host: Locator,
+  delta: { x: number; y: number },
+): Promise<void> {
+  const startPoint = await resolvePaneScreenPoint(page, host);
+  await page.mouse.move(startPoint.x, startPoint.y);
+  await page.mouse.down();
+  await page.mouse.move(startPoint.x + delta.x, startPoint.y + delta.y, {
+    steps: 10,
+  });
+  await page.mouse.up();
 }
 
 async function worldPointToScreen(
