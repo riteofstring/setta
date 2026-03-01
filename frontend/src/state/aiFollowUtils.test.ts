@@ -109,6 +109,23 @@ describe("aiFollowUtils", () => {
     expect(none).toEqual([]);
   });
 
+  it("keeps follow filtering disabled until the user opts in", () => {
+    const allowedWhileOff = getAllowedChatIdsForProject(
+      "off",
+      { [PROJECT_ID]: [CHAT_A] },
+      { [PROJECT_ID]: [SECTION_A] },
+      PROJECT_ID,
+      SECTION_VARIANT_MAP,
+      SECTION_VARIANTS,
+      SECTION_IMPLS,
+    );
+
+    expect(Array.from(allowedWhileOff ?? [])).toEqual([]);
+    expect(
+      getSectionIdsForProject(IDS_BY_PROJECT, PROJECT_ID, allowedWhileOff),
+    ).toEqual([]);
+  });
+
   it("checks section membership against allowed chat ids", () => {
     const all = hasSectionIdInProject(IDS_BY_PROJECT, PROJECT_ID, "s1", null);
     expect(all).toBe(true);

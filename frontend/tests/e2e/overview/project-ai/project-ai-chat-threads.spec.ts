@@ -183,6 +183,41 @@ test("project ai shows styled empty state when no threads exist", async ({
   }
 });
 
+test("follow ai stays opt-in by default", async ({ page }) => {
+  await page.setViewportSize({ width: 1360, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1040,
+    overviewTrueWidth: 1040,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await overviewPane
+      .getByRole("button", { name: "Project AI Settings" })
+      .click();
+
+    const followTrigger = page
+      .getByRole("menuitem", { name: /Follow AI/ })
+      .first();
+    await expect(followTrigger).toBeVisible();
+    await expect(followTrigger).toHaveClass(/text-setta-600/);
+    await expect(followTrigger).not.toHaveClass(/text-blue-600/);
+
+    await followTrigger.click();
+    const followAllItem = page.getByRole("menuitem", { name: "Follow all" });
+    await expect(followAllItem).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai thread spinner clears after polling observes run completion", async ({
   page,
 }) => {

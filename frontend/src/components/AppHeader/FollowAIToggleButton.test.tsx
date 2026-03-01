@@ -167,8 +167,25 @@ describe("FollowAIToggleButton", () => {
     expect(markup).toContain("No chats yet");
   });
 
-  it("renders in active mode by default", () => {
+  it("renders in inactive mode by default", () => {
     setEmptyProjectState();
+
+    const markup = renderToStaticMarkup(
+      <Menubar.Root>
+        <FollowAIToggleButton />
+      </Menubar.Root>,
+    );
+
+    expect(markup).toContain("text-setta-600");
+    expect(markup).not.toContain("text-blue-600");
+  });
+
+  it("renders in active mode when follow-all is selected", () => {
+    setEmptyProjectState();
+    useAIFollow.setState((state) => {
+      state.mode = "all";
+    });
+    syncStoreInitialState(useAIFollow);
 
     const markup = renderToStaticMarkup(
       <Menubar.Root>

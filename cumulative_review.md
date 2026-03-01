@@ -71,3 +71,11 @@
 - Updated Overview More-menu actions (`Custom Runs`, `App Gen`, `Plugins`) to use open-only tab navigation so selecting the active tab does not close the Overview pane.
 - Replaced Project Chat empty-state CTA gating by copy-string comparison with explicit placeholder state (`kind` + `text`) and a deterministic `shouldShowProjectChatNoThreadsPlaceholder` predicate.
 - Added backend unit and route regression tests for canonical `skillId` enforcement, Vitest coverage for placeholder-state behavior, and Playwright e2e coverage for More-menu Custom Runs idempotent-open behavior.
+
+## 2026-03-04 23:45:27 PST
+
+- Ran `pnpm -C frontend gcf`.
+- Restored `useAIFollow` default mode to `off` so Follow AI remains opt-in and no longer auto-activates on first load.
+- Updated Follow AI regressions to assert inactive-by-default UI styling and explicit active styling when mode is set to `all`.
+- Added follow-filtering coverage to ensure `off` mode yields no allowed chat IDs/section highlights.
+- Added Playwright coverage for Project AI settings Follow AI trigger to validate default opt-in behavior and menu availability.
