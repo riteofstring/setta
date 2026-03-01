@@ -2636,8 +2636,22 @@ class BaseProjectManager(ABC):
             and view_mode.topLevelSections == merged_layouts
         ):
             return
-        project_config.topLevelSections = merged_layouts
-        view_mode.topLevelSections = merged_layouts
+        self._isolate_current_entry_project_config_for_in_place_mutation(
+            x.projectConfigId
+        )
+        isolated_project_config = self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ]
+        isolated_active_view_mode_id = isolated_project_config.activeViewModeId
+        if isolated_active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        isolated_view_mode = isolated_project_config.viewModes.get(
+            isolated_active_view_mode_id
+        )
+        if isolated_view_mode is None:
+            raise KeyError(f"View mode {isolated_active_view_mode_id} not found")
+        isolated_project_config.topLevelSections = merged_layouts
+        isolated_view_mode.topLevelSections = merged_layouts
         self._mark_current_backend_revision_dirty()
 
     @enqueue_method
@@ -6413,6 +6427,9 @@ class BaseProjectManager(ABC):
             projectConfigId,
             self._plugin_codegen_output_root(old_name),
         )
+        self._isolate_current_entry_project_config_for_in_place_mutation(
+            projectConfigId
+        )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
         new_name = self.project_state_backend.projectConfigs[projectConfigId].name
         self._mark_current_backend_revision_dirty()
@@ -6649,6 +6666,10 @@ class BaseProjectManager(ABC):
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         if project_config.activeIds == x.activeIds:
             return
+        self._isolate_current_entry_project_config_for_in_place_mutation(
+            x.projectConfigId
+        )
+        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.activeIds = x.activeIds
         self._mark_current_backend_revision_dirty()
 
@@ -11256,6 +11277,41 @@ class BaseProjectManager(ABC):
             projectConfigs=project_configs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=copy.deepcopy(backend.appDefinition),
+        )
+
+    def _isolate_current_entry_project_config_for_in_place_mutation(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        current_backend = self.project_state_backend
+        if project_config_id not in current_backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        current_project_config = current_backend.projectConfigs[project_config_id]
+
+        def isolate_shared_project_config_reference(
+            entry_backend: ProjectStateBackend,
+        ) -> ProjectStateBackend | None:
+            entry_project_config = entry_backend.projectConfigs.get(project_config_id)
+            if entry_project_config is not current_project_config:
+                return None
+            entry_project_configs = dict(entry_backend.projectConfigs)
+            entry_project_configs[project_config_id] = copy.deepcopy(
+                entry_project_config
+            )
+            return ProjectStateBackend(
+                sections=entry_backend.sections,
+                sectionImpls=entry_backend.sectionImpls,
+                sectionVariants=entry_backend.sectionVariants,
+                codeObjs=entry_backend.codeObjs,
+                codeObjImpls=entry_backend.codeObjImpls,
+                codeObjVariants=entry_backend.codeObjVariants,
+                projectConfigs=entry_project_configs,
+                defaultProjectConfigId=entry_backend.defaultProjectConfigId,
+                appDefinition=entry_backend.appDefinition,
+            )
+
+        self.history.replace_non_current_entries(
+            isolate_shared_project_config_reference
         )
 
     def _mark_current_backend_revision_dirty(self) -> None:

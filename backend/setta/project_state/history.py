@@ -115,6 +115,21 @@ class History(Generic[T]):
         self._history[self._current] = x
         self._bump_revision()
 
+    def replace_non_current_entries(
+        self,
+        replace_fn: Callable[[T], T | None],
+    ) -> int:
+        replacements = 0
+        for idx, state in enumerate(self._history):
+            if idx == self._current:
+                continue
+            replacement = replace_fn(state)
+            if replacement is None:
+                continue
+            self._history[idx] = replacement
+            replacements += 1
+        return replacements
+
     def can_undo(self, steps: int = 1) -> bool:
         return self._current - steps >= 0
 
