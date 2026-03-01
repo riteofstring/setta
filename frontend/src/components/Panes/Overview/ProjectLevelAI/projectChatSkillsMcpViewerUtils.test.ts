@@ -468,6 +468,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/permissions",
       "/search",
@@ -477,6 +481,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/permissions",
       "/help",
@@ -530,12 +538,20 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/help",
     ]);
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/help",
     ]);

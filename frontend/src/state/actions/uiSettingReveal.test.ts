@@ -627,7 +627,7 @@ describe("receiveUISettingReveal", () => {
         reveals: [
           createRevealTarget({
             settingId: anchorId,
-            overviewTabKey: "ProjectAISettings",
+            overviewTabKey: "ProjectAIChat",
             anchorId,
             revealActivationSteps: [
               {

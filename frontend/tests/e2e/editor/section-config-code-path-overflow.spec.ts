@@ -43,10 +43,10 @@ test("code section file path stays clipped at narrow and wide pane widths", asyn
 
     const filePathInput = page.getByTestId("code-area-settings-file-path-input");
     await expect(filePathInput).toBeVisible();
-    await expect.poll(async () => filePathInput.inputValue()).toContain(
+    const filePathValue = await filePathInput.inputValue();
+    expect(filePathValue).toContain(
       "really_long_file_name_that_needs_to_truncate_cleanly.tsx",
     );
-    const filePathValue = await filePathInput.inputValue();
     expect(filePathValue.length).toBeGreaterThan(120);
 
     const narrowPaneWidth = await getUiEditorPaneWidth(page);
@@ -60,9 +60,6 @@ test("code section file path stays clipped at narrow and wide pane widths", asyn
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     await focusSection(page, sectionId);
-    await expect.poll(async () => filePathInput.inputValue()).toContain(
-      "really_long_file_name_that_needs_to_truncate_cleanly.tsx",
-    );
 
     const widePaneWidth = await getUiEditorPaneWidth(page);
     const maxSupportedWidth = await page.evaluate(() => window.innerWidth / 2.1);

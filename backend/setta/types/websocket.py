@@ -6,15 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
-    ProjectStateActiveViewModePatch,
-    ProjectStateAppDefinitionPatch,
-    ProjectStateCodeObjsPatch,
-    ProjectStateOpStatusPatch,
-    ProjectStateProjectConfigPatch,
-    ProjectStateSectionImplPatch,
-    ProjectStateSectionImplsPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
-    ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
 )
 from setta.types.agentic import (
@@ -62,14 +54,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMStreamingResponse = "LLMStreamingResponse"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
-    PatchFrontendProjectStateActiveViewMode = "PatchFrontendProjectStateActiveViewMode"
-    PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
-    PatchFrontendProjectStateSectionImpl = "PatchFrontendProjectStateSectionImpl"
-    PatchFrontendProjectStateSectionImpls = "PatchFrontendProjectStateSectionImpls"
-    PatchFrontendProjectStateCodeObjs = "PatchFrontendProjectStateCodeObjs"
-    PatchFrontendProjectStateStructural = "PatchFrontendProjectStateStructural"
-    PatchFrontendProjectStateAppDefinition = "PatchFrontendProjectStateAppDefinition"
-    PatchFrontendProjectStateOpStatus = "PatchFrontendProjectStateOpStatus"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -215,62 +199,6 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )
-
-
-class WebsocketMsgPatchFrontendProjectStateActiveViewMode(FrontendWebsocketMsg):
-    content: ProjectStateActiveViewModePatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
-
-
-class WebsocketMsgPatchFrontendProjectStateProjectConfig(FrontendWebsocketMsg):
-    content: ProjectStateProjectConfigPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
-
-
-class WebsocketMsgPatchFrontendProjectStateSectionImpl(FrontendWebsocketMsg):
-    content: ProjectStateSectionImplPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
-
-
-class WebsocketMsgPatchFrontendProjectStateSectionImpls(FrontendWebsocketMsg):
-    content: ProjectStateSectionImplsPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpls
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpls
-
-
-class WebsocketMsgPatchFrontendProjectStateCodeObjs(FrontendWebsocketMsg):
-    content: ProjectStateCodeObjsPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateCodeObjs
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateCodeObjs
-
-
-class WebsocketMsgPatchFrontendProjectStateStructural(FrontendWebsocketMsg):
-    content: ProjectStateStructuralPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateStructural
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateStructural
-
-
-class WebsocketMsgPatchFrontendProjectStateAppDefinition(FrontendWebsocketMsg):
-    content: ProjectStateAppDefinitionPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateAppDefinition
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateAppDefinition
-
-
-class WebsocketMsgPatchFrontendProjectStateOpStatus(FrontendWebsocketMsg):
-    content: ProjectStateOpStatusPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateOpStatus
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateOpStatus
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
