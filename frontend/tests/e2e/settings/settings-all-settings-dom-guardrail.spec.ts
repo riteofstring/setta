@@ -97,6 +97,16 @@ test("all settings DOM stays within flattening guardrails", async ({
       const label = el.getAttribute("aria-label");
       return label === "Remove arg" || label === "Add arg";
     });
+    const kwargsConvertDeleteButtons = Array.from(
+      document.querySelectorAll("button[aria-label]"),
+    ).filter((el) => {
+      const label = el.getAttribute("aria-label");
+      return (
+        label === "Convert to edge connectors" ||
+        label === "Convert selected edge args back to params" ||
+        label === "Delete selected args"
+      );
+    });
 
     return {
       nodeCount: nodes.length,
@@ -207,6 +217,16 @@ test("all settings DOM stays within flattening guardrails", async ({
           (Array.from(el.classList).includes("gg-math-minus") ||
             Array.from(el.classList).includes("gg-math-plus")),
       ).length,
+      legacyKwargsConvertDeleteIconWrapperCount: kwargsConvertDeleteButtons.filter(
+        (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
+      ).length,
+      flattenedKwargsConvertDeleteIconHostCount: kwargsConvertDeleteButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          (Array.from(el.classList).includes("gg-link") ||
+            Array.from(el.classList).includes("gg-unlink") ||
+            Array.from(el.classList).includes("gg-close")),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -246,6 +266,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedParamGroupHostCount).toBeGreaterThan(0);
   expect(metrics.legacyKwargsAddRemoveIconWrapperCount).toBe(0);
   expect(metrics.flattenedKwargsAddRemoveIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyKwargsConvertDeleteIconWrapperCount).toBe(0);
+  expect(metrics.flattenedKwargsConvertDeleteIconHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

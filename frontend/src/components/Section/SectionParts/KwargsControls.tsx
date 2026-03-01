@@ -418,29 +418,23 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           />
         </button>
         <button
-          className={`${argsIconButtonBaseClassName}`}
+          className={`${argsIconButtonBaseClassName} ${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
           onClick={onClickConvertToEdgeInputs}
           tabIndex={0}
           disabled={convertToEdgeDisabled}
           aria-disabled={convertToEdgeDisabled}
           aria-label={convertToEdgeAriaLabel}
           {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
-        >
-          <i
-            className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
-          />
-        </button>
+        />
         <button
-          className={`${argsIconButtonBaseClassName}`}
+          className={`${argsIconButtonBaseClassName} gg-close !scale-50 ${argsIconGlyphColorClassName}`}
           onClick={onClickDeleteSelectedKwargs}
           tabIndex={0}
           disabled={deleteSelectedDisabled}
           aria-disabled={deleteSelectedDisabled}
           aria-label="Delete selected args"
           {...getFloatingBoxHandlers({ content: "Delete selected args" })}
-        >
-          <i className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`} />
-        </button>
+        />
       </section>
 
       <ParamFilter
