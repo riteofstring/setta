@@ -121,16 +121,16 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
         sender = manager.websocket_msg_handler
         project_state_broadcast_calls = 0
         section_impl_patch_calls: list[dict[str, int | str | list[str]]] = []
+        name_validation_broadcast_calls = 0
         refresh_calls = 0
         scheduled_deferred_refreshes: list[ID] = []
         original_refresh = manager._refresh_codegen_state
-        original_schedule_deferred_refresh = (
-            manager._schedule_deferred_codegen_refresh
-        )
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
         original_project_state_broadcast = sender.broadcast_project_state
         original_section_impl_patch_broadcast = (
             sender.broadcast_project_state_section_impl_patch
         )
+        original_name_validation_broadcast = sender.broadcast_name_validation_errors
 
         async def record_refresh(next_state) -> None:
             nonlocal refresh_calls
@@ -185,6 +185,11 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
                 pending_op_ids,
             )
 
+        async def record_name_validation_broadcast(content) -> None:
+            nonlocal name_validation_broadcast_calls
+            name_validation_broadcast_calls += 1
+            await original_name_validation_broadcast(content)
+
         async def assert_section_patch(
             *,
             expected_section_id: ID,
@@ -194,6 +199,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await manager.finish_pending_operations(timeout=5.0)
             before_snapshot_calls = project_state_broadcast_calls
             before_patch_count = len(section_impl_patch_calls)
+            before_name_validation_calls = name_validation_broadcast_calls
             before_refresh_calls = refresh_calls
             before_deferred_refresh_count = len(scheduled_deferred_refreshes)
             await operation_coro
@@ -206,19 +212,18 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             assert patch["sectionId"] == expected_section_id
             assert patch["sectionImplType"] == expected_section_type
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+            assert name_validation_broadcast_calls == before_name_validation_calls
             assert refresh_calls == before_refresh_calls
             assert (
-                len(scheduled_deferred_refreshes)
-                == before_deferred_refresh_count + 1
+                len(scheduled_deferred_refreshes) == before_deferred_refresh_count + 1
             )
             assert scheduled_deferred_refreshes[-1] == project_config_id
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
         sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+        sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
         try:
             await assert_section_patch(
                 expected_section_id=callable_section_id,
@@ -439,6 +444,7 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             sender.broadcast_project_state_section_impl_patch = (
                 original_section_impl_patch_broadcast  # type: ignore[method-assign]
             )
+            sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
         stale_chat_id = await manager.get_chat_section_chat_id(
             GetChatSectionChatIdRequest(

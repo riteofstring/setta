@@ -75,11 +75,40 @@ async def test_set_task_board_section_state_acks_via_patch_then_defers_refresh()
 
         refresh_calls = 0
         original_refresh = manager._refresh_codegen_state
+        watcher_refresh_calls = 0
+        original_watch_json_source_files = manager.watch_json_source_files
+        original_watch_artifact_files = manager.watch_artifact_files
+        original_watch_code_files = manager.watch_code_files
+        original_watch_code_sync_from_backend = (
+            manager.watch_code_manager.sync_from_backend
+        )
 
         async def record_refresh(next_state):
             nonlocal refresh_calls
             refresh_calls += 1
             await original_refresh(next_state)
+
+        def record_watch_json_source_files() -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_json_source_files()
+
+        def record_watch_artifact_files() -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_artifact_files()
+
+        def record_watch_code_files(project_state_for_watch) -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_code_files(project_state_for_watch)
+
+        def record_watch_code_sync_from_backend(
+            project_state_backend_for_watch,
+        ) -> None:
+            nonlocal watcher_refresh_calls
+            watcher_refresh_calls += 1
+            original_watch_code_sync_from_backend(project_state_backend_for_watch)
 
         sender = manager.websocket_msg_handler
         snapshot_calls = 0
@@ -133,6 +162,12 @@ async def test_set_task_board_section_state_acks_via_patch_then_defers_refresh()
             )
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
+        manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
+        manager.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+        manager.watch_code_manager.sync_from_backend = (
+            record_watch_code_sync_from_backend  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
         sender.broadcast_project_state_section_impl_patch = record_section_patch  # type: ignore[method-assign]
         try:
@@ -146,10 +181,17 @@ async def test_set_task_board_section_state_acks_via_patch_then_defers_refresh()
             await manager.finish_pending_operations(timeout=5.0)
         finally:
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager.watch_json_source_files = original_watch_json_source_files  # type: ignore[method-assign]
+            manager.watch_artifact_files = original_watch_artifact_files  # type: ignore[method-assign]
+            manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+            manager.watch_code_manager.sync_from_backend = (
+                original_watch_code_sync_from_backend  # type: ignore[method-assign]
+            )
             sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
             sender.broadcast_project_state_section_impl_patch = original_section_patch  # type: ignore[method-assign]
 
         assert 0 == refresh_calls
+        assert 0 == watcher_refresh_calls
         assert [project_config_id] == scheduled_refreshes
         assert 0 == snapshot_calls
         assert 1 == len(section_impl_patch_calls)

@@ -6198,6 +6198,7 @@ class BaseProjectManager(ABC):
             self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
                 project_state,
                 section_id=x.sectionId,
+                updateFileWatcher=False,
             )
         )
 
