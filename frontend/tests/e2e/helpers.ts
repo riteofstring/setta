@@ -305,6 +305,13 @@ export async function setOverviewTab(
   page: Page,
   tabName: string,
 ): Promise<void> {
+  if (tabName === "ProjectAISettings") {
+    await seedLocalStorage(page, {
+      overviewTab: "ProjectAIChat",
+      overviewVis: true,
+    });
+    return;
+  }
   if (tabName === "BackendLogs") {
     await seedLocalStorage(page, {
       overviewTab: "Notifications",

@@ -19,10 +19,7 @@ import {
   useNotifications,
   useProjectState,
 } from "state/definitions";
-import {
-  OverviewNotificationsPaneTab,
-  OverviewNotificationsPaneTabEnum,
-} from "utils/constants";
+import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_notification,
@@ -35,11 +32,7 @@ import {
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 
-type NotificationsAreaProps = {
-  initialTab?: OverviewNotificationsPaneTab;
-};
-
-export function NotificationsArea({ initialTab }: NotificationsAreaProps = {}) {
+export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
   const notifications = useNotifications(
     (state) => state.notifications,
@@ -48,7 +41,7 @@ export function NotificationsArea({ initialTab }: NotificationsAreaProps = {}) {
   const persistedPaneTab = useLocalStorage(
     (state) => state.overviewNotificationsPaneTab,
   );
-  const activePaneTab = initialTab ?? persistedPaneTab;
+  const activePaneTab = persistedPaneTab;
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
 
@@ -63,15 +56,6 @@ export function NotificationsArea({ initialTab }: NotificationsAreaProps = {}) {
     },
     [persistedPaneTab],
   );
-
-  useEffect(() => {
-    if (!initialTab || persistedPaneTab === initialTab) {
-      return;
-    }
-    useLocalStorage.setState({
-      overviewNotificationsPaneTab: initialTab,
-    });
-  }, [initialTab, persistedPaneTab]);
 
   // Fetch notifications when component mounts
   useEffect(() => {

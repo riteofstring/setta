@@ -6,6 +6,7 @@ import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   areSlashSuggestionsPortalStylesEqual,
+  buildCustomPromptSlashCommandSubmission,
   ChatInput,
   cycleQueuedDraftSelection,
   cycleSubmittedMessageHistorySelection,
@@ -108,6 +109,27 @@ function getButtonTagByText(markup: string, text: string): string | null {
   }
   return markup.slice(buttonStart, buttonEnd);
 }
+
+describe("buildCustomPromptSlashCommandSubmission", () => {
+  it("keeps user attachments when transforming custom slash prompt messages", () => {
+    const attachments = [
+      {
+        id: "attachment-1",
+        name: "incident.log",
+        mimeType: "text/plain",
+        size: 42,
+      },
+    ];
+    const submission = buildCustomPromptSlashCommandSubmission({
+      promptTemplate: "Summarize these logs.",
+      args: ["for", "today"],
+      submittedAttachments: attachments,
+    });
+
+    expect(submission.message).toBe("Summarize these logs.\n\nfor today");
+    expect(submission.attachments).toEqual(attachments);
+  });
+});
 
 describe("ChatInput attachment gating", () => {
   beforeEach(() => {

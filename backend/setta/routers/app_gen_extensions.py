@@ -242,10 +242,10 @@ def upsert_app_gen_custom_skill(
     if not selected_skill_id and not selected_relative_path:
         raise ValueError("relativePath is required when skillId is not provided.")
 
-    target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
-        workspace_root
-    )
-    target_root_path.mkdir(parents=True, exist_ok=True)
+    target_root_id: str
+    target_root_path: Path
+    target_relative_path: str
+    skill_doc: Path
 
     if selected_skill_id:
         (
@@ -270,6 +270,9 @@ def upsert_app_gen_custom_skill(
         target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
     else:
+        target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
+            workspace_root
+        )
         target_relative_path = _normalize_custom_skill_relative_path(
             selected_relative_path
         )
@@ -281,6 +284,8 @@ def upsert_app_gen_custom_skill(
 
     created = False
     try:
+        if not selected_skill_id:
+            target_root_path.mkdir(parents=True, exist_ok=True)
         created = not skill_doc.exists()
         skill_doc.parent.mkdir(parents=True, exist_ok=True)
         with skill_doc.open("w", encoding="utf-8") as handle:

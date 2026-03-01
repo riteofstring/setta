@@ -30,7 +30,6 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
-  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -53,7 +52,6 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
-import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
@@ -102,18 +100,9 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Plugins;
   }
   if (!showLLMTabs) {
-    if (
-      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
-      selectedTabName === OverviewTabNameEnum.ProjectAISettings
-    ) {
+    if (selectedTabName === OverviewTabNameEnum.ProjectAIChat) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
-  }
-  if (
-    showLLMTabs &&
-    selectedTabName === OverviewTabNameEnum.ProjectAISettings
-  ) {
-    effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
   }
   if (
     !showFileBrowserTab &&
@@ -443,16 +432,8 @@ function TabContent({
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
-    case OverviewTabNameEnum.BackendLogs:
-      return (
-        <NotificationsArea
-          initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
-        />
-      );
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case OverviewTabNameEnum.ProjectAISettings:
-      return <ProjectAISettings />;
     default:
       return <ProjectOverview />;
   }

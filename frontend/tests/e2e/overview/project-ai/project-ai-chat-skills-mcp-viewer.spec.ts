@@ -47,9 +47,7 @@ async function closeSkillsMcpViewer(page: Page): Promise<void> {
 
 async function openRawSkillMarkdown(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await page
-    .getByTestId("project-chat-skill-markdown-view-raw")
-    .click();
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
 }
 
 test("project ai chat can open the skills side view", async ({ page }) => {
@@ -1461,12 +1459,21 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
 
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toContainText("Initial body");
+  await markdown.click();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  await expect(markdown).not.toContainText("Initial body");
+
   await page.getByTestId("project-chat-custom-skill-save").click();
   await expect.poll(() => upsertPayloads.length).toBe(1);
   expect(upsertPayloads[0]).toMatchObject({
     skillId: "user_agents_skills::custom-one",
     relativePath: null,
+    content: "",
   });
+  await expect(markdown).not.toContainText("Initial body");
 
   await page
     .getByTestId("project-chat-custom-skill-relative-path-input")

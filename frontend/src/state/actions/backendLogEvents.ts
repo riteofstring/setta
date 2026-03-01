@@ -22,9 +22,6 @@ function backendLogsTabIsVisible() {
   if (!overviewVis) {
     return false;
   }
-  if (overviewTab === OverviewTabNameEnum.BackendLogs) {
-    return true;
-  }
   return (
     overviewTab === OverviewTabNameEnum.Notifications &&
     overviewNotificationsPaneTab ===

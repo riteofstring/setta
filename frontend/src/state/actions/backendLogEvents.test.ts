@@ -62,13 +62,13 @@ describe("backend log unread tracking", () => {
     expect(useBackendLogEvents.getState().unreadHighSeverityCount).toBe(0);
   });
 
-  it("does not mark high-severity events unread for legacy BackendLogs tab state", () => {
+  it("marks high-severity events unread for deprecated top-level BackendLogs state", () => {
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.BackendLogs,
     });
 
     addBackendLogEvent(createBackendLogEvent("error"));
 
-    expect(useBackendLogEvents.getState().unreadHighSeverityCount).toBe(0);
+    expect(useBackendLogEvents.getState().unreadHighSeverityCount).toBe(1);
   });
 });

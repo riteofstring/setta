@@ -1097,6 +1097,9 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.BackendLogs;
         }
+        if (merged.overviewTab === OverviewTabNameEnum.ProjectAISettings) {
+          merged.overviewTab = OverviewTabNameEnum.ProjectAIChat;
+        }
         if (
           merged.overviewNotificationsPaneTab !==
             OverviewNotificationsPaneTabEnum.Notifications &&

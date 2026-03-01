@@ -89,6 +89,21 @@ describe("local storage merge", () => {
     );
   });
 
+  it("migrates persisted ProjectAISettings overview tab to ProjectAIChat", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewTab: OverviewTabNameEnum.ProjectAISettings } as Record<
+        string,
+        unknown
+      >,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.ProjectAIChat);
+  });
+
   it("sanitizes invalid notifications pane tab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();

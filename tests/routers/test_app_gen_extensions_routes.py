@@ -556,6 +556,42 @@ class TestAppGenExtensionsRoutes:
             assert response.created is False
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_updates_workspace_skill_by_skill_id_when_agents_home_is_invalid(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # Updating by skill id must target the resolved skill root directly
+            # and never require creating AGENTS_HOME/skills.
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            invalid_agents_home = workspace_root / "agents-home-file"
+            invalid_agents_home.write_text("not a directory", encoding="utf-8")
+            monkeypatch.setenv("AGENTS_HOME", str(invalid_agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            response = upsert_app_gen_custom_skill(
+                workspace_root=workspace_root,
+                skill_id="workspace_agents_skills::editable",
+                relative_path=None,
+                content="# editable\n\nUpdated via skill id.\n",
+            )
+
+            assert response.skillId == "workspace_agents_skills::editable"
+            assert response.created is False
+            assert (
+                skill_doc.read_text(encoding="utf-8")
+                == "# editable\n\nUpdated via skill id.\n"
+            )
+
     def test_rejects_updates_for_non_custom_skill_root(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -571,19 +607,21 @@ class TestAppGenExtensionsRoutes:
             fake_home.mkdir(parents=True, exist_ok=True)
             monkeypatch.setattr(Path, "home", lambda: fake_home)
             monkeypatch.setenv("CODEX_HOME", str(codex_home))
-            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            invalid_agents_home = workspace_root / "agents-home-file"
+            invalid_agents_home.write_text("not a directory", encoding="utf-8")
+            monkeypatch.setenv("AGENTS_HOME", str(invalid_agents_home))
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
 
-            with pytest.raises(
-                ValueError,
-                match="Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable.",
-            ):
+            with pytest.raises(ValueError) as exc_info:
                 upsert_app_gen_custom_skill(
                     workspace_root=workspace_root,
                     skill_id="codex_home_skills::read-only-skill",
                     relative_path=None,
                     content="# read-only\n\nUpdated.\n",
                 )
+            error_detail = str(exc_info.value)
+            assert "Only skills under AGENTS_HOME/skills" in error_detail
+            assert "Not a directory" not in error_detail
 
     def test_skill_content_route_returns_plain_keyerror_detail(
         self,
@@ -711,7 +749,9 @@ class TestAppGenExtensionsRoutes:
         monkeypatch.setattr(Path, "home", lambda: fake_home)
         monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
         monkeypatch.setenv("CODEX_HOME", str(codex_home))
-        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        invalid_agents_home = tmp_path / "agents-home-file"
+        invalid_agents_home.write_text("not a directory", encoding="utf-8")
+        monkeypatch.setenv("AGENTS_HOME", str(invalid_agents_home))
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         clear_setta_paths_cache()
 
@@ -730,5 +770,54 @@ class TestAppGenExtensionsRoutes:
             )
 
         assert response.status_code == 400
-        assert "Only skills under AGENTS_HOME/skills" in response.json()["detail"]
+        error_detail = response.json()["detail"]
+        assert "Only skills under AGENTS_HOME/skills" in error_detail
+        assert "Not a directory" not in error_detail
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_updates_workspace_skill_when_agents_home_is_invalid(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Route updates by skill id should succeed even if AGENTS_HOME points
+        # to a non-directory path.
+        workspace_root = tmp_path / "workspace"
+        skill_dir = workspace_root / ".agents" / "skills" / "editable"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_doc = skill_dir / "SKILL.md"
+        skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        invalid_agents_home = tmp_path / "agents-home-file"
+        invalid_agents_home.write_text("not a directory", encoding="utf-8")
+        monkeypatch.setenv("AGENTS_HOME", str(invalid_agents_home))
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::editable",
+                    "relativePath": None,
+                    "content": "# editable\n\nUpdated from route.\n",
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["skillId"] == "workspace_agents_skills::editable"
+        assert payload["created"] is False
+        assert skill_doc.read_text(encoding="utf-8") == (
+            "# editable\n\nUpdated from route.\n"
+        )
         clear_setta_paths_cache()

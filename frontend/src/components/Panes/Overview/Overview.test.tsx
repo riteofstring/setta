@@ -312,7 +312,7 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain(">Overview<");
   });
 
-  it("maps deprecated project ai settings tab selection to project ai chat", () => {
+  it("does not render deprecated project ai settings tab content", () => {
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAISettings,
     });
@@ -324,7 +324,6 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Project AI Chat<");
     expect(markup).not.toContain(
       'data-testid="project-ai-settings-scroll-region"',
     );

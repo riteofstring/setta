@@ -1684,9 +1684,7 @@ export function ProjectChatSkillsMcpViewer({
                               aria-label="Skill Markdown Content"
                               className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
                               height="100%"
-                              value={
-                                skillMarkdownRawDraft || skillPreviewContent
-                              }
+                              value={skillMarkdownRawDraft}
                               onChange={(value) => {
                                 if (!selectedSkillIsEditable) {
                                   return;
