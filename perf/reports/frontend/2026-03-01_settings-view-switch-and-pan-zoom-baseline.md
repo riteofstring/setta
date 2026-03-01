@@ -195,3 +195,51 @@ Touched code paths:
   - DevTools MCP `performance_start_trace` / `performance_stop_trace` around a `Core -> All Settings` switch interaction.
 - Observation:
   - Trace summary returned a `NO_NAVIGATION` insight set tied to bootstrap URL activity and no built-in insight cards, so timeline diagnosis relied on the metric run above.
+
+## CDP Rerun (2026-03-02, after incremental node-map patch for view-mode deltas)
+
+- Branch/commit at rerun: `frontend-performance-2` working tree after incremental node-map update logic in `processViewModeStateUpdateFromBackend`.
+- Trigger: validate impact of avoiding full node-map rebuilds on view-mode delta applies.
+
+### Automated guardrail rerun
+
+- Command:
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-performance-guardrails.spec.ts`
+- Result:
+  - `2 passed` (`settings tab switching long-task cost stays within budget`, `settings DOM complexity stays within guardrail budgets`).
+
+### CDP metric run
+
+- Method:
+  - `chrome-devtools-mcp` on `http://127.0.0.1:3002/settings`.
+  - In-page metric script via `evaluate_script` (DOM by tab, 2.2s long-task switch windows, 180-frame transform stress).
+- Key metrics:
+  - DOM by tab:
+    - `Core`: 3696 elements, 5 nodes, 301 param rows, max depth 30, max children 62.
+    - `Param Defaults`: 1831 elements, 13 nodes, 76 param rows, max depth 26, max children 57.
+    - `All Settings`: 9615 elements, 42 nodes, 697 param rows, max depth 30, max children 108.
+  - Long-task switch cost (2.2s windows):
+    - `Core -> All Settings`: 1063ms total, 740ms max.
+    - `Param Defaults -> All Settings`: 1388ms total, 993ms max.
+    - `All Settings -> Core`: 362ms total/max.
+    - `All Settings -> Param Defaults`: 574ms total, 344ms max.
+  - Transform stress (180 frames):
+    - `Core`: 110.9 FPS avg.
+    - `Param Defaults`: 116.8 FPS avg.
+    - `All Settings`: 88.2 FPS avg.
+    - Long-task totals during transform loop: `Core` 135ms, `Param Defaults` 62ms, `All Settings` 544ms.
+
+### CDP trace run
+
+- Method:
+  - DevTools MCP trace around `Core -> All Settings` interaction.
+- Observation:
+  - Trace summary again surfaced a `NO_NAVIGATION` insight set (URL `http://127.0.0.1:3002/settings`) with no built-in insight cards.
+
+### Observations from rerun
+
+- Versus the immediately prior CDP rerun, the results are mixed and mostly within run-to-run noise:
+  - `Param Defaults -> All Settings` improved (`1458ms -> 1388ms` total long-task).
+  - `Core -> All Settings` slightly regressed (`1044ms -> 1063ms`).
+  - `All Settings` transform FPS stayed in the same range (`89.4 -> 88.2`).
+- Conclusion: incremental node-map patch is behavior-safe and low-risk, but by itself it does not move the needle enough toward the 10x target; the larger wins are still likely in param rendering/layout/paint phases.
