@@ -74,8 +74,8 @@ Goal: remove full codegen/watcher work for mutations that do not affect executab
    - `set_browser_column_widths`
    - `set_browser_hide_column`
    - `set_browser_saved_searches`
-   - `set_chat_section_state`
    - `set_social_url`
+   - Keep `set_chat_section_state` on full refresh for now (it contributes to chat dependency value/codegen state).
 3. Add route-level tests proving no full codegen refresh occurs for migrated endpoints.
 
 Expected impact:
