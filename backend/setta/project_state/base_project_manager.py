@@ -1910,7 +1910,10 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patches(
+            project_state,
+            section_ids=section_ids,
+        )
 
     @enqueue_method
     async def load_json_sources(
@@ -4998,7 +5001,10 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_parent_default_child_section_type(
@@ -5541,6 +5547,21 @@ class BaseProjectManager(ABC):
         *,
         section_id: ID,
     ) -> None:
+        await self._merge_and_broadcast_ui_only_section_impl_patches(
+            project_state,
+            section_ids=[section_id],
+        )
+
+    async def _merge_and_broadcast_ui_only_section_impl_patches(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_ids: list[ID],
+    ) -> None:
+        if not section_ids:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+
         previous_project_state_revision = self.history.revision
         async with self._project_state_lock.write_lock():
             project_state._section_slug_cache = None
@@ -5549,27 +5570,39 @@ class BaseProjectManager(ABC):
                 updateFileWatcher=False,
             )
             next_project_state_revision = self.history.revision
-            section_variant_id = project_state.projectConfig.sectionVariantMap.get(
-                section_id
-            )
-            if section_variant_id is None:
-                raise KeyError(f"Section {section_id} missing section variant id.")
-            section_variant = project_state.sectionVariants.get(section_variant_id)
-            if section_variant is None:
-                raise KeyError(f"Section variant {section_variant_id} not found.")
-            section_impl = project_state.sectionImpls.get(section_variant.impl)
-            if section_impl is None:
-                raise KeyError(f"Section impl {section_variant.impl} not found.")
+            section_impl_updates: list[tuple[ID, BaseSectionImpl]] = []
+            seen_section_ids: set[ID] = set()
+            for section_id in section_ids:
+                if section_id in seen_section_ids:
+                    continue
+                seen_section_ids.add(section_id)
+                section_variant_id = project_state.projectConfig.sectionVariantMap.get(
+                    section_id
+                )
+                if section_variant_id is None:
+                    raise KeyError(f"Section {section_id} missing section variant id.")
+                section_variant = project_state.sectionVariants.get(section_variant_id)
+                if section_variant is None:
+                    raise KeyError(f"Section variant {section_variant_id} not found.")
+                section_impl = project_state.sectionImpls.get(section_variant.impl)
+                if section_impl is None:
+                    raise KeyError(f"Section impl {section_variant.impl} not found.")
+                section_impl_updates.append((section_id, section_impl))
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             return
-        await self._broadcast_section_impl_patch(
-            project_config_id=project_state.projectConfig.id,
-            section_id=section_id,
-            section_impl=section_impl,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
+        for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+            await self._broadcast_section_impl_patch(
+                project_config_id=project_state.projectConfig.id,
+                section_id=section_id,
+                section_impl=section_impl,
+                previous_project_state_revision=(
+                    previous_project_state_revision
+                    if idx == 0
+                    else next_project_state_revision
+                ),
+                project_state_revision=next_project_state_revision,
+            )
 
     async def _broadcast_project_state_snapshot(
         self,

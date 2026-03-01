@@ -996,6 +996,12 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
         project_state, section_ids = build_state_for_ui_only_fast_path()
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
+        top_level_param_ids = get_curr_top_level_param_ids(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        )
+        assert top_level_param_ids
+        pinned_param_id = top_level_param_ids[0]
 
         sender = manager.websocket_msg_handler
         project_state_broadcast_calls = 0
@@ -1026,19 +1032,15 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
         sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
         try:
-            # Fast-path routes should still push a project snapshot.
+            # Routes that still use project-state snapshots should not regress.
             await manager.finish_pending_operations(timeout=5.0)
             before_project_state = project_state_broadcast_calls
             before_name_validation = name_validation_broadcast_calls
-            await manager.set_section_sizes(
-                SetSectionSizesRequest(
+            await manager.set_section_pinned_params(
+                SetSectionPinnedParamsRequest(
                     projectConfigId=project_config_id,
-                    sectionSizes={
-                        section_ids.callable_section_id: SectionSize(
-                            width=630.0,
-                            height=410.0,
-                        )
-                    },
+                    sectionId=section_ids.callable_section_id,
+                    pinnedParams=[pinned_param_id],
                 )
             )
             await manager.finish_pending_operations(timeout=5.0)
@@ -1048,6 +1050,137 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
 
         assert project_state_broadcast_calls - before_project_state == 1
         assert name_validation_broadcast_calls - before_name_validation == 0
+
+
+@pytest.mark.asyncio
+async def test_ui_only_section_size_routes_broadcast_section_impl_patch() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        sender = manager.websocket_msg_handler
+        project_state_broadcast_calls = 0
+        section_impl_patch_calls: list[dict[str, object]] = []
+        original_project_state_broadcast = sender.broadcast_project_state
+        original_section_impl_patch_broadcast = (
+            sender.broadcast_project_state_section_impl_patch
+        )
+
+        async def record_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision=None,
+        ) -> None:
+            nonlocal project_state_broadcast_calls
+            project_state_broadcast_calls += 1
+            await original_project_state_broadcast(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+
+        async def record_section_impl_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            section_impl_patch_calls.append(
+                {
+                    "projectConfigId": project_config_id_for_patch,
+                    "sectionId": section_id_for_patch,
+                    "sectionImplId": section_impl_for_patch.id,
+                    "sectionImplType": section_impl_for_patch.type,
+                    "previousProjectStateRevision": previous_project_state_revision,
+                    "projectStateRevision": project_state_revision,
+                    "completedOpIds": list(completed_op_ids),
+                    "pendingOpIds": list(pending_op_ids),
+                }
+            )
+            await original_section_impl_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_project_state = project_state_broadcast_calls
+            before_patch_count = len(section_impl_patch_calls)
+
+            await manager.set_section_column_width(
+                SetSectionColumnWidthRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_ids.callable_section_id,
+                    columnWidth=240.0,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            column_width_patches = section_impl_patch_calls[before_patch_count:]
+            assert len(column_width_patches) == 1
+            column_patch = column_width_patches[0]
+            assert column_patch["projectConfigId"] == project_config_id
+            assert column_patch["sectionId"] == section_ids.callable_section_id
+            assert column_patch["sectionImplType"] == SectionType.Callable
+            assert (
+                int(column_patch["previousProjectStateRevision"])
+                < int(column_patch["projectStateRevision"])
+            )
+
+            await manager.set_section_sizes(
+                SetSectionSizesRequest(
+                    projectConfigId=project_config_id,
+                    sectionSizes={
+                        section_ids.callable_section_id: SectionSize(
+                            width=640.0,
+                            height=440.0,
+                        ),
+                        section_ids.browser_section_id: SectionSize(
+                            width=720.0,
+                            height=470.0,
+                        ),
+                    },
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_impl_patch_broadcast  # type: ignore[method-assign]
+            )
+
+        assert project_state_broadcast_calls == before_project_state
+        size_patches = section_impl_patch_calls[before_patch_count + 1 :]
+        assert len(size_patches) == 2
+        assert {
+            patch["sectionId"] for patch in size_patches
+        } == {section_ids.callable_section_id, section_ids.browser_section_id}
+        assert size_patches[0]["projectStateRevision"] == size_patches[1][
+            "projectStateRevision"
+        ]
+        assert (
+            int(size_patches[0]["previousProjectStateRevision"])
+            < int(size_patches[0]["projectStateRevision"])
+        )
+        assert (
+            int(size_patches[1]["previousProjectStateRevision"])
+            == int(size_patches[1]["projectStateRevision"])
+        )
 
 
 @pytest.mark.asyncio
