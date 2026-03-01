@@ -312,6 +312,38 @@ describe("CanvasEngineSceneAdapter", () => {
     });
     expect(adapter.getRectById("missing-section")).toBe(null);
   });
+
+  it("hit-tests visible edges in world space and prioritizes agentic overlays", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 420, y: 0, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-visible", "sectionA", "sectionB"),
+          createDataEdge("edge-data-hidden", "sectionA", "sectionB", {
+            hidden: true,
+          }),
+        ],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-visible", "sectionA", "sectionB"),
+        ],
+      }),
+    );
+
+    expect(adapter.hitTestEdgeAtWorldPoint(370, 100, 8)).toEqual({
+      kind: "agentic",
+      id: "edge-agentic-visible",
+    });
+    expect(adapter.hitTestEdgeAtWorldPoint(370, 107, 8)).toEqual({
+      kind: "agentic",
+      id: "edge-agentic-visible",
+    });
+    expect(adapter.hitTestEdgeAtWorldPoint(370, 121, 8)).toBe(null);
+  });
 });
 
 function createSceneInput(overrides: SceneInput): SceneInput {
@@ -349,6 +381,7 @@ function createDataEdge(
   id: string,
   sourceSectionId: string,
   targetSectionId: string,
+  overrides?: Partial<ProjectConfig["edges"][number]>,
 ): ProjectConfig["edges"][number] {
   return {
     id,
@@ -366,6 +399,7 @@ function createDataEdge(
     zIndex: 0,
     data: null,
     selected: false,
+    ...overrides,
   };
 }
 
@@ -373,6 +407,7 @@ function createAgenticEdge(
   id: string,
   sourceSectionId: string,
   targetSectionId: string,
+  overrides?: Partial<ProjectConfig["agenticEdges"][number]>,
 ): ProjectConfig["agenticEdges"][number] {
   return {
     id,
@@ -384,5 +419,6 @@ function createAgenticEdge(
     hidden: false,
     zIndex: 0,
     selected: false,
+    ...overrides,
   };
 }

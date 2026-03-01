@@ -52,6 +52,16 @@ export type CanvasEngineSceneSnapshotResult = {
   totalAgenticEdgeCount: number;
 };
 
+export type CanvasEngineEdgeHitResult =
+  | {
+      kind: "data";
+      id: string;
+    }
+  | {
+      kind: "agentic";
+      id: string;
+    };
+
 const DEFAULT_CONFIG: CanvasEngineSceneAdapterConfig = {
   defaultSectionWidth: 320,
   defaultSectionHeight: 200,
@@ -212,6 +222,94 @@ export class CanvasEngineSceneAdapter {
 
   public getRectById(sectionId: string): CanvasEngineRect | null {
     return this.rectById.get(sectionId) ?? null;
+  }
+
+  public hitTestEdgeAtWorldPoint(
+    worldX: number,
+    worldY: number,
+    toleranceWorld: number,
+  ): CanvasEngineEdgeHitResult | null {
+    let hitCandidate: {
+      kind: CanvasEngineEdgeHitResult["kind"];
+      id: string;
+      zIndex: number;
+      distance: number;
+      drawOrder: number;
+    } | null = null;
+
+    for (const edge of this.dataEdgeById.values()) {
+      if (edge.hidden) {
+        continue;
+      }
+      const sourceRect = this.rectById.get(edge.sourceSectionId);
+      const targetRect = this.rectById.get(edge.targetSectionId);
+      if (!sourceRect || !targetRect) {
+        continue;
+      }
+      const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+      const distance = distancePointToSegment(
+        worldX,
+        worldY,
+        anchors.startX,
+        anchors.startY,
+        anchors.endX,
+        anchors.endY,
+      );
+      if (distance > toleranceWorld) {
+        continue;
+      }
+      const candidate = {
+        kind: "data" as const,
+        id: edge.id,
+        zIndex: edge.zIndex,
+        distance,
+        drawOrder: 0,
+      };
+      if (!hitCandidate || isEdgeHitCandidateAbove(candidate, hitCandidate)) {
+        hitCandidate = candidate;
+      }
+    }
+
+    for (const edge of this.agenticEdgeById.values()) {
+      if (edge.hidden) {
+        continue;
+      }
+      const sourceRect = this.rectById.get(edge.sourceSectionId);
+      const targetRect = this.rectById.get(edge.targetSectionId);
+      if (!sourceRect || !targetRect) {
+        continue;
+      }
+      const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+      const distance = distancePointToSegment(
+        worldX,
+        worldY,
+        anchors.startX,
+        anchors.startY,
+        anchors.endX,
+        anchors.endY,
+      );
+      if (distance > toleranceWorld) {
+        continue;
+      }
+      const candidate = {
+        kind: "agentic" as const,
+        id: edge.id,
+        zIndex: edge.zIndex,
+        distance,
+        drawOrder: 1,
+      };
+      if (!hitCandidate || isEdgeHitCandidateAbove(candidate, hitCandidate)) {
+        hitCandidate = candidate;
+      }
+    }
+
+    if (!hitCandidate) {
+      return null;
+    }
+    return {
+      kind: hitCandidate.kind,
+      id: hitCandidate.id,
+    };
   }
 
   private applySections(
@@ -506,6 +604,80 @@ function isRectAbove(
     return candidate.zIndex > current.zIndex;
   }
   return candidate.id.localeCompare(current.id) > 0;
+}
+
+function isEdgeHitCandidateAbove(
+  candidate: {
+    id: string;
+    zIndex: number;
+    distance: number;
+    drawOrder: number;
+  },
+  current: {
+    id: string;
+    zIndex: number;
+    distance: number;
+    drawOrder: number;
+  },
+): boolean {
+  if (candidate.zIndex !== current.zIndex) {
+    return candidate.zIndex > current.zIndex;
+  }
+  if (candidate.distance !== current.distance) {
+    return candidate.distance < current.distance;
+  }
+  if (candidate.drawOrder !== current.drawOrder) {
+    return candidate.drawOrder > current.drawOrder;
+  }
+  return candidate.id.localeCompare(current.id) > 0;
+}
+
+function resolveEdgeAnchors(
+  sourceRect: CanvasEngineRect,
+  targetRect: CanvasEngineRect,
+): {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+} {
+  const sourceCenterX = sourceRect.x + sourceRect.width / 2;
+  const sourceCenterY = sourceRect.y + sourceRect.height / 2;
+  const targetCenterX = targetRect.x + targetRect.width / 2;
+  const targetCenterY = targetRect.y + targetRect.height / 2;
+  const targetOnRight = targetCenterX >= sourceCenterX;
+
+  return {
+    startX: targetOnRight ? sourceRect.x + sourceRect.width : sourceRect.x,
+    startY: sourceCenterY,
+    endX: targetOnRight ? targetRect.x : targetRect.x + targetRect.width,
+    endY: targetCenterY,
+  };
+}
+
+function distancePointToSegment(
+  pointX: number,
+  pointY: number,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): number {
+  const segmentX = endX - startX;
+  const segmentY = endY - startY;
+  const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+  if (segmentLengthSquared <= 0.000001) {
+    const deltaX = pointX - startX;
+    const deltaY = pointY - startY;
+    return Math.hypot(deltaX, deltaY);
+  }
+  const projection =
+    ((pointX - startX) * segmentX + (pointY - startY) * segmentY) /
+    segmentLengthSquared;
+  const t = clamp(projection, 0, 1);
+  const projectedX = startX + segmentX * t;
+  const projectedY = startY + segmentY * t;
+  return Math.hypot(pointX - projectedX, pointY - projectedY);
 }
 
 function areRectRecordsEqual(

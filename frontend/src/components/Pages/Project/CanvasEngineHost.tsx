@@ -13,6 +13,7 @@ import type {
   CanvasEngineViewport,
 } from "canvas-engine/types";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   useCallback,
   useEffect,
@@ -23,6 +24,8 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
+import { toggleEdgeSelection } from "state/actions/edges";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   setSelfParentSiblingChildrenWidths,
@@ -86,6 +89,10 @@ type PointerSession =
       aspectRatioExtraHeight: number;
       moved: boolean;
       lastAppliedSize: Partial<SectionSize> | null;
+    }
+  | {
+      pointerId: number;
+      kind: "edge";
     };
 
 type ResizeCapabilities = {
@@ -103,6 +110,7 @@ type ResizeCapabilities = {
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
+const EDGE_HIT_TOLERANCE_PX = 8;
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -380,6 +388,26 @@ export function CanvasEngineHost() {
           moved: false,
         };
       } else {
+        const edgeHit = sceneAdapter.hitTestEdgeAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveEdgeHitToleranceWorld(camera.zoom),
+        );
+        if (edgeHit) {
+          const multiSelectionActive =
+            useReactFlow.getState().multiSelectionActive;
+          if (edgeHit.kind === "data") {
+            toggleEdgeSelection(edgeHit.id, multiSelectionActive);
+          } else {
+            toggleAgenticEdgeSelection(edgeHit.id, multiSelectionActive);
+          }
+          pointerSessionRef.current = {
+            pointerId: event.pointerId,
+            kind: "edge",
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          return;
+        }
         pointerSessionRef.current = {
           pointerId: event.pointerId,
           kind: "pane",
@@ -626,6 +654,11 @@ function resolveWorldPointFromPointerEvent(
     x: camera.x + localX / camera.zoom,
     y: camera.y + localY / camera.zoom,
   };
+}
+
+function resolveEdgeHitToleranceWorld(zoom: number): number {
+  const clampedZoom = clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+  return EDGE_HIT_TOLERANCE_PX / clampedZoom;
 }
 
 function setTopLevelSectionLayoutRect(
