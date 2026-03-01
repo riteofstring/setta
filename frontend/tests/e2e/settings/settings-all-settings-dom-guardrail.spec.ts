@@ -91,6 +91,12 @@ test("all settings DOM stays within flattening guardrails", async ({
         classes.includes("overflow-y-scroll")
       );
     });
+    const kwargsAddRemoveButtons = Array.from(
+      document.querySelectorAll("button[aria-label]"),
+    ).filter((el) => {
+      const label = el.getAttribute("aria-label");
+      return label === "Remove arg" || label === "Add arg";
+    });
 
     return {
       nodeCount: nodes.length,
@@ -192,6 +198,15 @@ test("all settings DOM stays within flattening guardrails", async ({
       ).length,
       legacyParamGroupOuterWrapperCount: legacyParamGroupOuterWrappers.length,
       flattenedParamGroupHostCount: flattenedParamGroupHosts.length,
+      legacyKwargsAddRemoveIconWrapperCount: kwargsAddRemoveButtons.filter(
+        (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
+      ).length,
+      flattenedKwargsAddRemoveIconHostCount: kwargsAddRemoveButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          (Array.from(el.classList).includes("gg-math-minus") ||
+            Array.from(el.classList).includes("gg-math-plus")),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -229,6 +244,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSwitchThumbPseudoCount).toBeGreaterThan(0);
   expect(metrics.legacyParamGroupOuterWrapperCount).toBe(0);
   expect(metrics.flattenedParamGroupHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyKwargsAddRemoveIconWrapperCount).toBe(0);
+  expect(metrics.flattenedKwargsAddRemoveIconHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

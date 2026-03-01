@@ -124,6 +124,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     : "text-setta-500 hover:text-blue-500 dark:hover:text-blue-500";
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
+  const argsIconButtonBaseClassName = `nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`;
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
 
@@ -376,7 +377,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           Args
         </h3>
         <button
-          className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+          className={`${argsIconButtonBaseClassName} gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
           onClick={() => {
             const payload = {
               projectConfigId: getCurrProjectConfigId(),
@@ -388,13 +389,9 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           disabled={kwargButtonsDisabled}
           aria-label="Remove arg"
           {...getFloatingBoxHandlers({ content: "Remove arg" })}
-        >
-          <i
-            className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
-          />
-        </button>
+        />
         <button
-          className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+          className={`${argsIconButtonBaseClassName} gg-math-plus ${argsIconGlyphColorClassName}`}
           onClick={() => {
             const payload = {
               projectConfigId: getCurrProjectConfigId(),
@@ -406,14 +403,10 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           disabled={kwargButtonsDisabled}
           aria-label="Add arg"
           {...getFloatingBoxHandlers({ content: "Add arg" })}
-        >
-          <i
-            className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
-          />
-        </button>
+        />
 
         <button
-          className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+          className={`${argsIconButtonBaseClassName}`}
           onClick={onClickPinParam}
           tabIndex={0}
           disabled={pinParamsDisabled}
@@ -425,7 +418,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           />
         </button>
         <button
-          className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+          className={`${argsIconButtonBaseClassName}`}
           onClick={onClickConvertToEdgeInputs}
           tabIndex={0}
           disabled={convertToEdgeDisabled}
@@ -438,7 +431,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           />
         </button>
         <button
-          className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
+          className={`${argsIconButtonBaseClassName}`}
           onClick={onClickDeleteSelectedKwargs}
           tabIndex={0}
           disabled={deleteSelectedDisabled}
