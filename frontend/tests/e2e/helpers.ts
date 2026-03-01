@@ -121,7 +121,6 @@ export type ProjectStateSingleConfigResponse = {
   sectionImpls: Record<string, ProjectStateSectionImpl>;
   sections: Record<string, ProjectStateSectionCore>;
 };
-type LatestProjectStateSnapshot = Record<string, unknown>;
 
 export async function ensureAppReady(page: Page): Promise<void> {
   installUnexpectedApiErrorGuard(page);
@@ -151,7 +150,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
       waitUntil: "domcontentloaded",
     });
     if (await isAppReady(page)) {
-      await waitForProjectLoadIdle(page);
       return;
     }
 
@@ -172,7 +170,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
       });
     }
     if (await isAppReady(page)) {
-      await waitForProjectLoadIdle(page);
       return;
     }
 
@@ -184,7 +181,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
           waitUntil: "domcontentloaded",
         });
         if (await isAppReady(page)) {
-          await waitForProjectLoadIdle(page);
           return;
         }
       }
@@ -312,6 +308,211 @@ export async function setOverviewTab(
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
 }
 
+type SceneGraphRendererPerfLabels = {
+  enabled: boolean;
+  rolloutDefaultOn: boolean;
+  rolloutDefaultOnReason:
+    | "none"
+    | "project_config_name_default"
+    | "project_config_name_canary"
+    | "project_config_id_default"
+    | "project_config_id_canary"
+    | "surface_exact_match";
+  hasEnabledStorageOverride: boolean;
+  requestedBackend: "auto" | "webgpu" | "webgl" | "dom";
+  resolvedBackend: "webgpu" | "webgl" | "dom";
+  resolutionReason: string;
+  probeStatus: "pending" | "ready";
+  webgpuAvailable: boolean;
+  webgpuReason: string | null;
+  webgl2Available: boolean;
+  webgl2Reason: string | null;
+  softwareFallbackDetected: boolean;
+  softwareFallbackReasons: string[];
+  domIslandRadius: number;
+  debugOverlay: boolean;
+};
+
+export async function readSceneGraphRendererPerfLabels(
+  page: Page,
+): Promise<SceneGraphRendererPerfLabels> {
+  return await page.evaluate(() => {
+    const root = document.querySelector(".react-flow");
+    if (!root) {
+      throw new Error("Missing .react-flow root.");
+    }
+
+    const dataset = root.dataset;
+    const windowWithLabels = window as Window & {
+      __settaSceneGraphRendererPerf?: Partial<SceneGraphRendererPerfLabels>;
+    };
+    const runtimeLabels = windowWithLabels.__settaSceneGraphRendererPerf ?? {};
+
+    const parseBool = (
+      value: string | undefined,
+      fallback: boolean,
+    ): boolean => {
+      if (value === "1" || value === "true") {
+        return true;
+      }
+      if (value === "0" || value === "false") {
+        return false;
+      }
+      return fallback;
+    };
+    const parseBackend = (
+      value: string | undefined,
+      fallback: "auto" | "webgpu" | "webgl" | "dom",
+    ) => {
+      if (value === "auto") {
+        return "auto" as const;
+      }
+      if (value === "webgpu") {
+        return "webgpu" as const;
+      }
+      if (value === "webgl") {
+        return "webgl" as const;
+      }
+      if (value === "dom") {
+        return "dom" as const;
+      }
+      return fallback;
+    };
+    const parseResolvedBackend = (
+      value: string | undefined,
+      fallback: "webgpu" | "webgl" | "dom",
+    ) => {
+      if (value === "webgpu") {
+        return "webgpu" as const;
+      }
+      if (value === "webgl") {
+        return "webgl" as const;
+      }
+      if (value === "dom") {
+        return "dom" as const;
+      }
+      return fallback;
+    };
+    const parseProbeStatus = (
+      value: string | undefined,
+      fallback: "pending" | "ready",
+    ) => {
+      if (value === "pending") {
+        return "pending" as const;
+      }
+      if (value === "ready") {
+        return "ready" as const;
+      }
+      return fallback;
+    };
+    const parseDomIslandRadius = (
+      value: string | undefined,
+      fallback: number,
+    ): number => {
+      if (!value) {
+        return fallback;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) {
+        return fallback;
+      }
+      return parsed;
+    };
+    const parseRolloutDefaultOnReason = (
+      value: string | undefined,
+      fallback: SceneGraphRendererPerfLabels["rolloutDefaultOnReason"],
+    ): SceneGraphRendererPerfLabels["rolloutDefaultOnReason"] => {
+      if (value === "project_config_name_default") {
+        return "project_config_name_default";
+      }
+      if (value === "project_config_name_canary") {
+        return "project_config_name_canary";
+      }
+      if (value === "project_config_id_default") {
+        return "project_config_id_default";
+      }
+      if (value === "project_config_id_canary") {
+        return "project_config_id_canary";
+      }
+      if (value === "surface_exact_match") {
+        return "surface_exact_match";
+      }
+      if (value === "none") {
+        return "none";
+      }
+      return fallback;
+    };
+
+    const fallbackRequestedBackend = parseBackend(
+      dataset.sceneGraphRendererBackendRequested,
+      "auto",
+    );
+    const fallbackResolvedBackend = parseResolvedBackend(
+      dataset.sceneGraphRendererBackendResolved,
+      "dom",
+    );
+    const fallbackProbeStatus = parseProbeStatus(
+      dataset.sceneGraphRendererProbeStatus,
+      "pending",
+    );
+    const fallbackSoftwareReasons =
+      dataset.sceneGraphRendererSoftwareFallbackReasons
+        ?.split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0) ?? [];
+
+    return {
+      enabled:
+        runtimeLabels.enabled ??
+        parseBool(dataset.sceneGraphRendererEnabled, false),
+      rolloutDefaultOn:
+        runtimeLabels.rolloutDefaultOn ??
+        parseBool(dataset.sceneGraphRendererRolloutDefaultOn, false),
+      rolloutDefaultOnReason: parseRolloutDefaultOnReason(
+        runtimeLabels.rolloutDefaultOnReason ??
+          dataset.sceneGraphRendererRolloutDefaultOnReason,
+        "none",
+      ),
+      hasEnabledStorageOverride:
+        runtimeLabels.hasEnabledStorageOverride ??
+        parseBool(dataset.sceneGraphRendererHasEnabledStorageOverride, false),
+      requestedBackend:
+        runtimeLabels.requestedBackend ?? fallbackRequestedBackend,
+      resolvedBackend: runtimeLabels.resolvedBackend ?? fallbackResolvedBackend,
+      resolutionReason:
+        runtimeLabels.resolutionReason ??
+        dataset.sceneGraphRendererResolutionReason ??
+        "renderer_disabled",
+      probeStatus: runtimeLabels.probeStatus ?? fallbackProbeStatus,
+      webgpuAvailable:
+        runtimeLabels.webgpuAvailable ??
+        parseBool(dataset.sceneGraphRendererWebgpuAvailable, false),
+      webgpuReason:
+        runtimeLabels.webgpuReason ??
+        dataset.sceneGraphRendererWebgpuReason ??
+        null,
+      webgl2Available:
+        runtimeLabels.webgl2Available ??
+        parseBool(dataset.sceneGraphRendererWebgl2Available, false),
+      webgl2Reason:
+        runtimeLabels.webgl2Reason ??
+        dataset.sceneGraphRendererWebgl2Reason ??
+        null,
+      softwareFallbackDetected:
+        runtimeLabels.softwareFallbackDetected ??
+        parseBool(dataset.sceneGraphRendererSoftwareFallback, false),
+      softwareFallbackReasons:
+        runtimeLabels.softwareFallbackReasons ?? fallbackSoftwareReasons,
+      domIslandRadius:
+        runtimeLabels.domIslandRadius ??
+        parseDomIslandRadius(dataset.sceneGraphRendererDomIslandRadius, 2),
+      debugOverlay:
+        runtimeLabels.debugOverlay ??
+        parseBool(dataset.sceneGraphRendererDebugOverlay, false),
+    };
+  });
+}
+
 export async function openIsolatedProject(
   page: Page,
 ): Promise<IsolatedProjectContext> {
@@ -333,11 +534,8 @@ export async function openIsolatedProject(
     throw new Error("Missing project config name.");
   }
   const url = new URL(name, BASE_URL).toString();
-  await page.goto(withBackendOriginOverride(url), {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
-  await waitForProjectLoadIdle(page);
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
@@ -547,7 +745,6 @@ export async function setChatSectionState(
   },
 ): Promise<void> {
   await postBackend(page, "/setChatSectionState", payload);
-  await syncProjectStateFromBackend(page, payload.projectConfigId);
 }
 
 export async function stopLatestProjectChat(
@@ -610,24 +807,6 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
   }
 
   throw new Error("Unable to resolve projectConfigName for test.");
-}
-
-export async function syncProjectStateFromBackend(
-  page: Page,
-  projectConfigId: string,
-): Promise<void> {
-  const stateUpdate = await postBackend<LatestProjectStateSnapshot>(
-    page,
-    "/getLatestProjectState",
-    { projectConfigId },
-  );
-  if (!stateUpdate) {
-    throw new Error("Missing project state payload.");
-  }
-  await page.evaluate(async (payload) => {
-    const mod = await import("/src/state/actions/sectionInfos");
-    mod.processProjectStateUpdateFromBackend(payload);
-  }, stateUpdate);
 }
 
 export async function loadProjectConfig(
@@ -1009,25 +1188,6 @@ async function isAppReady(page: Page): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function waitForProjectLoadIdle(page: Page): Promise<void> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    try {
-      const isIdle = await page.evaluate(async () => {
-        const { useProjectLoading } = await import("/src/state/definitions.ts");
-        return useProjectLoading.getState().projectIsLoading === false;
-      });
-      if (isIdle) {
-        return;
-      }
-    } catch {
-      // Navigation can invalidate execution context briefly; keep polling.
-    }
-    await page.waitForTimeout(50);
-  }
-  throw new Error("Project state did not finish loading.");
 }
 
 async function navigateToDefaultProject(page: Page): Promise<void> {
