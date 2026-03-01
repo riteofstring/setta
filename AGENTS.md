@@ -40,6 +40,7 @@
 ## UI Style Consistency
 
 - Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work (component references, icon guidance, panes to ignore).
+- Do not default to adding borders around every UI container or row. Add borders only when they convey clear structure, hierarchy, or interaction affordance.
 
 ## Testing Guidelines
 
