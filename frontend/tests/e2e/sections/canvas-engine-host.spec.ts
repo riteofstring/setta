@@ -113,6 +113,7 @@ const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
 const SECTION_BODY_CLICK_OFFSET_X = 140;
 const SECTION_BODY_CLICK_OFFSET_Y = 110;
 const DOM_ISLAND_RETENTION_TEST_WAIT_MS = 900;
+const DOM_ISLAND_RETENTION_CAP_STRESS_SECTION_COUNT = 120;
 const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
@@ -456,6 +457,102 @@ test("canvas engine host briefly retains offscreen dom islands", async ({
 
     await page.waitForTimeout(DOM_ISLAND_RETENTION_TEST_WAIT_MS);
     await expect(createdSectionIsland).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host caps retained dom islands after large offscreen transition", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const basePosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.52,
+        y: hostBounds.y + hostBounds.height * 0.5,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+    const columns = 12;
+    const xGap = 18;
+    const yGap = 14;
+
+    for (
+      let index = 0;
+      index < DOM_ISLAND_RETENTION_CAP_STRESS_SECTION_COUNT;
+      index += 1
+    ) {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      await createTopLevelSection({
+        page,
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Callable",
+        viewportBounds: engineViewportBounds,
+        position: {
+          x: basePosition.x + column * xGap,
+          y: basePosition.y + row * yGap,
+        },
+      });
+    }
+
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(DOM_ISLAND_RETENTION_CAP_STRESS_SECTION_COUNT);
+    await expect
+      .poll(async () => await readDomIslandCount(host))
+      .toBeGreaterThanOrEqual(DOM_ISLAND_RETENTION_CAP_STRESS_SECTION_COUNT);
+
+    const retentionCap = await readDomIslandRetentionCap(host);
+    expect(retentionCap).toBeGreaterThanOrEqual(1);
+
+    await clearSelectionByPaneClick(page, host);
+    await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+
+    const cameraBeforePan = await readCamera(host);
+    const targetCameraX =
+      basePosition.x + DEFAULT_SECTION_WIDTH_FOR_HIT_TEST + columns * xGap + 160;
+    const requiredCameraDeltaX = Math.max(0, targetCameraX - cameraBeforePan.x);
+    if (requiredCameraDeltaX > 0) {
+      await panCanvasHostByPixelDelta(page, host, {
+        x: -Math.ceil(requiredCameraDeltaX * cameraBeforePan.zoom + 260),
+        y: 0,
+      });
+    }
+
+    await expect
+      .poll(async () => await readDomIslandRetainedCount(host))
+      .toBeLessThanOrEqual(retentionCap);
+    await expect
+      .poll(async () => await readDomIslandMountedCount(host))
+      .toBeLessThanOrEqual(retentionCap);
+
+    const retentionMs = await readDomIslandRetentionMs(host);
+    await page.waitForTimeout(retentionMs + DOM_ISLAND_RETENTION_TEST_WAIT_MS);
+
+    await expect
+      .poll(async () => await readDomIslandRetainedCount(host))
+      .toBe(0);
+    await expect
+      .poll(async () => await readDomIslandCount(host))
+      .toBe(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -2233,6 +2330,34 @@ async function readDomIslandCount(host: Locator): Promise<number> {
   return await host.locator("[data-canvas-engine-dom-island]").count();
 }
 
+async function readDomIslandMountedCount(host: Locator): Promise<number> {
+  return await readNumericHostAttribute(
+    host,
+    "data-canvas-engine-dom-island-mounted-count",
+  );
+}
+
+async function readDomIslandRetainedCount(host: Locator): Promise<number> {
+  return await readNumericHostAttribute(
+    host,
+    "data-canvas-engine-dom-island-retained-count",
+  );
+}
+
+async function readDomIslandRetentionMs(host: Locator): Promise<number> {
+  return await readNumericHostAttribute(
+    host,
+    "data-canvas-engine-dom-island-retention-ms",
+  );
+}
+
+async function readDomIslandRetentionCap(host: Locator): Promise<number> {
+  return await readNumericHostAttribute(
+    host,
+    "data-canvas-engine-dom-island-retention-cap",
+  );
+}
+
 async function readAgenticEdgeCount(host: Locator): Promise<number> {
   const value = await host.getAttribute(
     "data-canvas-engine-agentic-edge-count",
@@ -2335,6 +2460,20 @@ async function readSelectionRectState(
       heightRaw,
     ),
   };
+}
+
+async function readNumericHostAttribute(
+  host: Locator,
+  attributeName: string,
+): Promise<number> {
+  const value = await host.getAttribute(attributeName);
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `Invalid numeric host attribute ${attributeName}: ${String(value)}`,
+    );
+  }
+  return parsed;
 }
 
 function parseBooleanHostAttribute(

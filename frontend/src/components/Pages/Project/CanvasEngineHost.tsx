@@ -1477,6 +1477,14 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
       data-canvas-engine-active-section-count={activeSectionIds.length}
       data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
+      data-canvas-engine-dom-island-mounted-count={domIslandSectionIds.length}
+      data-canvas-engine-dom-island-retained-count={
+        domIslandRetentionExpiryByIdRef.current.size
+      }
+      data-canvas-engine-dom-island-retention-ms={DOM_ISLAND_RETENTION_MS}
+      data-canvas-engine-dom-island-retention-cap={
+        DOM_ISLAND_MAX_RETAINED_SECTIONS
+      }
     >
       <canvas ref={canvasRef} className="h-full w-full" />
       {domIslandRects.length > 0 ? (
