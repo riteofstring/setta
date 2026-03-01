@@ -279,7 +279,7 @@ open_url_in_devtools_profile() {
     esac
   fi
   if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if open -g -n -a "$app_bundle" --args \
+    if open -g -a "$app_bundle" --args \
       --user-data-dir="$PROFILE_DIR" \
       --no-first-run \
       --no-default-browser-check \
@@ -445,7 +445,7 @@ else
     esac
   fi
   if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if ! open -g -n -a "$app_bundle" --args \
+    if ! open -g -a "$app_bundle" --args \
       --remote-debugging-port="$DEBUG_PORT" \
       --user-data-dir="$PROFILE_DIR" \
       --no-first-run \
