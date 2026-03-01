@@ -389,6 +389,15 @@ from setta.types.helpers_lvl2 import (
     update_agentic_edge,
     update_edge,
     update_param_impl_config,
+    validate_create_agentic_edge,
+    validate_create_edge,
+    validate_delete_agentic_edges,
+    validate_delete_edges,
+    validate_reconnect_edge,
+    validate_set_agentic_edges,
+    validate_set_edges,
+    validate_update_agentic_edge,
+    validate_update_edge,
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -5349,13 +5358,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_edge(self, x: CreateEdgeRequest):
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=[x.targetPortId],
-            include_codegen_singletons=True,
-            include_project_config_targeted_patch_transport=True,
-        )
-        project_state = self.get_single_config_state(x.projectConfigId)
         edge = Edge(
             sourceSectionId=x.sourceSectionId,
             sourceVariantId=x.sourceVariantId,
@@ -5371,6 +5373,15 @@ class BaseProjectManager(ABC):
             zIndex=x.zIndex,
             data=x.data,
         )
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_create_edge(project_state_for_validation, edge)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[x.targetPortId],
+            include_codegen_singletons=True,
+            include_project_config_targeted_patch_transport=True,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
         create_edge(project_state, edge)
         self._apply_edge_value(project_state, edge)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -5388,6 +5399,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_update_edge(project_state_for_validation, x.edge)
         self.add_new_history_entry(
             project_config_id=x.projectConfigId,
             project_config_only=True,
@@ -5409,13 +5422,13 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_delete_edges(project_state_for_validation, x.edgeIds)
         edge_ids = set(x.edgeIds)
         target_param_ids_for_patch = [
-            edge.targetPortId for edge in project_config.edges if edge.id in edge_ids
+            edge.targetPortId
+            for edge in project_state_for_validation.projectConfig.edges
+            if edge.id in edge_ids
         ]
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
@@ -5440,16 +5453,27 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
         original_edge = next(
-            (edge for edge in project_config.edges if edge.id == x.edgeId),
+            (
+                edge
+                for edge in project_state_for_validation.projectConfig.edges
+                if edge.id == x.edgeId
+            ),
             None,
         )
         if original_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
+        validate_reconnect_edge(
+            project_state_for_validation,
+            x.edgeId,
+            x.sourceSectionId,
+            x.sourceVariantId,
+            x.sourcePortId,
+            x.targetSectionId,
+            x.targetVariantId,
+            x.targetPortId,
+        )
         target_param_ids_for_patch = [x.targetPortId]
         target_changed = (
             original_edge.targetSectionId != x.targetSectionId
@@ -5500,14 +5524,12 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_set_edges(project_state_for_validation, x.edges)
         incoming_edge_ids = {edge.id for edge in x.edges}
         target_param_ids_for_patch = [
             edge.targetPortId
-            for edge in project_config.edges
+            for edge in project_state_for_validation.projectConfig.edges
             if edge.id not in incoming_edge_ids
         ]
         self._add_project_config_and_scoped_history_entry(
@@ -5533,11 +5555,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
-        project_state = self.get_single_config_state(x.projectConfigId)
         edge_kwargs = {
             "sourceSectionId": x.sourceSectionId,
             "targetSectionId": x.targetSectionId,
@@ -5550,6 +5567,13 @@ class BaseProjectManager(ABC):
         if x.id is not None:
             edge_kwargs["id"] = x.id
         edge = AgenticEdge(**edge_kwargs)
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_create_agentic_edge(project_state_for_validation, edge)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
         create_agentic_edge(project_state, edge)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
@@ -5566,6 +5590,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_update_agentic_edge(project_state_for_validation, x.edge)
         self.add_new_history_entry(
             project_config_id=x.projectConfigId,
             project_config_only=True,
@@ -5587,6 +5613,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_delete_agentic_edges(project_state_for_validation, x.edgeIds)
         self.add_new_history_entry(
             project_config_id=x.projectConfigId,
             project_config_only=True,
@@ -5608,6 +5636,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_set_agentic_edges(project_state_for_validation, x.edges)
         self.add_new_history_entry(
             project_config_id=x.projectConfigId,
             project_config_only=True,

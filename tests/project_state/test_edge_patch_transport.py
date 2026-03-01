@@ -706,6 +706,216 @@ async def test_agentic_edge_routes_use_patch_transport() -> None:
 
 
 @pytest.mark.asyncio
+async def test_edge_mutation_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        (
+            project_state,
+            source_section_id,
+            source_port_id,
+            target_section_id,
+            target_param_id,
+            _,
+            _,
+        ) = _build_edge_test_state(manager.settings_file.settings)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        state_before_edge = manager.get_single_config_state(project_config_id)
+        source_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            source_section_id
+        ]
+        target_variant_id = state_before_edge.projectConfig.sectionVariantMap[
+            target_section_id
+        ]
+
+        # Seed a valid edge so follow-up failure cases can verify no accidental
+        # mutation or history writes on rejected requests.
+        await manager.create_edge(
+            CreateEdgeRequest(
+                projectConfigId=project_config_id,
+                sourceSectionId=source_section_id,
+                sourceVariantId=source_variant_id,
+                sourcePortId=source_port_id,
+                targetSectionId=target_section_id,
+                targetVariantId=target_variant_id,
+                targetPortId=target_param_id,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        seeded_edge = manager.get_single_config_state(project_config_id).projectConfig.edges[
+            0
+        ].model_copy(deep=True)
+
+        async def assert_edge_failure_does_not_write_history(
+            operation,
+            *,
+            exception_type: type[Exception] = KeyError,
+        ) -> None:
+            history_revision_before = manager.history.revision
+            with pytest.raises(exception_type):
+                await operation
+            assert manager.history.revision == history_revision_before
+            current_edges = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.edges
+            assert len(current_edges) == 1
+            assert current_edges[0] == seeded_edge
+
+        await assert_edge_failure_does_not_write_history(
+            manager.create_edge(
+                CreateEdgeRequest(
+                    projectConfigId=project_config_id,
+                    sourceSectionId=source_section_id,
+                    sourceVariantId=source_variant_id,
+                    sourcePortId=source_port_id,
+                    targetSectionId=target_section_id,
+                    targetVariantId=ID("missing-variant-id"),
+                    targetPortId=target_param_id,
+                )
+            )
+        )
+        await assert_edge_failure_does_not_write_history(
+            manager.update_edge(
+                UpdateEdgeRequest(
+                    projectConfigId=project_config_id,
+                    edge=seeded_edge.model_copy(update={"id": ID("missing-edge-id")}),
+                )
+            )
+        )
+        await assert_edge_failure_does_not_write_history(
+            manager.reconnect_edge(
+                ReconnectEdgeRequest(
+                    projectConfigId=project_config_id,
+                    edgeId=seeded_edge.id,
+                    sourceSectionId=source_section_id,
+                    sourceVariantId=source_variant_id,
+                    sourcePortId=source_port_id,
+                    targetSectionId=target_section_id,
+                    targetVariantId=ID("missing-variant-id"),
+                    targetPortId=target_param_id,
+                )
+            )
+        )
+        await assert_edge_failure_does_not_write_history(
+            manager.delete_edges(
+                DeleteEdgesRequest(
+                    projectConfigId=project_config_id,
+                    edgeIds=[ID("missing-edge-id")],
+                )
+            )
+        )
+        await assert_edge_failure_does_not_write_history(
+            manager.set_edges(
+                SetEdgesRequest(
+                    projectConfigId=project_config_id,
+                    edges=[seeded_edge, seeded_edge.model_copy(deep=True)],
+                )
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_agentic_edge_mutation_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(20)
+        source_section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Chat,
+            Position(x=900, y=0),
+            core_overrides={"name": "agentic_failure_source"},
+        )
+        target_section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Dict,
+            Position(x=980, y=120),
+            core_overrides={"name": "agentic_failure_target"},
+        )
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        agentic_edge_id = ID(create_new_id())
+
+        # Seed a valid edge so rejected requests can be checked for strict
+        # no-write behavior in both history and project-state payloads.
+        await manager.create_agentic_edge(
+            CreateAgenticEdgeRequest(
+                projectConfigId=project_config_id,
+                id=agentic_edge_id,
+                sourceSectionId=source_section_id,
+                targetSectionId=target_section_id,
+                kind=AgenticEdgeKind.chat_section,
+                contextMode=AgenticEdgeContextMode.reference_only,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        seeded_agentic_edge = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.agenticEdges[0].model_copy(deep=True)
+
+        async def assert_agentic_failure_does_not_write_history(
+            operation,
+            *,
+            exception_type: type[Exception] = KeyError,
+        ) -> None:
+            history_revision_before = manager.history.revision
+            with pytest.raises(exception_type):
+                await operation
+            assert manager.history.revision == history_revision_before
+            current_edges = manager.get_single_config_state(
+                project_config_id
+            ).projectConfig.agenticEdges
+            assert len(current_edges) == 1
+            assert current_edges[0] == seeded_agentic_edge
+
+        await assert_agentic_failure_does_not_write_history(
+            manager.create_agentic_edge(
+                CreateAgenticEdgeRequest(
+                    projectConfigId=project_config_id,
+                    sourceSectionId=ID("missing-section-id"),
+                    targetSectionId=target_section_id,
+                    kind=AgenticEdgeKind.chat_section,
+                    contextMode=AgenticEdgeContextMode.reference_only,
+                )
+            )
+        )
+        await assert_agentic_failure_does_not_write_history(
+            manager.update_agentic_edge(
+                UpdateAgenticEdgeRequest(
+                    projectConfigId=project_config_id,
+                    edge=seeded_agentic_edge.model_copy(
+                        update={"id": ID("missing-agentic-edge-id")}
+                    ),
+                )
+            )
+        )
+        await assert_agentic_failure_does_not_write_history(
+            manager.delete_agentic_edges(
+                DeleteAgenticEdgesRequest(
+                    projectConfigId=project_config_id,
+                    edgeIds=[ID("missing-agentic-edge-id")],
+                )
+            )
+        )
+        await assert_agentic_failure_does_not_write_history(
+            manager.set_agentic_edges(
+                SetAgenticEdgesRequest(
+                    projectConfigId=project_config_id,
+                    edges=[
+                        seeded_agentic_edge,
+                        seeded_agentic_edge.model_copy(deep=True),
+                    ],
+                )
+            )
+        )
+
+
+@pytest.mark.asyncio
 async def test_edge_and_agentic_edge_routes_defer_codegen_refresh() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

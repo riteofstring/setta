@@ -2803,28 +2803,46 @@ def set_section_edge_outputs(
 
 
 def create_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    if any(existing.id == edge.id for existing in p.projectConfig.edges):
-        raise KeyError(f"Edge {edge.id} already exists.")
-    _ensure_edge_endpoints_valid(p, edge)
+    validate_create_edge(p, edge)
     p.projectConfig.edges.append(edge)
 
 
-def update_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    for idx, existing in enumerate(p.projectConfig.edges):
+def validate_create_edge(p: "ProjectStateSingleConfig", edge: Edge):
+    if any(existing.id == edge.id for existing in p.projectConfig.edges):
+        raise KeyError(f"Edge {edge.id} already exists.")
+    _ensure_edge_endpoints_valid(p, edge)
+
+
+def validate_update_edge(p: "ProjectStateSingleConfig", edge: Edge):
+    for existing in p.projectConfig.edges:
         if existing.id != edge.id:
             continue
         _ensure_edge_endpoints_valid(p, edge)
+        return
+    raise KeyError(f"Edge {edge.id} not found.")
+
+
+def update_edge(p: "ProjectStateSingleConfig", edge: Edge):
+    validate_update_edge(p, edge)
+    for idx, existing in enumerate(p.projectConfig.edges):
+        if existing.id != edge.id:
+            continue
         p.projectConfig.edges[idx] = edge
         return
     raise KeyError(f"Edge {edge.id} not found.")
 
 
-def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+def validate_delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     edge_ids = set(edgeIds)
     existing_ids = {edge.id for edge in p.projectConfig.edges}
     missing = edge_ids - existing_ids
     if missing:
         raise KeyError(f"Edges not found: {sorted(missing)}")
+
+
+def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+    validate_delete_edges(p, edgeIds)
+    edge_ids = set(edgeIds)
     remaining_edges: list[Edge] = []
     removed_edges: list[Edge] = []
     for edge in p.projectConfig.edges:
@@ -2847,6 +2865,16 @@ def reconnect_edge(
     targetVariantId: ID,
     targetPortId: ID,
 ):
+    validate_reconnect_edge(
+        p,
+        edgeId,
+        sourceSectionId,
+        sourceVariantId,
+        sourcePortId,
+        targetSectionId,
+        targetVariantId,
+        targetPortId,
+    )
     for idx, existing in enumerate(p.projectConfig.edges):
         if existing.id != edgeId:
             continue
@@ -2860,7 +2888,6 @@ def reconnect_edge(
                 "targetPortId": targetPortId,
             }
         )
-        _ensure_edge_endpoints_valid(p, updated)
         target_changed = (
             existing.targetSectionId != targetSectionId
             or existing.targetVariantId != targetVariantId
@@ -2873,13 +2900,46 @@ def reconnect_edge(
     raise KeyError(f"Edge {edgeId} not found.")
 
 
-def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
+def validate_reconnect_edge(
+    p: "ProjectStateSingleConfig",
+    edgeId: ID,
+    sourceSectionId: ID,
+    sourceVariantId: ID,
+    sourcePortId: ID,
+    targetSectionId: ID,
+    targetVariantId: ID,
+    targetPortId: ID,
+):
+    for existing in p.projectConfig.edges:
+        if existing.id != edgeId:
+            continue
+        updated = existing.model_copy(
+            update={
+                "sourceSectionId": sourceSectionId,
+                "sourceVariantId": sourceVariantId,
+                "sourcePortId": sourcePortId,
+                "targetSectionId": targetSectionId,
+                "targetVariantId": targetVariantId,
+                "targetPortId": targetPortId,
+            }
+        )
+        _ensure_edge_endpoints_valid(p, updated)
+        return
+    raise KeyError(f"Edge {edgeId} not found.")
+
+
+def validate_set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate edge id {edge.id} in update.")
         edge_ids.add(edge.id)
         _ensure_edge_endpoints_valid(p, edge)
+
+
+def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
+    validate_set_edges(p, edges)
+    edge_ids = {edge.id for edge in edges}
     removed_edges = [edge for edge in p.projectConfig.edges if edge.id not in edge_ids]
     p.projectConfig.edges = edges
     for edge in removed_edges:
@@ -2887,28 +2947,46 @@ def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
 
 
 def create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
-        raise KeyError(f"Agentic edge {edge.id} already exists.")
-    _ensure_agentic_edge_endpoints_valid(p, edge)
+    validate_create_agentic_edge(p, edge)
     p.projectConfig.agenticEdges.append(edge)
 
 
-def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    for idx, existing in enumerate(p.projectConfig.agenticEdges):
+def validate_create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
+    if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
+        raise KeyError(f"Agentic edge {edge.id} already exists.")
+    _ensure_agentic_edge_endpoints_valid(p, edge)
+
+
+def validate_update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
+    for existing in p.projectConfig.agenticEdges:
         if existing.id != edge.id:
             continue
         _ensure_agentic_edge_endpoints_valid(p, edge)
+        return
+    raise KeyError(f"Agentic edge {edge.id} not found.")
+
+
+def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
+    validate_update_agentic_edge(p, edge)
+    for idx, existing in enumerate(p.projectConfig.agenticEdges):
+        if existing.id != edge.id:
+            continue
         p.projectConfig.agenticEdges[idx] = edge
         return
     raise KeyError(f"Agentic edge {edge.id} not found.")
 
 
-def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+def validate_delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     edge_ids = set(edgeIds)
     existing_ids = {edge.id for edge in p.projectConfig.agenticEdges}
     missing = edge_ids - existing_ids
     if missing:
         raise KeyError(f"Agentic edges not found: {sorted(missing)}")
+
+
+def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+    validate_delete_agentic_edges(p, edgeIds)
+    edge_ids = set(edgeIds)
     remaining_edges: list[AgenticEdge] = []
     for edge in p.projectConfig.agenticEdges:
         if edge.id in edge_ids:
@@ -2917,13 +2995,17 @@ def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     p.projectConfig.agenticEdges = remaining_edges
 
 
-def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
+def validate_set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate agentic edge id {edge.id} in update.")
         edge_ids.add(edge.id)
         _ensure_agentic_edge_endpoints_valid(p, edge)
+
+
+def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
+    validate_set_agentic_edges(p, edges)
     p.projectConfig.agenticEdges = edges
 
 
