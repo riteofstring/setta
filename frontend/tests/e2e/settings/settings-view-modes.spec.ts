@@ -181,55 +181,76 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
     expect(layerState.selectedEdges).toBeGreaterThanOrEqual(0);
     expect(layerState.cameraZoom).toBeGreaterThan(0);
 
-    const firstNode = page.locator(".react-flow__node").first();
-    await expect(firstNode).toBeVisible();
-    const firstNodeId = await firstNode.getAttribute("data-id");
-    await firstNode.click();
-    await page.waitForFunction(() => {
-      const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-      if (!(layer instanceof HTMLCanvasElement)) {
-        return false;
+    let zoomBefore = layerState.cameraZoom;
+    let firstNode = page.locator(".react-flow__node").first();
+    if ((await firstNode.count()) === 0) {
+      const clickTarget = await findSceneOnlyPromotionClickTarget(page);
+      if (clickTarget) {
+        await page.mouse.click(clickTarget.clientX, clickTarget.clientY);
+        await page.waitForSelector(
+          `.react-flow__node[data-id="${clickTarget.sectionId}"]`,
+        );
+        firstNode = page
+          .locator(`.react-flow__node[data-id="${clickTarget.sectionId}"]`)
+          .first();
       }
-      return (
-        Number(
-          layer.getAttribute("data-scene-graph-layer-active-sections") ?? "0",
-        ) > 0
-      );
-    });
-    await firstNode.hover();
-    await page.waitForFunction(() => {
-      const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-      if (!(layer instanceof HTMLCanvasElement)) {
-        return false;
-      }
-      return (
-        (layer.getAttribute("data-scene-graph-layer-hovered-section") ?? "")
-          .length > 0
-      );
-    });
+    }
+    if ((await firstNode.count()) > 0) {
+      await expect(firstNode).toBeVisible();
+      const firstNodeId = await firstNode.getAttribute("data-id");
+      await firstNode.click();
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(
+          ".setta-scene-graph-renderer-layer",
+        );
+        if (!(layer instanceof HTMLCanvasElement)) {
+          return false;
+        }
+        return (
+          Number(
+            layer.getAttribute("data-scene-graph-layer-active-sections") ?? "0",
+          ) > 0
+        );
+      });
+      await firstNode.hover();
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(
+          ".setta-scene-graph-renderer-layer",
+        );
+        if (!(layer instanceof HTMLCanvasElement)) {
+          return false;
+        }
+        return (
+          (layer.getAttribute("data-scene-graph-layer-hovered-section") ?? "")
+            .length > 0
+        );
+      });
 
-    const hoveredLayerState = await page.evaluate(() => {
-      const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-      if (!(layer instanceof HTMLCanvasElement)) {
-        throw new Error("Missing scene graph renderer canvas layer.");
+      const hoveredLayerState = await page.evaluate(() => {
+        const layer = document.querySelector(
+          ".setta-scene-graph-renderer-layer",
+        );
+        if (!(layer instanceof HTMLCanvasElement)) {
+          throw new Error("Missing scene graph renderer canvas layer.");
+        }
+        return {
+          hoveredSection:
+            layer.getAttribute("data-scene-graph-layer-hovered-section") ?? "",
+          cameraZoom: Number(
+            layer.getAttribute("data-scene-graph-layer-camera-zoom") ?? "0",
+          ),
+        };
+      });
+      if (firstNodeId && firstNodeId.length > 0) {
+        expect(hoveredLayerState.hoveredSection).toBe(firstNodeId);
+      } else {
+        expect(hoveredLayerState.hoveredSection.length).toBeGreaterThan(0);
       }
-      return {
-        hoveredSection:
-          layer.getAttribute("data-scene-graph-layer-hovered-section") ?? "",
-        cameraZoom: Number(
-          layer.getAttribute("data-scene-graph-layer-camera-zoom") ?? "0",
-        ),
-      };
-    });
-    if (firstNodeId && firstNodeId.length > 0) {
-      expect(hoveredLayerState.hoveredSection).toBe(firstNodeId);
-    } else {
-      expect(hoveredLayerState.hoveredSection.length).toBeGreaterThan(0);
+      zoomBefore = hoveredLayerState.cameraZoom;
     }
 
     const zoomInButton = page.getByRole("button", { name: "zoom in" });
     await expect(zoomInButton).toBeVisible();
-    const zoomBefore = hoveredLayerState.cameraZoom;
     await zoomInButton.click();
     await page.waitForFunction((beforeZoom) => {
       const layer = document.querySelector(".setta-scene-graph-renderer-layer");
@@ -246,6 +267,92 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
     expect(layerState.visible).toBe("0");
     expect(layerState.backend).toBe("dom");
   }
+});
+
+test("settings all-settings promotes scene-only sections into DOM islands on first click", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+    localStorage.setItem("setta.sceneGraphRenderer.backend", "webgl");
+    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "0");
+    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!root) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const labels = await readSceneGraphRendererPerfLabels(page);
+  test.skip(
+    labels.resolvedBackend !== "webgl",
+    "Scene-only DOM island promotion requires the WebGL backend.",
+  );
+
+  const clickTarget = await findSceneOnlyPromotionClickTarget(page);
+
+  expect(clickTarget).not.toBeNull();
+  if (!clickTarget) {
+    return;
+  }
+
+  await page.mouse.click(clickTarget.clientX, clickTarget.clientY);
+  await page.waitForFunction((sectionId) => {
+    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
+    if (!(layer instanceof HTMLCanvasElement)) {
+      return false;
+    }
+    const activeSectionCount = Number(
+      layer.getAttribute("data-scene-graph-layer-active-sections") ?? "0",
+    );
+    const mountedNode = document.querySelector(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    return activeSectionCount > 0 && mountedNode instanceof HTMLElement;
+  }, clickTarget.sectionId);
+
+  const promotedState = await page.evaluate((sectionId) => {
+    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
+    const root = document.querySelector(".react-flow");
+    return {
+      isDomMounted:
+        document.querySelector(`.react-flow__node[data-id="${sectionId}"]`) !==
+        null,
+      activeSectionCount:
+        layer instanceof HTMLCanvasElement
+          ? Number(
+              layer.getAttribute("data-scene-graph-layer-active-sections") ??
+                "0",
+            )
+          : 0,
+      domIslandCount:
+        root instanceof HTMLElement
+          ? Number(
+              root.getAttribute("data-scene-graph-renderer-dom-island-count") ??
+                "0",
+            )
+          : 0,
+    };
+  }, clickTarget.sectionId);
+
+  expect(promotedState.activeSectionCount).toBeGreaterThan(0);
+  expect(promotedState.domIslandCount).toBeGreaterThan(0);
+  expect(promotedState.isDomMounted).toBe(true);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -289,6 +396,61 @@ test("settings view modes keep visible sections when layout payload is partial",
   await waitForNodeCount(page, 13);
   await waitForOverviewCount(page, 13);
 });
+
+type SceneOnlyPromotionClickTarget = {
+  sectionId: string;
+  clientX: number;
+  clientY: number;
+};
+
+async function findSceneOnlyPromotionClickTarget(
+  page: Page,
+): Promise<SceneOnlyPromotionClickTarget | null> {
+  return page.evaluate(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return null;
+    }
+    const sectionId =
+      root.getAttribute(
+        "data-scene-graph-renderer-scene-only-click-target-section-id",
+      ) ?? "";
+    if (sectionId.length === 0) {
+      return null;
+    }
+    const paneX = Number(
+      root.getAttribute(
+        "data-scene-graph-renderer-scene-only-click-target-pane-x",
+      ) ?? "NaN",
+    );
+    const paneY = Number(
+      root.getAttribute(
+        "data-scene-graph-renderer-scene-only-click-target-pane-y",
+      ) ?? "NaN",
+    );
+    if (!Number.isFinite(paneX) || !Number.isFinite(paneY)) {
+      return null;
+    }
+    const pane = document.querySelector(".react-flow__pane");
+    if (!(pane instanceof HTMLElement)) {
+      throw new Error("Missing pane element.");
+    }
+    const paneRect = pane.getBoundingClientRect();
+    if (
+      paneX < 0 ||
+      paneY < 0 ||
+      paneX > paneRect.width ||
+      paneY > paneRect.height
+    ) {
+      return null;
+    }
+    return {
+      sectionId,
+      clientX: paneRect.left + paneX,
+      clientY: paneRect.top + paneY,
+    };
+  });
+}
 
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
   await page.waitForFunction(

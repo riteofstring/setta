@@ -8,11 +8,12 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
+import { findTopmostSceneOnlySectionAtFlowPosition } from "sceneGraphRenderer/domIslands";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
-import { useMisc, useSettings } from "state/definitions";
+import { useMisc, useNodeInternals, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   SelectionModeEnum,
@@ -29,6 +30,8 @@ type PaneProps = {
   isSelecting: boolean;
   children: ReactNode;
   panOnDrag: boolean | number[];
+  renderSceneOnlySections: boolean;
+  domIslandSectionIds: ReadonlySet<string>;
 };
 
 const wrapHandler = (
@@ -45,239 +48,274 @@ const wrapHandler = (
 
 const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
-  dragging: s.paneDragging,
 });
 
-const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
-  const container = useRef<HTMLDivElement | null>(null);
-  const prevSelectedNodesCount = useRef<number>(0);
-  const containerBounds = useRef<DOMRect>();
-  const { userSelectionActive } = useReactFlow(selector, shallow);
+const Pane = memo(
+  ({
+    isSelecting,
+    panOnDrag,
+    children,
+    renderSceneOnlySections,
+    domIslandSectionIds,
+  }: PaneProps) => {
+    const container = useRef<HTMLDivElement | null>(null);
+    const prevSelectedNodesCount = useRef<number>(0);
+    const containerBounds = useRef<DOMRect>();
+    const { userSelectionActive } = useReactFlow(selector, shallow);
 
-  const resetUserSelection = () => {
-    useReactFlow.setState({
-      userSelectionActive: false,
-      userSelectionRect: null,
-    });
+    const resetUserSelection = () => {
+      useReactFlow.setState({
+        userSelectionActive: false,
+        userSelectionRect: null,
+      });
 
-    prevSelectedNodesCount.current = 0;
-  };
+      prevSelectedNodesCount.current = 0;
+    };
 
-  const onClick = (event: ReactMouseEvent) => {
-    if (useMisc.getState().mouseDownDrawArea) {
-      useMisc.setState({ mouseDownDrawArea: false });
-      return;
-    }
-    applyActiveSectionChange({ interaction: "pane-click" });
-    useMisc.setState({
-      lastPaneClickLocation: screenToFlowPosition({
+    const onClick = (event: ReactMouseEvent) => {
+      if (useMisc.getState().mouseDownDrawArea) {
+        useMisc.setState({ mouseDownDrawArea: false });
+        return;
+      }
+
+      const flowPosition = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
-      }),
-    });
-    useReactFlow.setState({
-      nodesSelectionDims: null,
-    });
-  };
+      });
+      if (renderSceneOnlySections) {
+        const promotedSectionId = findTopmostSceneOnlySectionAtFlowPosition({
+          flowX: flowPosition.x,
+          flowY: flowPosition.y,
+          nodesById: useNodeInternals.getState().x,
+          domIslandSectionIds,
+        });
+        if (promotedSectionId) {
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId: promotedSectionId,
+          });
+          useMisc.setState({
+            lastPaneClickLocation: flowPosition,
+          });
+          useReactFlow.setState({
+            nodesSelectionDims: null,
+          });
+          return;
+        }
+      }
 
-  const onContextMenu = (event: ReactMouseEvent) => {
-    if (Array.isArray(panOnDrag) && panOnDrag?.includes(2)) {
-      event.preventDefault();
-      return;
-    }
-    openPaneContextMenu(event);
-  };
-
-  const onMouseDown = (event: ReactMouseEvent): void => {
-    const { domNode } = useReactFlow.getState();
-    containerBounds.current = domNode?.getBoundingClientRect();
-
-    if (
-      !isSelecting ||
-      event.button !== 0 ||
-      event.target !== container.current ||
-      !containerBounds.current
-    ) {
-      return;
-    }
-
-    const { x, y } = getEventPosition(event, containerBounds.current);
-
-    applyActiveSectionChange({
-      interaction: "selection-rect",
-      selectedIds: [],
-    });
-
-    useReactFlow.setState({
-      userSelectionRect: {
-        width: 0,
-        height: 0,
-        startX: x,
-        startY: y,
-        x,
-        y,
-      },
-    });
-  };
-
-  const onMouseMove = (event: ReactMouseEvent): void => {
-    const { userSelectionRect, transform } = useReactFlow.getState();
-    if (!isSelecting || !containerBounds.current || !userSelectionRect) {
-      return;
-    }
-
-    useReactFlow.setState({
-      userSelectionActive: true,
-      nodesSelectionDims: null,
-    });
-
-    const mousePos = getEventPosition(event, containerBounds.current);
-    const startX = userSelectionRect.startX ?? 0;
-    const startY = userSelectionRect.startY ?? 0;
-
-    const nextUserSelectRect = {
-      ...userSelectionRect,
-      x: mousePos.x < startX ? mousePos.x : startX,
-      y: mousePos.y < startY ? mousePos.y : startY,
-      width: Math.abs(mousePos.x - startX),
-      height: Math.abs(mousePos.y - startY),
+      applyActiveSectionChange({ interaction: "pane-click" });
+      useMisc.setState({
+        lastPaneClickLocation: flowPosition,
+      });
+      useReactFlow.setState({
+        nodesSelectionDims: null,
+      });
     };
 
-    const selectedNodeIds = getNodesInside(
-      nextUserSelectRect,
-      transform,
-      useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
-    );
+    const onContextMenu = (event: ReactMouseEvent) => {
+      if (Array.isArray(panOnDrag) && panOnDrag?.includes(2)) {
+        event.preventDefault();
+        return;
+      }
+      openPaneContextMenu(event);
+    };
 
-    if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
-      prevSelectedNodesCount.current = selectedNodeIds.length;
+    const onMouseDown = (event: ReactMouseEvent): void => {
+      const { domNode } = useReactFlow.getState();
+      containerBounds.current = domNode?.getBoundingClientRect();
+
+      if (
+        !isSelecting ||
+        event.button !== 0 ||
+        event.target !== container.current ||
+        !containerBounds.current
+      ) {
+        return;
+      }
+
+      const { x, y } = getEventPosition(event, containerBounds.current);
+
       applyActiveSectionChange({
         interaction: "selection-rect",
-        selectedIds: selectedNodeIds,
+        selectedIds: [],
       });
-    }
 
-    useReactFlow.setState({
-      userSelectionRect: nextUserSelectRect,
-    });
-  };
-
-  const onMouseUp = (event: ReactMouseEvent) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const { userSelectionRect } = useReactFlow.getState();
-    // We only want to trigger click functions when in selection mode if
-    // the user did not move the mouse.
-    if (
-      !userSelectionActive &&
-      userSelectionRect &&
-      event.target === container.current
-    ) {
-      onClick(event);
-    }
-
-    useReactFlow
-      .getState()
-      .setNodesSelection(prevSelectedNodesCount.current, true);
-    resetUserSelection();
-  };
-
-  const onMouseLeave = (event: ReactMouseEvent) => {
-    if (userSelectionActive) {
-      useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
-    }
-    resetUserSelection();
-  };
-
-  const onDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (event.target !== container.current) {
-      return;
-    }
-    const payload = getFileBrowserDragPayload(event.dataTransfer);
-    const hasNativeFiles = event.dataTransfer.files.length > 0;
-    if ((!payload || payload.type !== "file") && !hasNativeFiles) {
-      return;
-    }
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-  };
-
-  const onDrop = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (event.target !== container.current) {
-      return;
-    }
-    const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-    const payload = getFileBrowserDragPayload(event.dataTransfer);
-    const openFileForDrop = async (filePath: string, fileName: string) => {
-      const result = await openFileAsSectionForDrop({
-        filePath,
-        fileName,
-        position,
-        focusOnSection: false,
+      useReactFlow.setState({
+        userSelectionRect: {
+          width: 0,
+          height: 0,
+          startX: x,
+          startY: y,
+          x,
+          y,
+        },
       });
-      if (result.status === "unsupported_binary") {
-        addTemporaryNotification(
-          "Binary files cannot be auto-opened as sections from drag-and-drop.",
-          SettaNotificationTypeEnum.warning,
-        );
+    };
+
+    const onMouseMove = (event: ReactMouseEvent): void => {
+      const { userSelectionRect, transform } = useReactFlow.getState();
+      if (!isSelecting || !containerBounds.current || !userSelectionRect) {
         return;
       }
-      if (result.status === "failed") {
-        addTemporaryNotification(
-          "Failed to create a section from the dropped file.",
-          SettaNotificationTypeEnum.error,
-        );
+
+      useReactFlow.setState({
+        userSelectionActive: true,
+        nodesSelectionDims: null,
+      });
+
+      const mousePos = getEventPosition(event, containerBounds.current);
+      const startX = userSelectionRect.startX ?? 0;
+      const startY = userSelectionRect.startY ?? 0;
+
+      const nextUserSelectRect = {
+        ...userSelectionRect,
+        x: mousePos.x < startX ? mousePos.x : startX,
+        y: mousePos.y < startY ? mousePos.y : startY,
+        width: Math.abs(mousePos.x - startX),
+        height: Math.abs(mousePos.y - startY),
+      };
+
+      const selectedNodeIds = getNodesInside(
+        nextUserSelectRect,
+        transform,
+        useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
+      );
+
+      if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
+        prevSelectedNodesCount.current = selectedNodeIds.length;
+        applyActiveSectionChange({
+          interaction: "selection-rect",
+          selectedIds: selectedNodeIds,
+        });
       }
+
+      useReactFlow.setState({
+        userSelectionRect: nextUserSelectRect,
+      });
     };
-    if (payload && payload.type === "file") {
+
+    const onMouseUp = (event: ReactMouseEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const { userSelectionRect } = useReactFlow.getState();
+      // We only want to trigger click functions when in selection mode if
+      // the user did not move the mouse.
+      if (
+        !userSelectionActive &&
+        userSelectionRect &&
+        event.target === container.current
+      ) {
+        onClick(event);
+      }
+
+      useReactFlow
+        .getState()
+        .setNodesSelection(prevSelectedNodesCount.current, true);
+      resetUserSelection();
+    };
+
+    const onMouseLeave = () => {
+      if (userSelectionActive) {
+        useReactFlow
+          .getState()
+          .setNodesSelection(prevSelectedNodesCount.current);
+      }
+      resetUserSelection();
+    };
+
+    const onDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+      if (event.target !== container.current) {
+        return;
+      }
+      const payload = getFileBrowserDragPayload(event.dataTransfer);
+      const hasNativeFiles = event.dataTransfer.files.length > 0;
+      if ((!payload || payload.type !== "file") && !hasNativeFiles) {
+        return;
+      }
       event.preventDefault();
-      void openFileForDrop(payload.fullPath, payload.name);
-      return;
-    }
-    const nativeFile = event.dataTransfer.files.item(0);
-    if (!nativeFile) {
-      return;
-    }
-    event.preventDefault();
-    const openNativeFileDrop = async () => {
-      const importResult = await importNativeFileToWorkspace(nativeFile);
-      if (importResult.status !== "ok") {
-        addTemporaryNotification(
-          importResult.error,
-          SettaNotificationTypeEnum.error,
-        );
+      event.dataTransfer.dropEffect = "copy";
+    };
+
+    const onDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+      if (event.target !== container.current) {
         return;
       }
-      await openFileForDrop(importResult.filePath, importResult.fileName);
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const payload = getFileBrowserDragPayload(event.dataTransfer);
+      const openFileForDrop = async (filePath: string, fileName: string) => {
+        const result = await openFileAsSectionForDrop({
+          filePath,
+          fileName,
+          position,
+          focusOnSection: false,
+        });
+        if (result.status === "unsupported_binary") {
+          addTemporaryNotification(
+            "Binary files cannot be auto-opened as sections from drag-and-drop.",
+            SettaNotificationTypeEnum.warning,
+          );
+          return;
+        }
+        if (result.status === "failed") {
+          addTemporaryNotification(
+            "Failed to create a section from the dropped file.",
+            SettaNotificationTypeEnum.error,
+          );
+        }
+      };
+      if (payload && payload.type === "file") {
+        event.preventDefault();
+        void openFileForDrop(payload.fullPath, payload.name);
+        return;
+      }
+      const nativeFile = event.dataTransfer.files.item(0);
+      if (!nativeFile) {
+        return;
+      }
+      event.preventDefault();
+      const openNativeFileDrop = async () => {
+        const importResult = await importNativeFileToWorkspace(nativeFile);
+        if (importResult.status !== "ok") {
+          addTemporaryNotification(
+            importResult.error,
+            SettaNotificationTypeEnum.error,
+          );
+          return;
+        }
+        await openFileForDrop(importResult.filePath, importResult.fileName);
+      };
+      void openNativeFileDrop();
     };
-    void openNativeFileDrop();
-  };
 
-  const hasActiveSelection = isSelecting || userSelectionActive;
+    const hasActiveSelection = isSelecting || userSelectionActive;
 
-  return (
-    <div
-      className="react-flow__pane"
-      onClick={hasActiveSelection ? undefined : wrapHandler(onClick, container)}
-      onContextMenu={wrapHandler(onContextMenu, container)}
-      onMouseDown={hasActiveSelection ? onMouseDown : undefined}
-      onMouseMove={hasActiveSelection ? onMouseMove : undefined}
-      onMouseUp={hasActiveSelection ? onMouseUp : undefined}
-      onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      ref={container}
-      style={containerStyle}
-    >
-      {children}
-      <UserSelection />
-    </div>
-  );
-});
+    return (
+      <div
+        className="react-flow__pane"
+        onClick={
+          hasActiveSelection ? undefined : wrapHandler(onClick, container)
+        }
+        onContextMenu={wrapHandler(onContextMenu, container)}
+        onMouseDown={hasActiveSelection ? onMouseDown : undefined}
+        onMouseMove={hasActiveSelection ? onMouseMove : undefined}
+        onMouseUp={hasActiveSelection ? onMouseUp : undefined}
+        onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        ref={container}
+        style={containerStyle}
+      >
+        {children}
+        <UserSelection />
+      </div>
+    );
+  },
+);
 
 Pane.displayName = "Pane";
 
