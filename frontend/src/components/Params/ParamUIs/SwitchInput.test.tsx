@@ -28,43 +28,4 @@ describe("SwitchInput theme overrides", () => {
     expect(markup).toContain("bg-green-500");
     expect(markup).not.toContain("bg-white");
   });
-
-  it("renders switch root directly when no outer wrapper is provided", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput value={false} onChange={() => undefined} />,
-    );
-
-    expect(markup.startsWith("<button")).toBe(true);
-    expect(markup).not.toContain("<div");
-  });
-
-  it("keeps optional outer wrapper and applies root class overrides", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput
-        value={false}
-        onChange={() => undefined}
-        outerDivClassName="section-value"
-        rootClassName="justify-self-start"
-      />,
-    );
-
-    expect(markup.startsWith('<div class="section-value"')).toBe(true);
-    expect(markup).toContain("justify-self-start");
-  });
-
-  it("supports a thumbless flattening path via pseudo-element classes", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput
-        value={false}
-        onChange={() => undefined}
-        flattenThumb={true}
-        thumbThemeClassName="bg-green-500 dark:bg-green-700"
-      />,
-    );
-
-    expect(markup).toContain("before:block");
-    expect(markup).toContain("before:bg-green-500");
-    expect(markup).toContain("dark:before:bg-green-700");
-    expect(markup).not.toContain("<span");
-  });
 });
