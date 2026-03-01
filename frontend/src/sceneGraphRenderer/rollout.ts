@@ -22,6 +22,7 @@ const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES: ReadonlySet<string> 
     "jumping_moon",
     "slow_leaf",
     "cool_mild",
+    "sweet_bear",
   ]);
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_IDS: ReadonlySet<string> =
   new Set();

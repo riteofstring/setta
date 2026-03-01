@@ -120,6 +120,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks sweet_bear as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes sweet_bear from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "sweet-bear-config-id",
+          projectConfigName: "sweet_bear",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -215,6 +228,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "cool-mild-config-id",
           projectConfigName: "cool_mild",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports sweet_bear rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "sweet-bear-config-id",
+          projectConfigName: "sweet_bear",
           activeViewModeName: "Overview",
         }),
       ),

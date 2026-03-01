@@ -688,6 +688,102 @@ test("cool_mild defaults renderer on and keeps explicit kill switch", async ({
   }
 });
 
+test("sweet_bear defaults renderer on and keeps explicit kill switch", async ({
+  page,
+}) => {
+  let isolatedProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  try {
+    await ensureAppReady(page);
+    await page.evaluate(() => {
+      localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+      localStorage.removeItem("setta.sceneGraphRenderer.backend");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+      localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+      localStorage.removeItem(
+        "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+      );
+    });
+    const metadata = await postBackend<{
+      projectMetadata: Array<{ id: string; name: string }>;
+    }>(page, "/loadAllProjectMetadata", {});
+    if (!metadata) {
+      throw new Error("Missing project metadata response.");
+    }
+    const hasSweetBear = metadata.projectMetadata.some(
+      (entry) => entry.name === "sweet_bear",
+    );
+    if (hasSweetBear) {
+      await openProjectByName(page, "sweet_bear");
+    } else {
+      isolatedProjectContext = await openIsolatedProject(page);
+      await postBackend(page, "/setProjectConfigName", {
+        projectConfigId: isolatedProjectContext.projectConfigId,
+        newName: "sweet_bear",
+      });
+      await openProjectByName(page, "sweet_bear");
+    }
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const defaultLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(defaultLabels.enabled).toBe(true);
+    expect(defaultLabels.rolloutDefaultOn).toBe(true);
+    expect(defaultLabels.rolloutDefaultOnReason).toBe(
+      "project_config_name_default",
+    );
+    expect(defaultLabels.hasEnabledStorageOverride).toBe(false);
+    expect(defaultLabels.requestedBackend).toBe("auto");
+    expect(["webgpu", "webgl", "dom"]).toContain(defaultLabels.resolvedBackend);
+
+    await page.evaluate(() => {
+      localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(killSwitchLabels.enabled).toBe(false);
+    expect(killSwitchLabels.rolloutDefaultOn).toBe(true);
+    expect(killSwitchLabels.rolloutDefaultOnReason).toBe(
+      "project_config_name_default",
+    );
+    expect(killSwitchLabels.hasEnabledStorageOverride).toBe(true);
+    expect(killSwitchLabels.resolvedBackend).toBe("dom");
+    expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
+  } finally {
+    await page.evaluate(() => {
+      localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+      localStorage.removeItem("setta.sceneGraphRenderer.backend");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+      localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+      localStorage.removeItem(
+        "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+      );
+    });
+    await cleanupIsolatedProject(page, isolatedProjectContext);
+  }
+});
+
 test("scene graph canary allowlist enables non-settings project ids and keeps explicit kill switch", async ({
   page,
 }) => {
