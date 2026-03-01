@@ -830,6 +830,10 @@ test("settings all-settings keeps viewport sections DOM-mounted in scene mode", 
   expect(initialResidency.renderedNodeCount).toBeGreaterThanOrEqual(
     initialResidency.viewportDomAnchorCount,
   );
+  expect(initialResidency.visibleNodeCount).toBeGreaterThan(0);
+  expect(initialResidency.visibleNodeWithContentCount).toBeGreaterThan(0);
+  expect(initialResidency.firstNodeVisibility).toBe("visible");
+  expect(initialResidency.firstNodeTextLength).toBeGreaterThan(0);
   expect(initialResidency.sceneOnlyClickTargetSectionId).toBe("");
 
   const zoomInButton = page.getByRole("button", { name: "zoom in" });
@@ -852,6 +856,10 @@ test("settings all-settings keeps viewport sections DOM-mounted in scene mode", 
   expect(postZoomResidency.domIslandCount).toBeGreaterThanOrEqual(
     postZoomResidency.viewportDomAnchorCount,
   );
+  expect(postZoomResidency.visibleNodeCount).toBeGreaterThan(0);
+  expect(postZoomResidency.visibleNodeWithContentCount).toBeGreaterThan(0);
+  expect(postZoomResidency.firstNodeVisibility).toBe("visible");
+  expect(postZoomResidency.firstNodeTextLength).toBeGreaterThan(0);
   expect(postZoomResidency.sceneOnlyClickTargetSectionId).toBe("");
 });
 
@@ -1236,6 +1244,10 @@ type ViewportDomResidencyState = {
   viewportDomAnchorCount: number;
   domIslandCount: number;
   renderedNodeCount: number;
+  visibleNodeCount: number;
+  visibleNodeWithContentCount: number;
+  firstNodeVisibility: string;
+  firstNodeTextLength: number;
   sceneOnlyClickTargetSectionId: string;
   cameraZoom: number;
 };
@@ -1252,6 +1264,16 @@ async function readViewportDomResidencyState(
     if (!(layer instanceof HTMLCanvasElement)) {
       throw new Error("Missing scene graph renderer canvas layer.");
     }
+    const renderedNodes = Array.from(
+      document.querySelectorAll(".react-flow__node"),
+    );
+    const visibleNodes = renderedNodes.filter(
+      (node) => getComputedStyle(node).visibility !== "hidden",
+    );
+    const visibleNodeWithContentCount = visibleNodes.filter(
+      (node) => (node.textContent ?? "").trim().length > 0,
+    ).length;
+    const firstNode = renderedNodes[0] ?? null;
     return {
       viewportDomAnchorCount: Number(
         root.getAttribute(
@@ -1261,7 +1283,13 @@ async function readViewportDomResidencyState(
       domIslandCount: Number(
         root.getAttribute("data-scene-graph-renderer-dom-island-count") ?? "0",
       ),
-      renderedNodeCount: document.querySelectorAll(".react-flow__node").length,
+      renderedNodeCount: renderedNodes.length,
+      visibleNodeCount: visibleNodes.length,
+      visibleNodeWithContentCount,
+      firstNodeVisibility:
+        firstNode === null ? "" : getComputedStyle(firstNode).visibility,
+      firstNodeTextLength:
+        firstNode === null ? 0 : (firstNode.textContent ?? "").trim().length,
       sceneOnlyClickTargetSectionId:
         root.getAttribute(
           "data-scene-graph-renderer-scene-only-click-target-section-id",

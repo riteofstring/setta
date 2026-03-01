@@ -38,6 +38,12 @@ const NodeRenderer = ({
     return nodeIds.filter((nodeId) => domIslandSectionIds.has(nodeId));
   }, [domIslandSectionIds, nodeIds, renderSceneOnlySections]);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
+  let nodeVisibility: "visible" | "hidden" = "hidden";
+  if (readyToBeVisible || renderSceneOnlySections) {
+    // In scene mode, non-island sections may stay unmounted by design, so fitView
+    // readiness can remain pending and would otherwise hide the visible DOM islands.
+    nodeVisibility = "visible";
+  }
   const resizeObserverRef = useRef<ResizeObserver>();
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -68,7 +74,7 @@ const NodeRenderer = ({
           id={nodeId}
           isDraggable={!panActivationKeyPressed}
           resizeObserver={resizeObserver}
-          visibility={readyToBeVisible ? "visible" : "hidden"}
+          visibility={nodeVisibility}
         />
       ))}
     </div>
