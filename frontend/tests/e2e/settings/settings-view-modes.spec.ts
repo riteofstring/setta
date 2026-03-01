@@ -443,6 +443,60 @@ test("scene graph rollout keeps non-target non-settings projects default-off", a
   }
 });
 
+test("scene graph explicit enabled override keeps non-target rollout reason as none", async ({
+  page,
+}) => {
+  let isolatedProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  try {
+    await ensureAppReady(page);
+    isolatedProjectContext = await openIsolatedProject(page);
+    await page.evaluate(() => {
+      localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+      localStorage.setItem("setta.sceneGraphRenderer.backend", "auto");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+      localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+      localStorage.removeItem(
+        "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+      );
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const labels = await readSceneGraphRendererPerfLabels(page);
+    expect(labels.enabled).toBe(true);
+    expect(labels.rolloutDefaultOn).toBe(false);
+    expect(labels.rolloutDefaultOnReason).toBe("none");
+    expect(labels.hasEnabledStorageOverride).toBe(true);
+    expect(labels.requestedBackend).toBe("auto");
+    expect(["webgpu", "webgl", "dom"]).toContain(labels.resolvedBackend);
+    expect(labels.resolutionReason).not.toBe("renderer_disabled");
+  } finally {
+    await page.evaluate(() => {
+      localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+      localStorage.removeItem("setta.sceneGraphRenderer.backend");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+      localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+      localStorage.removeItem(
+        "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+      );
+    });
+    await cleanupIsolatedProject(page, isolatedProjectContext);
+  }
+});
+
 test("settings all-settings flow exposes scene-graph layer snapshot metadata when active", async ({
   page,
 }) => {
