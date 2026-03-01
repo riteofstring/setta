@@ -205,7 +205,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
               className="border-b border-setta-200/70 last:border-b-0 dark:border-setta-800/70"
             >
               <Accordion.Header>
-                <Accordion.Trigger className="group flex w-full items-center justify-between gap-2 py-2 pl-1.5 pr-2.5 text-left transition-colors hover:bg-setta-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/60 [&[data-state=open]_.project-llm-settings-api-key-chevron]:rotate-180">
+                <Accordion.Trigger className="group flex w-full cursor-pointer items-center justify-between gap-2 py-2 pl-1.5 pr-2.5 text-left transition-colors hover:bg-setta-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/60 [&[data-state=open]_.project-llm-settings-api-key-chevron]:rotate-180">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
                       {entry.envKey}

@@ -8,6 +8,7 @@ import {
 } from "plugins/runtime";
 import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
+import { IoMdGitBranch } from "react-icons/io";
 import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
 import {
   MdBugReport,
@@ -25,6 +26,7 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -42,7 +44,6 @@ import {
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
 import { AppConfigPane } from "./App/AppConfigPane";
-import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
@@ -102,6 +103,12 @@ export function Overview() {
     ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
+  }
+  if (
+    showLLMTabs &&
+    selectedTabName === OverviewTabNameEnum.ProjectAISettings
+  ) {
+    effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
   }
   if (
     !showFileBrowserTab &&
@@ -197,7 +204,7 @@ export function Overview() {
             {...commonProps}
             data-testid="overview-tab-git"
             {...getFloatingBoxHandlers({ content: "Git" })}
-            icon={<RiGitCommitLine size={18} />}
+            icon={<IoMdGitBranch size={18} />}
           />
         )}
         {showWatchCodeTab && (
@@ -237,31 +244,15 @@ export function Overview() {
           {...commonProps}
           data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
-          icon={<MdNotificationsNone size={20} />}
-        />
-        <TabButton<OverviewTabKey>
-          tabName={OverviewTabNameEnum.BackendLogs}
-          {...commonProps}
-          data-testid="overview-tab-backend-logs"
-          {...getFloatingBoxHandlers({ content: "Backend Logs" })}
           icon={
             <div className="relative">
-              <MdBugReport size={20} />
+              <MdNotificationsNone size={20} />
               {hasUnreadHighSeverityBackendLogs && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
               )}
             </div>
           }
         />
-        {showLLMTabs && (
-          <TabButton<OverviewTabKey>
-            tabName={OverviewTabNameEnum.ProjectAISettings}
-            {...commonProps}
-            data-testid="overview-tab-project-ai-settings"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
-            icon={<MdOutlineSmartToy size={20} />}
-          />
-        )}
         <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
@@ -423,7 +414,11 @@ function TabContent({
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:
-      return <BackendLogEventsArea />;
+      return (
+        <NotificationsArea
+          initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
+        />
+      );
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
     case OverviewTabNameEnum.ProjectAISettings:

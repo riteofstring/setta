@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IoMdGitBranch } from "react-icons/io";
 import { res200 } from "utils/endpointUtils";
 import { route_get_backend_init_status } from "utils/generatedEndpoints";
 
@@ -37,6 +38,10 @@ export function WorktreeHint() {
       data-testid="worktree-hint"
     >
       <div className="hidden items-center gap-2 lg:flex">
+        <IoMdGitBranch
+          aria-hidden="true"
+          className="h-3.5 w-3.5 text-setta-400 dark:text-setta-500"
+        />
         <p
           className="text-[11px] font-medium text-setta-400 dark:text-setta-500"
           title={worktreeName}
