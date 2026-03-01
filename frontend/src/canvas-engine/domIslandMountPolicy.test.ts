@@ -112,6 +112,32 @@ describe("resolveDomIslandMountPolicy", () => {
     expect(retentionExpiryBySectionId.has("retain-c")).toBe(true);
     expect(retentionExpiryBySectionId.has("retain-d")).toBe(true);
   });
+
+  it("keeps mounted results bounded for very large previous mount sets", () => {
+    const maxRetainedSections = 96;
+    const previousMountedSectionIds = Array.from(
+      { length: 5000 },
+      (_value, index) => `section-${index}`,
+    );
+    const retentionExpiryBySectionId = new Map<string, number>();
+
+    const result = resolveDomIslandMountPolicy({
+      activeSectionIds: [],
+      viewportSectionIds: [],
+      previousMountedSectionIds,
+      retentionExpiryBySectionId,
+      nowMs: 1000,
+      retentionMs: 280,
+      maxRetainedSections,
+      hasRectForSection: () => true,
+      sortSectionIds: (sectionIds: string[]) => sectionIds.sort(),
+    });
+
+    expect(result.keepMountedSectionIdSet.size).toBe(0);
+    expect(result.retainedSectionCount).toBe(maxRetainedSections);
+    expect(result.mountedSectionIds.length).toBe(maxRetainedSections);
+    expect(retentionExpiryBySectionId.size).toBe(maxRetainedSections);
+  });
 });
 
 describe("getNextDomIslandRetentionDelayMs", () => {
