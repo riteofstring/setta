@@ -121,9 +121,26 @@ describe("SectionHeader diagnostics badges", () => {
   };
 
   beforeEach(() => {
+    const viewModeId = "view-mode-1";
     const projectConfig = createProjectConfig({
       id: "project-1",
       sectionVariantMap: { [sectionId]: variantId },
+      activeViewModeId: viewModeId,
+      viewModes: {
+        [viewModeId]: {
+          id: viewModeId,
+          name: "Default",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: { [sectionId]: true },
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {
+            [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+          },
+        },
+      },
       topLevelSections: {
         [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
       },
@@ -148,7 +165,7 @@ describe("SectionHeader diagnostics badges", () => {
     resetProjectStores();
   });
 
-  function renderHeader() {
+  function renderHeader({ isUserView = true }: { isUserView?: boolean } = {}) {
     const state = useProjectState.getState();
     expect(state.projectConfig.sectionVariantMap[sectionId]).toBe(variantId);
     return renderToStaticMarkup(
@@ -157,7 +174,7 @@ describe("SectionHeader diagnostics badges", () => {
         isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
-        isUserView={true}
+        isUserView={isUserView}
         isRoot={false}
         hasSectionStyleTheme={false}
       />,
@@ -220,6 +237,13 @@ describe("SectionHeader diagnostics badges", () => {
     const markup = renderHeader();
 
     expect(markup).toContain("Color tag: #ff0000");
+  });
+
+  it("renders header controls without the legacy trailing wrapper", () => {
+    const markup = renderHeader({ isUserView: false });
+
+    expect(markup).not.toContain("z-10 ml-auto flex items-center");
+    expect(markup).toContain("gg-lock-unlock");
   });
 });
 

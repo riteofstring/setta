@@ -124,6 +124,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     : "text-setta-500 hover:text-blue-500 dark:hover:text-blue-500";
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
+  const argsIconButtonBaseClassName = `nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`;
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
 
@@ -359,109 +360,85 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   }
 
   return (
-    <>
+    <section
+      className={`section-args z-10 ${
+        isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
+      } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBgColorClassName} ${argsBorderColorClassName}`}
+      ref={controlsRef}
+    >
       <section
-        className={`section-args z-10 ${
-          isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
-        } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBgColorClassName} ${argsBorderColorClassName}`}
-        ref={controlsRef}
+        className={`ml-1 flex flex-wrap items-center gap-1 ${
+          isCallableSection ? "py-1" : ""
+        }`}
       >
-        <article
-          className={`flex flex-wrap items-center ${
-            isCallableSection ? "py-1" : ""
-          }`}
+        <h3
+          className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
         >
-          <section className="ml-1 flex items-center gap-1">
-            <h3
-              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
-            >
-              Args
-            </h3>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
-                const payload = {
-                  projectConfigId: getCurrProjectConfigId(),
-                  sectionId,
-                };
-                void route_delete_kwarg(payload);
-              }}
-              tabIndex={0}
-              disabled={kwargButtonsDisabled}
-              aria-label="Remove arg"
-              {...getFloatingBoxHandlers({ content: "Remove arg" })}
-            >
-              <i
-                className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
-                const payload = {
-                  projectConfigId: getCurrProjectConfigId(),
-                  sectionId,
-                };
-                void route_add_kwarg(payload);
-              }}
-              tabIndex={0}
-              disabled={kwargButtonsDisabled}
-              aria-label="Add arg"
-              {...getFloatingBoxHandlers({ content: "Add arg" })}
-            >
-              <i
-                className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
+          Args
+        </h3>
+        <button
+          className={`${argsIconButtonBaseClassName} gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
+          onClick={() => {
+            const payload = {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+            };
+            void route_delete_kwarg(payload);
+          }}
+          tabIndex={0}
+          disabled={kwargButtonsDisabled}
+          aria-label="Remove arg"
+          {...getFloatingBoxHandlers({ content: "Remove arg" })}
+        />
+        <button
+          className={`${argsIconButtonBaseClassName} gg-math-plus ${argsIconGlyphColorClassName}`}
+          onClick={() => {
+            const payload = {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+            };
+            void route_add_kwarg(payload);
+          }}
+          tabIndex={0}
+          disabled={kwargButtonsDisabled}
+          aria-label="Add arg"
+          {...getFloatingBoxHandlers({ content: "Add arg" })}
+        />
 
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickPinParam}
-              tabIndex={0}
-              disabled={pinParamsDisabled}
-              aria-label={pinButtonLabel}
-              {...getFloatingBoxHandlers({ content: pinButtonLabel })}
-            >
-              <i
-                className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickConvertToEdgeInputs}
-              tabIndex={0}
-              disabled={convertToEdgeDisabled}
-              aria-disabled={convertToEdgeDisabled}
-              aria-label={convertToEdgeAriaLabel}
-              {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
-            >
-              <i
-                className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickDeleteSelectedKwargs}
-              tabIndex={0}
-              disabled={deleteSelectedDisabled}
-              aria-disabled={deleteSelectedDisabled}
-              aria-label="Delete selected args"
-              {...getFloatingBoxHandlers({ content: "Delete selected args" })}
-            >
-              <i
-                className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-          </section>
-        </article>
-
-        <ParamFilter
-          sectionId={sectionId}
-          includeCallablePadding={isCallableSection}
-          hasSectionStyleTheme={hasSectionStyleTheme}
+        <button
+          className={`${argsIconButtonBaseClassName} gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
+          onClick={onClickPinParam}
+          tabIndex={0}
+          disabled={pinParamsDisabled}
+          aria-label={pinButtonLabel}
+          {...getFloatingBoxHandlers({ content: pinButtonLabel })}
+        />
+        <button
+          className={`${argsIconButtonBaseClassName} ${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
+          onClick={onClickConvertToEdgeInputs}
+          tabIndex={0}
+          disabled={convertToEdgeDisabled}
+          aria-disabled={convertToEdgeDisabled}
+          aria-label={convertToEdgeAriaLabel}
+          {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
+        />
+        <button
+          className={`${argsIconButtonBaseClassName} gg-close !scale-50 ${argsIconGlyphColorClassName}`}
+          onClick={onClickDeleteSelectedKwargs}
+          tabIndex={0}
+          disabled={deleteSelectedDisabled}
+          aria-disabled={deleteSelectedDisabled}
+          aria-label="Delete selected args"
+          {...getFloatingBoxHandlers({ content: "Delete selected args" })}
         />
       </section>
-    </>
+
+      <ParamFilter
+        sectionId={sectionId}
+        includeCallablePadding={isCallableSection}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </section>
   );
 }
 
@@ -510,27 +487,23 @@ function ParamFilter({
   }
 
   return (
-    <search
-      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${
-        includeCallablePadding ? "py-1" : ""
+    <input
+      id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+      data-param-filter-icon-host="true"
+      value={paramFilterValue}
+      className={`nodrag mx-2 min-w-8 flex-1 cursor-auto truncate border-solid border-transparent bg-[linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color)),linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color)),linear-gradient(var(--setta-param-filter-icon-color),var(--setta-param-filter-icon-color))] bg-no-repeat py-1 pl-3 text-xs outline-0 [--setta-param-filter-icon-color:hsl(220,_25%,_67%)] [background-position:0.15rem_calc(50%-4px),0.35rem_50%,0.55rem_calc(50%+4px)] [background-size:12px_2px,8px_2px,4px_2px] [border-width:0_0_1px_0] dark:[--setta-param-filter-icon-color:hsl(219,_25%,_34%)] ${sortIconColorClassName} ${inputColorClassName} ${
+        includeCallablePadding ? "my-1" : ""
       }`}
-    >
-      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
-      <input
-        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-        value={paramFilterValue}
-        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
-        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-        tabIndex={0}
-        onChange={onSearchChange}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            e.currentTarget.blur();
-            // focusOnSection(null, sectionId, false);
-          }
-        }}
-      />
-    </search>
+      placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+      tabIndex={0}
+      onChange={onSearchChange}
+      onKeyDown={(e) => {
+        if (e.code === "Escape") {
+          e.currentTarget.blur();
+          // focusOnSection(null, sectionId, false);
+        }
+      }}
+    />
   );
 }
 
