@@ -16,10 +16,12 @@ const SCENE_GRAPH_RENDERER_DEFAULT_ON_SURFACES: readonly SceneGraphRendererRollo
 export function isSceneGraphRendererDefaultOnSurface(
   surface: SceneGraphRendererRolloutSurface,
   rolloutProjectConfigIds: readonly string[] = [],
+  rolloutProjectConfigNames: readonly string[] = [],
 ): boolean {
   if (
-    SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES.has(
+    isSceneGraphRendererDefaultOnProjectConfigName(
       surface.projectConfigName,
+      rolloutProjectConfigNames,
     )
   ) {
     return true;
@@ -49,6 +51,7 @@ export function resolveSceneGraphRendererRolloutFlags(input: {
   surface: SceneGraphRendererRolloutSurface;
   hasEnabledStorageOverride: boolean;
   rolloutProjectConfigIds: readonly string[];
+  rolloutProjectConfigNames: readonly string[];
 }): SceneGraphRendererFlags {
   if (input.hasEnabledStorageOverride) {
     return input.persistedFlags;
@@ -57,6 +60,7 @@ export function resolveSceneGraphRendererRolloutFlags(input: {
     !isSceneGraphRendererDefaultOnSurface(
       input.surface,
       input.rolloutProjectConfigIds,
+      input.rolloutProjectConfigNames,
     )
   ) {
     return input.persistedFlags;
@@ -76,6 +80,23 @@ function isSceneGraphRendererDefaultOnProjectConfigId(
   }
   for (const candidateProjectConfigId of rolloutProjectConfigIds) {
     if (candidateProjectConfigId === projectConfigId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isSceneGraphRendererDefaultOnProjectConfigName(
+  projectConfigName: string,
+  rolloutProjectConfigNames: readonly string[],
+): boolean {
+  if (
+    SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES.has(projectConfigName)
+  ) {
+    return true;
+  }
+  for (const candidateProjectConfigName of rolloutProjectConfigNames) {
+    if (candidateProjectConfigName === projectConfigName) {
       return true;
     }
   }

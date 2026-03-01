@@ -12,6 +12,8 @@ const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_IDS_KEY =
   "setta.sceneGraphRenderer.rolloutProjectConfigIds";
+const SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_NAMES_KEY =
+  "setta.sceneGraphRenderer.rolloutProjectConfigNames";
 
 test("settings view tabs filter sections and minimap", async ({ page }) => {
   await page.addInitScript(() => {
@@ -202,6 +204,9 @@ test("scene graph canary allowlist enables non-settings project ids and keeps ex
         localStorage.removeItem("setta.sceneGraphRenderer.backend");
         localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
         localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+        localStorage.removeItem(
+          "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+        );
         localStorage.setItem(
           rolloutProjectConfigIdsKey,
           JSON.stringify([projectConfigId]),
@@ -252,11 +257,96 @@ test("scene graph canary allowlist enables non-settings project ids and keeps ex
   } finally {
     await page.evaluate((rolloutProjectConfigIdsKey) => {
       localStorage.removeItem(rolloutProjectConfigIdsKey);
+      localStorage.removeItem(
+        "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+      );
       localStorage.removeItem("setta.sceneGraphRenderer.enabled");
       localStorage.removeItem("setta.sceneGraphRenderer.backend");
       localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
       localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
     }, SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_IDS_KEY);
+    await cleanupIsolatedProject(page, isolatedProjectContext);
+  }
+});
+
+test("scene graph canary allowlist enables non-settings project names and keeps explicit kill switch", async ({
+  page,
+}) => {
+  let isolatedProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  try {
+    await ensureAppReady(page);
+    isolatedProjectContext = await openIsolatedProject(page);
+    const projectConfigName = new URL(page.url()).pathname
+      .split("/")
+      .filter(Boolean)[0];
+    if (!projectConfigName) {
+      throw new Error("Missing project config name from URL.");
+    }
+    await page.evaluate(
+      ({ projectConfigName, rolloutProjectConfigNamesKey }) => {
+        localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+        localStorage.removeItem("setta.sceneGraphRenderer.backend");
+        localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+        localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+        localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+        localStorage.setItem(
+          rolloutProjectConfigNamesKey,
+          JSON.stringify([projectConfigName]),
+        );
+      },
+      {
+        projectConfigName,
+        rolloutProjectConfigNamesKey:
+          SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_NAMES_KEY,
+      },
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const canaryLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(canaryLabels.enabled).toBe(true);
+    expect(canaryLabels.requestedBackend).toBe("auto");
+    expect(["webgpu", "webgl", "dom"]).toContain(canaryLabels.resolvedBackend);
+
+    await page.evaluate(() => {
+      localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(killSwitchLabels.enabled).toBe(false);
+    expect(killSwitchLabels.resolvedBackend).toBe("dom");
+    expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
+  } finally {
+    await page.evaluate((rolloutProjectConfigNamesKey) => {
+      localStorage.removeItem(rolloutProjectConfigNamesKey);
+      localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+      localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+      localStorage.removeItem("setta.sceneGraphRenderer.backend");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+    }, SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_NAMES_KEY);
     await cleanupIsolatedProject(page, isolatedProjectContext);
   }
 });

@@ -5,6 +5,7 @@ import {
   hasSceneGraphRendererEnabledStorageOverride,
   readSceneGraphRendererFlags,
   readSceneGraphRendererRolloutProjectConfigIds,
+  readSceneGraphRendererRolloutProjectConfigNames,
   writeSceneGraphRendererFlags,
 } from "./flags";
 
@@ -130,6 +131,29 @@ describe("scene graph renderer flags", () => {
         createMemoryStorage({
           [SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds]:
             "config-a,config-b",
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("parses rollout project config name allowlist as strict json array", () => {
+    // Project-name allowlists must follow the same strict typed parsing rules.
+    expect(
+      readSceneGraphRendererRolloutProjectConfigNames(createMemoryStorage()),
+    ).toEqual([]);
+    expect(
+      readSceneGraphRendererRolloutProjectConfigNames(
+        createMemoryStorage({
+          [SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigNames]:
+            JSON.stringify([" chief_quick ", "metrics", "chief_quick", 7]),
+        }),
+      ),
+    ).toEqual(["chief_quick", "metrics"]);
+    expect(
+      readSceneGraphRendererRolloutProjectConfigNames(
+        createMemoryStorage({
+          [SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigNames]:
+            "chief_quick,metrics",
         }),
       ),
     ).toEqual([]);

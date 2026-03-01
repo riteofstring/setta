@@ -19,6 +19,8 @@ export const SCENE_GRAPH_RENDERER_FLAG_KEYS = {
   domIslandRadius: "setta.sceneGraphRenderer.domIslandRadius",
   debugOverlay: "setta.sceneGraphRenderer.debugOverlay",
   rolloutProjectConfigIds: "setta.sceneGraphRenderer.rolloutProjectConfigIds",
+  rolloutProjectConfigNames:
+    "setta.sceneGraphRenderer.rolloutProjectConfigNames",
 } as const;
 
 type SceneGraphRendererStorageAdapter = {
@@ -53,7 +55,8 @@ export function isSceneGraphRendererFlagStorageKey(
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.backend ||
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.domIslandRadius ||
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.debugOverlay ||
-    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds
+    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds ||
+    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigNames
   );
 }
 
@@ -62,32 +65,19 @@ export function readSceneGraphRendererRolloutProjectConfigIds(
     SCENE_GRAPH_RENDERER_STORAGE_NAMESPACE,
   ),
 ): string[] {
-  const rawValue = storage.getItem(
-    SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds,
+  return parseStringArrayStorageFlag(
+    storage.getItem(SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds),
   );
-  if (rawValue === null) {
-    return [];
-  }
-  try {
-    const parsedValue = JSON.parse(rawValue);
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-    const ids = new Set<string>();
-    for (const entry of parsedValue) {
-      if (typeof entry !== "string") {
-        continue;
-      }
-      const trimmedEntry = entry.trim();
-      if (trimmedEntry.length === 0) {
-        continue;
-      }
-      ids.add(trimmedEntry);
-    }
-    return Array.from(ids);
-  } catch {
-    return [];
-  }
+}
+
+export function readSceneGraphRendererRolloutProjectConfigNames(
+  storage: SceneGraphRendererStorageAdapter = getSafeLocalStorageAdapter(
+    SCENE_GRAPH_RENDERER_STORAGE_NAMESPACE,
+  ),
+): string[] {
+  return parseStringArrayStorageFlag(
+    storage.getItem(SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigNames),
+  );
 }
 
 export function readSceneGraphRendererFlags(
@@ -165,6 +155,32 @@ function parseBooleanStorageFlag(rawValue: string | null, fallback: boolean) {
     return false;
   }
   return fallback;
+}
+
+function parseStringArrayStorageFlag(rawValue: string | null): string[] {
+  if (rawValue === null) {
+    return [];
+  }
+  try {
+    const parsedValue = JSON.parse(rawValue);
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+    const entries = new Set<string>();
+    for (const entry of parsedValue) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+      const trimmedEntry = entry.trim();
+      if (trimmedEntry.length === 0) {
+        continue;
+      }
+      entries.add(trimmedEntry);
+    }
+    return Array.from(entries);
+  } catch {
+    return [];
+  }
 }
 
 function parseBackendStorageFlag(

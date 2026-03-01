@@ -66,6 +66,21 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("enables allowlisted non-settings project config names", () => {
+    // Project-class rollout canary can target exact project config names.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "other-project-config-id",
+          projectConfigName: "chief_quick",
+          activeViewModeName: "Overview",
+        }),
+        [],
+        ["chief_quick"],
+      ),
+    ).toBe(true);
+  });
+
   it("does not default-enable unrelated surfaces", () => {
     // Controlled rollout must not leak to non-target project IDs or names.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
@@ -77,6 +92,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
+      rolloutProjectConfigNames: [],
     });
 
     expect(effectiveFlags.enabled).toBe(false);
@@ -93,6 +109,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
+      rolloutProjectConfigNames: [],
     });
 
     expect(effectiveFlags).toEqual({
@@ -114,6 +131,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
+      rolloutProjectConfigNames: [],
     });
 
     expect(effectiveFlags.enabled).toBe(true);
@@ -130,6 +148,24 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: ["canary-project-config-id"],
+      rolloutProjectConfigNames: [],
+    });
+
+    expect(effectiveFlags.enabled).toBe(true);
+  });
+
+  it("default-enables allowlisted non-settings canary project names", () => {
+    // Explicit projectConfigName canary allowlist should unlock non-settings rollout.
+    const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
+      persistedFlags: createFlags({ enabled: false, backend: "auto" }),
+      surface: createSurface({
+        projectConfigId: "other-project-config-id",
+        projectConfigName: "chief_quick",
+        activeViewModeName: "Overview",
+      }),
+      hasEnabledStorageOverride: false,
+      rolloutProjectConfigIds: [],
+      rolloutProjectConfigNames: ["chief_quick"],
     });
 
     expect(effectiveFlags.enabled).toBe(true);
@@ -146,6 +182,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: true,
       rolloutProjectConfigIds: ["canary-project-config-id"],
+      rolloutProjectConfigNames: ["chief_quick"],
     });
 
     expect(effectiveFlags.enabled).toBe(false);
