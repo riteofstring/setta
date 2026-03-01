@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     MoveSectionsRequest,
     RedoRequest,
     SetCodeSectionAttachedTerminalRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetSectionTagColorRequest,
     SetViewportRequest,
     UndoRequest,
@@ -256,6 +257,102 @@ async def test_project_config_only_history_entry_copies_only_project_config() ->
             target_config_id
         ].name = "project-config-only-history-target"
         assert backend_before.projectConfigs[target_config_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_set_project_config_codegen_targets_history_uses_scoped_project_config_copy() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        expected_section_scope = (
+            manager._get_codegen_singleton_section_ids_for_history_entry(
+                project_config_id
+            )
+        )
+        history_calls: list[dict[str, object]] = []
+        original_add_history_entry = manager.add_new_history_entry
+
+        def record_add_new_history_entry(*args, **kwargs):
+            history_calls.append(dict(kwargs))
+            return original_add_history_entry(*args, **kwargs)
+
+        manager.add_new_history_entry = (  # type: ignore[method-assign]
+            record_add_new_history_entry
+        )
+        try:
+            await manager.set_project_config_codegen_targets(
+                SetProjectConfigCodegenTargetsRequest(
+                    projectConfigId=project_config_id,
+                    codegenTargets=[],
+                )
+            )
+        finally:
+            manager.add_new_history_entry = original_add_history_entry  # type: ignore[method-assign]
+
+        assert 1 == len(history_calls)
+        history_call = history_calls[0]
+        assert project_config_id == history_call.get("project_config_id")
+        assert history_call.get("include_project_config") is True
+        section_scope = history_call.get("section_impl_only_ids")
+        assert isinstance(section_scope, set)
+        assert section_scope == expected_section_scope
+
+
+@pytest.mark.asyncio
+async def test_compare_and_set_python_codegen_enabled_history_uses_empty_scoped_copy() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        await manager.set_project_config_codegen_targets(
+            SetProjectConfigCodegenTargetsRequest(
+                projectConfigId=project_config_id,
+                codegenTargets=[],
+            )
+        )
+        expected_section_scope = (
+            manager._get_codegen_singleton_section_ids_for_history_entry(
+                project_config_id
+            )
+        )
+        assert expected_section_scope == set()
+
+        history_calls: list[dict[str, object]] = []
+        original_add_history_entry = manager.add_new_history_entry
+
+        def record_add_new_history_entry(*args, **kwargs):
+            history_calls.append(dict(kwargs))
+            return original_add_history_entry(*args, **kwargs)
+
+        manager.add_new_history_entry = (  # type: ignore[method-assign]
+            record_add_new_history_entry
+        )
+        try:
+            old_value, new_value = await manager.compare_and_set_python_codegen_enabled(
+                project_config_id,
+                True,
+            )
+        finally:
+            manager.add_new_history_entry = original_add_history_entry  # type: ignore[method-assign]
+
+        assert old_value is False
+        assert new_value is True
+        assert 1 == len(history_calls)
+        history_call = history_calls[0]
+        assert project_config_id == history_call.get("project_config_id")
+        assert history_call.get("include_project_config") is True
+        section_scope = history_call.get("section_impl_only_ids")
+        assert isinstance(section_scope, set)
+        assert section_scope == expected_section_scope
 
 
 @pytest.mark.asyncio

@@ -2686,7 +2686,7 @@ class BaseProjectManager(ABC):
         self, x: SetProjectConfigCodegenTargetsRequest
     ):
         """Update the codegen targets for a project configuration."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_codegen_target_scoped_history_entry(x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_project_config_codegen_targets(
             project_state=project_state,
@@ -2772,6 +2772,19 @@ class BaseProjectManager(ABC):
                     Position(),
                 )
 
+    def _add_codegen_target_scoped_history_entry(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
+        )
+        self.add_new_history_entry(
+            project_config_id=project_config_id,
+            include_project_config=True,
+            section_impl_only_ids=codegen_singleton_section_ids,
+        )
+
     @enqueue_method
     async def compare_and_set_python_codegen_enabled(
         self,
@@ -2821,7 +2834,7 @@ class BaseProjectManager(ABC):
                 for target in existing_targets
                 if target.language != ProjectCodegenLanguage.python
             ]
-        self.add_new_history_entry(project_config_id=project_config_id)
+        self._add_codegen_target_scoped_history_entry(project_config_id)
         self._apply_project_config_codegen_targets(
             project_state=project_state,
             codegen_targets=next_targets,
