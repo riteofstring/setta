@@ -3853,7 +3853,7 @@ class BaseProjectManager(ABC):
                 x.sectionId,
                 x.terminalSectionId,
             )
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,
@@ -3929,7 +3929,7 @@ class BaseProjectManager(ABC):
             project_state,
             sectionId,
         )
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,

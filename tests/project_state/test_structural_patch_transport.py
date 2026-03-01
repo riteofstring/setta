@@ -616,6 +616,115 @@ async def test_code_section_terminal_routes_use_structural_patch_transport() -> 
 
 
 @pytest.mark.asyncio
+async def test_code_section_terminal_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_code_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Code,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        create_terminal_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Terminal,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        code_section_id = create_code_response.sectionId
+        terminal_section_id = create_terminal_response.sectionId
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+
+            before_attach_refresh_calls = refresh_calls
+            before_attach_scheduled_count = len(scheduled_deferred_refreshes)
+            await manager.set_code_section_attached_terminal(
+                SetCodeSectionAttachedTerminalRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=code_section_id,
+                    terminalSectionId=terminal_section_id,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_attach_refresh_calls
+            assert (
+                len(scheduled_deferred_refreshes) == before_attach_scheduled_count + 1
+            )
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+
+            before_detach_refresh_calls = refresh_calls
+            before_detach_scheduled_count = len(scheduled_deferred_refreshes)
+            await manager.set_code_section_attached_terminal(
+                SetCodeSectionAttachedTerminalRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=code_section_id,
+                    terminalSectionId=None,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_detach_refresh_calls
+            assert (
+                len(scheduled_deferred_refreshes) == before_detach_scheduled_count + 1
+            )
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+
+            before_ensure_refresh_calls = refresh_calls
+            before_ensure_scheduled_count = len(scheduled_deferred_refreshes)
+            terminal_id = await manager.ensure_code_section_attached_terminal_for_run(
+                project_config_id,
+                code_section_id,
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+            assert terminal_id is not None
+            assert refresh_calls == before_ensure_refresh_calls
+            assert (
+                len(scheduled_deferred_refreshes) == before_ensure_scheduled_count + 1
+            )
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+
+@pytest.mark.asyncio
 async def test_move_sections_uses_structural_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
