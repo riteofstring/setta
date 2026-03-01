@@ -172,5 +172,7 @@ describe("DictArea layout", () => {
     expect(markup).not.toContain('aria-label="Pin selected args"><i');
     expect(markup).not.toContain('aria-label="Convert to edge connectors"><i');
     expect(markup).not.toContain('aria-label="Delete selected args"><i');
+    expect(markup).toContain('data-param-filter-icon-host="true"');
+    expect(markup).not.toContain('<i class="gg-sort-az');
   });
 });

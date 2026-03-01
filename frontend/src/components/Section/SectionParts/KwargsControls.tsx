@@ -488,11 +488,11 @@ function ParamFilter({
 
   return (
     <search
-      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${
+      data-param-filter-icon-host="true"
+      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center bg-[linear-gradient(currentColor,currentColor)] bg-[length:8px_2px] bg-[position:0.35rem_center] bg-no-repeat before:pointer-events-none before:absolute before:left-[0.15rem] before:top-1/2 before:h-[2px] before:w-[12px] before:-translate-y-[4px] before:rounded-[4px] before:bg-current before:content-[''] after:pointer-events-none after:absolute after:left-[0.55rem] after:top-1/2 after:h-[2px] after:w-[4px] after:translate-y-[4px] after:rounded-[4px] after:bg-current after:content-[''] ${sortIconColorClassName} ${
         includeCallablePadding ? "py-1" : ""
       }`}
     >
-      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
       <input
         id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
         value={paramFilterValue}

@@ -67,6 +67,9 @@ test("all settings DOM stays within flattening guardrails", async ({
     const comboboxChevronButtons = Array.from(
       document.querySelectorAll('button[data-combobox-chevron-host="true"]'),
     );
+    const paramFilterIconHosts = Array.from(
+      document.querySelectorAll('search[data-param-filter-icon-host="true"]'),
+    );
     const legacyParamGroupOuterWrappers = Array.from(
       document.querySelectorAll("div"),
     ).filter((el) => {
@@ -276,6 +279,22 @@ test("all settings DOM stays within flattening guardrails", async ({
       flattenedComboboxRightIconHostCount: comboboxChevronButtons.filter(
         (el) => el.children.length === 0,
       ).length,
+      legacyParamFilterIconWrapperCount: paramFilterIconHosts.filter((el) => {
+        const iconChildren = Array.from(el.children).filter(
+          (child) =>
+            child.tagName === "I" &&
+            Array.from(child.classList).includes("gg-sort-az"),
+        );
+        return iconChildren.length > 0;
+      }).length,
+      flattenedParamFilterIconHostCount: paramFilterIconHosts.filter((el) => {
+        const iconChildren = Array.from(el.children).filter(
+          (child) =>
+            child.tagName === "I" &&
+            Array.from(child.classList).includes("gg-sort-az"),
+        );
+        return iconChildren.length === 0;
+      }).length,
       legacySectionTitleWrapperCount: document.querySelectorAll(
         "header.section-title > div.relative.flex.min-w-0.flex-1.flex-col",
       ).length,
@@ -414,6 +433,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedComboboxRightButtonCount).toBeGreaterThan(0);
   expect(metrics.legacyComboboxRightIconWrapperCount).toBe(0);
   expect(metrics.flattenedComboboxRightIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyParamFilterIconWrapperCount).toBe(0);
+  expect(metrics.flattenedParamFilterIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacySectionTitleWrapperCount).toBe(0);
   expect(metrics.flattenedSectionTitleCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchWrapperCount).toBe(0);
