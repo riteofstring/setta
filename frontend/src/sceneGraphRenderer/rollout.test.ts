@@ -31,8 +31,8 @@ function createSurface(
 }
 
 describe("scene graph renderer rollout policy", () => {
-  it("marks the settings project as default-on across view modes", () => {
-    // Phase 6 expansion enables all settings tabs while keeping project scoping explicit.
+  it("keeps the settings project default-off across view modes", () => {
+    // Settings now stays DOM-first unless the renderer is explicitly allowlisted/overridden.
     expect(
       isSceneGraphRendererDefaultOnSurface(
         createSurface({
@@ -41,7 +41,7 @@ describe("scene graph renderer rollout policy", () => {
           activeViewModeName: "All Settings",
         }),
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isSceneGraphRendererDefaultOnSurface(
         createSurface({
@@ -50,7 +50,7 @@ describe("scene graph renderer rollout policy", () => {
           activeViewModeName: "Core",
         }),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("enables allowlisted non-settings project config ids", () => {
@@ -82,7 +82,7 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
-  it("reports settings project rollout reason as project-name default", () => {
+  it("reports none for settings project rollout reason without allowlists", () => {
     expect(
       resolveSceneGraphRendererRolloutDefaultOnReason(
         createSurface({
@@ -91,7 +91,7 @@ describe("scene graph renderer rollout policy", () => {
           activeViewModeName: "Core",
         }),
       ),
-    ).toBe("project_config_name_default");
+    ).toBe("none");
   });
 
   it("reports canary rollout reasons for project id and project name", () => {
@@ -147,8 +147,8 @@ describe("scene graph renderer rollout policy", () => {
     expect(effectiveFlags.enabled).toBe(false);
   });
 
-  it("default-enables renderer when no explicit enabled override exists", () => {
-    // Missing localStorage override should inherit rollout defaults for targeted settings surfaces.
+  it("keeps renderer disabled when no explicit enabled override exists", () => {
+    // Without rollout targets, missing localStorage overrides must stay disabled.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
       surface: createSurface({
@@ -161,16 +161,13 @@ describe("scene graph renderer rollout policy", () => {
       rolloutProjectConfigNames: [],
     });
 
-    expect(effectiveFlags).toEqual({
-      enabled: true,
-      backend: "auto",
-      domIslandRadius: 2,
-      debugOverlay: false,
-    });
+    expect(effectiveFlags).toEqual(
+      createFlags({ enabled: false, backend: "auto" }),
+    );
   });
 
-  it("default-enables settings core when no explicit enabled override exists", () => {
-    // Project-scoped rollout should apply to other settings tabs, not only All Settings.
+  it("default-enables settings only when explicitly canary-allowlisted by name", () => {
+    // Settings can still be targeted intentionally through rolloutProjectConfigNames.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
       surface: createSurface({
@@ -180,7 +177,7 @@ describe("scene graph renderer rollout policy", () => {
       }),
       hasEnabledStorageOverride: false,
       rolloutProjectConfigIds: [],
-      rolloutProjectConfigNames: [],
+      rolloutProjectConfigNames: ["settings"],
     });
 
     expect(effectiveFlags.enabled).toBe(true);

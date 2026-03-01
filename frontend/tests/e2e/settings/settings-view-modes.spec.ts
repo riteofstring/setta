@@ -93,8 +93,8 @@ test("settings all-settings flow exposes scene-graph renderer perf labels", asyn
 
   const labels = await readSceneGraphRendererPerfLabels(page);
   expect(labels.enabled).toBe(true);
-  expect(labels.rolloutDefaultOn).toBe(true);
-  expect(labels.rolloutDefaultOnReason).toBe("project_config_name_default");
+  expect(labels.rolloutDefaultOn).toBe(false);
+  expect(labels.rolloutDefaultOnReason).toBe("none");
   expect(labels.hasEnabledStorageOverride).toBe(true);
   expect(labels.requestedBackend).toBe("auto");
   expect(["webgpu", "webgl", "dom"]).toContain(labels.resolvedBackend);
@@ -107,11 +107,11 @@ test("settings all-settings flow exposes scene-graph renderer perf labels", asyn
   });
 });
 
-test("settings project defaults renderer on across tabs and keeps explicit kill switch", async ({
+test("settings project stays default-off across tabs and allows explicit opt-in", async ({
   page,
 }) => {
   await page.addInitScript(() => {
-    const initializedKey = "__setta_scene_graph_rollout_test_initialized";
+    const initializedKey = "__setta_scene_graph_default_off_test_initialized";
     if (sessionStorage.getItem(initializedKey) === "1") {
       return;
     }
@@ -120,6 +120,10 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
     localStorage.removeItem("setta.sceneGraphRenderer.backend");
     localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
     localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+    localStorage.removeItem("setta.sceneGraphRenderer.rolloutProjectConfigIds");
+    localStorage.removeItem(
+      "setta.sceneGraphRenderer.rolloutProjectConfigNames",
+    );
   });
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -142,14 +146,13 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
   });
 
   const rolloutLabels = await readSceneGraphRendererPerfLabels(page);
-  expect(rolloutLabels.enabled).toBe(true);
-  expect(rolloutLabels.rolloutDefaultOn).toBe(true);
-  expect(rolloutLabels.rolloutDefaultOnReason).toBe(
-    "project_config_name_default",
-  );
+  expect(rolloutLabels.enabled).toBe(false);
+  expect(rolloutLabels.rolloutDefaultOn).toBe(false);
+  expect(rolloutLabels.rolloutDefaultOnReason).toBe("none");
   expect(rolloutLabels.hasEnabledStorageOverride).toBe(false);
   expect(rolloutLabels.requestedBackend).toBe("auto");
-  expect(["webgpu", "webgl", "dom"]).toContain(rolloutLabels.resolvedBackend);
+  expect(rolloutLabels.resolvedBackend).toBe("dom");
+  expect(rolloutLabels.resolutionReason).toBe("renderer_disabled");
 
   const coreTab = page.getByRole("button", {
     name: "Core",
@@ -167,15 +170,16 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
     );
   });
   const rolloutCoreLabels = await readSceneGraphRendererPerfLabels(page);
-  expect(rolloutCoreLabels.enabled).toBe(true);
-  expect(rolloutCoreLabels.rolloutDefaultOn).toBe(true);
-  expect(rolloutCoreLabels.rolloutDefaultOnReason).toBe(
-    "project_config_name_default",
-  );
+  expect(rolloutCoreLabels.enabled).toBe(false);
+  expect(rolloutCoreLabels.rolloutDefaultOn).toBe(false);
+  expect(rolloutCoreLabels.rolloutDefaultOnReason).toBe("none");
   expect(rolloutCoreLabels.hasEnabledStorageOverride).toBe(false);
+  expect(rolloutCoreLabels.resolvedBackend).toBe("dom");
+  expect(rolloutCoreLabels.resolutionReason).toBe("renderer_disabled");
 
   await page.evaluate(() => {
-    localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+    localStorage.setItem("setta.sceneGraphRenderer.backend", "auto");
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -196,15 +200,14 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
     );
   });
 
-  const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
-  expect(killSwitchLabels.enabled).toBe(false);
-  expect(killSwitchLabels.rolloutDefaultOn).toBe(true);
-  expect(killSwitchLabels.rolloutDefaultOnReason).toBe(
-    "project_config_name_default",
-  );
-  expect(killSwitchLabels.hasEnabledStorageOverride).toBe(true);
-  expect(killSwitchLabels.resolvedBackend).toBe("dom");
-  expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
+  const optInLabels = await readSceneGraphRendererPerfLabels(page);
+  expect(optInLabels.enabled).toBe(true);
+  expect(optInLabels.rolloutDefaultOn).toBe(false);
+  expect(optInLabels.rolloutDefaultOnReason).toBe("none");
+  expect(optInLabels.hasEnabledStorageOverride).toBe(true);
+  expect(optInLabels.requestedBackend).toBe("auto");
+  expect(["webgpu", "webgl", "dom"]).toContain(optInLabels.resolvedBackend);
+  expect(optInLabels.resolutionReason).not.toBe("renderer_disabled");
 });
 
 test("scene graph canary allowlist enables non-settings project ids and keeps explicit kill switch", async ({

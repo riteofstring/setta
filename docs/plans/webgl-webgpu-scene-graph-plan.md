@@ -1,52 +1,66 @@
 # WebGPU/WebGL Scene-Graph Renderer Plan
 
 ## Goal
-- Deliver a fundamental frontend rendering architecture that keeps pan/zoom smooth on very large projects without interaction hitching.
-- Primary target: `Settings -> All Settings`.
-- Scope is frontend-only.
+- Preserve current UX and visual fidelity while improving rendering performance.
+- Optimize for all projects, including user-created projects with very large section/param counts.
+- Treat `Settings -> All Settings` as a stress benchmark, not as a product-specific rollout target.
+- Reach a state where `auto` can be default-on for supported environments across projects.
 
 ## Why This Path
-- Current bottleneck is browser display/compositing cost from moving very large interactive DOM trees.
-- WebGPU/WebGL moves motion-time rendering to a graphics pipeline where pan/zoom is a camera transform, not DOM layout/paint churn.
-- This is the highest-ceiling path for user-created large projects, not just one benchmark project.
+- Current bottlenecks are DOM layout/paint/compositing costs during pan/zoom and large-state updates.
+- WebGPU/WebGL can move motion-time rendering to a camera transform pipeline with lower per-frame DOM pressure.
+- This gives the highest ceiling for large graphs while keeping deterministic rendering behavior.
 
 ## Clarification: WebGPU/WebGL vs WASM
-- WebGPU/WebGL: rendering APIs (how pixels are drawn).
-- WASM: compute/runtime acceleration (how CPU-side logic runs).
-- WASM is optional in this plan for scene build/culling/indexing acceleration.
-- WASM alone is not sufficient to solve DOM/compositing bottlenecks.
+- WebGPU/WebGL: rendering APIs for drawing.
+- WASM: optional compute acceleration for CPU-side scene extraction/indexing.
+- WASM alone does not solve DOM/compositing bottlenecks.
+
+## Benchmark Strategy
+- Canonical stress benchmark: `Settings -> All Settings` (high section/param density).
+- Additional required benchmarks:
+  - synthetic large projects (section/param count sweeps),
+  - plugin-heavy and mixed-section projects,
+  - representative user-like project structures.
+- Benchmarks are for measurement only; rollout policy must not hardcode project names/classes as a product behavior.
 
 ## Platform Strategy
-- Backend priority:
-  - `WebGPU` when supported and stable.
-  - `WebGL2` fallback when WebGPU is unavailable.
-  - existing DOM renderer fallback when neither path is available or when unsupported content requires it.
-- Explicit runtime backend selection:
-  - `auto` (default)
-  - `webgpu`
-  - `webgl`
-  - `dom`
+- Backend priority in `auto`:
+  - `webgpu` when capability checks pass,
+  - `webgl` fallback,
+  - `dom` fallback when GPU paths are unavailable or parity gates are not met.
+- Explicit backend override remains available for debugging:
+  - `auto`, `webgpu`, `webgl`, `dom`.
 
 ## Scope
 - In scope:
-  - Pan/zoom, section shells, edges, selection visuals, minimap, hover highlights.
-  - DOM editing islands for active/nearby sections.
-  - Incremental rollout behind localStorage flags.
-- Out of scope for first release:
-  - Full replacement of all DOM editors/widgets.
-  - Backend changes.
-  - Broad UX changes requiring extra clicks to edit.
+  - pan/zoom and viewport motion path,
+  - section/edge rendering performance,
+  - interaction parity (selection, hover, focus, edit entry),
+  - deterministic fallback/compatibility gating,
+  - automated perf + parity verification.
+- Out of scope:
+  - backend API changes,
+  - behavior changes that alter user workflows,
+  - "ship fast" shortcuts that reduce visual or interaction fidelity.
+
+## Product Constraints
+- No visible content loss in normal editing workflows (no empty-rectangle regressions).
+- No extra click required to edit.
+- No keyboard/navigation/focus regressions.
+- No project-specific assumptions in the shipped default behavior.
 
 ## Hard Requirements
-- No hitching on interaction start/stop from renderer switching.
-- No extra click required to edit after pan/zoom settles.
-- Deterministic geometry and render decisions from source-of-truth state (no keyword/heuristic fallbacks).
-- Preserve behavior parity for selection, keyboard navigation, and editing entry points.
+- UX parity is mandatory while optimizing performance.
+- Renderer switching must not introduce start/stop hitch spikes.
+- Geometry/render decisions must remain deterministic from source-of-truth state.
+- Any non-parity section type must remain DOM-rendered until parity is proven.
+- Default-on is allowed only after benchmark-suite performance targets and parity gates both pass.
 
 ## High-Level Architecture
 
 ### 1) Renderer Abstraction Layer
-- Introduce `RendererBackend` interface:
+- `RendererBackend` interface:
   - `init(canvas, capabilities)`
   - `render(snapshot, camera, frameState)`
   - `updateResources(diff)`
@@ -54,156 +68,140 @@
 - Implementations:
   - `WebGpuBackend`
   - `WebGlBackend`
-  - `DomBackendAdapter` (existing DOM path)
+  - `DomBackendAdapter`
 
-### 2) Scene Snapshot Model
-- Build immutable render snapshots from current store state:
-  - section geometry (x/y/w/h, z, style tokens),
+### 2) Scene Snapshot + Compatibility Matrix
+- Build immutable snapshots from store state:
+  - section geometry/style metadata,
   - edge geometry,
-  - text/layout metadata needed for shell rendering,
-  - interaction metadata (selected/hovered/active).
-- Build deterministic diffs between snapshots to update GPU resources incrementally.
+  - text/icon metadata required for parity,
+  - interaction metadata (selected/hovered/active/focused).
+- Build deterministic diffs for incremental resource updates.
+- Maintain explicit section-type compatibility states:
+  - `parity_ready`: scene-renderable with UX parity,
+  - `dom_required`: must stay DOM-rendered.
 
-### 3) Camera-Driven Motion
-- Pan/zoom becomes camera matrix updates in renderer.
-- During active pan/zoom:
-  - no section mount/unmount churn,
-  - no broad class flips on heavy DOM subtree,
-  - minimal per-frame CPU work (matrix + frustum pass + draw calls).
+### 3) Camera-Driven Motion Path
+- Pan/zoom updates camera matrices, not large DOM transforms.
+- Keep per-frame work bounded and predictable.
+- Avoid broad mount/unmount/class-flip churn during active gestures.
 
-### 4) DOM Interaction Islands
-- Keep DOM only where interactivity is required:
-  - active section,
-  - focused section,
-  - small nearby ring (configurable radius/overscan).
-- Prewarm nearby DOM islands to avoid click-to-edit delays.
-- Map pointer and keyboard intents from scene objects to DOM island promotion.
+### 4) DOM/Scene Partitioning
+- Use scene rendering only for `parity_ready` content.
+- Keep `dom_required` content in DOM at all times.
+- If hybrid promotion is used, transitions must preserve:
+  - editor state,
+  - focus/selection continuity,
+  - first-click edit behavior.
 
-### 5) Text and Icon Rendering
-- Render section shell text with atlas-based strategy:
-  - initial: cached bitmap/SDF glyph atlas.
-  - stable IDs for labels to avoid atlas churn.
-- Render simple iconography in GPU path or hide non-essential icons in shell mode.
-- Preserve full icon fidelity in DOM islands.
+### 5) Text/Icon Fidelity
+- Use atlas-based text rendering where needed.
+- Keep icon/state semantics parity with DOM.
+- Never hide semantically important signals just to reduce render cost.
 
-### 6) Optional Worker/WASM Acceleration
-- Move scene extraction/diff/culling to Worker when needed.
-- Consider WASM for:
-  - geometry packing,
-  - broadphase spatial indexing,
-  - text shaping prep.
+### 6) Worker/WASM (Optional)
+- Move extraction/diff/culling to Worker when main-thread cost is non-trivial.
+- Consider WASM for geometry packing/spatial indexing where it measurably helps.
 - Keep robust non-WASM path as baseline.
 
 ## No-Hitch Interaction Rules
-- Never rebuild large GPU resources in the first interaction frame.
-- Keep renderer always mounted once enabled; do not toggle renderer modes at gesture start.
-- No DOM mass mount/unmount during active wheel/pinch stream.
-- Idle-time hydration/dehydration only, with per-frame work budgets.
-- Enforce hysteresis for island residency to prevent edge thrash while panning.
+- Do not rebuild large GPU resources in first interaction frame.
+- Keep renderer mounted; avoid mode toggles at gesture start.
+- No mass DOM mount/unmount during active wheel/pinch streams.
+- Apply hydration/demotion only under idle-time budgets.
+- Use hysteresis to prevent residency thrash.
 
-## Incremental Rollout Phases
+## Incremental Phases
 
-### Phase 0: Baseline and Capability Probe
-- Add capability detector:
-  - WebGPU availability and required features.
-  - WebGL2 availability.
-  - software/fallback markers.
-- Extend perf harness with renderer/backend labels.
-- Record baseline metrics and traces in `perf/reports/frontend/`.
+### Phase 0: Baseline + Capability Probe
+- Add capability detector and runtime labels.
+- Capture baseline perf/parity across full benchmark suite.
 
-### Phase 1: Rendering Substrate Skeleton
-- Add renderer abstraction and backend negotiation.
-- Render static section shells + edges from snapshot (read-only visuals).
-- Keep DOM renderer as source of interaction truth.
-- Validate visual parity at fit-view and during camera moves.
+### Phase 1: Substrate + Negotiation
+- Ship backend abstraction and deterministic backend negotiation.
+- Keep DOM as truth path while instrumentation stabilizes.
 
-### Phase 2: Camera and Interaction Parity
-- Route pan/zoom camera updates through scene renderer.
-- Keep selection/hover visual parity in scene layer.
-- Maintain existing controls (fit view, zoom in/out/reset).
-- Gate: sustained pan/zoom uplift with start/stop hitch within budget.
+### Phase 2: Camera Path Optimization
+- Route pan/zoom through optimized scene path.
+- Validate parity for controls and interaction timing.
 
-### Phase 3: DOM Island Editing
-- Introduce island manager:
-  - active/focused section always DOM-mounted,
-  - nearby ring prewarmed,
-  - off-ring sections scene-only.
-- Ensure direct click on visible section enters edit without extra click.
-- Gate: no post-pan edit delay regression.
+### Phase 3: Section-Type Parity Expansion
+- Expand `parity_ready` section types incrementally.
+- Require tests before enablement per type.
+- Keep unsupported types `dom_required`.
 
 ### Phase 4: Snapshot Diff + Worker Pipeline
-- Move snapshot build/diff to Worker if main thread cost is non-trivial.
-- Add bounded resource caches and eviction policy.
-- Add deterministic instrumentation for update costs and buffer pressure.
+- Add worker snapshot/diff pipeline when justified by profiling.
+- Add bounded caches, eviction policies, and instrumentation.
 
-### Phase 5: Section Coverage Expansion
-- Prioritize heavy/high-impact section types first:
-  - callable-style param-heavy sections,
-  - common settings sections,
-  - common edge/handle visuals.
-- Keep unsupported section types as DOM islands until covered.
-- Add explicit compatibility matrix by section type.
+### Phase 5: Cross-Project Hardening
+- Validate performance/parity on all benchmark categories.
+- Fix parity/perf outliers before default-on decision.
 
-### Phase 6: Controlled Default-On
-- Keep kill-switch flags.
-- Enable `auto` backend on selected heavy surfaces first.
-- Expand by view/project class after guardrails pass.
+### Phase 6: Default-On Readiness
+- Verify all acceptance gates.
+- Confirm deterministic fallback behavior in unsupported environments.
+
+### Phase 7: Global Default-On (`auto`)
+- Enable `auto` by default for supported environments across projects.
+- Keep explicit kill switch and debug overrides.
 
 ## Flags and Rollout Controls
 - `setta.sceneGraphRenderer.enabled` = `0|1`
 - `setta.sceneGraphRenderer.backend` = `auto|webgpu|webgl|dom`
-- `setta.sceneGraphRenderer.domIslandRadius` = integer ring radius
+- `setta.sceneGraphRenderer.domIslandRadius` = integer
 - `setta.sceneGraphRenderer.debugOverlay` = `0|1`
-- `setta.sceneGraphRenderer.rolloutProjectConfigIds` = strict JSON string array of `projectConfigId` canary targets
-- `setta.sceneGraphRenderer.rolloutProjectConfigNames` = strict JSON string array of `projectConfigName` canary targets
-- explicit `setta.sceneGraphRenderer.enabled` storage override remains top-priority kill switch over rollout defaults
+- `setta.sceneGraphRenderer.enabled` is the top-priority kill switch.
+- Project-id/project-name allowlists are temporary migration levers only; they are not the target shipping policy.
 
 ## Acceptance Targets
-- On `Settings -> All Settings` benchmark:
-  - Pan p50 FPS: `>= 110`
-  - Zoom p50 FPS: `>= 100`
-  - Start hitch p95: `<= 12ms`
-  - Stop/settle hitch p95: `<= 14ms`
-  - Post-pan click-to-edit readiness: no measurable extra click or delay beyond current baseline
-- Resource targets:
-  - Stable GPU memory/buffer budgets under target DPR settings.
-  - No unbounded atlas/cache growth.
+- Measured across benchmark suite (including `Settings -> All Settings` stress benchmark and non-settings large-project benchmarks):
+  - Pan p50 FPS `>= 110`
+  - Zoom p50 FPS `>= 100`
+  - Start hitch p95 `<= 12ms`
+  - Stop/settle hitch p95 `<= 14ms`
+- UX parity gates:
+  - no extra click-to-edit,
+  - no content disappearance,
+  - no keyboard/focus/selection regressions.
+- Resource gates:
+  - stable GPU memory/buffer budgets,
+  - no unbounded atlas/cache growth.
 
 ## Testing and Verification
 - Vitest:
-  - capability negotiation,
-  - snapshot diff correctness,
-  - island promotion/demotion state machine,
-  - backend fallback logic.
+  - backend negotiation,
+  - snapshot/diff correctness,
+  - compatibility matrix behavior,
+  - fallback logic.
 - Playwright:
-  - pan/zoom guardrails by backend,
-  - click-to-edit and keyboard workflow parity,
-  - heavy project scenarios (settings + plugin large DOM).
+  - pan/zoom guardrails,
+  - click-to-edit and keyboard parity,
+  - benchmark-suite flows across project types.
 - CDP:
   - before/after traces for same scripted scenarios,
-  - frame-time distribution and long-task checks,
-  - memory snapshots for renderer buffers/caches.
+  - frame-time and long-task distributions,
+  - memory/buffer profiling.
 
 ## Risks and Mitigations
-- Risk: text clarity/fidelity mismatch in scene layer.
-  - Mitigation: shell text quality thresholds and rapid DOM island fallback for focused editing.
-- Risk: unsupported browser/GPU feature combinations.
-  - Mitigation: strict backend negotiation + DOM fallback.
-- Risk: interaction parity regressions.
-  - Mitigation: staged rollout, per-feature guardrails, section-type compatibility matrix.
-- Risk: plugin/iframe/special sections not renderer-friendly.
-  - Mitigation: keep as DOM islands until explicit support lands.
+- Risk: performance gains achieved by reducing UX fidelity.
+  - Mitigation: parity gates are release-blocking.
+- Risk: optimization overfits one benchmark project.
+  - Mitigation: benchmark suite must include multiple project classes.
+- Risk: unsupported browser/GPU combos.
+  - Mitigation: strict capability checks with deterministic DOM fallback.
+- Risk: section-type parity lag.
+  - Mitigation: explicit compatibility matrix with DOM fallback until ready.
 
 ## Go/No-Go Gates
-- Go to Phase 3 only if Phase 2 shows material uplift and hitch budgets pass.
-- Stop and reassess if:
-  - pan/zoom uplift is <`2x` on primary benchmark after Phase 2,
+- Go default-on only if benchmark-suite performance targets and UX parity targets both pass.
+- Stop/reassess if:
+  - uplift is below target across large-project suite,
   - hitch budgets fail consistently,
-  - edit workflow parity cannot be preserved without UX regression.
+  - parity cannot be preserved without UX regression.
 
 ## Immediate Next Step
-- Implement Phase 0:
-  - capability probe module,
-  - renderer backend flag plumbing,
-  - baseline perf harness extension with backend labels,
-  - append first report in `perf/reports/frontend/`.
+- Rebaseline Phase 0 using benchmark suite:
+  - keep `Settings -> All Settings` as stress benchmark,
+  - add synthetic + non-settings large-project scenarios,
+  - publish suite-wide perf/parity report under `perf/reports/frontend/`.
