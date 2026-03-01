@@ -2,13 +2,25 @@ import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type RefObject,
   type UIEvent,
 } from "react";
-import { useLocalStorage, useSettings } from "state/definitions";
+import { SceneGraphRendererLayer } from "sceneGraphRenderer/SceneGraphRendererLayer";
+import {
+  computeSceneGraphDomIslandSectionIds,
+  findTopmostSceneOnlySectionAtFlowPosition,
+} from "sceneGraphRenderer/domIslands";
+import { useSceneGraphRendererRuntime } from "sceneGraphRenderer/useSceneGraphRendererRuntime";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
 import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
@@ -27,12 +39,30 @@ const wrapperStyle: CSSProperties = {
 };
 
 const SCROLL_INIT = 5000;
+const EMPTY_DOM_ISLAND_SECTION_IDS = new Set<string>();
+type SceneOnlyClickTarget = {
+  sectionId: string;
+  flowX: number;
+  flowY: number;
+  paneX: number;
+  paneY: number;
+};
 
 const ReactFlow = () => {
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const sceneGraphRendererRuntime = useSceneGraphRendererRuntime();
+  const nodesById = useNodeInternals((state) => state.x);
+  const { edges, sectionVariantMap, activeIds } = useProjectState(
+    (state) => ({
+      edges: state.projectConfig.edges,
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      activeIds: state.projectConfig.activeIds,
+    }),
+    _.isEqual,
+  );
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const wireColor = useSettings((x) => {
     // If the backend is running an older build, these fields can be missing.
@@ -47,6 +77,7 @@ const ReactFlow = () => {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
+  const transform = useReactFlow((state) => state.transform);
   useTabScope({
     scopeId: "canvas",
     order: 20,
@@ -64,6 +95,50 @@ const ReactFlow = () => {
 
   const readyToRender =
     wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
+  const sceneGraphPerfLabels = sceneGraphRendererRuntime.perfLabels;
+  const renderSceneOnlySections =
+    sceneGraphRendererRuntime.flags.enabled &&
+    sceneGraphRendererRuntime.selection.resolvedBackend !== "dom";
+  const focusedSectionId =
+    activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
+  const domIslandSectionIds = useMemo(() => {
+    if (!renderSceneOnlySections) {
+      return EMPTY_DOM_ISLAND_SECTION_IDS;
+    }
+    return computeSceneGraphDomIslandSectionIds({
+      nodesById,
+      edges,
+      sectionVariantMap,
+      activeSectionIds: activeIds,
+      focusedSectionId,
+      domIslandRadius: sceneGraphRendererRuntime.flags.domIslandRadius,
+    });
+  }, [
+    activeIds,
+    edges,
+    focusedSectionId,
+    nodesById,
+    renderSceneOnlySections,
+    sceneGraphRendererRuntime.flags.domIslandRadius,
+    sectionVariantMap,
+  ]);
+  const sceneOnlyClickTarget = useMemo(() => {
+    if (!renderSceneOnlySections) {
+      return null;
+    }
+    return findFirstVisibleSceneOnlyClickTarget({
+      nodesById,
+      domIslandSectionIds,
+      transform,
+      wrapperDimensions,
+    });
+  }, [
+    domIslandSectionIds,
+    nodesById,
+    renderSceneOnlySections,
+    transform,
+    wrapperDimensions,
+  ]);
 
   return (
     <div
@@ -79,6 +154,64 @@ const ReactFlow = () => {
       data-tab-scope="canvas"
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}
+      data-scene-graph-renderer-enabled={
+        sceneGraphPerfLabels.enabled ? "1" : "0"
+      }
+      data-scene-graph-renderer-backend-requested={
+        sceneGraphPerfLabels.requestedBackend
+      }
+      data-scene-graph-renderer-backend-resolved={
+        sceneGraphPerfLabels.resolvedBackend
+      }
+      data-scene-graph-renderer-resolution-reason={
+        sceneGraphPerfLabels.resolutionReason
+      }
+      data-scene-graph-renderer-probe-status={sceneGraphPerfLabels.probeStatus}
+      data-scene-graph-renderer-webgpu-available={
+        sceneGraphPerfLabels.webgpuAvailable ? "1" : "0"
+      }
+      data-scene-graph-renderer-webgpu-reason={
+        sceneGraphPerfLabels.webgpuReason ?? ""
+      }
+      data-scene-graph-renderer-webgl2-available={
+        sceneGraphPerfLabels.webgl2Available ? "1" : "0"
+      }
+      data-scene-graph-renderer-webgl2-reason={
+        sceneGraphPerfLabels.webgl2Reason ?? ""
+      }
+      data-scene-graph-renderer-software-fallback={
+        sceneGraphPerfLabels.softwareFallbackDetected ? "1" : "0"
+      }
+      data-scene-graph-renderer-software-fallback-reasons={sceneGraphPerfLabels.softwareFallbackReasons.join(
+        ",",
+      )}
+      data-scene-graph-renderer-dom-island-radius={String(
+        sceneGraphPerfLabels.domIslandRadius,
+      )}
+      data-scene-graph-renderer-debug-overlay={
+        sceneGraphPerfLabels.debugOverlay ? "1" : "0"
+      }
+      data-scene-graph-renderer-dom-islands-active={
+        renderSceneOnlySections ? "1" : "0"
+      }
+      data-scene-graph-renderer-dom-island-count={String(
+        domIslandSectionIds.size,
+      )}
+      data-scene-graph-renderer-scene-only-click-target-section-id={
+        sceneOnlyClickTarget?.sectionId ?? ""
+      }
+      data-scene-graph-renderer-scene-only-click-target-flow-x={
+        sceneOnlyClickTarget ? String(sceneOnlyClickTarget.flowX) : ""
+      }
+      data-scene-graph-renderer-scene-only-click-target-flow-y={
+        sceneOnlyClickTarget ? String(sceneOnlyClickTarget.flowY) : ""
+      }
+      data-scene-graph-renderer-scene-only-click-target-pane-x={
+        sceneOnlyClickTarget ? String(sceneOnlyClickTarget.paneX) : ""
+      }
+      data-scene-graph-renderer-scene-only-click-target-pane-y={
+        sceneOnlyClickTarget ? String(sceneOnlyClickTarget.paneY) : ""
+      }
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
@@ -92,13 +225,26 @@ const ReactFlow = () => {
           left: `${SCROLL_INIT}px`,
         }}
       >
-        <FlowRenderer wrapperDimensions={wrapperDimensions}>
+        <SceneGraphRendererLayer
+          runtime={sceneGraphRendererRuntime}
+          wrapperDimensions={wrapperDimensions}
+          wireColor={wireColor}
+          darkMode={darkMode}
+        />
+        <FlowRenderer
+          wrapperDimensions={wrapperDimensions}
+          renderSceneOnlySections={renderSceneOnlySections}
+          domIslandSectionIds={domIslandSectionIds}
+        >
           <ViewportWrapper>
             {readyToRender && (
               <>
                 <EdgeRenderer />
                 <AgenticEdgeRenderer />
-                <NodeRenderer />
+                <NodeRenderer
+                  renderSceneOnlySections={renderSceneOnlySections}
+                  domIslandSectionIds={domIslandSectionIds}
+                />
               </>
             )}
           </ViewportWrapper>
@@ -169,6 +315,65 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
   }, [overviewWidth, uiEditorWidth]);
 
   return wrapperDimensions;
+}
+
+function findFirstVisibleSceneOnlyClickTarget(input: {
+  nodesById: ReturnType<typeof useNodeInternals.getState>["x"];
+  domIslandSectionIds: ReadonlySet<string>;
+  transform: [number, number, number];
+  wrapperDimensions: { width: number; height: number };
+}): SceneOnlyClickTarget | null {
+  const [translateX, translateY, zoom] = input.transform;
+  if (zoom <= 0) {
+    return null;
+  }
+
+  for (const node of input.nodesById.values()) {
+    if (input.domIslandSectionIds.has(node.id)) {
+      continue;
+    }
+    if (
+      typeof node.width !== "number" ||
+      node.width <= 0 ||
+      typeof node.height !== "number" ||
+      node.height <= 0
+    ) {
+      continue;
+    }
+
+    const flowX = node.position.x + node.width / 2;
+    const flowY = node.position.y + node.height / 2;
+    const topmostSectionId = findTopmostSceneOnlySectionAtFlowPosition({
+      flowX,
+      flowY,
+      nodesById: input.nodesById,
+      domIslandSectionIds: input.domIslandSectionIds,
+    });
+    if (topmostSectionId !== node.id) {
+      continue;
+    }
+
+    const paneX = translateX + flowX * zoom;
+    const paneY = translateY + flowY * zoom;
+    const isInsidePane =
+      paneX >= 0 &&
+      paneY >= 0 &&
+      paneX <= input.wrapperDimensions.width &&
+      paneY <= input.wrapperDimensions.height;
+    if (!isInsidePane) {
+      continue;
+    }
+
+    return {
+      sectionId: node.id,
+      flowX,
+      flowY,
+      paneX,
+      paneY,
+    };
+  }
+
+  return null;
 }
 
 ReactFlow.displayName = "ReactFlow";
