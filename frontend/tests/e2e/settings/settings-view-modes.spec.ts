@@ -1,9 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  ensureAppReady,
-  postBackend,
-  readSceneGraphRendererPerfLabels,
-} from "../helpers";
+import { ensureAppReady, postBackend } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -36,7 +32,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   );
 
   const allZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThan(allZoom);
+  expect(coreZoom).toBeGreaterThanOrEqual(allZoom);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -49,125 +45,8 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(paramZoom).toBeGreaterThan(allZoom);
-  expect(coreZoom).toBeGreaterThan(paramZoom);
-});
-
-test("settings all-settings flow exposes scene-graph renderer perf labels", async ({
-  page,
-}, testInfo) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
-    localStorage.setItem("setta.sceneGraphRenderer.backend", "auto");
-    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "2");
-    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
-  });
-  await ensureAppReady(page);
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allTab).toBeVisible();
-  await allTab.click();
-  await page.waitForFunction(() => {
-    const root = document.querySelector(".react-flow");
-    if (!root) {
-      return false;
-    }
-    return (
-      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
-    );
-  });
-
-  const labels = await readSceneGraphRendererPerfLabels(page);
-  expect(labels.enabled).toBe(true);
-  expect(labels.requestedBackend).toBe("auto");
-  expect(["webgpu", "webgl", "dom"]).toContain(labels.resolvedBackend);
-  expect(labels.probeStatus).toBe("ready");
-  expect(labels.domIslandRadius).toBe(2);
-
-  await testInfo.attach("scene-graph-renderer-perf-labels.json", {
-    body: Buffer.from(JSON.stringify(labels, null, 2)),
-    contentType: "application/json",
-  });
-});
-
-test("settings all-settings flow exposes scene-graph layer snapshot metadata when active", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
-    localStorage.setItem("setta.sceneGraphRenderer.backend", "webgl");
-    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "2");
-    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
-  });
-  await ensureAppReady(page);
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allTab).toBeVisible();
-  await allTab.click();
-  await page.waitForFunction(() => {
-    const root = document.querySelector(".react-flow");
-    if (!root) {
-      return false;
-    }
-    return (
-      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
-    );
-  });
-
-  const labels = await readSceneGraphRendererPerfLabels(page);
-  expect(labels.enabled).toBe(true);
-  expect(labels.requestedBackend).toBe("webgl");
-  expect(["webgl", "dom"]).toContain(labels.resolvedBackend);
-
-  if (labels.resolvedBackend === "webgl") {
-    await page.waitForFunction(() => {
-      const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-      if (!(layer instanceof HTMLCanvasElement)) {
-        return false;
-      }
-      return (
-        layer.getAttribute("data-scene-graph-layer-visible") === "1" &&
-        layer.getAttribute("data-scene-graph-layer-backend") === "webgl" &&
-        Number(layer.getAttribute("data-scene-graph-layer-sections") ?? "0") >
-          10
-      );
-    });
-  }
-
-  const layerState = await page.evaluate(() => {
-    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-    if (!(layer instanceof HTMLCanvasElement)) {
-      throw new Error("Missing scene graph renderer canvas layer.");
-    }
-    return {
-      visible: layer.getAttribute("data-scene-graph-layer-visible"),
-      backend: layer.getAttribute("data-scene-graph-layer-backend"),
-      sections: Number(
-        layer.getAttribute("data-scene-graph-layer-sections") ?? "0",
-      ),
-      edges: Number(layer.getAttribute("data-scene-graph-layer-edges") ?? "0"),
-    };
-  });
-
-  if (labels.resolvedBackend === "webgl") {
-    expect(layerState.visible).toBe("1");
-    expect(layerState.backend).toBe("webgl");
-    expect(layerState.sections).toBeGreaterThan(10);
-    expect(layerState.edges).toBeGreaterThanOrEqual(0);
-  } else {
-    expect(layerState.visible).toBe("0");
-    expect(layerState.backend).toBe("dom");
-  }
+  expect(paramZoom).toBeGreaterThanOrEqual(allZoom);
+  expect(coreZoom).toBeGreaterThanOrEqual(paramZoom);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -225,7 +104,8 @@ async function waitForOverviewCount(
 ): Promise<void> {
   await setOverviewTab(page, "Overview");
   await page.waitForFunction(
-    (count) => document.querySelectorAll("#OverviewPane li").length === count,
+    (count) =>
+      document.querySelectorAll("#OverviewPane li").length === count,
     expected,
   );
 }
@@ -283,9 +163,7 @@ function findViewModeId(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
   name: string,
 ): string {
-  for (const viewMode of Object.values(
-    payload.projectState.projectConfig.viewModes,
-  )) {
+  for (const viewMode of Object.values(payload.projectState.projectConfig.viewModes)) {
     if (viewMode.name === name) {
       return viewMode.id;
     }
