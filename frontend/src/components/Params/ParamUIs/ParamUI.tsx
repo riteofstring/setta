@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImplIfPresent,
-  getCurrEffectiveSectionImplIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -17,7 +17,6 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
-  ConfigLanguageEnum,
   DateCalendarWeekStart,
   DateCalendarWeekStartEnum,
   DateControlMode,
@@ -172,42 +171,17 @@ export function ParamUI({
     dateCalendarWeekStart,
     dateIncludesTime,
   } = useProjectState((x) => {
-    const fallback = {
-      codeObjType: CodeObjTypeEnum.TextParam,
-      passwordHasSecret: false,
-      configLanguage: ConfigLanguageEnum.python,
-      defaultVal: "",
-      disabledOrFrozen: false,
-      dropzoneMode: null,
-      dropzoneMaxAttachments: null,
-      dropzonePlaceholder: null,
-      timeControlMode: TimeControlModeEnum.display,
-      timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent: false,
-      timeDisplayScale: 1,
-      timeDisplayFont: TimeDisplayFontEnum.monospace,
-      dateDisplayFormat: DateDisplayFormatEnum.iso,
-      dateControlMode: DateControlModeEnum.input,
-      dateSelectionMode: DateSelectionModeEnum.single,
-      dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime: false,
-    };
-    const impl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
-    if (!impl || !isBaseSectionWithParamsImpl(impl)) {
-      return fallback;
-    }
-    const codeObjImpl = getCurrEffectiveCodeObjImplIfPresent(
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
+      isBaseChildlessCodeObjImpl,
     );
-    if (!codeObjImpl || !isBaseChildlessCodeObjImpl(codeObjImpl)) {
-      return {
-        ...fallback,
-        configLanguage: impl.configLanguage,
-        disabledOrFrozen: impl.isFrozen,
-      };
-    }
     const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
     const hasPasswordSecret =
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam
@@ -453,6 +427,7 @@ function TextParamConfigured({
   waitingForResult,
   isSelectingParams,
 }) {
+  const valueBorderClassName = `border-box border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "focus-within:border-blue-400" : ""}`;
   return (
     <>
       <TextInputCodeMirror
@@ -467,8 +442,8 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${valueBorderClassName}`}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem] ${valueBorderClassName}`}
         language={configLanguage}
         isDisabled={isDisabled}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
@@ -476,9 +451,6 @@ function TextParamConfigured({
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
-      <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
-      />
     </>
   );
 }
@@ -701,35 +673,30 @@ function PasswordParamConfigured({
   const revealDisabled = isDisabled || isRevealing || !onReveal;
   const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
   const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
-  const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
+  const wrapperClassName = `section-value self-end border-box border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "focus-within:border-blue-400" : ""} flex min-w-0 items-center gap-2`;
   return (
-    <>
-      <div className={wrapperClassName}>
-        <PasswordInput
-          className={inputClassName}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          placeholder={placeholder}
-          toggleClassName="flex-none"
-        />
-        {showReveal ? (
-          <button
-            type="button"
-            className={revealClassName}
-            onClick={onReveal}
-            disabled={revealDisabled}
-            aria-busy={isRevealing}
-            title="Reveal saved password"
-          >
-            {isRevealing ? "Revealing..." : "Reveal"}
-          </button>
-        ) : null}
-      </div>
-      <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+    <div className={wrapperClassName}>
+      <PasswordInput
+        className={inputClassName}
+        value={value}
+        onChange={onChange}
+        onEscape={onEscape}
+        isDisabled={isDisabled}
+        placeholder={placeholder}
+        toggleClassName="flex-none"
       />
-    </>
+      {showReveal ? (
+        <button
+          type="button"
+          className={revealClassName}
+          onClick={onReveal}
+          disabled={revealDisabled}
+          aria-busy={isRevealing}
+          title="Reveal saved password"
+        >
+          {isRevealing ? "Revealing..." : "Reveal"}
+        </button>
+      ) : null}
+    </div>
   );
 }

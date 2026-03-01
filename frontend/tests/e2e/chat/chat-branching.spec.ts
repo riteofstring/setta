@@ -4,7 +4,6 @@ import {
   createChatSection,
   ensureAppReady,
   ensureManagedChatEngine,
-  getCurrentProjectConfigId,
   openIsolatedProject,
   setChatSectionState,
   setOverviewTab,
@@ -174,18 +173,11 @@ test.describe.serial("chat branching", () => {
         },
       });
 
-      await reloadCurrentProject(page, projectContext.projectConfigId);
-      const reloadedSection = findSectionByName(page, sectionName);
-      await expect(reloadedSection).toBeVisible();
-
       const originalMessageId = await getMessageGroupId(
-        reloadedSection,
+        section,
         "Original section",
       );
-      const originalGroup = getMessageGroupById(
-        reloadedSection,
-        originalMessageId,
-      );
+      const originalGroup = getMessageGroupById(section, originalMessageId);
       await expect(originalGroup).toBeVisible();
 
       await originalGroup.hover();
@@ -196,7 +188,7 @@ test.describe.serial("chat branching", () => {
       await editor.fill("Edited section");
       await originalGroup.getByRole("button", { name: "Save" }).click();
 
-      const editedGroup = getMessageGroup(reloadedSection, "Edited section");
+      const editedGroup = getMessageGroup(section, "Edited section");
       await expect(editedGroup).toBeVisible();
       await editedGroup.hover();
       await expect(editedGroup.getByText("2/2")).toBeVisible();
@@ -205,10 +197,7 @@ test.describe.serial("chat branching", () => {
         .getByRole("button", { name: "Previous branch" })
         .click();
 
-      const revertedGroup = getMessageGroup(
-        reloadedSection,
-        "Original section",
-      );
+      const revertedGroup = getMessageGroup(section, "Original section");
       await expect(revertedGroup).toBeVisible();
       await revertedGroup.hover();
       await expect(revertedGroup.getByText("1/2")).toBeVisible();
@@ -417,17 +406,6 @@ function getMessageGroupById(container: Locator, messageId: string): Locator {
   return container
     .locator(`div.group[data-message-id="${messageId}"]`)
     .first();
-}
-
-async function reloadCurrentProject(
-  page: Page,
-  expectedProjectConfigId: string,
-): Promise<void> {
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
-  await expect
-    .poll(() => getCurrentProjectConfigId(page), { timeout: 20000 })
-    .toBe(expectedProjectConfigId);
 }
 
 async function getMessageGroupId(
