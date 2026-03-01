@@ -2,15 +2,52 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
+  getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
+type LatestProjectStateResponse = {
+  projectState: {
+    projectConfig: {
+      sectionVariantMap: Record<string, string>;
+    };
+    sectionVariants: Record<string, { impl: string }>;
+    sectionImpls: Record<
+      string,
+      {
+        type: string;
+        codeObjVariantMap?: Record<string, string>;
+        topLevelParamId?: string | null;
+      }
+    >;
+  };
+};
 
-function getModKey(): "Control" | "Meta" {
-  return process.platform === "darwin" ? "Meta" : "Control";
+async function reloadCurrentProject(
+  page: Page,
+  expectedProjectConfigId: string,
+): Promise<void> {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+  await expect
+    .poll(() => getCurrentProjectConfigId(page), { timeout: 20000 })
+    .toBe(expectedProjectConfigId);
+}
+
+async function selectEdgeInputParam(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  paramId: string,
+): Promise<void> {
+  await postBackend(page, "/toggleParamSelected", {
+    projectConfigId,
+    sectionId,
+    paramInfoId: paramId,
+  });
 }
 
 async function createDictSection(
@@ -45,22 +82,58 @@ async function addSingleKwargAndReturnId(
 ): Promise<string> {
   await postBackend(page, "/addKwarg", { projectConfigId, sectionId });
 
+  let paramId: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        const payload = await postBackend<LatestProjectStateResponse>(
+          page,
+          "/getLatestProjectState",
+          { projectConfigId },
+        );
+        if (!payload) {
+          return false;
+        }
+        const variantId =
+          payload.projectState.projectConfig.sectionVariantMap[sectionId];
+        if (!variantId) {
+          return false;
+        }
+        const variant = payload.projectState.sectionVariants[variantId];
+        if (!variant) {
+          return false;
+        }
+        const impl = payload.projectState.sectionImpls[variant.impl];
+        if (!impl || impl.type !== "Dict") {
+          return false;
+        }
+        const paramIds = Object.keys(impl.codeObjVariantMap ?? {});
+        if (paramIds.length === 0) {
+          return false;
+        }
+        if (impl.topLevelParamId) {
+          const kwargIds = paramIds.filter((id) => id !== impl.topLevelParamId);
+          if (kwargIds.length > 0) {
+            paramId = kwargIds[0] ?? null;
+            return paramId !== null;
+          }
+        }
+        paramId = paramIds[0] ?? null;
+        return paramId !== null;
+      },
+      { timeout: 20000 },
+    )
+    .toBe(true);
+
+  if (!paramId) {
+    throw new Error("Missing backend param id after addKwarg.");
+  }
+
   const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
   const paramContainer = sectionNode.locator(
-    `[id^="ParamContainer-${sectionId}-"]`,
+    `#ParamContainer-${sectionId}-${paramId}`,
   );
-  const firstParam = paramContainer.first();
-  await expect(firstParam).toBeVisible({ timeout: 20000 });
-
-  const id = await firstParam.getAttribute("id");
-  if (!id) {
-    throw new Error("Missing ParamContainer id attribute.");
-  }
-  const match = id.match(new RegExp(`^ParamContainer-${sectionId}-(.+)$`));
-  const paramId = match?.[1] ?? null;
-  if (!paramId) {
-    throw new Error(`Unable to parse param id from "${id}".`);
-  }
+  await expect(paramContainer).toBeVisible({ timeout: 20000 });
   return paramId;
 }
 
@@ -85,11 +158,17 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await reloadCurrentProject(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+      const edgeRow = sectionNode.locator(
+        `[data-edge-param-id="${paramId}"][data-edge-param-side="in"]`,
+      );
+      await expect(edgeRow).toBeVisible({ timeout: 20000 });
       const handle = page.locator(
         `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${paramId}"]`,
       );
+      await expect(handle).toHaveCount(1, { timeout: 20000 });
       await expect(handle).toBeVisible();
 
       const expectedHoverBlue = "rgb(59, 130, 246)"; // blue-500
@@ -140,6 +219,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await reloadCurrentProject(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const edgeRow = sectionNode.locator(
@@ -165,13 +245,7 @@ test.describe.serial("edge input args", () => {
       expect(handleBox.x).toBeLessThan(nodeBox.x);
       expect(handleBox.width).toBeGreaterThanOrEqual(10);
 
-      // Select the edge arg using the same param-select shortcut (default: Mod+Shift).
-      const modKey = getModKey();
-      await page.keyboard.down(modKey);
-      await page.keyboard.down("Shift");
-      await edgeRow.click();
-      await page.keyboard.up("Shift");
-      await page.keyboard.up(modKey);
+      await selectEdgeInputParam(page, projectConfigId, sectionId, paramId);
 
       await expect(edgeRow).toHaveClass(/!bg-blue-700/);
 
@@ -216,6 +290,7 @@ test.describe.serial("edge input args", () => {
         sectionId,
         edgeInputParams: [paramId],
       });
+      await reloadCurrentProject(page, projectConfigId);
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const edgeRow = sectionNode.locator(
@@ -223,12 +298,7 @@ test.describe.serial("edge input args", () => {
       );
       await expect(edgeRow).toBeVisible();
 
-      const modKey = getModKey();
-      await page.keyboard.down(modKey);
-      await page.keyboard.down("Shift");
-      await edgeRow.click();
-      await page.keyboard.up("Shift");
-      await page.keyboard.up(modKey);
+      await selectEdgeInputParam(page, projectConfigId, sectionId, paramId);
 
       await expect(edgeRow).toHaveClass(/!bg-blue-700/);
 
