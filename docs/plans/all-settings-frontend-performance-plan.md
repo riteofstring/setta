@@ -22,6 +22,7 @@ The request text says "backend performance", but the benchmark and measured bott
 - Investigated and de-prioritized:
   - `re-resizable` mount gating (prior Priority 2): negligible startup gain with clear lock/unlock regressions in our benchmark.
   - `nodeInternals` deep-clone reduction (prior Priority 3): measurable in isolation, but negligible in the `Core -> All Settings` interaction at current node counts.
+  - Big-Swing A (`active-section` deferred body mount): **Not Planned** due UX downgrade (inactive sections hide content until activation).
 
 ## Scope
 - In scope:
@@ -195,10 +196,13 @@ Why fourth:
 
 ## Big-Swing Track (New Primary)
 
-### A) Defer heavy section body mount for non-active sections
+### A) Defer heavy section body mount for non-active sections (Not Planned)
 Impact: Very High  
 Complexity: High  
 Confidence: Medium-High
+
+Decision:
+- **Not Planned**. This mode hides section body content for inactive sections, which is not acceptable for current UX expectations in All Settings.
 
 Changes:
 - Introduce an explicit render policy for dense views (for example: `full`, `progressive`, `active-section`).
@@ -270,6 +274,6 @@ Why third:
 3. Priority 3 (trim header/kwargs/group layout reads)
 4. Priority 4 (cache viewport origin in edge-handle recomputes)
 5. Priority 5 (Playwright perf guardrail + final profiling pass)
-6. Big-Swing A (defer heavy section body mount in dense views)
-7. Big-Swing C (read-only inactive row rendering)
-8. Big-Swing B (param-list virtualization for largest lists)
+6. Big-Swing C (read-only inactive row rendering)
+7. Big-Swing B (param-list virtualization for largest lists)
+8. Not Planned: Big-Swing A (defer heavy section body mount in dense views)
