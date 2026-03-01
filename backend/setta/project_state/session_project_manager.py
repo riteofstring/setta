@@ -597,7 +597,7 @@ class SessionProjectManager(BaseProjectManager):
             return
         project_state = self.project_state_backend
         existing_code_obj_ids = set(project_state.codeObjs.keys())
-        load_json_sources_into_data_structures(
+        mutation_scope = load_json_sources_into_data_structures(
             project_state,
             json_sources,
             section_variants_to_load,
@@ -605,11 +605,9 @@ class SessionProjectManager(BaseProjectManager):
         apply_settings_display_names(
             project_state, existing_code_obj_ids=existing_code_obj_ids
         )
-
-        for config_id in project_state.projectConfigs.keys():
-            single_config = convert_backend_to_single_config(project_state, config_id)
-            await self.update_and_broadcast_project_state(
-                single_config,
-                updateFileWatcher=False,
-            )
+        for code_obj_id in project_state.codeObjs:
+            if code_obj_id in existing_code_obj_ids:
+                continue
+            mutation_scope.code_obj_ids.add(code_obj_id)
+        await self._broadcast_json_source_load_mutation_scope(mutation_scope)
         await self.settings_file.load_and_broadcast_settings()

@@ -86,7 +86,10 @@ from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
     ProcessedJSONInfo,
 )
-from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.jsonSource.load import (
+    JSONSourceLoadMutationScope,
+    load_json_sources_into_data_structures,
+)
 from setta.project_state.listener_artifact_updates import (
     apply_listener_artifact_updates,
 )
@@ -1937,19 +1940,12 @@ class BaseProjectManager(ABC):
         section_variants_to_load: Iterable[tuple[ID, ID]],
     ):
         p = self.project_state_backend
-        load_json_sources_into_data_structures(
+        mutation_scope = load_json_sources_into_data_structures(
             p,
             json_sources,
             section_variants_to_load,
         )
-
-        for configId in p.projectConfigs.keys():
-            singleConfig = convert_backend_to_single_config(p, configId)
-            # Don't update file watcher here because otherwise it'll be an infinite loop
-            await self.update_and_broadcast_project_state(
-                singleConfig,
-                updateFileWatcher=False,
-            )
+        await self._broadcast_json_source_load_mutation_scope(mutation_scope)
 
     async def _refresh_codegen_state(
         self,
@@ -6529,6 +6525,7 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         *,
         code_obj_ids: list[ID],
+        include_all_code_obj_variants: bool = False,
         updateFileWatcher: bool = True,
         validate_name_rules: bool = True,
         broadcast_name_validation_errors: bool = True,
@@ -6560,6 +6557,7 @@ class BaseProjectManager(ABC):
             ) = self._collect_code_obj_updates_for_patch(
                 project_state,
                 filtered_code_obj_ids,
+                include_all_variants=include_all_code_obj_variants,
             )
             await self._broadcast_code_objs_patch(
                 project_config_id=project_state.projectConfig.id,
@@ -6631,6 +6629,8 @@ class BaseProjectManager(ABC):
         self,
         project_state: ProjectStateSingleConfig,
         code_obj_ids: list[ID],
+        *,
+        include_all_variants: bool = False,
     ) -> tuple[
         dict[ID, Core],
         dict[ID, Variant],
@@ -6647,10 +6647,13 @@ class BaseProjectManager(ABC):
             if code_obj_id not in project_state.codeObjs:
                 raise KeyError(f"Missing code obj {code_obj_id} in project state.")
             code_obj_updates[code_obj_id] = project_state.codeObjs[code_obj_id]
-            variant_ids = self._get_active_code_obj_variant_ids_for_project_state(
-                project_state,
-                code_obj_id,
-            )
+            if include_all_variants:
+                variant_ids = set(project_state.codeObjs[code_obj_id].variants)
+            else:
+                variant_ids = self._get_active_code_obj_variant_ids_for_project_state(
+                    project_state,
+                    code_obj_id,
+                )
             for variant_id in variant_ids:
                 if variant_id not in project_state.codeObjVariants:
                     raise KeyError(
@@ -6753,6 +6756,67 @@ class BaseProjectManager(ABC):
 
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
+
+    def _collect_referenced_code_obj_ids_for_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> set[ID]:
+        referenced_code_obj_ids: set[ID] = set()
+        for section in project_state.sections.values():
+            for section_variant_id in section.variants:
+                if section_variant_id not in project_state.sectionVariants:
+                    raise KeyError(
+                        f"Missing section variant {section_variant_id} in project state."
+                    )
+                section_variant = project_state.sectionVariants[section_variant_id]
+                section_impl_id = section_variant.impl
+                if section_impl_id not in project_state.sectionImpls:
+                    raise KeyError(
+                        f"Missing section impl {section_impl_id} in project state."
+                    )
+                effective_impl = get_effective_impl(
+                    project_state.sectionImpls[section_impl_id],
+                    section,
+                    section_variant,
+                )
+                if isinstance(effective_impl, BaseSectionWithParamsImpl):
+                    referenced_code_obj_ids.update(effective_impl.codeObjVariantMap)
+                    continue
+                if isinstance(effective_impl, MetaControlSectionImpl):
+                    referenced_code_obj_ids.update(effective_impl.codeObjVariantMap)
+        return referenced_code_obj_ids
+
+    async def _broadcast_json_source_load_mutation_scope(
+        self,
+        mutation_scope: JSONSourceLoadMutationScope,
+    ) -> None:
+        if not mutation_scope.did_update:
+            return
+        backend = self.project_state_backend
+        for config_id in backend.projectConfigs:
+            project_state = convert_backend_to_single_config(backend, config_id)
+            touched_section_ids = [
+                section_id
+                for section_id in project_state.sections
+                if section_id in mutation_scope.section_ids
+            ]
+            referenced_code_obj_ids = (
+                self._collect_referenced_code_obj_ids_for_project_state(project_state)
+            )
+            touched_code_obj_ids = sorted(
+                code_obj_id
+                for code_obj_id in mutation_scope.code_obj_ids
+                if code_obj_id in referenced_code_obj_ids
+                and code_obj_id in project_state.codeObjs
+            )
+            if not touched_section_ids and not touched_code_obj_ids:
+                continue
+            await self._update_and_broadcast_structural_and_code_obj_patches(
+                project_state,
+                code_obj_ids=touched_code_obj_ids,
+                include_all_code_obj_variants=True,
+                updateFileWatcher=False,
+            )
 
     async def _update_and_broadcast_section_impl_patches(
         self,

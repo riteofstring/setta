@@ -537,3 +537,99 @@ Method:
   transport payload; callable mutation/codegen work dominates wall time here.
 - `auto_refetch_callable_params` latency stayed flat-to-slightly improved while
   eliminating snapshot transport.
+
+---
+
+## Addendum: `load_json_sources` patch transport (2026-03-03)
+
+### Goal
+
+Eliminate full snapshot transport from JSON-source reload flow while preserving
+cross-variant correctness.
+
+### Change
+
+Backend:
+
+- Added `JSONSourceLoadMutationScope` in `jsonSource/load.py` and returned it from
+  `load_json_sources_into_data_structures(...)` with:
+  - touched `section_ids`
+  - touched `code_obj_ids`
+- Updated JSON-source merge path to record touched code objects during
+  replacement/new top-level mapping in `merge_into_existing(...)`.
+- Converted `BaseProjectManager.load_json_sources(...)` to:
+  - load JSON-source mutations via scope-aware helper return,
+  - broadcast via new
+    `_broadcast_json_source_load_mutation_scope(...)` helper.
+- Added `_collect_referenced_code_obj_ids_for_project_state(...)` in
+  `BaseProjectManager` to scope code-obj patches to code objects reachable from
+  the project config’s section variants (active + inactive variants).
+- Extended `_collect_code_obj_updates_for_patch(...)` and
+  `_update_and_broadcast_structural_and_code_obj_patches(...)` with optional
+  “all code-obj variants” mode; JSON-source path uses this mode to avoid stale
+  non-active variant data.
+- Updated `SessionProjectManager.load_json_sources(...)` (settings mode override)
+  to use mutation-scope patch transport and keep settings display-name behavior.
+
+Tests:
+
+- Added `tests/project_state/test_json_source_patch_transport.py`:
+  - `test_load_json_sources_uses_patch_transport`
+  - asserts no full snapshot broadcast and structural + code-obj patch transport.
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/jsonSource/load.py backend/setta/project_state/base_project_manager.py backend/setta/project_state/session_project_manager.py tests/project_state/test_json_source_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_json_source_patch_transport.py tests/project_state/jsonSource/test_json_source_reload_debounce.py tests/project_state/jsonSource/test_json_source_multi_section_keys.py tests/project_state/jsonSource/test_json_source_save_nested_paths.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_param_impl_patch_transport.py tests/project_state/test_set_param_entered_value_ux.py tests/project_state/test_ui_setting_reveal_leases.py tests/project_state/test_rename_refactor_patch_transport.py tests/project_state/test_watch_code.py tests/project_state/test_auto_refetch_history.py tests/project_state/test_json_source_patch_transport.py tests/project_state/jsonSource/test_json_source_reload_debounce.py`
+
+Result:
+
+- Targeted JSON-source slice: `14 passed`
+- Expanded backend regression slice: `73 passed`
+
+### Benchmark scenario
+
+Synthetic state:
+
+- callable section with `1000` params (large unrelated state)
+- one JSON-source dict section
+- JSON-source payload with `40` flat keys
+
+Route benchmarked:
+
+- `load_json_sources`
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch
+  `_broadcast_json_source_load_mutation_scope(...)` to call
+  `update_and_broadcast_project_state(...)` per config (pre-change behavior).
+- `patched`: native mutation-scope patch behavior.
+2. `3` warmup + `12` measured iterations per mode.
+3. Each iteration resets state to baseline, then calls `load_json_sources(...)`.
+4. Metrics:
+- ACK latency (`route(...)` + `finish_pending_operations(...)`)
+- websocket payload bytes from project-state transport message types:
+  - `UpdateFrontendProjectState`
+  - `PatchFrontendProjectStateProjectConfig`
+  - `PatchFrontendProjectStateSectionImpl`
+  - `PatchFrontendProjectStateCodeObjs`
+  - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `load_json_sources` | latency median | 1162.3448 ms | 358.8851 ms | +69.12% faster |
+| `load_json_sources` | latency p95 | 1273.3717 ms | 472.2736 ms | +62.91% faster |
+| `load_json_sources` | payload median | 1,715,169.5 B | 77,876.0 B | -95.46% |
+| `load_json_sources` | payload p95 | 1,715,193.2 B | 77,886.9 B | -95.46% |
+
+### Notes
+
+- This removes the remaining high-cost snapshot fanout from JSON-source reload.
+- Route-level latency and transport size both improved substantially in this
+  benchmark because unrelated large callable state no longer rides on snapshot
+  broadcasts.
