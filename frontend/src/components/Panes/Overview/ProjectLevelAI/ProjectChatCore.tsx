@@ -1808,14 +1808,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [transcriptionProfileId],
   );
-  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
+  const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
   const showConversationSearchEmptyState =
     normalizedConversationSearchTerms.length > 0 &&
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
       {blockedReason ? (
         <div
           role="alert"

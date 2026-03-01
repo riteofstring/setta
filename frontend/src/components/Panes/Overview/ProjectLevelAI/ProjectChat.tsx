@@ -1600,7 +1600,7 @@ export function ProjectChat() {
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
-      <div className="flex h-full min-h-0 flex-col @container">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container">
         <nav className="flex flex-col border-b border-setta-100 dark:border-setta-800 [&_button]:cursor-pointer">
           <div className="flex w-full min-w-0 items-stretch">
             {showInlineThreads ? (
@@ -1672,10 +1672,10 @@ export function ProjectChat() {
                   </div>
                   {showAuxTabs ? (
                     <div
-                      className="min-w-0 overflow-x-auto @[16.25rem]:col-start-2"
+                      className="min-w-0 overflow-hidden @[16.25rem]:col-start-2"
                       data-testid="project-chat-aux-tabs"
                     >
-                      <div className="flex min-w-max items-center gap-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1">
                         {auxTabs.map((tab) => (
                           <button
                             key={tab.id}
