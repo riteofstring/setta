@@ -227,45 +227,14 @@ export function HeaderIcon({
     default:
       return (
         <i
-          className={getDefaultHeaderMenuIconClassName(hasSectionStyleTheme)}
+          className={
+            themedIconClassName
+              ? `gg-menu group/card-section:hover:bg !scale-110 ${themedIconClassName}`
+              : "gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] "
+          }
         />
       );
   }
-}
-
-export function usesDefaultHeaderMenuIcon(sectionTypeName: SectionType): boolean {
-  switch (sectionTypeName) {
-    case SectionTypeEnum.Code:
-    case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
-    case SectionTypeEnum.Terminal:
-    case SectionTypeEnum.GlobalVariables:
-    case SectionTypeEnum.TextBlock:
-    case SectionTypeEnum.Prompt:
-    case SectionTypeEnum.MetaControl:
-    case SectionTypeEnum.Image:
-    case SectionTypeEnum.Draw:
-    case SectionTypeEnum.IFrame:
-    case SectionTypeEnum.Social:
-    case SectionTypeEnum.Group:
-    case SectionTypeEnum.Chart:
-    case SectionTypeEnum.Chat:
-    case SectionTypeEnum.Browser:
-    case SectionTypeEnum.TaskBoard:
-    case SectionTypeEnum.Spreadsheet:
-      return false;
-    default:
-      return true;
-  }
-}
-
-export function getDefaultHeaderMenuIconClassName(
-  hasSectionStyleTheme: boolean,
-): string {
-  if (hasSectionStyleTheme) {
-    return "gg-menu group/card-section:hover:bg !scale-110 text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
-  }
-  return "gg-menu group/card-section:hover:bg !scale-110 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
 }
 
 function IsInOtherProjectConfigsIcon({
