@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplOfType,
-  getCurrEffectiveSectionImplIfPresent,
+  getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
@@ -34,18 +34,12 @@ function getIsSeriesElementHelper(
   parentTypesToCheck: Array<SectionType>,
   state: ZustandProjectState,
 ) {
-  const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
-  if (!impl) {
-    return false;
-  }
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
   const { parentId } = impl;
   if (!parentId) {
     return false;
   }
-  const parentImpl = getCurrEffectiveSectionImplIfPresent(state, parentId);
-  if (!parentImpl) {
-    return false;
-  }
+  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
   return parentTypesToCheck.includes(parentImpl.type);
 }
 
@@ -71,14 +65,7 @@ export function useUIEditorTab(sectionId: string | null) {
         sectionType: null,
       };
     }
-    const sectionImpl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
-    if (!sectionImpl) {
-      return {
-        selectedTabName: null,
-        requiredTabs: null,
-        sectionType: null,
-      };
-    }
+    const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
     const { selectedTabName, requiredTabs } = getUIEditorTab(
       sectionImpl.type,
       _storedTab,

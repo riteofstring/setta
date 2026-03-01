@@ -165,18 +165,6 @@ export const useProjectState = withProjectState(
   ),
 );
 
-type ProjectStateSyncState = {
-  revisionByProjectConfigId: Record<string, number>;
-};
-
-export const useProjectStateSync = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ProjectStateSyncState>(() => ({
-      revisionByProjectConfigId: {},
-    })),
-  ),
-);
-
 type AppDefinitionState = {
   appDefinition: AppDefinition | null;
   appSpec: unknown | null;

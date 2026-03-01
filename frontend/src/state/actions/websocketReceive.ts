@@ -20,7 +20,6 @@ import {
 } from "state/actions/websocketConnectionList";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useAppDefinition,
   useServerMode,
   useShareSession,
 } from "state/definitions";
@@ -30,7 +29,6 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
-  route_get_app_definition,
   route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
@@ -44,14 +42,6 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
-  ProjectStateActiveViewModePatch,
-  ProjectStateAppDefinitionPatch,
-  ProjectStateCodeObjsPatch,
-  ProjectStateOpStatusPatch,
-  ProjectStateProjectConfigPatch,
-  ProjectStateSectionImplPatch,
-  ProjectStateSectionImplsPatch,
-  ProjectStateStructuralPatch,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
@@ -97,16 +87,7 @@ import {
 } from "./listenerCoverage";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
-  applyActiveViewModeProjectStatePatch,
-  applyAppDefinitionProjectStatePatch,
-  applyCodeObjsProjectStatePatch,
-  applyProjectConfigProjectStatePatch,
-  applyProjectStateOpStatusPatch,
-  applySectionImplProjectStatePatch,
-  applySectionImplsProjectStatePatch,
-  applyStructuralProjectStatePatch,
   getCurrProjectConfigId,
-  getProjectStateRevision,
   processProjectStateUpdateFromBackend,
   updateAllProjectMetadata,
 } from "./sectionInfos";
@@ -553,30 +534,6 @@ function receiveMessage(message: string, socketGeneration: number) {
         return processAppProjectStateUpdateFromBackend(m.content);
       }
       return processProjectStateUpdateFromBackend(m.content);
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode:
-      void handleActiveViewModeProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateProjectConfig:
-      void handleProjectConfigProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpl:
-      void handleSectionImplProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpls:
-      void handleSectionImplsProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateCodeObjs:
-      void handleCodeObjsProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural:
-      void handleStructuralProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition:
-      void handleAppDefinitionProjectStatePatch(m.content);
-      return;
-    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateOpStatus:
-      void handleProjectStateOpStatusPatch(m.content);
-      return;
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
@@ -613,207 +570,6 @@ function receiveMessage(message: string, socketGeneration: number) {
       return receiveTranscriptionProfilesUpdate(m.content.profiles);
     default:
       return m satisfies never;
-  }
-}
-
-async function handleActiveViewModeProjectStatePatch(
-  patch: ProjectStateActiveViewModePatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyActiveViewModeProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleProjectConfigProjectStatePatch(
-  patch: ProjectStateProjectConfigPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyProjectConfigProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleSectionImplProjectStatePatch(
-  patch: ProjectStateSectionImplPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applySectionImplProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleSectionImplsProjectStatePatch(
-  patch: ProjectStateSectionImplsPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applySectionImplsProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleCodeObjsProjectStatePatch(
-  patch: ProjectStateCodeObjsPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyCodeObjsProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleStructuralProjectStatePatch(
-  patch: ProjectStateStructuralPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyStructuralProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function handleAppDefinitionProjectStatePatch(
-  patch: ProjectStateAppDefinitionPatch,
-): Promise<void> {
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (
-    currentRevision !== null &&
-    currentRevision !== patch.previousProjectStateRevision
-  ) {
-    await resyncProjectStateAndAppDefinitionFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyAppDefinitionProjectStatePatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateAndAppDefinitionFromBackend(patch.projectConfigId);
-}
-
-async function handleProjectStateOpStatusPatch(
-  patch: ProjectStateOpStatusPatch,
-): Promise<void> {
-  if (useServerMode.getState().mode === "app") {
-    return;
-  }
-  if (patch.projectConfigId !== getCurrProjectConfigId()) {
-    return;
-  }
-  const currentRevision = getProjectStateRevision(patch.projectConfigId);
-  if (currentRevision !== patch.previousProjectStateRevision) {
-    await resyncProjectStateFromBackend(patch.projectConfigId);
-    return;
-  }
-  const applied = applyProjectStateOpStatusPatch(patch);
-  if (applied) {
-    return;
-  }
-  await resyncProjectStateFromBackend(patch.projectConfigId);
-}
-
-async function resyncProjectStateFromBackend(
-  projectConfigId: string,
-): Promise<void> {
-  const res = await route_get_latest_project_state({ projectConfigId });
-  if (!res200(res)) {
-    return;
-  }
-  if (useServerMode.getState().mode === "app") {
-    processAppProjectStateUpdateFromBackend(res.data);
-    return;
-  }
-  processProjectStateUpdateFromBackend(res.data);
-}
-
-async function resyncProjectStateAndAppDefinitionFromBackend(
-  projectConfigId: string,
-): Promise<void> {
-  const [projectStateResponse, appDefinitionResponse] = await Promise.all([
-    route_get_latest_project_state({ projectConfigId }),
-    route_get_app_definition({}),
-  ]);
-  if (res200(projectStateResponse)) {
-    if (useServerMode.getState().mode === "app") {
-      processAppProjectStateUpdateFromBackend(projectStateResponse.data);
-    } else {
-      processProjectStateUpdateFromBackend(projectStateResponse.data);
-    }
-  }
-  if (res200(appDefinitionResponse)) {
-    useAppDefinition.setState({
-      appDefinition: appDefinitionResponse.data.appDefinition ?? null,
-      appSpec: appDefinitionResponse.data.appSpec ?? null,
-    });
   }
 }
 
