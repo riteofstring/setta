@@ -8109,6 +8109,7 @@ class BaseProjectManager(ABC):
                 await self._broadcast_name_validation_errors(
                     project_state,
                     section_scope_for_param_errors=name_validation_section_scope,
+                    recompute_section_and_project_errors=False,
                 )
             return
 
@@ -8126,6 +8127,7 @@ class BaseProjectManager(ABC):
                 await self._broadcast_name_validation_errors(
                     project_state,
                     section_scope_for_param_errors=name_validation_section_scope,
+                    recompute_section_and_project_errors=False,
                 )
             return
 
@@ -8133,6 +8135,7 @@ class BaseProjectManager(ABC):
             await self._broadcast_name_validation_errors(
                 project_state,
                 section_scope_for_param_errors=name_validation_section_scope,
+                recompute_section_and_project_errors=False,
             )
 
     async def _merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
@@ -8176,6 +8179,7 @@ class BaseProjectManager(ABC):
                 await self._broadcast_name_validation_errors(
                     project_state,
                     section_scope_for_param_errors=name_validation_section_scope,
+                    recompute_section_and_project_errors=False,
                 )
             return
 
@@ -8193,6 +8197,7 @@ class BaseProjectManager(ABC):
                 await self._broadcast_name_validation_errors(
                     project_state,
                     section_scope_for_param_errors=name_validation_section_scope,
+                    recompute_section_and_project_errors=False,
                 )
             self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
             return
@@ -8201,6 +8206,7 @@ class BaseProjectManager(ABC):
             await self._broadcast_name_validation_errors(
                 project_state,
                 section_scope_for_param_errors=name_validation_section_scope,
+                recompute_section_and_project_errors=False,
             )
         self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
@@ -8711,19 +8717,27 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         *,
         section_scope_for_param_errors: set[ID] | None = None,
+        recompute_section_and_project_errors: bool = True,
+        suppress_unchanged_broadcast: bool = True,
     ) -> None:
         project_config_id = project_state.projectConfig.id
-        section_errors = collect_section_name_conflicts(project_state)
-        section_format_errors = collect_section_name_format_errors(project_state)
-        heading_name_errors = collect_text_block_heading_name_errors(project_state)
-        for section_id, errors in section_format_errors.items():
-            section_errors.setdefault(section_id, []).extend(errors)
-        for section_id, errors in heading_name_errors.items():
-            section_errors.setdefault(section_id, []).extend(errors)
-        project_errors = collect_project_name_format_errors(project_state)
         cached_content = self._name_validation_cache_by_project_config.get(
             project_config_id
         )
+        if recompute_section_and_project_errors or cached_content is None:
+            section_errors = collect_section_name_conflicts(project_state)
+            section_format_errors = collect_section_name_format_errors(project_state)
+            heading_name_errors = collect_text_block_heading_name_errors(project_state)
+            for section_id, errors in section_format_errors.items():
+                section_errors.setdefault(section_id, []).extend(errors)
+            for section_id, errors in heading_name_errors.items():
+                section_errors.setdefault(section_id, []).extend(errors)
+            project_errors = collect_project_name_format_errors(project_state)
+        else:
+            section_errors = self._copy_name_validation_errors_by_id(
+                cached_content.sectionErrors
+            )
+            project_errors = list(cached_content.projectErrors)
         cached_param_error_ids_by_section = (
             self._name_validation_param_error_ids_by_section_by_project_config.get(
                 project_config_id
@@ -8757,10 +8771,9 @@ class BaseProjectManager(ABC):
                 param_errors=param_errors,
             )
         else:
-            param_errors = {
-                param_id: list(errors)
-                for param_id, errors in cached_content.paramErrors.items()
-            }
+            param_errors = self._copy_name_validation_errors_by_id(
+                cached_content.paramErrors
+            )
             param_error_ids_by_section = {
                 section_id: set(param_ids)
                 for section_id, param_ids in cached_param_error_ids_by_section.items()
@@ -8801,7 +8814,31 @@ class BaseProjectManager(ABC):
         self._name_validation_param_error_ids_by_section_by_project_config[
             project_config_id
         ] = param_error_ids_by_section
+        if (
+            suppress_unchanged_broadcast
+            and cached_content is not None
+            and self._name_validation_content_equals(cached_content, content)
+        ):
+            return
         await self.websocket_msg_handler.broadcast_name_validation_errors(content)
+
+    @staticmethod
+    def _copy_name_validation_errors_by_id(
+        errors_by_id: dict[ID, list[str]],
+    ) -> dict[ID, list[str]]:
+        return {error_id: list(errors) for error_id, errors in errors_by_id.items()}
+
+    @staticmethod
+    def _name_validation_content_equals(
+        lhs: SettaProjectNameValidationErrors,
+        rhs: SettaProjectNameValidationErrors,
+    ) -> bool:
+        return (
+            lhs.projectConfigId == rhs.projectConfigId
+            and lhs.projectErrors == rhs.projectErrors
+            and lhs.sectionErrors == rhs.sectionErrors
+            and lhs.paramErrors == rhs.paramErrors
+        )
 
     @staticmethod
     def _merge_param_name_errors(

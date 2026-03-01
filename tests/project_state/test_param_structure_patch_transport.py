@@ -169,7 +169,9 @@ def _install_transport_capture(sender):
         sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
             original_project_config_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
             original_section_impl_patch_broadcast
         )
@@ -178,7 +180,9 @@ def _install_transport_capture(sender):
     return capture, restore
 
 
-def _get_callable_impl(manager, project_config_id: ID) -> tuple[ID, CodeCallableCodeObjImpl]:
+def _get_callable_impl(
+    manager, project_config_id: ID
+) -> tuple[ID, CodeCallableCodeObjImpl]:
     section_impl = get_curr_effective_section_impl_with_type_guard(
         manager.get_single_config_state(project_config_id),
         SECTION_ID,
@@ -228,7 +232,9 @@ async def test_add_kwarg_uses_code_obj_and_section_impl_patch_transport() -> Non
         before_code_obj_ids = set(
             manager.get_single_config_state(project_config_id).codeObjs.keys()
         )
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         before_child_count = len(callable_impl_before.children)
 
         sender = manager.websocket_msg_handler
@@ -285,7 +291,9 @@ async def test_add_kwarg_uses_code_obj_and_section_impl_patch_transport() -> Non
 
 
 @pytest.mark.asyncio
-async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_edge_input() -> None:
+async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_edge_input() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -293,7 +301,9 @@ async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_ed
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         removed_param_id = callable_impl_before.children[-1]
         before_child_count = len(callable_impl_before.children)
 
@@ -345,7 +355,9 @@ async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_ed
 
 
 @pytest.mark.asyncio
-async def test_delete_kwarg_includes_project_config_patch_when_deleting_edge_input() -> None:
+async def test_delete_kwarg_includes_project_config_patch_when_deleting_edge_input() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -368,7 +380,9 @@ async def test_delete_kwarg_includes_project_config_patch_when_deleting_edge_inp
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         before_child_count = len(callable_impl_before.children)
 
         sender = manager.websocket_msg_handler
@@ -441,7 +455,9 @@ async def test_delete_selected_params_uses_code_obj_and_section_patch_transport_
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         assert PARAM_ONE_ID in callable_impl_before.children
         assert PARAM_TWO_ID in callable_impl_before.children
 
@@ -507,7 +523,9 @@ async def test_delete_selected_params_includes_project_config_patch_when_deletin
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         assert PARAM_ONE_ID in callable_impl_before.children
         assert PARAM_TWO_ID in callable_impl_before.children
 
@@ -580,7 +598,9 @@ async def test_move_params_uses_code_obj_and_section_patch_transport() -> None:
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         assert PARAM_TWO_ID in callable_impl_before.children
 
         sender = manager.websocket_msg_handler
@@ -703,7 +723,9 @@ async def test_indent_params_uses_code_obj_and_section_patch_transport() -> None
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
-        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_id, callable_impl_before = _get_callable_impl(
+            manager, project_config_id
+        )
         assert PARAM_TWO_ID in callable_impl_before.children
 
         sender = manager.websocket_msg_handler
@@ -794,7 +816,7 @@ async def test_unindent_params_uses_code_obj_and_section_patch_transport() -> No
             patch["sectionId"] == SECTION_ID
             for patch in capture["section_impl_patch_calls"]
         )
-        assert 1 == capture["name_validation_broadcast_calls"]
+        assert 0 == capture["name_validation_broadcast_calls"]
 
         callable_impl_after = get_curr_effective_code_obj_impl_with_type_guard(
             manager.get_single_config_state(project_config_id),
@@ -942,9 +964,7 @@ async def test_param_structure_routes_defer_codegen_refresh() -> None:
             assert scheduled_deferred_refreshes[-1] == project_config_id
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            record_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = record_schedule_deferred_refresh  # type: ignore[method-assign]
         try:
             await assert_deferred_refresh(
                 manager.add_kwarg(
