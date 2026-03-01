@@ -5,6 +5,7 @@ import pytest
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
     SetGenCodePrefixRequest,
+    SetGenCodeSuffixRequest,
     UndoRequest,
 )
 from setta.types.project_config import get_python_codegen_target_with_type_guard
@@ -252,6 +253,50 @@ async def test_set_gen_code_prefix_undo_restores_previous_value() -> None:
             manager.project_state_backend.projectConfigs[project_config_id]
         ).genCodePrefix
         assert reverted_prefix == original_prefix
+
+
+@pytest.mark.asyncio
+async def test_set_gen_code_prefix_suffix_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        old_value, new_value = await manager.compare_and_set_python_codegen_enabled(
+            project_config_id,
+            False,
+            expected_old_value=True,
+        )
+        assert old_value is True
+        assert new_value is False
+        await manager.finish_pending_operations(timeout=5.0)
+
+        history_revision_before_prefix = manager.history.revision
+        with pytest.raises(
+            KeyError, match="Project config missing python codegen target."
+        ):
+            await manager.set_gen_code_prefix(
+                SetGenCodePrefixRequest(
+                    projectConfigId=project_config_id,
+                    genCodePrefix="import os\n",
+                )
+            )
+        assert manager.history.revision == history_revision_before_prefix
+
+        history_revision_before_suffix = manager.history.revision
+        with pytest.raises(
+            KeyError, match="Project config missing python codegen target."
+        ):
+            await manager.set_gen_code_suffix(
+                SetGenCodeSuffixRequest(
+                    projectConfigId=project_config_id,
+                    genCodeSuffix="print('x')\n",
+                )
+            )
+        assert manager.history.revision == history_revision_before_suffix
 
 
 @pytest.mark.asyncio

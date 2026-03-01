@@ -3525,12 +3525,20 @@ class BaseProjectManager(ABC):
             debouncer.cancel()
         await self._refresh_deferred_codegen_now(project_config_id)
 
+    def _validate_python_codegen_target_for_prefix_suffix_edit(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        project_config = self.project_state_backend.projectConfigs[project_config_id]
+        get_python_codegen_target_with_type_guard(project_config)
+
     @enqueue_method
     @project_state_tool(
         access_type="write", default_target_singleton_section="GenPythonCode"
     )
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
+        self._validate_python_codegen_target_for_prefix_suffix_edit(x.projectConfigId)
         self.add_new_history_entry(
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
@@ -3551,6 +3559,7 @@ class BaseProjectManager(ABC):
     )
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
+        self._validate_python_codegen_target_for_prefix_suffix_edit(x.projectConfigId)
         self.add_new_history_entry(
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
