@@ -1,5 +1,6 @@
 import { WatchCodeToggleButton } from "components/AppHeader/WatchCodeToggleButton";
 import { useCallback, useEffect, useRef } from "react";
+import { FiTrash2 } from "react-icons/fi";
 import { MdAdd } from "react-icons/md";
 import { RiRepeatLine } from "react-icons/ri";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
@@ -223,12 +224,12 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                     </button>
                     <button
                       aria-label="Remove folder watch path"
-                      className="nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[11px] leading-none text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                      className="nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                       disabled={inputsDisabled}
                       onClick={() => removeFolder(index)}
                       type="button"
                     >
-                      <i className="gg-trash" />
+                      <FiTrash2 size={12} />
                     </button>
                   </div>
                 </div>
@@ -282,12 +283,12 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                   />
                   <button
                     aria-label="Remove file watch path"
-                    className="nodrag nopan nowheel absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-[11px] leading-none text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                    className="nodrag nopan nowheel absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFile(index)}
                     type="button"
                   >
-                    <i className="gg-trash" />
+                    <FiTrash2 size={12} />
                   </button>
                 </div>
               </div>
