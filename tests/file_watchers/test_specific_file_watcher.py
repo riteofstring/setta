@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from watchdog.events import FileMovedEvent
 
 from setta.file_watchers.specific_file_watcher import MockFileEvent, SpecificFileWatcher
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
@@ -101,3 +102,45 @@ async def test_file_modification_rel_path_is_workspace_relative() -> None:
                 assert core_update.relPath == Path("settings.json")
             finally:
                 watcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_file_move_triggers_callback_with_destination_file() -> None:
+    event = asyncio.Event()
+    events: list[FileWatcherCoreUpdate] = []
+
+    with TemporaryDirectory() as tmpdir:
+        source_path = Path(tmpdir) / "settings-old.json"
+        destination_path = Path(tmpdir) / "settings-new.json"
+        source_path.write_text('{"value": 1}')
+
+        loop = asyncio.get_running_loop()
+        watcher = SpecificFileWatcher(loop=loop)
+
+        async def callback(core_update: FileWatcherCoreUpdate) -> None:
+            events.append(core_update)
+            event.set()
+
+        normalized_destination = normalize_state_path(destination_path)
+        watcher.update_callbacks({normalized_destination: callback}, "test", set())
+        watcher.start()
+        try:
+            await asyncio.sleep(0.05)
+            event.clear()
+            events.clear()
+
+            source_path.replace(destination_path)
+            watcher.handler.on_moved(
+                FileMovedEvent(str(source_path), str(destination_path))
+            )
+
+            await asyncio.wait_for(event.wait(), timeout=2)
+            assert events
+
+            core_update = events[0]
+            assert core_update.eventType == FileEventType.moved
+            assert core_update.absPath == source_path.resolve()
+            assert core_update.destAbsPath == destination_path.resolve()
+            assert core_update.fileToRead == destination_path.resolve()
+        finally:
+            watcher.stop()

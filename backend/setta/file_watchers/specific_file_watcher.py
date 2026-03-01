@@ -220,10 +220,21 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             self._send_event(event, FileEventType.deleted)
 
     def on_moved(self, event: FileSystemEvent):
-        # TODO
-        pass
+        if event.is_directory:
+            dest_path = (
+                Path(ensure_str_path(event.dest_path)).resolve()
+                if hasattr(event, "dest_path")
+                else Path(ensure_str_path(event.src_path)).resolve()
+            )
+            self._notify_directory_created(dest_path)
+            return
+        self._send_event(event, FileEventType.moved)
 
     def _handle_directory_created(self, event: FileSystemEvent) -> None:
+        abs_path = Path(ensure_str_path(event.src_path)).resolve()
+        self._notify_directory_created(abs_path)
+
+    def _notify_directory_created(self, abs_path: Path) -> None:
         if self._dir_created_callback is None:
             return
         loop = self._loop_getter()
@@ -237,7 +248,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                 "Specific file watcher event loop closed; skipping directory event."
             )
             return
-        abs_path = Path(ensure_str_path(event.src_path)).resolve()
         loop.call_soon_threadsafe(lambda: self._dir_created_callback(abs_path))
 
     def _send_event(
