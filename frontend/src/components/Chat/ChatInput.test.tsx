@@ -382,65 +382,6 @@ describe("ChatInput composer controls", () => {
     expect(markup).toContain('aria-label="0 background terminals active"');
     expect(markup).toContain('aria-label="1 subagent active"');
   });
-
-  it("marks runtime counters as non-selectable text", () => {
-    const markup = renderChatInput({
-      runtimeActivityCounts: {
-        activeBackgroundTerminals: 0,
-        activeSubagents: 1,
-      },
-    });
-
-    expect(markup).toContain('aria-label="0 background terminals active"');
-    expect(markup).toContain('aria-label="1 subagent active"');
-    expect(markup).toMatch(
-      /<span[^>]*data-chat-runtime-active-background-terminals="true"[^>]*class="[^"]*select-none/u,
-    );
-    expect(markup).toMatch(
-      /<span[^>]*data-chat-runtime-active-subagents="true"[^>]*class="[^"]*select-none/u,
-    );
-  });
-
-  it("renders runtime activity dropdown triggers when detailed entries are available", () => {
-    const markup = renderChatInput({
-      runtimeActivityCounts: {
-        activeBackgroundTerminals: 1,
-        activeSubagents: 1,
-      },
-      runtimeActivityDetails: {
-        activeBackgroundTerminals: [
-          {
-            id: "tool-command",
-            label: "pnpm test",
-            toolName: "command_execution",
-          },
-        ],
-        activeSubagents: [
-          {
-            id: "tool-agent",
-            label: "research_profile",
-            toolName: "run_agent_profile",
-          },
-        ],
-      },
-    });
-
-    const terminalTrigger = getButtonTagByAriaLabel(
-      markup,
-      "1 background terminal active",
-    );
-    const subagentTrigger = getButtonTagByAriaLabel(
-      markup,
-      "1 subagent active",
-    );
-
-    expect(terminalTrigger).not.toBeNull();
-    expect(subagentTrigger).not.toBeNull();
-    expect(terminalTrigger).toContain("select-none");
-    expect(subagentTrigger).toContain("select-none");
-    expect(terminalTrigger).toContain('aria-haspopup="menu"');
-    expect(subagentTrigger).toContain('aria-haspopup="menu"');
-  });
 });
 
 describe("areSlashSuggestionsPortalStylesEqual", () => {

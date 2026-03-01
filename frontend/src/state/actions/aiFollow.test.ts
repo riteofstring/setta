@@ -13,8 +13,8 @@ describe("useAIFollow defaults", () => {
     resetProjectStores();
   });
 
-  it("defaults follow mode to all", () => {
-    expect(useAIFollow.getState().mode).toBe("all");
+  it("defaults follow mode to off", () => {
+    expect(useAIFollow.getState().mode).toBe("off");
   });
 });
 

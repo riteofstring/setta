@@ -337,7 +337,7 @@ describe("chat history sync to section state", () => {
     });
   });
 
-  it("keeps local-only section messages after hydrate when stream is inactive", async () => {
+  it("replaces section messages with backend hydrate payload when stream is inactive", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")
     ).route_get_external_agent_chat as unknown as vi.Mock;
@@ -391,7 +391,6 @@ describe("chat history sync to section state", () => {
     );
     expect(impl.messages.map((message) => message.id)).toEqual([
       "msg-remote-only",
-      "msg-local-only",
     ]);
   });
 
