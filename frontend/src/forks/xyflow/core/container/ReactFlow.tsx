@@ -57,6 +57,7 @@ const ReactFlow = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const projectConfigName = useProjectState(
     (state) => state.projectConfig.name,
   );
@@ -72,6 +73,7 @@ const ReactFlow = () => {
     return activeViewMode.name;
   });
   const sceneGraphRendererRuntime = useSceneGraphRendererRuntime({
+    projectConfigId,
     projectConfigName,
     activeViewModeName,
   });

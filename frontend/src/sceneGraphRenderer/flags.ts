@@ -18,6 +18,7 @@ export const SCENE_GRAPH_RENDERER_FLAG_KEYS = {
   backend: "setta.sceneGraphRenderer.backend",
   domIslandRadius: "setta.sceneGraphRenderer.domIslandRadius",
   debugOverlay: "setta.sceneGraphRenderer.debugOverlay",
+  rolloutProjectConfigIds: "setta.sceneGraphRenderer.rolloutProjectConfigIds",
 } as const;
 
 type SceneGraphRendererStorageAdapter = {
@@ -51,8 +52,42 @@ export function isSceneGraphRendererFlagStorageKey(
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.enabled ||
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.backend ||
     key === SCENE_GRAPH_RENDERER_FLAG_KEYS.domIslandRadius ||
-    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.debugOverlay
+    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.debugOverlay ||
+    key === SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds
   );
+}
+
+export function readSceneGraphRendererRolloutProjectConfigIds(
+  storage: SceneGraphRendererStorageAdapter = getSafeLocalStorageAdapter(
+    SCENE_GRAPH_RENDERER_STORAGE_NAMESPACE,
+  ),
+): string[] {
+  const rawValue = storage.getItem(
+    SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds,
+  );
+  if (rawValue === null) {
+    return [];
+  }
+  try {
+    const parsedValue = JSON.parse(rawValue);
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+    const ids = new Set<string>();
+    for (const entry of parsedValue) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+      const trimmedEntry = entry.trim();
+      if (trimmedEntry.length === 0) {
+        continue;
+      }
+      ids.add(trimmedEntry);
+    }
+    return Array.from(ids);
+  } catch {
+    return [];
+  }
 }
 
 export function readSceneGraphRendererFlags(

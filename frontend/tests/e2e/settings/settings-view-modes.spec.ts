@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  cleanupIsolatedProject,
   ensureAppReady,
+  openIsolatedProject,
   postBackend,
   readSceneGraphRendererPerfLabels,
 } from "../helpers";
@@ -8,6 +10,8 @@ import {
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
+const SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_IDS_KEY =
+  "setta.sceneGraphRenderer.rolloutProjectConfigIds";
 
 test("settings view tabs filter sections and minimap", async ({ page }) => {
   await page.addInitScript(() => {
@@ -181,6 +185,80 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
   expect(killSwitchLabels.enabled).toBe(false);
   expect(killSwitchLabels.resolvedBackend).toBe("dom");
   expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
+});
+
+test("scene graph canary allowlist enables non-settings project ids and keeps explicit kill switch", async ({
+  page,
+}) => {
+  let isolatedProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  try {
+    await ensureAppReady(page);
+    isolatedProjectContext = await openIsolatedProject(page);
+    await page.evaluate(
+      ({ projectConfigId, rolloutProjectConfigIdsKey }) => {
+        localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+        localStorage.removeItem("setta.sceneGraphRenderer.backend");
+        localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+        localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+        localStorage.setItem(
+          rolloutProjectConfigIdsKey,
+          JSON.stringify([projectConfigId]),
+        );
+      },
+      {
+        projectConfigId: isolatedProjectContext.projectConfigId,
+        rolloutProjectConfigIdsKey:
+          SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_IDS_KEY,
+      },
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const canaryLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(canaryLabels.enabled).toBe(true);
+    expect(canaryLabels.requestedBackend).toBe("auto");
+    expect(["webgpu", "webgl", "dom"]).toContain(canaryLabels.resolvedBackend);
+
+    await page.evaluate(() => {
+      localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.waitForFunction(() => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+      );
+    });
+
+    const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
+    expect(killSwitchLabels.enabled).toBe(false);
+    expect(killSwitchLabels.resolvedBackend).toBe("dom");
+    expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
+  } finally {
+    await page.evaluate((rolloutProjectConfigIdsKey) => {
+      localStorage.removeItem(rolloutProjectConfigIdsKey);
+      localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+      localStorage.removeItem("setta.sceneGraphRenderer.backend");
+      localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+      localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+    }, SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_IDS_KEY);
+    await cleanupIsolatedProject(page, isolatedProjectContext);
+  }
 });
 
 test("settings all-settings flow exposes scene-graph layer snapshot metadata when active", async ({

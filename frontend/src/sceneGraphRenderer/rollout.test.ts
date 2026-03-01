@@ -3,6 +3,7 @@ import type { SceneGraphRendererFlags } from "./flags";
 import {
   isSceneGraphRendererDefaultOnSurface,
   resolveSceneGraphRendererRolloutFlags,
+  type SceneGraphRendererRolloutSurface,
 } from "./rollout";
 
 function createFlags(
@@ -17,46 +18,81 @@ function createFlags(
   };
 }
 
+function createSurface(
+  overrides: Partial<SceneGraphRendererRolloutSurface> = {},
+): SceneGraphRendererRolloutSurface {
+  return {
+    projectConfigId: "project-config-id",
+    projectConfigName: "home",
+    activeViewModeName: "Overview",
+    ...overrides,
+  };
+}
+
 describe("scene graph renderer rollout policy", () => {
   it("marks the settings project as default-on across view modes", () => {
     // Phase 6 expansion enables all settings tabs while keeping project scoping explicit.
     expect(
-      isSceneGraphRendererDefaultOnSurface({
-        projectConfigName: "settings",
-        activeViewModeName: "All Settings",
-      }),
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "settings-config-id",
+          projectConfigName: "settings",
+          activeViewModeName: "All Settings",
+        }),
+      ),
     ).toBe(true);
     expect(
-      isSceneGraphRendererDefaultOnSurface({
-        projectConfigName: "settings",
-        activeViewModeName: "Core",
-      }),
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "settings-config-id",
+          projectConfigName: "settings",
+          activeViewModeName: "Core",
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("enables allowlisted non-settings project config ids", () => {
+    // Canary expansion must rely on explicit projectConfigId allowlist entries.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "canary-project-config-id",
+          projectConfigName: "home",
+          activeViewModeName: "Overview",
+        }),
+        ["canary-project-config-id"],
+      ),
     ).toBe(true);
   });
 
   it("does not default-enable unrelated surfaces", () => {
-    // Controlled rollout must not leak to other project/view combinations.
+    // Controlled rollout must not leak to non-target project IDs or names.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false }),
-      surface: {
+      surface: createSurface({
+        projectConfigId: "non-target-config-id",
         projectConfigName: "home",
         activeViewModeName: "Overview",
-      },
+      }),
       hasEnabledStorageOverride: false,
+      rolloutProjectConfigIds: [],
     });
 
     expect(effectiveFlags.enabled).toBe(false);
   });
 
   it("default-enables renderer when no explicit enabled override exists", () => {
-    // Missing localStorage override should inherit rollout defaults for targeted surfaces.
+    // Missing localStorage override should inherit rollout defaults for targeted settings surfaces.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
-      surface: {
+      surface: createSurface({
+        projectConfigId: "settings-config-id",
         projectConfigName: "settings",
         activeViewModeName: "All Settings",
-      },
+      }),
       hasEnabledStorageOverride: false,
+      rolloutProjectConfigIds: [],
     });
 
     expect(effectiveFlags).toEqual({
@@ -71,11 +107,29 @@ describe("scene graph renderer rollout policy", () => {
     // Project-scoped rollout should apply to other settings tabs, not only All Settings.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
-      surface: {
+      surface: createSurface({
+        projectConfigId: "settings-config-id",
         projectConfigName: "settings",
         activeViewModeName: "Core",
-      },
+      }),
       hasEnabledStorageOverride: false,
+      rolloutProjectConfigIds: [],
+    });
+
+    expect(effectiveFlags.enabled).toBe(true);
+  });
+
+  it("default-enables allowlisted non-settings canary project", () => {
+    // Explicit projectConfigId canary allowlist should unlock non-settings rollout.
+    const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
+      persistedFlags: createFlags({ enabled: false, backend: "auto" }),
+      surface: createSurface({
+        projectConfigId: "canary-project-config-id",
+        projectConfigName: "home",
+        activeViewModeName: "Overview",
+      }),
+      hasEnabledStorageOverride: false,
+      rolloutProjectConfigIds: ["canary-project-config-id"],
     });
 
     expect(effectiveFlags.enabled).toBe(true);
@@ -85,11 +139,13 @@ describe("scene graph renderer rollout policy", () => {
     // Explicit localStorage override must remain the top-priority kill switch.
     const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
       persistedFlags: createFlags({ enabled: false }),
-      surface: {
+      surface: createSurface({
+        projectConfigId: "canary-project-config-id",
         projectConfigName: "settings",
         activeViewModeName: "All Settings",
-      },
+      }),
       hasEnabledStorageOverride: true,
+      rolloutProjectConfigIds: ["canary-project-config-id"],
     });
 
     expect(effectiveFlags.enabled).toBe(false);

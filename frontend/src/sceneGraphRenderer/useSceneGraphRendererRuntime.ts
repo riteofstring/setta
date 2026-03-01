@@ -8,6 +8,7 @@ import {
   hasSceneGraphRendererEnabledStorageOverride,
   isSceneGraphRendererFlagStorageKey,
   readSceneGraphRendererFlags,
+  readSceneGraphRendererRolloutProjectConfigIds,
   type SceneGraphRendererFlags,
 } from "./flags";
 import {
@@ -36,6 +37,9 @@ export function useSceneGraphRendererRuntime(
   );
   const [hasEnabledStorageOverride, setHasEnabledStorageOverride] =
     useState<boolean>(() => hasSceneGraphRendererEnabledStorageOverride());
+  const [rolloutProjectConfigIds, setRolloutProjectConfigIds] = useState<
+    readonly string[]
+  >(() => readSceneGraphRendererRolloutProjectConfigIds());
   const [capabilities, setCapabilities] =
     useState<SceneGraphRendererCapabilities>(() =>
       createInitialSceneGraphRendererCapabilities(),
@@ -54,10 +58,14 @@ export function useSceneGraphRendererRuntime(
       setHasEnabledStorageOverride(
         hasSceneGraphRendererEnabledStorageOverride(),
       );
+      setRolloutProjectConfigIds(
+        readSceneGraphRendererRolloutProjectConfigIds(),
+      );
     };
 
     setPersistedFlags(readSceneGraphRendererFlags());
     setHasEnabledStorageOverride(hasSceneGraphRendererEnabledStorageOverride());
+    setRolloutProjectConfigIds(readSceneGraphRendererRolloutProjectConfigIds());
     window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -69,11 +77,14 @@ export function useSceneGraphRendererRuntime(
       persistedFlags,
       surface: rolloutSurface,
       hasEnabledStorageOverride,
+      rolloutProjectConfigIds,
     });
   }, [
     hasEnabledStorageOverride,
     persistedFlags,
+    rolloutProjectConfigIds,
     rolloutSurface.activeViewModeName,
+    rolloutSurface.projectConfigId,
     rolloutSurface.projectConfigName,
   ]);
 

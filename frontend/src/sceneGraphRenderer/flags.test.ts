@@ -4,6 +4,7 @@ import {
   SCENE_GRAPH_RENDERER_FLAG_KEYS,
   hasSceneGraphRendererEnabledStorageOverride,
   readSceneGraphRendererFlags,
+  readSceneGraphRendererRolloutProjectConfigIds,
   writeSceneGraphRendererFlags,
 } from "./flags";
 
@@ -109,5 +110,28 @@ describe("scene graph renderer flags", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it("parses rollout project config id allowlist as strict json array", () => {
+    // Rollout targeting must remain deterministic and typed, not comma-split heuristics.
+    expect(
+      readSceneGraphRendererRolloutProjectConfigIds(createMemoryStorage()),
+    ).toEqual([]);
+    expect(
+      readSceneGraphRendererRolloutProjectConfigIds(
+        createMemoryStorage({
+          [SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds]:
+            JSON.stringify([" config-a ", "config-b", "config-a", 7]),
+        }),
+      ),
+    ).toEqual(["config-a", "config-b"]);
+    expect(
+      readSceneGraphRendererRolloutProjectConfigIds(
+        createMemoryStorage({
+          [SCENE_GRAPH_RENDERER_FLAG_KEYS.rolloutProjectConfigIds]:
+            "config-a,config-b",
+        }),
+      ),
+    ).toEqual([]);
   });
 });
