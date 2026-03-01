@@ -88,7 +88,6 @@ from setta.plugins.models import (
 from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
-    convert_backend_to_single_config,
 )
 from setta.types.listener import DependencyEvent
 from setta.types.project_config import ProjectCodegenLanguage
@@ -3300,10 +3299,7 @@ class PluginManager:
                 f"host.read_project_state unavailable before startup completes: {exc}",
             ) from exc
 
-        project_state = convert_backend_to_single_config(
-            manager.project_state_backend,
-            project_config_id,
-        )
+        project_state = manager.get_single_config_state(project_config_id)
         if view == "summary":
             serialized = jsonable_encoder(build_project_state_summary(project_state))
         else:
