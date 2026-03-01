@@ -80,3 +80,43 @@ Touched code paths:
 - Budgets/assertions added:
   - Tab-switch long-task ceilings for `Core -> All Settings`, `Param Defaults -> All Settings`, and `All Settings -> Core`.
   - DOM complexity ceilings for `Core`, `Param Defaults`, and `All Settings` (element count, node count, param rows, depth, max children).
+
+## Rerun (2026-03-02, post `backend-performance` merge)
+
+- Branch/commit at rerun: `frontend-performance-2 @ 4cb68f46`.
+- Trigger: verify whether the merged backend performance work changed the frontend settings baseline.
+
+### Automated guardrail rerun
+
+- Command:
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-performance-guardrails.spec.ts`
+- Result:
+  - `2 passed` (`settings tab switching long-task cost stays within budget`, `settings DOM complexity stays within guardrail budgets`).
+
+### Metric probe rerun
+
+- Method:
+  - Scripted browser probe using `@playwright/test` Chromium against `http://127.0.0.1:3002/settings`.
+  - In-page `PerformanceObserver` (`longtask`) + DOM counters + fixed 180-frame viewport transform stress loop.
+  - Note: `chrome-devtools-mcp` was unavailable in this session (`MCP startup cancelled`), so this rerun used equivalent in-page instrumentation instead of DevTools trace tooling.
+- Key metrics:
+  - DOM by tab:
+    - `Core`: 3700 elements, 5 nodes, 301 param rows, max depth 30, max children 62.
+    - `Param Defaults`: 1872 elements, 13 nodes, 76 param rows, max depth 26, max children 57.
+    - `All Settings`: 9715 elements, 42 nodes, 697 param rows, max depth 30, max children 166.
+  - Long-task switch cost (2.2s windows):
+    - `Core -> All Settings`: 795ms total, 547ms max.
+    - `Param Defaults -> All Settings`: 1043ms total, 675ms max.
+    - `All Settings -> Core`: 216ms total/max.
+    - `All Settings -> Param Defaults`: 173ms total/max.
+  - Transform stress (180 frames):
+    - `Core`: 120.9 FPS avg.
+    - `Param Defaults`: 121.2 FPS avg.
+    - `All Settings`: 45.2 FPS avg.
+    - Long-task count during transform loops: 0.
+
+### Observations from rerun
+
+- DOM complexity in `All Settings` is effectively unchanged from baseline.
+- Switch-to-`All Settings` long-task totals were lower in this run than the original baseline run.
+- Pan/zoom-like transform performance in `All Settings` remained poor and was worse in this run (`45.2 FPS`), reinforcing that heavy-view paint/layout/compositing remains a major bottleneck.
