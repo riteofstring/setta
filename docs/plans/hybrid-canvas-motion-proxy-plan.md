@@ -169,6 +169,19 @@
 - Activate proxy mode only when prewarm is ready.
 - Keep feature flag scoped to target project/view for early verification.
 
+### Phase 1 Status Update (2026-03-03)
+- A scoped Phase 1 spike was implemented and benchmarked:
+  - feature-flagged (`settings` + `All Settings`) prewarmed canvas shell proxy,
+  - explicit `idle/armed/active/settling` state machine,
+  - deterministic geometry from node internals.
+- Result: **not kept** in this pass.
+  - Playwright A/B runs did not show sustained pan/zoom improvement and start-hitch worsened.
+  - A more aggressive `display:none` DOM-hide variant caused interaction-path instability and was also rejected.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-phase1-hybrid-motion-proxy-spike.md`
+- Next focus:
+  - Rework Phase 1 switch strategy before next spike (reduce start-switch overhead and avoid behavior instability while still materially cutting compositor load).
+
 ## Phase 2: Stop-Hitch Mitigation
 - Implement staged restore sequencing in settle phase.
 - Compare:
