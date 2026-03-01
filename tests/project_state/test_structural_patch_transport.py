@@ -2424,6 +2424,7 @@ async def test_undo_redo_unknown_scope_still_uses_full_patch_transport() -> None
         manager.add_new_history_entry(
             trigger_autosave=False,
             project_config_id=project_config_id,
+            undo_redo_full_patch_fallback=True,
         )
         manager.project_state_backend.sections[SECTION_ID].name = "undo-redo-full-fallback"
 

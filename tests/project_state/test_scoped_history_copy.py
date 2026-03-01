@@ -138,6 +138,7 @@ async def test_scoped_history_entry_only_deep_copies_target_project_graph() -> N
         manager.add_new_history_entry(
             trigger_autosave=False,
             project_config_id=target_config_id,
+            undo_redo_full_patch_fallback=True,
         )
         backend_after = manager.project_state_backend
 
@@ -418,6 +419,26 @@ async def test_app_definition_only_history_entry_rejects_project_config_scope() 
                 trigger_autosave=False,
                 project_config_id=project_config_id,
                 app_definition_only=True,
+            )
+
+
+@pytest.mark.asyncio
+async def test_unscoped_project_config_history_entry_requires_explicit_full_fallback() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        with pytest.raises(
+            ValueError,
+            match="Unscoped project-config history entries require explicit intent",
+        ):
+            manager.add_new_history_entry(
+                trigger_autosave=False,
+                project_config_id=project_config_id,
             )
 
 

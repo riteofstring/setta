@@ -60,6 +60,7 @@ async def test_undo_redo_normalizes_inconsistent_callable_children_from_history(
         manager.add_new_history_entry(
             trigger_autosave=False,
             project_config_id=project_config_id,
+            undo_redo_full_patch_fallback=True,
         )
         stale_child_id = ID("stale-child-for-history-normalization")
         callable_impl = _get_backend_callable_impl_for_section(
@@ -118,6 +119,7 @@ async def test_undo_redo_skips_re_normalization_for_already_normalized_entries(
         manager.add_new_history_entry(
             trigger_autosave=False,
             project_config_id=project_config_id,
+            undo_redo_full_patch_fallback=True,
         )
         stale_child_id = ID("stale-child-for-normalization-cache")
         callable_impl = _get_backend_callable_impl_for_section(

@@ -8771,21 +8771,21 @@ class BaseProjectManager(ABC):
             param_ids=param_ids,
             new_parent_ids=list(new_parent_ids),
         )
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
+        scoped_section_ids = self._get_codegen_singleton_section_ids_for_history_entry(
+            project_config_id
         )
+        scoped_section_ids.add(section_id)
         if history_code_obj_ids:
             self.add_new_history_entry(
                 project_config_id=project_config_id,
                 code_obj_only_ids=history_code_obj_ids,
-                section_impl_only_ids=(
-                    codegen_singleton_section_ids
-                    if codegen_singleton_section_ids
-                    else None
-                ),
+                section_impl_only_ids=scoped_section_ids,
             )
             return
-        self.add_new_history_entry(project_config_id=project_config_id)
+        self.add_new_history_entry(
+            project_config_id=project_config_id,
+            section_impl_only_ids=scoped_section_ids,
+        )
 
     def _add_section_and_code_obj_scoped_history_entry(
         self,
@@ -8816,7 +8816,10 @@ class BaseProjectManager(ABC):
             )
 
         if not scoped_section_ids and not scoped_code_obj_ids:
-            self.add_new_history_entry(project_config_id=project_config_id)
+            self.add_new_history_entry(
+                project_config_id=project_config_id,
+                project_config_only=True,
+            )
             return
 
         self.add_new_history_entry(
@@ -10285,6 +10288,7 @@ class BaseProjectManager(ABC):
         project_config_only: bool = False,
         include_project_config: bool = False,
         include_project_config_targeted_patch_transport: bool = False,
+        undo_redo_full_patch_fallback: bool = False,
         section_impl_only_ids: set[ID] | None = None,
         code_obj_only_ids: set[ID] | None = None,
         app_definition_only: bool = False,
@@ -10316,6 +10320,17 @@ class BaseProjectManager(ABC):
             raise ValueError(
                 "include_project_config_targeted_patch_transport requires include_project_config."
             )
+        if undo_redo_full_patch_fallback and (
+            project_config_id is None
+            or project_config_only
+            or include_project_config
+            or section_impl_only_ids is not None
+            or code_obj_only_ids is not None
+            or app_definition_only
+        ):
+            raise ValueError(
+                "undo_redo_full_patch_fallback can only be used with unscoped project-config history entries."
+            )
         if project_config_only and (
             section_impl_only_ids is not None or code_obj_only_ids is not None
         ):
@@ -10331,9 +10346,24 @@ class BaseProjectManager(ABC):
             or include_project_config
             or section_impl_only_ids is not None
             or code_obj_only_ids is not None
+            or undo_redo_full_patch_fallback
         ):
             raise ValueError(
                 "app_definition_only cannot be combined with project_config scope arguments."
+            )
+        if (
+            project_config_id is not None
+            and not project_config_only
+            and not include_project_config
+            and section_impl_only_ids is None
+            and code_obj_only_ids is None
+            and not app_definition_only
+            and not undo_redo_full_patch_fallback
+        ):
+            raise ValueError(
+                "Unscoped project-config history entries require explicit intent. "
+                "Use scoped arguments, project_config_only/include_project_config, or "
+                "undo_redo_full_patch_fallback=True."
             )
         history_entry_project_config_scope: set[ID] | None = None
         if project_config_id is not None:
