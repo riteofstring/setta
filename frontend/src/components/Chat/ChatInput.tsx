@@ -1429,7 +1429,9 @@ export const ChatInput = memo(function ChatInput({
     if (!executionControls || !showPermissionControl) {
       return null;
     }
-    const modeLabel = executionControls.permissionMode.replaceAll("_", " ");
+    const modeLabel = (
+      executionControls.permissionMode ?? "minimal"
+    ).replaceAll("_", " ");
     return getFloatingBoxHandlers({
       title: "Permissions",
       content: `Current mode: ${modeLabel}`,

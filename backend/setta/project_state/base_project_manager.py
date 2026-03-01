@@ -2129,6 +2129,56 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
 
+    def _cancel_pending_deferred_codegen_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        if (
+            project_config_id
+            not in self._pending_deferred_codegen_refresh_revision_by_project_config
+        ):
+            return
+        self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+            project_config_id,
+            None,
+        )
+        debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
+            project_config_id
+        )
+        if debouncer is not None:
+            debouncer.cancel_pending()
+
+    def _cancel_pending_gen_code_prefix_suffix_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        if (
+            project_config_id
+            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+        ):
+            return
+        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+            project_config_id,
+            None,
+        )
+        debouncer = (
+            self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
+                project_config_id
+            )
+        )
+        if debouncer is not None:
+            debouncer.cancel_pending()
+
+    def _cancel_all_pending_codegen_refreshes(self) -> None:
+        for project_config_id in list(
+            self._pending_deferred_codegen_refresh_revision_by_project_config.keys()
+        ):
+            self._cancel_pending_deferred_codegen_refresh(project_config_id)
+        for project_config_id in list(
+            self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.keys()
+        ):
+            self._cancel_pending_gen_code_prefix_suffix_refresh(project_config_id)
+
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
@@ -2138,19 +2188,7 @@ class BaseProjectManager(ABC):
         validate_name_rules: bool = True,
     ):
         project_config_id = projectState.projectConfig.id
-        if (
-            project_config_id
-            in self._pending_deferred_codegen_refresh_revision_by_project_config
-        ):
-            self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
-                project_config_id,
-                None,
-            )
-            debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
-                project_config_id
-            )
-            if debouncer is not None:
-                debouncer.cancel_pending()
+        self._cancel_pending_deferred_codegen_refresh(project_config_id)
         async with self._project_state_lock.write_lock():
             projectState._section_slug_cache = None
             projectState.validate_for_update(
@@ -2459,11 +2497,53 @@ class BaseProjectManager(ABC):
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
-        async with self._project_state_lock.read_lock():
-            code = self.code_dict[x.projectConfigId][x.sectionId]
+        code = await self._get_or_create_code_entry_for_completion(
+            x.projectConfigId,
+            x.sectionId,
+        )
+        if code is None:
+            return []
         if _is_lsp_code_entry(code):
             return await code.code_area_completion(x.fullText, x.position)
         return []
+
+    async def _get_or_create_code_entry_for_completion(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode | None:
+        async with self._project_state_lock.read_lock():
+            existing = self.code_dict.get(project_config_id, {}).get(section_id)
+            if existing is not None:
+                return existing
+
+        async with self._project_state_lock.write_lock():
+            code_entries = self.code_dict.setdefault(project_config_id, {})
+            existing = code_entries.get(section_id)
+            if existing is not None:
+                return existing
+
+            project_state = self.get_single_config_state(project_config_id)
+            if section_id not in project_state.sections:
+                raise KeyError(section_id)
+
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CodeSectionImpl):
+                return None
+            if section_impl.codeFileBinding is None:
+                return None
+
+            section_code = self.create_project_code(
+                project_state,
+                section_id,
+                section_impl,
+            )
+            if section_code is None:
+                return None
+            if not section_code.binding.canonical_path.exists():
+                section_code.write_to_disk(section_code.code)
+            code_entries[section_id] = section_code
+            return section_code
 
     @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
@@ -3224,6 +3304,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_on_enable(project_state)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
 
@@ -3249,6 +3330,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_on_enable(project_state)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
         return old_value, project_state.projectConfig.watchCodeEnabled
@@ -3271,6 +3353,7 @@ class BaseProjectManager(ABC):
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
 
@@ -3313,6 +3396,7 @@ class BaseProjectManager(ABC):
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
         updated_folders = [
@@ -3350,6 +3434,7 @@ class BaseProjectManager(ABC):
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
         return old_files, list(project_state.projectConfig.watchCodeFiles)
@@ -4740,7 +4825,9 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -4755,7 +4842,9 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -5396,6 +5485,7 @@ class BaseProjectManager(ABC):
             project_state,
             code_obj_ids=code_obj_patch_scope,
             section_ids=section_patch_scope,
+            validate_name_rules=False,
         )
 
     @enqueue_method
@@ -6013,6 +6103,18 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
+        if (
+            project_config_has_codegen_language(
+                project_state.projectConfig,
+                ProjectCodegenLanguage.python,
+            )
+            and x.projectConfigId in self.gen_code
+        ):
+            await self.maybe_do_rename_refactor(
+                project_state,
+                x.projectConfigId,
+                DependencyGraph(project_state),
+            )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
@@ -7828,7 +7930,10 @@ class BaseProjectManager(ABC):
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    suppress_unchanged_broadcast=False,
+                )
             return
         await self._broadcast_structural_patch(
             project_state=project_state,
@@ -7836,7 +7941,10 @@ class BaseProjectManager(ABC):
             project_state_revision=next_project_state_revision,
         )
         if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                suppress_unchanged_broadcast=False,
+            )
 
     async def _merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
         self,
@@ -7861,7 +7969,10 @@ class BaseProjectManager(ABC):
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    suppress_unchanged_broadcast=False,
+                )
             return
         await self._broadcast_structural_patch(
             project_state=project_state,
@@ -7869,7 +7980,10 @@ class BaseProjectManager(ABC):
             project_state_revision=next_project_state_revision,
         )
         if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                suppress_unchanged_broadcast=False,
+            )
         self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
     async def _update_and_broadcast_structural_and_code_obj_patches(
@@ -9508,6 +9622,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
+        self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
         self._invalidate_single_config_state_cache()
@@ -9517,6 +9632,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
+        self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
         self._invalidate_single_config_state_cache()
@@ -9538,7 +9654,10 @@ class BaseProjectManager(ABC):
                 or project_state_revision <= previous_project_state_revision
             ):
                 await self._broadcast_project_state_snapshot(project_state)
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    suppress_unchanged_broadcast=False,
+                )
                 continue
             has_broadcast_patch = False
             code_obj_ids = sorted(project_state.codeObjs.keys())
@@ -9570,7 +9689,10 @@ class BaseProjectManager(ABC):
                 ),
                 project_state_revision=project_state_revision,
             )
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                suppress_unchanged_broadcast=False,
+            )
 
     @enqueue_method(require_serialization=False)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):

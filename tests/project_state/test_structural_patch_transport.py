@@ -1116,6 +1116,11 @@ async def test_remaining_section_lifecycle_routes_defer_codegen_refresh() -> Non
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):
+            await manager._flush_pending_gen_code_prefix_suffix_refresh(
+                project_config_id
+            )
+            await manager._flush_pending_deferred_codegen_refresh(project_config_id)
+            await manager.finish_pending_operations(timeout=5.0)
             before_refresh_calls = refresh_calls
             before_scheduled_count = len(scheduled_deferred_refreshes)
             result = await operation_coro
@@ -1490,6 +1495,11 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
             scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def assert_deferred_refresh(operation_coro):
+            await manager._flush_pending_gen_code_prefix_suffix_refresh(
+                project_config_id
+            )
+            await manager._flush_pending_deferred_codegen_refresh(project_config_id)
+            await manager.finish_pending_operations(timeout=5.0)
             before_refresh_calls = refresh_calls
             before_scheduled_count = len(scheduled_deferred_refreshes)
             result = await operation_coro
@@ -1501,8 +1511,14 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
 
         temp_json_source_file = (
             fixture.setta_root.parent
-            / "tmp-structural-transport-delete-json-source-file.json"
+            / "tmp-structural-transport-delete-json-source-file.tmp"
         )
+
+        # Setup routes above can queue deferred refresh work; flush it before
+        # installing counters so this test only measures the target operations.
+        await manager._flush_pending_gen_code_prefix_suffix_refresh(project_config_id)
+        await manager._flush_pending_deferred_codegen_refresh(project_config_id)
+        await manager.finish_pending_operations(timeout=5.0)
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
         manager._schedule_deferred_codegen_refresh = (
@@ -1594,16 +1610,19 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
             assert delete_variant_result is None
 
             temp_json_source_file.write_text("{}", encoding="utf-8")
-            await assert_deferred_refresh(
-                manager.delete_json_source_file_and_variant(
-                    DeleteJSONSourceFileAndVariantRequest(
-                        projectConfigId=project_config_id,
-                        sectionId=dict_section_id,
-                        variantId=dict_variant_to_delete,
-                        filepath=str(temp_json_source_file),
-                    )
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            delete_json_result = await manager.delete_json_source_file_and_variant(
+                DeleteJSONSourceFileAndVariantRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=dict_section_id,
+                    variantId=dict_variant_to_delete,
+                    filepath=str(temp_json_source_file),
                 )
             )
+            await manager.finish_pending_operations(timeout=5.0)
+            assert delete_json_result is None
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
             assert not temp_json_source_file.exists()
         finally:
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]

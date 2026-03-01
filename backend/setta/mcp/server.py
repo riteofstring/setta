@@ -78,6 +78,7 @@ from setta.mcp.utils import (
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
+    convert_backend_to_single_config,
     filter_lsp_diagnostics_payload,
 )
 from setta.types.id import ID
@@ -882,6 +883,21 @@ class SettaFastMCP(FastMCP):
             raise InvalidToolArgumentsError("shareSessionId must be a string")
         return raw or None
 
+    @staticmethod
+    def _get_scope_project_state_single(
+        manager: Any,
+        project_config_id: ID,
+    ) -> "ProjectStateSingleConfig":
+        get_single_config_state = getattr(manager, "get_single_config_state", None)
+        if callable(get_single_config_state):
+            return get_single_config_state(project_config_id)
+        backend = getattr(manager, "project_state_backend", None)
+        if backend is None:
+            raise AttributeError(
+                "Manager must expose get_single_config_state() or project_state_backend."
+            )
+        return convert_backend_to_single_config(backend, project_config_id)
+
     def setta_id_transformer(self, func):
         is_async = inspect.iscoroutinefunction(func)
 
@@ -1060,8 +1076,9 @@ class SettaFastMCP(FastMCP):
                         state_cache.pop(state_cache_key, None)
                         state_cache[state_cache_key] = cached_state
                     else:
-                        project_state = manager.get_single_config_state(
-                            agentic_context.project_config_id
+                        project_state = self._get_scope_project_state_single(
+                            manager,
+                            agentic_context.project_config_id,
                         )
                         cached_state = _CachedProjectStateSingle(
                             project_state_revision=project_state_revision,
@@ -1115,8 +1132,9 @@ class SettaFastMCP(FastMCP):
                         ):
                             scope_cache.pop(next(iter(scope_cache)))
                 else:
-                    project_state = manager.get_single_config_state(
-                        agentic_context.project_config_id
+                    project_state = self._get_scope_project_state_single(
+                        manager,
+                        agentic_context.project_config_id,
                     )
                     scope = resolve_agentic_scope(
                         project_state,

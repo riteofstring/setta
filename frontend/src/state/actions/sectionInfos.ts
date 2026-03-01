@@ -209,9 +209,14 @@ function mergeStreamingChatSections(
       currentInputText.length > incomingInputText.length
         ? currentInputText
         : incomingInputText;
-    const mergedWaitingForResponse = shouldPreserveStreaming
-      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
-      : incomingChat.waitingForResponse;
+    const incomingWaitingForResponse = Boolean(incomingChat.waitingForResponse);
+    const currentWaitingForResponse = Boolean(currentChat.waitingForResponse);
+    const preserveCurrentWaitingForResponse =
+      shouldMerge && currentWaitingForResponse && !incomingWaitingForResponse;
+    const mergedWaitingForResponse =
+      shouldPreserveStreaming || preserveCurrentWaitingForResponse
+        ? true
+        : incomingWaitingForResponse;
     setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
       messages: mergedMessages,
       toolCallArguments: mergedToolArgs,
@@ -1111,7 +1116,10 @@ export function applyProjectConfigProjectStatePatch(
     if (patch.projectConfig.id !== patch.projectConfigId) {
       return;
     }
-    state.projectConfig = patch.projectConfig;
+    state.projectConfig = _.merge(
+      _.cloneDeep(state.projectConfig),
+      patch.projectConfig,
+    );
     applied = true;
   });
   if (!applied) {
@@ -1167,15 +1175,19 @@ export function applySectionImplProjectStatePatch(
     if (patch.sectionImpl.id !== sectionImplId) {
       return;
     }
+    const nextSectionImpl = _.merge(
+      _.cloneDeep(sectionImpl),
+      patch.sectionImpl,
+    );
     let nextPinnedParams: string[] | null = null;
     if (
       isBaseSectionWithParamsImpl(sectionImpl) &&
-      isBaseSectionWithParamsImpl(patch.sectionImpl) &&
-      !_.isEqual(sectionImpl.pinnedParams, patch.sectionImpl.pinnedParams)
+      isBaseSectionWithParamsImpl(nextSectionImpl) &&
+      !_.isEqual(sectionImpl.pinnedParams, nextSectionImpl.pinnedParams)
     ) {
-      nextPinnedParams = patch.sectionImpl.pinnedParams;
+      nextPinnedParams = nextSectionImpl.pinnedParams;
     }
-    state.sectionImpls[sectionImplId] = patch.sectionImpl;
+    state.sectionImpls[sectionImplId] = nextSectionImpl;
     if (nextPinnedParams !== null) {
       updateShownParamIdsForPinnedParams(
         state,
