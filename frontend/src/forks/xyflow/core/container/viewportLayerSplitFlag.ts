@@ -1,0 +1,42 @@
+import { useMemo } from "react";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
+
+const VIEWPORT_LAYER_SPLIT_STORAGE_NAMESPACE = "viewport-layer-split";
+export const VIEWPORT_LAYER_SPLIT_STORAGE_KEY =
+  "setta.viewportLayerSplit.enabled";
+
+export type ViewportLayerSplitFlagOverride = "enabled" | "disabled" | "unset";
+
+export function parseViewportLayerSplitFlagOverride(
+  rawValue: string | null,
+): ViewportLayerSplitFlagOverride {
+  if (!rawValue) {
+    return "unset";
+  }
+  const normalized = rawValue.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "on") {
+    return "enabled";
+  }
+  if (normalized === "0" || normalized === "false" || normalized === "off") {
+    return "disabled";
+  }
+  return "unset";
+}
+
+export function readViewportLayerSplitFlagOverride(): ViewportLayerSplitFlagOverride {
+  const storage = getSafeLocalStorageAdapter(VIEWPORT_LAYER_SPLIT_STORAGE_NAMESPACE);
+  return parseViewportLayerSplitFlagOverride(
+    storage.getItem(VIEWPORT_LAYER_SPLIT_STORAGE_KEY),
+  );
+}
+
+export function resolveViewportLayerSplitEnabled(
+  flagOverride: ViewportLayerSplitFlagOverride,
+): boolean {
+  return flagOverride === "enabled";
+}
+
+export function useViewportLayerSplitEnabled(): boolean {
+  const flagOverride = useMemo(readViewportLayerSplitFlagOverride, []);
+  return resolveViewportLayerSplitEnabled(flagOverride);
+}
