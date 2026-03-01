@@ -57,7 +57,24 @@ const ReactFlow = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const sceneGraphRendererRuntime = useSceneGraphRendererRuntime();
+  const projectConfigName = useProjectState(
+    (state) => state.projectConfig.name,
+  );
+  const activeViewModeName = useProjectState((state) => {
+    const activeViewModeId = state.projectConfig.activeViewModeId;
+    if (!activeViewModeId) {
+      return "";
+    }
+    const activeViewMode = state.projectConfig.viewModes[activeViewModeId];
+    if (!activeViewMode) {
+      return "";
+    }
+    return activeViewMode.name;
+  });
+  const sceneGraphRendererRuntime = useSceneGraphRendererRuntime({
+    projectConfigName,
+    activeViewModeName,
+  });
   const nodesById = useNodeInternals((state) => state.x);
   const edges = useProjectState((state) => state.projectConfig.edges);
   const sectionVariantMap = useProjectState(

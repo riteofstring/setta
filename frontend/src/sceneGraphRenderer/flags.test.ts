@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SCENE_GRAPH_RENDERER_FLAGS,
   SCENE_GRAPH_RENDERER_FLAG_KEYS,
+  hasSceneGraphRendererEnabledStorageOverride,
   readSceneGraphRendererFlags,
   writeSceneGraphRendererFlags,
 } from "./flags";
@@ -94,5 +95,19 @@ describe("scene graph renderer flags", () => {
     expect(storage.getItem(SCENE_GRAPH_RENDERER_FLAG_KEYS.debugOverlay)).toBe(
       "1",
     );
+  });
+
+  it("detects explicit enabled-key overrides", () => {
+    // Controlled default-on logic must distinguish explicit kill-switch values from missing keys.
+    expect(
+      hasSceneGraphRendererEnabledStorageOverride(createMemoryStorage()),
+    ).toBe(false);
+    expect(
+      hasSceneGraphRendererEnabledStorageOverride(
+        createMemoryStorage({
+          [SCENE_GRAPH_RENDERER_FLAG_KEYS.enabled]: "0",
+        }),
+      ),
+    ).toBe(true);
   });
 });

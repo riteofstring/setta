@@ -80,6 +80,14 @@ export function readSceneGraphRendererFlags(
   };
 }
 
+export function hasSceneGraphRendererEnabledStorageOverride(
+  storage: SceneGraphRendererStorageAdapter = getSafeLocalStorageAdapter(
+    SCENE_GRAPH_RENDERER_STORAGE_NAMESPACE,
+  ),
+): boolean {
+  return storage.getItem(SCENE_GRAPH_RENDERER_FLAG_KEYS.enabled) !== null;
+}
+
 export function writeSceneGraphRendererFlags(
   nextFlags: Partial<SceneGraphRendererFlags>,
   storage: SceneGraphRendererStorageAdapter = getSafeLocalStorageAdapter(

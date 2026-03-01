@@ -10,6 +10,9 @@ const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 
 test("settings view tabs filter sections and minimap", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+  });
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -93,6 +96,73 @@ test("settings all-settings flow exposes scene-graph renderer perf labels", asyn
     body: Buffer.from(JSON.stringify(labels, null, 2)),
     contentType: "application/json",
   });
+});
+
+test("settings all-settings defaults renderer on for rollout surface and keeps explicit kill switch", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const initializedKey = "__setta_scene_graph_rollout_test_initialized";
+    if (sessionStorage.getItem(initializedKey) === "1") {
+      return;
+    }
+    sessionStorage.setItem(initializedKey, "1");
+    localStorage.removeItem("setta.sceneGraphRenderer.enabled");
+    localStorage.removeItem("setta.sceneGraphRenderer.backend");
+    localStorage.removeItem("setta.sceneGraphRenderer.domIslandRadius");
+    localStorage.removeItem("setta.sceneGraphRenderer.debugOverlay");
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const rolloutLabels = await readSceneGraphRendererPerfLabels(page);
+  expect(rolloutLabels.enabled).toBe(true);
+  expect(rolloutLabels.requestedBackend).toBe("auto");
+  expect(["webgpu", "webgl", "dom"]).toContain(rolloutLabels.resolvedBackend);
+
+  await page.evaluate(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTabAfterReload = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTabAfterReload).toBeVisible();
+  await allTabAfterReload.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
+  expect(killSwitchLabels.enabled).toBe(false);
+  expect(killSwitchLabels.resolvedBackend).toBe("dom");
+  expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
 });
 
 test("settings all-settings flow exposes scene-graph layer snapshot metadata when active", async ({
@@ -471,6 +541,9 @@ test("settings all-settings promotes scene-only sections into DOM islands on fir
 test("settings view modes keep visible sections when layout payload is partial", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
+  });
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);

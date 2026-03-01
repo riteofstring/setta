@@ -5,10 +5,15 @@ import {
   type SceneGraphRendererCapabilities,
 } from "./capabilities";
 import {
+  hasSceneGraphRendererEnabledStorageOverride,
   isSceneGraphRendererFlagStorageKey,
   readSceneGraphRendererFlags,
   type SceneGraphRendererFlags,
 } from "./flags";
+import {
+  resolveSceneGraphRendererRolloutFlags,
+  type SceneGraphRendererRolloutSurface,
+} from "./rollout";
 import {
   buildSceneGraphRendererPerfLabels,
   resolveSceneGraphRendererBackend,
@@ -23,10 +28,14 @@ export type SceneGraphRendererRuntimeState = {
   perfLabels: SceneGraphRendererPerfLabels;
 };
 
-export function useSceneGraphRendererRuntime(): SceneGraphRendererRuntimeState {
-  const [flags, setFlags] = useState<SceneGraphRendererFlags>(() =>
-    readSceneGraphRendererFlags(),
+export function useSceneGraphRendererRuntime(
+  rolloutSurface: SceneGraphRendererRolloutSurface,
+): SceneGraphRendererRuntimeState {
+  const [persistedFlags, setPersistedFlags] = useState<SceneGraphRendererFlags>(
+    () => readSceneGraphRendererFlags(),
   );
+  const [hasEnabledStorageOverride, setHasEnabledStorageOverride] =
+    useState<boolean>(() => hasSceneGraphRendererEnabledStorageOverride());
   const [capabilities, setCapabilities] =
     useState<SceneGraphRendererCapabilities>(() =>
       createInitialSceneGraphRendererCapabilities(),
@@ -41,15 +50,32 @@ export function useSceneGraphRendererRuntime(): SceneGraphRendererRuntimeState {
       if (!isSceneGraphRendererFlagStorageKey(event.key)) {
         return;
       }
-      setFlags(readSceneGraphRendererFlags());
+      setPersistedFlags(readSceneGraphRendererFlags());
+      setHasEnabledStorageOverride(
+        hasSceneGraphRendererEnabledStorageOverride(),
+      );
     };
 
-    setFlags(readSceneGraphRendererFlags());
+    setPersistedFlags(readSceneGraphRendererFlags());
+    setHasEnabledStorageOverride(hasSceneGraphRendererEnabledStorageOverride());
     window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
+
+  const flags = useMemo(() => {
+    return resolveSceneGraphRendererRolloutFlags({
+      persistedFlags,
+      surface: rolloutSurface,
+      hasEnabledStorageOverride,
+    });
+  }, [
+    hasEnabledStorageOverride,
+    persistedFlags,
+    rolloutSurface.activeViewModeName,
+    rolloutSurface.projectConfigName,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
