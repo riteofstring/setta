@@ -9,7 +9,9 @@ import {
 
 function isUndoRedoRegressionError(message: string): boolean {
   return (
+    message.includes("getCurrSectionVariantId") ||
     message.includes("getCurrShownParamIds") ||
+    message.includes("UiEditor") ||
     message.includes("sectionInfos.ts:") ||
     message.includes("tabbingLogic") ||
     message.includes("Cannot read properties of null (reading 'focus')")
@@ -41,6 +43,12 @@ test.describe.serial("section undo/redo", () => {
       );
       const sectionNode = page.locator(`[data-testid="rf__node-${sectionId}"]`);
       await expect(sectionNode).toBeVisible();
+      await page.evaluate(async (activeSectionId) => {
+        const mod = await import("/src/state/definitions");
+        mod.useProjectState.setState((state) => {
+          state.projectConfig.activeIds = [activeSectionId];
+        });
+      }, sectionId);
 
       await postBackend(page, "/undo", {
         projectConfigId: projectContext.projectConfigId,
