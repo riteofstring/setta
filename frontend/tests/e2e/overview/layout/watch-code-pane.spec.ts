@@ -16,6 +16,19 @@ test("watch code settings open from controls portal with all options", async ({
   const portal = page.getByTestId("rf__watch-code-settings-portal");
   await expect(portal).toBeVisible();
   await expect(portal.getByRole("heading", { name: "Watch Code" })).toBeVisible();
+  const caret = page.getByTestId("rf__watch-code-settings-caret");
+  await expect(caret).toBeVisible();
+
+  const [buttonRect, portalRect] = await Promise.all([
+    watchCodeSettingsButton.boundingBox(),
+    portal.boundingBox(),
+  ]);
+  expect(buttonRect).not.toBeNull();
+  expect(portalRect).not.toBeNull();
+  if (buttonRect && portalRect) {
+    // The portal should open close to the watch-code trigger button.
+    expect(portalRect.y).toBeLessThan(buttonRect.y + 400);
+  }
 
   const toggleButton = portal.getByRole("button", {
     name: /Enable Watch Code|Disable Watch Code/,

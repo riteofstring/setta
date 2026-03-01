@@ -29,6 +29,12 @@ import { useLocalStorage, useProjectState, useSettings } from "state/definitions
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 
+const WATCH_CODE_PORTAL_MIN_WIDTH_PX = 280;
+const WATCH_CODE_PORTAL_MAX_WIDTH_PX = 480;
+const WATCH_CODE_PORTAL_MARGIN_PX = 12;
+const WATCH_CODE_PORTAL_BUTTON_GAP_PX = 12;
+const WATCH_CODE_PORTAL_ESTIMATED_HEIGHT_PX = 360;
+
 function useZoomReached() {
   const { minZoom, maxZoom } = useSettings(
     (x) => ({
@@ -58,6 +64,12 @@ const Controls = () => {
     (state) => state.projectConfig.watchCodeEnabled,
   );
   const [watchCodePortalOpen, setWatchCodePortalOpen] = useState(false);
+  const [watchCodePortalPosition, setWatchCodePortalPosition] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    caretTop: number;
+  } | null>(null);
   const watchCodeButtonRef = useRef<HTMLButtonElement | null>(null);
   const watchCodePortalRef = useRef<HTMLDivElement | null>(null);
   const styleForActive =
@@ -106,6 +118,123 @@ const Controls = () => {
     };
   }, [watchCodePortalOpen]);
 
+  useEffect(() => {
+    if (!watchCodePortalOpen) {
+      setWatchCodePortalPosition(null);
+      return;
+    }
+
+    let animationFrameId: number | null = null;
+    let settlePassesRemaining = 0;
+
+    const updatePosition = () => {
+      const button = watchCodeButtonRef.current;
+      if (!button) {
+        return;
+      }
+      const buttonRect = button.getBoundingClientRect();
+      const portalHeight =
+        watchCodePortalRef.current?.getBoundingClientRect().height ??
+        WATCH_CODE_PORTAL_ESTIMATED_HEIGHT_PX;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      const maxAllowedWidth = Math.max(
+        WATCH_CODE_PORTAL_MIN_WIDTH_PX,
+        viewportWidth - WATCH_CODE_PORTAL_MARGIN_PX * 2,
+      );
+      const width = Math.min(WATCH_CODE_PORTAL_MAX_WIDTH_PX, maxAllowedWidth);
+      const preferredLeft = buttonRect.right + WATCH_CODE_PORTAL_BUTTON_GAP_PX;
+      const maxLeft = viewportWidth - WATCH_CODE_PORTAL_MARGIN_PX - width;
+      const left = Math.max(
+        WATCH_CODE_PORTAL_MARGIN_PX,
+        Math.min(preferredLeft, maxLeft),
+      );
+
+      const minTop = WATCH_CODE_PORTAL_MARGIN_PX;
+      const maxTop = Math.max(
+        minTop,
+        viewportHeight -
+          WATCH_CODE_PORTAL_MARGIN_PX -
+          portalHeight,
+      );
+      const top = Math.max(minTop, Math.min(buttonRect.top - 24, maxTop));
+
+      const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+      const maxCaretTop = Math.max(12, portalHeight - 20);
+      const caretTop = Math.max(
+        12,
+        Math.min(buttonCenterY - top - 8, maxCaretTop),
+      );
+      const roundedCaretTop = Math.round(caretTop * 10) / 10;
+
+      setWatchCodePortalPosition((previousPosition) => {
+        if (
+          previousPosition &&
+          previousPosition.left === left &&
+          previousPosition.top === top &&
+          previousPosition.width === width &&
+          previousPosition.caretTop === roundedCaretTop
+        ) {
+          return previousPosition;
+        }
+        return {
+          left,
+          top,
+          width,
+          caretTop: roundedCaretTop,
+        };
+      });
+    };
+
+    const runSettlingPasses = (passCount: number) => {
+      settlePassesRemaining = Math.max(settlePassesRemaining, passCount);
+      if (animationFrameId !== null) {
+        return;
+      }
+      const runNextPass = () => {
+        animationFrameId = null;
+        updatePosition();
+        settlePassesRemaining -= 1;
+        if (settlePassesRemaining > 0) {
+          animationFrameId = window.requestAnimationFrame(runNextPass);
+        }
+      };
+      animationFrameId = window.requestAnimationFrame(runNextPass);
+    };
+
+    updatePosition();
+    runSettlingPasses(8);
+
+    const handleViewportChange = () => {
+      runSettlingPasses(3);
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        runSettlingPasses(3);
+      });
+      if (watchCodePortalRef.current) {
+        resizeObserver.observe(watchCodePortalRef.current);
+      }
+      if (watchCodeButtonRef.current) {
+        resizeObserver.observe(watchCodeButtonRef.current);
+      }
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      resizeObserver?.disconnect();
+    };
+  }, [watchCodePortalOpen]);
+
   if (!isVisible) {
     return null;
   }
@@ -123,19 +252,6 @@ const Controls = () => {
       className="mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800"
       data-testid="rf__controls"
     >
-      <button
-        ref={watchCodeButtonRef}
-        onClick={() => setWatchCodePortalOpen((prev) => !prev)}
-        className={`cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${watchCodeEnabled ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
-        aria-label="watch code settings"
-        aria-pressed={watchCodeEnabled}
-        data-testid="rf__watch-code-settings"
-        {...getFloatingBoxHandlers({
-          content: "Watch Code settings",
-        })}
-      >
-        <RiRadarLine size={15} />
-      </button>
       <button
         onClick={toggleAgenticEdges}
         className={`cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${showAgenticEdges ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
@@ -163,6 +279,20 @@ const Controls = () => {
         })}
       >
         <TbCircleDot size={15} />
+      </button>
+      <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
+      <button
+        ref={watchCodeButtonRef}
+        onClick={() => setWatchCodePortalOpen((prev) => !prev)}
+        className={`cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${watchCodeEnabled ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
+        aria-label="watch code settings"
+        aria-pressed={watchCodeEnabled}
+        data-testid="rf__watch-code-settings"
+        {...getFloatingBoxHandlers({
+          content: "Watch Code settings",
+        })}
+      >
+        <RiRadarLine size={15} />
       </button>
       <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
       <button
@@ -221,14 +351,29 @@ const Controls = () => {
       >
         <IoMapOutline size={15} />
       </button>
-      {watchCodePortalOpen
+      {watchCodePortalOpen && watchCodePortalPosition
         ? createPortal(
             <aside
               ref={watchCodePortalRef}
-              className="fixed bottom-16 left-[3.25rem] z-[70] w-[min(30rem,calc(100vw-4.5rem))] rounded-xl bg-setta-50/95 p-3 shadow-[0_16px_40px_rgba(15,23,42,0.25)] backdrop-blur dark:bg-setta-950/95"
+              className="fixed z-[70] rounded-xl bg-setta-50/95 p-3 shadow-[0_16px_40px_rgba(15,23,42,0.25)] backdrop-blur dark:bg-setta-950/95"
               data-testid="rf__watch-code-settings-portal"
               aria-label="Watch code settings"
+              style={
+                {
+                  left: `${watchCodePortalPosition.left}px`,
+                  top: `${watchCodePortalPosition.top}px`,
+                  width: `${watchCodePortalPosition.width}px`,
+                }
+              }
             >
+              <div
+                aria-hidden="true"
+                className="absolute -left-2 top-5 h-4 w-4 rotate-45 border-l border-t border-setta-300/80 bg-setta-100/95 shadow-sm dark:border-setta-700 dark:bg-setta-900/95"
+                data-testid="rf__watch-code-settings-caret"
+                style={
+                  { top: `${watchCodePortalPosition.caretTop}px` }
+                }
+              />
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                   Watch Code
