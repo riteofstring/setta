@@ -1125,6 +1125,77 @@ class TestParamNameValidation:
         errors = collect_param_name_format_errors(project_state)
         assert param_id not in errors
 
+    def test_validate_name_rules_rejects_invalid_param_name(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        _ensure_callable_root(project_state, section_id)
+        param_id = add_kwarg(settings, project_state, section_id)
+        project_state.codeObjs[param_id].name = "invalid name"
+        with pytest.raises(InvalidParamName):
+            project_state.validate_name_rules()
+
+    def test_validate_name_rules_rejects_invalid_meta_control_param_name(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        add_meta_control_code_obj(
+            settings,
+            project_state,
+            section_id,
+            CodeObjType.SliderParam,
+        )
+        meta_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            MetaControlSectionImpl,
+        )
+        param_id = meta_impl.metaControlParamId
+        assert param_id is not None
+        project_state.codeObjs[param_id].name = "invalid name"
+        with pytest.raises(InvalidParamName):
+            project_state.validate_name_rules()
+
+    def test_validate_name_rules_allows_empty_for_core_name_editable_param(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        _ensure_callable_root(project_state, section_id)
+        param_id = add_kwarg(settings, project_state, section_id)
+        project_state.codeObjs[param_id].name = ""
+        set_curr_effective_code_obj_impl_value(
+            project_state,
+            section_id,
+            param_id,
+            BaseParamCodeObjImplArgsWithCallable(coreNameEditable=True),
+        )
+
+        project_state.validate_name_rules()
+
     def test_param_name_rejects_path_separators(
         self,
         settings_and_project_state,
