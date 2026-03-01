@@ -310,6 +310,7 @@ from setta.types.helpers_lvl2 import (
     detach_code_section_attached_terminal,
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
+    get_all_sections_for_deletion_or_copying,
     get_curr_section_callable_code_obj,
     get_meta_control_param_id,
     group_sections,
@@ -4751,7 +4752,10 @@ class BaseProjectManager(ABC):
         Returns:
             CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
         """
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         apply_top_level_section_layout_snapshot(
             project_state,
@@ -4796,7 +4800,11 @@ class BaseProjectManager(ABC):
     )
     async def create_child_sections(self, x: CreateChildSectionsRequest):
         """Create one or more child sections beneath a parent section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.parentId],
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
@@ -4819,7 +4827,17 @@ class BaseProjectManager(ABC):
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
         """Expand incrementer-driven child sections for a repeated structure."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        parent_section_id = (
+            self._get_parent_section_id_for_incrementer_create_for_backend(
+                project_config_id=x.projectConfigId,
+                called_by=x.calledBy,
+            )
+        )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[parent_section_id],
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
@@ -4832,7 +4850,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
-        self.add_new_history_entry(project_config_id=projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=projectConfigId,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
@@ -4852,7 +4873,18 @@ class BaseProjectManager(ABC):
     )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        history_section_ids, history_code_obj_ids = (
+            self._get_delete_sections_history_scope_for_backend(
+                project_config_id=x.projectConfigId,
+                section_ids=x.sectionIds,
+            )
+        )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            code_obj_ids=history_code_obj_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
         await self._update_and_broadcast_structural_patch(project_state)
@@ -4868,7 +4900,23 @@ class BaseProjectManager(ABC):
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
         """Shrink an incrementer-driven group by deleting trailing children."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        section_ids = self._get_decrementer_delete_section_ids_for_backend(
+            project_config_id=x.projectConfigId,
+            called_by=x.calledBy,
+            num_children=x.numChildren,
+        )
+        history_section_ids, history_code_obj_ids = (
+            self._get_delete_sections_history_scope_for_backend(
+                project_config_id=x.projectConfigId,
+                section_ids=section_ids,
+            )
+        )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            code_obj_ids=history_code_obj_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self._update_and_broadcast_structural_patch(project_state)
@@ -4908,7 +4956,18 @@ class BaseProjectManager(ABC):
     )
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         """Duplicate the current section state into an additional variant."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        history_section_ids, history_code_obj_ids = (
+            self._get_create_new_section_variant_history_scope_for_backend(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+            )
+        )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            code_obj_ids=history_code_obj_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
         await self._update_and_broadcast_structural_patch(project_state)
@@ -6902,6 +6961,152 @@ class BaseProjectManager(ABC):
         if terminal_section_id not in project_config.sectionVariantMap:
             return None
         return terminal_section_id
+
+    def _get_parent_section_id_for_incrementer_create_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        called_by: ID,
+    ) -> ID:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        called_by_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=called_by,
+        )
+        if isinstance(called_by_impl, BaseParentSectionImpl):
+            return called_by
+        parent_map = self._get_parent_section_map_for_backend(
+            project_config_id=project_config_id
+        )
+        parent_id = parent_map.get(called_by)
+        if parent_id is None:
+            raise ValueError(f"Section {called_by} does not have a parent section.")
+        return parent_id
+
+    def _get_decrementer_delete_section_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        called_by: ID,
+        num_children: int,
+    ) -> list[ID]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        called_by_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=called_by,
+        )
+        if isinstance(called_by_impl, BaseParentSectionImpl):
+            return list(called_by_impl.children[:num_children])
+        parent_map = self._get_parent_section_map_for_backend(
+            project_config_id=project_config_id
+        )
+        parent_id = parent_map.get(called_by)
+        if parent_id is None:
+            raise ValueError(f"Section {called_by} does not have a parent section.")
+        parent_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=parent_id,
+        )
+        if not isinstance(parent_impl, BaseParentSectionImpl):
+            raise TypeError(
+                f"Section {parent_id} does not support child section deletion."
+            )
+        start_idx = parent_impl.children.index(called_by) + 1
+        return list(parent_impl.children[start_idx : start_idx + num_children])
+
+    def _get_delete_sections_history_scope_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> tuple[set[ID], set[ID]]:
+        project_state = self.get_single_config_state(project_config_id)
+        if not section_ids:
+            return set(), set()
+        ordered_section_ids = list(dict.fromkeys(section_ids))
+        for section_id in ordered_section_ids:
+            if section_id not in project_state.projectConfig.sectionVariantMap:
+                raise KeyError(
+                    f"Section {section_id} missing from project config {project_config_id}."
+                )
+        to_delete_ids = get_all_sections_for_deletion_or_copying(
+            project_state,
+            ordered_section_ids,
+        )
+        to_delete_set = set(to_delete_ids)
+        history_section_ids: set[ID] = set()
+        for section_id in to_delete_ids:
+            parent_id = project_state.parentSectionMap.get(section_id)
+            if parent_id is not None:
+                history_section_ids.add(parent_id)
+
+        remaining_target_keys: set[tuple[ID, ID, ID]] = set()
+        for edge in project_state.projectConfig.edges:
+            if (
+                edge.sourceSectionId in to_delete_set
+                or edge.targetSectionId in to_delete_set
+            ):
+                continue
+            remaining_target_keys.add(
+                (edge.targetSectionId, edge.targetVariantId, edge.targetPortId)
+            )
+
+        history_code_obj_ids: set[ID] = set()
+        for edge in project_state.projectConfig.edges:
+            if (
+                edge.sourceSectionId not in to_delete_set
+                and edge.targetSectionId not in to_delete_set
+            ):
+                continue
+            if edge.targetSectionId in to_delete_set:
+                continue
+            if edge.targetSectionId not in project_state.sections:
+                continue
+            if (
+                edge.targetSectionId
+                not in project_state.projectConfig.sectionVariantMap
+            ):
+                raise KeyError(
+                    f"Section {edge.targetSectionId} missing active variant for edge cleanup."
+                )
+            target_key = (edge.targetSectionId, edge.targetVariantId, edge.targetPortId)
+            if target_key in remaining_target_keys:
+                continue
+            active_variant_id = project_state.projectConfig.sectionVariantMap[
+                edge.targetSectionId
+            ]
+            if active_variant_id != edge.targetVariantId:
+                continue
+            if edge.targetPortId not in project_state.codeObjs:
+                raise KeyError(f"Param {edge.targetPortId} missing for edge cleanup.")
+            history_code_obj_ids.add(edge.targetPortId)
+        return history_section_ids, history_code_obj_ids
+
+    def _get_create_new_section_variant_history_scope_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> tuple[set[ID], set[ID]]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        section_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=section_id,
+        )
+        history_section_ids: set[ID] = {section_id}
+        history_code_obj_ids: set[ID] = set()
+        if isinstance(section_impl, BaseSectionWithParamsImpl):
+            history_code_obj_ids.update(section_impl.codeObjVariantMap.keys())
+        return history_section_ids, history_code_obj_ids
 
     def _get_move_sections_history_section_ids_for_backend(
         self,

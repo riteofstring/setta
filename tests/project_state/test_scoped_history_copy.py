@@ -3,7 +3,11 @@ from typing import TYPE_CHECKING
 import pytest
 
 from setta.project_state.project_manager_types import (
+    AddKwargRequest,
+    CreateChildSectionsRequest,
+    CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    DeleteSectionsRequest,
     MoveSectionsRequest,
     RedoRequest,
     SetCodeSectionAttachedTerminalRequest,
@@ -540,6 +544,253 @@ async def test_set_code_section_attached_terminal_history_copy_isolates_affected
         await manager.finish_pending_operations(timeout=5.0)
         undone_state = manager.get_single_config_state(project_config_id)
         assert undone_state.parentSectionMap[terminal_section_id] is None
+
+
+@pytest.mark.asyncio
+async def test_create_child_sections_history_copy_isolates_parent_section_graph() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        parent_section_id = await _create_section(manager, project_config_id, SectionType.Group)
+        unaffected_section_id = await _create_dict_section(manager, project_config_id)
+
+        current_state = manager.get_single_config_state(project_config_id)
+        parent_variant_id = current_state.projectConfig.sectionVariantMap[parent_section_id]
+        unaffected_variant_id = current_state.projectConfig.sectionVariantMap[
+            unaffected_section_id
+        ]
+        parent_impl_id = current_state.sectionVariants[parent_variant_id].impl
+        unaffected_impl_id = current_state.sectionVariants[unaffected_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        await manager.create_child_sections(
+            CreateChildSectionsRequest(
+                projectConfigId=project_config_id,
+                parentId=parent_section_id,
+                implType=SectionType.TextBlock,
+                numChildren=1,
+                startIdx=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sections[parent_section_id]
+            is not backend_before.sections[parent_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[parent_variant_id]
+            is not backend_before.sectionVariants[parent_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[parent_impl_id]
+            is not backend_before.sectionImpls[parent_impl_id]
+        )
+        assert (
+            backend_after.sections[unaffected_section_id]
+            is backend_before.sections[unaffected_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[unaffected_variant_id]
+            is backend_before.sectionVariants[unaffected_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[unaffected_impl_id]
+            is backend_before.sectionImpls[unaffected_impl_id]
+        )
+
+        updated_state = manager.get_single_config_state(project_config_id)
+        parent_impl = get_curr_effective_section_impl(updated_state, parent_section_id)
+        assert parent_impl.type == SectionType.Group
+        child_ids = list(parent_impl.children)
+        assert len(child_ids) == 1
+        created_child_id = child_ids[0]
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undone_state = manager.get_single_config_state(project_config_id)
+        assert created_child_id not in undone_state.projectConfig.sectionVariantMap
+        undone_parent_impl = get_curr_effective_section_impl(undone_state, parent_section_id)
+        assert undone_parent_impl.type == SectionType.Group
+        assert list(undone_parent_impl.children) == []
+
+
+@pytest.mark.asyncio
+async def test_delete_sections_history_copy_isolates_parent_section_graph() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        parent_section_id = await _create_section(manager, project_config_id, SectionType.Group)
+        child_section_id = await _create_section(manager, project_config_id, SectionType.TextBlock)
+        unaffected_section_id = await _create_dict_section(manager, project_config_id)
+        await manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=project_config_id,
+                sectionIds=[child_section_id],
+                newParentId=parent_section_id,
+                newIndex=0,
+                positionsById=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        current_state = manager.get_single_config_state(project_config_id)
+        parent_variant_id = current_state.projectConfig.sectionVariantMap[parent_section_id]
+        unaffected_variant_id = current_state.projectConfig.sectionVariantMap[
+            unaffected_section_id
+        ]
+        parent_impl_id = current_state.sectionVariants[parent_variant_id].impl
+        unaffected_impl_id = current_state.sectionVariants[unaffected_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        await manager.delete_sections(
+            DeleteSectionsRequest(
+                projectConfigId=project_config_id,
+                sectionIds=[child_section_id],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sections[parent_section_id]
+            is not backend_before.sections[parent_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[parent_variant_id]
+            is not backend_before.sectionVariants[parent_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[parent_impl_id]
+            is not backend_before.sectionImpls[parent_impl_id]
+        )
+        assert (
+            backend_after.sections[unaffected_section_id]
+            is backend_before.sections[unaffected_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[unaffected_variant_id]
+            is backend_before.sectionVariants[unaffected_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[unaffected_impl_id]
+            is backend_before.sectionImpls[unaffected_impl_id]
+        )
+
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert child_section_id not in updated_state.projectConfig.sectionVariantMap
+        updated_parent_impl = get_curr_effective_section_impl(updated_state, parent_section_id)
+        assert updated_parent_impl.type == SectionType.Group
+        assert child_section_id not in updated_parent_impl.children
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undone_state = manager.get_single_config_state(project_config_id)
+        assert child_section_id in undone_state.projectConfig.sectionVariantMap
+        undone_parent_impl = get_curr_effective_section_impl(undone_state, parent_section_id)
+        assert undone_parent_impl.type == SectionType.Group
+        assert child_section_id in undone_parent_impl.children
+
+
+@pytest.mark.asyncio
+async def test_create_new_section_variant_history_copy_isolates_section_and_code_objs() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        target_section_id = await _create_section(manager, project_config_id, SectionType.Dict)
+        await manager.add_kwarg(
+            AddKwargRequest(
+                projectConfigId=project_config_id,
+                sectionId=target_section_id,
+            )
+        )
+        unaffected_section_id = await _create_dict_section(manager, project_config_id)
+
+        current_state = manager.get_single_config_state(project_config_id)
+        original_variant_id = current_state.projectConfig.sectionVariantMap[target_section_id]
+        target_impl_id = current_state.sectionVariants[original_variant_id].impl
+        target_impl = current_state.sectionImpls[target_impl_id]
+        assert hasattr(target_impl, "codeObjVariantMap")
+        history_code_obj_id = next(iter(target_impl.codeObjVariantMap.keys()))
+        unaffected_variant_id = current_state.projectConfig.sectionVariantMap[
+            unaffected_section_id
+        ]
+        unaffected_impl_id = current_state.sectionVariants[unaffected_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        await manager.create_new_section_variant(
+            CreateNewSectionVariantRequest(
+                projectConfigId=project_config_id,
+                sectionId=target_section_id,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sections[target_section_id]
+            is not backend_before.sections[target_section_id]
+        )
+        assert (
+            backend_after.codeObjs[history_code_obj_id]
+            is not backend_before.codeObjs[history_code_obj_id]
+        )
+        assert (
+            backend_after.sections[unaffected_section_id]
+            is backend_before.sections[unaffected_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[unaffected_variant_id]
+            is backend_before.sectionVariants[unaffected_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[unaffected_impl_id]
+            is backend_before.sectionImpls[unaffected_impl_id]
+        )
+
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert (
+            updated_state.projectConfig.sectionVariantMap[target_section_id]
+            != original_variant_id
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undone_state = manager.get_single_config_state(project_config_id)
+        assert (
+            undone_state.projectConfig.sectionVariantMap[target_section_id]
+            == original_variant_id
+        )
 
 
 @pytest.mark.asyncio
