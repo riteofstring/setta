@@ -199,5 +199,8 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
+    expect(markup).not.toContain(
+      'section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"><div class="section-args-nested',
+    );
   });
 });
