@@ -258,6 +258,26 @@ export function CanvasEngineHost() {
   });
   const [viewport, setViewport] =
     useState<CanvasEngineViewport>(DEFAULT_VIEWPORT);
+
+  useEffect(() => {
+    const reactFlowState = useReactFlow.getState();
+    const currentTransform = reactFlowState.transform;
+    const fitViewStateMatches =
+      !reactFlowState.fitViewOnInit && reactFlowState.fitViewOnInitDone;
+    if (
+      currentTransform[0] === camera.x &&
+      currentTransform[1] === camera.y &&
+      currentTransform[2] === camera.zoom &&
+      fitViewStateMatches
+    ) {
+      return;
+    }
+    useReactFlow.setState({
+      transform: [camera.x, camera.y, camera.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+  }, [camera]);
   const [connectionPreview, setConnectionPreview] =
     useState<CanvasEngineConnectionPreview | null>(null);
   const [hoveredEdge, setHoveredEdge] =

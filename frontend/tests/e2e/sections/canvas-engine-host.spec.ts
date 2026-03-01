@@ -25,6 +25,11 @@ type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
       topLevelSections?: Record<string, TopLevelSectionLayoutSnapshot>;
+      viewport?: {
+        x?: number;
+        y?: number;
+        zoom?: number;
+      } | null;
       sectionVariantMap?: Record<string, string>;
       edges?: Array<{
         id?: string;
@@ -211,6 +216,79 @@ test("canvas engine host path mounts and tracks top-level section geometry", asy
     await expect
       .poll(async () => await readAgenticEdgeCount(host))
       .toBeGreaterThanOrEqual(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host persists camera viewport after pan and zoom", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const cameraBefore = await readCamera(host);
+
+    const panStart = {
+      x: hostBounds.x + hostBounds.width * 0.7,
+      y: hostBounds.y + hostBounds.height * 0.5,
+    };
+    const panEnd = {
+      x: panStart.x - 180,
+      y: panStart.y + 120,
+    };
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panEnd.x, panEnd.y, { steps: 10 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const cameraAfterPan = await readCamera(host);
+        return (
+          Math.abs(cameraAfterPan.x - cameraBefore.x) > 0.5 ||
+          Math.abs(cameraAfterPan.y - cameraBefore.y) > 0.5
+        );
+      })
+      .toBe(true);
+
+    await page.mouse.move(
+      hostBounds.x + hostBounds.width * 0.5,
+      hostBounds.y + hostBounds.height * 0.5,
+    );
+    await page.mouse.wheel(0, -600);
+
+    await expect
+      .poll(async () => (await readCamera(host)).zoom)
+      .toBeGreaterThan(cameraBefore.zoom + 0.05);
+
+    await expect
+      .poll(
+        async () => {
+          const camera = await readCamera(host);
+          const persistedViewport = await readPersistedViewport(
+            page,
+            projectContext.projectConfigId,
+          );
+          if (!persistedViewport) {
+            return false;
+          }
+          return areCamerasClose(camera, persistedViewport);
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -2062,6 +2140,46 @@ async function readCamera(host: Locator): Promise<CanvasEngineCameraSnapshot> {
     );
   }
   return { x, y, zoom };
+}
+
+function areCamerasClose(
+  left: CanvasEngineCameraSnapshot,
+  right: CanvasEngineCameraSnapshot,
+): boolean {
+  return (
+    Math.abs(left.x - right.x) <= 0.75 &&
+    Math.abs(left.y - right.y) <= 0.75 &&
+    Math.abs(left.zoom - right.zoom) <= 0.02
+  );
+}
+
+async function readPersistedViewport(
+  page: Page,
+  projectConfigId: string,
+): Promise<CanvasEngineCameraSnapshot | null> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const viewport = response?.projectState?.projectConfig?.viewport ?? null;
+  if (viewport === null) {
+    return null;
+  }
+  if (
+    typeof viewport.x !== "number" ||
+    typeof viewport.y !== "number" ||
+    typeof viewport.zoom !== "number"
+  ) {
+    throw new Error(
+      `Invalid persisted viewport for project ${projectConfigId}: ${JSON.stringify(viewport)}`,
+    );
+  }
+  return {
+    x: viewport.x,
+    y: viewport.y,
+    zoom: viewport.zoom,
+  };
 }
 
 async function clickWorldPoint(
