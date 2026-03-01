@@ -186,6 +186,25 @@
 - Next focus:
   - Rework Phase 1 switch strategy before next spike (reduce start-switch overhead and avoid behavior instability while still materially cutting compositor load).
 
+### Phase 1 Status Update (2026-03-03, Pass 2)
+- A second scoped Phase 1 implementation pass was benchmarked with deterministic A/B control:
+  - same `settings` + `All Settings` scoped feature flag,
+  - pre-mounted canvas shell layer,
+  - explicit motion lifecycle transitions wired into `ZoomPane`.
+- Result: **not kept** in this pass.
+  - Proxy-enabled medians were not materially better than control in the same code pass:
+    - pan `115.75` vs control `119.45`,
+    - zoom `97.55` vs control `96.75`,
+    - start-hitch p95 `3.8ms` vs control `3.65ms`,
+    - typing `149.30` vs control `147.26`.
+- Key observation:
+  - Both A/B modes in this pass were substantially faster than the older baseline range, indicating the structural viewport-layer changes likely drove most of the gain rather than the proxy toggle itself.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-phase1-hybrid-motion-proxy-spike-pass2.md`
+- Next focus:
+  - Keep hybrid proxy path paused until a redesign shows clear incremental A/B value.
+  - Isolate the structural layer/compositing improvement as a simpler standalone candidate and benchmark it separately from hybrid canvas logic.
+
 ## Phase 2: Stop-Hitch Mitigation
 - Implement staged restore sequencing in settle phase.
 - Compare:
