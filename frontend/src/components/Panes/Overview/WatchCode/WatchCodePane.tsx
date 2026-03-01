@@ -1,5 +1,6 @@
 import { WatchCodeToggleButton } from "components/AppHeader/WatchCodeToggleButton";
 import { useCallback, useEffect, useRef } from "react";
+import { MdAdd } from "react-icons/md";
 import { RiRepeatLine } from "react-icons/ri";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -12,7 +13,12 @@ type WatchInputs = {
   watchCodeFiles: string[];
 };
 
-export function WatchCodePane() {
+type WatchCodePaneProps = {
+  inPopover?: boolean;
+};
+
+export function WatchCodePane(props: WatchCodePaneProps) {
+  const inPopover = props.inPopover ?? false;
   const { canEditLayout } = useShareCapabilities();
   const { watchCodeFolders, watchCodeFiles, projectConfigId } = useProjectState(
     (
@@ -132,10 +138,15 @@ export function WatchCodePane() {
   );
 
   const inputClasses =
-    "w-full box-border truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
+    "nodrag nopan nowheel w-full box-border truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
+  const addInputButtonClasses =
+    "nodrag nopan nowheel relative inline-flex h-6 shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500";
+  const rootClasses = inPopover
+    ? "flex min-w-0 flex-col gap-4 pb-2"
+    : "setta-pane-scroll flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto";
 
   return (
-    <div className="setta-pane-scroll flex h-full min-w-0 flex-col gap-4">
+    <div className={rootClasses}>
       <header className="flex flex-col gap-2">
         <WatchCodeToggleButton />
         <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">
@@ -154,12 +165,12 @@ export function WatchCodePane() {
             Watch Folders
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className={`${addInputButtonClasses} w-full justify-center @[14rem]:ml-auto @[14rem]:w-auto`}
             disabled={inputsDisabled}
             onClick={addFolder}
             type="button"
           >
-            <i className="gg-add" />
+            <MdAdd size={15} aria-hidden />
             Add Folder
           </button>
         </div>
@@ -209,7 +220,7 @@ export function WatchCodePane() {
                     Recursive
                   </button>
                   <button
-                    className="inline-flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                    className="nodrag nopan nowheel inline-flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFolder(index)}
                     type="button"
@@ -232,12 +243,12 @@ export function WatchCodePane() {
             Watch Files
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className={`${addInputButtonClasses} w-full justify-center @[14rem]:ml-auto @[14rem]:w-auto`}
             disabled={inputsDisabled}
             onClick={addFile}
             type="button"
           >
-            <i className="gg-add" />
+            <MdAdd size={15} aria-hidden />
             Add File
           </button>
         </div>
@@ -269,7 +280,7 @@ export function WatchCodePane() {
                 />
                 <div className="flex w-full items-center justify-center">
                   <button
-                    className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                    className="nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFile(index)}
                     type="button"

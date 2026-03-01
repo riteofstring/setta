@@ -1,4 +1,3 @@
-import { useViewportShellModeEnabled } from "forks/xyflow/core/container/viewportShellModeFlag";
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
 import React from "react";
@@ -86,7 +85,6 @@ function _SectionContainer({
       isJoinedGroupActive,
     };
   }, _.isEqual);
-  const viewportShellModeEnabled = useViewportShellModeEnabled();
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -111,14 +109,7 @@ function _SectionContainer({
         isUserView={isUserView}
       >
         <>
-          {viewportShellModeEnabled ? (
-            <SectionContainerCore
-              sectionId={sectionId}
-              isUserView={isUserView}
-              hideAgenticEdgeHandles={true}
-              forceShellMode={true}
-            />
-          ) : !isGroup && isJoinedAttachedTerminalGroup ? (
+          {!isGroup && isJoinedAttachedTerminalGroup ? (
             <div
               className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
                 {
