@@ -171,6 +171,17 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain('aria-label="Open settings"');
   });
 
+  it("renders Watch Code as a rail tab and removes the controls trigger path", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain('data-testid="overview-tab-watch-code"');
+    expect(markup).not.toContain('data-testid="rf__watch-code-settings"');
+  });
+
   it("renders the View Modes pane content when the view modes tab is selected", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({
@@ -309,6 +320,7 @@ describe("Overview rail offsets", () => {
 
     expect(markup).toContain('data-testid="overview-tab-content-shell"');
     expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
+    expect(markup).not.toContain('data-testid="overview-tab-watch-code"');
     expect(markup).toContain(">Overview<");
   });
 

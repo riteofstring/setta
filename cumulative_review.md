@@ -25,3 +25,13 @@
 - Enforced authoritative skill editing rules in Skills viewer: save is disabled unless full content is loaded; truncated previews and load-error states are non-writable.
 - Added/updated Vitest and Playwright coverage for malformed slash rows, truncated-skill save lockout, load-error draft protection, view-scoped polling, and no-resurrection slash conflict behavior.
 - Ran `pnpm -C frontend gcf`.
+
+## 2026-03-04 21:54:42 PST
+
+- Hardened custom-skill upsert path handling so `skillId` updates are canonicalized, cannot target root-equivalent paths, and cannot create missing skill docs.
+- Reworked default custom-skill root selection to scan prioritized editable roots for writability and return deterministic all-roots-unusable `400` details when needed.
+- Added backend unit/route coverage for invalid `AGENTS_HOME` fallback, non-canonical `skillId` rejection, root-equivalent `skillId` rejection, and missing-target `skillId` failures.
+- Consolidated Watch Code navigation to a single visible rail-tab path by restoring `overview-tab-watch-code` and removing the controls-triggered Watch Code portal path.
+- Removed duplicated runtime-activity count derivation drift by using `resolveProjectChatRuntimeActivityCounts` in the main `ProjectChatCore` render path.
+- Updated frontend Vitest and Playwright coverage for the canonical Watch Code tab flow and deployment-mode hiding behavior.
+- Ran `pnpm -C frontend gcf`.

@@ -107,12 +107,13 @@ def _resolve_skill_doc_path_from_id(
     relative = relative_path.strip()
     if relative in ("", "."):
         skill_dir = resolved_root_path
-        normalized_relative_path = "."
     else:
         skill_dir = (resolved_root_path / relative).resolve(strict=False)
-        normalized_relative_path = relative
     if not skill_dir.is_relative_to(resolved_root_path):
         raise ValueError("Invalid skill path.")
+    normalized_relative_path = skill_dir.relative_to(resolved_root_path).as_posix()
+    if normalized_relative_path == "":
+        normalized_relative_path = "."
     return (
         root_id,
         root_label,
@@ -122,26 +123,62 @@ def _resolve_skill_doc_path_from_id(
     )
 
 
-def _resolve_default_custom_skill_root(
+def _validate_custom_skill_root_for_writes(root_path: Path) -> str | None:
+    try:
+        root_path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return str(exc)
+    try:
+        root_is_dir = root_path.is_dir()
+    except OSError as exc:
+        return str(exc)
+    if not root_is_dir:
+        return f"Not a directory: {root_path}"
+    if not os.access(root_path, os.W_OK | os.X_OK):
+        return f"Permission denied: {root_path}"
+    return None
+
+
+def _resolve_custom_skill_root_candidates(
     workspace_root: Path,
-) -> tuple[str, str, Path]:
+) -> dict[str, tuple[str, Path]]:
     roots = list(iter_skill_roots(workspace_root))
     roots_by_id: dict[str, tuple[str, Path]] = {}
     for root_id, root_label, root_path in roots:
         roots_by_id[root_id] = (root_label, root_path.resolve(strict=False))
+    return roots_by_id
+
+
+def _resolve_default_custom_skill_root(
+    workspace_root: Path,
+) -> tuple[str, str, Path]:
+    roots_by_id = _resolve_custom_skill_root_candidates(workspace_root)
+    candidate_errors: list[str] = []
     for root_id in _CUSTOM_SKILL_ROOT_PRIORITY:
-        if root_id in roots_by_id:
-            root_label, root_path = roots_by_id[root_id]
+        if root_id not in roots_by_id:
+            candidate_errors.append(f"{root_id}: root is not configured")
+            continue
+        root_label, root_path = roots_by_id[root_id]
+        root_error = _validate_custom_skill_root_for_writes(root_path)
+        if root_error is None:
             return root_id, root_label, root_path
-    fallback_root = (Path.home() / ".agents" / "skills").resolve(strict=False)
-    return "user_agents_skills", "User ~/.agents/skills", fallback_root
+        candidate_errors.append(f"{root_id} ({root_path.as_posix()}): {root_error}")
+    error_details = "; ".join(candidate_errors)
+    raise ValueError(
+        "No writable custom skill root is available. "
+        f"Attempted candidates: {error_details}"
+    )
 
 
-def _normalize_custom_skill_relative_path(relative_path: str) -> str:
+def _normalize_custom_skill_relative_path(
+    relative_path: str,
+    *,
+    field_name: str = "relativePath",
+) -> str:
     normalized = relative_path.strip()
     if not _CUSTOM_SKILL_RELATIVE_PATH_PATTERN.fullmatch(normalized):
         raise ValueError(
-            "relativePath must start with an alphanumeric character and only "
+            f"{field_name} must start with an alphanumeric character and only "
             "contain letters, numbers, underscores, or hyphens."
         )
     return normalized
@@ -265,10 +302,19 @@ def upsert_app_gen_custom_skill(
             )
         target_root_id = existing_root_id
         target_root_path = existing_root_path
-        if existing_relative_path in ("", "."):
+        if existing_relative_path == ".":
             raise ValueError("Editing root-level SKILL.md is not supported.")
-        target_relative_path = existing_relative_path
+        target_relative_path = _normalize_custom_skill_relative_path(
+            existing_relative_path,
+            field_name="skillId",
+        )
         skill_doc = existing_skill_doc
+        try:
+            skill_doc_exists = skill_doc.exists()
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+        if not skill_doc_exists:
+            raise KeyError(f"Missing SKILL.md for {selected_skill_id}")
     else:
         target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
             workspace_root
@@ -284,9 +330,7 @@ def upsert_app_gen_custom_skill(
 
     created = False
     try:
-        if not selected_skill_id:
-            target_root_path.mkdir(parents=True, exist_ok=True)
-        created = not skill_doc.exists()
+        created = not selected_skill_id and not skill_doc.exists()
         skill_doc.parent.mkdir(parents=True, exist_ok=True)
         with skill_doc.open("w", encoding="utf-8") as handle:
             handle.write(content)

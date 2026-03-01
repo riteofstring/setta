@@ -204,6 +204,15 @@ export function Overview() {
             icon={<IoMdGitBranch size={18} />}
           />
         )}
+        {showWatchCodeTab && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.WatchCode}
+            {...commonProps}
+            data-testid="overview-tab-watch-code"
+            {...getFloatingBoxHandlers({ content: "Watch Code" })}
+            icon={<RiRadarLine size={18} />}
+          />
+        )}
         <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
@@ -272,7 +281,7 @@ export function Overview() {
             </MenuItem>
           </NavbarMenuDropdown>
         </Menubar.Root>
-        <Controls showWatchCodeControls={showWatchCodeTab} />
+        <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}

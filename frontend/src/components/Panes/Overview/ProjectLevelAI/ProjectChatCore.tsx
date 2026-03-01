@@ -1840,12 +1840,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [messages, waitingForResponse],
   );
   const runtimeActivityCounts = useMemo(
-    () => ({
-      activeBackgroundTerminals:
-        runtimeActivityDetails.activeBackgroundTerminals.length,
-      activeSubagents: runtimeActivityDetails.activeSubagents.length,
-    }),
-    [runtimeActivityDetails],
+    () =>
+      resolveProjectChatRuntimeActivityCounts({
+        messages,
+        waitingForResponse,
+      }),
+    [messages, waitingForResponse],
   );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||
