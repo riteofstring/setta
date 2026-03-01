@@ -1,7 +1,6 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
 
 export function ComboboxInput({
@@ -40,19 +39,20 @@ export function ComboboxInput({
   const paneInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-md border border-solid border-setta-200 px-2 pr-8 text-xs text-setta-800 placeholder:text-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-600 min-w-0 ${
     small ? "h-6" : "h-8"
   }${resolvedInputThemeClassName}`;
-  const toggleIcon = isPaneVariant ? (
-    <HiChevronDown
-      className={`transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
-      size={small ? 12 : 14}
-    />
-  ) : isOpen ? (
-    <HiChevronUp size={small ? 10 : 12} />
-  ) : (
-    <HiChevronDown size={small ? 10 : 12} />
-  );
+  const chevronSizeClass = isPaneVariant
+    ? small
+      ? "before:h-[6px] before:w-[6px]"
+      : "before:h-[7px] before:w-[7px]"
+    : small
+      ? "before:h-[6px] before:w-[6px]"
+      : "before:h-[7px] before:w-[7px]";
+  const chevronDirectionClass = isOpen
+    ? "before:-rotate-[135deg] before:translate-y-[1px]"
+    : "before:rotate-45 before:-translate-y-[1px]";
+  const chevronHostClassName = `before:pointer-events-none before:block before:origin-center before:content-[''] before:border-b-[1.5px] before:border-r-[1.5px] before:border-current before:transition-transform before:duration-150 ${chevronSizeClass} ${chevronDirectionClass}`;
   const rightButtonClassName = isPaneVariant
-    ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-    : "right-1";
+    ? "absolute inset-y-0 right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+    : "absolute inset-y-0 right-1";
   const resolvedRightButtonThemeClassName = rightButtonThemeClassName
     ? ` ${rightButtonThemeClassName}`
     : "";
@@ -61,6 +61,7 @@ export function ComboboxInput({
       outerClasses={resolvedOuterClasses}
       inputStyles={isPaneVariant ? paneInputClasses : pillInputClasses}
       noLeftElement={true}
+      rightElementNoWrapper={true}
       placeholder={placeholder}
       // leftElementStyles="pl-3"
       {...getInputProps({
@@ -75,7 +76,8 @@ export function ComboboxInput({
           {...getToggleButtonProps({
             disabled: isDisabled,
           })}
-          icon={toggleIcon}
+          data-combobox-chevron-host="true"
+          iconHostClassName={chevronHostClassName}
           rounded={isPaneVariant ? "rounded-md" : undefined}
           className={`${rightButtonClassName}${resolvedRightButtonThemeClassName}`}
           size={

@@ -40,12 +40,13 @@ export function LockPositionButton({
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 
-  let iconSize = "[&>i]:!scale-[.4]"; // when !isGroup
+  let iconSize = "[&::before]:!scale-[.4] [&::after]:!scale-[.4]"; // when !isGroup
   if (isGroup) {
     if (positionAndSizeLocked) {
-      iconSize = "[&>i]:!-mt-[6px]"; // when isGroup && positionAndSizeLocked
+      iconSize = "[&::before]:!-mt-[6px] [&::after]:!-mt-[6px]"; // when isGroup && positionAndSizeLocked
     } else {
-      iconSize = "[&>i]:!scale-50 [&>i]:!-mt-[9px]"; // when isGroup && !positionAndSizeLocked
+      iconSize =
+        "[&::before]:!scale-50 [&::after]:!scale-50 [&::before]:!-mt-[9px] [&::after]:!-mt-[9px]"; // when isGroup && !positionAndSizeLocked
     }
   }
 
@@ -105,7 +106,7 @@ export function LockPositionButton({
         hasSectionStyleTheme
           ? "focus-visible:ring-[var(--setta-section-style-outline)]"
           : ""
-      } ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 ${
+      } ${backgroundClassName} ${iconClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 ${
         hasSectionStyleTheme
           ? ""
           : "hover:text-orange-500 dark:hover:text-orange-700"
@@ -114,8 +115,6 @@ export function LockPositionButton({
       } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
       onClick={onClick}
       disabled={!canEditLayout}
-    >
-      <i className={iconClassName} />
-    </button>
+    />
   );
 }
