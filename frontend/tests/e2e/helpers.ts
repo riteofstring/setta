@@ -305,14 +305,6 @@ export async function setOverviewTab(
   page: Page,
   tabName: string,
 ): Promise<void> {
-  if (tabName === "BackendLogs") {
-    await seedLocalStorage(page, {
-      overviewTab: "Notifications",
-      overviewNotificationsPaneTab: "backend_logs",
-      overviewVis: true,
-    });
-    return;
-  }
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
 }
 

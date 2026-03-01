@@ -25,7 +25,6 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
-  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -43,6 +42,7 @@ import {
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
 import { AppConfigPane } from "./App/AppConfigPane";
+import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
@@ -237,15 +237,31 @@ export function Overview() {
           {...commonProps}
           data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
+          icon={<MdNotificationsNone size={20} />}
+        />
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.BackendLogs}
+          {...commonProps}
+          data-testid="overview-tab-backend-logs"
+          {...getFloatingBoxHandlers({ content: "Backend Logs" })}
           icon={
             <div className="relative">
-              <MdNotificationsNone size={20} />
+              <MdBugReport size={20} />
               {hasUnreadHighSeverityBackendLogs && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
               )}
             </div>
           }
         />
+        {showLLMTabs && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.ProjectAISettings}
+            {...commonProps}
+            data-testid="overview-tab-project-ai-settings"
+            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
+            icon={<MdOutlineSmartToy size={20} />}
+          />
+        )}
         <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
@@ -407,11 +423,7 @@ function TabContent({
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:
-      return (
-        <NotificationsArea
-          initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
-        />
-      );
+      return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
     case OverviewTabNameEnum.ProjectAISettings:
