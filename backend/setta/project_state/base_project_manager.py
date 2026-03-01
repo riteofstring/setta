@@ -2237,6 +2237,27 @@ class BaseProjectManager(ABC):
                 f"{coalesce_key_prefix}:{projectConfigId}:"
                 f"{','.join(map(str, refetch_section_ids))}"
             )
+            history_section_ids: set[ID] = set(refetch_section_ids)
+            history_code_obj_ids: set[ID] = set()
+            for section_id in refetch_section_ids:
+                section_impl = self._get_param_section_impl_for_backend(
+                    project_config_id=projectConfigId,
+                    section_id=section_id,
+                )
+                if not isinstance(section_impl, CallableSectionImpl):
+                    raise TypeError(
+                        f"Section {section_id} has unsupported callable history type {section_impl.type}."
+                    )
+                if section_impl.callable is None:
+                    raise KeyError(
+                        f"Section {section_id} has no callable root code obj."
+                    )
+                history_code_obj_ids.add(section_impl.callable)
+            history_section_ids.update(
+                self._get_codegen_singleton_section_ids_for_history_entry(
+                    projectConfigId
+                )
+            )
             history_recorded = False
 
             def record_history() -> None:
@@ -2248,6 +2269,12 @@ class BaseProjectManager(ABC):
                     coalesce_key=coalesce_key,
                     coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
                     project_config_id=projectConfigId,
+                    section_impl_only_ids=(
+                        history_section_ids if history_section_ids else None
+                    ),
+                    code_obj_only_ids=(
+                        history_code_obj_ids if history_code_obj_ids else None
+                    ),
                 )
 
             on_before_mutation = record_history

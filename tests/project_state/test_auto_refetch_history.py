@@ -15,6 +15,7 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.dependency_key import create_dep_key
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
@@ -424,6 +425,68 @@ class TestAutoRefetchHistory:
             updated_gen_code.latest_callable_mismatch_sections
             == {self.section_id}
         )
+
+    async def test_auto_refetch_history_uses_scoped_copy(self):
+        project_state = self.project_state.model_copy(deep=True)
+        project_state.projectConfig.codegenTargets = [ProjectCodegenPythonTarget()]
+        section_impl = get_curr_effective_section_impl(project_state, self.section_id)
+        assert isinstance(section_impl, CallableSectionImpl)
+        callable_id = section_impl.callable
+        assert callable_id is not None
+        project_state.codeObjs[callable_id].name = ""
+        await self.manager.update(project_state)
+
+        gen_code = self.manager._require_python_codegen(project_state.projectConfig.id)
+        assert create_dep_key(sectionId=self.section_id) in gen_code.code_generator.lines
+
+        expected_history_code_obj_ids = {callable_id}
+        expected_history_section_ids = {self.section_id}
+        expected_history_section_ids.update(
+            self.manager._get_codegen_singleton_section_ids_for_history_entry(
+                project_state.projectConfig.id
+            )
+        )
+
+        history_calls: list[dict[str, object]] = []
+        original_add_history_entry = self.manager.add_new_history_entry
+
+        def record_add_new_history_entry(*args, **kwargs):
+            history_calls.append(dict(kwargs))
+            return original_add_history_entry(*args, **kwargs)
+
+        self.manager.add_new_history_entry = (  # type: ignore[method-assign]
+            record_add_new_history_entry
+        )
+
+        history_len_before = len(self.manager.history._history)
+        try:
+            await self.manager.auto_refetch_callable_params(
+                project_state.projectConfig.id,
+                {self.section_id},
+            )
+        finally:
+            self.manager.add_new_history_entry = original_add_history_entry  # type: ignore[method-assign]
+
+        assert len(self.manager.history._history) == history_len_before + 1
+        target_call = None
+        for history_call in history_calls:
+            coalesce_key = history_call.get("coalesce_key")
+            if isinstance(coalesce_key, str) and coalesce_key.startswith(
+                "autoRefetchCallable:"
+            ):
+                target_call = history_call
+                break
+
+        assert target_call is not None
+        assert target_call.get("project_config_id") == project_state.projectConfig.id
+
+        section_scope = target_call.get("section_impl_only_ids")
+        assert isinstance(section_scope, set)
+        assert expected_history_section_ids.issubset(section_scope)
+
+        code_obj_scope = target_call.get("code_obj_only_ids")
+        assert isinstance(code_obj_scope, set)
+        assert expected_history_code_obj_ids.issubset(code_obj_scope)
 
     async def test_auto_refetch_mutation_uses_patch_transport(self):
         project_state = self.project_state.model_copy(deep=True)
