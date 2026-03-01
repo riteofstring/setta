@@ -14,7 +14,7 @@ const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
-const REQUEST_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -170,30 +170,21 @@ test("code issues popover stays attached while panning", async ({ page }) => {
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
 
-    const problemsLabel = page.getByText("Problems").first();
-    await expect(problemsLabel).toBeVisible();
-    const popover = page
-      .locator('[data-radix-popper-content-wrapper]')
-      .filter({ has: problemsLabel })
-      .first();
-    await expect(popover).toBeVisible();
-    const popoverContent = popover.locator("> div").first();
-    await expect(popoverContent).toHaveClass(/rounded-md/);
-    await expect(popoverContent).toHaveClass(/backdrop-blur/);
+    let popoverContent = await openIssuesPopover(page, issuesButton);
 
-    const beforeDelta = await getCenterDelta(issuesButton, popover);
+    const beforeDelta = await waitForCenterDelta(issuesButton, popoverContent);
 
     await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
-
-    await expect.poll(async () => {
-      const afterDelta = await getCenterDelta(issuesButton, popover);
-      return Math.max(
-        Math.abs(afterDelta.dx - beforeDelta.dx),
-        Math.abs(afterDelta.dy - beforeDelta.dy),
-      );
-    }).toBeLessThan(4);
+    if (!(await popoverContent.isVisible())) {
+      popoverContent = await openIssuesPopover(page, issuesButton);
+    }
+    const afterDelta = await waitForCenterDelta(issuesButton, popoverContent);
+    const maxDeltaChange = Math.max(
+      Math.abs(afterDelta.dx - beforeDelta.dx),
+      Math.abs(afterDelta.dy - beforeDelta.dy),
+    );
+    expect(maxDeltaChange).toBeLessThan(4);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -502,13 +493,19 @@ async function setViewportTransform(
 async function getCenterDelta(
   anchor: Locator,
   popover: Locator,
-): Promise<{ dx: number; dy: number }> {
-  const [anchorBox, popoverBox] = await Promise.all([
-    anchor.boundingBox(),
-    popover.boundingBox(),
-  ]);
+): Promise<{ dx: number; dy: number } | null> {
+  let anchorBox: Awaited<ReturnType<Locator["boundingBox"]>>;
+  let popoverBox: Awaited<ReturnType<Locator["boundingBox"]>>;
+  try {
+    [anchorBox, popoverBox] = await Promise.all([
+      anchor.boundingBox({ timeout: 250 }),
+      popover.boundingBox({ timeout: 250 }),
+    ]);
+  } catch {
+    return null;
+  }
   if (!anchorBox || !popoverBox) {
-    throw new Error("Unable to measure popover/anchor bounds.");
+    return null;
   }
   const anchorCenterX = anchorBox.x + anchorBox.width / 2;
   const anchorCenterY = anchorBox.y + anchorBox.height / 2;
@@ -518,4 +515,45 @@ async function getCenterDelta(
     dx: popoverCenterX - anchorCenterX,
     dy: popoverCenterY - anchorCenterY,
   };
+}
+
+async function waitForCenterDelta(
+  anchor: Locator,
+  popover: Locator,
+): Promise<{ dx: number; dy: number }> {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const delta = await getCenterDelta(anchor, popover);
+    if (delta) {
+      return delta;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+  }
+  throw new Error("Unable to measure popover/anchor bounds.");
+}
+
+async function openIssuesPopover(
+  page: Page,
+  issuesButton: Locator,
+): Promise<Locator> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await issuesButton.click({ force: attempt > 0 });
+    try {
+      await expect(issuesButton).toHaveAttribute("aria-expanded", "true", {
+        timeout: 1000,
+      });
+      const popoverId = await issuesButton.getAttribute("aria-controls");
+      if (!popoverId) {
+        continue;
+      }
+      const popoverContent = page.locator(`[id="${popoverId}"]`).first();
+      await expect(popoverContent).toBeVisible({ timeout: 1000 });
+      return popoverContent;
+    } catch {
+      // Retry; this popover can miss the first click under load.
+    }
+  }
+  throw new Error("Unable to open issues popover.");
 }

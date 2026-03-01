@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -38,6 +38,7 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
+    BaseParentSectionImpl,
     CallableSectionImpl,
     CodeLanguage,
     CodeSectionImpl,
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
 
     from setta.project_state.base_project_manager import BaseProjectManager
+    from setta.project_state.project_code import ProjectGenPythonCode
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +140,20 @@ class WatchCodeConfigSnapshot:
     enabled: bool
     files: tuple[str, ...]
     folders: tuple[tuple[str, bool], ...]
+
+
+@dataclass
+class WatchCodeMutationScope:
+    did_update: bool = False
+    structural_changed: bool = False
+    section_ids: set[ID] = field(default_factory=set)
+    code_obj_ids: set[ID] = field(default_factory=set)
+
+    def merge(self, other: "WatchCodeMutationScope") -> None:
+        self.did_update = self.did_update or other.did_update
+        self.structural_changed = self.structural_changed or other.structural_changed
+        self.section_ids.update(other.section_ids)
+        self.code_obj_ids.update(other.code_obj_ids)
 
 
 def build_callable_identity(callable_name: str, kind: WatchCodeCallableKind) -> str:
@@ -772,24 +788,25 @@ class WatchCodeManager:
         project_state: ProjectStateSingleConfig,
         section_id: ID,
         code: str,
-    ) -> bool:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         project_config = project_state.projectConfig
         if not project_config.watchCodeEnabled:
-            return False
+            return update_scope
         if not project_config_has_codegen_language(
             project_config, ProjectCodegenLanguage.python
         ):
-            return False
+            return update_scope
         if section_id not in project_state.sections:
             raise KeyError(f"Missing code section {section_id}.")
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
-            return False
+            return update_scope
         if section_impl.codeLanguage != CodeLanguage.python:
-            return False
+            return update_scope
         binding = section_impl.codeFileBinding
         if binding is None:
-            return False
+            return update_scope
         source_path = normalize_workspace_path(binding.canonical_path)
         logger.debug(
             "watch_code.handle_code_section_update section_id=%s source_path=%s code_len=%s",
@@ -797,12 +814,13 @@ class WatchCodeManager:
             source_path,
             len(code),
         )
-        return await self._apply_callable_updates(
+        update_scope = await self._apply_callable_updates(
             project_state,
             source_path,
             code,
             baseline_only=False,
         )
+        return update_scope
 
     def _handle_directory_created(self, path: Path) -> None:
         if not self._pending_dirs:
@@ -1050,8 +1068,8 @@ class WatchCodeManager:
         *,
         baseline_only: bool,
         moved_from: Path | None,
-    ) -> bool:
-        did_move_update = False
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         if moved_from is not None:
             project_config = project_state.projectConfig
             registry = project_config.watchCodeRegistry
@@ -1088,7 +1106,7 @@ class WatchCodeManager:
                     if entry.sourcePath == src_key:
                         entry.sourcePath = dest_key
                         moved_registry_entries += 1
-                did_move_update = True
+                update_scope.did_update = True
                 logger.debug(
                     "watch_code._scan_file move_update project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
                     project_config.id,
@@ -1096,24 +1114,26 @@ class WatchCodeManager:
                     0 if parsed_callables is None else len(parsed_callables),
                     moved_registry_entries,
                 )
-        did_update = await self._apply_callable_updates(
+        callable_update_scope = await self._apply_callable_updates(
             project_state,
             path,
             raw,
             baseline_only=baseline_only,
         )
-        return did_update or did_move_update
+        update_scope.merge(callable_update_scope)
+        return update_scope
 
     async def apply_delete_update(
         self,
         project_state: ProjectStateSingleConfig,
         path: Path,
-    ) -> bool:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         project_config = project_state.projectConfig
         if not project_config_has_codegen_language(
             project_config, ProjectCodegenLanguage.python
         ):
-            return False
+            return update_scope
         registry = project_config.watchCodeRegistry
         baseline = project_config.watchCodeBaselineByPath
         source_key = str(normalize_workspace_path(path))
@@ -1122,14 +1142,15 @@ class WatchCodeManager:
             for identity, entry in registry.items()
             if entry.sourcePath == source_key
         }
-        did_update = False
         if removed_identities:
-            if self._remove_watch_code_identities(project_state, removed_identities):
-                did_update = True
+            removal_scope = self._remove_watch_code_identities(
+                project_state, removed_identities
+            )
+            update_scope.merge(removal_scope)
         if source_key in baseline:
             baseline.pop(source_key)
-            did_update = True
-        return did_update
+            update_scope.did_update = True
+        return update_scope
 
     def _baseline_watch_inputs(self, project_config) -> None:
         for file_path in normalize_watch_code_files(project_config.watchCodeFiles):
@@ -1200,7 +1221,8 @@ class WatchCodeManager:
         code: str,
         *,
         baseline_only: bool,
-    ) -> bool:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         project_config = project_state.projectConfig
         callables = parse_python_callables(code, source_path)
         if callables is None:
@@ -1210,7 +1232,7 @@ class WatchCodeManager:
                 baseline_only,
                 len(code),
             )
-            return False
+            return update_scope
         if logger.isEnabledFor(logging.DEBUG):
             code_hash = compute_md5_hex(code)
             logger.debug(
@@ -1223,11 +1245,12 @@ class WatchCodeManager:
             )
         if baseline_only:
             self._record_baseline(project_config, source_path, callables)
-            return True
+            update_scope.did_update = True
+            return update_scope
         if not project_config_has_codegen_language(
             project_config, ProjectCodegenLanguage.python
         ):
-            return False
+            return update_scope
 
         registry = project_config.watchCodeRegistry
         baseline = project_config.watchCodeBaselineByPath
@@ -1258,7 +1281,6 @@ class WatchCodeManager:
             len(removed_identities),
             source_key,
         )
-        did_update = False
         if removed_identities and added_identities:
             added_by_key: dict[str, list[WatchCodeCallableInfo]] = {}
             for identity in added_identities:
@@ -1322,12 +1344,14 @@ class WatchCodeManager:
                     reference_name,
                 )
                 entry.callableName = reference_name
-                self._rename_sections_for_callable(
+                renamed_callable_ids = self._rename_sections_for_callable(
                     project_state,
                     entry.sectionIds,
                     reference_name,
                 )
-                did_update = True
+                update_scope.did_update = True
+                update_scope.section_ids.update(entry.sectionIds)
+                update_scope.code_obj_ids.update(renamed_callable_ids)
 
         registry_entries_for_file = {
             identity: entry
@@ -1346,11 +1370,13 @@ class WatchCodeManager:
             ]
             if updated_baseline != baseline[source_key]:
                 baseline[source_key] = updated_baseline
-                did_update = True
+                update_scope.did_update = True
             baseline_entries = set(baseline[source_key])
         if removed_identities:
-            if self._remove_watch_code_identities(project_state, removed_identities):
-                did_update = True
+            removal_scope = self._remove_watch_code_identities(
+                project_state, removed_identities
+            )
+            update_scope.merge(removal_scope)
 
         signature_updates: list[tuple[str, list[ID]]] = []
         new_section_updates: list[tuple[str, list[ID]]] = []
@@ -1377,7 +1403,8 @@ class WatchCodeManager:
                     entry.bodyHash = info.body_hash
                     entry.sourcePath = info.source_path
                     signature_updates.append((entry.callableName, entry.sectionIds))
-                    did_update = True
+                    update_scope.did_update = True
+                    update_scope.section_ids.update(entry.sectionIds)
                 else:
                     if entry.bodyHash != info.body_hash:
                         entry.bodyHash = info.body_hash
@@ -1418,12 +1445,17 @@ class WatchCodeManager:
                 identity,
                 [proposal.name for proposal in info.param_proposals],
             )
-            did_update = True
+            update_scope.did_update = True
+            update_scope.structural_changed = True
+            update_scope.section_ids.add(section_id)
             new_section_updates.append((reference_name, [section_id]))
         combined_updates = signature_updates + new_section_updates
         if combined_updates:
-            await self._update_sections_for_callables(project_state, combined_updates)
-        return did_update
+            section_update_scope = await self._update_sections_for_callables(
+                project_state, combined_updates
+            )
+            update_scope.merge(section_update_scope)
+        return update_scope
 
     def _update_registry_identity(
         self,
@@ -1443,9 +1475,10 @@ class WatchCodeManager:
         self,
         project_state: ProjectStateSingleConfig,
         callables: list[tuple[str, list[ID]]],
-    ) -> None:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         if not callables:
-            return
+            return update_scope
         project_config_id = project_state.projectConfig.id
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
@@ -1463,6 +1496,16 @@ class WatchCodeManager:
                 for section_id in section_ids
                 if create_dep_key(section_id) not in gen_code.dep_graph.graph
             ]
+            if prefix_mismatch or missing_dep_keys:
+                missing_dep_keys = self._prepare_gen_code_for_callable_updates(
+                    project_state,
+                    gen_code,
+                    section_ids,
+                )
+                prefix_mismatch = (
+                    gen_code.code_generator.gen_code_prefix
+                    != python_target.genCodePrefix
+                )
         needs_refresh = gen_code is None or prefix_mismatch or bool(missing_dep_keys)
         logger.debug(
             "watch_code._update_sections_for_callables callables=%s section_ids=%s gen_code=%s prefix_mismatch=%s missing_dep_keys=%s needs_refresh=%s",
@@ -1520,6 +1563,12 @@ class WatchCodeManager:
                     callable_name,
                     True,
                 )
+                update_scope.did_update = True
+                update_scope.section_ids.add(section_id)
+                if response.callableId is not None:
+                    update_scope.code_obj_ids.add(response.callableId)
+                for child in response.childCodeObjs:
+                    update_scope.code_obj_ids.add(child.codeObjId)
                 logger.debug(
                     "watch_code._update_sections_for_callables set_callable_result callable=%s section_id=%s lsp_status=%s",
                     callable_name,
@@ -1533,13 +1582,88 @@ class WatchCodeManager:
                     await self._notify_import_failure(
                         project_config_id, callable_name, source=callable_name
                     )
+        return update_scope
+
+    def _prepare_gen_code_for_callable_updates(
+        self,
+        project_state: ProjectStateSingleConfig,
+        gen_code: "ProjectGenPythonCode",
+        section_ids: list[ID],
+    ) -> list[ID]:
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        if gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix:
+            gen_code.code_generator.set_gen_code_prefix(python_target.genCodePrefix)
+
+        dep_graph = gen_code.dep_graph
+        top_level_index_by_section: dict[ID, int] = {
+            section_id: idx
+            for idx, section_id in enumerate(
+                project_state.projectConfig.topLevelSections.keys()
+            )
+        }
+        for section_id in section_ids:
+            if create_dep_key(section_id) in dep_graph.graph:
+                continue
+            self._try_export_missing_section_dep_key(
+                project_state=project_state,
+                section_id=section_id,
+                gen_code=gen_code,
+                top_level_index_by_section=top_level_index_by_section,
+            )
+        dep_graph.resolve_references()
+        return [
+            section_id
+            for section_id in section_ids
+            if create_dep_key(section_id) not in dep_graph.graph
+        ]
+
+    def _try_export_missing_section_dep_key(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        gen_code: "ProjectGenPythonCode",
+        top_level_index_by_section: dict[ID, int],
+    ) -> None:
+        if section_id not in project_state.sections:
+            return
+        parent_id = project_state.parentSectionMap.get(section_id)
+        dep_graph = gen_code.dep_graph
+        if parent_id is None:
+            if section_id not in top_level_index_by_section:
+                return
+            dep_graph.export_section(
+                project_state,
+                section_id,
+                isTopLevel=True,
+                idx=top_level_index_by_section[section_id],
+            )
+            return
+        parent_dep_key = create_dep_key(parent_id)
+        parent_node = dep_graph.get_node(parent_dep_key)
+        if parent_node is None:
+            return
+        parent_impl = get_curr_effective_section_impl(project_state, parent_id)
+        if not isinstance(parent_impl, BaseParentSectionImpl):
+            return
+        if section_id not in parent_impl.children:
+            return
+        dep_graph.export_section(
+            project_state,
+            section_id,
+            parent_node=parent_node,
+            idx=parent_impl.children.index(section_id),
+        )
 
     def _rename_sections_for_callable(
         self,
         project_state: ProjectStateSingleConfig,
         section_ids: list[ID],
         callable_name: str,
-    ) -> None:
+    ) -> set[ID]:
+        touched_code_obj_ids: set[ID] = set()
         for section_id in section_ids:
             if section_id not in project_state.sections:
                 continue
@@ -1554,6 +1678,8 @@ class WatchCodeManager:
             callable_obj = project_state.codeObjs[callable_id]
             if callable_obj.name != callable_name:
                 callable_obj.name = callable_name
+                touched_code_obj_ids.add(callable_obj.id)
+        return touched_code_obj_ids
 
     def _create_callable_section(self, project_state: ProjectStateSingleConfig) -> ID:
         settings = self._project_manager.settings_file.settings
@@ -1690,26 +1816,30 @@ class WatchCodeManager:
         self,
         project_state: ProjectStateSingleConfig,
         identities: set[str],
-    ) -> bool:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         if not identities:
-            return False
+            return update_scope
         registry = project_state.projectConfig.watchCodeRegistry
-        did_update = False
         for identity in sorted(identities):
             if identity not in registry:
                 continue
             entry = registry[identity]
-            self._cleanup_removed_callable(project_state, identity, entry)
+            cleanup_scope = self._cleanup_removed_callable(
+                project_state, identity, entry
+            )
+            update_scope.merge(cleanup_scope)
             registry.pop(identity)
-            did_update = True
-        return did_update
+            update_scope.did_update = True
+        return update_scope
 
     def _cleanup_removed_callable(
         self,
         project_state: ProjectStateSingleConfig,
         identity: str,
         entry: WatchCodeRegistryEntry,
-    ) -> None:
+    ) -> WatchCodeMutationScope:
+        update_scope = WatchCodeMutationScope()
         module_path, symbol_name = self._split_canonical_identity(identity)
         self._remove_gen_code_import(
             project_state,
@@ -1720,6 +1850,7 @@ class WatchCodeManager:
         section_ids = self._prune_section_ids(project_state, entry)
         entry.sectionIds = section_ids
         entry.sectionsCount = len(section_ids)
+        update_scope.section_ids.update(section_ids)
         sections_to_delete: set[ID] = set()
         for section_id in section_ids:
             if section_id not in project_state.sections:
@@ -1745,6 +1876,7 @@ class WatchCodeManager:
                 callable_obj = project_state.codeObjs[callable_id]
                 if callable_obj.name == entry.callableName:
                     variants_to_remove.append(variant_id)
+                    update_scope.code_obj_ids.add(callable_obj.id)
             if not variants_to_remove:
                 continue
             remaining_variants = [
@@ -1757,8 +1889,13 @@ class WatchCodeManager:
                 continue
             for variant_id in variants_to_remove:
                 delete_section_variant(project_state, section_id, variant_id)
+                update_scope.structural_changed = True
+                update_scope.did_update = True
         if sections_to_delete:
             delete_sections(project_state, sorted(sections_to_delete))
+            update_scope.structural_changed = True
+            update_scope.did_update = True
+        return update_scope
 
     async def _notify_import_failure(
         self,
