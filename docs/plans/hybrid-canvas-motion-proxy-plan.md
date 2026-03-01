@@ -328,6 +328,25 @@
   - Prioritize hardening this no-canvas motion-shell switch before revisiting hybrid canvas proxy work.
   - Keep hybrid canvas as a fallback path only if this switch cannot maintain correctness and hitch bounds across broader scenarios.
 
+### Phase 0.5 Status Update (2026-03-03, Motion-Shell Guardrail Matrix)
+- Guardrail coverage was expanded beyond the initial `All Settings` case:
+  - `Settings -> All Settings` guardrail retained,
+  - `Settings -> Param Defaults` guardrail added,
+  - non-settings heavy-canvas guardrail added via plugin fixture (`~100` sections).
+- Result: **all matrix guardrails passing** in initial runs.
+  - `All Settings`: strong uplift retained (`~3x` pan/zoom).
+  - `Param Defaults`: near-parity (`~1.0x`) with no regression.
+  - Plugin heavy canvas: material uplift (`~1.67x` pan, `~1.92x` zoom).
+- Guardrail checks now enforce:
+  - throughput/hitch thresholds,
+  - visible-content parity,
+  - post-pan interaction readiness on real controls.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-and-plugin-viewport-motion-shell-guardrail-matrix.md`
+- Updated direction:
+  - Motion-shell path is now test-hardened enough for a controlled default-on trial (kill switch retained) on heavy surfaces.
+  - Keep hybrid canvas paused unless motion-shell default-on fails correctness or hitch bounds at broader scope.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.

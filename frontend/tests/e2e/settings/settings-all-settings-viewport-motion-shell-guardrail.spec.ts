@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -45,11 +45,30 @@ type GuardrailMetrics = {
   };
 };
 
+type SettingsGuardrailConfig = {
+  tabName: string;
+  minNodeCount: number;
+  minTopLevelSectionCount: number;
+  minVisibleSectionCount: number;
+  visibleSectionParityTolerance: number;
+  minPanMultiplier: number;
+  minZoomMultiplier: number;
+  minMotionPanFps: number;
+  minMotionZoomFps: number;
+  maxStartHitchP95Ms: number;
+  maxStopHitchP95Ms: number;
+  maxStartP95DeltaMs: number;
+  maxStopP95DeltaMs: number;
+  maxPostPanInputHitTestMs: number;
+  attachmentName: string;
+  logPrefix: string;
+};
+
 async function setViewportFlags({
   page,
   motionShellEnabled,
 }: {
-  page: Parameters<typeof test>[0]["page"];
+  page: Page;
   motionShellEnabled: boolean;
 }): Promise<void> {
   await page.evaluate(
@@ -67,21 +86,28 @@ async function setViewportFlags({
   );
 }
 
-async function openAllSettings(
-  page: Parameters<typeof test>[0]["page"],
-): Promise<void> {
+async function openSettingsViewMode({
+  page,
+  tabName,
+  minNodeCount,
+}: {
+  page: Page;
+  tabName: string;
+  minNodeCount: number;
+}): Promise<void> {
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
 
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
+  const tab = page.getByRole("button", {
+    name: tabName,
     exact: true,
   });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
+  await expect(tab).toBeVisible();
+  await tab.click();
 
   await page.waitForFunction(
-    () => document.querySelectorAll(".react-flow__node").length >= 42,
+    (count) => document.querySelectorAll(".react-flow__node").length >= count,
+    minNodeCount,
   );
 
   const fitViewButton = page.getByRole("button", { name: "fit view" });
@@ -90,9 +116,7 @@ async function openAllSettings(
   await page.waitForTimeout(200);
 }
 
-async function collectScenarioMetrics(
-  page: Parameters<typeof test>[0]["page"],
-): Promise<ScenarioMetrics> {
+async function collectScenarioMetrics(page: Page): Promise<ScenarioMetrics> {
   return page.evaluate(async (): Promise<ScenarioMetrics> => {
     const sleep = (ms: number): Promise<void> =>
       new Promise((resolve) => setTimeout(resolve, ms));
@@ -375,18 +399,31 @@ async function collectScenarioMetrics(
   });
 }
 
-test("settings all-settings viewport-motion-shell guardrail", async ({
+async function runSettingsGuardrail({
   page,
-}, testInfo) => {
+  testInfo,
+  config,
+}: {
+  page: Page;
+  testInfo: TestInfo;
+  config: SettingsGuardrailConfig;
+}): Promise<void> {
   test.slow();
-  await ensureAppReady(page);
 
   await setViewportFlags({ page, motionShellEnabled: false });
-  await openAllSettings(page);
+  await openSettingsViewMode({
+    page,
+    tabName: config.tabName,
+    minNodeCount: config.minNodeCount,
+  });
   const control = await collectScenarioMetrics(page);
 
   await setViewportFlags({ page, motionShellEnabled: true });
-  await openAllSettings(page);
+  await openSettingsViewMode({
+    page,
+    tabName: config.tabName,
+    minNodeCount: config.minNodeCount,
+  });
   const motionShell = await collectScenarioMetrics(page);
 
   const panMultiplier =
@@ -402,32 +439,44 @@ test("settings all-settings viewport-motion-shell guardrail", async ({
   expect(control.dom.viewportMotionShellActive).toBe(false);
   expect(motionShell.dom.viewportMotionShellActive).toBe(false);
 
-  expect(control.dom.topLevelSectionCount).toBeGreaterThanOrEqual(40);
-  expect(motionShell.dom.topLevelSectionCount).toBeGreaterThanOrEqual(40);
-  expect(control.dom.visibleSectionCount).toBeGreaterThanOrEqual(30);
-  expect(motionShell.dom.visibleSectionCount).toBeGreaterThanOrEqual(30);
+  expect(control.dom.topLevelSectionCount).toBeGreaterThanOrEqual(
+    config.minTopLevelSectionCount,
+  );
+  expect(motionShell.dom.topLevelSectionCount).toBeGreaterThanOrEqual(
+    config.minTopLevelSectionCount,
+  );
+  expect(control.dom.visibleSectionCount).toBeGreaterThanOrEqual(
+    config.minVisibleSectionCount,
+  );
   expect(motionShell.dom.visibleSectionCount).toBeGreaterThanOrEqual(
-    control.dom.visibleSectionCount - 2,
+    config.minVisibleSectionCount,
+  );
+  expect(motionShell.dom.visibleSectionCount).toBeGreaterThanOrEqual(
+    control.dom.visibleSectionCount - config.visibleSectionParityTolerance,
   );
   expect(motionShell.dom.visibleSectionCount).toBeLessThanOrEqual(
-    control.dom.visibleSectionCount + 2,
+    control.dom.visibleSectionCount + config.visibleSectionParityTolerance,
   );
 
-  expect(panMultiplier).toBeGreaterThanOrEqual(2);
-  expect(zoomMultiplier).toBeGreaterThanOrEqual(1.8);
-  expect(motionShell.throughput.panFps).toBeGreaterThan(70);
-  expect(motionShell.throughput.zoomFps).toBeGreaterThan(70);
+  expect(panMultiplier).toBeGreaterThanOrEqual(config.minPanMultiplier);
+  expect(zoomMultiplier).toBeGreaterThanOrEqual(config.minZoomMultiplier);
+  expect(motionShell.throughput.panFps).toBeGreaterThan(config.minMotionPanFps);
+  expect(motionShell.throughput.zoomFps).toBeGreaterThan(
+    config.minMotionZoomFps,
+  );
 
-  expect(motionShell.startHitch.p95Ms).toBeLessThan(12);
-  expect(motionShell.stopHitch.p95Ms).toBeLessThan(14);
-  expect(startP95DeltaMs).toBeLessThan(8);
-  expect(stopP95DeltaMs).toBeLessThan(8);
+  expect(motionShell.startHitch.p95Ms).toBeLessThan(config.maxStartHitchP95Ms);
+  expect(motionShell.stopHitch.p95Ms).toBeLessThan(config.maxStopHitchP95Ms);
+  expect(startP95DeltaMs).toBeLessThan(config.maxStartP95DeltaMs);
+  expect(stopP95DeltaMs).toBeLessThan(config.maxStopP95DeltaMs);
 
   expect(control.postPanEdit.inputReady).toBe(true);
   expect(motionShell.postPanEdit.inputReady).toBe(true);
   expect(control.postPanEdit.valueCommitted).toBe(true);
   expect(motionShell.postPanEdit.valueCommitted).toBe(true);
-  expect(motionShell.postPanEdit.inputHitTestMs).toBeLessThan(260);
+  expect(motionShell.postPanEdit.inputHitTestMs).toBeLessThan(
+    config.maxPostPanInputHitTestMs,
+  );
 
   const metrics: GuardrailMetrics = {
     control,
@@ -441,14 +490,67 @@ test("settings all-settings viewport-motion-shell guardrail", async ({
   };
 
   const metricsJson = JSON.stringify(metrics, null, 2);
-  await testInfo.attach(
-    "settings-all-settings-viewport-motion-shell-guardrail.json",
-    {
-      body: metricsJson,
-      contentType: "application/json",
+  await testInfo.attach(config.attachmentName, {
+    body: metricsJson,
+    contentType: "application/json",
+  });
+  console.info(`${config.logPrefix} ${JSON.stringify(metrics)}`);
+}
+
+test("settings all-settings viewport-motion-shell guardrail", async ({
+  page,
+}, testInfo) => {
+  await ensureAppReady(page);
+  await runSettingsGuardrail({
+    page,
+    testInfo,
+    config: {
+      tabName: "All Settings",
+      minNodeCount: 42,
+      minTopLevelSectionCount: 40,
+      minVisibleSectionCount: 30,
+      visibleSectionParityTolerance: 2,
+      minPanMultiplier: 2,
+      minZoomMultiplier: 1.8,
+      minMotionPanFps: 70,
+      minMotionZoomFps: 70,
+      maxStartHitchP95Ms: 12,
+      maxStopHitchP95Ms: 14,
+      maxStartP95DeltaMs: 8,
+      maxStopP95DeltaMs: 8,
+      maxPostPanInputHitTestMs: 260,
+      attachmentName:
+        "settings-all-settings-viewport-motion-shell-guardrail.json",
+      logPrefix: "[settings-all-settings-viewport-motion-shell-guardrail]",
     },
-  );
-  console.info(
-    `[settings-all-settings-viewport-motion-shell-guardrail] ${JSON.stringify(metrics)}`,
-  );
+  });
+});
+
+test("settings param-defaults viewport-motion-shell guardrail", async ({
+  page,
+}, testInfo) => {
+  await ensureAppReady(page);
+  await runSettingsGuardrail({
+    page,
+    testInfo,
+    config: {
+      tabName: "Param Defaults",
+      minNodeCount: 13,
+      minTopLevelSectionCount: 12,
+      minVisibleSectionCount: 10,
+      visibleSectionParityTolerance: 2,
+      minPanMultiplier: 0.95,
+      minZoomMultiplier: 0.95,
+      minMotionPanFps: 40,
+      minMotionZoomFps: 40,
+      maxStartHitchP95Ms: 12,
+      maxStopHitchP95Ms: 14,
+      maxStartP95DeltaMs: 8,
+      maxStopP95DeltaMs: 8,
+      maxPostPanInputHitTestMs: 260,
+      attachmentName:
+        "settings-param-defaults-viewport-motion-shell-guardrail.json",
+      logPrefix: "[settings-param-defaults-viewport-motion-shell-guardrail]",
+    },
+  });
 });
