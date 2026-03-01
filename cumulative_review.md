@@ -79,3 +79,9 @@
 - Updated Follow AI regressions to assert inactive-by-default UI styling and explicit active styling when mode is set to `all`.
 - Added follow-filtering coverage to ensure `off` mode yields no allowed chat IDs/section highlights.
 - Added Playwright coverage for Project AI settings Follow AI trigger to validate default opt-in behavior and menu availability.
+
+## 2026-03-04 23:50:42 PST
+
+- Ran `pnpm -C frontend gcf`.
+- Verified this cycle produced no additional source changes after cleanup/generation.
+- Confirmed there were no top-level `review*.md` files to remove.
