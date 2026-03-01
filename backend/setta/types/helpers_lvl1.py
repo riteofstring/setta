@@ -48,12 +48,37 @@ def get_curr_effective_section_impl(
     return get_effective_impl(base_impl, core, variant)
 
 
+def get_curr_effective_section_impl_for_read(
+    p: "ProjectStateSingleConfig",
+    section_id: ID,
+):
+    variant = get_curr_section_variant(p, section_id)
+    base_impl = p.sectionImpls[variant.impl]
+    core = p.sections[section_id]
+    if len(core.sharedModifier) == 0 and len(variant.modifier) == 0:
+        return base_impl
+    return get_effective_impl(base_impl, core, variant)
+
+
 def get_curr_effective_section_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
     section_id: ID,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
     impl = get_curr_effective_section_impl(project_state, section_id)
+
+    if not isinstance(impl, impl_type):
+        raise ValueError(f"Section {section_id} failed type guard")
+
+    return impl
+
+
+def get_curr_effective_section_impl_for_read_with_type_guard(
+    project_state: "ProjectStateSingleConfig",
+    section_id: ID,
+    impl_type: type[GenericBaseSectionImplType],
+) -> GenericBaseSectionImplType:
+    impl = get_curr_effective_section_impl_for_read(project_state, section_id)
 
     if not isinstance(impl, impl_type):
         raise ValueError(f"Section {section_id} failed type guard")
