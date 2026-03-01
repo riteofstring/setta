@@ -3,13 +3,7 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useAIFollow, useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -20,7 +14,6 @@ import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
 import type { CoordinateExtent, ReactFlowState, Viewport } from "../types";
 import { getWheelDelta } from "../utils";
-import { useViewportMotionShellEnabled } from "./viewportMotionShellFlag";
 
 type InternalWheelEvent = WheelEvent & { internal?: boolean };
 type ZoomFilterEvent = MouseEvent | TouchEvent | WheelEvent;
@@ -67,9 +60,6 @@ const wheelDelta = (event: WheelEvent) => {
   return getWheelDelta(event, factor);
 };
 
-const MOTION_SHELL_ACTIVATION_DELAY_MS = 72;
-const MOTION_SHELL_IDLE_DELAY_MS = 132;
-
 const selector = (s: ReactFlowState) => ({
   d3Zoom: s.d3Zoom,
   d3Selection: s.d3Selection,
@@ -95,60 +85,9 @@ const ZoomPane = ({
   const zoomPane = useRef<HTMLDivElement>(null);
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
-  const viewportMotionShellEnabled = useViewportMotionShellEnabled();
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const motionShellActivationTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const motionShellIdleTimeout = useRef<ReturnType<typeof setTimeout>>();
   useZoomPaneInit(zoomPane, translateExtent);
-
-  const scheduleViewportMotionShellIdle = useCallback(() => {
-    clearTimeout(motionShellIdleTimeout.current);
-    if (!viewportMotionShellEnabled) {
-      return;
-    }
-    motionShellIdleTimeout.current = setTimeout(() => {
-      clearTimeout(motionShellActivationTimeout.current);
-      motionShellActivationTimeout.current = undefined;
-      useMisc.setState({ viewportMotionShellActive: false });
-    }, MOTION_SHELL_IDLE_DELAY_MS);
-  }, [viewportMotionShellEnabled]);
-
-  const beginOrContinueViewportMotionShellInteraction = useCallback(() => {
-    if (!viewportMotionShellEnabled) {
-      return;
-    }
-    clearTimeout(motionShellIdleTimeout.current);
-    if (
-      !useMisc.getState().viewportMotionShellActive &&
-      typeof motionShellActivationTimeout.current === "undefined"
-    ) {
-      motionShellActivationTimeout.current = setTimeout(() => {
-        motionShellActivationTimeout.current = undefined;
-        useMisc.setState({ viewportMotionShellActive: true });
-      }, MOTION_SHELL_ACTIVATION_DELAY_MS);
-    }
-    scheduleViewportMotionShellIdle();
-  }, [scheduleViewportMotionShellIdle, viewportMotionShellEnabled]);
-
-  useEffect(() => {
-    if (viewportMotionShellEnabled) {
-      return;
-    }
-    clearTimeout(motionShellActivationTimeout.current);
-    clearTimeout(motionShellIdleTimeout.current);
-    motionShellActivationTimeout.current = undefined;
-    useMisc.setState({ viewportMotionShellActive: false });
-  }, [viewportMotionShellEnabled]);
-
-  useEffect(() => {
-    return () => {
-      clearTimeout(motionShellActivationTimeout.current);
-      clearTimeout(motionShellIdleTimeout.current);
-      motionShellActivationTimeout.current = undefined;
-      useMisc.setState({ viewportMotionShellActive: false });
-    };
-  }, []);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
@@ -179,7 +118,6 @@ const ZoomPane = ({
             }
             event.preventDefault();
             event.stopImmediatePropagation();
-            beginOrContinueViewportMotionShellInteraction();
 
             const currentZoom = d3Selection.property("__zoom").k || 1;
             const _isMacOs = isMacOs();
@@ -272,7 +210,6 @@ const ZoomPane = ({
     zoomActivationKeyPressed,
     zoomOnPinch,
     preventScrolling,
-    beginOrContinueViewportMotionShellInteraction,
   ]);
 
   useEffect(() => {
@@ -283,7 +220,6 @@ const ZoomPane = ({
           return;
         }
         isZoomingOrPanning.current = true;
-        beginOrContinueViewportMotionShellInteraction();
 
         if (sourceEvent.type === "mousedown") {
           useReactFlow.setState({ paneDragging: true });
@@ -292,7 +228,7 @@ const ZoomPane = ({
         closeAllContextMenus();
       });
     }
-  }, [d3Zoom, beginOrContinueViewportMotionShellInteraction]);
+  }, [d3Zoom]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -328,10 +264,9 @@ const ZoomPane = ({
 
         isZoomingOrPanning.current = false;
         useReactFlow.setState({ paneDragging: false });
-        scheduleViewportMotionShellIdle();
       });
     }
-  }, [d3Zoom, scheduleViewportMotionShellIdle]);
+  }, [d3Zoom]);
 
   useEffect(() => {
     if (d3Zoom) {
