@@ -5,12 +5,21 @@ export type SceneGraphRendererRolloutSurface = {
   activeViewModeName: string;
 };
 
+const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES: ReadonlySet<string> =
+  new Set(["settings"]);
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_SURFACES: readonly SceneGraphRendererRolloutSurface[] =
-  [{ projectConfigName: "settings", activeViewModeName: "All Settings" }];
+  [];
 
 export function isSceneGraphRendererDefaultOnSurface(
   surface: SceneGraphRendererRolloutSurface,
 ): boolean {
+  if (
+    SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES.has(
+      surface.projectConfigName,
+    )
+  ) {
+    return true;
+  }
   for (const candidateSurface of SCENE_GRAPH_RENDERER_DEFAULT_ON_SURFACES) {
     if (
       candidateSurface.projectConfigName === surface.projectConfigName &&

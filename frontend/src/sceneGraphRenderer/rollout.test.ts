@@ -18,12 +18,18 @@ function createFlags(
 }
 
 describe("scene graph renderer rollout policy", () => {
-  it("marks settings all-settings as a default-on rollout surface", () => {
-    // Phase 6 starts by enabling auto backend on the heaviest settings surface.
+  it("marks the settings project as default-on across view modes", () => {
+    // Phase 6 expansion enables all settings tabs while keeping project scoping explicit.
     expect(
       isSceneGraphRendererDefaultOnSurface({
         projectConfigName: "settings",
         activeViewModeName: "All Settings",
+      }),
+    ).toBe(true);
+    expect(
+      isSceneGraphRendererDefaultOnSurface({
+        projectConfigName: "settings",
+        activeViewModeName: "Core",
       }),
     ).toBe(true);
   });
@@ -59,6 +65,20 @@ describe("scene graph renderer rollout policy", () => {
       domIslandRadius: 2,
       debugOverlay: false,
     });
+  });
+
+  it("default-enables settings core when no explicit enabled override exists", () => {
+    // Project-scoped rollout should apply to other settings tabs, not only All Settings.
+    const effectiveFlags = resolveSceneGraphRendererRolloutFlags({
+      persistedFlags: createFlags({ enabled: false, backend: "auto" }),
+      surface: {
+        projectConfigName: "settings",
+        activeViewModeName: "Core",
+      },
+      hasEnabledStorageOverride: false,
+    });
+
+    expect(effectiveFlags.enabled).toBe(true);
   });
 
   it("honors explicit enabled kill-switch overrides", () => {

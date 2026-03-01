@@ -98,7 +98,7 @@ test("settings all-settings flow exposes scene-graph renderer perf labels", asyn
   });
 });
 
-test("settings all-settings defaults renderer on for rollout surface and keeps explicit kill switch", async ({
+test("settings project defaults renderer on across tabs and keeps explicit kill switch", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -136,6 +136,24 @@ test("settings all-settings defaults renderer on for rollout surface and keeps e
   expect(rolloutLabels.enabled).toBe(true);
   expect(rolloutLabels.requestedBackend).toBe("auto");
   expect(["webgpu", "webgl", "dom"]).toContain(rolloutLabels.resolvedBackend);
+
+  const coreTab = page.getByRole("button", {
+    name: "Core",
+    exact: true,
+  });
+  await expect(coreTab).toBeVisible();
+  await coreTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+  const rolloutCoreLabels = await readSceneGraphRendererPerfLabels(page);
+  expect(rolloutCoreLabels.enabled).toBe(true);
 
   await page.evaluate(() => {
     localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
