@@ -43,10 +43,6 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
-function logSectionSearchEvent(event: string, payload: unknown): void {
-  console.log(`[section-search-debug] ${event} ${JSON.stringify(payload)}`);
-}
-
 export function SectionSearch({
   sectionId,
   callable,
@@ -79,20 +75,10 @@ export function SectionSearch({
   const lspEnabled = !isDeploymentMode;
 
   function onEnter(value: string) {
-    logSectionSearchEvent("SectionSearch.onEnter", {
-      sectionId,
-      value,
-      lspEnabled,
-    });
     setCallable(sectionId, value, lspEnabled);
   }
 
   function onShiftEnter(value: string) {
-    logSectionSearchEvent("SectionSearch.onShiftEnter", {
-      sectionId,
-      value,
-      lspEnabled,
-    });
     setCallable(sectionId, value, lspEnabled, true);
   }
 
@@ -292,35 +278,15 @@ function SectionSearchCore({
   }, [codeInfoName]);
 
   function onBlur() {
-    logSectionSearchEvent("SectionSearchCore.onBlur", {
-      sectionId,
-      shouldResetValueOnBlur: shouldResetValueOnBlur.current,
-      lspEnabled,
-      codeInfoName,
-      draftCallableName,
-    });
     if (shouldResetValueOnBlur.current) {
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       if (lspEnabled) {
-        const payload = {
+        route_clear_text_field_completion({
           projectConfigId,
           sectionId,
           paramInfoId: null,
-        };
-        logSectionSearchEvent(
-          "SectionSearchCore.clearCompletion.request",
-          payload,
-        );
-        const request = route_clear_text_field_completion({
-          ...payload,
-        });
-        void Promise.resolve(request).then((response) => {
-          logSectionSearchEvent("SectionSearchCore.clearCompletion.response", {
-            payload,
-            response,
-          });
         });
       }
       shouldResetValueOnBlur.current = false;
@@ -330,12 +296,6 @@ function SectionSearchCore({
   }
 
   function onEscape(completionResult: boolean) {
-    logSectionSearchEvent("SectionSearchCore.onEscape", {
-      sectionId,
-      completionResult,
-      codeInfoName,
-      draftCallableName,
-    });
     if (!completionResult) {
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
@@ -345,11 +305,6 @@ function SectionSearchCore({
   }
 
   function onTab(value: string, completionResult: boolean) {
-    logSectionSearchEvent("SectionSearchCore.onTab", {
-      sectionId,
-      value,
-      completionResult,
-    });
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
       clearApplyIndicator();
@@ -358,12 +313,6 @@ function SectionSearchCore({
   }
 
   function onChange(value: string) {
-    logSectionSearchEvent("SectionSearchCore.onChange", {
-      sectionId,
-      value,
-      codeInfoName,
-      draftCallableName,
-    });
     setDraftCallableName(value);
     setValueAndCheckConsistency(value);
   }
@@ -474,18 +423,7 @@ async function setCallable(
   canUseLsp: boolean,
   refetchParams = false,
 ) {
-  logSectionSearchEvent("setCallable.start", {
-    sectionId,
-    callableName,
-    canUseLsp,
-    refetchParams,
-  });
   if (!canUseLsp) {
-    logSectionSearchEvent("setCallable.skipLspDisabled", {
-      sectionId,
-      callableName,
-      refetchParams,
-    });
     return;
   }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
@@ -496,17 +434,9 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  logSectionSearchEvent("setCallable.request", payload);
   const res = await route_set_callable(payload);
-  logSectionSearchEvent("setCallable.response", {
-    payload,
-    response: res,
-  });
   if (res200(res)) {
     // state update occurs by websocket
     setToNotWaiting();
-    logSectionSearchEvent("setCallable.success", {
-      payload,
-    });
   }
 }

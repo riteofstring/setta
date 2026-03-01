@@ -7,7 +7,6 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import (
@@ -87,10 +86,7 @@ from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
     ProcessedJSONInfo,
 )
-from setta.project_state.jsonSource.load import (
-    JSONSourceLoadMutationScope,
-    load_json_sources_into_data_structures,
-)
+from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.listener_artifact_updates import (
     apply_listener_artifact_updates,
 )
@@ -251,7 +247,6 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.watch_code import (
     WatchCodeManager,
-    WatchCodeMutationScope,
     build_watch_code_snapshot,
     normalize_watch_code_files,
     normalize_watch_code_folders,
@@ -263,27 +258,18 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
-    BaseParamCodeObjImpl,
-    BaseParentCodeObjImpl,
-)
-from setta.types.core import Core, Variant
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
     create_dep_key,
 )
 from setta.types.edges import Edge
-from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
-    BaseCodeObjImplUnionWithDiscriminator,
-    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -292,7 +278,6 @@ from setta.types.helpers_lvl2 import (
     append_draw_area_layer_item,
     apply_top_level_section_layout_snapshot,
     auto_layout_top_level_sections,
-    callable_has_been_selected_before,
     change_param_impl,
     collect_ignore_type_errors_by_section,
     create_agentic_edge,
@@ -312,7 +297,6 @@ from setta.types.helpers_lvl2 import (
     detach_code_section_attached_terminal,
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
-    get_all_sections_for_deletion_or_copying,
     get_curr_section_callable_code_obj,
     get_meta_control_param_id,
     group_sections,
@@ -397,7 +381,6 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
-from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.lsp import SettaLspDiagnosticsPayload
@@ -428,9 +411,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseDictSectionImpl,
-    BaseParentSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
@@ -441,10 +421,8 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
-    MetaControlSectionImpl,
     SectionType,
     TerminalSectionImpl,
-    TextBlockSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
@@ -455,7 +433,6 @@ from setta.utils.format_code import ruff_format_with_error
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     collect_param_name_errors,
-    collect_param_name_errors_for_sections,
     collect_project_name_format_errors,
     collect_section_name_conflicts,
     collect_section_name_format_errors,
@@ -510,9 +487,6 @@ def _is_ui_setting_compare_and_set_noop(
 
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
-GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S = 0.2
-DEFERRED_CODEGEN_REFRESH_WAIT_S = 0.2
-SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS = 3
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
     "type": "Stack",
@@ -524,13 +498,6 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
-_EnqueueCoalesceKeyFn = Callable[[tuple[object, ...], dict[str, object]], str | None]
-_EnqueuePartitionKeyFn = Callable[
-    ["BaseProjectManager", tuple[object, ...], dict[str, object]],
-    str | None,
-]
-
-_GLOBAL_QUEUE_PARTITION_KEY = "__global__"
 
 PluginCodegenHashesByRelativePath = dict[str, str]
 PluginCodegenStatsByRelativePath = dict[str, tuple[int, int]]
@@ -539,178 +506,6 @@ PluginCodegenTargetState = tuple[
     PluginCodegenHashesByRelativePath,
     PluginCodegenStatsByRelativePath,
 ]
-
-
-@dataclass(slots=True)
-class _DurationTimingMetrics:
-    count: int = 0
-    total_seconds: float = 0.0
-    min_seconds: float | None = None
-    max_seconds: float | None = None
-
-    def record(self, duration_seconds: float) -> None:
-        self.count += 1
-        self.total_seconds += duration_seconds
-        if self.min_seconds is None or duration_seconds < self.min_seconds:
-            self.min_seconds = duration_seconds
-        if self.max_seconds is None or duration_seconds > self.max_seconds:
-            self.max_seconds = duration_seconds
-
-    def snapshot(self) -> dict[str, int | float | None]:
-        average_seconds: float | None = None
-        if self.count > 0:
-            average_seconds = self.total_seconds / self.count
-        return {
-            "count": self.count,
-            "totalSeconds": self.total_seconds,
-            "minSeconds": self.min_seconds,
-            "maxSeconds": self.max_seconds,
-            "avgSeconds": average_seconds,
-        }
-
-
-@dataclass(slots=True)
-class _QueueTimingMetricsBucket:
-    calls: int = 0
-    successes: int = 0
-    failures: int = 0
-    queue_wait_seconds: _DurationTimingMetrics = field(
-        default_factory=_DurationTimingMetrics
-    )
-    execute_seconds: _DurationTimingMetrics = field(
-        default_factory=_DurationTimingMetrics
-    )
-    end_to_end_seconds: _DurationTimingMetrics = field(
-        default_factory=_DurationTimingMetrics
-    )
-
-    def record(
-        self,
-        *,
-        queue_wait_seconds: float,
-        execute_seconds: float,
-        end_to_end_seconds: float,
-        success: bool,
-    ) -> None:
-        self.calls += 1
-        if success:
-            self.successes += 1
-        else:
-            self.failures += 1
-        self.queue_wait_seconds.record(queue_wait_seconds)
-        self.execute_seconds.record(execute_seconds)
-        self.end_to_end_seconds.record(end_to_end_seconds)
-
-    def snapshot(self) -> dict[str, object]:
-        return {
-            "calls": self.calls,
-            "successes": self.successes,
-            "failures": self.failures,
-            "queueWaitSeconds": self.queue_wait_seconds.snapshot(),
-            "executeSeconds": self.execute_seconds.snapshot(),
-            "endToEndSeconds": self.end_to_end_seconds.snapshot(),
-        }
-
-
-@dataclass(slots=True)
-class _QueueTimingMetricsState:
-    total: _QueueTimingMetricsBucket = field(default_factory=_QueueTimingMetricsBucket)
-    by_handler: dict[str, _QueueTimingMetricsBucket] = field(default_factory=dict)
-
-    def reset(self) -> None:
-        self.total = _QueueTimingMetricsBucket()
-        self.by_handler.clear()
-
-    def record(
-        self,
-        *,
-        handler_name: str,
-        queue_wait_seconds: float,
-        execute_seconds: float,
-        end_to_end_seconds: float,
-        success: bool,
-    ) -> None:
-        self.total.record(
-            queue_wait_seconds=queue_wait_seconds,
-            execute_seconds=execute_seconds,
-            end_to_end_seconds=end_to_end_seconds,
-            success=success,
-        )
-        if handler_name not in self.by_handler:
-            self.by_handler[handler_name] = _QueueTimingMetricsBucket()
-        self.by_handler[handler_name].record(
-            queue_wait_seconds=queue_wait_seconds,
-            execute_seconds=execute_seconds,
-            end_to_end_seconds=end_to_end_seconds,
-            success=success,
-        )
-
-    def snapshot(self, *, queue_depth: int) -> dict[str, object]:
-        by_handler_snapshot: dict[str, object] = {}
-        for handler_name in sorted(self.by_handler.keys()):
-            by_handler_snapshot[handler_name] = self.by_handler[handler_name].snapshot()
-        total_snapshot = self.total.snapshot()
-        total_snapshot["queueDepth"] = queue_depth
-        total_snapshot["byHandler"] = by_handler_snapshot
-        return total_snapshot
-
-
-@dataclass(slots=True)
-class _QueueWorkItem:
-    coroutine: Coroutine[Any, Any, Any]
-    futures: list[asyncio.Future[Any]]
-    frontend_op_id: str | None
-    enqueued_at_seconds: float
-    coalesce_key: str | None = None
-    coalesced_frontend_op_ids: list[str] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        self.append_frontend_op_id(self.frontend_op_id)
-
-    def append_frontend_op_id(self, frontend_op_id: str | None) -> None:
-        if not frontend_op_id:
-            return
-        if frontend_op_id in self.coalesced_frontend_op_ids:
-            return
-        self.coalesced_frontend_op_ids.append(frontend_op_id)
-        self.frontend_op_id = frontend_op_id
-
-
-@dataclass(slots=True)
-class _UndoRedoProjectConfigPatchScope:
-    project_config_only: bool = False
-    section_impl_ids: set[ID] = field(default_factory=set)
-    code_obj_ids: set[ID] = field(default_factory=set)
-
-    def clone(self) -> "_UndoRedoProjectConfigPatchScope":
-        return _UndoRedoProjectConfigPatchScope(
-            project_config_only=self.project_config_only,
-            section_impl_ids=set(self.section_impl_ids),
-            code_obj_ids=set(self.code_obj_ids),
-        )
-
-    def merge(self, other: "_UndoRedoProjectConfigPatchScope") -> None:
-        self.project_config_only = self.project_config_only or other.project_config_only
-        self.section_impl_ids.update(other.section_impl_ids)
-        self.code_obj_ids.update(other.code_obj_ids)
-
-
-@dataclass(slots=True, frozen=True)
-class _DeferredRefreshRegistration:
-    history_revision: int
-    history_entry_token: int
-
-
-@dataclass(slots=True)
-class _StructuralDeltaPatch:
-    sections: dict[ID, Core]
-    section_variants: dict[ID, Variant]
-    section_impls: dict[ID, BaseSectionImplUnionWithDiscriminator]
-    parent_section_map: dict[ID, ID | None]
-    removed_section_ids: list[ID]
-    removed_section_variant_ids: list[ID]
-    removed_section_impl_ids: list[ID]
-    removed_parent_section_ids: list[ID]
 
 
 def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
@@ -834,24 +629,6 @@ class BaseProjectManager(ABC):
         self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
-        self._single_config_state_cache_by_project_config: dict[
-            ID, ProjectStateSingleConfig
-        ] = {}
-        self._project_state_summary_cache_by_project_config: dict[ID, object] = {}
-        self._name_validation_cache_by_project_config: dict[
-            ID, SettaProjectNameValidationErrors
-        ] = {}
-        self._name_validation_param_error_ids_by_section_by_project_config: dict[
-            ID, dict[ID, set[ID]]
-        ] = {}
-        self._single_config_state_cache_revision = self.history.revision
-        self._last_persisted_history_revision: int | None = None
-        self._normalized_history_entry_tokens: set[int] = set()
-        self._history_scope_by_entry_token: dict[int, frozenset[ID] | None] = {}
-        self._history_patch_scope_by_entry_token: dict[
-            int,
-            dict[ID, _UndoRedoProjectConfigPatchScope] | None,
-        ] = {}
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -876,15 +653,9 @@ class BaseProjectManager(ABC):
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
-        self._queue_partition_execution_lock = AsyncReadWriteLock()
-        self.message_queue: asyncio.Queue[_QueueWorkItem] = asyncio.Queue()
-        self._message_queues_by_partition: dict[str, asyncio.Queue[_QueueWorkItem]] = {
-            _GLOBAL_QUEUE_PARTITION_KEY: self.message_queue
-        }
-        self._queue_work_item_by_coalesce_key_by_partition: dict[
-            str, dict[str, _QueueWorkItem]
-        ] = {_GLOBAL_QUEUE_PARTITION_KEY: {}}
-        self._queue_timing_metrics = _QueueTimingMetricsState()
+        self.message_queue: asyncio.Queue[
+            tuple[Coroutine, asyncio.Future, str | None]
+        ] = asyncio.Queue()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
         self._pending_ops_idle: asyncio.Event = asyncio.Event()
@@ -893,40 +664,19 @@ class BaseProjectManager(ABC):
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
-        self._current_coalesced_frontend_op_ids: contextvars.ContextVar[
-            tuple[str, ...]
-        ] = contextvars.ContextVar("current_coalesced_frontend_op_ids", default=())
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
-        self._process_queue_task_started_by_partition: dict[str, asyncio.Event] = {
-            _GLOBAL_QUEUE_PARTITION_KEY: self._process_queue_task_started
-        }
         self.queue_task = spawn_background_task(
             self._process_queue,
             label=f"{type(self).__name__}-queue",
             extra_values={"project_manager": type(self).__name__},
         )
-        self._queue_task_by_partition: dict[str, asyncio.Task[Any]] = {
-            _GLOBAL_QUEUE_PARTITION_KEY: self.queue_task
-        }
         logger.debug("Queue task created with id %s", id(self.queue_task))
         self.autosave_debouncer = AsyncDebouncer(
             self.autosave,
             wait=2.0,
             label=f"{type(self).__name__}-autosave",
         )
-        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config: dict[
-            ID, AsyncDebouncer
-        ] = {}
-        self._pending_gen_code_prefix_suffix_refresh_by_project_config: dict[
-            ID, _DeferredRefreshRegistration
-        ] = {}
-        self._deferred_codegen_refresh_debouncer_by_project_config: dict[
-            ID, AsyncDebouncer
-        ] = {}
-        self._pending_deferred_codegen_refresh_by_project_config: dict[
-            ID, _DeferredRefreshRegistration
-        ] = {}
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
@@ -958,139 +708,32 @@ class BaseProjectManager(ABC):
     def load_initial_state(self) -> ProjectStateBackend:
         pass
 
-    @staticmethod
-    def _normalize_queue_partition_key(queue_partition_key: str | None) -> str:
-        if queue_partition_key is None:
-            return _GLOBAL_QUEUE_PARTITION_KEY
-        if not queue_partition_key:
-            return _GLOBAL_QUEUE_PARTITION_KEY
-        return queue_partition_key
-
-    def _ensure_partition_queue_worker(
-        self,
-        queue_partition_key: str | None,
-    ) -> tuple[asyncio.Queue[_QueueWorkItem], asyncio.Event]:
-        normalized_partition_key = self._normalize_queue_partition_key(
-            queue_partition_key
-        )
-        existing_queue = self._message_queues_by_partition.get(normalized_partition_key)
-        if existing_queue is not None:
-            existing_started_event = self._process_queue_task_started_by_partition[
-                normalized_partition_key
-            ]
-            return existing_queue, existing_started_event
-
-        queue: asyncio.Queue[_QueueWorkItem] = asyncio.Queue()
-        started_event = asyncio.Event()
-        self._message_queues_by_partition[normalized_partition_key] = queue
-        self._process_queue_task_started_by_partition[normalized_partition_key] = (
-            started_event
-        )
-        self._queue_work_item_by_coalesce_key_by_partition[
-            normalized_partition_key
-        ] = {}
-        queue_task = spawn_background_task(
-            lambda partition_key=normalized_partition_key: self._process_partition_queue(
-                partition_key
-            ),
-            label=f"{type(self).__name__}-queue-partition",
-            extra_values={
-                "project_manager": type(self).__name__,
-                "queue_partition": normalized_partition_key,
-            },
-        )
-        self._queue_task_by_partition[normalized_partition_key] = queue_task
-        return queue, started_event
-
     async def _process_queue(self):
-        await self._process_partition_queue(_GLOBAL_QUEUE_PARTITION_KEY)
-
-    async def _process_partition_queue(self, queue_partition_key: str) -> None:
-        """Background task that processes one queue partition serially."""
-        queue = self._message_queues_by_partition[queue_partition_key]
-        started_event = self._process_queue_task_started_by_partition[
-            queue_partition_key
-        ]
-        logger.debug(
-            "Starting queue worker partition=%s queue_id=%s",
-            queue_partition_key,
-            id(queue),
-        )
-        started_event.set()
+        """Background task that processes messages one at a time"""
+        logger.debug("Starting _process_queue background task")
+        self._process_queue_task_started.set()
         while True:
-            logger.debug(
-                "Queue partition=%s size before get=%s",
-                queue_partition_key,
-                queue.qsize(),
-            )
-            work_item = await queue.get()
+            logger.debug("Queue size before get: %s", self.message_queue.qsize())
+            # Get the next message handler and its arguments
+            logger.debug("Waiting for next message in queue...")
+            coroutine, future, frontend_op_id = await self.message_queue.get()
+            handler_name = self._describe_coroutine(coroutine)
             try:
-                await self._execute_queue_work_item(
-                    queue_partition_key=queue_partition_key,
-                    work_item=work_item,
-                )
-            finally:
-                queue.task_done()
-
-    async def _execute_queue_work_item(
-        self,
-        *,
-        queue_partition_key: str,
-        work_item: _QueueWorkItem,
-    ) -> None:
-        coroutine = work_item.coroutine
-        futures = work_item.futures
-        frontend_op_id = work_item.frontend_op_id
-        coalesced_frontend_op_ids = tuple(work_item.coalesced_frontend_op_ids)
-        enqueued_at_seconds = work_item.enqueued_at_seconds
-        handler_name = self._describe_coroutine(coroutine)
-        success = False
-
-        execution_lock = (
-            self._queue_partition_execution_lock.write_lock()
-            if queue_partition_key == _GLOBAL_QUEUE_PARTITION_KEY
-            else self._queue_partition_execution_lock.read_lock()
-        )
-        async with execution_lock:
-            if work_item.coalesce_key:
-                queue_coalesce_map = (
-                    self._queue_work_item_by_coalesce_key_by_partition.get(
-                        queue_partition_key
-                    )
-                )
-                if queue_coalesce_map is not None:
-                    mapped_work_item = queue_coalesce_map.get(work_item.coalesce_key)
-                    if mapped_work_item is work_item:
-                        queue_coalesce_map.pop(work_item.coalesce_key, None)
-
-            processing_started_seconds = asyncio.get_running_loop().time()
-            queue_wait_seconds = processing_started_seconds - enqueued_at_seconds
-            coalesced_op_ids_token = self._current_coalesced_frontend_op_ids.set(
-                coalesced_frontend_op_ids
-            )
-            try:
-                logger.debug(
-                    "Starting handler=%s partition=%s",
-                    handler_name,
-                    queue_partition_key,
-                )
+                # Execute the actual implementation
+                logger.debug("Starting handler %s", handler_name)
                 async with self._track_frontend_op(frontend_op_id):
                     result = await coroutine
-                logger.debug(
-                    "Completed handler=%s partition=%s",
-                    handler_name,
-                    queue_partition_key,
-                )
-                success = True
-                for future in futures:
-                    if future.cancelled():
-                        logger.debug("Skipping result for cancelled future")
-                        continue
-                    if future.done():
-                        logger.debug("Skipping result for completed future")
-                        continue
+                logger.debug("Completed handler %s", handler_name)
+                # Set the result for the waiting call unless it was cancelled.
+                if future.cancelled():
+                    logger.debug("Skipping result for cancelled future")
+                elif future.done():
+                    logger.debug("Skipping result for completed future")
+                else:
+                    logger.debug("Setting result on future")
                     future.set_result(result)
             except Exception as exc:
+                # Propagate any exceptions back to the caller
                 log_failure(
                     exc,
                     label="project-manager-queue-handler",
@@ -1098,132 +741,61 @@ class BaseProjectManager(ABC):
                     context={
                         "handler_name": handler_name,
                         "project_manager": type(self).__name__,
-                        "queue_partition": queue_partition_key,
                     },
                 )
-                for future in futures:
-                    if future.cancelled():
-                        logger.debug("Skipping exception for cancelled future")
-                        continue
-                    if future.done():
-                        logger.debug("Skipping exception for completed future")
-                        continue
+                if future.cancelled():
+                    logger.debug("Skipping exception for cancelled future")
+                elif future.done():
+                    logger.debug("Skipping exception for completed future")
+                else:
                     future.set_exception(exc)
             finally:
-                self._finalize_coalesced_frontend_ops(
-                    frontend_op_id,
-                    coalesced_frontend_op_ids,
-                    success=success,
-                )
-                try:
-                    self._current_coalesced_frontend_op_ids.reset(
-                        coalesced_op_ids_token
-                    )
-                except ValueError:
-                    # See setta.logging.context.reset_logging_context for rationale.
-                    self._current_coalesced_frontend_op_ids.set(())
-                processing_completed_seconds = asyncio.get_running_loop().time()
-                self._queue_timing_metrics.record(
-                    handler_name=handler_name,
-                    queue_wait_seconds=max(queue_wait_seconds, 0.0),
-                    execute_seconds=max(
-                        processing_completed_seconds - processing_started_seconds,
-                        0.0,
-                    ),
-                    end_to_end_seconds=max(
-                        processing_completed_seconds - enqueued_at_seconds,
-                        0.0,
-                    ),
-                    success=success,
-                )
+                # Mark the task as done
+                logger.debug("Marking queue task as done")
+                self.message_queue.task_done()
 
     async def _enqueue(
         self,
         coroutine: Coroutine[Any, Any, _T],
         frontend_op_id: str | None = None,
-        coalesce_key: str | None = None,
-        queue_partition_key: str | None = None,
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
-        message_queue, queue_started_event = self._ensure_partition_queue_worker(
-            queue_partition_key
-        )
-        await queue_started_event.wait()
+        await self._process_queue_task_started.wait()
         self._raise_queue_task_issue_if_any()
 
-        normalized_partition_key = self._normalize_queue_partition_key(
-            queue_partition_key
-        )
-
         if logger.isEnabledFor(logging.DEBUG):
-            queue_task = self._queue_task_by_partition.get(normalized_partition_key)
             queue_exception: BaseException | None = None
-            queue_task_done = False
-            queue_task_cancelled = False
-            if queue_task is not None:
-                queue_task_done = queue_task.done()
-                queue_task_cancelled = queue_task.cancelled()
-                if queue_task_done and not queue_task_cancelled:
-                    queue_exception = queue_task.exception()
+            if self.queue_task.done() and not self.queue_task.cancelled():
+                queue_exception = self.queue_task.exception()
             logger.debug(
-                "Queue task status partition=%s cancelled=%s done=%s exception=%s",
-                normalized_partition_key,
-                queue_task_cancelled,
-                queue_task_done,
+                "Queue task status: cancelled=%s, done=%s, exception=%s",
+                self.queue_task.cancelled(),
+                self.queue_task.done(),
                 queue_exception,
             )
 
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[_T] = loop.create_future()
-        enqueued_at_seconds = loop.time()
-        self._register_pending_frontend_op(frontend_op_id)
-        queue_coalesce_map = self._queue_work_item_by_coalesce_key_by_partition[
-            normalized_partition_key
-        ]
-        if coalesce_key is not None:
-            existing_work_item = queue_coalesce_map.get(coalesce_key)
-            if existing_work_item is not None:
-                existing_work_item.coroutine.close()
-                existing_work_item.coroutine = coroutine
-                existing_work_item.futures.append(cast("asyncio.Future[Any]", future))
-                existing_work_item.append_frontend_op_id(frontend_op_id)
-                logger.debug(
-                    "Coalesced queued work item partition=%s key=%s futures=%s op_ids=%s",
-                    normalized_partition_key,
-                    coalesce_key,
-                    len(existing_work_item.futures),
-                    len(existing_work_item.coalesced_frontend_op_ids),
-                )
-            else:
-                work_item = _QueueWorkItem(
-                    coroutine=cast("Coroutine[Any, Any, Any]", coroutine),
-                    futures=[cast("asyncio.Future[Any]", future)],
-                    frontend_op_id=frontend_op_id,
-                    enqueued_at_seconds=enqueued_at_seconds,
-                    coalesce_key=coalesce_key,
-                )
-                queue_coalesce_map[coalesce_key] = work_item
-                await message_queue.put(work_item)
-        else:
-            await message_queue.put(
-                _QueueWorkItem(
-                    coroutine=cast("Coroutine[Any, Any, Any]", coroutine),
-                    futures=[cast("asyncio.Future[Any]", future)],
-                    frontend_op_id=frontend_op_id,
-                    enqueued_at_seconds=enqueued_at_seconds,
-                )
-            )
+        # Create a future to hold the result
+        future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
+        logger.debug("Created future %s", id(future))
 
-        start_time = loop.time()
+        # Put the message in the queue
+        logger.debug("Putting message in queue")
+        self._register_pending_frontend_op(frontend_op_id)
+        await self.message_queue.put((coroutine, future, frontend_op_id))
+        logger.debug("Message in queue, waiting for result")
+
+        # Wait for the message to be processed and return the result
+        logger.debug("Awaiting future %s", id(future))
+        start_time = asyncio.get_event_loop().time()
         try:
             result = await future
-            end_time = loop.time()
+            end_time = asyncio.get_event_loop().time()
             logger.debug(
                 "Future completed after %.2fs with result", end_time - start_time
             )
             return result
         except Exception as e:
-            end_time = loop.time()
+            end_time = asyncio.get_event_loop().time()
             logger.debug(
                 "Future raised exception after %.2fs: %s", end_time - start_time, e
             )
@@ -1235,8 +807,6 @@ class BaseProjectManager(ABC):
         func: _EnqueueCallable,
         *,
         require_serialization: bool = True,
-        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
-        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> _EnqueueCallable: ...
 
     @overload
@@ -1245,8 +815,6 @@ class BaseProjectManager(ABC):
         func: None = ...,
         *,
         require_serialization: bool = True,
-        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
-        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> Callable[[_EnqueueCallable], _EnqueueCallable]: ...
 
     @staticmethod
@@ -1254,8 +822,6 @@ class BaseProjectManager(ABC):
         func: _EnqueueCallable | None = None,
         *,
         require_serialization: bool = True,
-        coalesce_key_fn: _EnqueueCoalesceKeyFn | None = None,
-        partition_key_fn: _EnqueuePartitionKeyFn | None = None,
     ) -> _EnqueueCallable | Callable[[_EnqueueCallable], _EnqueueCallable]:
         def decorator(actual_func: _EnqueueCallable) -> _EnqueueCallable:
             @wraps(actual_func)
@@ -1263,26 +829,11 @@ class BaseProjectManager(ABC):
                 self: "BaseProjectManager", *args: _P.args, **kwargs: _P.kwargs
             ) -> _R:
                 frontend_op_id = self._extract_frontend_op_id(args, kwargs)
-                coalesce_key: str | None = None
-                if coalesce_key_fn is not None:
-                    coalesce_key = coalesce_key_fn(
-                        cast("tuple[object, ...]", args),
-                        cast("dict[str, object]", kwargs),
-                    )
-                queue_partition_key: str | None = None
-                if partition_key_fn is not None:
-                    queue_partition_key = partition_key_fn(
-                        self,
-                        cast("tuple[object, ...]", args),
-                        cast("dict[str, object]", kwargs),
-                    )
                 coroutine = actual_func(self, *args, **kwargs)
                 if require_serialization:
                     return await self._enqueue(
                         cast("Coroutine[Any, Any, _R]", coroutine),
                         frontend_op_id=frontend_op_id,
-                        coalesce_key=coalesce_key,
-                        queue_partition_key=queue_partition_key,
                     )
 
                 self._register_pending_frontend_op(frontend_op_id)
@@ -1317,239 +868,6 @@ class BaseProjectManager(ABC):
                 return frontend_op_id
         return None
 
-    @staticmethod
-    def _extract_enqueue_request_obj(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> object | None:
-        if args:
-            return args[0]
-        if "x" in kwargs:
-            return kwargs["x"]
-        return None
-
-    @staticmethod
-    def _extract_project_config_id_for_enqueue(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> ID | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if request_obj is not None:
-            project_config_id = getattr(request_obj, "projectConfigId", None)
-            if project_config_id is not None:
-                return cast("ID", project_config_id)
-        if "projectConfigId" in kwargs:
-            return cast("ID", kwargs["projectConfigId"])
-        if args:
-            first_arg = args[0]
-            if isinstance(first_arg, str):
-                return cast("ID", first_arg)
-        return None
-
-    @staticmethod
-    def _build_project_config_queue_partition_key(project_config_id: ID) -> str:
-        return f"project-config:{project_config_id}"
-
-    def _section_id_is_shared_across_project_configs(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> bool:
-        for (
-            other_project_config_id,
-            other_project_config,
-        ) in self.project_state_backend.projectConfigs.items():
-            if other_project_config_id == project_config_id:
-                continue
-            if section_id in other_project_config.sectionVariantMap:
-                return True
-        return False
-
-    def _section_ids_are_shared_across_project_configs(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-    ) -> bool:
-        for section_id in section_ids:
-            if self._section_id_is_shared_across_project_configs(
-                project_config_id=project_config_id,
-                section_id=section_id,
-            ):
-                return True
-        return False
-
-    @staticmethod
-    def _project_config_partition_key_for_queue(
-        _self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        project_config_id = BaseProjectManager._extract_project_config_id_for_enqueue(
-            args,
-            kwargs,
-        )
-        if project_config_id is None:
-            return None
-        return BaseProjectManager._build_project_config_queue_partition_key(
-            project_config_id
-        )
-
-    def _project_config_partition_key_for_section_scope(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-    ) -> str | None:
-        if self._section_ids_are_shared_across_project_configs(
-            project_config_id=project_config_id,
-            section_ids=section_ids,
-        ):
-            return None
-        return self._build_project_config_queue_partition_key(project_config_id)
-
-    @staticmethod
-    def _set_param_entered_value_enqueue_partition_key(
-        self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetParamEnteredValueRequest):
-            return None
-        return self._project_config_partition_key_for_section_scope(
-            project_config_id=request_obj.projectConfigId,
-            section_ids=[request_obj.sectionId],
-        )
-
-    @staticmethod
-    def _set_section_sizes_enqueue_partition_key(
-        self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetSectionSizesRequest):
-            return None
-        return self._project_config_partition_key_for_section_scope(
-            project_config_id=request_obj.projectConfigId,
-            section_ids=sorted(request_obj.sectionSizes.keys()),
-        )
-
-    @staticmethod
-    def _set_viewport_enqueue_partition_key(
-        _self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetViewportRequest):
-            return None
-        return BaseProjectManager._build_project_config_queue_partition_key(
-            request_obj.projectConfigId
-        )
-
-    @staticmethod
-    def _set_section_column_width_enqueue_partition_key(
-        self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetSectionColumnWidthRequest):
-            return None
-        return self._project_config_partition_key_for_section_scope(
-            project_config_id=request_obj.projectConfigId,
-            section_ids=[request_obj.sectionId],
-        )
-
-    @staticmethod
-    def _set_browser_column_widths_enqueue_partition_key(
-        self: "BaseProjectManager",
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetBrowserColumnWidthsRequest):
-            return None
-        return self._project_config_partition_key_for_section_scope(
-            project_config_id=request_obj.projectConfigId,
-            section_ids=[request_obj.sectionId],
-        )
-
-    @staticmethod
-    def _set_param_entered_value_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetParamEnteredValueRequest):
-            return None
-        return (
-            "set-param-entered-value:"
-            f"{request_obj.projectConfigId}:{request_obj.sectionId}:{request_obj.paramInfoId}"
-        )
-
-    @staticmethod
-    def _set_top_level_section_layout_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetTopLevelSectionLayoutRequest):
-            return None
-        return f"set-top-level-section-layout:{request_obj.projectConfigId}"
-
-    @staticmethod
-    def _set_section_sizes_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetSectionSizesRequest):
-            return None
-        section_ids = sorted(request_obj.sectionSizes.keys())
-        return (
-            f"set-section-sizes:{request_obj.projectConfigId}:{','.join(section_ids)}"
-        )
-
-    @staticmethod
-    def _set_viewport_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetViewportRequest):
-            return None
-        return f"set-viewport:{request_obj.projectConfigId}"
-
-    @staticmethod
-    def _set_section_column_width_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetSectionColumnWidthRequest):
-            return None
-        return (
-            "set-section-column-width:"
-            f"{request_obj.projectConfigId}:{request_obj.sectionId}"
-        )
-
-    @staticmethod
-    def _set_browser_column_widths_enqueue_coalesce_key(
-        args: tuple[object, ...],
-        kwargs: dict[str, object],
-    ) -> str | None:
-        request_obj = BaseProjectManager._extract_enqueue_request_obj(args, kwargs)
-        if not isinstance(request_obj, SetBrowserColumnWidthsRequest):
-            return None
-        return (
-            "set-browser-column-widths:"
-            f"{request_obj.projectConfigId}:{request_obj.sectionId}"
-        )
-
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
         # Runs after handler finishes; drop from pending and mark completed only on success
         if not frontend_op_id:
@@ -1559,18 +877,6 @@ class BaseProjectManager(ABC):
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
         self._update_pending_ops_idle_event()
-
-    def _finalize_coalesced_frontend_ops(
-        self,
-        primary_frontend_op_id: str | None,
-        coalesced_frontend_op_ids: tuple[str, ...],
-        *,
-        success: bool,
-    ) -> None:
-        for frontend_op_id in coalesced_frontend_op_ids:
-            if frontend_op_id == primary_frontend_op_id:
-                continue
-            self._finalize_frontend_op(frontend_op_id, success=success)
 
     def _register_pending_frontend_op(self, frontend_op_id: str | None):
         if frontend_op_id:
@@ -1600,18 +906,9 @@ class BaseProjectManager(ABC):
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
         frontend_op_id = self._current_frontend_op_id.get()
-        candidate_op_ids: list[str] = []
-        for coalesced_frontend_op_id in self._current_coalesced_frontend_op_ids.get():
-            if coalesced_frontend_op_id in candidate_op_ids:
-                continue
-            candidate_op_ids.append(coalesced_frontend_op_id)
-        if frontend_op_id and frontend_op_id not in candidate_op_ids:
-            candidate_op_ids.append(frontend_op_id)
-        for candidate_op_id in candidate_op_ids:
-            if candidate_op_id not in self.pending_frontend_ops:
-                continue
-            self.pending_frontend_ops.pop(candidate_op_id, None)
-            self.completed_op_ids_since_last_broadcast.append(candidate_op_id)
+        if frontend_op_id and frontend_op_id in self.pending_frontend_ops:
+            self.pending_frontend_ops.pop(frontend_op_id, None)
+            self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
         self._update_pending_ops_idle_event()
 
     def _update_pending_ops_idle_event(self) -> None:
@@ -1619,81 +916,6 @@ class BaseProjectManager(ABC):
             self._pending_ops_idle.clear()
             return
         self._pending_ops_idle.set()
-
-    def _get_all_message_queues(self) -> list[asyncio.Queue[_QueueWorkItem]]:
-        return list(self._message_queues_by_partition.values())
-
-    def _get_total_queue_depth(self) -> int:
-        return sum(
-            queue.qsize() for queue in self._message_queues_by_partition.values()
-        )
-
-    def _get_all_queue_tasks(self) -> list[asyncio.Task[Any]]:
-        return list(self._queue_task_by_partition.values())
-
-    def get_queue_timing_metrics_snapshot(self) -> dict[str, object]:
-        return self._queue_timing_metrics.snapshot(
-            queue_depth=self._get_total_queue_depth()
-        )
-
-    def reset_queue_timing_metrics(self) -> None:
-        self._queue_timing_metrics.reset()
-
-    @staticmethod
-    def _append_pending_debouncer_tasks(
-        debouncer: AsyncDebouncer,
-        tasks: list[asyncio.Task[Any]],
-    ) -> None:
-        schedule_task = getattr(debouncer, "_schedule_task", None)
-        if isinstance(schedule_task, asyncio.Task) and not schedule_task.done():
-            tasks.append(schedule_task)
-        execute_task = getattr(debouncer, "_task", None)
-        if isinstance(execute_task, asyncio.Task) and not execute_task.done():
-            tasks.append(execute_task)
-
-    def _get_pending_codegen_refresh_debouncer_tasks(self) -> list[asyncio.Task[Any]]:
-        tasks: list[asyncio.Task[Any]] = []
-        for (
-            debouncer
-        ) in self._deferred_codegen_refresh_debouncer_by_project_config.values():
-            self._append_pending_debouncer_tasks(debouncer, tasks)
-        for (
-            debouncer
-        ) in self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.values():
-            self._append_pending_debouncer_tasks(debouncer, tasks)
-        return tasks
-
-    @staticmethod
-    def _dedupe_pending_tasks(
-        pending_tasks: list[asyncio.Task[Any]],
-    ) -> list[asyncio.Task[Any]]:
-        unique_pending_tasks: list[asyncio.Task[Any]] = []
-        seen_task_ids: set[int] = set()
-        for pending_task in pending_tasks:
-            task_id = id(pending_task)
-            if task_id in seen_task_ids:
-                continue
-            seen_task_ids.add(task_id)
-            unique_pending_tasks.append(pending_task)
-        return unique_pending_tasks
-
-    def _get_pending_background_tasks(self) -> list[asyncio.Task[Any]]:
-        pending_tasks = self.watch_code_manager.get_pending_debouncer_tasks()
-        pending_tasks.extend(self._get_pending_codegen_refresh_debouncer_tasks())
-        if not pending_tasks:
-            return []
-        return self._dedupe_pending_tasks(pending_tasks)
-
-    async def _await_pending_background_tasks(self) -> None:
-        pending_tasks = self._get_pending_background_tasks()
-        if not pending_tasks:
-            return
-        results = await asyncio.gather(*pending_tasks, return_exceptions=True)
-        for result in results:
-            if isinstance(result, asyncio.CancelledError):
-                continue
-            if isinstance(result, BaseException):
-                raise result
 
     def _flush_code_files(
         self, projectConfigId: ID
@@ -1726,8 +948,6 @@ class BaseProjectManager(ABC):
         x: RunCodeRequest,
     ):
         project_config_id = x.projectConfigId
-        await self._flush_pending_gen_code_prefix_suffix_refresh(project_config_id)
-        await self._flush_pending_deferred_codegen_refresh(project_config_id)
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
@@ -2533,56 +1753,6 @@ class BaseProjectManager(ABC):
     def _clone_viewport(self, viewport: Viewport | None) -> Viewport | None:
         return copy.deepcopy(viewport)
 
-    def _get_active_section_impl_from_backend(
-        self,
-        project_config: ProjectConfig,
-        *,
-        section_id: ID,
-    ) -> BaseSectionImpl:
-        if section_id not in self.project_state_backend.sections:
-            raise KeyError(f"Missing section {section_id}.")
-        section_variant_map = project_config.sectionVariantMap
-        if section_id not in section_variant_map:
-            raise KeyError(
-                f"Missing section variant map entry for section {section_id}."
-            )
-        section_variant_id = section_variant_map[section_id]
-        if section_variant_id not in self.project_state_backend.sectionVariants:
-            raise KeyError(f"Missing section variant {section_variant_id}.")
-        section_variant = self.project_state_backend.sectionVariants[section_variant_id]
-        section_impl_id = section_variant.impl
-        if section_impl_id not in self.project_state_backend.sectionImpls:
-            raise KeyError(f"Missing section impl {section_impl_id}.")
-        section_impl = self.project_state_backend.sectionImpls[section_impl_id]
-        section_core = self.project_state_backend.sections[section_id]
-        if len(section_core.sharedModifier) == 0 and len(section_variant.modifier) == 0:
-            return section_impl
-        return get_effective_impl(section_impl, section_core, section_variant)
-
-    def _collect_valid_top_level_section_ids(
-        self,
-        project_config: ProjectConfig,
-    ) -> set[ID]:
-        existing_section_ids = {
-            section_id
-            for section_id in project_config.sectionVariantMap.keys()
-            if section_id in self.project_state_backend.sections
-        }
-        section_ids_with_parent: set[ID] = set()
-        for section_id in existing_section_ids:
-            section_impl = self._get_active_section_impl_from_backend(
-                project_config,
-                section_id=section_id,
-            )
-            if not isinstance(section_impl, BaseParentSectionImpl):
-                continue
-            section_ids_with_parent.update(section_impl.children)
-        return {
-            section_id
-            for section_id in existing_section_ids
-            if section_id not in section_ids_with_parent
-        }
-
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
@@ -2599,10 +1769,7 @@ class BaseProjectManager(ABC):
             await self.update(projectState)
         return projectState
 
-    @enqueue_method(
-        coalesce_key_fn=_set_top_level_section_layout_enqueue_coalesce_key,
-        partition_key_fn=_project_config_partition_key_for_queue,
-    )
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["topLevelSections"]}
@@ -2619,9 +1786,21 @@ class BaseProjectManager(ABC):
         if view_mode is None:
             raise KeyError(f"View mode {active_view_mode_id} not found")
         existing_layouts = view_mode.topLevelSections
-        valid_top_level_section_ids = self._collect_valid_top_level_section_ids(
-            project_config
-        )
+        section_variant_ids = set(project_config.sectionVariantMap.keys())
+        existing_section_ids = {
+            section_id
+            for section_id in section_variant_ids
+            if section_id in self.project_state_backend.sections
+        }
+        parent_section_map = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        ).parentSectionMap
+        valid_top_level_section_ids = {
+            section_id
+            for section_id in existing_section_ids
+            if section_id in parent_section_map
+            and parent_section_map[section_id] is None
+        }
         merged_layouts = {
             section_id: layout
             for section_id, layout in existing_layouts.items()
@@ -2631,14 +1810,8 @@ class BaseProjectManager(ABC):
             if section_id not in valid_top_level_section_ids:
                 continue
             merged_layouts[section_id] = layout
-        if (
-            project_config.topLevelSections == merged_layouts
-            and view_mode.topLevelSections == merged_layouts
-        ):
-            return
         project_config.topLevelSections = merged_layouts
         view_mode.topLevelSections = merged_layouts
-        self._mark_current_backend_revision_dirty()
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -2650,12 +1823,9 @@ class BaseProjectManager(ABC):
         auto_layout_top_level_sections(
             self.settings_file.settings, project_state, margin=x.margin
         )
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
-    @enqueue_method(
-        coalesce_key_fn=_set_section_sizes_enqueue_coalesce_key,
-        partition_key_fn=_set_section_sizes_enqueue_partition_key,
-    )
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionSizes"]}
@@ -2664,21 +1834,15 @@ class BaseProjectManager(ABC):
     )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
-        target_section_ids = set(x.sectionSizes.keys())
-        section_ids = sorted(target_section_ids)
+        section_ids = sorted(x.sectionSizes.keys())
         coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids=target_section_ids,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
-        await self._merge_and_broadcast_ui_only_section_impl_patches(
-            project_state,
-            section_ids=section_ids,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def load_json_sources(
@@ -2687,12 +1851,19 @@ class BaseProjectManager(ABC):
         section_variants_to_load: Iterable[tuple[ID, ID]],
     ):
         p = self.project_state_backend
-        mutation_scope = load_json_sources_into_data_structures(
+        load_json_sources_into_data_structures(
             p,
             json_sources,
             section_variants_to_load,
         )
-        await self._broadcast_json_source_load_mutation_scope(mutation_scope)
+
+        for configId in p.projectConfigs.keys():
+            singleConfig = convert_backend_to_single_config(p, configId)
+            # Don't update file watcher here because otherwise it'll be an infinite loop
+            await self.update_and_broadcast_project_state(
+                singleConfig,
+                updateFileWatcher=False,
+            )
 
     async def _refresh_codegen_state(
         self,
@@ -2821,7 +1992,7 @@ class BaseProjectManager(ABC):
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
-            self.watch_code_files(projectState)
+            self.watch_code_files()
             self.watch_code_manager.sync_from_backend(self.project_state_backend)
 
     def _bootstrap_watch_code_baselines(self) -> None:
@@ -2851,71 +2022,8 @@ class BaseProjectManager(ABC):
         for category in categories:
             self.specific_file_watcher.update_callbacks({}, category, [])
         self.watch_code_manager.shutdown()
-        for (
-            debouncer
-        ) in self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.values():
-            debouncer.cancel()
-        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.clear()
-        self._pending_gen_code_prefix_suffix_refresh_by_project_config.clear()
-        for (
-            debouncer
-        ) in self._deferred_codegen_refresh_debouncer_by_project_config.values():
-            debouncer.cancel()
-        self._deferred_codegen_refresh_debouncer_by_project_config.clear()
-        self._pending_deferred_codegen_refresh_by_project_config.clear()
         self.autosave_debouncer.cancel()
-        for queue_task in self._queue_task_by_partition.values():
-            queue_task.cancel()
-
-    def _cancel_pending_deferred_codegen_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        if (
-            project_config_id
-            not in self._pending_deferred_codegen_refresh_by_project_config
-        ):
-            return
-        self._pending_deferred_codegen_refresh_by_project_config.pop(
-            project_config_id,
-            None,
-        )
-        debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
-            project_config_id
-        )
-        if debouncer is not None:
-            debouncer.cancel_pending()
-
-    def _cancel_pending_gen_code_prefix_suffix_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        if (
-            project_config_id
-            not in self._pending_gen_code_prefix_suffix_refresh_by_project_config
-        ):
-            return
-        self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
-            project_config_id,
-            None,
-        )
-        debouncer = (
-            self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
-                project_config_id
-            )
-        )
-        if debouncer is not None:
-            debouncer.cancel_pending()
-
-    def _cancel_all_pending_codegen_refreshes(self) -> None:
-        for project_config_id in list(
-            self._pending_deferred_codegen_refresh_by_project_config.keys()
-        ):
-            self._cancel_pending_deferred_codegen_refresh(project_config_id)
-        for project_config_id in list(
-            self._pending_gen_code_prefix_suffix_refresh_by_project_config.keys()
-        ):
-            self._cancel_pending_gen_code_prefix_suffix_refresh(project_config_id)
+        self.queue_task.cancel()
 
     async def update(
         self,
@@ -2925,8 +2033,6 @@ class BaseProjectManager(ABC):
         allow_reserved_project_name: bool = False,
         validate_name_rules: bool = True,
     ):
-        project_config_id = projectState.projectConfig.id
-        self._cancel_pending_deferred_codegen_refresh(project_config_id)
         async with self._project_state_lock.write_lock():
             projectState._section_slug_cache = None
             projectState.validate_for_update(
@@ -2954,72 +2060,12 @@ class BaseProjectManager(ABC):
             if _is_lsp_code_entry(code_entry):
                 await code_entry.type_check()
 
-    @staticmethod
-    def _build_callable_refetch_snapshot(
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-    ) -> tuple[
-        dict[str, Any],
-        list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]],
-    ]:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            CallableSectionImpl,
-        )
-        section_snapshot = section_impl.model_dump(mode="json")
-        code_obj_snapshots: list[
-            tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]
-        ] = []
-        for code_obj_id in sorted(section_impl.codeObjVariantMap.keys()):
-            variant_id = section_impl.codeObjVariantMap[code_obj_id]
-            if code_obj_id not in project_state.codeObjs:
-                raise KeyError(
-                    f"Missing code object {code_obj_id} for section {section_id}."
-                )
-            if variant_id not in project_state.codeObjVariants:
-                raise KeyError(
-                    f"Missing code object variant {variant_id} for section {section_id}."
-                )
-            code_obj = project_state.codeObjs[code_obj_id]
-            code_obj_variant = project_state.codeObjVariants[variant_id]
-            impl_id = code_obj_variant.impl
-            if impl_id not in project_state.codeObjImpls:
-                raise KeyError(
-                    f"Missing code object impl {impl_id} for section {section_id}."
-                )
-            code_obj_impl = project_state.codeObjImpls[impl_id]
-            code_obj_snapshots.append(
-                (
-                    str(code_obj_id),
-                    code_obj.model_dump(mode="json"),
-                    code_obj_variant.model_dump(mode="json"),
-                    code_obj_impl.model_dump(mode="json"),
-                )
-            )
-        return section_snapshot, code_obj_snapshots
-
-    @staticmethod
-    def _collect_set_callable_code_obj_patch_ids(
-        response: SetCallableResponse,
-    ) -> list[ID]:
-        code_obj_ids: list[ID] = []
-        seen_code_obj_ids: set[ID] = set()
-        if response.callableId is not None:
-            seen_code_obj_ids.add(response.callableId)
-            code_obj_ids.append(response.callableId)
-        for child_code_obj in response.childCodeObjs:
-            code_obj_id = child_code_obj.codeObjId
-            if code_obj_id in seen_code_obj_ids:
-                continue
-            seen_code_obj_ids.add(code_obj_id)
-            code_obj_ids.append(code_obj_id)
-        return code_obj_ids
-
     async def _refetch_callable_params(
         self,
         projectConfigId: ID,
         sectionIds: set[ID],
+        *,
+        coalesce_key_prefix: str,
     ) -> None:
         if not sectionIds:
             return
@@ -3043,17 +2089,33 @@ class BaseProjectManager(ABC):
         if not refetch_targets:
             return
         gen_code = self._require_python_codegen(projectConfigId)
+        should_add_history = any(
+            create_dep_key(sectionId=section_id) in gen_code.code_generator.lines
+            for section_id, _ in refetch_targets
+        )
+        on_before_mutation = None
+        if should_add_history:
+            refetch_section_ids = [section_id for section_id, _ in refetch_targets]
+            coalesce_key = (
+                f"{coalesce_key_prefix}:{projectConfigId}:"
+                f"{','.join(map(str, refetch_section_ids))}"
+            )
+            history_recorded = False
+
+            def record_history() -> None:
+                nonlocal history_recorded
+                if history_recorded:
+                    return
+                history_recorded = True
+                self.add_new_history_entry(
+                    coalesce_key=coalesce_key,
+                    coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+                )
+
+            on_before_mutation = record_history
         settings = self.settings_file.settings
         did_update = False
-        section_patch_ids: list[ID] = []
-        code_obj_patch_ids: list[ID] = []
-        seen_section_patch_ids: set[ID] = set()
-        seen_code_obj_patch_ids: set[ID] = set()
         for section_id, callable_name in refetch_targets:
-            before_snapshot = self._build_callable_refetch_snapshot(
-                project_state,
-                section_id,
-            )
             prev_callable = get_curr_section_callable_code_obj(
                 project_state, section_id
             )
@@ -3064,43 +2126,15 @@ class BaseProjectManager(ABC):
                 section_id,
                 callable_name,
                 True,
+                on_before_mutation=on_before_mutation,
             )
-            after_snapshot = self._build_callable_refetch_snapshot(
-                project_state,
-                section_id,
-            )
-            did_mutate = (
-                response.callableId != prev_callable_id
-                or before_snapshot != after_snapshot
-            )
-            if not did_mutate:
+            if response.lspStatus != SignatureHelpStatus.SKIPPED:
+                did_update = True
                 continue
-            did_update = True
-            if section_id not in seen_section_patch_ids:
-                seen_section_patch_ids.add(section_id)
-                section_patch_ids.append(section_id)
-            if response.lspStatus != SignatureHelpStatus.MATCHED:
-                continue
-            for code_obj_id in self._collect_set_callable_code_obj_patch_ids(response):
-                if code_obj_id in seen_code_obj_patch_ids:
-                    continue
-                seen_code_obj_patch_ids.add(code_obj_id)
-                code_obj_patch_ids.append(code_obj_id)
+            if response.callableId != prev_callable_id:
+                did_update = True
         if did_update:
-            section_patch_scope = (
-                self._build_section_patch_scope_with_codegen_singletons(
-                    project_config_id=projectConfigId,
-                    section_ids=section_patch_ids,
-                    project_state=project_state,
-                )
-            )
-            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=code_obj_patch_ids,
-                section_ids=section_patch_scope,
-            )
-            if self.settings_file.settings.backend.autosave:
-                self.autosave_debouncer.trigger()
+            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def auto_refetch_callable_params(
@@ -3108,7 +2142,11 @@ class BaseProjectManager(ABC):
         projectConfigId: ID,
         sectionIds: set[ID],
     ) -> None:
-        await self._refetch_callable_params(projectConfigId, sectionIds)
+        await self._refetch_callable_params(
+            projectConfigId,
+            sectionIds,
+            coalesce_key_prefix="autoRefetchCallable",
+        )
 
     @enqueue_method
     async def auto_refetch_callable_params_on_lsp_mismatch(
@@ -3125,7 +2163,11 @@ class BaseProjectManager(ABC):
             projectConfigId,
             sorted(sectionIds),
         )
-        await self._refetch_callable_params(projectConfigId, sectionIds)
+        await self._refetch_callable_params(
+            projectConfigId,
+            sectionIds,
+            coalesce_key_prefix="autoRefetchCallableMismatch",
+        )
 
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
@@ -3163,29 +2205,9 @@ class BaseProjectManager(ABC):
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
-        await self._flush_pending_deferred_codegen_refresh(x.projectConfigId)
-        history_code_obj_ids = self._get_callable_history_code_obj_ids_for_backend(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-        )
-        self._add_section_and_code_obj_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         gen_code = self._require_python_codegen(x.projectConfigId)
-        prev_callable = get_curr_section_callable_code_obj(project_state, x.sectionId)
-        prev_callable_id = prev_callable.id if prev_callable else None
-        callable_selected_before = (
-            callable_has_been_selected_before(
-                project_state,
-                x.sectionId,
-                x.callableName,
-            )
-            is not None
-        )
         result = await gen_code.set_callable(
             self.settings_file.settings,
             project_state,
@@ -3193,100 +2215,19 @@ class BaseProjectManager(ABC):
             x.callableName,
             x.refetchParams,
         )
-        # Register post-mutation callable code object ids on the same history entry
-        # so redo can always rehydrate callable core/children through targeted patch transport.
-        history_code_obj_ids_after = set(
-            self._collect_set_callable_code_obj_patch_ids(result)
-        )
-        history_code_obj_ids_after.update(
-            self._get_callable_history_code_obj_ids_for_project_state(
-                project_state=project_state,
-                section_id=x.sectionId,
-            )
-        )
-        if history_code_obj_ids_after:
-            self._register_current_history_entry_undo_redo_patch_scope(
-                {
-                    x.projectConfigId: _UndoRedoProjectConfigPatchScope(
-                        code_obj_ids=history_code_obj_ids_after
-                    )
-                }
-            )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            project_state=project_state,
-        )
-        code_obj_ids_for_patch: list[ID] = []
-        should_broadcast_code_obj_patch = (
-            result.lspStatus == SignatureHelpStatus.MATCHED
-            or (
-                result.callableId is not None
-                and not callable_selected_before
-                and result.callableId != prev_callable_id
-            )
-        )
-        if should_broadcast_code_obj_patch:
-            code_obj_ids_for_patch = self._collect_set_callable_code_obj_patch_ids(
-                result
-            )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
-            code_obj_ids=code_obj_ids_for_patch,
-            section_ids=section_patch_scope,
             validate_name_rules=False,
         )
         return result
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
-        code = await self._get_or_create_code_entry_for_completion(
-            x.projectConfigId,
-            x.sectionId,
-        )
-        if code is None:
-            return []
+        async with self._project_state_lock.read_lock():
+            code = self.code_dict[x.projectConfigId][x.sectionId]
         if _is_lsp_code_entry(code):
             return await code.code_area_completion(x.fullText, x.position)
         return []
-
-    async def _get_or_create_code_entry_for_completion(
-        self,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode | None:
-        async with self._project_state_lock.read_lock():
-            existing = self.code_dict.get(project_config_id, {}).get(section_id)
-            if existing is not None:
-                return existing
-
-        async with self._project_state_lock.write_lock():
-            code_entries = self.code_dict.setdefault(project_config_id, {})
-            existing = code_entries.get(section_id)
-            if existing is not None:
-                return existing
-
-            project_state = self.get_single_config_state(project_config_id)
-            if section_id not in project_state.sections:
-                raise KeyError(section_id)
-
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CodeSectionImpl):
-                return None
-            if section_impl.codeFileBinding is None:
-                return None
-
-            section_code = self.create_project_code(
-                project_state,
-                section_id,
-                section_impl,
-            )
-            if section_code is None:
-                return None
-            if not section_code.binding.canonical_path.exists():
-                section_code.write_to_disk(section_code.code)
-            code_entries[section_id] = section_code
-            return section_code
 
     @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
@@ -3300,225 +2241,19 @@ class BaseProjectManager(ABC):
             gen_code = self._require_python_codegen(x.projectConfigId)
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
-    def _get_gen_code_prefix_suffix_refresh_debouncer(
-        self,
-        project_config_id: ID,
-    ) -> AsyncDebouncer:
-        existing = self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
-            project_config_id
-        )
-        if existing is not None:
-            return existing
-
-        async def run_deferred_refresh() -> None:
-            await self._run_deferred_gen_code_prefix_suffix_refresh(project_config_id)
-
-        debouncer = AsyncDebouncer(
-            run_deferred_refresh,
-            wait=GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S,
-            label=f"{type(self).__name__}-gen-code-prefix-suffix-refresh",
-        )
-        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config[
-            project_config_id
-        ] = debouncer
-        return debouncer
-
-    def _schedule_deferred_gen_code_prefix_suffix_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        self._pending_gen_code_prefix_suffix_refresh_by_project_config[
-            project_config_id
-        ] = _DeferredRefreshRegistration(
-            history_revision=self.history.revision,
-            history_entry_token=self.history.get_current_entry_token(),
-        )
-        self._get_gen_code_prefix_suffix_refresh_debouncer(project_config_id).trigger()
-
-    async def _run_deferred_codegen_refresh_with_patch_transport(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        history_entry_token_for_patch_scope: int | None = None,
-    ) -> None:
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=project_state.projectConfig.id,
-            section_ids=[],
-        )
-        if section_patch_scope:
-            await self._update_and_broadcast_section_impl_patches(
-                project_state,
-                section_ids=section_patch_scope,
-                updateFileWatcher=False,
-                validate_name_rules=False,
-                broadcast_name_validation_errors=False,
-                history_entry_token_for_patch_scope=(
-                    history_entry_token_for_patch_scope
-                ),
-                filter_unchanged_patch_payloads=True,
-            )
-            return
-        await self._update_and_broadcast_project_config_patch_no_name_validation(
-            project_state,
-            updateFileWatcher=False,
-            history_entry_token_for_patch_scope=history_entry_token_for_patch_scope,
-            filter_unchanged_patch_payloads=True,
-        )
-
-    async def _refresh_gen_code_prefix_suffix_now(self, project_config_id: ID) -> None:
-        pending_registration = (
-            self._pending_gen_code_prefix_suffix_refresh_by_project_config.get(
-                project_config_id
-            )
-        )
-        if pending_registration is None:
-            return
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
-                project_config_id,
-                None,
-            )
-            return
-        project_state = self.get_single_config_state(project_config_id)
-        await self._run_deferred_codegen_refresh_with_patch_transport(
-            project_state,
-            history_entry_token_for_patch_scope=(
-                pending_registration.history_entry_token
-            ),
-        )
-        self._pending_gen_code_prefix_suffix_refresh_by_project_config.pop(
-            project_config_id,
-            None,
-        )
-
-    @enqueue_method
-    async def _run_deferred_gen_code_prefix_suffix_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        await self._refresh_gen_code_prefix_suffix_now(project_config_id)
-
-    async def _flush_pending_gen_code_prefix_suffix_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        if (
-            project_config_id
-            not in self._pending_gen_code_prefix_suffix_refresh_by_project_config
-        ):
-            return
-        debouncer = (
-            self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
-                project_config_id
-            )
-        )
-        if debouncer is not None:
-            debouncer.cancel()
-        await self._refresh_gen_code_prefix_suffix_now(project_config_id)
-
-    def _get_deferred_codegen_refresh_debouncer(
-        self,
-        project_config_id: ID,
-    ) -> AsyncDebouncer:
-        existing = self._deferred_codegen_refresh_debouncer_by_project_config.get(
-            project_config_id
-        )
-        if existing is not None:
-            return existing
-
-        async def run_deferred_refresh() -> None:
-            await self._run_deferred_codegen_refresh(project_config_id)
-
-        debouncer = AsyncDebouncer(
-            run_deferred_refresh,
-            wait=DEFERRED_CODEGEN_REFRESH_WAIT_S,
-            label=f"{type(self).__name__}-deferred-codegen-refresh",
-        )
-        self._deferred_codegen_refresh_debouncer_by_project_config[
-            project_config_id
-        ] = debouncer
-        return debouncer
-
-    def _schedule_deferred_codegen_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        self._pending_deferred_codegen_refresh_by_project_config[project_config_id] = (
-            _DeferredRefreshRegistration(
-                history_revision=self.history.revision,
-                history_entry_token=self.history.get_current_entry_token(),
-            )
-        )
-        self._get_deferred_codegen_refresh_debouncer(project_config_id).trigger()
-
-    async def _refresh_deferred_codegen_now(self, project_config_id: ID) -> None:
-        pending_registration = (
-            self._pending_deferred_codegen_refresh_by_project_config.get(
-                project_config_id
-            )
-        )
-        if pending_registration is None:
-            return
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            self._pending_deferred_codegen_refresh_by_project_config.pop(
-                project_config_id,
-                None,
-            )
-            return
-        project_state = self.get_single_config_state(project_config_id)
-        await self._run_deferred_codegen_refresh_with_patch_transport(
-            project_state,
-            history_entry_token_for_patch_scope=(
-                pending_registration.history_entry_token
-            ),
-        )
-        self._pending_deferred_codegen_refresh_by_project_config.pop(
-            project_config_id,
-            None,
-        )
-
-    @enqueue_method
-    async def _run_deferred_codegen_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        await self._refresh_deferred_codegen_now(project_config_id)
-
-    async def _flush_pending_deferred_codegen_refresh(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        if (
-            project_config_id
-            not in self._pending_deferred_codegen_refresh_by_project_config
-        ):
-            return
-        debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
-            project_config_id
-        )
-        if debouncer is not None:
-            debouncer.cancel()
-        await self._refresh_deferred_codegen_now(project_config_id)
-
     @enqueue_method
     @project_state_tool(
         access_type="write", default_target_singleton_section="GenPythonCode"
     )
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
-        self.add_new_history_entry(
-            coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
         python_target.genCodePrefix = x.genCodePrefix
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
-        self._schedule_deferred_gen_code_prefix_suffix_refresh(x.projectConfigId)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3526,19 +2261,13 @@ class BaseProjectManager(ABC):
     )
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
-        self.add_new_history_entry(
-            coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
         python_target.genCodeSuffix = x.genCodeSuffix
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
-        self._schedule_deferred_gen_code_prefix_suffix_refresh(x.projectConfigId)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -3546,16 +2275,15 @@ class BaseProjectManager(ABC):
         self, x: SetProjectConfigCodegenTargetsRequest
     ):
         """Update the codegen targets for a project configuration."""
-        self._add_codegen_target_scoped_history_entry(x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_project_config_codegen_targets(
             project_state=project_state,
             codegen_targets=x.codegenTargets,
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
             validate_name_rules=False,
-            broadcast_name_validation_errors=False,
         )
 
     def _apply_project_config_codegen_targets(
@@ -3633,19 +2361,6 @@ class BaseProjectManager(ABC):
                     Position(),
                 )
 
-    def _add_codegen_target_scoped_history_entry(
-        self,
-        project_config_id: ID,
-    ) -> None:
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
-        )
-        self.add_new_history_entry(
-            project_config_id=project_config_id,
-            include_project_config=True,
-            section_impl_only_ids=codegen_singleton_section_ids,
-        )
-
     @enqueue_method
     async def compare_and_set_python_codegen_enabled(
         self,
@@ -3695,15 +2410,14 @@ class BaseProjectManager(ABC):
                 for target in existing_targets
                 if target.language != ProjectCodegenLanguage.python
             ]
-        self._add_codegen_target_scoped_history_entry(project_config_id)
+        self.add_new_history_entry()
         self._apply_project_config_codegen_targets(
             project_state=project_state,
             codegen_targets=next_targets,
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
             validate_name_rules=False,
-            broadcast_name_validation_errors=False,
         )
         new_value = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -3765,8 +2479,8 @@ class BaseProjectManager(ABC):
         self, x: SetAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Replace the stored app UI spec and update app definition metadata."""
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
+        project_state = self._get_default_project_state()
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         target_path = (
             x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
@@ -3788,12 +2502,19 @@ class BaseProjectManager(ABC):
         if x.assets is not None:
             updates["assets"] = x.assets
         updated_definition = app_definition.model_copy(update=updates)
-        await self._commit_app_definition_metadata_update(
-            updated_definition=updated_definition,
-            app_spec=x.appSpec,
-            app_spec_path=normalized_path,
-            previous_project_state_revision=previous_project_state_revision,
+        validate_app_theme_or_raise(updated_definition.theme)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            x.appSpec,
+            catalog_id=updated_definition.catalogId,
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
         )
+        self.project_state_backend = self.project_state_backend.model_copy(
+            update={"appDefinition": updated_definition}
+        )
+        write_app_spec(self.dbe, normalized_path, x.appSpec)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return AppDefinitionResponse(
             appSpec=x.appSpec,
             appDefinition=updated_definition,
@@ -3805,7 +2526,7 @@ class BaseProjectManager(ABC):
         self, x: UpdateAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Apply a JSON merge patch to the stored app UI spec."""
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
         self._get_default_project_state()
         app_definition = self.project_state_backend.appDefinition
         if app_definition is None or not app_definition.appSpecPath:
@@ -3863,7 +2584,6 @@ class BaseProjectManager(ABC):
         updated_definition: AppDefinition,
         app_spec: JSONValue,
         app_spec_path: str,
-        previous_project_state_revision: int,
     ) -> None:
         project_state = self._get_default_project_state()
         validate_app_theme_or_raise(updated_definition.theme)
@@ -3878,17 +2598,7 @@ class BaseProjectManager(ABC):
             update={"appDefinition": updated_definition}
         )
         write_app_spec(self.dbe, app_spec_path, app_spec)
-        next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
-            return
-        await self._broadcast_app_definition_patch(
-            project_config_id=project_state.projectConfig.id,
-            app_definition=updated_definition,
-            app_spec=app_spec,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def compare_and_set_app_definition_catalog_id(
@@ -3914,13 +2624,11 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "catalogId": catalog_id}
         )
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
-            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, updated_definition.catalogId
 
@@ -3948,13 +2656,11 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
         )
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
-            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, updated_definition.appSpecVersion
 
@@ -3981,13 +2687,11 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path}
         )
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
-            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, normalized_path
 
@@ -4021,13 +2725,11 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "theme": theme_payload}
         )
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
+        self.add_new_history_entry()
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
-            previous_project_state_revision=previous_project_state_revision,
         )
         return old_value, self._resolve_app_theme_mode(updated_definition)
 
@@ -4037,9 +2739,7 @@ class BaseProjectManager(ABC):
         """Toggle whether parameter display names are shown in the UI."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
-        await self._update_and_broadcast_project_config_patch_no_name_validation(
-            project_state
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -4059,9 +2759,7 @@ class BaseProjectManager(ABC):
         ):
             return old_value, old_value
         project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
-        await self._update_and_broadcast_project_config_patch_no_name_validation(
-            project_state
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return old_value, project_state.projectConfig.showParamDisplayNames
 
     @enqueue_method
@@ -4073,11 +2771,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -4099,11 +2793,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.watchCodeEnabled = x.enabled
         if x.enabled and not old_value:
             self.watch_code_manager.baseline_on_enable(project_state)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
         return old_value, project_state.projectConfig.watchCodeEnabled
 
     @enqueue_method
@@ -4122,11 +2812,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -4165,11 +2851,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
         updated_folders = [
             {
                 "path": folder.path,
@@ -4203,11 +2885,7 @@ class BaseProjectManager(ABC):
             self.watch_code_manager.baseline_for_new_inputs(
                 project_state, previous_snapshot
             )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
         return old_files, list(project_state.projectConfig.watchCodeFiles)
 
     @enqueue_method
@@ -4232,17 +2910,15 @@ class BaseProjectManager(ABC):
             normalized_path, snapshot.files, snapshot.folders
         ):
             return
-        update_scope = await self.watch_code_manager.apply_scan_update(
+        did_update = await self.watch_code_manager.apply_scan_update(
             project_state,
             normalized_path,
             raw,
             baseline_only=baseline_only,
             moved_from=moved_from,
         )
-        await self._broadcast_watch_code_mutation_scope(
-            project_state=project_state,
-            update_scope=update_scope,
-        )
+        if did_update:
+            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def apply_watch_code_file_delete(
@@ -4262,257 +2938,14 @@ class BaseProjectManager(ABC):
             normalized_path, snapshot.files, snapshot.folders
         ):
             return
-        update_scope = await self.watch_code_manager.apply_delete_update(
+        did_update = await self.watch_code_manager.apply_delete_update(
             project_state,
             normalized_path,
         )
-        await self._broadcast_watch_code_mutation_scope(
-            project_state=project_state,
-            update_scope=update_scope,
-        )
+        if did_update:
+            await self.update_and_broadcast_project_state(project_state)
 
-    async def _broadcast_watch_code_mutation_scope(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        update_scope: WatchCodeMutationScope,
-    ) -> None:
-        if not update_scope.did_update:
-            return
-        code_obj_ids = [
-            code_obj_id
-            for code_obj_id in sorted(update_scope.code_obj_ids)
-            if code_obj_id in project_state.codeObjs
-        ]
-        if update_scope.structural_changed:
-            await self._merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=code_obj_ids,
-            )
-            return
-        section_scope = sorted(update_scope.section_ids)
-        if section_scope or code_obj_ids:
-            section_scope = self._build_section_patch_scope_with_codegen_singletons(
-                project_config_id=project_state.projectConfig.id,
-                section_ids=section_scope,
-                project_state=project_state,
-            )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=code_obj_ids,
-            section_ids=section_scope,
-            broadcast_project_config_patch=True,
-        )
-
-    async def _broadcast_watch_code_mutation_scope_for_current_revision(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        update_scope: WatchCodeMutationScope,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        if not update_scope.did_update:
-            return
-        if project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            return
-
-        code_obj_ids = [
-            code_obj_id
-            for code_obj_id in sorted(update_scope.code_obj_ids)
-            if code_obj_id in project_state.codeObjs
-        ]
-        if update_scope.structural_changed:
-            has_broadcast_patch = False
-            if code_obj_ids:
-                (
-                    code_obj_updates,
-                    code_obj_variant_updates,
-                    code_obj_impl_updates,
-                ) = self._collect_code_obj_updates_for_patch(
-                    project_state,
-                    code_obj_ids,
-                )
-                await self._broadcast_code_objs_patch(
-                    project_config_id=project_state.projectConfig.id,
-                    code_objs=code_obj_updates,
-                    code_obj_variants=code_obj_variant_updates,
-                    code_obj_impls=code_obj_impl_updates,
-                    previous_project_state_revision=previous_project_state_revision,
-                    project_state_revision=project_state_revision,
-                )
-                has_broadcast_patch = True
-            await self._broadcast_structural_patch(
-                project_state=project_state,
-                previous_project_state_revision=(
-                    project_state_revision
-                    if has_broadcast_patch
-                    else previous_project_state_revision
-                ),
-                project_state_revision=project_state_revision,
-            )
-            return
-
-        section_scope = sorted(update_scope.section_ids)
-        if section_scope or code_obj_ids:
-            section_scope = self._build_section_patch_scope_with_codegen_singletons(
-                project_config_id=project_state.projectConfig.id,
-                section_ids=section_scope,
-                project_state=project_state,
-            )
-        has_broadcast_patch = False
-        await self._broadcast_project_config_patch(
-            project_config=project_state.projectConfig,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=project_state_revision,
-        )
-        has_broadcast_patch = True
-        if code_obj_ids:
-            (
-                code_obj_updates,
-                code_obj_variant_updates,
-                code_obj_impl_updates,
-            ) = self._collect_code_obj_updates_for_patch(
-                project_state,
-                code_obj_ids,
-            )
-            await self._broadcast_code_objs_patch(
-                project_config_id=project_state.projectConfig.id,
-                code_objs=code_obj_updates,
-                code_obj_variants=code_obj_variant_updates,
-                code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=(
-                    previous_project_state_revision
-                    if not has_broadcast_patch
-                    else project_state_revision
-                ),
-                project_state_revision=project_state_revision,
-            )
-            has_broadcast_patch = True
-        if section_scope:
-            section_impl_updates = self._collect_section_impl_updates_for_patch(
-                project_state,
-                section_scope,
-            )
-            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
-                await self._broadcast_section_impl_patch(
-                    project_config_id=project_state.projectConfig.id,
-                    section_id=section_id,
-                    section_impl=section_impl,
-                    previous_project_state_revision=(
-                        previous_project_state_revision
-                        if idx == 0 and not has_broadcast_patch
-                        else project_state_revision
-                    ),
-                    project_state_revision=project_state_revision,
-                )
-
-    async def _try_incremental_param_value_codegen_update(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-        param_id: ID,
-        value: str,
-    ) -> bool:
-        project_config = project_state.projectConfig
-        if not project_config_has_codegen_language(
-            project_config,
-            ProjectCodegenLanguage.python,
-        ):
-            return False
-        project_config_id = project_config.id
-        gen_code = self.gen_code.get(project_config_id)
-        if gen_code is None:
-            return False
-        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        if dep_key not in gen_code.code_generator.dep_graph.graph:
-            return False
-        gen_code.code_generator.change_value(dep_key, value)
-        if self.lsp_writers.full is not None:
-            await gen_code.sync_lsp(gen_code.code)
-        else:
-            await gen_code.diagnostics_state.reset(
-                clear_gen_code=True,
-                clear_unmapped=True,
-            )
-        maybe_update_gen_python_code_section(project_state, gen_code.generated_code)
-        maybe_update_gen_python_metadata_section(project_state, gen_code.meta_code)
-        self._refresh_plugin_codegen_outputs(project_state)
-        return True
-
-    async def _set_param_entered_value_and_broadcast_patch_updates(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_ids: list[ID],
-        section_id: ID,
-        param_id: ID,
-        value: str,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state.validate_for_param_value_update(
-                section_id=section_id,
-                param_id=param_id,
-            )
-            updated_incrementally = (
-                await self._try_incremental_param_value_codegen_update(
-                    project_state,
-                    section_id=section_id,
-                    param_id=param_id,
-                    value=value,
-                )
-            )
-            if not updated_incrementally:
-                await self._refresh_codegen_state(project_state)
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-
-        (
-            code_obj_updates,
-            code_obj_variant_updates,
-            code_obj_impl_updates,
-        ) = self._collect_code_obj_updates_for_patch(project_state, [param_id])
-        await self._broadcast_code_objs_patch(
-            project_config_id=project_state.projectConfig.id,
-            code_objs=code_obj_updates,
-            code_obj_variants=code_obj_variant_updates,
-            code_obj_impls=code_obj_impl_updates,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-
-        section_impl_updates = self._collect_section_impl_updates_for_patch(
-            project_state,
-            section_ids,
-        )
-        for section_id_for_patch, section_impl in section_impl_updates:
-            await self._broadcast_section_impl_patch(
-                project_config_id=project_state.projectConfig.id,
-                section_id=section_id_for_patch,
-                section_impl=section_impl,
-                previous_project_state_revision=next_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-
-    @enqueue_method(
-        coalesce_key_fn=_set_param_entered_value_enqueue_coalesce_key,
-        partition_key_fn=_set_param_entered_value_enqueue_partition_key,
-    )
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -4526,17 +2959,9 @@ class BaseProjectManager(ABC):
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
-        )
         self.add_new_history_entry(
             coalesce_key=(f"param:{x.projectConfigId}:{x.sectionId}:{x.paramInfoId}"),
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids=(
-                codegen_singleton_section_ids if codegen_singleton_section_ids else None
-            ),
-            code_obj_only_ids={x.paramInfoId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
@@ -4545,25 +2970,10 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        effective_impl = get_curr_effective_code_obj_impl(
+        await self.update_and_broadcast_project_state(
             project_state,
-            x.sectionId,
-            x.paramInfoId,
-        )
-        effective_value = x.value
-        if isinstance(effective_impl, BaseChildlessCodeObjImpl):
-            effective_value = effective_impl.value
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            project_state=project_state,
-        )
-        await self._set_param_entered_value_and_broadcast_patch_updates(
-            project_state,
-            section_ids=section_patch_scope,
-            section_id=x.sectionId,
-            param_id=x.paramInfoId,
-            value=effective_value,
+            broadcast_name_validation_errors=False,
+            validate_name_rules=False,
         )
 
     @enqueue_method
@@ -4575,22 +2985,12 @@ class BaseProjectManager(ABC):
     )
     async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
         """Toggle ignoring type errors for the targeted section entry."""
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     async def _apply_code_section_diagnostics_ignore_state(
         self,
@@ -4628,20 +3028,10 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticsMuteRequest
     ):
         """Toggle muting LSP diagnostics for a code section."""
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         await self._apply_code_section_diagnostics_ignore_state(
             x.projectConfigId, x.sectionId
         )
@@ -4657,11 +3047,7 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
     ):
         """Toggle suppressing an LSP diagnostic code for a code section."""
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostic_code_suppression(
             project_state,
@@ -4669,13 +3055,7 @@ class BaseProjectManager(ABC):
             x.code,
             x.suppress,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         await self._apply_code_section_diagnostics_ignore_state(
             x.projectConfigId, x.sectionId
         )
@@ -4697,38 +3077,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.terminalSectionId,
         )
-        history_section_ids: set[ID]
-        if x.terminalSectionId is None:
-            history_section_ids = {x.sectionId}
-            existing_terminal_section_id = (
-                self._get_code_section_attached_terminal_id_for_backend(
-                    project_config_id=x.projectConfigId,
-                    section_id=x.sectionId,
-                )
-            )
-            if existing_terminal_section_id is not None:
-                history_section_ids = (
-                    self._get_move_sections_history_section_ids_for_backend(
-                        project_config_id=x.projectConfigId,
-                        section_ids=[existing_terminal_section_id],
-                        new_parent_id=None,
-                    )
-                )
-                history_section_ids.add(x.sectionId)
-        else:
-            history_section_ids = (
-                self._get_move_sections_history_section_ids_for_backend(
-                    project_config_id=x.projectConfigId,
-                    section_ids=[x.terminalSectionId],
-                    new_parent_id=x.sectionId,
-                )
-            )
-            history_section_ids.add(x.sectionId)
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         get_curr_effective_section_impl_with_type_guard(
             project_state, x.sectionId, BaseCodeSectionImpl
@@ -4752,11 +3101,7 @@ class BaseProjectManager(ABC):
                 x.sectionId,
                 x.terminalSectionId,
             )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         logger.info(
             "set_code_section_attached_terminal done project=%s section=%s terminal=%s",
             x.projectConfigId,
@@ -4798,41 +3143,13 @@ class BaseProjectManager(ABC):
                     attached_terminal_id,
                 )
                 return attached_terminal_id
-        history_section_ids: set[ID] = {sectionId}
-        history_terminal_id: ID | None = None
-        if code_impl.children:
-            history_terminal_id = code_impl.children[0]
-        elif (
-            attached_terminal_id is not None
-            and attached_terminal_id in project_state.sections
-            and attached_terminal_id in project_state.projectConfig.sectionVariantMap
-        ):
-            history_terminal_id = attached_terminal_id
-        if history_terminal_id is not None:
-            history_section_ids = (
-                self._get_move_sections_history_section_ids_for_backend(
-                    project_config_id=projectConfigId,
-                    section_ids=[history_terminal_id],
-                    new_parent_id=sectionId,
-                )
-            )
-            history_section_ids.add(sectionId)
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=projectConfigId,
-            section_ids=history_section_ids,
-            include_codegen_singletons=True,
-        )
-        project_state = self.get_single_config_state(projectConfigId)
+        self.add_new_history_entry()
         terminal_id = ensure_code_section_attached_terminal(
             self.settings_file.settings,
             project_state,
             sectionId,
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         logger.info(
             "ensure_code_section_attached_terminal done project=%s section=%s terminal=%s",
             projectConfigId,
@@ -4855,17 +3172,9 @@ class BaseProjectManager(ABC):
     )
     async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
         """Set a parameter's name and value in one step."""
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
-        )
         self.add_new_history_entry(
             coalesce_key=f"param:{x.projectConfigId}:{x.sectionId}:{x.codeObjId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids=(
-                codegen_singleton_section_ids if codegen_singleton_section_ids else None
-            ),
-            code_obj_only_ids={x.codeObjId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         normalized_name = validate_param_name(
@@ -4878,16 +3187,8 @@ class BaseProjectManager(ABC):
             x.codeObjId,
             x.value,
         )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            project_state=project_state,
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
-            code_obj_ids=[x.codeObjId],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -4920,15 +3221,8 @@ class BaseProjectManager(ABC):
         if normalized_name is None:
             raise KeyError(f"Code obj {x.codeObjId} not found in any section.")
         project_state.codeObjs[x.codeObjId].name = normalized_name
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=section_ids,
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
-            code_obj_ids=[x.codeObjId],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -4943,21 +3237,11 @@ class BaseProjectManager(ABC):
         """Update the user-facing display name for the requested code object."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].displayName = x.displayName
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[x.codeObjId],
-            section_ids=[],
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         canonical_path = normalize_workspace_path(x.binding.canonical_path)
         updated_binding = CodeFileBinding(
@@ -4966,12 +3250,7 @@ class BaseProjectManager(ABC):
             autoBinding=False,
         )
         set_code_file_binding(project_state, x.sectionId, updated_binding)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4984,10 +3263,7 @@ class BaseProjectManager(ABC):
         """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_locks(project_state, x.sectionIds)
-        await self._merge_and_broadcast_ui_only_section_impl_patches(
-            project_state,
-            section_ids=x.sectionIds,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5000,10 +3276,7 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5016,10 +3289,7 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5032,10 +3302,7 @@ class BaseProjectManager(ABC):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5074,19 +3341,7 @@ class BaseProjectManager(ABC):
         await self.watch_code_manager.handle_code_section_update(
             project_state, x.sectionId, x.code
         )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            project_state=project_state,
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5136,20 +3391,8 @@ class BaseProjectManager(ABC):
             await self.watch_code_manager.handle_code_section_update(
                 project_state, x.sectionId, formatted_code
             )
-            section_patch_scope = (
-                self._build_section_patch_scope_with_codegen_singletons(
-                    project_config_id=x.projectConfigId,
-                    section_ids=[x.sectionId],
-                    project_state=project_state,
-                )
-            )
-            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=[],
-                section_ids=section_patch_scope,
-                updateFileWatcher=False,
-                validate_name_rules=False,
-                broadcast_name_validation_errors=False,
+            await self._update_and_broadcast_project_state_no_name_validation(
+                project_state
             )
             return
         if isinstance(section_impl, GenPythonCodeSectionImpl):
@@ -5176,21 +3419,8 @@ class BaseProjectManager(ABC):
                 )
             python_target.genCodePrefix = formatted_prefix
             python_target.genCodeSuffix = formatted_suffix
-            section_patch_scope = (
-                self._build_section_patch_scope_with_codegen_singletons(
-                    project_config_id=x.projectConfigId,
-                    section_ids=[x.sectionId],
-                    project_state=project_state,
-                )
-            )
-            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=[],
-                section_ids=section_patch_scope,
-                broadcast_project_config_patch=True,
-                updateFileWatcher=False,
-                validate_name_rules=False,
-                broadcast_name_validation_errors=False,
+            await self._update_and_broadcast_project_state_no_name_validation(
+                project_state
             )
             return
         raise HTTPException(
@@ -5246,53 +3476,26 @@ class BaseProjectManager(ABC):
         """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        section_impl_before = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            x.sectionId,
-            BaseSectionWithParamsImpl,
-        )
-        edge_input_param_ids_for_patch = list(section_impl_before.edgeInputParams)
-        edge_input_param_ids_for_patch.extend(x.edgeInputParams)
         set_section_edge_inputs(
             self.settings_file.settings,
             project_state,
             x.sectionId,
             x.edgeInputParams,
         )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(edge_input_param_ids_for_patch)),
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_edge_outputs(self, x: SetSectionEdgeOutputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
         variant_id = project_state.projectConfig.sectionVariantMap.get(x.sectionId)
         if variant_id is None:
             raise KeyError(f"Section {x.sectionId} missing active variant.")
-        target_param_ids_for_patch = [
-            edge.targetPortId
-            for edge in project_state.projectConfig.edges
-            if edge.sourceSectionId == x.sectionId
-            and edge.sourceVariantId == variant_id
-        ]
-        set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
         for edge in project_state.projectConfig.edges:
             if (
                 edge.sourceSectionId != x.sectionId
@@ -5309,19 +3512,7 @@ class BaseProjectManager(ABC):
             if target_variant_id != edge.targetVariantId:
                 continue
             self._apply_edge_value(project_state, edge)
-            target_param_ids_for_patch.append(edge.targetPortId)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
         gen_code = self._require_python_codegen(project_state.projectConfig.id)
@@ -5335,12 +3526,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_edge(self, x: CreateEdgeRequest):
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=[x.targetPortId],
-            include_codegen_singletons=True,
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         edge = Edge(
             sourceSectionId=x.sourceSectionId,
@@ -5359,97 +3545,25 @@ class BaseProjectManager(ABC):
         )
         create_edge(project_state, edge)
         self._apply_edge_value(project_state, edge)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[x.targetPortId],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_edge(project_state, x.edge)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
-        edge_ids = set(x.edgeIds)
-        target_param_ids_for_patch = [
-            edge.targetPortId for edge in project_config.edges if edge.id in edge_ids
-        ]
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=target_param_ids_for_patch,
-            include_codegen_singletons=True,
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_edges(project_state, x.edgeIds)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
-        original_edge = next(
-            (edge for edge in project_config.edges if edge.id == x.edgeId),
-            None,
-        )
-        if original_edge is None:
-            raise KeyError(f"Edge {x.edgeId} not found.")
-        target_param_ids_for_patch = [x.targetPortId]
-        target_changed = (
-            original_edge.targetSectionId != x.targetSectionId
-            or original_edge.targetVariantId != x.targetVariantId
-            or original_edge.targetPortId != x.targetPortId
-        )
-        if target_changed:
-            target_param_ids_for_patch.append(original_edge.targetPortId)
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=target_param_ids_for_patch,
-            include_codegen_singletons=True,
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         reconnect_edge(
             project_state,
@@ -5467,62 +3581,19 @@ class BaseProjectManager(ABC):
         )
         if updated_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
-        target_param_ids_for_patch = [updated_edge.targetPortId]
-        if target_changed:
-            target_param_ids_for_patch.append(original_edge.targetPortId)
         self._apply_edge_value(project_state, updated_edge)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
-        backend = self.project_state_backend
-        if x.projectConfigId not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_config = backend.projectConfigs[x.projectConfigId]
-        incoming_edge_ids = {edge.id for edge in x.edges}
-        target_param_ids_for_patch = [
-            edge.targetPortId
-            for edge in project_config.edges
-            if edge.id not in incoming_edge_ids
-        ]
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=target_param_ids_for_patch,
-            include_codegen_singletons=True,
-            include_project_config_targeted_patch_transport=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         edge_kwargs = {
             "sourceSectionId": x.sourceSectionId,
@@ -5537,81 +3608,28 @@ class BaseProjectManager(ABC):
             edge_kwargs["id"] = x.id
         edge = AgenticEdge(**edge_kwargs)
         create_agentic_edge(project_state, edge)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_agentic_edge(project_state, x.edge)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_agentic_edges(project_state, x.edgeIds)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_agentic_edges(project_state, x.edges)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5624,11 +3642,7 @@ class BaseProjectManager(ABC):
         """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5641,11 +3655,7 @@ class BaseProjectManager(ABC):
         """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5679,9 +3689,7 @@ class BaseProjectManager(ABC):
                 )
             seen.add(variant_id)
         section.variants = ordered_ids
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5692,11 +3700,7 @@ class BaseProjectManager(ABC):
     )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
-        self._add_section_and_code_obj_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=[x.paramInfoId],
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
             self.settings_file.settings,
@@ -5705,15 +3709,7 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.selectedId,
         )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[x.paramInfoId],
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5730,10 +3726,7 @@ class BaseProjectManager(ABC):
         Returns:
             CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
         """
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         apply_top_level_section_layout_snapshot(
             project_state,
@@ -5762,9 +3755,7 @@ class BaseProjectManager(ABC):
             if x.implType == SectionType.MetaControl
             else None
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
         return CreateTopLevelSectionResponse(
             sectionId=sectionId,
             metaControlParamId=meta_control_param_id,
@@ -5780,11 +3771,7 @@ class BaseProjectManager(ABC):
     )
     async def create_child_sections(self, x: CreateChildSectionsRequest):
         """Create one or more child sections beneath a parent section."""
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.parentId],
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
@@ -5794,9 +3781,7 @@ class BaseProjectManager(ABC):
             x.numChildren,
             x.startIdx,
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5809,17 +3794,7 @@ class BaseProjectManager(ABC):
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
         """Expand incrementer-driven child sections for a repeated structure."""
-        parent_section_id = (
-            self._get_parent_section_id_for_incrementer_create_for_backend(
-                project_config_id=x.projectConfigId,
-                called_by=x.calledBy,
-            )
-        )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[parent_section_id],
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
@@ -5828,16 +3803,11 @@ class BaseProjectManager(ABC):
             x.implType,
             x.numChildren,
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=projectConfigId,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
@@ -5846,9 +3816,7 @@ class BaseProjectManager(ABC):
             Position(),
             core_overrides={"id": terminalId},
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5859,23 +3827,10 @@ class BaseProjectManager(ABC):
     )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
-        history_section_ids, history_code_obj_ids = (
-            self._get_delete_sections_history_scope_for_backend(
-                project_config_id=x.projectConfigId,
-                section_ids=x.sectionIds,
-            )
-        )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5888,28 +3843,10 @@ class BaseProjectManager(ABC):
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
         """Shrink an incrementer-driven group by deleting trailing children."""
-        section_ids = self._get_decrementer_delete_section_ids_for_backend(
-            project_config_id=x.projectConfigId,
-            called_by=x.calledBy,
-            num_children=x.numChildren,
-        )
-        history_section_ids, history_code_obj_ids = (
-            self._get_delete_sections_history_scope_for_backend(
-                project_config_id=x.projectConfigId,
-                section_ids=section_ids,
-            )
-        )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5920,22 +3857,10 @@ class BaseProjectManager(ABC):
     )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
-        self._add_section_and_code_obj_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=[x.paramInfoId],
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[x.paramInfoId],
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5946,23 +3871,10 @@ class BaseProjectManager(ABC):
     )
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         """Duplicate the current section state into an additional variant."""
-        history_section_ids, history_code_obj_ids = (
-            self._get_create_new_section_variant_history_scope_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-            )
-        )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5973,39 +3885,10 @@ class BaseProjectManager(ABC):
     )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
-        history_section_ids, history_code_obj_ids = (
-            self._get_add_kwarg_history_scope_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-            )
-        )
-        self._add_section_and_code_obj_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        new_param_id = add_kwarg(
-            self.settings_file.settings, project_state, x.sectionId
-        )
-        root_code_obj_id = self._get_param_container_code_obj_id_for_section(
-            project_state,
-            x.sectionId,
-        )
-        changed_section_ids = self._find_section_ids_for_code_obj(
-            project_state,
-            new_param_id,
-        )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=changed_section_ids,
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[root_code_obj_id, new_param_id],
-            section_ids=section_patch_scope,
-        )
+        add_kwarg(self.settings_file.settings, project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -6016,45 +3899,10 @@ class BaseProjectManager(ABC):
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
-        (
-            root_code_obj_id,
-            removed_param_id,
-            removed_param_was_edge_input,
-        ) = self._get_delete_kwarg_history_targets_for_backend(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-        )
-        if removed_param_was_edge_input:
-            self._add_project_config_and_scoped_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_ids=[root_code_obj_id, removed_param_id],
-                section_ids=[x.sectionId],
-                include_codegen_singletons=True,
-                include_project_config_targeted_patch_transport=True,
-            )
-        else:
-            self._add_section_and_code_obj_scoped_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_ids=[root_code_obj_id, removed_param_id],
-                section_ids=[x.sectionId],
-                include_codegen_singletons=True,
-            )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        removed_param_id = delete_kwarg(
-            self.settings_file.settings,
-            project_state,
-            x.sectionId,
-        )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[root_code_obj_id, removed_param_id],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=removed_param_was_edge_input,
-        )
+        delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -6065,42 +3913,12 @@ class BaseProjectManager(ABC):
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
-        parent_code_obj_ids, deleted_params_touch_edge_inputs = (
-            self._get_delete_selected_params_history_targets_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-                param_ids=x.paramInfoIds,
-            )
-        )
-        if deleted_params_touch_edge_inputs:
-            self._add_project_config_and_scoped_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
-                section_ids=[x.sectionId],
-                include_codegen_singletons=True,
-                include_project_config_targeted_patch_transport=True,
-            )
-        else:
-            self._add_section_and_code_obj_scoped_history_entry(
-                project_config_id=x.projectConfigId,
-                code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
-                section_ids=[x.sectionId],
-                include_codegen_singletons=True,
-            )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        removed_param_ids = delete_selected_params(
+        delete_selected_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
         )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[*parent_code_obj_ids, *removed_param_ids],
-            section_ids=section_patch_scope,
-            broadcast_project_config_patch=deleted_params_touch_edge_inputs,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     def create_project_code(
         self,
@@ -6176,44 +3994,6 @@ class BaseProjectManager(ABC):
                     )
                 project_state.codeObjs[callable_code_obj.id].name = new_value
 
-    def _collect_rename_result_patch_scope(
-        self,
-        project_state: ProjectStateSingleConfig,
-        changed_values: list[RenameReferenceChangedValue],
-    ) -> tuple[list[ID], list[ID]]:
-        code_obj_ids: list[ID] = []
-        section_ids: list[ID] = []
-        seen_code_obj_ids: set[ID] = set()
-        seen_section_ids: set[ID] = set()
-        for changed in changed_values:
-            dep_key = changed.depKey
-            if isinstance(dep_key, SectionParamDependencyKey):
-                if dep_key.codeObjId not in seen_code_obj_ids:
-                    seen_code_obj_ids.add(dep_key.codeObjId)
-                    code_obj_ids.append(dep_key.codeObjId)
-                if dep_key.sectionId not in seen_section_ids:
-                    seen_section_ids.add(dep_key.sectionId)
-                    section_ids.append(dep_key.sectionId)
-                continue
-            if isinstance(dep_key, SectionDependencyKey):
-                if dep_key.sectionId not in seen_section_ids:
-                    seen_section_ids.add(dep_key.sectionId)
-                    section_ids.append(dep_key.sectionId)
-                callable_code_obj = get_curr_section_callable_code_obj(
-                    project_state, dep_key.sectionId
-                )
-                if callable_code_obj is None:
-                    raise KeyError(
-                        f"Expected callable code object for section {dep_key.sectionId}"
-                    )
-                if callable_code_obj.id in seen_code_obj_ids:
-                    continue
-                seen_code_obj_ids.add(callable_code_obj.id)
-                code_obj_ids.append(callable_code_obj.id)
-                continue
-            raise TypeError(f"Unsupported dependency key type: {dep_key.type}")
-        return code_obj_ids, section_ids
-
     async def maybe_do_rename_refactor(
         self,
         project_state: ProjectStateSingleConfig,
@@ -6275,20 +4055,8 @@ class BaseProjectManager(ABC):
             )
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_rename_result_auto_mode(project_state, pending_values)
-        code_obj_patch_scope, section_patch_ids = (
-            self._collect_rename_result_patch_scope(project_state, pending_values)
-        )
         self.pending_rename_results.pop(frontend_op_id, None)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=section_patch_ids,
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=code_obj_patch_scope,
-            section_ids=section_patch_scope,
-            validate_name_rules=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def decline_rename_refactor(self, x: DeclineRenameRefactorRequest):
@@ -6344,7 +4112,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
-        deleted_any = False
         for project_config_id in project_config_ids:
             project_config = self.project_state_backend.projectConfigs[
                 project_config_id
@@ -6373,24 +4140,13 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
-            self._name_validation_cache_by_project_config.pop(project_config_id, None)
-            self._name_validation_param_error_ids_by_section_by_project_config.pop(
-                project_config_id,
-                None,
-            )
-            deleted_any = True
         self.project_state_backend.validate_default_project_id()
-        if deleted_any:
-            self._mark_current_backend_revision_dirty()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: ID):
-        if self.project_state_backend.defaultProjectConfigId == projectConfigId:
-            return
         self.project_state_backend.defaultProjectConfigId = projectConfigId
-        self._mark_current_backend_revision_dirty()
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
@@ -6415,7 +4171,6 @@ class BaseProjectManager(ABC):
         )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
         new_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        self._mark_current_backend_revision_dirty()
         if previous_output_root.exists() and old_name != new_name:
             shutil.rmtree(previous_output_root)
         if projectConfigId in self._plugin_codegen_output_root_by_project_config:
@@ -6434,19 +4189,13 @@ class BaseProjectManager(ABC):
         )
         if filepath_to_delete:
             return str(filepath_to_delete)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
@@ -6507,11 +4256,7 @@ class BaseProjectManager(ABC):
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_frozen(project_state, x.variantId)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_json_source_file_and_variant(
@@ -6543,9 +4288,7 @@ class BaseProjectManager(ABC):
             )
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
-            await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-                project_state
-            )
+            await self.update_and_broadcast_project_state(project_state)
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Variant and file deleted",
                 project_config_id=x.projectConfigId,
@@ -6554,108 +4297,43 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        text_block_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            x.sectionId,
-            TextBlockSectionImpl,
-        )
-        should_broadcast_name_validation = text_block_impl.headingAsSectionName
         set_text_block_text(project_state, x.sectionId, x.text)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        if not should_broadcast_name_validation:
-            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=[],
-                section_ids=section_patch_scope,
-                updateFileWatcher=False,
-                validate_name_rules=False,
-                broadcast_name_validation_errors=False,
-            )
-            return
-        await self._update_and_broadcast_section_impl_patches(
+        await self.update_and_broadcast_project_state(
             project_state,
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
             validate_name_rules=False,
-            broadcast_name_validation_errors=should_broadcast_name_validation,
         )
 
     @enqueue_method
     async def set_prompt_template(self, x: SetPromptTemplateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_template(project_state, x.sectionId, x.template)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_prompt_inputs(self, x: SetPromptInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_prompt_format(self, x: SetPromptFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_format(project_state, x.sectionId, x.format)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=[],
-            section_ids=section_patch_scope,
-            updateFileWatcher=False,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
-        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
-        if project_config.activeIds == x.activeIds:
-            return
-        project_config.activeIds = x.activeIds
-        self._mark_current_backend_revision_dirty()
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].activeIds = x.activeIds
 
-    @enqueue_method(
-        coalesce_key_fn=_set_viewport_enqueue_coalesce_key,
-        partition_key_fn=_set_viewport_enqueue_partition_key,
-    )
+    @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 
@@ -6665,8 +4343,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
         )
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.viewport = x.viewport
@@ -6682,10 +4358,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
@@ -6725,7 +4398,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.topLevelSections = view_mode.topLevelSections
         project_state.projectConfig.viewport = view_mode.viewport
         project_state.projectConfig.viewportInitialized = view_mode.viewportInitialized
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return view_mode.id
 
     @enqueue_method
@@ -6735,32 +4408,6 @@ class BaseProjectManager(ABC):
         if x.activeViewModeId not in view_modes:
             raise KeyError(f"View mode {x.activeViewModeId} not found")
         current_view_mode = self._get_active_view_mode(project_state)
-        if x.activeViewModeId == current_view_mode.id:
-            project_top_level_sections = project_state.projectConfig.topLevelSections
-            project_viewport = project_state.projectConfig.viewport
-            project_viewport_initialized = (
-                project_state.projectConfig.viewportInitialized
-            )
-            is_top_level_sections_synced = (
-                current_view_mode.topLevelSections is project_top_level_sections
-                or current_view_mode.topLevelSections == project_top_level_sections
-            )
-            is_viewport_synced = (
-                current_view_mode.viewport is project_viewport
-                or current_view_mode.viewport == project_viewport
-            )
-            if (
-                is_top_level_sections_synced
-                and is_viewport_synced
-                and current_view_mode.viewportInitialized
-                == project_viewport_initialized
-            ):
-                return
-            current_view_mode.topLevelSections = project_top_level_sections
-            current_view_mode.viewport = project_viewport
-            current_view_mode.viewportInitialized = project_viewport_initialized
-            await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
-            return
         current_view_mode.topLevelSections = (
             project_state.projectConfig.topLevelSections
         )
@@ -6779,27 +4426,7 @@ class BaseProjectManager(ABC):
             next_view_mode.viewportInitialized
         )
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=x.projectConfigId,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        await self._broadcast_active_view_mode_patch(
-            project_config_id=x.projectConfigId,
-            active_view_mode_id=x.activeViewModeId,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_is_editing_view_mode(
@@ -6809,7 +4436,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = (
             not project_state.projectConfig.isEditingViewMode
         )
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_section_visibility(
@@ -6839,7 +4466,7 @@ class BaseProjectManager(ABC):
         next_visibility = not all_visible
         for section_id in x.sectionIds:
             visibility_by_section_id[section_id] = next_visibility
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_user_facing(
@@ -6848,14 +4475,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isTab = not view_mode.isTab
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
@@ -6863,7 +4490,7 @@ class BaseProjectManager(ABC):
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         normalized_name = validate_view_mode_name(project_state, x.viewModeId, x.name)
         view_mode.name = normalized_name
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_view_mode_sort_order(self, x: SetViewModeSortOrderRequest) -> None:
@@ -6886,14 +4513,11 @@ class BaseProjectManager(ABC):
             seen.add(view_mode_id)
         for index, view_mode_id in enumerate(ordered_ids):
             view_modes[view_mode_id].sortIndex = index
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
-        self.add_new_history_entry(
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         view_modes = project_state.projectConfig.viewModes
         if x.viewModeId not in view_modes:
@@ -6925,7 +4549,7 @@ class BaseProjectManager(ABC):
             )
         for index, view_mode in enumerate(sorted_view_modes):
             view_mode.sortIndex = index
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -6938,19 +4562,7 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
-        if (
-            project_config_has_codegen_language(
-                project_state.projectConfig,
-                ProjectCodegenLanguage.python,
-            )
-            and x.projectConfigId in self.gen_code
-        ):
-            await self.maybe_do_rename_refactor(
-                project_state,
-                x.projectConfigId,
-                DependencyGraph(project_state),
-            )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+        await self.update_and_broadcast_project_state(
             project_state,
             validate_name_rules=False,
         )
@@ -6967,15 +4579,10 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_tag_color(project_state, x.sectionId, x.tagColor)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -6989,15 +4596,10 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_style_color(project_state, x.sectionId, x.styleColor)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -7014,10 +4616,7 @@ class BaseProjectManager(ABC):
         set_meta_control_show_section_title(
             project_state, x.sectionId, x.showSectionTitle
         )
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_heading_as_section_name(
@@ -7027,18 +4626,13 @@ class BaseProjectManager(ABC):
         set_text_block_heading_as_section_name(
             project_state, x.sectionId, x.headingAsSectionName
         )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_master_font_size(
@@ -7046,10 +4640,7 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_master_font_size(project_state, x.sectionId, x.masterFontSizePx)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_meta_control_style(
@@ -7059,19 +4650,13 @@ class BaseProjectManager(ABC):
         set_text_block_meta_control_style(
             project_state, x.sectionId, x.metaControlStyle
         )
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_callable_hide_params(project_state, x.sectionId, x.hideParams)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_hide_unpinned_params(
@@ -7081,38 +4666,23 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
-        project_state.refresh_shown_param_ids_for_section(x.sectionId)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
-    @enqueue_method(
-        coalesce_key_fn=_set_section_column_width_enqueue_coalesce_key,
-        partition_key_fn=_set_section_column_width_enqueue_partition_key,
-    )
+    @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_parent_default_child_section_type(
@@ -7124,13 +4694,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.defaultChildSectionType,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_list_root_view_mode(self, x: SetListRootViewModeRequest):
@@ -7140,13 +4704,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.viewMode,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_task_board_section_state(self, x: SetTaskBoardSectionStateRequest):
@@ -7158,13 +4716,7 @@ class BaseProjectManager(ABC):
             x.columns,
             x.tasks,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_spreadsheet_file_path(self, x: SetSpreadsheetFilePathRequest):
@@ -7175,13 +4727,7 @@ class BaseProjectManager(ABC):
             x.filePath,
             x.activeSheet,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_spreadsheet_section_settings(
@@ -7196,24 +4742,13 @@ class BaseProjectManager(ABC):
             x.density,
             x.autoReloadOnExternalChange,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
-    @enqueue_method(
-        coalesce_key_fn=_set_browser_column_widths_enqueue_coalesce_key,
-        partition_key_fn=_set_browser_column_widths_enqueue_partition_key,
-    )
+    @enqueue_method
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
         self.add_new_history_entry(
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
-            section_impl_only_ids={x.sectionId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_column_widths(
@@ -7222,46 +4757,39 @@ class BaseProjectManager(ABC):
             x.columnWidth,
             x.typesColumnWidth,
         )
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        # Pure UI state: avoid running full `update()` (which can trigger expensive
+        # codegen/LSP refresh) for a simple view-mode toggle.
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        await self._broadcast_project_state_snapshot(project_state)
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_saved_searches(self, x: SetBrowserSavedSearchesRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_saved_searches(project_state, x.sectionId, x.savedSearches)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
@@ -7278,40 +4806,25 @@ class BaseProjectManager(ABC):
             x.searchEnabled,
             x.dictationMode,
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def get_chat_section_chat_id(
@@ -7337,55 +4850,14 @@ class BaseProjectManager(ABC):
             if run_ids:
                 return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return None
 
     @enqueue_method
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
-
-    def _collect_listener_emit_patch_scope(
-        self,
-        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
-    ) -> tuple[list[ID], list[ID]]:
-        code_obj_ids: list[ID] = []
-        section_ids: list[ID] = []
-        seen_code_obj_ids: set[ID] = set()
-        seen_section_ids: set[ID] = set()
-        for dependency_update in dependency_updates:
-            dependency_key = dependency_update.dependencyKey
-            if isinstance(dependency_key, SectionParamDependencyKey):
-                if dependency_key.codeObjId not in seen_code_obj_ids:
-                    seen_code_obj_ids.add(dependency_key.codeObjId)
-                    code_obj_ids.append(dependency_key.codeObjId)
-                if dependency_key.sectionId not in seen_section_ids:
-                    seen_section_ids.add(dependency_key.sectionId)
-                    section_ids.append(dependency_key.sectionId)
-                continue
-            if isinstance(dependency_key, SectionDependencyKey):
-                if dependency_key.sectionId in seen_section_ids:
-                    continue
-                seen_section_ids.add(dependency_key.sectionId)
-                section_ids.append(dependency_key.sectionId)
-                continue
-            raise TypeError(
-                f"Unsupported listener dependency key type: {dependency_key.type}"
-            )
-        return code_obj_ids, section_ids
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     async def _apply_listener_emit_updates_to_state(
         self,
@@ -7408,21 +4880,8 @@ class BaseProjectManager(ABC):
             )
 
         if dependency_updates:
-            code_obj_patch_ids, section_patch_ids = (
-                self._collect_listener_emit_patch_scope(dependency_updates)
-            )
-            section_patch_scope = (
-                self._build_section_patch_scope_with_codegen_singletons(
-                    project_config_id=project_state.projectConfig.id,
-                    section_ids=section_patch_ids,
-                )
-            )
-            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=code_obj_patch_ids,
-                section_ids=section_patch_scope,
-                validate_name_rules=False,
-                broadcast_name_validation_errors=False,
+            await self._update_and_broadcast_project_state_no_name_validation(
+                project_state
             )
 
         if artifact_payloads:
@@ -7453,35 +4912,19 @@ class BaseProjectManager(ABC):
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_image_area_image_path(project_state, x.sectionId, x.imagePath)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_area_data_path(self, x: SetChartAreaDataPathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_area_data_path(project_state, x.sectionId, x.dataPath)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_type(self, x: SetChartTypeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_type(project_state, x.sectionId, x.chartType)
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chart_settings(self, x: SetChartSettingsRequest):
@@ -7489,37 +4932,17 @@ class BaseProjectManager(ABC):
         set_chart_settings(
             project_state, x.sectionId, x.chartSettings, x.changedSettings
         )
-        await (
-            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-                project_state,
-                section_id=x.sectionId,
-                updateFileWatcher=False,
-            )
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def move_sections(self, x: MoveSectionsRequest):
         if not x.sectionIds:
             return
+        project_state = self.get_single_config_state(x.projectConfigId)
         if x.newParentId is None:
             if not x.positionsById:
                 raise KeyError("Expected positionsById when moving sections to pane.")
-        elif x.newIndex is None:
-            raise KeyError(
-                "Expected newIndex when moving sections into parent section."
-            )
-        history_section_ids = self._get_move_sections_history_section_ids_for_backend(
-            project_config_id=x.projectConfigId,
-            section_ids=x.sectionIds,
-            new_parent_id=x.newParentId,
-        )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=history_section_ids,
-            include_codegen_singletons=True,
-        )
-        project_state = self.get_single_config_state(x.projectConfigId)
-        if x.newParentId is None:
+            self.add_new_history_entry()
             for section_id in x.sectionIds:
                 position = x.positionsById.get(section_id)
                 if position is None:
@@ -7528,6 +4951,11 @@ class BaseProjectManager(ABC):
                     )
                 move_section_to_pane(project_state, section_id, position)
         else:
+            if x.newIndex is None:
+                raise KeyError(
+                    "Expected newIndex when moving sections into parent section."
+                )
+            self.add_new_history_entry()
             move_sections_to_parent_section(
                 project_state, x.newParentId, x.sectionIds, x.newIndex
             )
@@ -7543,26 +4971,12 @@ class BaseProjectManager(ABC):
                         x.newParentId,
                         terminal_id,
                     )
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
-        self._add_param_tree_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-            param_ids=x.paramIds,
-            new_parent_ids=[x.newParentId],
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
         move_params_to_parent(
             self.settings_file.settings,
             project_state,
@@ -7571,152 +4985,41 @@ class BaseProjectManager(ABC):
             x.newParentId,
             x.newIndex,
         )
-        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(
-                dict.fromkeys(
-                    [
-                        *parent_code_obj_ids_before,
-                        x.newParentId,
-                        *parent_code_obj_ids_after,
-                    ]
-                )
-            ),
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
-        history_param_ids = [param_id for move in x.moves for param_id in move.paramIds]
-        history_new_parent_ids = [move.newParentId for move in x.moves]
-        self._add_param_tree_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-            param_ids=history_param_ids,
-            new_parent_ids=history_new_parent_ids,
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        code_obj_ids_for_patch: list[ID] = []
+        next_state = copy.deepcopy(project_state)
         for move in x.moves:
-            parent_code_obj_ids_before = (
-                self._get_parent_code_obj_ids_for_section_params(
-                    project_state,
-                    x.sectionId,
-                    move.paramIds,
-                )
-            )
-            code_obj_ids_for_patch.extend(parent_code_obj_ids_before)
-            code_obj_ids_for_patch.append(move.newParentId)
             move_params_to_parent(
                 self.settings_file.settings,
-                project_state,
+                next_state,
                 x.sectionId,
                 move.paramIds,
                 move.newParentId,
                 move.newIndex,
             )
-            parent_code_obj_ids_after = (
-                self._get_parent_code_obj_ids_for_section_params(
-                    project_state,
-                    x.sectionId,
-                    move.paramIds,
-                )
-            )
-            code_obj_ids_for_patch.extend(parent_code_obj_ids_after)
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(dict.fromkeys(code_obj_ids_for_patch)),
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(next_state)
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
-        self._add_param_tree_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-            param_ids=x.paramIds,
-            new_parent_ids=self._get_indent_new_parent_ids_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-                param_ids=x.paramIds,
-            ),
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
         indent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
         )
-        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(
-                dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
-            ),
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def unindent_params(self, x: UnindentParamsRequest):
-        self._add_param_tree_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
-            param_ids=x.paramIds,
-            new_parent_ids=self._get_unindent_new_parent_ids_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-                param_ids=x.paramIds,
-            ),
-        )
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
         unindent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
         )
-        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
-            x.sectionId,
-            x.paramIds,
-        )
-        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-        )
-        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
-            code_obj_ids=list(
-                dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
-            ),
-            section_ids=section_patch_scope,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def group_sections(self, x: GroupSectionsRequest):
@@ -7731,42 +5034,25 @@ class BaseProjectManager(ABC):
                 project_config_id=x.projectConfigId,
             )
         else:
-            await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-                project_state
-            )
+            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def ungroup_groups(self, x: UngroupGroupsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         ungroup_groups(project_state, x.groupIds)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_param_selected(project_state, x.sectionId, x.paramInfoId)
-        await self._merge_and_broadcast_ui_only_section_impl_patch(
-            project_state,
-            section_id=x.sectionId,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def unselect_all_params(self, x: UnselectAllParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        selected_section_ids: list[ID] = []
-        for section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                continue
-            if section_impl.selectedParams:
-                selected_section_ids.append(section_id)
         unselect_all_params(project_state)
-        await self._merge_and_broadcast_ui_only_section_impl_patches(
-            project_state,
-            section_ids=selected_section_ids,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
@@ -7788,9 +5074,7 @@ class BaseProjectManager(ABC):
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         paste_sections(project_state, x.data, x.position, x.asRef)
-        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
@@ -7804,306 +5088,10 @@ class BaseProjectManager(ABC):
             raise KeyError("Missing default project config.")
         return self.get_single_config_state(default_id)
 
-    def _invalidate_single_config_state_cache(self) -> None:
-        self._single_config_state_cache_by_project_config.clear()
-        self._project_state_summary_cache_by_project_config.clear()
-        self._single_config_state_cache_revision = self.history.revision
-
-    def _prune_normalized_history_entry_tokens(self) -> None:
-        active_tokens = set(self.history.get_entry_tokens())
-        if len(self._normalized_history_entry_tokens) <= len(active_tokens):
-            return
-        self._normalized_history_entry_tokens.intersection_update(active_tokens)
-
-    def _prune_history_scope_by_entry_token(self) -> None:
-        active_tokens = set(self.history.get_entry_tokens())
-        stale_tokens = [
-            token
-            for token in self._history_scope_by_entry_token.keys()
-            if token not in active_tokens
-        ]
-        for token in stale_tokens:
-            self._history_scope_by_entry_token.pop(token, None)
-
-    def _prune_history_patch_scope_by_entry_token(self) -> None:
-        active_tokens = set(self.history.get_entry_tokens())
-        stale_tokens = [
-            token
-            for token in self._history_patch_scope_by_entry_token.keys()
-            if token not in active_tokens
-        ]
-        for token in stale_tokens:
-            self._history_patch_scope_by_entry_token.pop(token, None)
-
-    def _register_current_history_entry_scope(
-        self,
-        project_config_ids: set[ID] | None,
-    ) -> None:
-        current_entry_token = self.history.get_current_entry_token()
-        existing_scope = self._history_scope_by_entry_token.get(current_entry_token)
-        if (
-            existing_scope is None
-            and current_entry_token in self._history_scope_by_entry_token
-        ):
-            return
-        if project_config_ids is None:
-            self._history_scope_by_entry_token[current_entry_token] = None
-            return
-        new_scope = frozenset(project_config_ids)
-        if existing_scope is None:
-            self._history_scope_by_entry_token[current_entry_token] = new_scope
-            return
-        self._history_scope_by_entry_token[current_entry_token] = existing_scope.union(
-            new_scope
-        )
-
-    @staticmethod
-    def _clone_undo_redo_patch_scope_by_project_config(
-        scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope],
-    ) -> dict[ID, _UndoRedoProjectConfigPatchScope]:
-        return {
-            project_config_id: scope.clone()
-            for project_config_id, scope in scope_by_project_config.items()
-        }
-
-    @staticmethod
-    def _build_history_entry_undo_redo_patch_scope(
-        *,
-        project_config_id: ID | None,
-        project_config_only: bool,
-        include_project_config: bool,
-        include_project_config_targeted_patch_transport: bool,
-        section_impl_only_ids: set[ID] | None,
-        code_obj_only_ids: set[ID] | None,
-        app_definition_only: bool,
-    ) -> dict[ID, _UndoRedoProjectConfigPatchScope] | None:
-        if app_definition_only:
-            return None
-        if project_config_id is None:
-            return None
-        if project_config_only:
-            return {
-                project_config_id: _UndoRedoProjectConfigPatchScope(
-                    project_config_only=True
-                )
-            }
-        if include_project_config:
-            if not include_project_config_targeted_patch_transport:
-                return None
-            return {
-                project_config_id: _UndoRedoProjectConfigPatchScope(
-                    project_config_only=True,
-                    section_impl_ids=(
-                        set(section_impl_only_ids) if section_impl_only_ids else set()
-                    ),
-                    code_obj_ids=(
-                        set(code_obj_only_ids) if code_obj_only_ids else set()
-                    ),
-                )
-            }
-        if section_impl_only_ids is None and code_obj_only_ids is None:
-            return None
-        return {
-            project_config_id: _UndoRedoProjectConfigPatchScope(
-                section_impl_ids=(
-                    set(section_impl_only_ids) if section_impl_only_ids else set()
-                ),
-                code_obj_ids=(set(code_obj_only_ids) if code_obj_only_ids else set()),
-            )
-        }
-
-    def _register_history_entry_undo_redo_patch_scope(
-        self,
-        *,
-        history_entry_token: int,
-        patch_scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope]
-        | None,
-    ) -> None:
-        if history_entry_token not in self.history.get_entry_tokens():
-            return
-        has_existing_scope = (
-            history_entry_token in self._history_patch_scope_by_entry_token
-        )
-        existing_scope = self._history_patch_scope_by_entry_token.get(
-            history_entry_token
-        )
-        if has_existing_scope and existing_scope is None:
-            return
-        if patch_scope_by_project_config is None:
-            self._history_patch_scope_by_entry_token[history_entry_token] = None
-            return
-        if existing_scope is None:
-            self._history_patch_scope_by_entry_token[history_entry_token] = (
-                self._clone_undo_redo_patch_scope_by_project_config(
-                    patch_scope_by_project_config
-                )
-            )
-            return
-        for (
-            project_config_id,
-            project_config_scope,
-        ) in patch_scope_by_project_config.items():
-            existing_project_config_scope = existing_scope.get(project_config_id)
-            if existing_project_config_scope is None:
-                existing_scope[project_config_id] = project_config_scope.clone()
-                continue
-            existing_project_config_scope.merge(project_config_scope)
-
-    def _register_current_history_entry_undo_redo_patch_scope(
-        self,
-        patch_scope_by_project_config: dict[ID, _UndoRedoProjectConfigPatchScope]
-        | None,
-    ) -> None:
-        self._register_history_entry_undo_redo_patch_scope(
-            history_entry_token=self.history.get_current_entry_token(),
-            patch_scope_by_project_config=patch_scope_by_project_config,
-        )
-
-    def _register_current_history_entry_patch_scope_from_patch_transport(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        section_ids: list[ID] | set[ID] | None = None,
-        code_obj_ids: list[ID] | set[ID] | None = None,
-        include_project_config: bool = False,
-        history_entry_token: int | None = None,
-    ) -> None:
-        scoped_section_ids: set[ID] = set()
-        if section_ids:
-            for section_id in section_ids:
-                if section_id not in project_state.sections:
-                    continue
-                scoped_section_ids.add(section_id)
-        scoped_code_obj_ids: set[ID] = set()
-        if code_obj_ids:
-            for code_obj_id in code_obj_ids:
-                if code_obj_id not in project_state.codeObjs:
-                    continue
-                scoped_code_obj_ids.add(code_obj_id)
-        if (
-            not include_project_config
-            and not scoped_section_ids
-            and not scoped_code_obj_ids
-        ):
-            return
-        target_entry_token = (
-            self.history.get_current_entry_token()
-            if history_entry_token is None
-            else history_entry_token
-        )
-        self._register_history_entry_undo_redo_patch_scope(
-            history_entry_token=target_entry_token,
-            patch_scope_by_project_config={
-                project_state.projectConfig.id: _UndoRedoProjectConfigPatchScope(
-                    project_config_only=include_project_config,
-                    section_impl_ids=scoped_section_ids,
-                    code_obj_ids=scoped_code_obj_ids,
-                )
-            },
-        )
-
-    def _collect_undo_navigation_entry_tokens(self, steps: int) -> tuple[int, ...]:
-        entry_tokens = self.history.get_entry_tokens()
-        current_entry_token = self.history.get_current_entry_token()
-        if current_entry_token not in entry_tokens:
-            raise KeyError(
-                f"Unknown current history entry token: {current_entry_token}"
-            )
-        current_index = entry_tokens.index(current_entry_token)
-        target_index = max(0, current_index - steps)
-        if target_index == current_index:
-            return ()
-        return entry_tokens[target_index + 1 : current_index + 1]
-
-    def _collect_redo_navigation_entry_tokens(self, steps: int) -> tuple[int, ...]:
-        entry_tokens = self.history.get_entry_tokens()
-        current_entry_token = self.history.get_current_entry_token()
-        if current_entry_token not in entry_tokens:
-            raise KeyError(
-                f"Unknown current history entry token: {current_entry_token}"
-            )
-        current_index = entry_tokens.index(current_entry_token)
-        target_index = min(len(entry_tokens) - 1, current_index + steps)
-        if target_index == current_index:
-            return ()
-        return entry_tokens[current_index + 1 : target_index + 1]
-
-    def _resolve_project_config_scope_for_navigation_tokens(
-        self,
-        navigation_entry_tokens: tuple[int, ...],
-    ) -> set[ID] | None:
-        if not navigation_entry_tokens:
-            return set()
-        resolved_scope: set[ID] = set()
-        for entry_token in navigation_entry_tokens:
-            if entry_token not in self._history_scope_by_entry_token:
-                return None
-            entry_scope = self._history_scope_by_entry_token[entry_token]
-            if entry_scope is None:
-                return None
-            resolved_scope.update(entry_scope)
-        return resolved_scope
-
-    def _resolve_undo_redo_patch_scope_for_navigation_tokens(
-        self,
-        navigation_entry_tokens: tuple[int, ...],
-    ) -> dict[ID, _UndoRedoProjectConfigPatchScope] | None:
-        if not navigation_entry_tokens:
-            return {}
-        resolved_scope_by_project_config: dict[
-            ID, _UndoRedoProjectConfigPatchScope
-        ] = {}
-        for entry_token in navigation_entry_tokens:
-            if entry_token not in self._history_patch_scope_by_entry_token:
-                return None
-            entry_scope_by_project_config = self._history_patch_scope_by_entry_token[
-                entry_token
-            ]
-            if entry_scope_by_project_config is None:
-                return None
-            for (
-                project_config_id,
-                project_config_scope,
-            ) in entry_scope_by_project_config.items():
-                resolved_project_config_scope = resolved_scope_by_project_config.get(
-                    project_config_id
-                )
-                if resolved_project_config_scope is None:
-                    resolved_scope_by_project_config[project_config_id] = (
-                        project_config_scope.clone()
-                    )
-                    continue
-                resolved_project_config_scope.merge(project_config_scope)
-        return resolved_scope_by_project_config
-
-    def _refresh_single_config_state_cache_for_revision(self) -> None:
-        history_revision = self.history.revision
-        if history_revision == self._single_config_state_cache_revision:
-            return
-        self._single_config_state_cache_by_project_config.clear()
-        self._project_state_summary_cache_by_project_config.clear()
-        self._single_config_state_cache_revision = history_revision
-
     def get_single_config_state(self, projectConfigId: ID):
-        self._refresh_single_config_state_cache_for_revision()
-        backend = self.project_state_backend
-        if projectConfigId not in backend.projectConfigs:
-            self._single_config_state_cache_by_project_config.pop(projectConfigId, None)
-            return convert_backend_to_single_config(backend, projectConfigId)
-        if projectConfigId not in self._single_config_state_cache_by_project_config:
-            self._single_config_state_cache_by_project_config[projectConfigId] = (
-                convert_backend_to_single_config(backend, projectConfigId)
-            )
-        return self._single_config_state_cache_by_project_config[projectConfigId]
-
-    def get_project_state_summary(self, projectConfigId: ID):
-        self._refresh_single_config_state_cache_for_revision()
-        if projectConfigId not in self._project_state_summary_cache_by_project_config:
-            project_state = self.get_single_config_state(projectConfigId)
-            self._project_state_summary_cache_by_project_config[projectConfigId] = (
-                build_project_state_summary(project_state)
-            )
-        return self._project_state_summary_cache_by_project_config[projectConfigId]
+        return convert_backend_to_single_config(
+            self.project_state_backend, projectConfigId
+        )
 
     def _find_section_ids_for_code_obj(
         self,
@@ -8124,882 +5112,6 @@ class BaseProjectManager(ABC):
         if not matches:
             raise KeyError(f"Code obj {code_obj_id} not found in any section.")
         return matches
-
-    def _get_param_container_code_obj_id_for_section(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-    ) -> ID:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            BaseSectionWithParamsImpl,
-        )
-        if isinstance(section_impl, CallableSectionImpl):
-            if section_impl.callable is None:
-                raise KeyError(f"Section {section_id} has no callable root code obj.")
-            return section_impl.callable
-        if isinstance(section_impl, BaseDictSectionImpl):
-            if section_impl.topLevelParamId is None:
-                raise KeyError(f"Section {section_id} has no top-level param.")
-            return section_impl.topLevelParamId
-        raise TypeError(
-            f"Section {section_id} has unsupported param container type {section_impl.type}."
-        )
-
-    def _get_parent_code_obj_ids_for_section_params(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-        param_ids: list[ID],
-    ) -> list[ID]:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            BaseSectionWithParamsImpl,
-        )
-        root_id: ID | None
-        if isinstance(section_impl, CallableSectionImpl):
-            root_id = section_impl.callable
-        elif isinstance(section_impl, BaseDictSectionImpl):
-            root_id = section_impl.topLevelParamId
-        else:
-            raise TypeError(
-                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
-            )
-        if root_id is None:
-            return []
-        if root_id not in section_impl.codeObjVariantMap:
-            raise KeyError(
-                f"Root param container {root_id} missing for section {section_id}"
-            )
-        traversal = traverse_hierarchy(
-            project_state.codeObjs,
-            project_state.codeObjImpls,
-            project_state.codeObjVariants,
-            section_impl.codeObjVariantMap,
-            top_level_ids=[],
-            root_id=root_id,
-            options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
-        )
-        parent_code_obj_ids: list[ID] = []
-        seen_parent_ids: set[ID] = set()
-        for param_id in dict.fromkeys(param_ids):
-            parent_id = traversal.parent_map.get(param_id)
-            if parent_id is None:
-                continue
-            if parent_id in seen_parent_ids:
-                continue
-            seen_parent_ids.add(parent_id)
-            parent_code_obj_ids.append(parent_id)
-        return parent_code_obj_ids
-
-    def _find_section_ids_for_code_obj_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        code_obj_id: ID,
-    ) -> list[ID]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        matches: list[ID] = []
-        for section_id, section_variant_id in project_config.sectionVariantMap.items():
-            if section_id not in backend.sections:
-                raise KeyError(f"Missing section {section_id} in backend state.")
-            if section_variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {section_variant_id} in backend state."
-                )
-            section_variant = backend.sectionVariants[section_variant_id]
-            section_impl_id = section_variant.impl
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            section_impl = get_effective_impl(
-                backend.sectionImpls[section_impl_id],
-                backend.sections[section_id],
-                section_variant,
-            )
-            if isinstance(section_impl, BaseSectionWithParamsImpl):
-                if code_obj_id in section_impl.codeObjVariantMap:
-                    matches.append(section_id)
-                continue
-            if isinstance(section_impl, MetaControlSectionImpl):
-                if code_obj_id in section_impl.codeObjVariantMap:
-                    matches.append(section_id)
-        if not matches:
-            raise KeyError(f"Code obj {code_obj_id} not found in any section.")
-        return matches
-
-    def _get_param_section_impl_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> BaseSectionWithParamsImpl:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        if section_id not in project_config.sectionVariantMap:
-            raise KeyError(
-                f"Section {section_id} missing from project config {project_config_id}."
-            )
-        if section_id not in backend.sections:
-            raise KeyError(f"Section {section_id} missing from backend state.")
-        section_variant_id = project_config.sectionVariantMap[section_id]
-        if section_variant_id not in backend.sectionVariants:
-            raise KeyError(
-                f"Section variant {section_variant_id} missing from backend state."
-            )
-        section_variant = backend.sectionVariants[section_variant_id]
-        section_impl_id = section_variant.impl
-        if section_impl_id not in backend.sectionImpls:
-            raise KeyError(
-                f"Section impl {section_impl_id} missing from backend state."
-            )
-        section_impl = get_effective_impl(
-            backend.sectionImpls[section_impl_id],
-            backend.sections[section_id],
-            section_variant,
-        )
-        if not isinstance(section_impl, BaseSectionWithParamsImpl):
-            raise TypeError(
-                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
-            )
-        return section_impl
-
-    def _get_parent_section_map_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-    ) -> dict[ID, ID | None]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        parent_map: dict[ID, ID | None] = {
-            section_id: None for section_id in project_config.sectionVariantMap
-        }
-        for section_id in project_config.sectionVariantMap:
-            section_impl = self._get_active_section_impl_from_backend(
-                project_config,
-                section_id=section_id,
-            )
-            if not isinstance(section_impl, BaseParentSectionImpl):
-                continue
-            for child_id in section_impl.children:
-                if child_id not in parent_map:
-                    raise KeyError(
-                        f"Section {child_id} missing from project config {project_config_id}."
-                    )
-                existing_parent_id = parent_map[child_id]
-                if existing_parent_id is not None and existing_parent_id != section_id:
-                    raise ValueError(
-                        f"Section {child_id} has multiple parents: {existing_parent_id} and {section_id}."
-                    )
-                parent_map[child_id] = section_id
-        return parent_map
-
-    def _get_code_section_attached_terminal_id_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> ID | None:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        section_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=section_id,
-        )
-        if not isinstance(section_impl, BaseCodeSectionImpl):
-            raise TypeError(f"Section {section_id} is not a code section.")
-        child_ids = list(section_impl.children)
-        if len(child_ids) > 1:
-            raise ValueError(f"Code section {section_id} has multiple children.")
-        terminal_section_id = (
-            child_ids[0] if child_ids else section_impl.attachedTerminalSectionId
-        )
-        if terminal_section_id is None:
-            return None
-        if terminal_section_id not in project_config.sectionVariantMap:
-            return None
-        return terminal_section_id
-
-    def _get_parent_section_id_for_incrementer_create_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        called_by: ID,
-    ) -> ID:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        called_by_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=called_by,
-        )
-        if isinstance(called_by_impl, BaseParentSectionImpl):
-            return called_by
-        parent_map = self._get_parent_section_map_for_backend(
-            project_config_id=project_config_id
-        )
-        parent_id = parent_map.get(called_by)
-        if parent_id is None:
-            raise ValueError(f"Section {called_by} does not have a parent section.")
-        return parent_id
-
-    def _get_decrementer_delete_section_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        called_by: ID,
-        num_children: int,
-    ) -> list[ID]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        called_by_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=called_by,
-        )
-        if isinstance(called_by_impl, BaseParentSectionImpl):
-            return list(called_by_impl.children[:num_children])
-        parent_map = self._get_parent_section_map_for_backend(
-            project_config_id=project_config_id
-        )
-        parent_id = parent_map.get(called_by)
-        if parent_id is None:
-            raise ValueError(f"Section {called_by} does not have a parent section.")
-        parent_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=parent_id,
-        )
-        if not isinstance(parent_impl, BaseParentSectionImpl):
-            raise TypeError(
-                f"Section {parent_id} does not support child section deletion."
-            )
-        start_idx = parent_impl.children.index(called_by) + 1
-        return list(parent_impl.children[start_idx : start_idx + num_children])
-
-    def _get_delete_sections_history_scope_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-    ) -> tuple[set[ID], set[ID]]:
-        project_state = self.get_single_config_state(project_config_id)
-        if not section_ids:
-            return set(), set()
-        ordered_section_ids = list(dict.fromkeys(section_ids))
-        for section_id in ordered_section_ids:
-            if section_id not in project_state.projectConfig.sectionVariantMap:
-                raise KeyError(
-                    f"Section {section_id} missing from project config {project_config_id}."
-                )
-        to_delete_ids = get_all_sections_for_deletion_or_copying(
-            project_state,
-            ordered_section_ids,
-        )
-        to_delete_set = set(to_delete_ids)
-        history_section_ids: set[ID] = set()
-        for section_id in to_delete_ids:
-            parent_id = project_state.parentSectionMap.get(section_id)
-            if parent_id is not None:
-                history_section_ids.add(parent_id)
-
-        remaining_target_keys: set[tuple[ID, ID, ID]] = set()
-        for edge in project_state.projectConfig.edges:
-            if (
-                edge.sourceSectionId in to_delete_set
-                or edge.targetSectionId in to_delete_set
-            ):
-                continue
-            remaining_target_keys.add(
-                (edge.targetSectionId, edge.targetVariantId, edge.targetPortId)
-            )
-
-        history_code_obj_ids: set[ID] = set()
-        for edge in project_state.projectConfig.edges:
-            if (
-                edge.sourceSectionId not in to_delete_set
-                and edge.targetSectionId not in to_delete_set
-            ):
-                continue
-            if edge.targetSectionId in to_delete_set:
-                continue
-            if edge.targetSectionId not in project_state.sections:
-                continue
-            if (
-                edge.targetSectionId
-                not in project_state.projectConfig.sectionVariantMap
-            ):
-                raise KeyError(
-                    f"Section {edge.targetSectionId} missing active variant for edge cleanup."
-                )
-            target_key = (edge.targetSectionId, edge.targetVariantId, edge.targetPortId)
-            if target_key in remaining_target_keys:
-                continue
-            active_variant_id = project_state.projectConfig.sectionVariantMap[
-                edge.targetSectionId
-            ]
-            if active_variant_id != edge.targetVariantId:
-                continue
-            if edge.targetPortId not in project_state.codeObjs:
-                raise KeyError(f"Param {edge.targetPortId} missing for edge cleanup.")
-            history_code_obj_ids.add(edge.targetPortId)
-        return history_section_ids, history_code_obj_ids
-
-    def _get_create_new_section_variant_history_scope_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> tuple[set[ID], set[ID]]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        section_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=section_id,
-        )
-        history_section_ids: set[ID] = {section_id}
-        history_code_obj_ids: set[ID] = set()
-        if isinstance(section_impl, BaseSectionWithParamsImpl):
-            history_code_obj_ids.update(section_impl.codeObjVariantMap.keys())
-        return history_section_ids, history_code_obj_ids
-
-    def _get_move_sections_history_section_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-        new_parent_id: ID | None,
-    ) -> set[ID]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        parent_map = self._get_parent_section_map_for_backend(
-            project_config_id=project_config_id
-        )
-        history_section_ids: set[ID] = set()
-        ordered_section_ids = list(dict.fromkeys(section_ids))
-        for section_id in ordered_section_ids:
-            if section_id not in parent_map:
-                raise KeyError(
-                    f"Section {section_id} missing from project config {project_config_id}."
-                )
-            history_section_ids.add(section_id)
-            parent_id = parent_map[section_id]
-            if parent_id is not None:
-                history_section_ids.add(parent_id)
-
-        if new_parent_id is None:
-            return history_section_ids
-        if new_parent_id not in parent_map:
-            raise KeyError(
-                f"Section {new_parent_id} missing from project config {project_config_id}."
-            )
-        history_section_ids.add(new_parent_id)
-        new_parent_impl = self._get_active_section_impl_from_backend(
-            project_config,
-            section_id=new_parent_id,
-        )
-        if isinstance(new_parent_impl, BaseCodeSectionImpl):
-            terminal_section_id = new_parent_impl.attachedTerminalSectionId
-            if terminal_section_id is not None:
-                if terminal_section_id not in parent_map:
-                    raise KeyError(
-                        f"Section {terminal_section_id} missing from project config {project_config_id}."
-                    )
-                history_section_ids.add(terminal_section_id)
-            elif new_parent_impl.children:
-                first_child_id = new_parent_impl.children[0]
-                if first_child_id not in parent_map:
-                    raise KeyError(
-                        f"Section {first_child_id} missing from project config {project_config_id}."
-                    )
-                history_section_ids.add(first_child_id)
-        return history_section_ids
-
-    def _get_callable_history_code_obj_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> set[ID]:
-        section_impl = self._get_param_section_impl_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
-        )
-        if not isinstance(section_impl, CallableSectionImpl):
-            raise TypeError(
-                f"Section {section_id} has unsupported callable history type {section_impl.type}."
-            )
-        history_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
-        if section_impl.callable is not None:
-            history_code_obj_ids.add(section_impl.callable)
-        return history_code_obj_ids
-
-    def _get_callable_history_code_obj_ids_for_project_state(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-    ) -> set[ID]:
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            CallableSectionImpl,
-        )
-        history_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
-        if section_impl.callable is not None:
-            history_code_obj_ids.add(section_impl.callable)
-        return history_code_obj_ids
-
-    def _get_add_kwarg_history_scope_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> tuple[set[ID], set[ID]]:
-        section_impl = self._get_param_section_impl_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
-        )
-        history_section_ids: set[ID] = {section_id}
-        history_code_obj_ids: set[ID] = set()
-        if isinstance(section_impl, CallableSectionImpl):
-            if section_impl.callable is None:
-                raise KeyError(f"Section {section_id} has no callable root code obj.")
-            history_code_obj_ids.add(section_impl.callable)
-            return history_section_ids, history_code_obj_ids
-        if isinstance(section_impl, BaseDictSectionImpl):
-            top_level_param_id = section_impl.topLevelParamId
-            if top_level_param_id is not None:
-                history_code_obj_ids.add(top_level_param_id)
-                history_section_ids.update(
-                    self._find_section_ids_for_code_obj_for_backend(
-                        project_config_id=project_config_id,
-                        code_obj_id=top_level_param_id,
-                    )
-                )
-            return history_section_ids, history_code_obj_ids
-        raise TypeError(
-            f"Section {section_id} has unsupported add_kwarg history type {section_impl.type}."
-        )
-
-    def _get_delete_kwarg_history_targets_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> tuple[ID, ID, bool]:
-        backend = self.project_state_backend
-        section_impl = self._get_param_section_impl_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
-        )
-        root_code_obj_id: ID | None
-        if isinstance(section_impl, CallableSectionImpl):
-            root_code_obj_id = section_impl.callable
-            if root_code_obj_id is None:
-                raise ValueError
-        elif isinstance(section_impl, BaseDictSectionImpl):
-            root_code_obj_id = section_impl.topLevelParamId
-            if root_code_obj_id is None:
-                raise ValueError
-        else:
-            raise TypeError(
-                f"Section {section_id} has unsupported delete_kwarg history type {section_impl.type}."
-            )
-        if root_code_obj_id not in section_impl.codeObjVariantMap:
-            raise KeyError(
-                f"Root param container {root_code_obj_id} missing for section {section_id}"
-            )
-        root_variant_id = section_impl.codeObjVariantMap[root_code_obj_id]
-        if root_variant_id not in backend.codeObjVariants:
-            raise KeyError(
-                f"Missing code obj variant {root_variant_id} in backend state."
-            )
-        root_variant = backend.codeObjVariants[root_variant_id]
-        if root_code_obj_id not in backend.codeObjs:
-            raise KeyError(f"Missing code obj {root_code_obj_id} in backend state.")
-        root_impl_id = root_variant.impl
-        if root_impl_id not in backend.codeObjImpls:
-            raise KeyError(f"Missing code obj impl {root_impl_id} in backend state.")
-        root_impl = get_effective_impl(
-            backend.codeObjImpls[root_impl_id],
-            backend.codeObjs[root_code_obj_id],
-            root_variant,
-        )
-        if not isinstance(root_impl, BaseParentCodeObjImpl):
-            raise TypeError(
-                f"Code obj {root_code_obj_id} is not a parent impl for section {section_id}."
-            )
-        if not root_impl.children:
-            raise ValueError(f"Section {section_id} has no kwargs to delete.")
-        removed_param_id = root_impl.children[-1]
-        removed_param_was_edge_input = removed_param_id in section_impl.edgeInputParams
-        return root_code_obj_id, removed_param_id, removed_param_was_edge_input
-
-    def _get_delete_selected_params_history_targets_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        param_ids: list[ID],
-    ) -> tuple[list[ID], bool]:
-        backend = self.project_state_backend
-        section_impl, parent_map = (
-            self._get_param_section_impl_and_parent_map_for_backend(
-                project_config_id=project_config_id,
-                section_id=section_id,
-            )
-        )
-        parent_code_obj_ids: list[ID] = []
-        seen_parent_ids: set[ID] = set()
-        edge_input_param_ids = set(section_impl.edgeInputParams)
-        deleted_params_touch_edge_inputs = False
-        for param_id in dict.fromkeys(param_ids):
-            parent_id = parent_map.get(param_id)
-            if parent_id is not None and parent_id not in seen_parent_ids:
-                seen_parent_ids.add(parent_id)
-                parent_code_obj_ids.append(parent_id)
-            if deleted_params_touch_edge_inputs or param_id not in edge_input_param_ids:
-                continue
-            if param_id not in section_impl.codeObjVariantMap:
-                continue
-            if param_id not in backend.codeObjs:
-                continue
-            param_variant_id = section_impl.codeObjVariantMap[param_id]
-            if param_variant_id not in backend.codeObjVariants:
-                continue
-            param_variant = backend.codeObjVariants[param_variant_id]
-            param_impl_id = param_variant.impl
-            if param_impl_id not in backend.codeObjImpls:
-                continue
-            param_impl = get_effective_impl(
-                backend.codeObjImpls[param_impl_id],
-                backend.codeObjs[param_id],
-                param_variant,
-            )
-            if (
-                isinstance(param_impl, BaseParamCodeObjImpl)
-                and param_impl.coreNameEditable
-                and parent_id is not None
-            ):
-                deleted_params_touch_edge_inputs = True
-        return parent_code_obj_ids, deleted_params_touch_edge_inputs
-
-    def _get_param_section_impl_and_parent_map_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> tuple[BaseSectionWithParamsImpl, dict[ID, ID | None]]:
-        backend = self.project_state_backend
-        section_impl = self._get_param_section_impl_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
-        )
-        if isinstance(section_impl, CallableSectionImpl):
-            root_id: ID | None = section_impl.callable
-        elif isinstance(section_impl, BaseDictSectionImpl):
-            root_id = section_impl.topLevelParamId
-        else:
-            raise TypeError(
-                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
-            )
-        if root_id is None:
-            return section_impl, {}
-        if root_id not in section_impl.codeObjVariantMap:
-            raise KeyError(
-                f"Root param container {root_id} missing for section {section_id}"
-            )
-        traversal = traverse_hierarchy(
-            backend.codeObjs,
-            backend.codeObjImpls,
-            backend.codeObjVariants,
-            section_impl.codeObjVariantMap,
-            top_level_ids=[],
-            root_id=root_id,
-            options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
-        )
-        return section_impl, traversal.parent_map
-
-    def _get_param_move_history_code_obj_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        param_ids: list[ID],
-        new_parent_ids: list[ID],
-    ) -> set[ID]:
-        section_impl, parent_map = (
-            self._get_param_section_impl_and_parent_map_for_backend(
-                project_config_id=project_config_id,
-                section_id=section_id,
-            )
-        )
-        history_code_obj_ids: set[ID] = set()
-        for param_id in dict.fromkeys(param_ids):
-            parent_id = parent_map.get(param_id)
-            if parent_id is None:
-                continue
-            history_code_obj_ids.add(parent_id)
-        active_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
-        for new_parent_id in new_parent_ids:
-            if new_parent_id in active_code_obj_ids:
-                history_code_obj_ids.add(new_parent_id)
-        return history_code_obj_ids
-
-    def _get_indent_new_parent_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        param_ids: list[ID],
-    ) -> set[ID]:
-        section_impl, parent_map = (
-            self._get_param_section_impl_and_parent_map_for_backend(
-                project_config_id=project_config_id,
-                section_id=section_id,
-            )
-        )
-        ordered_param_ids = list(dict.fromkeys(param_ids))
-        if not ordered_param_ids:
-            return set()
-
-        selected_parent_ids: list[ID] = []
-        for param_id in ordered_param_ids:
-            parent_id = parent_map.get(param_id)
-            if parent_id is None:
-                continue
-            if parent_id in selected_parent_ids:
-                continue
-            selected_parent_ids.append(parent_id)
-        if len(selected_parent_ids) != 1:
-            return set()
-        parent_id = selected_parent_ids[0]
-
-        if parent_id not in section_impl.codeObjVariantMap:
-            return set()
-        backend = self.project_state_backend
-        parent_variant_id = section_impl.codeObjVariantMap[parent_id]
-        if parent_variant_id not in backend.codeObjVariants:
-            raise KeyError(
-                f"Missing code obj variant {parent_variant_id} in backend state."
-            )
-        parent_variant = backend.codeObjVariants[parent_variant_id]
-        if parent_id not in backend.codeObjs:
-            raise KeyError(f"Missing code obj {parent_id} in backend state.")
-        parent_impl_id = parent_variant.impl
-        if parent_impl_id not in backend.codeObjImpls:
-            raise KeyError(f"Missing code obj impl {parent_impl_id} in backend state.")
-        parent_impl = get_effective_impl(
-            backend.codeObjImpls[parent_impl_id],
-            backend.codeObjs[parent_id],
-            parent_variant,
-        )
-        if not isinstance(parent_impl, BaseParentCodeObjImpl):
-            return set()
-
-        children = list(parent_impl.children)
-        selected_set = set(ordered_param_ids)
-        ordered_selected_ids = [
-            child_id for child_id in children if child_id in selected_set
-        ]
-        if len(ordered_selected_ids) != len(selected_set):
-            return set()
-        child_indices = {child_id: idx for idx, child_id in enumerate(children)}
-        groups: list[list[ID]] = []
-        current_group: list[ID] = []
-        for child_id in children:
-            if child_id in selected_set:
-                current_group.append(child_id)
-                continue
-            if current_group:
-                groups.append(current_group)
-                current_group = []
-        if current_group:
-            groups.append(current_group)
-
-        new_parent_ids: set[ID] = set()
-        for group in groups:
-            first_id = group[0]
-            first_index = child_indices[first_id]
-            for idx in range(first_index - 1, -1, -1):
-                candidate = children[idx]
-                if candidate in selected_set:
-                    continue
-                if candidate in section_impl.codeObjVariantMap:
-                    new_parent_ids.add(candidate)
-                break
-        return new_parent_ids
-
-    def _get_unindent_new_parent_ids_for_backend(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        param_ids: list[ID],
-    ) -> set[ID]:
-        section_impl, parent_map = (
-            self._get_param_section_impl_and_parent_map_for_backend(
-                project_config_id=project_config_id,
-                section_id=section_id,
-            )
-        )
-        ordered_param_ids = list(dict.fromkeys(param_ids))
-        if not ordered_param_ids:
-            return set()
-
-        selected_parent_ids: list[ID] = []
-        for param_id in ordered_param_ids:
-            parent_id = parent_map.get(param_id)
-            if parent_id is None:
-                continue
-            if parent_id in selected_parent_ids:
-                continue
-            selected_parent_ids.append(parent_id)
-
-        active_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
-        new_parent_ids: set[ID] = set()
-        for parent_id in selected_parent_ids:
-            grandparent_id = parent_map.get(parent_id)
-            if grandparent_id is None:
-                continue
-            if grandparent_id in active_code_obj_ids:
-                new_parent_ids.add(grandparent_id)
-        return new_parent_ids
-
-    def _add_param_tree_scoped_history_entry(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        param_ids: list[ID],
-        new_parent_ids: list[ID] | set[ID],
-    ) -> None:
-        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
-            param_ids=param_ids,
-            new_parent_ids=list(new_parent_ids),
-        )
-        scoped_section_ids = self._get_codegen_singleton_section_ids_for_history_entry(
-            project_config_id
-        )
-        scoped_section_ids.add(section_id)
-        if history_code_obj_ids:
-            self.add_new_history_entry(
-                project_config_id=project_config_id,
-                code_obj_only_ids=history_code_obj_ids,
-                section_impl_only_ids=scoped_section_ids,
-            )
-            return
-        self.add_new_history_entry(
-            project_config_id=project_config_id,
-            section_impl_only_ids=scoped_section_ids,
-        )
-
-    def _add_section_and_code_obj_scoped_history_entry(
-        self,
-        *,
-        project_config_id: ID,
-        code_obj_ids: list[ID] | set[ID] | None = None,
-        section_ids: list[ID] | set[ID] | None = None,
-        include_codegen_singletons: bool = False,
-    ) -> None:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        scoped_section_ids: set[ID] = set(section_ids) if section_ids else set()
-        if include_codegen_singletons:
-            scoped_section_ids.update(
-                self._get_codegen_singleton_section_ids_for_history_entry(
-                    project_config_id
-                )
-            )
-
-        scoped_code_obj_ids: set[ID] = set()
-        if code_obj_ids:
-            scoped_code_obj_ids = self._build_scoped_code_obj_history_ids(
-                backend=backend,
-                project_config_id=project_config_id,
-                code_obj_ids=code_obj_ids,
-            )
-
-        if not scoped_section_ids and not scoped_code_obj_ids:
-            self.add_new_history_entry(
-                project_config_id=project_config_id,
-                project_config_only=True,
-            )
-            return
-
-        self.add_new_history_entry(
-            project_config_id=project_config_id,
-            section_impl_only_ids=(scoped_section_ids if scoped_section_ids else None),
-            code_obj_only_ids=scoped_code_obj_ids if scoped_code_obj_ids else None,
-        )
-
-    def _add_project_config_and_scoped_history_entry(
-        self,
-        *,
-        project_config_id: ID,
-        code_obj_ids: list[ID] | set[ID] | None = None,
-        section_ids: list[ID] | set[ID] | None = None,
-        include_codegen_singletons: bool = False,
-        include_project_config_targeted_patch_transport: bool = False,
-    ) -> None:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        scoped_section_ids: set[ID] = set(section_ids) if section_ids else set()
-        if include_codegen_singletons:
-            scoped_section_ids.update(
-                self._get_codegen_singleton_section_ids_for_history_entry(
-                    project_config_id
-                )
-            )
-
-        scoped_code_obj_ids: set[ID] = set()
-        if code_obj_ids:
-            scoped_code_obj_ids = self._build_scoped_code_obj_history_ids(
-                backend=backend,
-                project_config_id=project_config_id,
-                code_obj_ids=code_obj_ids,
-            )
-
-        if not scoped_section_ids and not scoped_code_obj_ids:
-            self.add_new_history_entry(
-                project_config_id=project_config_id,
-                project_config_only=True,
-            )
-            return
-
-        self.add_new_history_entry(
-            project_config_id=project_config_id,
-            include_project_config=True,
-            include_project_config_targeted_patch_transport=(
-                include_project_config_targeted_patch_transport
-            ),
-            section_impl_only_ids=(scoped_section_ids if scoped_section_ids else None),
-            code_obj_only_ids=scoped_code_obj_ids if scoped_code_obj_ids else None,
-        )
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
@@ -9032,1072 +5144,16 @@ class BaseProjectManager(ABC):
             validate_name_rules=False,
         )
 
-    async def _update_and_broadcast_structural_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=validate_name_rules,
-        )
-        next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    suppress_unchanged_broadcast=False,
-                )
-            return
-        await self._broadcast_structural_patch(
-            project_state=project_state,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(
-                project_state,
-                suppress_unchanged_broadcast=False,
-            )
-
-    async def _merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        project_config_id = project_state.projectConfig.id
-        self._cancel_pending_deferred_codegen_refresh(project_config_id)
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            project_state.validate_for_update(
-                validate_code_file_bindings=True,
-                validate_name_rules=validate_name_rules,
-            )
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=updateFileWatcher,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    suppress_unchanged_broadcast=False,
-                )
-            return
-        await self._broadcast_structural_patch(
-            project_state=project_state,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(
-                project_state,
-                suppress_unchanged_broadcast=False,
-            )
-        self._schedule_deferred_codegen_refresh(project_config_id)
-
-    async def _update_and_broadcast_structural_and_code_obj_patches(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        code_obj_ids: list[ID],
-        include_all_code_obj_variants: bool = False,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=validate_name_rules,
-        )
-        next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
-            return
-
-        filtered_code_obj_ids = [
-            code_obj_id
-            for code_obj_id in code_obj_ids
-            if code_obj_id in project_state.codeObjs
-        ]
-        has_broadcast_patch = False
-        if filtered_code_obj_ids:
-            (
-                code_obj_updates,
-                code_obj_variant_updates,
-                code_obj_impl_updates,
-            ) = self._collect_code_obj_updates_for_patch(
-                project_state,
-                filtered_code_obj_ids,
-                include_all_variants=include_all_code_obj_variants,
-            )
-            await self._broadcast_code_objs_patch(
-                project_config_id=project_state.projectConfig.id,
-                code_objs=code_obj_updates,
-                code_obj_variants=code_obj_variant_updates,
-                code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        await self._broadcast_structural_patch(
-            project_state=project_state,
-            previous_project_state_revision=(
-                next_project_state_revision
-                if has_broadcast_patch
-                else previous_project_state_revision
-            ),
-            project_state_revision=next_project_state_revision,
-        )
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
-
-    async def _merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        code_obj_ids: list[ID],
-        include_all_code_obj_variants: bool = False,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            project_state.validate_for_update(
-                validate_code_file_bindings=True,
-                validate_name_rules=validate_name_rules,
-            )
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=updateFileWatcher,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
-            return
-
-        filtered_code_obj_ids = [
-            code_obj_id
-            for code_obj_id in code_obj_ids
-            if code_obj_id in project_state.codeObjs
-        ]
-        has_broadcast_patch = False
-        if filtered_code_obj_ids:
-            (
-                code_obj_updates,
-                code_obj_variant_updates,
-                code_obj_impl_updates,
-            ) = self._collect_code_obj_updates_for_patch(
-                project_state,
-                filtered_code_obj_ids,
-                include_all_variants=include_all_code_obj_variants,
-            )
-            await self._broadcast_code_objs_patch(
-                project_config_id=project_state.projectConfig.id,
-                code_objs=code_obj_updates,
-                code_obj_variants=code_obj_variant_updates,
-                code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        await self._broadcast_structural_patch(
-            project_state=project_state,
-            previous_project_state_revision=(
-                next_project_state_revision
-                if has_broadcast_patch
-                else previous_project_state_revision
-            ),
-            project_state_revision=next_project_state_revision,
-        )
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
-        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
-
-    def _collect_section_impl_updates_for_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_ids: list[ID],
-    ) -> list[tuple[ID, BaseSectionImpl]]:
-        section_impl_updates: list[tuple[ID, BaseSectionImpl]] = []
-        seen_section_ids: set[ID] = set()
-        for section_id in section_ids:
-            if section_id in seen_section_ids:
-                continue
-            seen_section_ids.add(section_id)
-            section_variant_id = project_state.projectConfig.sectionVariantMap.get(
-                section_id
-            )
-            if section_variant_id is None:
-                raise KeyError(f"Section {section_id} missing section variant id.")
-            section_variant = project_state.sectionVariants.get(section_variant_id)
-            if section_variant is None:
-                raise KeyError(f"Section variant {section_variant_id} not found.")
-            section_impl = project_state.sectionImpls.get(section_variant.impl)
-            if section_impl is None:
-                raise KeyError(f"Section impl {section_variant.impl} not found.")
-            section_impl_updates.append((section_id, section_impl))
-        return section_impl_updates
-
-    def _collect_backend_section_impl_snapshots_for_patch(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-    ) -> dict[ID, BaseSectionImpl]:
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            return {}
-        project_config = self.project_state_backend.projectConfigs[project_config_id]
-        section_impl_snapshots: dict[ID, BaseSectionImpl] = {}
-        seen_section_ids: set[ID] = set()
-        for section_id in section_ids:
-            if section_id in seen_section_ids:
-                continue
-            seen_section_ids.add(section_id)
-            if section_id not in self.project_state_backend.sections:
-                continue
-            section_variant_id = project_config.sectionVariantMap.get(section_id)
-            if section_variant_id is None:
-                continue
-            section_variant = self.project_state_backend.sectionVariants.get(
-                section_variant_id
-            )
-            if section_variant is None:
-                continue
-            section_impl = self.project_state_backend.sectionImpls.get(
-                section_variant.impl
-            )
-            if section_impl is None:
-                continue
-            section_impl_snapshots[section_id] = copy.deepcopy(section_impl)
-        return section_impl_snapshots
-
-    def _get_backend_project_config_snapshot(
-        self,
-        *,
-        project_config_id: ID,
-    ) -> ProjectConfig | None:
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            return None
-        return copy.deepcopy(
-            self.project_state_backend.projectConfigs[project_config_id]
-        )
-
-    def _get_active_code_obj_variant_ids_for_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-        code_obj_id: ID,
-    ) -> set[ID]:
-        active_variant_ids: set[ID] = set()
-        for section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if isinstance(section_impl, BaseSectionWithParamsImpl):
-                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
-                if variant_id is not None:
-                    active_variant_ids.add(variant_id)
-                continue
-            if isinstance(section_impl, MetaControlSectionImpl):
-                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
-                if variant_id is not None:
-                    active_variant_ids.add(variant_id)
-        return active_variant_ids
-
-    def _collect_code_obj_updates_for_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-        code_obj_ids: list[ID],
-        *,
-        include_all_variants: bool = False,
-    ) -> tuple[
-        dict[ID, Core],
-        dict[ID, Variant],
-        dict[ID, BaseCodeObjImplUnionWithDiscriminator],
-    ]:
-        code_obj_updates: dict[ID, Core] = {}
-        code_obj_variant_updates: dict[ID, Variant] = {}
-        code_obj_impl_updates: dict[ID, BaseCodeObjImplUnionWithDiscriminator] = {}
-        seen_code_obj_ids: set[ID] = set()
-        for code_obj_id in code_obj_ids:
-            if code_obj_id in seen_code_obj_ids:
-                continue
-            seen_code_obj_ids.add(code_obj_id)
-            if code_obj_id not in project_state.codeObjs:
-                raise KeyError(f"Missing code obj {code_obj_id} in project state.")
-            code_obj_updates[code_obj_id] = project_state.codeObjs[code_obj_id]
-            if include_all_variants:
-                variant_ids = set(project_state.codeObjs[code_obj_id].variants)
-            else:
-                variant_ids = self._get_active_code_obj_variant_ids_for_project_state(
-                    project_state,
-                    code_obj_id,
-                )
-            for variant_id in variant_ids:
-                if variant_id not in project_state.codeObjVariants:
-                    raise KeyError(
-                        f"Missing code obj variant {variant_id} in project state."
-                    )
-                code_obj_variant = project_state.codeObjVariants[variant_id]
-                code_obj_variant_updates[variant_id] = code_obj_variant
-                impl_id = code_obj_variant.impl
-                if impl_id not in project_state.codeObjImpls:
-                    raise KeyError(f"Missing code obj impl {impl_id} in project state.")
-                code_obj_impl_updates[impl_id] = project_state.codeObjImpls[impl_id]
-        return code_obj_updates, code_obj_variant_updates, code_obj_impl_updates
-
-    def _build_name_validation_section_scope_for_patch(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        section_ids: list[ID],
-        code_obj_ids: list[ID],
-    ) -> set[ID]:
-        scoped_section_ids: set[ID] = {
-            section_id
-            for section_id in section_ids
-            if section_id in project_state.sections
-        }
-        remaining_code_obj_ids = set(code_obj_ids)
-        if not remaining_code_obj_ids:
-            return scoped_section_ids
-
-        for section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(
-                section_impl, BaseSectionWithParamsImpl
-            ) and not isinstance(section_impl, MetaControlSectionImpl):
-                continue
-            has_match = False
-            for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id not in remaining_code_obj_ids:
-                    continue
-                remaining_code_obj_ids.remove(code_obj_id)
-                has_match = True
-            if has_match:
-                scoped_section_ids.add(section_id)
-            if not remaining_code_obj_ids:
-                break
-        return scoped_section_ids
-
-    async def _broadcast_code_obj_and_section_patch_payloads(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        code_obj_ids: list[ID],
-        section_ids: list[ID],
-        broadcast_project_config_patch: bool,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> bool:
-        has_broadcast_patch = False
-        if broadcast_project_config_patch:
-            await self._broadcast_project_config_patch(
-                project_config=project_state.projectConfig,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        if code_obj_ids:
-            (
-                code_obj_updates,
-                code_obj_variant_updates,
-                code_obj_impl_updates,
-            ) = self._collect_code_obj_updates_for_patch(
-                project_state,
-                code_obj_ids,
-            )
-            await self._broadcast_code_objs_patch(
-                project_config_id=project_state.projectConfig.id,
-                code_objs=code_obj_updates,
-                code_obj_variants=code_obj_variant_updates,
-                code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=(
-                    previous_project_state_revision
-                    if not has_broadcast_patch
-                    else project_state_revision
-                ),
-                project_state_revision=project_state_revision,
-            )
-            has_broadcast_patch = True
-
-        if section_ids:
-            section_impl_updates = self._collect_section_impl_updates_for_patch(
-                project_state,
-                section_ids,
-            )
-            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
-                await self._broadcast_section_impl_patch(
-                    project_config_id=project_state.projectConfig.id,
-                    section_id=section_id,
-                    section_impl=section_impl,
-                    previous_project_state_revision=(
-                        previous_project_state_revision
-                        if idx == 0 and not has_broadcast_patch
-                        else project_state_revision
-                    ),
-                    project_state_revision=project_state_revision,
-                )
-            if section_impl_updates:
-                has_broadcast_patch = True
-        return has_broadcast_patch
-
-    async def _update_and_broadcast_code_obj_and_section_patches(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        code_obj_ids: list[ID],
-        section_ids: list[ID],
-        broadcast_project_config_patch: bool = False,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
-            project_state_revision = self.history.revision
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
-            return
-        previous_project_state_revision = self.history.revision
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=validate_name_rules,
-        )
-        next_project_state_revision = self.history.revision
-        name_validation_section_scope = (
-            self._build_name_validation_section_scope_for_patch(
-                project_state=project_state,
-                section_ids=section_ids,
-                code_obj_ids=code_obj_ids,
-            )
-        )
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                    recompute_section_and_project_errors=False,
-                )
-            return
-
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            section_ids=section_ids,
-            code_obj_ids=code_obj_ids,
-            include_project_config=broadcast_project_config_patch,
-        )
-        has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
-            project_state=project_state,
-            code_obj_ids=code_obj_ids,
-            section_ids=section_ids,
-            broadcast_project_config_patch=broadcast_project_config_patch,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-        if not has_broadcast_patch:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                    recompute_section_and_project_errors=False,
-                )
-            return
-
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(
-                project_state,
-                section_scope_for_param_errors=name_validation_section_scope,
-                recompute_section_and_project_errors=False,
-            )
-
-    async def _merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        code_obj_ids: list[ID],
-        section_ids: list[ID],
-        broadcast_project_config_patch: bool = False,
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-    ) -> None:
-        if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
-            project_state_revision = self.history.revision
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
-            return
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            project_state.validate_for_update(
-                validate_code_file_bindings=True,
-                validate_name_rules=validate_name_rules,
-            )
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=updateFileWatcher,
-            )
-            next_project_state_revision = self.history.revision
-        name_validation_section_scope = (
-            self._build_name_validation_section_scope_for_patch(
-                project_state=project_state,
-                section_ids=section_ids,
-                code_obj_ids=code_obj_ids,
-            )
-        )
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                    recompute_section_and_project_errors=False,
-                )
-            return
-
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            section_ids=section_ids,
-            code_obj_ids=code_obj_ids,
-            include_project_config=broadcast_project_config_patch,
-        )
-        has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
-            project_state=project_state,
-            code_obj_ids=code_obj_ids,
-            section_ids=section_ids,
-            broadcast_project_config_patch=broadcast_project_config_patch,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-        if not has_broadcast_patch:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                    recompute_section_and_project_errors=False,
-                )
-            self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
-            return
-
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(
-                project_state,
-                section_scope_for_param_errors=name_validation_section_scope,
-                recompute_section_and_project_errors=False,
-            )
-        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
-
-    def _collect_referenced_code_obj_ids_for_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> set[ID]:
-        referenced_code_obj_ids: set[ID] = set()
-        for section in project_state.sections.values():
-            for section_variant_id in section.variants:
-                if section_variant_id not in project_state.sectionVariants:
-                    raise KeyError(
-                        f"Missing section variant {section_variant_id} in project state."
-                    )
-                section_variant = project_state.sectionVariants[section_variant_id]
-                section_impl_id = section_variant.impl
-                if section_impl_id not in project_state.sectionImpls:
-                    raise KeyError(
-                        f"Missing section impl {section_impl_id} in project state."
-                    )
-                effective_impl = get_effective_impl(
-                    project_state.sectionImpls[section_impl_id],
-                    section,
-                    section_variant,
-                )
-                if isinstance(effective_impl, BaseSectionWithParamsImpl):
-                    referenced_code_obj_ids.update(effective_impl.codeObjVariantMap)
-                    continue
-                if isinstance(effective_impl, MetaControlSectionImpl):
-                    referenced_code_obj_ids.update(effective_impl.codeObjVariantMap)
-        return referenced_code_obj_ids
-
-    async def _broadcast_json_source_load_mutation_scope(
-        self,
-        mutation_scope: JSONSourceLoadMutationScope,
-    ) -> None:
-        if not mutation_scope.did_update:
-            return
-        backend = self.project_state_backend
-        for config_id in backend.projectConfigs:
-            project_state = convert_backend_to_single_config(backend, config_id)
-            touched_section_ids = [
-                section_id
-                for section_id in project_state.sections
-                if section_id in mutation_scope.section_ids
-            ]
-            referenced_code_obj_ids = (
-                self._collect_referenced_code_obj_ids_for_project_state(project_state)
-            )
-            touched_code_obj_ids = sorted(
-                code_obj_id
-                for code_obj_id in mutation_scope.code_obj_ids
-                if code_obj_id in referenced_code_obj_ids
-                and code_obj_id in project_state.codeObjs
-            )
-            if not touched_section_ids and not touched_code_obj_ids:
-                continue
-            await self._merge_and_broadcast_structural_and_code_obj_patches_with_deferred_codegen_refresh(
-                project_state,
-                code_obj_ids=touched_code_obj_ids,
-                include_all_code_obj_variants=True,
-                updateFileWatcher=False,
-                validate_name_rules=False,
-            )
-
-    async def _update_and_broadcast_section_impl_patches(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_ids: list[ID],
-        updateFileWatcher: bool = True,
-        validate_name_rules: bool = True,
-        broadcast_name_validation_errors: bool = True,
-        history_entry_token_for_patch_scope: int | None = None,
-        filter_unchanged_patch_payloads: bool = False,
-    ) -> None:
-        if not section_ids:
-            project_state_revision = self.history.revision
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
-            return
-        previous_section_impl_by_section_id: dict[ID, BaseSectionImpl] = {}
-        if filter_unchanged_patch_payloads:
-            previous_section_impl_by_section_id = (
-                self._collect_backend_section_impl_snapshots_for_patch(
-                    project_config_id=project_state.projectConfig.id,
-                    section_ids=section_ids,
-                )
-            )
-        previous_project_state_revision = self.history.revision
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=validate_name_rules,
-        )
-        next_project_state_revision = self.history.revision
-        name_validation_section_scope = {
-            section_id
-            for section_id in section_ids
-            if section_id in project_state.sections
-        }
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                )
-            return
-        section_impl_updates = self._collect_section_impl_updates_for_patch(
-            project_state,
-            section_ids,
-        )
-        changed_section_impl_updates = section_impl_updates
-        if filter_unchanged_patch_payloads:
-            changed_section_impl_updates = []
-            for section_id, section_impl in section_impl_updates:
-                previous_section_impl = previous_section_impl_by_section_id.get(
-                    section_id
-                )
-                if (
-                    previous_section_impl is not None
-                    and previous_section_impl == section_impl
-                ):
-                    continue
-                changed_section_impl_updates.append((section_id, section_impl))
-        if not changed_section_impl_updates:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    section_scope_for_param_errors=name_validation_section_scope,
-                )
-            return
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            section_ids=[section_id for section_id, _ in changed_section_impl_updates],
-            history_entry_token=history_entry_token_for_patch_scope,
-        )
-        for idx, (section_id, section_impl) in enumerate(changed_section_impl_updates):
-            await self._broadcast_section_impl_patch(
-                project_config_id=project_state.projectConfig.id,
-                section_id=section_id,
-                section_impl=section_impl,
-                previous_project_state_revision=(
-                    previous_project_state_revision
-                    if idx == 0
-                    else next_project_state_revision
-                ),
-                project_state_revision=next_project_state_revision,
-            )
-        if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(
-                project_state,
-                section_scope_for_param_errors=name_validation_section_scope,
-            )
-
-    async def _update_and_broadcast_section_impl_patch_no_name_validation(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_id: ID,
-        updateFileWatcher: bool = True,
-    ) -> None:
-        await self._update_and_broadcast_section_impl_patches(
-            project_state,
-            section_ids=[section_id],
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=False,
-            broadcast_name_validation_errors=False,
-        )
-
-    async def _merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_id: ID,
-        updateFileWatcher: bool = True,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            project_state.validate_for_update(
-                validate_code_file_bindings=True,
-                validate_name_rules=False,
-            )
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=updateFileWatcher,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            section_ids=[section_id],
-        )
-        section_variant_id = project_state.projectConfig.sectionVariantMap.get(
-            section_id
-        )
-        if section_variant_id is None:
-            raise KeyError(f"Section {section_id} missing section variant id.")
-        section_variant = project_state.sectionVariants.get(section_variant_id)
-        if section_variant is None:
-            raise KeyError(f"Section variant {section_variant_id} not found.")
-        section_impl = project_state.sectionImpls.get(section_variant.impl)
-        if section_impl is None:
-            raise KeyError(f"Section impl {section_variant.impl} not found.")
-        await self._broadcast_section_impl_patch(
-            project_config_id=project_state.projectConfig.id,
-            section_id=section_id,
-            section_impl=section_impl,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
-
-    async def _update_and_broadcast_project_config_patch_no_name_validation(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        updateFileWatcher: bool = True,
-        history_entry_token_for_patch_scope: int | None = None,
-        filter_unchanged_patch_payloads: bool = False,
-    ) -> None:
-        previous_project_config: ProjectConfig | None = None
-        if filter_unchanged_patch_payloads:
-            previous_project_config = self._get_backend_project_config_snapshot(
-                project_config_id=project_state.projectConfig.id,
-            )
-        previous_project_state_revision = self.history.revision
-        await self.update(
-            project_state,
-            updateFileWatcher=updateFileWatcher,
-            validate_name_rules=False,
-        )
-        next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        if (
-            filter_unchanged_patch_payloads
-            and previous_project_config is not None
-            and previous_project_config == project_state.projectConfig
-        ):
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            include_project_config=True,
-            history_entry_token=history_entry_token_for_patch_scope,
-        )
-        await self._broadcast_project_config_patch(
-            project_config=project_state.projectConfig,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-
-    async def _merge_and_broadcast_ui_only_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        """Persist UI-only section changes without codegen or watcher refresh."""
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_project_state_snapshot(project_state)
-
-    async def _merge_and_broadcast_ui_only_project_config_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            include_project_config=True,
-        )
-        await self._broadcast_project_config_patch(
-            project_config=project_state.projectConfig,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-
-    async def _merge_and_broadcast_ui_only_section_impl_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_id: ID,
-    ) -> None:
-        await self._merge_and_broadcast_ui_only_section_impl_patches(
-            project_state,
-            section_ids=[section_id],
-        )
-
-    async def _merge_and_broadcast_ui_only_section_impl_patches(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_ids: list[ID],
-    ) -> None:
-        if not section_ids:
-            project_state_revision = self.history.revision
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=project_state_revision,
-                project_state_revision=project_state_revision,
-            )
-            return
-
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-            section_impl_updates = self._collect_section_impl_updates_for_patch(
-                project_state,
-                section_ids,
-            )
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_op_status_patch(
-                project_config_id=project_state.projectConfig.id,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        self._register_current_history_entry_patch_scope_from_patch_transport(
-            project_state=project_state,
-            section_ids=section_ids,
-        )
-        if (
-            len(section_impl_updates) >= SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS
-            and section_impl_updates
-        ):
-            section_impls: dict[ID, BaseSectionImpl] = {}
-            for section_id, section_impl in section_impl_updates:
-                section_impls[section_id] = section_impl
-            await self._broadcast_section_impls_patch(
-                project_config_id=project_state.projectConfig.id,
-                section_impls=section_impls,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
-            return
-        for idx, (section_id, section_impl) in enumerate(section_impl_updates):
-            await self._broadcast_section_impl_patch(
-                project_config_id=project_state.projectConfig.id,
-                section_id=section_id,
-                section_impl=section_impl,
-                previous_project_state_revision=(
-                    previous_project_state_revision
-                    if idx == 0
-                    else next_project_state_revision
-                ),
-                project_state_revision=next_project_state_revision,
-            )
-
-    async def _broadcast_project_state_op_status_patch(
-        self,
-        *,
-        project_config_id: ID,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        if (
-            not completed_op_ids
-            and not pending_op_ids
-            and project_state_revision == previous_project_state_revision
-        ):
-            return
-        logger.debug(
-            "broadcast_project_state_op_status_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_op_status_patch(
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        project_state_revision = self.history.revision
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         logger.debug(
-            "broadcast_project_state project_config_id=%s revision=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,
-            project_state_revision,
             len(project_state.sections),
             len(project_state.codeObjs),
             len(project_state.sectionVariants),
@@ -10108,457 +5164,31 @@ class BaseProjectManager(ABC):
             project_state,
             completed_op_ids,
             pending_op_ids,
-            project_state_revision,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    def _consume_frontend_op_status_for_broadcast(self) -> tuple[list[str], list[str]]:
-        self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
-        # Frontend pending-op reconciliation only requires completed ids for
-        # correctness. Omitting pending ids keeps patch payloads bounded under
-        # queue backlog during high-frequency edits.
-        pending_op_ids: list[str] = []
-        return completed_op_ids, pending_op_ids
-
-    async def _broadcast_active_view_mode_patch(
-        self,
-        *,
-        project_config_id: ID,
-        active_view_mode_id: ID,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_active_view_mode_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
-            project_config_id,
-            active_view_mode_id,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_project_config_patch(
-        self,
-        *,
-        project_config: ProjectConfig,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_project_config_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config.id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
-            project_config.id,
-            project_config,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_structural_patch(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-        sections_for_patch: dict[ID, Core] | None = None,
-        section_variants_for_patch: dict[ID, Variant] | None = None,
-        section_impls_for_patch: dict[ID, BaseSectionImplUnionWithDiscriminator]
-        | None = None,
-        parent_section_map_for_patch: dict[ID, ID | None] | None = None,
-        is_full_snapshot: bool | None = None,
-        removed_section_ids: list[ID] | None = None,
-        removed_section_variant_ids: list[ID] | None = None,
-        removed_section_impl_ids: list[ID] | None = None,
-        removed_parent_section_ids: list[ID] | None = None,
-    ) -> None:
-        patch_sections = (
-            project_state.sections if sections_for_patch is None else sections_for_patch
-        )
-        patch_section_variants = (
-            project_state.sectionVariants
-            if section_variants_for_patch is None
-            else section_variants_for_patch
-        )
-        patch_section_impls = (
-            project_state.sectionImpls
-            if section_impls_for_patch is None
-            else section_impls_for_patch
-        )
-        patch_parent_section_map = (
-            project_state.parentSectionMap
-            if parent_section_map_for_patch is None
-            else parent_section_map_for_patch
-        )
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s removed_sections=%s removed_variants=%s removed_impls=%s removed_parent_sections=%s full_snapshot=%s completed_ops=%s pending_ops=%s",
-            project_state.projectConfig.id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(patch_sections),
-            len(patch_section_variants),
-            len(patch_section_impls),
-            len(removed_section_ids or []),
-            len(removed_section_variant_ids or []),
-            len(removed_section_impl_ids or []),
-            len(removed_parent_section_ids or []),
-            is_full_snapshot,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        structural_patch_kwargs: dict[str, object] = {}
-        if is_full_snapshot is not None:
-            structural_patch_kwargs["isFullSnapshot"] = is_full_snapshot
-        if removed_section_ids is not None:
-            structural_patch_kwargs["removedSectionIds"] = removed_section_ids
-        if removed_section_variant_ids is not None:
-            structural_patch_kwargs["removedSectionVariantIds"] = (
-                removed_section_variant_ids
-            )
-        if removed_section_impl_ids is not None:
-            structural_patch_kwargs["removedSectionImplIds"] = removed_section_impl_ids
-        if removed_parent_section_ids is not None:
-            structural_patch_kwargs["removedParentSectionIds"] = (
-                removed_parent_section_ids
-            )
-        await self.websocket_msg_handler.broadcast_project_state_structural_patch(
-            project_state.projectConfig.id,
-            project_state.projectConfig,
-            patch_sections,
-            patch_section_variants,
-            patch_section_impls,
-            patch_parent_section_map,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-            **structural_patch_kwargs,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_app_definition_patch(
-        self,
-        *,
-        project_config_id: ID,
-        app_definition: AppDefinition | None,
-        app_spec: JSONValue | None,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_app_definition_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_app_definition_patch(
-            project_config_id,
-            app_definition,
-            app_spec,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_section_impl_patch(
-        self,
-        *,
-        project_config_id: ID,
-        section_id: ID,
-        section_impl: BaseSectionImpl,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_section_impl_patch project_config_id=%s section_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            section_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_section_impl_patch(
-            project_config_id,
-            section_id,
-            section_impl,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_section_impls_patch(
-        self,
-        *,
-        project_config_id: ID,
-        section_impls: dict[ID, BaseSectionImpl],
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_section_impls_patch project_config_id=%s section_impls=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            len(section_impls),
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_section_impls_patch(
-            project_config_id,
-            section_impls,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_code_objs_patch(
-        self,
-        *,
-        project_config_id: ID,
-        code_objs: dict[ID, Core],
-        code_obj_variants: dict[ID, Variant],
-        code_obj_impls: dict[ID, BaseCodeObjImplUnionWithDiscriminator],
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_code_objs_patch project_config_id=%s previous_revision=%s revision=%s code_objs=%s variants=%s impls=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(code_objs),
-            len(code_obj_variants),
-            len(code_obj_impls),
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_code_objs_patch(
-            project_config_id,
-            code_objs,
-            code_obj_variants,
-            code_obj_impls,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 
     async def _broadcast_name_validation_errors(
         self,
         project_state: ProjectStateSingleConfig,
-        *,
-        section_scope_for_param_errors: set[ID] | None = None,
-        recompute_section_and_project_errors: bool = True,
-        suppress_unchanged_broadcast: bool = True,
     ) -> None:
-        project_config_id = project_state.projectConfig.id
-        cached_content = self._name_validation_cache_by_project_config.get(
-            project_config_id
-        )
-        if recompute_section_and_project_errors or cached_content is None:
-            section_errors = collect_section_name_conflicts(project_state)
-            section_format_errors = collect_section_name_format_errors(project_state)
-            heading_name_errors = collect_text_block_heading_name_errors(project_state)
-            for section_id, errors in section_format_errors.items():
-                section_errors.setdefault(section_id, []).extend(errors)
-            for section_id, errors in heading_name_errors.items():
-                section_errors.setdefault(section_id, []).extend(errors)
-            project_errors = collect_project_name_format_errors(project_state)
-        else:
-            section_errors = self._copy_name_validation_errors_by_id(
-                cached_content.sectionErrors
-            )
-            project_errors = list(cached_content.projectErrors)
-        cached_param_error_ids_by_section = (
-            self._name_validation_param_error_ids_by_section_by_project_config.get(
-                project_config_id
-            )
-        )
-        scoped_sections = (
-            {
-                section_id
-                for section_id in section_scope_for_param_errors
-                if section_id in project_state.sections
-            }
-            if section_scope_for_param_errors is not None
-            else None
-        )
-        if (
-            scoped_sections is None
-            or not scoped_sections
-            or cached_content is None
-            or cached_param_error_ids_by_section is None
-        ):
-            param_conflict_errors, param_format_errors = collect_param_name_errors(
-                project_state
-            )
-            param_errors = self._merge_param_name_errors(
-                param_conflict_errors,
-                param_format_errors,
-            )
-            param_error_ids_by_section = self._collect_param_error_ids_by_section(
-                project_state,
-                section_ids=set(project_state.sections.keys()),
-                param_errors=param_errors,
-            )
-        else:
-            param_errors = self._copy_name_validation_errors_by_id(
-                cached_content.paramErrors
-            )
-            param_error_ids_by_section = {
-                section_id: set(param_ids)
-                for section_id, param_ids in cached_param_error_ids_by_section.items()
-            }
-            for section_id in scoped_sections:
-                stale_param_ids = param_error_ids_by_section.pop(section_id, set())
-                for param_id in stale_param_ids:
-                    param_errors.pop(param_id, None)
-            scoped_param_conflict_errors, scoped_param_format_errors = (
-                collect_param_name_errors_for_sections(
-                    project_state,
-                    scoped_sections,
-                )
-            )
-            scoped_param_errors = self._merge_param_name_errors(
-                scoped_param_conflict_errors,
-                scoped_param_format_errors,
-            )
-            param_errors.update(scoped_param_errors)
-            scoped_param_error_ids_by_section = (
-                self._collect_param_error_ids_by_section(
-                    project_state,
-                    section_ids=scoped_sections,
-                    param_errors=scoped_param_errors,
-                )
-            )
-            for section_id in scoped_sections:
-                param_error_ids_by_section[section_id] = (
-                    scoped_param_error_ids_by_section.get(section_id, set())
-                )
+        section_errors = collect_section_name_conflicts(project_state)
+        param_errors, param_format_errors = collect_param_name_errors(project_state)
+        section_format_errors = collect_section_name_format_errors(project_state)
+        heading_name_errors = collect_text_block_heading_name_errors(project_state)
+        for section_id, errors in section_format_errors.items():
+            section_errors.setdefault(section_id, []).extend(errors)
+        for section_id, errors in heading_name_errors.items():
+            section_errors.setdefault(section_id, []).extend(errors)
+        for param_id, errors in param_format_errors.items():
+            param_errors.setdefault(param_id, []).extend(errors)
+        project_errors = collect_project_name_format_errors(project_state)
         content = SettaProjectNameValidationErrors(
-            projectConfigId=project_config_id,
+            projectConfigId=project_state.projectConfig.id,
             projectErrors=project_errors,
             sectionErrors=section_errors,
             paramErrors=param_errors,
         )
-        self._name_validation_cache_by_project_config[project_config_id] = content
-        self._name_validation_param_error_ids_by_section_by_project_config[
-            project_config_id
-        ] = param_error_ids_by_section
-        if (
-            suppress_unchanged_broadcast
-            and cached_content is not None
-            and self._name_validation_content_equals(cached_content, content)
-        ):
-            return
         await self.websocket_msg_handler.broadcast_name_validation_errors(content)
-
-    @staticmethod
-    def _copy_name_validation_errors_by_id(
-        errors_by_id: dict[ID, list[str]],
-    ) -> dict[ID, list[str]]:
-        return {error_id: list(errors) for error_id, errors in errors_by_id.items()}
-
-    @staticmethod
-    def _name_validation_content_equals(
-        lhs: SettaProjectNameValidationErrors,
-        rhs: SettaProjectNameValidationErrors,
-    ) -> bool:
-        return (
-            lhs.projectConfigId == rhs.projectConfigId
-            and lhs.projectErrors == rhs.projectErrors
-            and lhs.sectionErrors == rhs.sectionErrors
-            and lhs.paramErrors == rhs.paramErrors
-        )
-
-    @staticmethod
-    def _merge_param_name_errors(
-        param_conflict_errors: dict[ID, list[str]],
-        param_format_errors: dict[ID, list[str]],
-    ) -> dict[ID, list[str]]:
-        merged_param_errors = {
-            param_id: list(errors) for param_id, errors in param_conflict_errors.items()
-        }
-        for param_id, errors in param_format_errors.items():
-            merged_param_errors.setdefault(param_id, []).extend(errors)
-        return merged_param_errors
-
-    def _collect_param_error_ids_by_section(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        section_ids: set[ID],
-        param_errors: dict[ID, list[str]],
-    ) -> dict[ID, set[ID]]:
-        param_error_id_set = set(param_errors.keys())
-        error_ids_by_section: dict[ID, set[ID]] = {}
-        for section_id in section_ids:
-            if section_id not in project_state.sections:
-                error_ids_by_section[section_id] = set()
-                continue
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(
-                section_impl, BaseSectionWithParamsImpl
-            ) and not isinstance(
-                section_impl,
-                MetaControlSectionImpl,
-            ):
-                error_ids_by_section[section_id] = set()
-                continue
-            section_error_ids: set[ID] = set()
-            for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id in param_error_id_set:
-                    section_error_ids.add(code_obj_id)
-            error_ids_by_section[section_id] = section_error_ids
-        return error_ids_by_section
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
@@ -10578,10 +5208,7 @@ class BaseProjectManager(ABC):
 
     @project_state_backend.setter
     def project_state_backend(self, x: ProjectStateBackend):
-        current_entry_token = self.history.get_current_entry_token()
         self.history.set_current(x)
-        self._normalized_history_entry_tokens.discard(current_entry_token)
-        self._invalidate_single_config_state_cache()
 
     def project_state_backend_getter_fn(self):
         return self.project_state_backend
@@ -10591,1179 +5218,40 @@ class BaseProjectManager(ABC):
         trigger_autosave: bool = True,
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
-        project_config_id: ID | None = None,
-        project_config_only: bool = False,
-        include_project_config: bool = False,
-        include_project_config_targeted_patch_transport: bool = False,
-        undo_redo_full_patch_fallback: bool = False,
-        section_impl_only_ids: set[ID] | None = None,
-        code_obj_only_ids: set[ID] | None = None,
-        app_definition_only: bool = False,
     ):
-        if project_config_only and project_config_id is None:
-            raise ValueError(
-                "project_config_only history entries require project_config_id."
-            )
-        if include_project_config and project_config_id is None:
-            raise ValueError(
-                "include_project_config history entries require project_config_id."
-            )
-        if section_impl_only_ids is not None and project_config_id is None:
-            raise ValueError(
-                "section_impl_only_ids history entries require project_config_id."
-            )
-        if code_obj_only_ids is not None and project_config_id is None:
-            raise ValueError(
-                "code_obj_only_ids history entries require project_config_id."
-            )
-        if project_config_only and include_project_config:
-            raise ValueError(
-                "project_config_only cannot be combined with include_project_config."
-            )
-        if (
-            include_project_config_targeted_patch_transport
-            and not include_project_config
-        ):
-            raise ValueError(
-                "include_project_config_targeted_patch_transport requires include_project_config."
-            )
-        if undo_redo_full_patch_fallback and (
-            project_config_id is None
-            or project_config_only
-            or include_project_config
-            or section_impl_only_ids is not None
-            or code_obj_only_ids is not None
-            or app_definition_only
-        ):
-            raise ValueError(
-                "undo_redo_full_patch_fallback can only be used with unscoped project-config history entries."
-            )
-        if project_config_only and (
-            section_impl_only_ids is not None or code_obj_only_ids is not None
-        ):
-            raise ValueError(
-                "project_config_only cannot be combined with section_impl_only_ids or code_obj_only_ids."
-            )
-        if app_definition_only and project_config_id is not None:
-            raise ValueError(
-                "app_definition_only cannot be combined with project_config_id."
-            )
-        if app_definition_only and (
-            project_config_only
-            or include_project_config
-            or section_impl_only_ids is not None
-            or code_obj_only_ids is not None
-            or undo_redo_full_patch_fallback
-        ):
-            raise ValueError(
-                "app_definition_only cannot be combined with project_config scope arguments."
-            )
-        if (
-            project_config_id is not None
-            and not project_config_only
-            and not include_project_config
-            and section_impl_only_ids is None
-            and code_obj_only_ids is None
-            and not app_definition_only
-            and not undo_redo_full_patch_fallback
-        ):
-            raise ValueError(
-                "Unscoped project-config history entries require explicit intent. "
-                "Use scoped arguments, project_config_only/include_project_config, or "
-                "undo_redo_full_patch_fallback=True."
-            )
-        history_entry_project_config_scope: set[ID] | None = None
-        if project_config_id is not None:
-            history_entry_project_config_scope = {project_config_id}
-        history_entry_undo_redo_patch_scope = (
-            self._build_history_entry_undo_redo_patch_scope(
-                project_config_id=project_config_id,
-                project_config_only=project_config_only,
-                include_project_config=include_project_config,
-                include_project_config_targeted_patch_transport=(
-                    include_project_config_targeted_patch_transport
-                ),
-                section_impl_only_ids=section_impl_only_ids,
-                code_obj_only_ids=code_obj_only_ids,
-                app_definition_only=app_definition_only,
-            )
-        )
-        copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
-        if app_definition_only:
-            copy_func = self._copy_backend_for_app_definition_history_entry
-        elif project_config_id is not None:
-            frozen_section_impl_only_ids = (
-                frozenset(section_impl_only_ids)
-                if section_impl_only_ids is not None
-                else None
-            )
-            frozen_code_obj_only_ids = (
-                frozenset(code_obj_only_ids) if code_obj_only_ids is not None else None
-            )
-
-            def copy_project_config_backend(
-                backend: ProjectStateBackend,
-            ) -> ProjectStateBackend:
-                scoped_backend = backend
-                if project_config_only or include_project_config:
-                    scoped_backend = (
-                        self._copy_backend_for_project_config_only_history_entry(
-                            scoped_backend,
-                            project_config_id,
-                        )
-                    )
-                if frozen_section_impl_only_ids is not None:
-                    scoped_backend = (
-                        self._copy_backend_for_section_impl_only_history_entry(
-                            scoped_backend,
-                            project_config_id,
-                            frozen_section_impl_only_ids,
-                        )
-                    )
-                if frozen_code_obj_only_ids is not None:
-                    scoped_backend = self._copy_backend_for_code_obj_only_history_entry(
-                        scoped_backend,
-                        project_config_id,
-                        frozen_code_obj_only_ids,
-                    )
-                if (
-                    project_config_only
-                    or include_project_config
-                    or frozen_section_impl_only_ids is not None
-                    or frozen_code_obj_only_ids is not None
-                ):
-                    return scoped_backend
-                return self._copy_backend_for_project_config_history_entry(
-                    backend,
-                    project_config_id,
-                )
-
-            copy_func = copy_project_config_backend
         self.history.add_current_copy(
-            coalesce_key=coalesce_key,
-            coalesce_window_s=coalesce_window_s,
-            copy_func=copy_func,
+            coalesce_key=coalesce_key, coalesce_window_s=coalesce_window_s
         )
-        self._register_current_history_entry_scope(history_entry_project_config_scope)
-        self._register_current_history_entry_undo_redo_patch_scope(
-            history_entry_undo_redo_patch_scope
-        )
-        self._prune_history_scope_by_entry_token()
-        self._prune_history_patch_scope_by_entry_token()
-        # The new/active history entry may diverge after the pending mutation.
-        self._normalized_history_entry_tokens.discard(
-            self.history.get_current_entry_token()
-        )
-        self._prune_normalized_history_entry_tokens()
-        self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
 
-    def _get_codegen_singleton_section_ids_for_history_entry(
-        self,
-        project_config_id: ID,
-    ) -> set[ID]:
-        backend = self.project_state_backend
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        singleton_section_ids: set[ID] = set()
-        for section_id, section_variant_id in project_config.sectionVariantMap.items():
-            if section_variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {section_variant_id} in backend state."
-                )
-            section_variant = backend.sectionVariants[section_variant_id]
-            section_impl_id = section_variant.impl
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            section_impl = backend.sectionImpls[section_impl_id]
-            if isinstance(
-                section_impl,
-                (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
-            ):
-                singleton_section_ids.add(section_id)
-        return singleton_section_ids
-
-    @staticmethod
-    def _get_codegen_singleton_section_ids_for_project_state(
-        project_state: ProjectStateSingleConfig,
-    ) -> set[ID]:
-        singleton_section_ids: set[ID] = set()
-        for (
-            section_id,
-            section_variant_id,
-        ) in project_state.projectConfig.sectionVariantMap.items():
-            if section_variant_id not in project_state.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {section_variant_id} in project state."
-                )
-            section_variant = project_state.sectionVariants[section_variant_id]
-            section_impl_id = section_variant.impl
-            if section_impl_id not in project_state.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in project state."
-                )
-            section_impl = project_state.sectionImpls[section_impl_id]
-            if isinstance(
-                section_impl,
-                (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
-            ):
-                singleton_section_ids.add(section_id)
-        return singleton_section_ids
-
-    def _build_section_patch_scope_with_codegen_singletons(
-        self,
-        *,
-        project_config_id: ID,
-        section_ids: list[ID],
-        project_state: ProjectStateSingleConfig | None = None,
-    ) -> list[ID]:
-        scoped_section_ids: list[ID] = []
-        seen_section_ids: set[ID] = set()
-        for section_id in section_ids:
-            if section_id in seen_section_ids:
-                continue
-            seen_section_ids.add(section_id)
-            scoped_section_ids.append(section_id)
-        if project_state is None:
-            codegen_singleton_section_ids = (
-                self._get_codegen_singleton_section_ids_for_history_entry(
-                    project_config_id
-                )
-            )
-        else:
-            codegen_singleton_section_ids = (
-                self._get_codegen_singleton_section_ids_for_project_state(project_state)
-            )
-        for singleton_section_id in codegen_singleton_section_ids:
-            if singleton_section_id in seen_section_ids:
-                continue
-            seen_section_ids.add(singleton_section_id)
-            scoped_section_ids.append(singleton_section_id)
-        return scoped_section_ids
-
-    def _get_active_code_obj_variant_ids_for_project_config(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-        code_obj_id: ID,
-    ) -> set[ID]:
-        (
-            active_variant_ids_by_code_obj,
-            _active_code_obj_ids_from_section_variant_maps,
-        ) = self._collect_active_code_obj_variant_ids_for_project_config(
-            backend,
-            project_config_id,
-        )
-        if code_obj_id not in active_variant_ids_by_code_obj:
-            return set()
-        return set(active_variant_ids_by_code_obj[code_obj_id])
-
-    def _collect_active_code_obj_variant_ids_for_project_config(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-    ) -> tuple[dict[ID, set[ID]], set[ID]]:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-        active_variant_ids_by_code_obj: dict[ID, set[ID]] = {}
-        active_code_obj_ids_from_section_variant_maps: set[ID] = set()
-        for section_id, section_variant_id in project_config.sectionVariantMap.items():
-            if section_id not in backend.sections:
-                raise KeyError(f"Missing section {section_id} in backend state.")
-            if section_variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {section_variant_id} in backend state."
-                )
-            section_variant = backend.sectionVariants[section_variant_id]
-            section_impl_id = section_variant.impl
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            section_impl = get_effective_impl(
-                backend.sectionImpls[section_impl_id],
-                backend.sections[section_id],
-                section_variant,
-            )
-            if not isinstance(
-                section_impl, BaseSectionWithParamsImpl
-            ) and not isinstance(section_impl, MetaControlSectionImpl):
-                continue
-            for (
-                code_obj_id_from_map,
-                code_obj_variant_id,
-            ) in section_impl.codeObjVariantMap.items():
-                if code_obj_id_from_map not in active_variant_ids_by_code_obj:
-                    active_variant_ids_by_code_obj[code_obj_id_from_map] = set()
-                active_variant_ids_by_code_obj[code_obj_id_from_map].add(
-                    code_obj_variant_id
-                )
-                active_code_obj_ids_from_section_variant_maps.add(code_obj_id_from_map)
-        return (
-            active_variant_ids_by_code_obj,
-            active_code_obj_ids_from_section_variant_maps,
-        )
-
-    @staticmethod
-    def _copy_and_sanitize_section_impl_for_scoped_history_entry(
-        backend: ProjectStateBackend,
-        section_impl: BaseSectionImpl,
-    ) -> BaseSectionImpl:
-        section_impl_copy = copy.deepcopy(section_impl)
-        if not isinstance(
-            section_impl_copy, BaseSectionWithParamsImpl
-        ) and not isinstance(section_impl_copy, MetaControlSectionImpl):
-            return section_impl_copy
-
-        filtered_code_obj_variant_map: dict[ID, ID] = {}
-        for (
-            code_obj_id,
-            code_obj_variant_id,
-        ) in section_impl_copy.codeObjVariantMap.items():
-            if code_obj_id not in backend.codeObjs:
-                continue
-            if code_obj_variant_id not in backend.codeObjVariants:
-                continue
-            filtered_code_obj_variant_map[code_obj_id] = code_obj_variant_id
-
-        if len(filtered_code_obj_variant_map) == len(
-            section_impl_copy.codeObjVariantMap
-        ):
-            return section_impl_copy
-
-        section_impl_copy.codeObjVariantMap = filtered_code_obj_variant_map
-        if (
-            isinstance(section_impl_copy, MetaControlSectionImpl)
-            and section_impl_copy.metaControlParamId is not None
-            and section_impl_copy.metaControlParamId
-            not in filtered_code_obj_variant_map
-        ):
-            section_impl_copy.metaControlParamId = None
-        return section_impl_copy
-
-    @staticmethod
-    def _copy_and_sanitize_code_obj_impl_for_scoped_history_entry(
-        backend: ProjectStateBackend,
-        code_obj_impl: BaseCodeObjImplUnionWithDiscriminator,
-        active_code_obj_ids_from_section_variant_maps: set[ID],
-    ) -> BaseCodeObjImplUnionWithDiscriminator:
-        code_obj_impl_copy = copy.deepcopy(code_obj_impl)
-        if not isinstance(code_obj_impl_copy, BaseParentCodeObjImpl):
-            return code_obj_impl_copy
-
-        filtered_children: list[ID] = []
-        for child_id in code_obj_impl_copy.children:
-            if child_id not in backend.codeObjs:
-                continue
-            if child_id not in active_code_obj_ids_from_section_variant_maps:
-                continue
-            filtered_children.append(child_id)
-        code_obj_impl_copy.children = filtered_children
-        return code_obj_impl_copy
-
-    def _build_scoped_code_obj_history_ids(
-        self,
-        *,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-        code_obj_ids: list[ID] | set[ID],
-    ) -> set[ID]:
-        (
-            active_variant_ids_by_code_obj,
-            _active_code_obj_ids_from_section_variant_maps,
-        ) = self._collect_active_code_obj_variant_ids_for_project_config(
-            backend,
-            project_config_id,
-        )
-        scoped_code_obj_ids: set[ID] = set()
-        for code_obj_id in code_obj_ids:
-            if code_obj_id not in backend.codeObjs:
-                continue
-            if code_obj_id not in active_variant_ids_by_code_obj:
-                continue
-            if not active_variant_ids_by_code_obj[code_obj_id]:
-                continue
-            scoped_code_obj_ids.add(code_obj_id)
-        return scoped_code_obj_ids
-
-    def _copy_backend_for_section_impl_only_history_entry(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-        section_ids: frozenset[ID],
-    ) -> ProjectStateBackend:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = backend.projectConfigs[project_config_id]
-
-        sections = dict(backend.sections)
-        section_variants = dict(backend.sectionVariants)
-        section_impls = dict(backend.sectionImpls)
-        code_objs = dict(backend.codeObjs)
-        code_obj_variants = dict(backend.codeObjVariants)
-        code_obj_impls = dict(backend.codeObjImpls)
-        project_configs = dict(backend.projectConfigs)
-
-        copied_variant_ids: set[ID] = set()
-        copied_impl_ids: set[ID] = set()
-
-        for section_id in section_ids:
-            if section_id not in backend.sections:
-                raise KeyError(f"Missing section {section_id} in backend state.")
-            if section_id not in project_config.sectionVariantMap:
-                raise KeyError(
-                    f"Section {section_id} is not present in project config {project_config_id}."
-                )
-            sections[section_id] = copy.deepcopy(backend.sections[section_id])
-
-            section_variant_id = project_config.sectionVariantMap[section_id]
-            if section_variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {section_variant_id} in backend state."
-                )
-            if section_variant_id not in copied_variant_ids:
-                section_variants[section_variant_id] = copy.deepcopy(
-                    backend.sectionVariants[section_variant_id]
-                )
-                copied_variant_ids.add(section_variant_id)
-
-            section_impl_id = backend.sectionVariants[section_variant_id].impl
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            if section_impl_id not in copied_impl_ids:
-                section_impls[section_impl_id] = (
-                    self._copy_and_sanitize_section_impl_for_scoped_history_entry(
-                        backend,
-                        backend.sectionImpls[section_impl_id],
-                    )
-                )
-                copied_impl_ids.add(section_impl_id)
-
-        return ProjectStateBackend(
-            sections=sections,
-            sectionImpls=section_impls,
-            sectionVariants=section_variants,
-            codeObjs=code_objs,
-            codeObjImpls=code_obj_impls,
-            codeObjVariants=code_obj_variants,
-            projectConfigs=project_configs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=backend.appDefinition,
-        )
-
-    def _copy_backend_for_code_obj_only_history_entry(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-        code_obj_ids: frozenset[ID],
-    ) -> ProjectStateBackend:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        code_objs = dict(backend.codeObjs)
-        code_obj_variants = dict(backend.codeObjVariants)
-        code_obj_impls = dict(backend.codeObjImpls)
-        sections = dict(backend.sections)
-        section_impls = dict(backend.sectionImpls)
-        section_variants = dict(backend.sectionVariants)
-        project_configs = dict(backend.projectConfigs)
-        (
-            active_variant_ids_by_code_obj,
-            active_code_obj_ids_from_section_variant_maps,
-        ) = self._collect_active_code_obj_variant_ids_for_project_config(
-            backend,
-            project_config_id,
-        )
-
-        copied_variant_ids: set[ID] = set()
-        copied_impl_ids: set[ID] = set()
-
-        for code_obj_id in code_obj_ids:
-            if code_obj_id not in backend.codeObjs:
-                raise KeyError(f"Missing code obj {code_obj_id} in backend state.")
-            code_objs[code_obj_id] = copy.deepcopy(backend.codeObjs[code_obj_id])
-            if code_obj_id not in active_variant_ids_by_code_obj:
-                raise KeyError(
-                    f"Code obj {code_obj_id} is not active in project config {project_config_id}."
-                )
-            active_variant_ids = active_variant_ids_by_code_obj[code_obj_id]
-            if not active_variant_ids:
-                raise KeyError(
-                    f"Code obj {code_obj_id} is not active in project config {project_config_id}."
-                )
-            for code_obj_variant_id in active_variant_ids:
-                if code_obj_variant_id not in backend.codeObjVariants:
-                    raise KeyError(
-                        f"Missing code obj variant {code_obj_variant_id} in backend state."
-                    )
-                if code_obj_variant_id not in copied_variant_ids:
-                    code_obj_variants[code_obj_variant_id] = copy.deepcopy(
-                        backend.codeObjVariants[code_obj_variant_id]
-                    )
-                    copied_variant_ids.add(code_obj_variant_id)
-
-                code_obj_impl_id = backend.codeObjVariants[code_obj_variant_id].impl
-                if code_obj_impl_id not in backend.codeObjImpls:
-                    raise KeyError(
-                        f"Missing code obj impl {code_obj_impl_id} in backend state."
-                    )
-                if code_obj_impl_id not in copied_impl_ids:
-                    code_obj_impls[code_obj_impl_id] = (
-                        self._copy_and_sanitize_code_obj_impl_for_scoped_history_entry(
-                            backend,
-                            backend.codeObjImpls[code_obj_impl_id],
-                            active_code_obj_ids_from_section_variant_maps,
-                        )
-                    )
-                    copied_impl_ids.add(code_obj_impl_id)
-
-        return ProjectStateBackend(
-            sections=sections,
-            sectionImpls=section_impls,
-            sectionVariants=section_variants,
-            codeObjs=code_objs,
-            codeObjImpls=code_obj_impls,
-            codeObjVariants=code_obj_variants,
-            projectConfigs=project_configs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=backend.appDefinition,
-        )
-
-    @staticmethod
-    def _copy_backend_for_app_definition_history_entry(
-        backend: ProjectStateBackend,
-    ) -> ProjectStateBackend:
-        return ProjectStateBackend(
-            sections=dict(backend.sections),
-            sectionImpls=dict(backend.sectionImpls),
-            sectionVariants=dict(backend.sectionVariants),
-            codeObjs=dict(backend.codeObjs),
-            codeObjImpls=dict(backend.codeObjImpls),
-            codeObjVariants=dict(backend.codeObjVariants),
-            projectConfigs=dict(backend.projectConfigs),
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=copy.deepcopy(backend.appDefinition),
-        )
-
-    def _copy_backend_for_project_config_only_history_entry(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-    ) -> ProjectStateBackend:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        project_configs = dict(backend.projectConfigs)
-        project_configs[project_config_id] = copy.deepcopy(
-            backend.projectConfigs[project_config_id]
-        )
-
-        return ProjectStateBackend(
-            sections=dict(backend.sections),
-            sectionImpls=dict(backend.sectionImpls),
-            sectionVariants=dict(backend.sectionVariants),
-            codeObjs=dict(backend.codeObjs),
-            codeObjImpls=dict(backend.codeObjImpls),
-            codeObjVariants=dict(backend.codeObjVariants),
-            projectConfigs=project_configs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=backend.appDefinition,
-        )
-
-    def _copy_backend_for_project_config_history_entry(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-    ) -> ProjectStateBackend:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        project_config = backend.projectConfigs[project_config_id]
-        project_core = prepare_sections_for_copy(
-            backend,
-            set(project_config.sectionVariantMap.keys()),
-        )
-
-        sections = dict(backend.sections)
-        for section_id in project_core.sections.keys():
-            if section_id not in backend.sections:
-                raise KeyError(f"Missing section {section_id} in backend state.")
-            sections[section_id] = copy.deepcopy(backend.sections[section_id])
-
-        section_impls = dict(backend.sectionImpls)
-        for section_impl_id in project_core.sectionImpls.keys():
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            section_impls[section_impl_id] = copy.deepcopy(
-                project_core.sectionImpls[section_impl_id]
-            )
-
-        section_variants = dict(backend.sectionVariants)
-        for variant_id in project_core.sectionVariants.keys():
-            if variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {variant_id} in backend state."
-                )
-            section_variants[variant_id] = copy.deepcopy(
-                backend.sectionVariants[variant_id]
-            )
-
-        code_objs = dict(backend.codeObjs)
-        for code_obj_id in project_core.codeObjs.keys():
-            if code_obj_id not in backend.codeObjs:
-                raise KeyError(f"Missing code obj {code_obj_id} in backend state.")
-            code_objs[code_obj_id] = copy.deepcopy(backend.codeObjs[code_obj_id])
-
-        code_obj_impls = dict(backend.codeObjImpls)
-        for code_obj_impl_id in project_core.codeObjImpls.keys():
-            if code_obj_impl_id not in backend.codeObjImpls:
-                raise KeyError(
-                    f"Missing code obj impl {code_obj_impl_id} in backend state."
-                )
-            code_obj_impls[code_obj_impl_id] = copy.deepcopy(
-                project_core.codeObjImpls[code_obj_impl_id]
-            )
-
-        code_obj_variants = dict(backend.codeObjVariants)
-        for code_obj_variant_id in project_core.codeObjVariants.keys():
-            if code_obj_variant_id not in backend.codeObjVariants:
-                raise KeyError(
-                    f"Missing code obj variant {code_obj_variant_id} in backend state."
-                )
-            code_obj_variants[code_obj_variant_id] = copy.deepcopy(
-                backend.codeObjVariants[code_obj_variant_id]
-            )
-
-        project_configs = dict(backend.projectConfigs)
-        project_configs[project_config_id] = copy.deepcopy(project_config)
-
-        return ProjectStateBackend(
-            sections=sections,
-            sectionImpls=section_impls,
-            sectionVariants=section_variants,
-            codeObjs=code_objs,
-            codeObjImpls=code_obj_impls,
-            codeObjVariants=code_obj_variants,
-            projectConfigs=project_configs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=copy.deepcopy(backend.appDefinition),
-        )
-
-    def _mark_current_backend_revision_dirty(self) -> None:
-        # Some lightweight metadata paths intentionally mutate the current backend
-        # object in place (without pushing a new history entry). Bump revision so
-        # revision-keyed caches and save dedupe stay correct for those paths.
-        current_entry_token = self.history.get_current_entry_token()
-        self.history.set_current(self.project_state_backend)
-        # In-place metadata mutations can bypass scoped patch registration.
-        # Force unknown-scope fallback for this history entry so undo/redo uses
-        # deterministic diff transport instead of stale scoped assumptions.
-        self._register_current_history_entry_undo_redo_patch_scope(None)
-        self._normalized_history_entry_tokens.discard(current_entry_token)
-        self._invalidate_single_config_state_cache()
-
-    def _normalize_backend_after_history_navigation(self) -> None:
-        current_entry_token = self.history.get_current_entry_token()
-        if current_entry_token in self._normalized_history_entry_tokens:
-            return
-        backend = self.project_state_backend
-        section_impl_updates: dict[ID, object] = {}
-        code_obj_impl_updates: dict[ID, object] = {}
-
-        for project_config in backend.projectConfigs.values():
-            project_core = prepare_sections_for_copy(
-                backend,
-                set(project_config.sectionVariantMap.keys()),
-            )
-            for (
-                section_impl_id,
-                sanitized_section_impl,
-            ) in project_core.sectionImpls.items():
-                if section_impl_id not in backend.sectionImpls:
-                    continue
-                if backend.sectionImpls[section_impl_id] == sanitized_section_impl:
-                    continue
-                section_impl_updates[section_impl_id] = sanitized_section_impl
-            for (
-                code_obj_impl_id,
-                sanitized_code_obj_impl,
-            ) in project_core.codeObjImpls.items():
-                if code_obj_impl_id not in backend.codeObjImpls:
-                    continue
-                if backend.codeObjImpls[code_obj_impl_id] == sanitized_code_obj_impl:
-                    continue
-                code_obj_impl_updates[code_obj_impl_id] = sanitized_code_obj_impl
-
-        if not section_impl_updates and not code_obj_impl_updates:
-            self._normalized_history_entry_tokens.add(current_entry_token)
-            return
-
-        next_section_impls = dict(backend.sectionImpls)
-        for section_impl_id, section_impl in section_impl_updates.items():
-            next_section_impls[section_impl_id] = section_impl
-        next_code_obj_impls = dict(backend.codeObjImpls)
-        for code_obj_impl_id, code_obj_impl in code_obj_impl_updates.items():
-            next_code_obj_impls[code_obj_impl_id] = code_obj_impl
-
-        logger.debug(
-            "normalized_backend_after_history_navigation section_impl_updates=%s code_obj_impl_updates=%s",
-            len(section_impl_updates),
-            len(code_obj_impl_updates),
-        )
-
-        self.project_state_backend = ProjectStateBackend(
-            sections=backend.sections,
-            sectionImpls=next_section_impls,
-            sectionVariants=backend.sectionVariants,
-            codeObjs=backend.codeObjs,
-            codeObjImpls=next_code_obj_impls,
-            codeObjVariants=backend.codeObjVariants,
-            projectConfigs=backend.projectConfigs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=backend.appDefinition,
-        )
-        self._normalized_history_entry_tokens.add(
-            self.history.get_current_entry_token()
-        )
-
     @enqueue_method
     async def undo(self, x: UndoRequest):
-        if x.steps <= 0 or not self.history.can_undo(x.steps):
-            return
-        navigation_entry_tokens = self._collect_undo_navigation_entry_tokens(x.steps)
-        self._cancel_all_pending_codegen_refreshes()
-        previous_project_state_backend = self.project_state_backend
-        previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
-        self._normalize_backend_after_history_navigation()
-        self._invalidate_single_config_state_cache()
-        affected_project_config_ids = (
-            self._resolve_project_config_scope_for_navigation_tokens(
-                navigation_entry_tokens
-            )
-        )
-        undo_redo_patch_scope_by_project_config = (
-            self._resolve_undo_redo_patch_scope_for_navigation_tokens(
-                navigation_entry_tokens
-            )
-        )
-        await self.update_and_broadcast_all_project_state(
-            previous_project_state_revision=previous_project_state_revision,
-            project_config_ids=affected_project_config_ids,
-            undo_redo_patch_scope_by_project_config=(
-                undo_redo_patch_scope_by_project_config
-            ),
-            previous_project_state_backend=previous_project_state_backend,
-        )
+        await self.update_and_broadcast_all_project_state()
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
-        if x.steps <= 0 or not self.history.can_redo(x.steps):
-            return
-        navigation_entry_tokens = self._collect_redo_navigation_entry_tokens(x.steps)
-        self._cancel_all_pending_codegen_refreshes()
-        previous_project_state_backend = self.project_state_backend
-        previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
-        self._normalize_backend_after_history_navigation()
-        self._invalidate_single_config_state_cache()
-        affected_project_config_ids = (
-            self._resolve_project_config_scope_for_navigation_tokens(
-                navigation_entry_tokens
-            )
-        )
-        undo_redo_patch_scope_by_project_config = (
-            self._resolve_undo_redo_patch_scope_for_navigation_tokens(
-                navigation_entry_tokens
-            )
-        )
-        await self.update_and_broadcast_all_project_state(
-            previous_project_state_revision=previous_project_state_revision,
-            project_config_ids=affected_project_config_ids,
-            undo_redo_patch_scope_by_project_config=(
-                undo_redo_patch_scope_by_project_config
-            ),
-            previous_project_state_backend=previous_project_state_backend,
-        )
+        await self.update_and_broadcast_all_project_state()
 
-    async def _broadcast_undo_redo_scoped_patch(
-        self,
-        *,
-        project_state: ProjectStateSingleConfig,
-        patch_scope: _UndoRedoProjectConfigPatchScope,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> bool:
-        section_ids = sorted(
-            section_id
-            for section_id in patch_scope.section_impl_ids
-            if section_id in project_state.sections
-        )
-        code_obj_ids = sorted(
-            code_obj_id
-            for code_obj_id in patch_scope.code_obj_ids
-            if code_obj_id in project_state.codeObjs
-        )
-        return await self._broadcast_code_obj_and_section_patch_payloads(
-            project_state=project_state,
-            code_obj_ids=code_obj_ids,
-            section_ids=section_ids,
-            broadcast_project_config_patch=patch_scope.project_config_only,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=project_state_revision,
-        )
-
-    @staticmethod
-    def _collect_map_upserts_and_removals(
-        *,
-        previous_values: dict[ID, _T],
-        next_values: dict[ID, _T],
-    ) -> tuple[dict[ID, _T], list[ID]]:
-        upserts: dict[ID, _T] = {}
-        for value_id in sorted(next_values.keys()):
-            next_value = next_values[value_id]
-            previous_value = previous_values.get(value_id)
-            if previous_value == next_value:
-                continue
-            upserts[value_id] = next_value
-        removed_ids = sorted(
-            value_id
-            for value_id in previous_values.keys()
-            if value_id not in next_values
-        )
-        return upserts, removed_ids
-
-    @staticmethod
-    def _build_structural_delta_patch(
-        *,
-        previous_project_state: ProjectStateSingleConfig,
-        project_state: ProjectStateSingleConfig,
-    ) -> _StructuralDeltaPatch:
-        sections, removed_section_ids = (
-            BaseProjectManager._collect_map_upserts_and_removals(
-                previous_values=previous_project_state.sections,
-                next_values=project_state.sections,
-            )
-        )
-        (
-            section_variants,
-            removed_section_variant_ids,
-        ) = BaseProjectManager._collect_map_upserts_and_removals(
-            previous_values=previous_project_state.sectionVariants,
-            next_values=project_state.sectionVariants,
-        )
-        (
-            section_impls,
-            removed_section_impl_ids,
-        ) = BaseProjectManager._collect_map_upserts_and_removals(
-            previous_values=previous_project_state.sectionImpls,
-            next_values=project_state.sectionImpls,
-        )
-        (
-            parent_section_map,
-            removed_parent_section_ids,
-        ) = BaseProjectManager._collect_map_upserts_and_removals(
-            previous_values=previous_project_state.parentSectionMap,
-            next_values=project_state.parentSectionMap,
-        )
-        return _StructuralDeltaPatch(
-            sections=sections,
-            section_variants=section_variants,
-            section_impls=section_impls,
-            parent_section_map=parent_section_map,
-            removed_section_ids=removed_section_ids,
-            removed_section_variant_ids=removed_section_variant_ids,
-            removed_section_impl_ids=removed_section_impl_ids,
-            removed_parent_section_ids=removed_parent_section_ids,
-        )
-
-    @staticmethod
-    def _build_undo_redo_unknown_scope_patch_plan(
-        *,
-        previous_project_state: ProjectStateSingleConfig,
-        project_state: ProjectStateSingleConfig,
-    ) -> tuple[bool, bool, bool, list[ID]]:
-        project_config_changed = (
-            previous_project_state.projectConfig != project_state.projectConfig
-        )
-        topology_changed = (
-            previous_project_state.sections != project_state.sections
-            or previous_project_state.sectionVariants != project_state.sectionVariants
-            or previous_project_state.parentSectionMap != project_state.parentSectionMap
-            or previous_project_state.projectConfig.sectionVariantMap
-            != project_state.projectConfig.sectionVariantMap
-        )
-        code_obj_changed = (
-            previous_project_state.codeObjs != project_state.codeObjs
-            or previous_project_state.codeObjVariants != project_state.codeObjVariants
-            or previous_project_state.codeObjImpls != project_state.codeObjImpls
-        )
-        changed_section_impl_ids: list[ID] = []
-        if not topology_changed:
-            for section_id, section_variant_id in sorted(
-                project_state.projectConfig.sectionVariantMap.items()
-            ):
-                if section_variant_id not in previous_project_state.sectionVariants:
-                    topology_changed = True
-                    changed_section_impl_ids = []
-                    break
-                if section_variant_id not in project_state.sectionVariants:
-                    topology_changed = True
-                    changed_section_impl_ids = []
-                    break
-                previous_section_variant = previous_project_state.sectionVariants[
-                    section_variant_id
-                ]
-                next_section_variant = project_state.sectionVariants[section_variant_id]
-                previous_section_impl_id = previous_section_variant.impl
-                next_section_impl_id = next_section_variant.impl
-                if (
-                    previous_section_impl_id not in previous_project_state.sectionImpls
-                    or next_section_impl_id not in project_state.sectionImpls
-                ):
-                    topology_changed = True
-                    changed_section_impl_ids = []
-                    break
-                if previous_section_impl_id != next_section_impl_id:
-                    changed_section_impl_ids.append(section_id)
-                    continue
-                if (
-                    previous_project_state.sectionImpls[previous_section_impl_id]
-                    != project_state.sectionImpls[next_section_impl_id]
-                ):
-                    changed_section_impl_ids.append(section_id)
-        return (
-            project_config_changed,
-            topology_changed,
-            code_obj_changed,
-            changed_section_impl_ids,
-        )
-
-    async def update_and_broadcast_all_project_state(
-        self,
-        *,
-        previous_project_state_revision: int | None = None,
-        project_config_ids: set[ID] | None = None,
-        undo_redo_patch_scope_by_project_config: dict[
-            ID, _UndoRedoProjectConfigPatchScope
-        ]
-        | None = None,
-        previous_project_state_backend: ProjectStateBackend | None = None,
-    ) -> None:
-        backend = self.project_state_backend
-        project_state_revision = self.history.revision
-        if project_config_ids is None:
-            broadcast_project_config_ids = list(backend.projectConfigs.keys())
-        else:
-            broadcast_project_config_ids = sorted(
-                project_config_id
-                for project_config_id in project_config_ids
-                if project_config_id in backend.projectConfigs
-            )
-        for project_config_id in broadcast_project_config_ids:
-            project_state = convert_backend_to_single_config(backend, project_config_id)
-            if (
-                previous_project_state_revision is None
-                or project_state_revision <= previous_project_state_revision
-            ):
-                await self._broadcast_project_state_snapshot(project_state)
-                await self._broadcast_name_validation_errors(
-                    project_state,
-                    suppress_unchanged_broadcast=False,
+    async def update_and_broadcast_all_project_state(self):
+        for projectConfigId in self.project_state_backend.projectConfigs.keys():
+            await self.update_and_broadcast_project_state(
+                convert_backend_to_single_config(
+                    self.project_state_backend, projectConfigId
                 )
-                continue
-            has_broadcast_patch = False
-            undo_redo_patch_scope = None
-            if undo_redo_patch_scope_by_project_config is not None:
-                undo_redo_patch_scope = undo_redo_patch_scope_by_project_config.get(
-                    project_config_id
-                )
-            if undo_redo_patch_scope is not None:
-                has_broadcast_patch = await self._broadcast_undo_redo_scoped_patch(
-                    project_state=project_state,
-                    patch_scope=undo_redo_patch_scope,
-                    previous_project_state_revision=previous_project_state_revision,
-                    project_state_revision=project_state_revision,
-                )
-                if not has_broadcast_patch:
-                    await self._broadcast_project_state_op_status_patch(
-                        project_config_id=project_state.projectConfig.id,
-                        previous_project_state_revision=previous_project_state_revision,
-                        project_state_revision=project_state_revision,
-                    )
-            else:
-                previous_project_state_for_diff: ProjectStateSingleConfig | None = None
-                if (
-                    previous_project_state_backend is not None
-                    and project_config_id
-                    in previous_project_state_backend.projectConfigs
-                ):
-                    previous_project_state_for_diff = convert_backend_to_single_config(
-                        previous_project_state_backend,
-                        project_config_id,
-                    )
-
-                if previous_project_state_for_diff is None:
-                    code_obj_ids = sorted(project_state.codeObjs.keys())
-                    if code_obj_ids:
-                        (
-                            code_obj_updates,
-                            code_obj_variant_updates,
-                            code_obj_impl_updates,
-                        ) = self._collect_code_obj_updates_for_patch(
-                            project_state,
-                            code_obj_ids,
-                            include_all_variants=True,
-                        )
-                        await self._broadcast_code_objs_patch(
-                            project_config_id=project_state.projectConfig.id,
-                            code_objs=code_obj_updates,
-                            code_obj_variants=code_obj_variant_updates,
-                            code_obj_impls=code_obj_impl_updates,
-                            previous_project_state_revision=(
-                                previous_project_state_revision
-                            ),
-                            project_state_revision=project_state_revision,
-                        )
-                        has_broadcast_patch = True
-                    await self._broadcast_structural_patch(
-                        project_state=project_state,
-                        previous_project_state_revision=(
-                            project_state_revision
-                            if has_broadcast_patch
-                            else previous_project_state_revision
-                        ),
-                        project_state_revision=project_state_revision,
-                    )
-                    has_broadcast_patch = True
-                else:
-                    (
-                        project_config_changed,
-                        topology_changed,
-                        code_obj_changed,
-                        changed_section_impl_ids,
-                    ) = self._build_undo_redo_unknown_scope_patch_plan(
-                        previous_project_state=previous_project_state_for_diff,
-                        project_state=project_state,
-                    )
-                    if project_config_changed and not topology_changed:
-                        await self._broadcast_project_config_patch(
-                            project_config=project_state.projectConfig,
-                            previous_project_state_revision=(
-                                previous_project_state_revision
-                            ),
-                            project_state_revision=project_state_revision,
-                        )
-                        has_broadcast_patch = True
-                    if code_obj_changed:
-                        code_obj_ids = sorted(project_state.codeObjs.keys())
-                        if code_obj_ids:
-                            (
-                                code_obj_updates,
-                                code_obj_variant_updates,
-                                code_obj_impl_updates,
-                            ) = self._collect_code_obj_updates_for_patch(
-                                project_state,
-                                code_obj_ids,
-                                include_all_variants=True,
-                            )
-                            await self._broadcast_code_objs_patch(
-                                project_config_id=project_state.projectConfig.id,
-                                code_objs=code_obj_updates,
-                                code_obj_variants=code_obj_variant_updates,
-                                code_obj_impls=code_obj_impl_updates,
-                                previous_project_state_revision=(
-                                    previous_project_state_revision
-                                    if not has_broadcast_patch
-                                    else project_state_revision
-                                ),
-                                project_state_revision=project_state_revision,
-                            )
-                            has_broadcast_patch = True
-                    if changed_section_impl_ids:
-                        section_impl_updates = (
-                            self._collect_section_impl_updates_for_patch(
-                                project_state,
-                                changed_section_impl_ids,
-                            )
-                        )
-                        for idx, (
-                            section_id,
-                            section_impl,
-                        ) in enumerate(section_impl_updates):
-                            await self._broadcast_section_impl_patch(
-                                project_config_id=project_state.projectConfig.id,
-                                section_id=section_id,
-                                section_impl=section_impl,
-                                previous_project_state_revision=(
-                                    previous_project_state_revision
-                                    if idx == 0 and not has_broadcast_patch
-                                    else project_state_revision
-                                ),
-                                project_state_revision=project_state_revision,
-                            )
-                        if section_impl_updates:
-                            has_broadcast_patch = True
-                    if topology_changed:
-                        structural_delta_patch = self._build_structural_delta_patch(
-                            previous_project_state=previous_project_state_for_diff,
-                            project_state=project_state,
-                        )
-                        await self._broadcast_structural_patch(
-                            project_state=project_state,
-                            previous_project_state_revision=(
-                                previous_project_state_revision
-                                if not has_broadcast_patch
-                                else project_state_revision
-                            ),
-                            project_state_revision=project_state_revision,
-                            sections_for_patch=structural_delta_patch.sections,
-                            section_variants_for_patch=(
-                                structural_delta_patch.section_variants
-                            ),
-                            section_impls_for_patch=(
-                                structural_delta_patch.section_impls
-                            ),
-                            parent_section_map_for_patch=(
-                                structural_delta_patch.parent_section_map
-                            ),
-                            is_full_snapshot=False,
-                            removed_section_ids=(
-                                structural_delta_patch.removed_section_ids
-                            ),
-                            removed_section_variant_ids=(
-                                structural_delta_patch.removed_section_variant_ids
-                            ),
-                            removed_section_impl_ids=(
-                                structural_delta_patch.removed_section_impl_ids
-                            ),
-                            removed_parent_section_ids=(
-                                structural_delta_patch.removed_parent_section_ids
-                            ),
-                        )
-                        has_broadcast_patch = True
-            await self._broadcast_name_validation_errors(
-                project_state,
-                suppress_unchanged_broadcast=False,
             )
 
-    @enqueue_method(require_serialization=False)
+    @enqueue_method
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         """Return the most recent project state snapshot for the requested config."""
-        async with self._project_state_lock.read_lock():
-            projectState = self.get_single_config_state(x.projectConfigId)
-            return projectState
+        projectState = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return projectState
 
-    @enqueue_method(require_serialization=False)
+    @enqueue_method
     @project_state_tool(
         tool_type=SettaToolType.init,
         access_type="read",
@@ -11773,8 +5261,10 @@ class BaseProjectManager(ABC):
         self, x: GetLatestProjectStateSummaryRequest
     ):
         """Return a lightweight summary for the requested project config."""
-        async with self._project_state_lock.read_lock():
-            return self.get_project_state_summary(x.projectConfigId)
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(
@@ -11824,36 +5314,14 @@ class BaseProjectManager(ABC):
     async def finish_pending_operations(self, *, timeout: float | None = None) -> None:
         """Await completion of all queued and in-flight frontend operations."""
 
-        async def _drain() -> None:
+        async def _drain():
             await self._process_queue_task_started.wait()
-            consecutive_idle_cycles = 0
-            while True:
+            self._raise_queue_task_issue_if_any()
+            await self.message_queue.join()
+            while self.pending_frontend_ops:
                 self._raise_queue_task_issue_if_any()
-                await asyncio.gather(
-                    *(queue.join() for queue in self._get_all_message_queues())
-                )
-                while self.pending_frontend_ops:
-                    self._raise_queue_task_issue_if_any()
-                    await self._pending_ops_idle.wait()
-                await self._await_pending_background_tasks()
-                self._raise_queue_task_issue_if_any()
-                await asyncio.sleep(0)
-                has_pending_background_tasks = bool(
-                    self._get_pending_background_tasks()
-                )
-                has_pending_frontend_ops = bool(self.pending_frontend_ops)
-                has_pending_queue_work = self._get_total_queue_depth() > 0
-                if (
-                    has_pending_background_tasks
-                    or has_pending_frontend_ops
-                    or has_pending_queue_work
-                ):
-                    consecutive_idle_cycles = 0
-                    continue
-                consecutive_idle_cycles += 1
-                if consecutive_idle_cycles >= 2:
-                    self._raise_queue_task_issue_if_any()
-                    return
+                await self._pending_ops_idle.wait()
+            self._raise_queue_task_issue_if_any()
 
         if timeout is None:
             await _drain()
@@ -11861,16 +5329,13 @@ class BaseProjectManager(ABC):
         await asyncio.wait_for(_drain(), timeout)
 
     def _raise_queue_task_issue_if_any(self) -> None:
-        for queue_partition_key, queue_task in self._queue_task_by_partition.items():
-            if not queue_task.done():
-                continue
-            if queue_task.cancelled():
-                raise asyncio.CancelledError(
-                    f"BaseProjectManager queue task cancelled partition={queue_partition_key}"
-                )
-            exception = queue_task.exception()
-            if exception:
-                raise exception
+        if not self.queue_task.done():
+            return
+        if self.queue_task.cancelled():
+            raise asyncio.CancelledError("BaseProjectManager queue task cancelled")
+        exception = self.queue_task.exception()
+        if exception:
+            raise exception
 
     def watch_json_source_files(self):
         callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
@@ -11906,28 +5371,11 @@ class BaseProjectManager(ABC):
             self.project_state_backend,
         )
 
-    def watch_code_files(
-        self,
-        project_state: ProjectStateSingleConfig | None = None,
-    ):
-        project_state_for_watch_refresh: ProjectStateSingleConfig | None = None
-        if project_state is not None:
-            project_configs = self.project_state_backend.projectConfigs
-            project_config_id = project_state.projectConfig.id
-            if project_config_id in project_configs:
-                updated_section_ids = set(project_state.projectConfig.sectionVariantMap)
-                has_shared_sections = any(
-                    bool(updated_section_ids.intersection(config.sectionVariantMap))
-                    for other_project_config_id, config in project_configs.items()
-                    if other_project_config_id != project_config_id
-                )
-                if not has_shared_sections:
-                    project_state_for_watch_refresh = project_state
+    def watch_code_files(self):
         self.code_files.watch_code_files(
             f"{self._file_watcher_category_prefix}_CodeFiles",
             self.project_state_backend_getter_fn,
             self.reload_code_sections,
-            project_state=project_state_for_watch_refresh,
         )
 
     async def reload_code_sections(
@@ -11960,16 +5408,10 @@ class BaseProjectManager(ABC):
             )
             return
 
-        previous_project_state_revision = self.history.revision
-        next_project_state_revision = previous_project_state_revision
-        states_to_broadcast: list[
-            tuple[ProjectStateSingleConfig, WatchCodeMutationScope]
-        ] = []
+        states_to_broadcast: list[ProjectStateSingleConfig] = []
         async with self._project_state_lock.write_lock():
             base_backend = self.project_state_backend
-            updated_configs: dict[
-                ID, tuple[ProjectStateSingleConfig, WatchCodeMutationScope]
-            ] = {}
+            updated_configs: dict[ID, ProjectStateSingleConfig] = {}
             for (
                 project_config_id,
                 config_bindings,
@@ -11977,7 +5419,6 @@ class BaseProjectManager(ABC):
                 single_state = convert_backend_to_single_config(
                     base_backend, project_config_id
                 )
-                config_update_scope = WatchCodeMutationScope()
 
                 for binding in config_bindings:
                     section_id = binding.section_id
@@ -11988,44 +5429,22 @@ class BaseProjectManager(ABC):
                             project_config_id,
                         )
                         continue
-                    section_impl = get_curr_effective_section_impl(
-                        single_state, section_id
-                    )
-                    previous_code = (
-                        section_impl.code
-                        if isinstance(section_impl, CodeSectionImpl)
-                        else None
-                    )
                     set_code(single_state, section_id, plan.raw_content)
-                    if previous_code != plan.raw_content:
-                        config_update_scope.did_update = True
-                        config_update_scope.section_ids.add(section_id)
-                    watch_code_update_scope = (
-                        await self.watch_code_manager.handle_code_section_update(
-                            single_state, section_id, plan.raw_content
-                        )
+                    await self.watch_code_manager.handle_code_section_update(
+                        single_state, section_id, plan.raw_content
                     )
-                    config_update_scope.merge(watch_code_update_scope)
-                if config_update_scope.did_update:
-                    updated_configs[project_config_id] = (
-                        single_state,
-                        config_update_scope,
-                    )
+                if config_bindings:
+                    updated_configs[project_config_id] = single_state
 
             if not updated_configs:
                 return
 
             backend = base_backend
-            for single_state, _ in updated_configs.values():
+            for single_state in updated_configs.values():
                 backend = merge_single_config_into_backend(backend, single_state)
             self.project_state_backend = backend
-            self._mark_current_backend_revision_dirty()
-            next_project_state_revision = self.history.revision
 
-            for project_config_id, (
-                single_state,
-                config_update_scope,
-            ) in updated_configs.items():
+            for project_config_id, single_state in updated_configs.items():
                 code_entries = self.code_dict.setdefault(project_config_id, {})
                 config_bindings_for_id = plan.bindings_by_config.get(
                     project_config_id, []
@@ -12050,15 +5469,10 @@ class BaseProjectManager(ABC):
                         continue
                     await code_entry.handle_external_reload(section_impl.code)
 
-                states_to_broadcast.append((single_state, config_update_scope))
+                states_to_broadcast.append(single_state)
 
-        for single_state, update_scope in states_to_broadcast:
-            await self._broadcast_watch_code_mutation_scope_for_current_revision(
-                project_state=single_state,
-                update_scope=update_scope,
-                previous_project_state_revision=previous_project_state_revision,
-                project_state_revision=next_project_state_revision,
-            )
+        for single_state in states_to_broadcast:
+            await self._broadcast_project_state_snapshot(single_state)
 
     def _should_defer_json_source_reload(
         self,
