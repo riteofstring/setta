@@ -2310,29 +2310,67 @@ function isResponseDataAndStatus(
   );
 }
 
+function logOptimisticProjectStateEvent(event: string, payload: unknown): void {
+  console.log(`[optimistic-op-debug] ${event} ${JSON.stringify(payload)}`);
+}
+
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
   rollback,
+  debugSource,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
+  debugSource?: string;
 }) {
+  const source = debugSource ?? "unspecified";
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
+  logOptimisticProjectStateEvent("dispatch", {
+    frontendOpId: opId,
+    source,
+  });
   const result = send(opId);
+  logOptimisticProjectStateEvent("send.invoked", {
+    frontendOpId: opId,
+    source,
+    asyncSend: result instanceof Promise,
+  });
   if (result instanceof Promise) {
     void result.then((res) => {
       // A 200 response means the backend accepted the op; don't keep reapplying it.
       if (isResponseDataAndStatus(res) && res200(res)) {
+        logOptimisticProjectStateEvent("send.acknowledged", {
+          frontendOpId: opId,
+          source,
+          status: res.status,
+          hasResponse: res.hasResponse,
+        });
         acknowledgePendingOp(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
+        logOptimisticProjectStateEvent("send.response_non_200", {
+          frontendOpId: opId,
+          source,
+          status: res.status,
+          hasResponse: res.hasResponse,
+        });
         removePendingOp(opId);
         if (rollback) {
           useProjectState.setState(rollback);
         }
+      } else {
+        logOptimisticProjectStateEvent("send.response_untyped", {
+          frontendOpId: opId,
+          source,
+        });
       }
+    });
+  } else {
+    logOptimisticProjectStateEvent("send.sync_return", {
+      frontendOpId: opId,
+      source,
     });
   }
   return opId;

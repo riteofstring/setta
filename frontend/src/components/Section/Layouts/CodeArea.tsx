@@ -473,7 +473,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
         oldPrefix: prefix,
         newPrefix: nextParts.prefix,
       });
-      queueGenCodePrefixUpdate(nextParts.prefix);
+      queueGenCodePrefixUpdate(nextParts.prefix, "gen-python-editor:onChange");
     }
     if (nextParts.suffix !== suffix) {
       logGenPythonEditorEvent("onChange.queueSuffixUpdate", {
@@ -481,7 +481,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
         oldSuffix: suffix,
         newSuffix: nextParts.suffix,
       });
-      queueGenCodeSuffixUpdate(nextParts.suffix);
+      queueGenCodeSuffixUpdate(nextParts.suffix, "gen-python-editor:onChange");
     }
   }
 
@@ -737,7 +737,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     if (isDisabled) {
       return;
     }
-    queueCodeUpdate(sectionId, v);
+    queueCodeUpdate(sectionId, v, "code-editor:onChange");
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =

@@ -214,6 +214,7 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
+      debugSource: "param-input:onChange:debounce_flush",
     });
   },
   50,

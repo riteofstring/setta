@@ -16,6 +16,7 @@ export type ResponseDataAndStatus<T> = {
 
 const FRONTEND_DEBUG_POST_PATHS = [
   "/setCallable",
+  "/setParamEnteredValue",
   "/undo",
   "/redo",
   "/setGenCodePrefix",
