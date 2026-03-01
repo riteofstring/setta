@@ -2,6 +2,7 @@ import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
+  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
@@ -57,27 +58,22 @@ export function SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
-  const {
-    isMinimized,
-    isYouTube,
-    textBlockMetaControlStyle,
-    hasEmbeddedTerminal,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-      x,
-      sectionId,
-    );
-    return {
-      isMinimized: impl.isMinimized,
-      isYouTube: false,
-      // isYouTube: getIsYouTubeSection(sectionId, x),
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      hasEmbeddedTerminal:
-        embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
-    };
-  }, shallow);
+  const { isMinimized, textBlockMetaControlStyle, hasEmbeddedTerminal } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
+      const embeddedTerminal = isBaseCodeSectionType(impl.type)
+        ? getEmbeddedAttachedTerminalForCodeSection(x, sectionId)
+        : null;
+      return {
+        isMinimized: impl.isMinimized,
+        textBlockMetaControlStyle:
+          impl.type === SectionTypeEnum.TextBlock
+            ? impl.metaControlStyle
+            : false,
+        hasEmbeddedTerminal:
+          embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
+      };
+    }, shallow);
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
@@ -102,7 +98,7 @@ export function SectionContainerCoreResizable({
       sectionId={sectionId}
       as="section"
       bgColor={bgColor}
-      isYouTube={isYouTube}
+      isYouTube={false}
       isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}

@@ -54,32 +54,43 @@ function _SectionContainer({
     );
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+    const isCode = isBaseCodeSectionType(impl.type);
+    const isGenPython = impl.type === SectionTypeEnum.GenPythonCode;
+    const isGenPythonMetadata = impl.type === SectionTypeEnum.GenPythonMetadata;
+    let hasPythonCodegen = true;
+    let hasMetadata = true;
+    if (isGenPython || isGenPythonMetadata) {
+      const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+      hasPythonCodegen = projectConfigHasPythonCodegen(x.projectConfig);
+      hasMetadata = Boolean(pythonTarget?.generateMetadata);
+    }
     const activeIds = x.projectConfig.activeIds;
     const isActive = activeIds.includes(sectionId);
     let isJoinedAttachedTerminalGroup = false;
     let isJoinedGroupActive = isActive;
 
-    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-      x,
-      sectionId,
-    );
-    if (embeddedTerminal) {
-      isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
-      isJoinedGroupActive =
-        isJoinedGroupActive ||
-        activeIds.includes(embeddedTerminal.attachedTerminalId);
+    if (isCode) {
+      const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+        x,
+        sectionId,
+      );
+      if (embeddedTerminal) {
+        isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
+        isJoinedGroupActive =
+          isJoinedGroupActive ||
+          activeIds.includes(embeddedTerminal.attachedTerminalId);
+      }
     }
     return {
       visibility,
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(impl.type),
-      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
-      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
-      hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
-      hasMetadata: Boolean(pythonTarget?.generateMetadata),
+      isCode,
+      isGenPython,
+      isGenPythonMetadata,
+      hasPythonCodegen,
+      hasMetadata,
       sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
