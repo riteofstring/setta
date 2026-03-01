@@ -163,6 +163,89 @@ class TestEnqueueMethod:
         assert set(manager.completed_op_ids_since_last_broadcast) == {"op1", "op2"}
         assert manager._current_frontend_op_id.get() is None
 
+    async def test_queue_timing_metrics_capture_wait_and_execute_paths(self):
+        manager = self.manager
+        manager_hooks = self.manager_hooks
+        manager.reset_queue_timing_metrics()
+
+        payload1 = SimpleNamespace(
+            frontendOpId="metrics-serialized-1",
+            value=1,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+        payload2 = SimpleNamespace(
+            frontendOpId="metrics-serialized-2",
+            value=2,
+            release=asyncio.Event(),
+            entered=asyncio.Event(),
+            completed=asyncio.Event(),
+        )
+
+        # First request occupies the serialized queue so the second request waits.
+        task1 = asyncio.create_task(manager_hooks.serialized_blocking(payload1))
+        await asyncio.wait_for(payload1.entered.wait(), timeout=1)
+        task2 = asyncio.create_task(manager_hooks.serialized_blocking(payload2))
+        await asyncio.sleep(0)
+
+        payload1.release.set()
+        await asyncio.wait_for(payload1.completed.wait(), timeout=1)
+        await asyncio.wait_for(payload2.entered.wait(), timeout=1)
+        payload2.release.set()
+        await asyncio.wait_for(payload2.completed.wait(), timeout=1)
+        await asyncio.gather(task1, task2)
+
+        snapshot = manager.get_queue_timing_metrics_snapshot()
+        assert snapshot["queueDepth"] == 0
+        assert snapshot["calls"] == 2
+        assert snapshot["successes"] == 2
+        assert snapshot["failures"] == 0
+
+        queue_wait_snapshot = cast("dict[str, object]", snapshot["queueWaitSeconds"])
+        assert queue_wait_snapshot["count"] == 2
+        assert cast("float", queue_wait_snapshot["maxSeconds"]) > 0
+
+        by_handler = cast("dict[str, object]", snapshot["byHandler"])
+        assert "_serialized_blocking" in by_handler
+        serialized_handler_snapshot = cast(
+            "dict[str, object]",
+            by_handler["_serialized_blocking"],
+        )
+        assert serialized_handler_snapshot["calls"] == 2
+        assert serialized_handler_snapshot["successes"] == 2
+        assert serialized_handler_snapshot["failures"] == 0
+
+    async def test_queue_timing_metrics_capture_failures(self):
+        manager = self.manager
+        manager.reset_queue_timing_metrics()
+
+        async def fail() -> None:
+            raise RuntimeError("queue failure")
+
+        # Failure paths should still record queue wait/execute timings.
+        with pytest.raises(RuntimeError, match="queue failure"):
+            await manager._enqueue(fail())
+
+        snapshot = manager.get_queue_timing_metrics_snapshot()
+        assert snapshot["calls"] == 1
+        assert snapshot["successes"] == 0
+        assert snapshot["failures"] == 1
+        assert "fail" in cast("dict[str, object]", snapshot["byHandler"])
+
+    async def test_broadcast_status_omits_pending_op_ids_payload(self):
+        manager = self.manager
+        manager._register_pending_frontend_op("pending-op-id")
+
+        # Pending frontend-op tracking remains internal, but transport payload
+        # intentionally omits pending ids to keep patch sizes bounded.
+        completed_op_ids, pending_op_ids = (
+            manager._consume_frontend_op_status_for_broadcast()
+        )
+        assert completed_op_ids == []
+        assert pending_op_ids == []
+        assert "pending-op-id" in manager.pending_frontend_ops
+
     async def test_set_callable_hide_params_completes_without_queue_stall(self):
         manager = self.manager
         request = SetCallableHideParamsRequest(

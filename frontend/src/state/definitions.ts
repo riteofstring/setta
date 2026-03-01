@@ -165,6 +165,18 @@ export const useProjectState = withProjectState(
   ),
 );
 
+type ProjectStateSyncState = {
+  revisionByProjectConfigId: Record<string, number>;
+};
+
+export const useProjectStateSync = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ProjectStateSyncState>(() => ({
+      revisionByProjectConfigId: {},
+    })),
+  ),
+);
+
 type AppDefinitionState = {
   appDefinition: AppDefinition | null;
   appSpec: unknown | null;
@@ -651,7 +663,6 @@ export const useMisc = withProjectState(
     subscribeWithSelector(
       withResetFn(() => ({
         isPanScrolling: false,
-        viewportMotionShellActive: false,
         lastMouseDownLocation: null,
         lastMouseUpLocation: null,
         mouseDownDrawArea: false,
