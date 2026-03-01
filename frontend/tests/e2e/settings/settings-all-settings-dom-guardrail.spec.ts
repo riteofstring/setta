@@ -133,6 +133,19 @@ test("all settings DOM stays within flattening guardrails", async ({
         classes.includes("justify-center")
       );
     });
+    const lockButtons = Array.from(document.querySelectorAll("button")).filter(
+      (el) => {
+        const classes = Array.from(el.classList);
+        const hasFlattenedHostIcon =
+          classes.includes("gg-lock") || classes.includes("gg-lock-unlock");
+        const hasLegacyChildIcon =
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          (Array.from(el.children[0].classList).includes("gg-lock") ||
+            Array.from(el.children[0].classList).includes("gg-lock-unlock"));
+        return hasFlattenedHostIcon || hasLegacyChildIcon;
+      },
+    );
 
     return {
       nodeCount: nodes.length,
@@ -277,6 +290,19 @@ test("all settings DOM stays within flattening guardrails", async ({
           el.children.length === 0 &&
           Array.from(el.classList).includes("gg-close"),
       ).length,
+      legacyLockIconWrapperCount: lockButtons.filter(
+        (el) =>
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          (Array.from(el.children[0].classList).includes("gg-lock") ||
+            Array.from(el.children[0].classList).includes("gg-lock-unlock")),
+      ).length,
+      flattenedLockIconHostCount: lockButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          (Array.from(el.classList).includes("gg-lock") ||
+            Array.from(el.classList).includes("gg-lock-unlock")),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -322,6 +348,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedMinimizeIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyDeleteHideIconWrapperCount).toBe(0);
   expect(metrics.flattenedDeleteHideIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyLockIconWrapperCount).toBe(0);
+  expect(metrics.flattenedLockIconHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
