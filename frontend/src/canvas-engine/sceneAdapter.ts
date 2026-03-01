@@ -189,6 +189,12 @@ export class CanvasEngineSceneAdapter {
 
   private orderedAgenticEdgeIds: string[];
 
+  private sectionOrderById: Map<string, number>;
+
+  private dataEdgeOrderById: Map<string, number>;
+
+  private agenticEdgeOrderById: Map<string, number>;
+
   private sectionOrderingDirty: boolean;
 
   private dataEdgeOrderingDirty: boolean;
@@ -225,6 +231,9 @@ export class CanvasEngineSceneAdapter {
     this.orderedSectionIds = [];
     this.orderedDataEdgeIds = [];
     this.orderedAgenticEdgeIds = [];
+    this.sectionOrderById = new Map();
+    this.dataEdgeOrderById = new Map();
+    this.agenticEdgeOrderById = new Map();
     this.sectionOrderingDirty = true;
     this.dataEdgeOrderingDirty = true;
     this.agenticEdgeOrderingDirty = true;
@@ -290,11 +299,12 @@ export class CanvasEngineSceneAdapter {
       visibleSectionSet.add(activeSectionId);
     }
 
+    const orderedVisibleSectionIds = sortIdsByOrder(
+      visibleSectionSet,
+      this.getSectionOrderById(),
+    );
     const rects: CanvasEngineRect[] = [];
-    for (const sectionId of this.getOrderedSectionIds()) {
-      if (!visibleSectionSet.has(sectionId)) {
-        continue;
-      }
+    for (const sectionId of orderedVisibleSectionIds) {
       const rect = this.rectById.get(sectionId);
       if (rect) {
         rects.push(rect);
@@ -306,10 +316,11 @@ export class CanvasEngineSceneAdapter {
       visibleSectionSet,
       this.dataEdgeIdsBySectionId,
     );
-    for (const edgeId of this.getOrderedDataEdgeIds()) {
-      if (!visibleDataEdgeIds.has(edgeId)) {
-        continue;
-      }
+    const orderedVisibleDataEdgeIds = sortIdsByOrder(
+      visibleDataEdgeIds,
+      this.getDataEdgeOrderById(),
+    );
+    for (const edgeId of orderedVisibleDataEdgeIds) {
       const edge = this.dataEdgeById.get(edgeId);
       if (!edge) {
         continue;
@@ -322,10 +333,11 @@ export class CanvasEngineSceneAdapter {
       visibleSectionSet,
       this.agenticEdgeIdsBySectionId,
     );
-    for (const edgeId of this.getOrderedAgenticEdgeIds()) {
-      if (!visibleAgenticEdgeIds.has(edgeId)) {
-        continue;
-      }
+    const orderedVisibleAgenticEdgeIds = sortIdsByOrder(
+      visibleAgenticEdgeIds,
+      this.getAgenticEdgeOrderById(),
+    );
+    for (const edgeId of orderedVisibleAgenticEdgeIds) {
       const edge = this.agenticEdgeById.get(edgeId);
       if (!edge) {
         continue;
@@ -1077,9 +1089,15 @@ export class CanvasEngineSceneAdapter {
       this.orderedSectionIds = Array.from(this.rectById.values())
         .sort(compareRectRecords)
         .map((rect) => rect.id);
+      rebuildOrderByIdMap(this.orderedSectionIds, this.sectionOrderById);
       this.sectionOrderingDirty = false;
     }
     return this.orderedSectionIds;
+  }
+
+  private getSectionOrderById(): Map<string, number> {
+    this.getOrderedSectionIds();
+    return this.sectionOrderById;
   }
 
   private getOrderedDataEdgeIds(): string[] {
@@ -1087,9 +1105,15 @@ export class CanvasEngineSceneAdapter {
       this.orderedDataEdgeIds = Array.from(this.dataEdgeById.values())
         .sort(compareDataEdgeRecords)
         .map((edge) => edge.id);
+      rebuildOrderByIdMap(this.orderedDataEdgeIds, this.dataEdgeOrderById);
       this.dataEdgeOrderingDirty = false;
     }
     return this.orderedDataEdgeIds;
+  }
+
+  private getDataEdgeOrderById(): Map<string, number> {
+    this.getOrderedDataEdgeIds();
+    return this.dataEdgeOrderById;
   }
 
   private getOrderedAgenticEdgeIds(): string[] {
@@ -1097,9 +1121,18 @@ export class CanvasEngineSceneAdapter {
       this.orderedAgenticEdgeIds = Array.from(this.agenticEdgeById.values())
         .sort(compareAgenticEdgeRecords)
         .map((edge) => edge.id);
+      rebuildOrderByIdMap(
+        this.orderedAgenticEdgeIds,
+        this.agenticEdgeOrderById,
+      );
       this.agenticEdgeOrderingDirty = false;
     }
     return this.orderedAgenticEdgeIds;
+  }
+
+  private getAgenticEdgeOrderById(): Map<string, number> {
+    this.getOrderedAgenticEdgeIds();
+    return this.agenticEdgeOrderById;
   }
 
   private applyDataEdges(
@@ -1346,6 +1379,46 @@ function collectVisibleEdgeIdsForSections(
     }
   }
   return visibleEdgeIds;
+}
+
+function sortIdsByOrder(
+  ids: Set<string>,
+  orderById: Map<string, number>,
+): string[] {
+  const sortedIds = Array.from(ids);
+  sortedIds.sort((leftId, rightId) =>
+    compareIdsByOrder(leftId, rightId, orderById),
+  );
+  return sortedIds;
+}
+
+function compareIdsByOrder(
+  leftId: string,
+  rightId: string,
+  orderById: Map<string, number>,
+): number {
+  const leftOrder = orderById.get(leftId);
+  const rightOrder = orderById.get(rightId);
+  if (leftOrder !== undefined && rightOrder !== undefined) {
+    return leftOrder - rightOrder;
+  }
+  if (leftOrder !== undefined) {
+    return -1;
+  }
+  if (rightOrder !== undefined) {
+    return 1;
+  }
+  return leftId.localeCompare(rightId);
+}
+
+function rebuildOrderByIdMap(
+  orderedIds: string[],
+  orderById: Map<string, number>,
+): void {
+  orderById.clear();
+  for (let index = 0; index < orderedIds.length; index += 1) {
+    orderById.set(orderedIds[index], index);
+  }
 }
 
 function addEdgeToSectionAdjacency(
