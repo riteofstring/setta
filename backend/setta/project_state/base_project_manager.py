@@ -3476,7 +3476,8 @@ class BaseProjectManager(ABC):
                 project_state, x.sectionId, formatted_code
             )
             await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
+                project_state,
+                updateFileWatcher=False,
             )
             return
         if isinstance(section_impl, GenPythonCodeSectionImpl):
@@ -3504,7 +3505,8 @@ class BaseProjectManager(ABC):
             python_target.genCodePrefix = formatted_prefix
             python_target.genCodeSuffix = formatted_suffix
             await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
+                project_state,
+                updateFileWatcher=False,
             )
             return
         raise HTTPException(

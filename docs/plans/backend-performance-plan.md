@@ -89,13 +89,14 @@ Goal: keep full codegen where needed, but skip unrelated watcher refresh.
    - Completed: `set_param_name_and_value`.
    - Completed: `set_code_obj_name`.
    - Completed: `set_code`.
+   - Completed: `format_code`.
    - Completed: `set_text_block_text`.
    - Completed: `set_prompt_template`.
    - Completed: `set_prompt_inputs`.
    - Completed: `set_prompt_format`.
    - Continue evaluating similar non-binding updates.
 2. Add tests that watched-file callback registration is unchanged after these operations.
-   - Completed: watcher path stability + watcher refresh skip tests for `set_param_entered_value`, `set_param_name_and_value`, `set_code_obj_name`, `set_code`, `set_text_block_text`, `set_prompt_template`, `set_prompt_inputs`, and `set_prompt_format`.
+   - Completed: watcher path stability + watcher refresh skip tests for `set_param_entered_value`, `set_param_name_and_value`, `set_code_obj_name`, `set_code`, `format_code`, `set_text_block_text`, `set_prompt_template`, `set_prompt_inputs`, and `set_prompt_format`.
 
 Expected impact:
 - Roughly the measured watcher delta on this synthetic project (`~137 ms/op`) for affected routes.
