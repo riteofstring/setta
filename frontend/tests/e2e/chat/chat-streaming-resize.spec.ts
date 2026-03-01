@@ -366,15 +366,19 @@ test("summary-only reasoning expands only when the summary is truncated", async 
     });
 
     const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const trigger = node.locator('[data-chat-thinking-list-trigger="true"]');
+    const activityTrigger = node.locator(
+      '[data-chat-assistant-activity-trigger="true"]',
+    );
+    const trigger = node.locator('[data-chat-thinking-trigger="true"]');
     const expandedSummary = node.locator(
       '[data-chat-thinking-summary-expanded="true"]',
     );
+    await expect(activityTrigger).toBeVisible({ timeout: 10000 });
+    if (!(await trigger.isVisible())) {
+      await activityTrigger.click();
+    }
     await expect(trigger).toBeVisible({ timeout: 10000 });
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-list-expandable",
-      "false",
-    );
+    await expect(trigger).toHaveAttribute("data-chat-thinking-expandable", "false");
     const shortCursor = await trigger.evaluate(
       (el) => window.getComputedStyle(el).cursor,
     );
@@ -428,18 +432,12 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       },
     });
 
-    await expect(trigger).toHaveAttribute(
-      "data-chat-thinking-list-expandable",
-      "true",
-    );
+    await expect(trigger).toHaveAttribute("data-chat-thinking-expandable", "true");
     const longCursor = await trigger.evaluate(
       (el) => window.getComputedStyle(el).cursor,
     );
     expect(longCursor).toBe("pointer");
     await trigger.click();
-    const innerTrigger = node.locator('[data-chat-thinking-trigger="true"]');
-    await expect(innerTrigger).toHaveAttribute("data-chat-thinking-expandable", "true");
-    await innerTrigger.click();
     await expect(expandedSummary).toContainText(longSummary);
   } finally {
     await cleanupIsolatedProject(page, projectContext);

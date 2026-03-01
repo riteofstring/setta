@@ -45,6 +45,7 @@ type UnexpectedApiErrorGuard = {
 };
 const DEFAULT_ALLOWED_API_ERRORS: readonly AllowedApiError[] = [
   { path: "/api/formatCode", statuses: [422], method: "POST" },
+  { path: "/api/getExternalAgentChat", statuses: [404], method: "POST" },
 ];
 const unexpectedApiErrorGuards = new WeakMap<Page, UnexpectedApiErrorGuard>();
 
@@ -384,6 +385,15 @@ function sanitizeAllLlmConfigsForWrite(config: AllLLMConfigs): AllLLMConfigs {
 export async function ensureManagedChatEngine(
   page: Page,
 ): Promise<() => Promise<void>> {
+  // Managed-engine tests can trigger optional external-chat probes that
+  // legitimately return 404 when the external route is unavailable.
+  allowExpectedApiError(page, {
+    path: "/api/getExternalAgentChat",
+    statuses: [404],
+    method: "POST",
+    count: 200,
+    ttlMs: 15 * 60 * 1000,
+  });
   const initialConfig = await getBackend<AllLLMConfigs>(page, "/llm/config");
   if (!initialConfig) {
     throw new Error("Missing LLM config payload.");

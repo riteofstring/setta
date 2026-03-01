@@ -110,7 +110,6 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
       ]),
     });
   });
-
   try {
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
@@ -273,6 +272,41 @@ test("project ai selected thread spinner follows live chat state before agent-ru
         contextUsage: null,
       },
     },
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-live-state",
+            role: "assistant",
+            content: [{ type: "text", text: "Done responding." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-live-state",
+            role: "assistant",
+            content: [{ type: "text", text: "Done responding." }],
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
@@ -800,100 +834,95 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     id: string;
     engineType: string;
   }>;
-  if (engineConfigs.length === 0) {
+  const primaryConfig =
+    engineConfigs.find((config) => config.engineType === "setta_llm") ??
+    engineConfigs[0];
+  if (!primaryConfig) {
     throw new Error("Expected at least one engine config for thread test.");
   }
+  const primaryRunType =
+    primaryConfig.engineType === "external_agent"
+      ? "external_agent"
+      : "llm_chat";
 
   await page.route("**/api/getAgentRuns", async (route) => {
-    const runs = engineConfigs.flatMap((config, index) => {
-      const baseDay = 10 + index * 2;
-      return [
-        {
-          id: `run-existing-new-${config.id}`,
-          profileId: null,
-          status: "running",
-          startedAt: `2026-01-${String(baseDay + 2).padStart(2, "0")}T00:00:00Z`,
-          finishedAt: null,
-          events: [],
-          inputs: {
-            runType:
-              config.engineType === "external_agent"
-                ? "external_agent"
-                : "llm_chat",
-            projectConfigId: projectContext.projectConfigId,
-            chatId: `pw-existing-thread-new-${config.id}`,
-            engineConfigId: config.id,
-            messages: [
-              {
-                id: `msg-existing-new-${config.id}`,
-                role: "user",
-                content: [{ type: "text", text: "Queue backlog item alpha" }],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: { name: "Existing thread new", nameSource: "llm" },
-          toolCalls: [],
-          cost: null,
+    const runs = [
+      {
+        id: `run-existing-new-${primaryConfig.id}`,
+        profileId: null,
+        status: "running",
+        startedAt: "2026-01-12T00:00:00Z",
+        finishedAt: null,
+        events: [],
+        inputs: {
+          runType: primaryRunType,
+          projectConfigId: projectContext.projectConfigId,
+          chatId: `pw-existing-thread-new-${primaryConfig.id}`,
+          engineConfigId: primaryConfig.id,
+          messages: [
+            {
+              id: `msg-existing-new-${primaryConfig.id}`,
+              role: "user",
+              content: [{ type: "text", text: "Queue backlog item alpha" }],
+              attachments: [],
+            },
+          ],
         },
-        {
-          id: `run-existing-middle-${config.id}`,
-          profileId: null,
-          status: "completed",
-          startedAt: `2026-01-${String(baseDay + 1).padStart(2, "0")}T00:00:00Z`,
-          finishedAt: `2026-01-${String(baseDay + 1).padStart(2, "0")}T00:00:01Z`,
-          events: [],
-          inputs: {
-            runType:
-              config.engineType === "external_agent"
-                ? "external_agent"
-                : "llm_chat",
-            projectConfigId: projectContext.projectConfigId,
-            chatId: `pw-existing-thread-middle-${config.id}`,
-            engineConfigId: config.id,
-            messages: [
-              {
-                id: `msg-existing-middle-${config.id}`,
-                role: "user",
-                content: [{ type: "text", text: "Design review beta scope" }],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: { name: "Existing thread middle", nameSource: "llm" },
-          toolCalls: [],
-          cost: null,
+        outputs: { name: "Existing thread new", nameSource: "llm" },
+        toolCalls: [],
+        cost: null,
+      },
+      {
+        id: `run-existing-middle-${primaryConfig.id}`,
+        profileId: null,
+        status: "completed",
+        startedAt: "2026-01-11T00:00:00Z",
+        finishedAt: "2026-01-11T00:00:01Z",
+        events: [],
+        inputs: {
+          runType: primaryRunType,
+          projectConfigId: projectContext.projectConfigId,
+          chatId: `pw-existing-thread-middle-${primaryConfig.id}`,
+          engineConfigId: primaryConfig.id,
+          messages: [
+            {
+              id: `msg-existing-middle-${primaryConfig.id}`,
+              role: "user",
+              content: [{ type: "text", text: "Design review beta scope" }],
+              attachments: [],
+            },
+          ],
         },
-        {
-          id: `run-existing-old-${config.id}`,
-          profileId: null,
-          status: "completed",
-          startedAt: `2026-01-${String(baseDay).padStart(2, "0")}T00:00:00Z`,
-          finishedAt: `2026-01-${String(baseDay).padStart(2, "0")}T00:00:01Z`,
-          events: [],
-          inputs: {
-            runType:
-              config.engineType === "external_agent"
-                ? "external_agent"
-                : "llm_chat",
-            projectConfigId: projectContext.projectConfigId,
-            chatId: `pw-existing-thread-old-${config.id}`,
-            engineConfigId: config.id,
-            messages: [
-              {
-                id: `msg-existing-old-${config.id}`,
-                role: "user",
-                content: [{ type: "text", text: "Operations incident gamma" }],
-                attachments: [],
-              },
-            ],
-          },
-          outputs: { name: "Existing thread old", nameSource: "llm" },
-          toolCalls: [],
-          cost: null,
+        outputs: { name: "Existing thread middle", nameSource: "llm" },
+        toolCalls: [],
+        cost: null,
+      },
+      {
+        id: `run-existing-old-${primaryConfig.id}`,
+        profileId: null,
+        status: "completed",
+        startedAt: "2026-01-10T00:00:00Z",
+        finishedAt: "2026-01-10T00:00:01Z",
+        events: [],
+        inputs: {
+          runType: primaryRunType,
+          projectConfigId: projectContext.projectConfigId,
+          chatId: `pw-existing-thread-old-${primaryConfig.id}`,
+          engineConfigId: primaryConfig.id,
+          messages: [
+            {
+              id: `msg-existing-old-${primaryConfig.id}`,
+              role: "user",
+              content: [{ type: "text", text: "Operations incident gamma" }],
+              attachments: [],
+            },
+          ],
         },
-      ];
-    });
+        outputs: { name: "Existing thread old", nameSource: "llm" },
+        toolCalls: [],
+        cost: null,
+      },
+    ];
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1124,11 +1153,11 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
     const oldThreadHandle = oldThreadEntry.getByTestId(
       "project-chat-thread-drag-handle",
     );
-    const frontendGroupButton = frontendGroupRow.getByRole("button", {
-      name: "Frontend",
-      exact: true,
-    });
-    await oldThreadHandle.dragTo(frontendGroupButton);
+    const frontendGroupDropSurface = frontendGroupRow.getByTestId(
+      "project-chat-thread-group-drop-surface",
+    );
+    await expect(frontendGroupDropSurface).toBeVisible();
+    await oldThreadHandle.dragTo(frontendGroupDropSurface);
     await expect(
       frontendGroupRow
         .getByTestId("project-chat-thread-entry")

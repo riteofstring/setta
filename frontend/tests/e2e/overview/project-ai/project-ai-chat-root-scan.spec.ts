@@ -67,6 +67,37 @@ test("project chat skips workspace root scan when returning to an existing chat"
       }),
     });
   });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "pw-user-msg",
+            role: "user",
+            content: [{ type: "text", text: "hello from playwright" }],
+            attachments: [],
+          },
+          {
+            id: "pw-assistant-msg",
+            role: "assistant",
+            content: [{ type: "text", text: "ready" }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "e2e-llm",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          api_key_env: null,
+          base_url: null,
+          other_params: {},
+          mcpServerIds: [],
+        },
+      }),
+    });
+  });
 
   try {
     await page.reload();
@@ -157,6 +188,23 @@ test("project chat keeps create-project starter visible when a new root scan can
     });
   });
   await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "pw-chat-msg",
+            role: "assistant",
+            content: [{ type: "text", text: "chat active" }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
