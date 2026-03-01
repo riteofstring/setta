@@ -2,6 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   applyActiveViewModeProjectStatePatch,
+  applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
   applySectionImplProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
@@ -30,6 +31,7 @@ import {
   ChatRoleEnum,
   createCallableSectionImpl,
   createChatSectionImpl,
+  createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createCore,
   createListRootSectionImpl,
@@ -39,8 +41,10 @@ import {
   createTerminalSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
+  isBaseChildlessCodeObjImpl,
   ListRootViewModeEnum,
   SectionTypeEnum,
   type ProjectStateSingleConfigWithCompletedOpIds,
@@ -1723,6 +1727,95 @@ describe("processProjectStateUpdateFromBackend", () => {
         .inputText,
     ).toBe("after");
     expect(getProjectStateRevision("project-1")).toBe(32);
+  });
+
+  it("applies code-obj patches and updates revision tracking", () => {
+    const codeObjId = "param-1";
+    const variantId = "variant-param-1";
+    const implId = "impl-param-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {
+        [codeObjId]: createCore({
+          id: codeObjId,
+          name: "before-name",
+        }),
+      },
+      codeObjImpls: {
+        [implId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: implId,
+            value: "before-value",
+          },
+        ),
+      },
+      codeObjVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applyCodeObjsProjectStatePatch({
+      projectConfigId: "project-1",
+      codeObjs: {
+        [codeObjId]: createCore({
+          id: codeObjId,
+          name: "after-name",
+        }),
+      },
+      codeObjVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjImpls: {
+        [implId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: implId,
+            value: "after-value",
+          },
+        ),
+      },
+      previousProjectStateRevision: 50,
+      projectStateRevision: 51,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().codeObjs[codeObjId].name).toBe(
+      "after-name",
+    );
+    const patchedImpl = useProjectState.getState().codeObjImpls[implId];
+    expect(isBaseChildlessCodeObjImpl(patchedImpl)).toBe(true);
+    if (!isBaseChildlessCodeObjImpl(patchedImpl)) {
+      throw new Error("Expected childless code-obj impl.");
+    }
+    expect(patchedImpl.value).toBe("after-value");
+    expect(getProjectStateRevision("project-1")).toBe(51);
   });
 
   it("recomputes shown param ids when pinned params change in a section-impl patch", () => {

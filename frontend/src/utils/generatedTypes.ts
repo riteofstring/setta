@@ -952,6 +952,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PatchFrontendProjectStateProjectConfig:
     "PatchFrontendProjectStateProjectConfig",
   PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
+  PatchFrontendProjectStateCodeObjs: "PatchFrontendProjectStateCodeObjs",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5152,6 +5153,48 @@ const WebsocketMsgPatchFrontendProjectStateSectionImplSchema = z.object({
     ),
 });
 
+const ProjectStateCodeObjsPatchSchema = z.object({
+  projectConfigId: IDSchema,
+  codeObjs: z.record(IDSchema, CoreSchema),
+  codeObjVariants: z.record(IDSchema, VariantSchema),
+  codeObjImpls: z.record(
+    IDSchema,
+    z.discriminatedUnion("type", [
+      CodeCallableCodeObjImplSchema,
+      CodeParamCodeObjImplSchema,
+      TextParamCodeObjImplSchema,
+      DateParamCodeObjImplSchema,
+      TimeParamCodeObjImplSchema,
+      ButtonParamCodeObjImplSchema,
+      SliderParamCodeObjImplSchema,
+      RotaryParamCodeObjImplSchema,
+      SwitchParamCodeObjImplSchema,
+      ColorPickerParamCodeObjImplSchema,
+      DropdownParamCodeObjImplSchema,
+      PasswordParamCodeObjImplSchema,
+      TextAreaParamCodeObjImplSchema,
+      DropzoneParamCodeObjImplSchema,
+      NestedParamCodeObjImplSchema,
+    ]),
+  ),
+  previousProjectStateRevision: z.int(),
+  projectStateRevision: z.int(),
+  completedOpIds: z.array(z.string()),
+  pendingOpIds: z.array(z.string()),
+});
+
+export type ProjectStateCodeObjsPatch = z.infer<
+  typeof ProjectStateCodeObjsPatchSchema
+>;
+
+const WebsocketMsgPatchFrontendProjectStateCodeObjsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateCodeObjsPatchSchema,
+  messageType: z
+    .literal("PatchFrontendProjectStateCodeObjs")
+    .default(WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateCodeObjs),
+});
+
 const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -7212,6 +7255,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema,
   WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
   WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
+  WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,

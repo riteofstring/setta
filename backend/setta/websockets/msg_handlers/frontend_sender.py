@@ -11,6 +11,7 @@ from setta.logging.levels import parse_log_level
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
+    ProjectStateCodeObjsPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -29,9 +30,13 @@ from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
 )
+from setta.types.core import Core, Variant
 from setta.types.external_agents import ExternalAgentConfig, ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.generated.unions import (
+    BaseArtifactUnion,
+    BaseCodeObjImplUnionWithDiscriminator,
+)
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
@@ -70,6 +75,7 @@ from setta.types.websocket import (
     WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
     WebsocketMsgPatchFrontendProjectStateActiveViewMode,
+    WebsocketMsgPatchFrontendProjectStateCodeObjs,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPatchFrontendProjectStateSectionImpl,
     WebsocketMsgPromptTemplatesUpdated,
@@ -461,6 +467,35 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectConfigId=projectConfigId,
                     sectionId=sectionId,
                     sectionImpl=sectionImpl,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_code_objs_patch(
+        self,
+        projectConfigId: ID,
+        codeObjs: dict[ID, Core],
+        codeObjVariants: dict[ID, Variant],
+        codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator],
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateCodeObjs(
+                content=ProjectStateCodeObjsPatch(
+                    projectConfigId=projectConfigId,
+                    codeObjs=codeObjs,
+                    codeObjVariants=codeObjVariants,
+                    codeObjImpls=codeObjImpls,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

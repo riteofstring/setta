@@ -262,6 +262,7 @@ from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParentCodeObjImpl,
 )
+from setta.types.core import Core, Variant
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -272,6 +273,7 @@ from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
+    BaseCodeObjImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
@@ -3261,13 +3263,15 @@ class BaseProjectManager(ABC):
         self._refresh_plugin_codegen_outputs(project_state)
         return True
 
-    async def _set_param_entered_value_and_broadcast_project_state(
+    async def _set_param_entered_value_and_broadcast_patch_updates(
         self,
         project_state: ProjectStateSingleConfig,
+        section_ids: list[ID],
         section_id: ID,
         param_id: ID,
         value: str,
     ) -> None:
+        previous_project_state_revision = self.history.revision
         async with self._project_state_lock.write_lock():
             project_state.validate_for_param_value_update(
                 section_id=section_id,
@@ -3287,7 +3291,37 @@ class BaseProjectManager(ABC):
                 project_state,
                 updateFileWatcher=False,
             )
-        await self._broadcast_project_state_snapshot(project_state)
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+
+        (
+            code_obj_updates,
+            code_obj_variant_updates,
+            code_obj_impl_updates,
+        ) = self._collect_code_obj_updates_for_patch(project_state, [param_id])
+        await self._broadcast_code_objs_patch(
+            project_config_id=project_state.projectConfig.id,
+            code_objs=code_obj_updates,
+            code_obj_variants=code_obj_variant_updates,
+            code_obj_impls=code_obj_impl_updates,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+
+        section_impl_updates = self._collect_section_impl_updates_for_patch(
+            project_state,
+            section_ids,
+        )
+        for section_id_for_patch, section_impl in section_impl_updates:
+            await self._broadcast_section_impl_patch(
+                project_config_id=project_state.projectConfig.id,
+                section_id=section_id_for_patch,
+                section_impl=section_impl,
+                previous_project_state_revision=next_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
 
     @enqueue_method
     @project_state_tool(
@@ -3330,8 +3364,13 @@ class BaseProjectManager(ABC):
         effective_value = x.value
         if isinstance(effective_impl, BaseChildlessCodeObjImpl):
             effective_value = effective_impl.value
-        await self._set_param_entered_value_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._set_param_entered_value_and_broadcast_patch_updates(
             project_state,
+            section_ids=section_patch_scope,
             section_id=x.sectionId,
             param_id=x.paramInfoId,
             value=effective_value,
@@ -3571,8 +3610,14 @@ class BaseProjectManager(ABC):
             x.codeObjId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
             project_state,
+            code_obj_ids=[x.codeObjId],
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
             validate_name_rules=False,
         )
@@ -3606,8 +3651,14 @@ class BaseProjectManager(ABC):
         if normalized_name is None:
             raise KeyError(f"Code obj {x.codeObjId} not found in any section.")
         project_state.codeObjs[x.codeObjId].name = normalized_name
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=section_ids,
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
             project_state,
+            code_obj_ids=[x.codeObjId],
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
             validate_name_rules=False,
         )
@@ -3623,7 +3674,13 @@ class BaseProjectManager(ABC):
         """Update the user-facing display name for the requested code object."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].displayName = x.displayName
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[x.codeObjId],
+            section_ids=[],
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
@@ -3746,7 +3803,7 @@ class BaseProjectManager(ABC):
         )
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
+            section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -4726,7 +4783,7 @@ class BaseProjectManager(ABC):
         set_text_block_text(project_state, x.sectionId, x.text)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
+            section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -4741,7 +4798,7 @@ class BaseProjectManager(ABC):
         set_prompt_section_template(project_state, x.sectionId, x.template)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
+            section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -4755,7 +4812,7 @@ class BaseProjectManager(ABC):
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
+            section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -4769,7 +4826,7 @@ class BaseProjectManager(ABC):
         set_prompt_section_format(project_state, x.sectionId, x.format)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
-            section_id=x.sectionId,
+            section_ids=[x.sectionId],
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -5808,6 +5865,139 @@ class BaseProjectManager(ABC):
             section_impl_updates.append((section_id, section_impl))
         return section_impl_updates
 
+    def _get_active_code_obj_variant_ids_for_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+        code_obj_id: ID,
+    ) -> set[ID]:
+        active_variant_ids: set[ID] = set()
+        for section_id in project_state.sections:
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if isinstance(section_impl, BaseSectionWithParamsImpl):
+                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
+                if variant_id is not None:
+                    active_variant_ids.add(variant_id)
+                continue
+            if isinstance(section_impl, MetaControlSectionImpl):
+                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
+                if variant_id is not None:
+                    active_variant_ids.add(variant_id)
+        return active_variant_ids
+
+    def _collect_code_obj_updates_for_patch(
+        self,
+        project_state: ProjectStateSingleConfig,
+        code_obj_ids: list[ID],
+    ) -> tuple[
+        dict[ID, Core],
+        dict[ID, Variant],
+        dict[ID, BaseCodeObjImplUnionWithDiscriminator],
+    ]:
+        code_obj_updates: dict[ID, Core] = {}
+        code_obj_variant_updates: dict[ID, Variant] = {}
+        code_obj_impl_updates: dict[ID, BaseCodeObjImplUnionWithDiscriminator] = {}
+        seen_code_obj_ids: set[ID] = set()
+        for code_obj_id in code_obj_ids:
+            if code_obj_id in seen_code_obj_ids:
+                continue
+            seen_code_obj_ids.add(code_obj_id)
+            if code_obj_id not in project_state.codeObjs:
+                raise KeyError(f"Missing code obj {code_obj_id} in project state.")
+            code_obj_updates[code_obj_id] = project_state.codeObjs[code_obj_id]
+            variant_ids = self._get_active_code_obj_variant_ids_for_project_state(
+                project_state,
+                code_obj_id,
+            )
+            for variant_id in variant_ids:
+                if variant_id not in project_state.codeObjVariants:
+                    raise KeyError(
+                        f"Missing code obj variant {variant_id} in project state."
+                    )
+                code_obj_variant = project_state.codeObjVariants[variant_id]
+                code_obj_variant_updates[variant_id] = code_obj_variant
+                impl_id = code_obj_variant.impl
+                if impl_id not in project_state.codeObjImpls:
+                    raise KeyError(f"Missing code obj impl {impl_id} in project state.")
+                code_obj_impl_updates[impl_id] = project_state.codeObjImpls[impl_id]
+        return code_obj_updates, code_obj_variant_updates, code_obj_impl_updates
+
+    async def _update_and_broadcast_code_obj_and_section_patches(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        code_obj_ids: list[ID],
+        section_ids: list[ID],
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        if not code_obj_ids and not section_ids:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        previous_project_state_revision = self.history.revision
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=validate_name_rules,
+        )
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+
+        has_broadcast_patch = False
+        if code_obj_ids:
+            (
+                code_obj_updates,
+                code_obj_variant_updates,
+                code_obj_impl_updates,
+            ) = self._collect_code_obj_updates_for_patch(
+                project_state,
+                code_obj_ids,
+            )
+            await self._broadcast_code_objs_patch(
+                project_config_id=project_state.projectConfig.id,
+                code_objs=code_obj_updates,
+                code_obj_variants=code_obj_variant_updates,
+                code_obj_impls=code_obj_impl_updates,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            has_broadcast_patch = True
+
+        if section_ids:
+            section_impl_updates = self._collect_section_impl_updates_for_patch(
+                project_state,
+                section_ids,
+            )
+            for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+                await self._broadcast_section_impl_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    section_id=section_id,
+                    section_impl=section_impl,
+                    previous_project_state_revision=(
+                        previous_project_state_revision
+                        if idx == 0 and not has_broadcast_patch
+                        else next_project_state_revision
+                    ),
+                    project_state_revision=next_project_state_revision,
+                )
+            if section_impl_updates:
+                has_broadcast_patch = True
+
+        if not has_broadcast_patch:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+
     async def _update_and_broadcast_section_impl_patches(
         self,
         project_state: ProjectStateSingleConfig,
@@ -6136,6 +6326,42 @@ class BaseProjectManager(ABC):
         )
         self.completed_op_ids_since_last_broadcast = []
 
+    async def _broadcast_code_objs_patch(
+        self,
+        *,
+        project_config_id: ID,
+        code_objs: dict[ID, Core],
+        code_obj_variants: dict[ID, Variant],
+        code_obj_impls: dict[ID, BaseCodeObjImplUnionWithDiscriminator],
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_code_objs_patch project_config_id=%s previous_revision=%s revision=%s code_objs=%s variants=%s impls=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(code_objs),
+            len(code_obj_variants),
+            len(code_obj_impls),
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_code_objs_patch(
+            project_config_id,
+            code_objs,
+            code_obj_variants,
+            code_obj_impls,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
     async def _broadcast_name_validation_errors(
         self,
         project_state: ProjectStateSingleConfig,
@@ -6299,10 +6525,15 @@ class BaseProjectManager(ABC):
         self,
         *,
         project_config_id: ID,
-        section_id: ID,
+        section_ids: list[ID],
     ) -> list[ID]:
-        scoped_section_ids: list[ID] = [section_id]
-        seen_section_ids: set[ID] = {section_id}
+        scoped_section_ids: list[ID] = []
+        seen_section_ids: set[ID] = set()
+        for section_id in section_ids:
+            if section_id in seen_section_ids:
+                continue
+            seen_section_ids.add(section_id)
+            scoped_section_ids.append(section_id)
         codegen_singleton_section_ids = (
             self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
         )

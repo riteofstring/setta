@@ -17,11 +17,13 @@ from setta.types.binary_content import BinaryContentRef
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
+from setta.types.core import Core, Variant
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
 from setta.types.generated.unions import (
+    BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
@@ -1237,6 +1239,18 @@ class ProjectStateSectionImplPatch:
     projectConfigId: ID
     sectionId: ID
     sectionImpl: BaseSectionImpl
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateCodeObjsPatch:
+    projectConfigId: ID
+    codeObjs: dict[ID, Core]
+    codeObjVariants: dict[ID, Variant]
+    codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator]
     previousProjectStateRevision: int
     projectStateRevision: int
     completedOpIds: list[str]

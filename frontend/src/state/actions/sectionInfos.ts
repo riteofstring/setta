@@ -52,6 +52,7 @@ import {
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ProjectStateActiveViewModePatch,
+  ProjectStateCodeObjsPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
   ProjectStateSingleConfig,
@@ -1179,6 +1180,49 @@ export function applySectionImplProjectStatePatch(
         nextPinnedParams,
         false,
       );
+    }
+    applied = true;
+  });
+  if (!applied) {
+    return false;
+  }
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  const completedIds = new Set(patch.completedOpIds);
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+  });
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
+}
+
+export function applyCodeObjsProjectStatePatch(
+  patch: ProjectStateCodeObjsPatch,
+): boolean {
+  let applied = false;
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    if (
+      Object.keys(patch.codeObjs).length === 0 &&
+      Object.keys(patch.codeObjVariants).length === 0 &&
+      Object.keys(patch.codeObjImpls).length === 0
+    ) {
+      return;
+    }
+    for (const [codeObjId, codeObj] of Object.entries(patch.codeObjs)) {
+      state.codeObjs[codeObjId] = codeObj;
+    }
+    for (const [variantId, variant] of Object.entries(patch.codeObjVariants)) {
+      state.codeObjVariants[variantId] = variant;
+    }
+    for (const [implId, impl] of Object.entries(patch.codeObjImpls)) {
+      state.codeObjImpls[implId] = impl;
     }
     applied = true;
   });
