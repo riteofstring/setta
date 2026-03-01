@@ -9,7 +9,10 @@ from setta.project_state.project_manager_types import (
     MoveParamGroup,
     MoveParamGroupsRequest,
     MoveParamsRequest,
+    RedoRequest,
     SetCallableRequest,
+    SetGenCodePrefixRequest,
+    UndoRequest,
     UnindentParamsRequest,
 )
 from setta.types.code_obj_impls import (
@@ -923,6 +926,150 @@ async def test_set_callable_clear_uses_section_patch_transport() -> None:
             CallableSectionImpl,
         )
         assert section_impl.callable is None
+
+
+@pytest.mark.asyncio
+async def test_first_set_callable_redo_includes_code_obj_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=640, y=320),
+            )
+        )
+        section_id = create_response.sectionId
+        set_response = await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        callable_id = set_response.callableId
+        if callable_id is None:
+            raise KeyError("Expected callable id after set_callable.")
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undo_state = manager.get_single_config_state(project_config_id)
+        section_impl_after_undo = get_curr_effective_section_impl_with_type_guard(
+            undo_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        assert section_impl_after_undo.callable is None
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1)),
+        )
+
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["project_config_patch_calls"])
+        assert 1 <= len(redo_capture["code_obj_patch_calls"])
+        assert any(
+            patch["sectionId"] == section_id
+            for patch in redo_capture["section_impl_patch_calls"]
+        )
+        patched_code_obj_ids: set[ID] = set()
+        for patch in redo_capture["code_obj_patch_calls"]:
+            patched_code_obj_ids.update(patch["codeObjIds"])
+        assert callable_id in patched_code_obj_ids
+
+        redo_state = manager.get_single_config_state(project_config_id)
+        section_impl_after_redo = get_curr_effective_section_impl_with_type_guard(
+            redo_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_after_redo = section_impl_after_redo.callable
+        if callable_after_redo is None:
+            raise KeyError("Expected callable id after redo.")
+        assert "math.sqrt" == redo_state.codeObjs[callable_after_redo].name
+
+
+@pytest.mark.asyncio
+async def test_set_callable_redo_after_gen_prefix_history_keeps_callable_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=640, y=320),
+            )
+        )
+        section_id = create_response.sectionId
+
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math",
+            )
+        )
+        set_response = await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        callable_id = set_response.callableId
+        if callable_id is None:
+            raise KeyError("Expected callable id after set_callable.")
+        if not manager.history.can_undo(3):
+            raise RuntimeError("Expected at least three undo steps for test setup.")
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=3))
+        await manager.finish_pending_operations(timeout=5.0)
+        if not manager.history.can_redo(3):
+            raise RuntimeError("Expected at least three redo steps after undo.")
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(RedoRequest(projectConfigId=project_config_id, steps=3)),
+        )
+
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 1 <= len(redo_capture["project_config_patch_calls"])
+        assert 1 <= len(redo_capture["code_obj_patch_calls"])
+        assert any(
+            patch["sectionId"] == section_id
+            for patch in redo_capture["section_impl_patch_calls"]
+        )
+        patched_code_obj_ids: set[ID] = set()
+        for patch in redo_capture["code_obj_patch_calls"]:
+            patched_code_obj_ids.update(patch["codeObjIds"])
+        assert callable_id in patched_code_obj_ids
+
+        redo_state = manager.get_single_config_state(project_config_id)
+        section_impl_after_redo = get_curr_effective_section_impl_with_type_guard(
+            redo_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_after_redo = section_impl_after_redo.callable
+        if callable_after_redo is None:
+            raise KeyError("Expected callable id after redo.")
+        assert "math.sqrt" == redo_state.codeObjs[callable_after_redo].name
 
 
 @pytest.mark.asyncio

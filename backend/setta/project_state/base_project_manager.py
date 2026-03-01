@@ -3187,6 +3187,25 @@ class BaseProjectManager(ABC):
             x.callableName,
             x.refetchParams,
         )
+        # Register post-mutation callable code object ids on the same history entry
+        # so redo can always rehydrate callable core/children through targeted patch transport.
+        history_code_obj_ids_after = set(
+            self._collect_set_callable_code_obj_patch_ids(result)
+        )
+        history_code_obj_ids_after.update(
+            self._get_callable_history_code_obj_ids_for_project_state(
+                project_state=project_state,
+                section_id=x.sectionId,
+            )
+        )
+        if history_code_obj_ids_after:
+            self._register_current_history_entry_undo_redo_patch_scope(
+                {
+                    x.projectConfigId: _UndoRedoProjectConfigPatchScope(
+                        code_obj_ids=history_code_obj_ids_after
+                    )
+                }
+            )
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
@@ -8437,7 +8456,26 @@ class BaseProjectManager(ABC):
             raise TypeError(
                 f"Section {section_id} has unsupported callable history type {section_impl.type}."
             )
-        return set(section_impl.codeObjVariantMap.keys())
+        history_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
+        if section_impl.callable is not None:
+            history_code_obj_ids.add(section_impl.callable)
+        return history_code_obj_ids
+
+    def _get_callable_history_code_obj_ids_for_project_state(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> set[ID]:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        history_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
+        if section_impl.callable is not None:
+            history_code_obj_ids.add(section_impl.callable)
+        return history_code_obj_ids
 
     def _get_add_kwarg_history_scope_for_backend(
         self,

@@ -5,6 +5,7 @@ import {
   ensureAppReady,
   openIsolatedProject,
   postBackend,
+  syncProjectStateFromBackend,
 } from "../helpers";
 
 const UNDO_REDO_KEY_REPEAT_COUNT = 40;
@@ -52,6 +53,49 @@ async function repeatRedoShortcut(page: Page, repeatCount: number): Promise<void
     await page.keyboard.up("Shift");
     await page.keyboard.up(MODIFIER_KEY);
   }
+}
+
+async function readCallableNameFromBackend(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string | null> {
+  const stateEnvelope = await postBackend<{
+    projectState?: {
+      projectConfig: { sectionVariantMap: Record<string, string> };
+      sectionVariants: Record<string, { impl: string }>;
+      sectionImpls: Record<string, { type: string; callable?: string | null }>;
+      codeObjs: Record<string, { name?: string | null }>;
+    };
+  }>(page, "/getLatestProjectState", { projectConfigId });
+  if (!stateEnvelope?.projectState) {
+    return null;
+  }
+  const snapshot = stateEnvelope.projectState;
+  const sectionVariantId = snapshot.projectConfig.sectionVariantMap[sectionId];
+  if (!sectionVariantId) {
+    return null;
+  }
+  const sectionVariant = snapshot.sectionVariants[sectionVariantId];
+  if (!sectionVariant) {
+    return null;
+  }
+  const sectionImpl = snapshot.sectionImpls[sectionVariant.impl];
+  if (!sectionImpl || sectionImpl.type !== "Callable") {
+    return null;
+  }
+  const callableId =
+    "callable" in sectionImpl && typeof sectionImpl.callable === "string"
+      ? sectionImpl.callable
+      : null;
+  if (!callableId) {
+    return null;
+  }
+  const callableCore = snapshot.codeObjs[callableId];
+  if (!callableCore) {
+    return null;
+  }
+  return callableCore.name ?? null;
 }
 
 test.describe.serial("section undo/redo", () => {
@@ -273,6 +317,109 @@ test.describe.serial("section undo/redo", () => {
 
       // Let pending transport/state updates settle before asserting errors.
       await page.waitForTimeout(1500);
+      const undoRedoPageErrors = pageErrors.filter(isUndoRedoRegressionError);
+      const undoRedoConsoleErrors = consoleErrors.filter(
+        isUndoRedoRegressionError,
+      );
+      expect(undoRedoErrorStatuses).toEqual([]);
+      expect(undoRedoPageErrors).toEqual([]);
+      expect(undoRedoConsoleErrors).toEqual([]);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("rapid undo/redo preserves callable semantic state after gen prefix + set callable", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    const undoRedoErrorStatuses: number[] = [];
+    page.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("response", (response) => {
+      if (!isUndoRedoApiPath(response.url())) {
+        return;
+      }
+      if (response.status() >= 400) {
+        undoRedoErrorStatuses.push(response.status());
+      }
+    });
+
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createCallableSection(
+        page,
+        projectContext.projectConfigId,
+      );
+      const sectionNode = page.locator(`[data-testid="rf__node-${sectionId}"]`);
+      await expect(sectionNode).toBeVisible();
+
+      await postBackend(page, "/setGenCodePrefix", {
+        projectConfigId: projectContext.projectConfigId,
+        genCodePrefix: "import math",
+      });
+      await postBackend(page, "/setCallable", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        callableName: "math.sqrt",
+        refetchParams: false,
+      });
+
+      await expect
+        .poll(() =>
+          readCallableNameFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toBe("math.sqrt");
+
+      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
+      await expect(sectionNode.locator("search.section-search")).toContainText(
+        "math.sqrt",
+      );
+
+      await Promise.all(
+        Array.from({ length: 60 }, () =>
+          postBackend(page, "/undo", {
+            projectConfigId: projectContext.projectConfigId,
+            steps: 1,
+          }),
+        ),
+      );
+      await Promise.all(
+        Array.from({ length: 60 }, () =>
+          postBackend(page, "/redo", {
+            projectConfigId: projectContext.projectConfigId,
+            steps: 1,
+          }),
+        ),
+      );
+      await page.waitForTimeout(1500);
+      await expect
+        .poll(() =>
+          readCallableNameFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toBe("math.sqrt");
+      await syncProjectStateFromBackend(page, projectContext.projectConfigId);
+      await expect(sectionNode.locator("search.section-search")).toContainText(
+        "math.sqrt",
+      );
+
       const undoRedoPageErrors = pageErrors.filter(isUndoRedoRegressionError);
       const undoRedoConsoleErrors = consoleErrors.filter(
         isUndoRedoRegressionError,

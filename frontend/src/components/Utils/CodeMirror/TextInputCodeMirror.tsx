@@ -1,6 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -12,10 +12,38 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
+type ActivationEvent = "tab" | { clientX: number; clientY: number };
+
+function stringifyDebugPayload(payload: unknown): string {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(payload, (_key, value) => {
+    if (typeof value !== "object" || value === null) {
+      return value;
+    }
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+    seen.add(value);
+    return value;
+  });
+}
+
 function logTextInputCodeMirrorEvent(event: string, payload: unknown): void {
   console.log(
-    `[text-input-codemirror-debug] ${event} ${JSON.stringify(payload)}`,
+    `[text-input-codemirror-debug] ${event} ${stringifyDebugPayload(payload)}`,
   );
+}
+
+function describeActivationEvent(
+  activationEvent: ActivationEvent | null,
+): ActivationEvent | null {
+  if (activationEvent === null || activationEvent === "tab") {
+    return activationEvent;
+  }
+  return {
+    clientX: activationEvent.clientX,
+    clientY: activationEvent.clientY,
+  };
 }
 
 export function TextInputCodeMirror({
@@ -42,7 +70,8 @@ export function TextInputCodeMirror({
   isDisabled = false,
   completionsFn,
 }) {
-  const [activationEvent, setActivationEvent] = useState(null);
+  const [activationEvent, setActivationEvent] =
+    useState<ActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
 
@@ -50,7 +79,7 @@ export function TextInputCodeMirror({
     logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnBlur", {
       sectionId,
       paramInfoId,
-      activationEvent,
+      activationEvent: describeActivationEvent(activationEvent),
       realIsInitialized,
     });
     // hack to prevent codemirror from
@@ -69,7 +98,7 @@ export function TextInputCodeMirror({
 
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
-  function localOnMouseDownCapture(event) {
+  function localOnMouseDownCapture(event: MouseEvent) {
     logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnMouseDownCapture", {
       sectionId,
       paramInfoId,
@@ -81,7 +110,10 @@ export function TextInputCodeMirror({
       return;
     }
     if (event.button === 0) {
-      setActivationEvent(event);
+      setActivationEvent({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
       applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
@@ -93,7 +125,7 @@ export function TextInputCodeMirror({
       sectionId,
       paramInfoId,
       isDisabled,
-      activationEvent,
+      activationEvent: describeActivationEvent(activationEvent),
     });
     if (isDisabled) {
       return;
