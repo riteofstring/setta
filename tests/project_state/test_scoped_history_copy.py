@@ -6,6 +6,7 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     MoveSectionsRequest,
     RedoRequest,
+    SetCodeSectionAttachedTerminalRequest,
     SetSectionTagColorRequest,
     SetViewportRequest,
     UndoRequest,
@@ -449,6 +450,96 @@ async def test_move_sections_history_copy_isolates_project_config_and_affected_s
         await manager.finish_pending_operations(timeout=5.0)
         undone_state = manager.get_single_config_state(project_config_id)
         assert undone_state.parentSectionMap[child_section_id] == parent_a_id
+
+
+@pytest.mark.asyncio
+async def test_set_code_section_attached_terminal_history_copy_isolates_affected_sections() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        code_section_id = await _create_section(manager, project_config_id, SectionType.Code)
+        terminal_section_id = await _create_section(
+            manager, project_config_id, SectionType.Terminal
+        )
+        unaffected_section_id = await _create_dict_section(manager, project_config_id)
+
+        current_state = manager.get_single_config_state(project_config_id)
+        code_variant_id = current_state.projectConfig.sectionVariantMap[code_section_id]
+        terminal_variant_id = current_state.projectConfig.sectionVariantMap[
+            terminal_section_id
+        ]
+        unaffected_variant_id = current_state.projectConfig.sectionVariantMap[
+            unaffected_section_id
+        ]
+        code_impl_id = current_state.sectionVariants[code_variant_id].impl
+        terminal_impl_id = current_state.sectionVariants[terminal_variant_id].impl
+        unaffected_impl_id = current_state.sectionVariants[unaffected_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        await manager.set_code_section_attached_terminal(
+            SetCodeSectionAttachedTerminalRequest(
+                projectConfigId=project_config_id,
+                sectionId=code_section_id,
+                terminalSectionId=terminal_section_id,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sections[code_section_id] is not backend_before.sections[code_section_id]
+        )
+        assert (
+            backend_after.sections[terminal_section_id]
+            is not backend_before.sections[terminal_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[code_variant_id]
+            is not backend_before.sectionVariants[code_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[terminal_variant_id]
+            is not backend_before.sectionVariants[terminal_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[code_impl_id]
+            is not backend_before.sectionImpls[code_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[terminal_impl_id]
+            is not backend_before.sectionImpls[terminal_impl_id]
+        )
+        assert (
+            backend_after.sections[unaffected_section_id]
+            is backend_before.sections[unaffected_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[unaffected_variant_id]
+            is backend_before.sectionVariants[unaffected_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[unaffected_impl_id]
+            is backend_before.sectionImpls[unaffected_impl_id]
+        )
+
+        moved_state = manager.get_single_config_state(project_config_id)
+        assert moved_state.parentSectionMap[terminal_section_id] == code_section_id
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undone_state = manager.get_single_config_state(project_config_id)
+        assert undone_state.parentSectionMap[terminal_section_id] is None
 
 
 @pytest.mark.asyncio

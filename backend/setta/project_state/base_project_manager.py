@@ -3629,7 +3629,10 @@ class BaseProjectManager(ABC):
     )
     async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
         """Toggle ignoring type errors for the targeted section entry."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
@@ -3677,7 +3680,10 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticsMuteRequest
     ):
         """Toggle muting LSP diagnostics for a code section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
         await (
@@ -3701,7 +3707,10 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
     ):
         """Toggle suppressing an LSP diagnostic code for a code section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostic_code_suppression(
             project_state,
@@ -3736,7 +3745,38 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.terminalSectionId,
         )
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        history_section_ids: set[ID]
+        if x.terminalSectionId is None:
+            history_section_ids = {x.sectionId}
+            existing_terminal_section_id = (
+                self._get_code_section_attached_terminal_id_for_backend(
+                    project_config_id=x.projectConfigId,
+                    section_id=x.sectionId,
+                )
+            )
+            if existing_terminal_section_id is not None:
+                history_section_ids = (
+                    self._get_move_sections_history_section_ids_for_backend(
+                        project_config_id=x.projectConfigId,
+                        section_ids=[existing_terminal_section_id],
+                        new_parent_id=None,
+                    )
+                )
+                history_section_ids.add(x.sectionId)
+        else:
+            history_section_ids = (
+                self._get_move_sections_history_section_ids_for_backend(
+                    project_config_id=x.projectConfigId,
+                    section_ids=[x.terminalSectionId],
+                    new_parent_id=x.sectionId,
+                )
+            )
+            history_section_ids.add(x.sectionId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         get_curr_effective_section_impl_with_type_guard(
             project_state, x.sectionId, BaseCodeSectionImpl
@@ -3806,7 +3846,31 @@ class BaseProjectManager(ABC):
                     attached_terminal_id,
                 )
                 return attached_terminal_id
-        self.add_new_history_entry(project_config_id=projectConfigId)
+        history_section_ids: set[ID] = {sectionId}
+        history_terminal_id: ID | None = None
+        if code_impl.children:
+            history_terminal_id = code_impl.children[0]
+        elif (
+            attached_terminal_id is not None
+            and attached_terminal_id in project_state.sections
+            and attached_terminal_id in project_state.projectConfig.sectionVariantMap
+        ):
+            history_terminal_id = attached_terminal_id
+        if history_terminal_id is not None:
+            history_section_ids = (
+                self._get_move_sections_history_section_ids_for_backend(
+                    project_config_id=projectConfigId,
+                    section_ids=[history_terminal_id],
+                    new_parent_id=sectionId,
+                )
+            )
+            history_section_ids.add(sectionId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=projectConfigId,
+            section_ids=history_section_ids,
+            include_codegen_singletons=True,
+        )
+        project_state = self.get_single_config_state(projectConfigId)
         terminal_id = ensure_code_section_attached_terminal(
             self.settings_file.settings,
             project_state,
@@ -3937,7 +4001,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         canonical_path = normalize_workspace_path(x.binding.canonical_path)
         updated_binding = CodeFileBinding(
@@ -6807,6 +6874,34 @@ class BaseProjectManager(ABC):
                     )
                 parent_map[child_id] = section_id
         return parent_map
+
+    def _get_code_section_attached_terminal_id_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> ID | None:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        section_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=section_id,
+        )
+        if not isinstance(section_impl, BaseCodeSectionImpl):
+            raise TypeError(f"Section {section_id} is not a code section.")
+        child_ids = list(section_impl.children)
+        if len(child_ids) > 1:
+            raise ValueError(f"Code section {section_id} has multiple children.")
+        terminal_section_id = (
+            child_ids[0] if child_ids else section_impl.attachedTerminalSectionId
+        )
+        if terminal_section_id is None:
+            return None
+        if terminal_section_id not in project_config.sectionVariantMap:
+            return None
+        return terminal_section_id
 
     def _get_move_sections_history_section_ids_for_backend(
         self,
