@@ -5,13 +5,13 @@ import { ComboboxInput } from "./ComboboxParts";
 
 const inputRef = createRef<HTMLInputElement>();
 
-function renderInputMarkup(variant: "pill" | "pane") {
+function renderInputMarkup(variant: "pill" | "pane", isOpen = false) {
   return renderToStaticMarkup(
     <ComboboxInput
       divId="combobox-test"
       getInputProps={() => ({})}
       getToggleButtonProps={() => ({})}
-      isOpen={false}
+      isOpen={isOpen}
       small={true}
       onKeyDown={() => {}}
       placeholder="Pick one"
@@ -23,13 +23,13 @@ function renderInputMarkup(variant: "pill" | "pane") {
   );
 }
 
-function renderNormalInputMarkup(variant: "pill" | "pane") {
+function renderNormalInputMarkup(variant: "pill" | "pane", isOpen = false) {
   return renderToStaticMarkup(
     <ComboboxInput
       divId="combobox-test-normal"
       getInputProps={() => ({})}
       getToggleButtonProps={() => ({})}
-      isOpen={false}
+      isOpen={isOpen}
       small={false}
       onKeyDown={() => {}}
       placeholder="Pick one"
@@ -63,14 +63,29 @@ describe("ComboboxInput", () => {
     expect(markup).toContain("pr-8");
   });
 
-  it("uses svg chevron icons instead of gg chevron classes", () => {
-    // SVG chevrons keep optical centering stable across both variants.
+  it("renders combobox chevrons on the button host without icon child nodes", () => {
+    // Chevron shape is rendered through pseudo-elements on the existing host button.
     const paneMarkup = renderInputMarkup("pane");
     const pillMarkup = renderInputMarkup("pill");
 
+    expect(paneMarkup).toContain('data-combobox-chevron-host="true"');
+    expect(pillMarkup).toContain('data-combobox-chevron-host="true"');
+    expect(paneMarkup).toContain("before:border-r-[1.5px]");
+    expect(pillMarkup).toContain("before:border-b-[1.5px]");
+    expect(paneMarkup).not.toContain("<svg");
+    expect(pillMarkup).not.toContain("<svg");
     expect(paneMarkup).not.toContain("gg-chevron-down");
     expect(pillMarkup).not.toContain("gg-chevron-down");
-    expect(pillMarkup).toContain("<svg");
+  });
+
+  it("rotates host chevrons by open state", () => {
+    const closedMarkup = renderNormalInputMarkup("pill", false);
+    const openMarkup = renderNormalInputMarkup("pill", true);
+
+    expect(closedMarkup).toContain("before:rotate-45");
+    expect(closedMarkup).toContain("before:-translate-y-[1px]");
+    expect(openMarkup).toContain("before:-rotate-[135deg]");
+    expect(openMarkup).toContain("before:translate-y-[1px]");
   });
 
   it("renders the toggle button without a right wrapper container", () => {
