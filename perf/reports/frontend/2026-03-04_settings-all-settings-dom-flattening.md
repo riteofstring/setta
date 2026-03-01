@@ -419,6 +419,42 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `11` (`2.69%`)
   - Main-thread work: `Layout 49.96 ms`, `UpdateLayoutTree 22.58 ms`, `Paint 134.77 ms`, `PrePaint 18.64 ms`
 
+### Phase 12 (switch-thumb flattening)
+
+- Scope:
+  - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+  - `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`
+  - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Added an opt-in `SwitchInput` thumbless path that renders the knob via root `before:` pseudo-element classes.
+  - Enabled this path for settings switch rows to remove `Switch.Thumb` span nodes while preserving the same visual state transitions.
+  - Extended guardrails to assert zero legacy switch-thumb span wrappers and positive flattened pseudo-element switch roots.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4781` (down from `4900`, `-119`, `-2.4%` vs phase 11)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5877` (down from `5996`, `-119`)
+  - Per-node descendants: `avg 112.67`, `p95 202`, `max 864`
+  - Per-node max depth: `avg 8.45`, `p95 9`, `max 11`
+  - Legacy switch-thumb span wrappers: `0` (down from `119`)
+  - Flattened switch pseudo-element roots: `119`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12b.trace.json`
+- Notes on trace reliability:
+  - `phase12b` ran with a longer interaction window; use `phase12` as the normalized comparison run (closest duration to phase 11).
+- Trace signals from normalized run (`phase12`):
+  - Duration: `16,499.02 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `3`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `428` (`25.94/s`)
+  - `DrawFrame`: `240` (`14.55/s`)
+  - `DroppedFrame`: `18` (`4.21%`)
+  - Main-thread work: `Layout 52.47 ms`, `UpdateLayoutTree 24.62 ms`, `Paint 146.09 ms`, `PrePaint 18.85 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -428,13 +464,13 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, legacy switch-thumb span wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 4900` (`-3719`, `-43.1%`)
-  - Per-node descendants avg: `204.05 -> 115.5` (`-43.4%`)
+  - Viewport descendants: `8619 -> 4781` (`-3838`, `-44.5%`)
+  - Per-node descendants avg: `204.05 -> 112.67` (`-44.8%`)
   - Per-node descendants max: `1854 -> 864` (`-53.4%`)
   - Per-node depth avg/max: `12.74/17 -> 8.45/11`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
@@ -474,3 +510,7 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase12_fitview.png`

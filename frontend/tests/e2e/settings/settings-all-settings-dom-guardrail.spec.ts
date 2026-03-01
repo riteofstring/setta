@@ -59,6 +59,9 @@ test("all settings DOM stays within flattening guardrails", async ({
     const dummyCodeHosts = Array.from(
       document.querySelectorAll("div.section-value.outline-none"),
     ).filter((el) => el.classList.contains("peer/textinput"));
+    const switchRoots = Array.from(
+      document.querySelectorAll("button.section-value.justify-self-start.self-center"),
+    );
 
     return {
       nodeCount: nodes.length,
@@ -149,8 +152,14 @@ test("all settings DOM stays within flattening guardrails", async ({
       legacySwitchWrapperCount: document.querySelectorAll(
         "div.section-value.flex.justify-self-start.self-center",
       ).length,
-      flattenedSwitchRootCount: document.querySelectorAll(
-        "button.section-value.justify-self-start.self-center",
+      flattenedSwitchRootCount: switchRoots.length,
+      legacySwitchThumbSpanCount: switchRoots.filter(
+        (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
+      ).length,
+      flattenedSwitchThumbPseudoCount: switchRoots.filter(
+        (el) =>
+          el.children.length === 0 &&
+          Array.from(el.classList).includes("before:block"),
       ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
@@ -185,6 +194,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSectionTitleCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchWrapperCount).toBe(0);
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
+  expect(metrics.legacySwitchThumbSpanCount).toBe(0);
+  expect(metrics.flattenedSwitchThumbPseudoCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

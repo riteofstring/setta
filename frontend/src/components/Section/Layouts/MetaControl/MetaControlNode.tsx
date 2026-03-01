@@ -492,6 +492,7 @@ function SwitchControl({
       <SwitchInput
         value={value}
         onChange={onValueChange}
+        flattenThumb={true}
         rootClassName={`${NO_DRAG_CLASS_NAME} section-value justify-self-start self-center`}
       />
     </MetaControlTitleStack>

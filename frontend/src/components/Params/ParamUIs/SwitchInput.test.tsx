@@ -51,4 +51,20 @@ describe("SwitchInput theme overrides", () => {
     expect(markup.startsWith('<div class="section-value"')).toBe(true);
     expect(markup).toContain("justify-self-start");
   });
+
+  it("supports a thumbless flattening path via pseudo-element classes", () => {
+    const markup = renderToStaticMarkup(
+      <SwitchInput
+        value={false}
+        onChange={() => undefined}
+        flattenThumb={true}
+        thumbThemeClassName="bg-green-500 dark:bg-green-700"
+      />,
+    );
+
+    expect(markup).toContain("before:block");
+    expect(markup).toContain("before:bg-green-500");
+    expect(markup).toContain("dark:before:bg-green-700");
+    expect(markup).not.toContain("<span");
+  });
 });

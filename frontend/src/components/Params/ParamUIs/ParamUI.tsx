@@ -613,6 +613,7 @@ function SwitchParamConfigured({
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
+      flattenThumb={true}
       rootClassName="section-value justify-self-start self-center"
     />
   );
