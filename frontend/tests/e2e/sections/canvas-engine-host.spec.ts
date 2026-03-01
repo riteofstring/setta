@@ -454,6 +454,12 @@ test("canvas engine host briefly retains offscreen dom islands", async ({
     }
 
     await expect(createdSectionIsland).toHaveCount(1);
+    await expect
+      .poll(async () => await readRetainedDomIslandCount(host))
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => await readDomIslandDisplayState(createdSectionIsland))
+      .toBe("none");
 
     await page.waitForTimeout(DOM_ISLAND_RETENTION_TEST_WAIT_MS);
     await expect(createdSectionIsland).toHaveCount(0);
@@ -544,6 +550,9 @@ test("canvas engine host caps retained dom islands after large offscreen transit
       .poll(async () => await readDomIslandRetainedCount(host))
       .toBeLessThanOrEqual(retentionCap);
     await expect
+      .poll(async () => await readRetainedDomIslandCount(host))
+      .toBeLessThanOrEqual(retentionCap);
+    await expect
       .poll(async () => await readDomIslandMountedCount(host))
       .toBeLessThanOrEqual(retentionCap);
 
@@ -552,6 +561,9 @@ test("canvas engine host caps retained dom islands after large offscreen transit
 
     await expect
       .poll(async () => await readDomIslandRetainedCount(host))
+      .toBe(0);
+    await expect
+      .poll(async () => await readRetainedDomIslandCount(host))
       .toBe(0);
     await expect.poll(async () => await readDomIslandCount(host)).toBe(0);
   } finally {
@@ -2329,6 +2341,18 @@ async function readRectCount(host: Locator): Promise<number> {
 
 async function readDomIslandCount(host: Locator): Promise<number> {
   return await host.locator("[data-canvas-engine-dom-island]").count();
+}
+
+async function readRetainedDomIslandCount(host: Locator): Promise<number> {
+  return await host
+    .locator('[data-canvas-engine-dom-island-retained="true"]')
+    .count();
+}
+
+async function readDomIslandDisplayState(domIsland: Locator): Promise<string> {
+  return await domIsland.evaluate((element) => {
+    return window.getComputedStyle(element).display;
+  });
 }
 
 async function readDomIslandMountedCount(host: Locator): Promise<number> {

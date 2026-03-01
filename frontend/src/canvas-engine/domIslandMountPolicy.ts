@@ -12,6 +12,8 @@ export type CanvasEngineDomIslandMountPolicyInput = {
 
 export type CanvasEngineDomIslandMountPolicyResult = {
   mountedSectionIds: string[];
+  keepMountedSectionIdSet: Set<string>;
+  retainedSectionIdSet: Set<string>;
   retainedSectionCount: number;
 };
 
@@ -68,12 +70,16 @@ export function resolveDomIslandMountPolicy(
   }
 
   const mountedSectionIdSet = new Set<string>(keepMountedSectionIds);
+  const retainedSectionIdSet = new Set<string>();
   for (const sectionId of retentionExpiryBySectionId.keys()) {
+    retainedSectionIdSet.add(sectionId);
     mountedSectionIdSet.add(sectionId);
   }
 
   return {
     mountedSectionIds: input.sortSectionIds(Array.from(mountedSectionIdSet)),
+    keepMountedSectionIdSet: keepMountedSectionIds,
+    retainedSectionIdSet,
     retainedSectionCount: retentionExpiryBySectionId.size,
   };
 }

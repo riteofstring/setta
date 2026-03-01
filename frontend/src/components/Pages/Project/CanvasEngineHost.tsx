@@ -398,7 +398,7 @@ export function CanvasEngineHost() {
     sceneAdapter,
     viewport,
   ]);
-  const domIslandSectionIds = useMemo(() => {
+  const domIslandMountState = useMemo(() => {
     const mountPolicyResult = resolveDomIslandMountPolicy({
       activeSectionIds,
       viewportSectionIds: domIslandViewportSectionIds,
@@ -413,23 +413,34 @@ export function CanvasEngineHost() {
         sortSectionIdsByZIndexThenId(sectionIds, sceneAdapter),
     });
     domIslandMountedSectionIdsRef.current = mountPolicyResult.mountedSectionIds;
-    return mountPolicyResult.mountedSectionIds;
+    return mountPolicyResult;
   }, [
     activeSectionIds,
     domIslandRetentionRevision,
     domIslandViewportSectionIds,
     sceneAdapter,
   ]);
-  const domIslandRects = useMemo(() => {
-    const rects: CanvasEngineRect[] = [];
+  const domIslandSectionIds = domIslandMountState.mountedSectionIds;
+  const domIslandRetainedSectionIdSet =
+    domIslandMountState.retainedSectionIdSet;
+  const domIslandRenderEntries = useMemo(() => {
+    const entries: Array<{ rect: CanvasEngineRect; retained: boolean }> = [];
     for (const sectionId of domIslandSectionIds) {
       const rect = sceneAdapter.getRectById(sectionId);
       if (rect) {
-        rects.push(rect);
+        entries.push({
+          rect,
+          retained: domIslandRetainedSectionIdSet.has(sectionId),
+        });
       }
     }
-    return rects;
-  }, [domIslandSectionIds, projectSceneRevision, sceneAdapter]);
+    return entries;
+  }, [
+    domIslandRetainedSectionIdSet,
+    domIslandSectionIds,
+    projectSceneRevision,
+    sceneAdapter,
+  ]);
   useEffect(() => {
     const expiryById = domIslandRetentionExpiryByIdRef.current;
     if (domIslandRetentionTimerIdRef.current !== null) {
@@ -1454,7 +1465,7 @@ export function CanvasEngineHost() {
       }
     >
       <canvas ref={canvasRef} className="h-full w-full" />
-      {domIslandRects.length > 0 ? (
+      {domIslandRenderEntries.length > 0 ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -1464,19 +1475,24 @@ export function CanvasEngineHost() {
             className="absolute left-0 top-0"
             style={domIslandLayerTransform}
           >
-            {domIslandRects.map((rect) => (
+            {domIslandRenderEntries.map((entry) => (
               <div
-                key={rect.id}
-                className={`pointer-events-auto absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
-                data-canvas-engine-dom-island={rect.id}
-                style={{
-                  left: rect.x,
-                  top: rect.y,
-                  width: rect.width,
-                  height: rect.height,
-                }}
+                key={entry.rect.id}
+                className={`${entry.retained ? "pointer-events-none" : "pointer-events-auto"} absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
+                data-canvas-engine-dom-island={entry.rect.id}
+                data-canvas-engine-dom-island-retained={String(entry.retained)}
+                style={
+                  entry.retained
+                    ? { display: "none" }
+                    : {
+                        left: entry.rect.x,
+                        top: entry.rect.y,
+                        width: entry.rect.width,
+                        height: entry.rect.height,
+                      }
+                }
               >
-                <SectionContainer sectionId={rect.id} isTopLevel={true} />
+                <SectionContainer sectionId={entry.rect.id} isTopLevel={true} />
               </div>
             ))}
           </div>

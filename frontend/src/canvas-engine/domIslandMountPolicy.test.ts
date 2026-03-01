@@ -39,6 +39,14 @@ describe("resolveDomIslandMountPolicy", () => {
       "offscreen-2",
       "visible-1",
     ]);
+    expect(Array.from(result.keepMountedSectionIdSet).sort()).toEqual([
+      "active-1",
+      "visible-1",
+    ]);
+    expect(Array.from(result.retainedSectionIdSet).sort()).toEqual([
+      "offscreen-1",
+      "offscreen-2",
+    ]);
     expect(result.retainedSectionCount).toBe(2);
     expect(retentionExpiryBySectionId.get("offscreen-1")).toBe(1280);
     expect(retentionExpiryBySectionId.get("offscreen-2")).toBe(1280);
@@ -66,6 +74,8 @@ describe("resolveDomIslandMountPolicy", () => {
     });
 
     expect(result.mountedSectionIds).toEqual(["future-1"]);
+    expect(Array.from(result.keepMountedSectionIdSet)).toEqual([]);
+    expect(Array.from(result.retainedSectionIdSet)).toEqual(["future-1"]);
     expect(result.retainedSectionCount).toBe(1);
     expect(retentionExpiryBySectionId.has("expired-1")).toBe(false);
     expect(retentionExpiryBySectionId.has("stale-1")).toBe(false);
@@ -92,6 +102,10 @@ describe("resolveDomIslandMountPolicy", () => {
     });
 
     expect(result.mountedSectionIds).toEqual(["retain-c", "retain-d"]);
+    expect(Array.from(result.retainedSectionIdSet).sort()).toEqual([
+      "retain-c",
+      "retain-d",
+    ]);
     expect(result.retainedSectionCount).toBe(2);
     expect(retentionExpiryBySectionId.has("retain-a")).toBe(false);
     expect(retentionExpiryBySectionId.has("retain-b")).toBe(false);
