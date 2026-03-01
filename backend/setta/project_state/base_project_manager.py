@@ -8563,18 +8563,11 @@ class BaseProjectManager(ABC):
 
         scoped_code_obj_ids: set[ID] = set()
         if code_obj_ids:
-            for code_obj_id in code_obj_ids:
-                if code_obj_id not in backend.codeObjs:
-                    continue
-                active_variant_ids = (
-                    self._get_active_code_obj_variant_ids_for_project_config(
-                        backend,
-                        project_config_id,
-                        code_obj_id,
-                    )
-                )
-                if active_variant_ids:
-                    scoped_code_obj_ids.add(code_obj_id)
+            scoped_code_obj_ids = self._build_scoped_code_obj_history_ids(
+                backend=backend,
+                project_config_id=project_config_id,
+                code_obj_ids=code_obj_ids,
+            )
 
         if not scoped_section_ids and not scoped_code_obj_ids:
             self.add_new_history_entry(project_config_id=project_config_id)
@@ -8608,18 +8601,11 @@ class BaseProjectManager(ABC):
 
         scoped_code_obj_ids: set[ID] = set()
         if code_obj_ids:
-            for code_obj_id in code_obj_ids:
-                if code_obj_id not in backend.codeObjs:
-                    continue
-                active_variant_ids = (
-                    self._get_active_code_obj_variant_ids_for_project_config(
-                        backend,
-                        project_config_id,
-                        code_obj_id,
-                    )
-                )
-                if active_variant_ids:
-                    scoped_code_obj_ids.add(code_obj_id)
+            scoped_code_obj_ids = self._build_scoped_code_obj_history_ids(
+                backend=backend,
+                project_config_id=project_config_id,
+                code_obj_ids=code_obj_ids,
+            )
 
         if not scoped_section_ids and not scoped_code_obj_ids:
             self.add_new_history_entry(
@@ -10241,10 +10227,27 @@ class BaseProjectManager(ABC):
         project_config_id: ID,
         code_obj_id: ID,
     ) -> set[ID]:
+        (
+            active_variant_ids_by_code_obj,
+            _active_code_obj_ids_from_section_variant_maps,
+        ) = self._collect_active_code_obj_variant_ids_for_project_config(
+            backend,
+            project_config_id,
+        )
+        if code_obj_id not in active_variant_ids_by_code_obj:
+            return set()
+        return set(active_variant_ids_by_code_obj[code_obj_id])
+
+    def _collect_active_code_obj_variant_ids_for_project_config(
+        self,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+    ) -> tuple[dict[ID, set[ID]], set[ID]]:
         if project_config_id not in backend.projectConfigs:
             raise KeyError(f"Unknown project config: {project_config_id}")
         project_config = backend.projectConfigs[project_config_id]
-        active_variant_ids: set[ID] = set()
+        active_variant_ids_by_code_obj: dict[ID, set[ID]] = {}
+        active_code_obj_ids_from_section_variant_maps: set[ID] = set()
         for section_id, section_variant_id in project_config.sectionVariantMap.items():
             if section_id not in backend.sections:
                 raise KeyError(f"Missing section {section_id} in backend state.")
@@ -10263,16 +10266,106 @@ class BaseProjectManager(ABC):
                 backend.sections[section_id],
                 section_variant,
             )
-            if isinstance(section_impl, BaseSectionWithParamsImpl):
-                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
-                if variant_id is not None:
-                    active_variant_ids.add(variant_id)
+            if not isinstance(
+                section_impl, BaseSectionWithParamsImpl
+            ) and not isinstance(section_impl, MetaControlSectionImpl):
                 continue
-            if isinstance(section_impl, MetaControlSectionImpl):
-                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
-                if variant_id is not None:
-                    active_variant_ids.add(variant_id)
-        return active_variant_ids
+            for (
+                code_obj_id_from_map,
+                code_obj_variant_id,
+            ) in section_impl.codeObjVariantMap.items():
+                if code_obj_id_from_map not in active_variant_ids_by_code_obj:
+                    active_variant_ids_by_code_obj[code_obj_id_from_map] = set()
+                active_variant_ids_by_code_obj[code_obj_id_from_map].add(
+                    code_obj_variant_id
+                )
+                active_code_obj_ids_from_section_variant_maps.add(code_obj_id_from_map)
+        return (
+            active_variant_ids_by_code_obj,
+            active_code_obj_ids_from_section_variant_maps,
+        )
+
+    @staticmethod
+    def _copy_and_sanitize_section_impl_for_scoped_history_entry(
+        backend: ProjectStateBackend,
+        section_impl: BaseSectionImpl,
+    ) -> BaseSectionImpl:
+        section_impl_copy = copy.deepcopy(section_impl)
+        if not isinstance(
+            section_impl_copy, BaseSectionWithParamsImpl
+        ) and not isinstance(section_impl_copy, MetaControlSectionImpl):
+            return section_impl_copy
+
+        filtered_code_obj_variant_map: dict[ID, ID] = {}
+        for (
+            code_obj_id,
+            code_obj_variant_id,
+        ) in section_impl_copy.codeObjVariantMap.items():
+            if code_obj_id not in backend.codeObjs:
+                continue
+            if code_obj_variant_id not in backend.codeObjVariants:
+                continue
+            filtered_code_obj_variant_map[code_obj_id] = code_obj_variant_id
+
+        if len(filtered_code_obj_variant_map) == len(
+            section_impl_copy.codeObjVariantMap
+        ):
+            return section_impl_copy
+
+        section_impl_copy.codeObjVariantMap = filtered_code_obj_variant_map
+        if (
+            isinstance(section_impl_copy, MetaControlSectionImpl)
+            and section_impl_copy.metaControlParamId is not None
+            and section_impl_copy.metaControlParamId
+            not in filtered_code_obj_variant_map
+        ):
+            section_impl_copy.metaControlParamId = None
+        return section_impl_copy
+
+    @staticmethod
+    def _copy_and_sanitize_code_obj_impl_for_scoped_history_entry(
+        backend: ProjectStateBackend,
+        code_obj_impl: BaseCodeObjImplUnionWithDiscriminator,
+        active_code_obj_ids_from_section_variant_maps: set[ID],
+    ) -> BaseCodeObjImplUnionWithDiscriminator:
+        code_obj_impl_copy = copy.deepcopy(code_obj_impl)
+        if not isinstance(code_obj_impl_copy, BaseParentCodeObjImpl):
+            return code_obj_impl_copy
+
+        filtered_children: list[ID] = []
+        for child_id in code_obj_impl_copy.children:
+            if child_id not in backend.codeObjs:
+                continue
+            if child_id not in active_code_obj_ids_from_section_variant_maps:
+                continue
+            filtered_children.append(child_id)
+        code_obj_impl_copy.children = filtered_children
+        return code_obj_impl_copy
+
+    def _build_scoped_code_obj_history_ids(
+        self,
+        *,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+        code_obj_ids: list[ID] | set[ID],
+    ) -> set[ID]:
+        (
+            active_variant_ids_by_code_obj,
+            _active_code_obj_ids_from_section_variant_maps,
+        ) = self._collect_active_code_obj_variant_ids_for_project_config(
+            backend,
+            project_config_id,
+        )
+        scoped_code_obj_ids: set[ID] = set()
+        for code_obj_id in code_obj_ids:
+            if code_obj_id not in backend.codeObjs:
+                continue
+            if code_obj_id not in active_variant_ids_by_code_obj:
+                continue
+            if not active_variant_ids_by_code_obj[code_obj_id]:
+                continue
+            scoped_code_obj_ids.add(code_obj_id)
+        return scoped_code_obj_ids
 
     def _copy_backend_for_section_impl_only_history_entry(
         self,
@@ -10291,10 +10384,6 @@ class BaseProjectManager(ABC):
         code_obj_variants = dict(backend.codeObjVariants)
         code_obj_impls = dict(backend.codeObjImpls)
         project_configs = dict(backend.projectConfigs)
-        project_core = prepare_sections_for_copy(
-            backend,
-            set(project_config.sectionVariantMap.keys()),
-        )
 
         copied_variant_ids: set[ID] = set()
         copied_impl_ids: set[ID] = set()
@@ -10325,11 +10414,12 @@ class BaseProjectManager(ABC):
                     f"Missing section impl {section_impl_id} in backend state."
                 )
             if section_impl_id not in copied_impl_ids:
-                sanitized_section_impl = project_core.sectionImpls.get(
-                    section_impl_id,
-                    backend.sectionImpls[section_impl_id],
+                section_impls[section_impl_id] = (
+                    self._copy_and_sanitize_section_impl_for_scoped_history_entry(
+                        backend,
+                        backend.sectionImpls[section_impl_id],
+                    )
                 )
-                section_impls[section_impl_id] = copy.deepcopy(sanitized_section_impl)
                 copied_impl_ids.add(section_impl_id)
 
         return ProjectStateBackend(
@@ -10360,10 +10450,12 @@ class BaseProjectManager(ABC):
         section_impls = dict(backend.sectionImpls)
         section_variants = dict(backend.sectionVariants)
         project_configs = dict(backend.projectConfigs)
-        project_config = backend.projectConfigs[project_config_id]
-        project_core = prepare_sections_for_copy(
+        (
+            active_variant_ids_by_code_obj,
+            active_code_obj_ids_from_section_variant_maps,
+        ) = self._collect_active_code_obj_variant_ids_for_project_config(
             backend,
-            set(project_config.sectionVariantMap.keys()),
+            project_config_id,
         )
 
         copied_variant_ids: set[ID] = set()
@@ -10373,13 +10465,11 @@ class BaseProjectManager(ABC):
             if code_obj_id not in backend.codeObjs:
                 raise KeyError(f"Missing code obj {code_obj_id} in backend state.")
             code_objs[code_obj_id] = copy.deepcopy(backend.codeObjs[code_obj_id])
-            active_variant_ids = (
-                self._get_active_code_obj_variant_ids_for_project_config(
-                    backend,
-                    project_config_id,
-                    code_obj_id,
+            if code_obj_id not in active_variant_ids_by_code_obj:
+                raise KeyError(
+                    f"Code obj {code_obj_id} is not active in project config {project_config_id}."
                 )
-            )
+            active_variant_ids = active_variant_ids_by_code_obj[code_obj_id]
             if not active_variant_ids:
                 raise KeyError(
                     f"Code obj {code_obj_id} is not active in project config {project_config_id}."
@@ -10401,12 +10491,12 @@ class BaseProjectManager(ABC):
                         f"Missing code obj impl {code_obj_impl_id} in backend state."
                     )
                 if code_obj_impl_id not in copied_impl_ids:
-                    sanitized_code_obj_impl = project_core.codeObjImpls.get(
-                        code_obj_impl_id,
-                        backend.codeObjImpls[code_obj_impl_id],
-                    )
-                    code_obj_impls[code_obj_impl_id] = copy.deepcopy(
-                        sanitized_code_obj_impl
+                    code_obj_impls[code_obj_impl_id] = (
+                        self._copy_and_sanitize_code_obj_impl_for_scoped_history_entry(
+                            backend,
+                            backend.codeObjImpls[code_obj_impl_id],
+                            active_code_obj_ids_from_section_variant_maps,
+                        )
                     )
                     copied_impl_ids.add(code_obj_impl_id)
 

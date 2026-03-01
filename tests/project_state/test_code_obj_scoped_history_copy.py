@@ -27,7 +27,11 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import create_top_level_section
 from setta.types.id import ID
 from setta.types.project_config import Position
-from setta.types.section_impls import CallableSectionImpl, SectionType
+from setta.types.section_impls import (
+    CallableSectionImpl,
+    MetaControlSectionImpl,
+    SectionType,
+)
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -171,6 +175,109 @@ async def test_code_obj_only_history_entry_sanitizes_stale_callable_children() -
         if not isinstance(callable_impl_after, CodeCallableCodeObjImpl):
             raise TypeError(f"Expected CodeCallableCodeObjImpl for {callable_impl_id}.")
         assert stale_child_id not in callable_impl_after.children
+
+
+@pytest.mark.asyncio
+async def test_section_impl_only_history_entry_sanitizes_stale_code_obj_variant_refs() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        section_variant_id = current_state.projectConfig.sectionVariantMap[SECTION_ID]
+        section_impl_id = current_state.sectionVariants[section_variant_id].impl
+        stale_code_obj_id = ID("stale-section-history-code-obj")
+        stale_variant_id = ID("stale-section-history-code-obj-variant")
+
+        backend_before = manager.project_state_backend
+        section_impl_before = backend_before.sectionImpls[section_impl_id]
+        if not isinstance(section_impl_before, CallableSectionImpl):
+            raise TypeError(f"Expected CallableSectionImpl for {section_impl_id}.")
+        # Inject stale references that should be dropped by scoped history-copy sanitization.
+        section_impl_before.codeObjVariantMap = {
+            **section_impl_before.codeObjVariantMap,
+            stale_code_obj_id: stale_variant_id,
+        }
+        manager.project_state_backend = backend_before
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            section_impl_only_ids={SECTION_ID},
+        )
+        backend_after = manager.project_state_backend
+        section_impl_after = backend_after.sectionImpls[section_impl_id]
+        if not isinstance(section_impl_after, CallableSectionImpl):
+            raise TypeError(f"Expected CallableSectionImpl for {section_impl_id}.")
+        assert stale_code_obj_id not in section_impl_after.codeObjVariantMap
+
+
+@pytest.mark.asyncio
+async def test_section_impl_only_history_entry_clears_stale_meta_control_param_id() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        settings = SettingsState()
+        meta_control_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.MetaControl,
+            Position(x=900, y=0),
+            core_overrides={"name": "scoped_history_meta_control"},
+        )
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        callable_impl = get_curr_effective_section_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        valid_variant_id = callable_impl.codeObjVariantMap[TARGET_PARAM_ID]
+        stale_param_id = ID("stale-meta-control-param")
+        stale_variant_id = ID("stale-meta-control-variant")
+        meta_control_variant_id = current_state.projectConfig.sectionVariantMap[
+            meta_control_section_id
+        ]
+        meta_control_impl_id = current_state.sectionVariants[meta_control_variant_id].impl
+
+        backend_before = manager.project_state_backend
+        meta_control_impl_before = backend_before.sectionImpls[meta_control_impl_id]
+        if not isinstance(meta_control_impl_before, MetaControlSectionImpl):
+            raise TypeError(
+                f"Expected MetaControlSectionImpl for {meta_control_impl_id}."
+            )
+        # Keep one valid mapping and one stale mapping; stale selected param must be cleared.
+        meta_control_impl_before.codeObjVariantMap = {
+            TARGET_PARAM_ID: valid_variant_id,
+            stale_param_id: stale_variant_id,
+        }
+        meta_control_impl_before.metaControlParamId = stale_param_id
+        manager.project_state_backend = backend_before
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            section_impl_only_ids={meta_control_section_id},
+        )
+        backend_after = manager.project_state_backend
+        meta_control_impl_after = backend_after.sectionImpls[meta_control_impl_id]
+        if not isinstance(meta_control_impl_after, MetaControlSectionImpl):
+            raise TypeError(
+                f"Expected MetaControlSectionImpl for {meta_control_impl_id}."
+            )
+        assert stale_param_id not in meta_control_impl_after.codeObjVariantMap
+        assert meta_control_impl_after.metaControlParamId is None
+        assert meta_control_impl_after.codeObjVariantMap[TARGET_PARAM_ID] == (
+            valid_variant_id
+        )
 
 
 @pytest.mark.asyncio
