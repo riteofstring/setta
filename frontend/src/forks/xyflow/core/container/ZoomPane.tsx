@@ -132,9 +132,6 @@ const ZoomPane = ({
   }, [scheduleViewportMotionShellIdle, viewportMotionShellEnabled]);
 
   useEffect(() => {
-    if (viewportMotionShellEnabled) {
-      return;
-    }
     clearTimeout(motionShellActivationTimeout.current);
     clearTimeout(motionShellIdleTimeout.current);
     motionShellActivationTimeout.current = undefined;

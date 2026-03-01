@@ -89,6 +89,8 @@ function _SectionContainer({
   }, _.isEqual);
   const viewportShellModeEnabled = useViewportShellModeEnabled();
   const viewportMotionShellEnabled = useViewportMotionShellEnabled();
+  const viewportStaticShellModeEnabled =
+    viewportShellModeEnabled && !viewportMotionShellEnabled;
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -113,7 +115,7 @@ function _SectionContainer({
         isUserView={isUserView}
       >
         <>
-          {viewportShellModeEnabled ? (
+          {viewportStaticShellModeEnabled ? (
             <SectionContainerCore
               sectionId={sectionId}
               isUserView={isUserView}

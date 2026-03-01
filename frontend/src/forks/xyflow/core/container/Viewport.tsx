@@ -22,6 +22,8 @@ function Viewport({ children }: ViewportProps) {
   const viewportLayerSplitEnabled = useViewportLayerSplitEnabled();
   const viewportShellModeEnabled = useViewportShellModeEnabled();
   const viewportMotionShellEnabled = useViewportMotionShellEnabled();
+  const viewportStaticShellModeEnabled =
+    viewportShellModeEnabled && !viewportMotionShellEnabled;
   const viewportMotionShellActive = useMisc(
     (state) => state.viewportMotionShellActive,
   );
@@ -30,7 +32,7 @@ function Viewport({ children }: ViewportProps) {
     <div
       className="react-flow__viewport react-flow__container"
       data-viewport-layer-split={viewportLayerSplitEnabled}
-      data-viewport-shell-mode={viewportShellModeEnabled}
+      data-viewport-shell-mode={viewportStaticShellModeEnabled}
       data-viewport-motion-shell-enabled={viewportMotionShellEnabled}
       data-viewport-motion-shell-active={
         viewportMotionShellEnabled && viewportMotionShellActive

@@ -67,19 +67,28 @@ type SettingsGuardrailConfig = {
 async function setViewportFlags({
   page,
   motionShellEnabled,
+  shellModeEnabled = false,
 }: {
   page: Page;
   motionShellEnabled: boolean;
+  shellModeEnabled?: boolean;
 }): Promise<void> {
   await page.evaluate(
-    ({ layerSplitKey, shellModeKey, motionShellKey, motionShellValue }) => {
+    ({
+      layerSplitKey,
+      shellModeKey,
+      shellModeValue,
+      motionShellKey,
+      motionShellValue,
+    }) => {
       window.localStorage.setItem(layerSplitKey, "0");
-      window.localStorage.setItem(shellModeKey, "0");
+      window.localStorage.setItem(shellModeKey, shellModeValue);
       window.localStorage.setItem(motionShellKey, motionShellValue);
     },
     {
       layerSplitKey: VIEWPORT_LAYER_SPLIT_KEY,
       shellModeKey: VIEWPORT_SHELL_MODE_KEY,
+      shellModeValue: shellModeEnabled ? "1" : "0",
       motionShellKey: VIEWPORT_MOTION_SHELL_KEY,
       motionShellValue: motionShellEnabled ? "1" : "0",
     },
@@ -553,4 +562,41 @@ test("settings param-defaults viewport-motion-shell guardrail", async ({
       logPrefix: "[settings-param-defaults-viewport-motion-shell-guardrail]",
     },
   });
+});
+
+test("settings all-settings motion shell overrides static shell mode", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await setViewportFlags({
+    page,
+    motionShellEnabled: true,
+    shellModeEnabled: true,
+  });
+  await openSettingsViewMode({
+    page,
+    tabName: "All Settings",
+    minNodeCount: 42,
+  });
+
+  const dom = await page.evaluate(() => {
+    const viewportContainer = document.querySelector(".react-flow__viewport");
+    return {
+      viewportShellModeEnabled:
+        viewportContainer?.getAttribute("data-viewport-shell-mode") === "true",
+      viewportMotionShellEnabled:
+        viewportContainer?.getAttribute(
+          "data-viewport-motion-shell-enabled",
+        ) === "true",
+      paramRowCount: document.querySelectorAll('[data-param-row="true"]')
+        .length,
+      visibleSectionCount:
+        document.querySelectorAll<HTMLElement>("[data-section-id]").length,
+    };
+  });
+
+  expect(dom.viewportMotionShellEnabled).toBe(true);
+  expect(dom.viewportShellModeEnabled).toBe(false);
+  expect(dom.visibleSectionCount).toBeGreaterThan(0);
+  expect(dom.paramRowCount).toBeGreaterThan(0);
 });

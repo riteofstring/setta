@@ -160,14 +160,14 @@ export function SectionContainerCoreResizable({
       {forceShellMode ? (
         <div className="h-8 w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
       ) : enableMotionShell ? (
-        <div className="setta-motion-shell-content-wrap relative">
+        <>
           <div
-            className="setta-motion-shell-layer pointer-events-none absolute inset-0"
+            className="setta-motion-shell-layer section-w-full pointer-events-none [grid-row:search/bottom-gutter]"
             aria-hidden="true"
           >
             <div className="h-full w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
           </div>
-          <div className="setta-motion-shell-full-layer">
+          <div className="setta-motion-shell-full-layer contents">
             <AreaSwitch
               sectionId={sectionId}
               sectionTypeName={sectionTypeName}
@@ -176,7 +176,7 @@ export function SectionContainerCoreResizable({
               isUserView={isUserView}
             />
           </div>
-        </div>
+        </>
       ) : (
         <AreaSwitch
           sectionId={sectionId}
