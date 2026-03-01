@@ -71,7 +71,7 @@ async function replaceCodeMirrorValue(
   await activationTarget.click({ force: true });
   const editorContent = page.locator(`#${editorId} .cm-content`);
   await expect(editorContent).toBeVisible();
-  await editorContent.click();
+  await editorContent.click({ force: true });
   await page.keyboard.press(`${MODIFIER_KEY}+A`);
   await page.keyboard.type(value);
   if (submitKey !== null) {
@@ -1036,6 +1036,156 @@ test.describe.serial("section undo/redo", () => {
           readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
         )
         .toEqual(finalState);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("focused param editor keyboard undo/redo restores callable and param state", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createCallableSection(
+        page,
+        projectContext.projectConfigId,
+      );
+      const sectionNode = page.locator(`[data-testid="rf__node-${sectionId}"]`);
+      await expect(sectionNode).toBeVisible();
+
+      const baselineState = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+
+      await postBackend(page, "/setGenCodePrefix", {
+        projectConfigId: projectContext.projectConfigId,
+        genCodePrefix: "import math",
+      });
+      await expect
+        .poll(() =>
+          readGenCodePrefixFromBackend(page, projectContext.projectConfigId),
+        )
+        .toBe("import math");
+      const stateAfterPrefix = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+
+      await postBackend(page, "/setActiveIds", {
+        projectConfigId: projectContext.projectConfigId,
+        activeIds: [sectionId],
+      });
+
+      await replaceCodeMirrorValue(
+        page,
+        sectionNode.locator("search.section-search"),
+        `CodeMirror-${sectionId}-null`,
+        "math.sqrt",
+        "Enter",
+      );
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "math.sqrt",
+        });
+
+      const stateAfterCallable = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+      if (!stateAfterCallable.firstParamId) {
+        throw new Error("Missing callable parameter id after setting callable.");
+      }
+      const paramId = stateAfterCallable.firstParamId;
+      const paramContainer = sectionNode.locator(
+        `#ParamContainer-${sectionId}-${paramId}`,
+      );
+      await expect(paramContainer).toBeVisible();
+      await replaceCodeMirrorValue(
+        page,
+        sectionNode.locator(`[id="${sectionId}-${paramId}-ParamInput"]`),
+        `CodeMirror-${sectionId}-${paramId}`,
+        "123",
+      );
+      await expect
+        .poll(() =>
+          readCallableAndFirstParamValueFromBackend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        )
+        .toMatchObject({
+          callableName: "math.sqrt",
+          firstParamId: paramId,
+          firstParamValue: "123",
+        });
+      await expect(paramContainer).toContainText("123");
+      const finalState = await readUndoWorkflowState(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+      );
+
+      // Keep focus in the param row and validate shortcut undo/redo semantics.
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterCallable);
+
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterPrefix);
+
+      await repeatUndoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(baselineState);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterPrefix);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(stateAfterCallable);
+
+      await repeatRedoShortcut(page, 1);
+      await expect
+        .poll(() =>
+          readUndoWorkflowState(page, projectContext.projectConfigId, sectionId),
+        )
+        .toEqual(finalState);
+
+      await expect(sectionNode.locator("search.section-search")).toContainText(
+        "math.sqrt",
+      );
+      await expect(paramContainer).toContainText("123");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

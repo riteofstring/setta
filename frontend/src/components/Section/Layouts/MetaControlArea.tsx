@@ -15,7 +15,6 @@ import {
   getCurrEffectiveSectionImplOfType,
   getParamDisplayName,
   getSectionCore,
-  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -210,27 +209,7 @@ function MetaControlValueArea({
     };
   }, _.isEqual);
 
-  const [value, setPendingValue] = useLocalPendingValue(
-    baseValue,
-    (pendingValue) => {
-      if (codeObjType === CodeObjTypeEnum.ButtonParam) {
-        return;
-      }
-      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        return;
-      }
-      useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          controlParamId,
-          {
-            value: pendingValue,
-          },
-        );
-      });
-    },
-  );
+  const [value, setPendingValue] = useLocalPendingValue(baseValue);
 
   const handleValueChange: ParamValueChange = (
     nextValue,

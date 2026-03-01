@@ -2203,6 +2203,11 @@ export function debounced_route_set_top_level_section_layout() {
     nodeInternals,
     existingLayouts,
   );
+  // Avoid scheduling transport or optimistic state churn when the computed
+  // layout already matches the persisted top-level layout.
+  if (_.isEqual(topLevelSections, existingLayouts)) {
+    return;
+  }
   if (pendingTopLevelLayoutRef.opId) {
     const pendingOps = usePendingOperations.getState().pending;
     const stillPending = pendingOps.some(

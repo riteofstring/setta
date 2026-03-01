@@ -62,24 +62,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   });
   const globalValue = previewValue ?? baseValue;
 
-  const [value, setPendingValue] = useLocalPendingValue(
-    globalValue,
-    (pendingValue) => {
-      if (isPasswordParam) {
-        return;
-      }
-      useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          {
-            value: pendingValue,
-          },
-        );
-      });
-    },
-  );
+  const [value, setPendingValue] = useLocalPendingValue(globalValue);
   const [isRevealing, setIsRevealing] = React.useState(false);
 
   // value and enteredValue should always be string
