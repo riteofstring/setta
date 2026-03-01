@@ -6,6 +6,12 @@ import { useProjectState } from "state/definitions";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
+const EMPTY_DRAG_LISTENERS: Record<string, unknown> = {};
+const EMPTY_OPACITY_STYLE: Record<string, number> = {};
+const DRAGGING_SORT_STYLE: Record<string, number> = { opacity: 0.85 };
+const DRAGGING_FREE_STYLE: Record<string, number> = { opacity: 0.5 };
+const HIDDEN_SECTION_STYLE: Record<string, number> = { opacity: 0.3 };
+
 function _DndSlotAndDndWatcher({
   isGroup,
   sectionId,
@@ -79,7 +85,9 @@ function _DndWatcherAndContainer({
     getAncestorSameVisibility(sectionId, x),
   );
   const trueDragListeners =
-    isMovingFree || (!isTopLevel && isSorting) ? dragListeners : {};
+    isMovingFree || (!isTopLevel && isSorting)
+      ? dragListeners
+      : EMPTY_DRAG_LISTENERS;
   const wrappedDragListeners = React.useMemo(() => {
     if (isTopLevel || !trueDragListeners) {
       return trueDragListeners;
@@ -103,16 +111,25 @@ function _DndWatcherAndContainer({
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
   const className = isSorting || isMovingFree ? "nodrag" : "";
-  const fullStyle = {
-    ...style,
-    ...maybeGetOpacityStyle(
-      isDraggingSelection,
-      visibility,
-      isEditingViewMode,
-      ancestorHasSameVisibility,
-      isSorting,
-    ),
-  };
+  const opacityStyle = maybeGetOpacityStyle(
+    isDraggingSelection,
+    visibility,
+    isEditingViewMode,
+    ancestorHasSameVisibility,
+    isSorting,
+  );
+  const fullStyle = React.useMemo(() => {
+    if (opacityStyle === EMPTY_OPACITY_STYLE) {
+      return style;
+    }
+    if (!style) {
+      return opacityStyle;
+    }
+    return {
+      ...style,
+      ...opacityStyle,
+    };
+  }, [opacityStyle, style]);
 
   return (
     <Container
@@ -139,12 +156,14 @@ function maybeGetOpacityStyle(
   isSorting,
 ) {
   if (!visibility && isEditingViewMode) {
-    return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
+    return ancestorHasSameVisibility
+      ? EMPTY_OPACITY_STYLE
+      : HIDDEN_SECTION_STYLE;
   }
   if (isDraggingSelection) {
-    return { opacity: isSorting ? 0.85 : 0.5 };
+    return isSorting ? DRAGGING_SORT_STYLE : DRAGGING_FREE_STYLE;
   }
-  return {};
+  return EMPTY_OPACITY_STYLE;
 }
 
 const DndWatcherAndContainer = React.memo(
