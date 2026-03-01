@@ -443,6 +443,7 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
+    BrowserSectionImpl,
     CallableSectionImpl,
     ChatSectionImpl,
     CodeFileAccessMode,
@@ -7249,11 +7250,34 @@ class BaseProjectManager(ABC):
             section_id=x.sectionId,
         )
 
+    def _validate_section_supports_column_width(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> None:
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            raise TypeError(f"Section {section_id} does not support params columnWidth")
+
+    def _validate_section_supports_browser_column_widths(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> None:
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, BrowserSectionImpl):
+            raise TypeError(
+                f"Section {section_id} does not support browser column widths"
+            )
+
     @enqueue_method(
         coalesce_key_fn=_set_section_column_width_enqueue_coalesce_key,
         partition_key_fn=_set_section_column_width_enqueue_partition_key,
     )
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
+        self._validate_section_supports_column_width(x.projectConfigId, x.sectionId)
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
@@ -7362,6 +7386,10 @@ class BaseProjectManager(ABC):
         partition_key_fn=_set_browser_column_widths_enqueue_partition_key,
     )
     async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
+        self._validate_section_supports_browser_column_widths(
+            x.projectConfigId,
+            x.sectionId,
+        )
         self.add_new_history_entry(
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,

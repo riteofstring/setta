@@ -2118,6 +2118,47 @@ async def test_ui_only_section_size_routes_preserve_undo_redo_with_coalescing() 
 
 
 @pytest.mark.asyncio
+async def test_column_width_type_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+        await manager.finish_pending_operations(timeout=5.0)
+
+        # Unsupported section types should fail without writing history.
+        history_revision_before_param_column = manager.history.revision
+        with pytest.raises(
+            TypeError,
+            match="does not support params columnWidth",
+        ):
+            await manager.set_section_column_width(
+                SetSectionColumnWidthRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_ids.text_block_section_id,
+                    columnWidth=320.0,
+                )
+            )
+        assert manager.history.revision == history_revision_before_param_column
+
+        history_revision_before_browser_column = manager.history.revision
+        with pytest.raises(
+            TypeError,
+            match="does not support browser column widths",
+        ):
+            await manager.set_browser_column_widths(
+                SetBrowserColumnWidthsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_ids.callable_section_id,
+                    columnWidth=180.0,
+                    typesColumnWidth=110.0,
+                )
+            )
+        assert manager.history.revision == history_revision_before_browser_column
+
+
+@pytest.mark.asyncio
 async def test_set_section_pinned_params_fast_path_matches_full_validation() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
