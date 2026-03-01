@@ -3970,21 +3970,45 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl_before = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            BaseSectionWithParamsImpl,
+        )
+        edge_input_param_ids_for_patch = list(section_impl_before.edgeInputParams)
+        edge_input_param_ids_for_patch.extend(x.edgeInputParams)
         set_section_edge_inputs(
             self.settings_file.settings,
             project_state,
             x.sectionId,
             x.edgeInputParams,
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(dict.fromkeys(edge_input_param_ids_for_patch)),
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_section_edge_outputs(self, x: SetSectionEdgeOutputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
         variant_id = project_state.projectConfig.sectionVariantMap.get(x.sectionId)
         if variant_id is None:
             raise KeyError(f"Section {x.sectionId} missing active variant.")
+        target_param_ids_for_patch = [
+            edge.targetPortId
+            for edge in project_state.projectConfig.edges
+            if edge.sourceSectionId == x.sectionId
+            and edge.sourceVariantId == variant_id
+        ]
+        set_section_edge_outputs(project_state, x.sectionId, x.edgeOutputPorts)
         for edge in project_state.projectConfig.edges:
             if (
                 edge.sourceSectionId != x.sectionId
@@ -4001,7 +4025,19 @@ class BaseProjectManager(ABC):
             if target_variant_id != edge.targetVariantId:
                 continue
             self._apply_edge_value(project_state, edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+            target_param_ids_for_patch.append(edge.targetPortId)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     def _apply_edge_value(self, project_state: ProjectStateSingleConfig, edge: Edge):
         gen_code = self._require_python_codegen(project_state.projectConfig.id)
@@ -4034,26 +4070,71 @@ class BaseProjectManager(ABC):
         )
         create_edge(project_state, edge)
         self._apply_edge_value(project_state, edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[x.targetPortId],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         update_edge(project_state, x.edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        edge_ids = set(x.edgeIds)
+        target_param_ids_for_patch = [
+            edge.targetPortId
+            for edge in project_state.projectConfig.edges
+            if edge.id in edge_ids
+        ]
         delete_edges(project_state, x.edgeIds)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        original_edge = next(
+            (edge for edge in project_state.projectConfig.edges if edge.id == x.edgeId),
+            None,
+        )
+        if original_edge is None:
+            raise KeyError(f"Edge {x.edgeId} not found.")
         reconnect_edge(
             project_state,
             x.edgeId,
@@ -4070,15 +4151,51 @@ class BaseProjectManager(ABC):
         )
         if updated_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
+        target_param_ids_for_patch = [updated_edge.targetPortId]
+        target_changed = (
+            original_edge.targetSectionId != updated_edge.targetSectionId
+            or original_edge.targetVariantId != updated_edge.targetVariantId
+            or original_edge.targetPortId != updated_edge.targetPortId
+        )
+        if target_changed:
+            target_param_ids_for_patch.append(original_edge.targetPortId)
         self._apply_edge_value(project_state, updated_edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        incoming_edge_ids = {edge.id for edge in x.edges}
+        target_param_ids_for_patch = [
+            edge.targetPortId
+            for edge in project_state.projectConfig.edges
+            if edge.id not in incoming_edge_ids
+        ]
         set_edges(project_state, x.edges)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(dict.fromkeys(target_param_ids_for_patch)),
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
@@ -4097,28 +4214,72 @@ class BaseProjectManager(ABC):
             edge_kwargs["id"] = x.id
         edge = AgenticEdge(**edge_kwargs)
         create_agentic_edge(project_state, edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         update_agentic_edge(project_state, x.edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_agentic_edges(project_state, x.edgeIds)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         set_agentic_edges(project_state, x.edges)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     @project_state_tool(
