@@ -612,29 +612,53 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
   preview = false,
 ) {
-  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  const variant = getCurrCodeObjVariantIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!variant) {
+    throw new Error();
+  }
+  return variant;
+}
+
+function getCurrCodeObjVariantIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+): Variant | null {
+  const sectionImpl = getCurrEffectiveSectionImplIfPresent(
+    p,
+    sectionId,
+    preview,
+  );
+  if (!sectionImpl) {
+    return null;
+  }
   if (isBaseSectionWithParamsImpl(sectionImpl)) {
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    const variant = p.codeObjVariants[variantId];
+    return variant ?? null;
   }
   if (sectionImpl.type === SectionTypeEnum.MetaControl) {
     const controlParamId = sectionImpl.metaControlParamId;
-    if (!controlParamId) {
-      throw new Error();
-    }
-    if (controlParamId !== codeObjId) {
-      throw new Error();
+    if (!controlParamId || controlParamId !== codeObjId) {
+      return null;
     }
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    const variant = p.codeObjVariants[variantId];
+    return variant ?? null;
   }
-  throw new Error();
+  return null;
 }
 
 export function getCurrEffectiveCodeObjImpl(
@@ -766,6 +790,29 @@ export function setCurrEffectiveCodeObjImplValue<
   const variant = getCurrCodeObjVariant(state, sectionId, codeObjId);
   const impl = getCodeObjImpl(state, variant.impl);
   const core = getCodeObjCore(state, codeObjId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
+}
+
+export function setCurrEffectiveCodeObjImplValueIfPresent<
+  K extends keyof ImplArgsBundleMap,
+>(
+  state: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] | null {
+  const variant = getCurrCodeObjVariantIfPresent(state, sectionId, codeObjId);
+  if (!variant) {
+    return null;
+  }
+  const impl = state.codeObjImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.codeObjs[codeObjId];
+  if (!core) {
+    return null;
+  }
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 

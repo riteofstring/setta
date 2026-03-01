@@ -19,6 +19,7 @@ import {
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
+  setCurrEffectiveCodeObjImplValueIfPresent,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -1156,6 +1157,137 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     expect(scoreSpy).not.toHaveBeenCalled();
     scoreSpy.mockRestore();
+  });
+
+  it("does not throw when pending param optimistic updates target removed sections", () => {
+    const projectId = "project-1";
+    const sectionId = "section-1";
+    const sectionVariantId = "section-variant-1";
+    const sectionImplId = "section-impl-1";
+    const paramId = "param-1";
+    const paramVariantId = "param-variant-1";
+    const paramImplId = "param-impl-1";
+
+    // Start from a normal section+param shape and keep one pending param update.
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: projectId,
+        sectionVariantMap: { [sectionId]: sectionVariantId },
+        topLevelSections: {
+          [sectionId]: { x: 0, y: 0, zIndex: 0, w: 220, h: 160 },
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          variants: [sectionVariantId],
+          defaultVariant: sectionVariantId,
+        }),
+      },
+      sectionImpls: {
+        [sectionImplId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: sectionImplId,
+            codeObjVariantMap: {
+              [paramId]: paramVariantId,
+            },
+          },
+        ),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {
+        [paramId]: createCore({
+          id: paramId,
+          name: "param-1",
+          variants: [paramVariantId],
+          defaultVariant: paramVariantId,
+        }),
+      },
+      codeObjImpls: {
+        [paramImplId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: paramImplId,
+            value: "before",
+          },
+        ),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+    usePendingOperations.setState({
+      pending: [
+        {
+          opId: "op-param-update",
+          acknowledged: false,
+          apply: (state) => {
+            setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
+              state,
+              sectionId,
+              paramId,
+              {
+                value: "after",
+              },
+            );
+          },
+        },
+      ],
+    });
+
+    const backendUpdate: ProjectStateSingleConfigWithCompletedOpIds = {
+      // Simulate undo/redo applying a snapshot where the edited section is gone.
+      projectState: {
+        projectConfig: createProjectConfig({
+          id: projectId,
+          sectionVariantMap: {},
+          topLevelSections: {},
+          activeIds: [],
+        }),
+        sections: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        codeObjs: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: {},
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+      },
+      completedOpIds: [],
+      pendingOpIds: [],
+    };
+
+    expect(() =>
+      processProjectStateUpdateFromBackend(backendUpdate),
+    ).not.toThrow();
+    expect(useProjectState.getState().sections).toEqual({});
   });
 
   it("applies viewport updates to the react flow store", () => {
