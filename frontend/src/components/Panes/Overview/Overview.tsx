@@ -272,7 +272,7 @@ export function Overview() {
             </MenuItem>
           </NavbarMenuDropdown>
         </Menubar.Root>
-        <Controls />
+        <Controls showWatchCodeControls={showWatchCodeTab} />
         <Link
           to={SETTINGS_ROUTER_PATH}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}

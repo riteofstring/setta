@@ -305,20 +305,10 @@ export async function setOverviewTab(
   page: Page,
   tabName: string,
 ): Promise<void> {
-  if (tabName === "ProjectAISettings") {
-    await seedLocalStorage(page, {
-      overviewTab: "ProjectAIChat",
-      overviewVis: true,
-    });
-    return;
-  }
-  if (tabName === "BackendLogs") {
-    await seedLocalStorage(page, {
-      overviewTab: "Notifications",
-      overviewNotificationsPaneTab: "backend_logs",
-      overviewVis: true,
-    });
-    return;
+  if (tabName === "ProjectAISettings" || tabName === "BackendLogs") {
+    throw new Error(
+      `Deprecated overview tab key not allowed in tests: ${tabName}. Use canonical tab keys.`,
+    );
   }
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
 }

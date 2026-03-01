@@ -53,3 +53,22 @@ test("watch code settings open from controls portal with all options", async ({
     portal.locator('[data-setting-anchor="core.watch_code.files"]'),
   ).toBeVisible();
 });
+
+test("watch code controls are hidden in deployment mode", async ({ page }) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await ensureAppReady(page);
+
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+
+  await expect(page.getByTestId("overview-tab-watch-code")).toHaveCount(0);
+  await expect(page.getByTestId("rf__watch-code-settings")).toHaveCount(0);
+  await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
+    0,
+  );
+});

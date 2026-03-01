@@ -312,10 +312,14 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain(">Overview<");
   });
 
-  it("does not render deprecated project ai settings tab content", () => {
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAISettings,
-    });
+  it("falls back to overview content for deprecated project ai settings tab keys", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+    const merged = merge(
+      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+    useLocalStorage.setState(merged);
     syncStoreInitialState(useLocalStorage);
 
     const markup = renderToStaticMarkup(
@@ -327,5 +331,6 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain(
       'data-testid="project-ai-settings-scroll-region"',
     );
+    expect(markup).toContain(">Overview<");
   });
 });

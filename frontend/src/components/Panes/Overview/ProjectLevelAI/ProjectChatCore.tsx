@@ -1,7 +1,6 @@
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
-  buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
@@ -55,6 +54,7 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
   useLocalStorage,
@@ -90,6 +90,14 @@ import {
   type ProjectChatHydrationAuthority,
   type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
+import { buildSlashCommandsByEngine } from "./projectChatSkillsMcpViewerUtils";
+import {
+  areProjectChatCustomSlashCommandsEqual,
+  buildAgentNativeSlashCommandsByEngineId,
+  buildReservedSlashCommandTokens,
+  filterAgentNativeSlashCommandsByEngineId,
+  resolveExecutableProjectChatCustomSlashCommands,
+} from "./projectChatSlashCommandResolver";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
@@ -1100,6 +1108,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const agentRunsInitialLoadComplete = useAIStore(
     (state) => state.agentRunsInitialLoadComplete,
   );
+  const {
+    apiKeys,
+    allLLMConfigs,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  } = useAIStore(
+    (state) => ({
+      apiKeys: state.apiKeys,
+      allLLMConfigs: state.allLLMConfigs,
+      engineConfigs: state.engineConfigs,
+      externalAgentHealth: state.externalAgentHealth,
+      externalAgentHealthInitialLoadComplete:
+        state.externalAgentHealthInitialLoadComplete,
+    }),
+    shallow,
+  );
   const interruptedAssistantMessageIds = useAIStore((state) => {
     if (typeof chatId !== "string") {
       return {};
@@ -1219,24 +1244,115 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const slashCommands = useMemo(() => {
-    const managedCommands = buildChatSlashCommands({
+  const managedSlashCommands = useMemo(() => {
+    return buildChatSlashCommands({
       model: true,
       permissions: showPermissionExecutionControl,
       search: showSearchExecutionControl,
       appGenerationModes: true,
     });
-    const managedCommandSet = new Set(
-      managedCommands.map((entry) => entry.command),
-    );
-    const customCommands = buildCustomPromptSlashCommandDefinitions(
-      customProjectChatSlashCommands,
-    ).filter((entry) => !managedCommandSet.has(entry.command));
-    return [...managedCommands, ...customCommands];
+  }, [showPermissionExecutionControl, showSearchExecutionControl]);
+  const slashCommandsByEngine = useMemo(() => {
+    return buildSlashCommandsByEngine({
+      engineConfigs,
+      allLLMConfigs,
+      apiKeys,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+    });
+  }, [
+    allLLMConfigs,
+    apiKeys,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  ]);
+  const activeExternalSlashEngineIds = useMemo(() => {
+    return slashCommandsByEngine
+      .filter((entry) => entry.engineType === EngineTypeEnum.external_agent)
+      .map((entry) => entry.engineId);
+  }, [slashCommandsByEngine]);
+  const activeAgentNativeSlashCommandsByEngineId = useMemo(() => {
+    return filterAgentNativeSlashCommandsByEngineId({
+      agentNativeSlashCommandsByEngineId:
+        buildAgentNativeSlashCommandsByEngineId(agentRuns),
+      allowedEngineIds: activeExternalSlashEngineIds,
+    });
+  }, [activeExternalSlashEngineIds, agentRuns]);
+  const reservedSlashCommandTokens = useMemo(() => {
+    return buildReservedSlashCommandTokens({
+      managedSlashCommands: buildChatSlashCommands({
+        model: true,
+        permissions: true,
+        search: true,
+        appGenerationModes: true,
+      }),
+      slashCommandsByEngine,
+      agentNativeSlashCommandsByEngineId:
+        activeAgentNativeSlashCommandsByEngineId,
+    });
+  }, [activeAgentNativeSlashCommandsByEngineId, slashCommandsByEngine]);
+  const resolvedCustomProjectChatSlashCommands = useMemo(() => {
+    return resolveExecutableProjectChatCustomSlashCommands({
+      customSlashCommands: customProjectChatSlashCommands,
+      reservedSlashCommandTokens,
+    });
+  }, [customProjectChatSlashCommands, reservedSlashCommandTokens]);
+  const slashCommands = useMemo(() => {
+    return [
+      ...managedSlashCommands,
+      ...resolvedCustomProjectChatSlashCommands.executableCustomSlashCommandDefinitions,
+    ];
+  }, [
+    managedSlashCommands,
+    resolvedCustomProjectChatSlashCommands.executableCustomSlashCommandDefinitions,
+  ]);
+  useEffect(() => {
+    const sanitizedCustomSlashCommands =
+      resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands;
+    if (
+      areProjectChatCustomSlashCommandsEqual(
+        customProjectChatSlashCommands,
+        sanitizedCustomSlashCommands,
+      )
+    ) {
+      return;
+    }
+    const conflictedCustomSlashCommands = [
+      ...resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
+    ].sort();
+    useLocalStorage.setState((state) => {
+      const currentByProject =
+        state.customProjectChatSlashCommandsByProjectConfigId;
+      const currentCommands = currentByProject[projectConfigId] ?? [];
+      if (
+        areProjectChatCustomSlashCommandsEqual(
+          currentCommands,
+          sanitizedCustomSlashCommands,
+        )
+      ) {
+        return state;
+      }
+      const nextByProject = { ...currentByProject };
+      if (sanitizedCustomSlashCommands.length === 0) {
+        delete nextByProject[projectConfigId];
+      } else {
+        nextByProject[projectConfigId] = sanitizedCustomSlashCommands;
+      }
+      return {
+        customProjectChatSlashCommandsByProjectConfigId: nextByProject,
+      };
+    });
+    if (conflictedCustomSlashCommands.length > 0) {
+      addTemporaryNotification(
+        `Removed conflicting custom slash command${conflictedCustomSlashCommands.length === 1 ? "" : "s"}: ${conflictedCustomSlashCommands.join(", ")}.`,
+      );
+    }
   }, [
     customProjectChatSlashCommands,
-    showPermissionExecutionControl,
-    showSearchExecutionControl,
+    projectConfigId,
+    resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
+    resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands,
   ]);
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<

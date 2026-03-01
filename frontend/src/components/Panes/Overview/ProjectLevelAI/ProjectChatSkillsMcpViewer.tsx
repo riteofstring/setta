@@ -2,7 +2,6 @@ import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   buildChatSlashCommands,
-  buildCustomPromptSlashCommandDefinitions,
   normalizeSlashCommandToken,
 } from "components/Chat/chatComposerControls";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
@@ -34,7 +33,6 @@ import {
   route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
-  type AgentRun,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
@@ -51,6 +49,13 @@ import {
   resolveMcpServerStatus,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
+import {
+  type AgentNativeSlashCommandsEntry,
+  buildAgentNativeSlashCommandsByEngineId,
+  buildReservedSlashCommandTokens,
+  filterAgentNativeSlashCommandsByEngineId,
+  resolveExecutableProjectChatCustomSlashCommands,
+} from "./projectChatSlashCommandResolver";
 
 type PathGroupHeaderProps = {
   title: string;
@@ -72,8 +77,6 @@ const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
 const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
-const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
-  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
 const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
 const SKILL_MARKDOWN_VIEW_MODE_RENDERED = "rendered";
 const SKILL_MARKDOWN_VIEW_MODE_RAW = "raw";
@@ -83,17 +86,6 @@ const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
 const SKILL_MARKDOWN_RENDERED_CLASS =
   "prose prose-sm max-w-none dark:prose-invert prose-headings:my-2 prose-headings:font-semibold prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0";
 const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
-type AgentNativeSlashCommandsStatus =
-  | "unknown"
-  | "available"
-  | "none"
-  | "not_supported"
-  | "error";
-type AgentNativeSlashCommandsEntry = {
-  commands: string[];
-  status: AgentNativeSlashCommandsStatus;
-  statusDetail: string | null;
-};
 type SkillMarkdownViewMode =
   | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
   | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
@@ -112,182 +104,6 @@ const CUSTOM_SKILL_ROOT_IDS = new Set([
   "user_agents_skills",
   "workspace_agents_skills",
 ]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
-}
-
-function normalizeSlashCommandList(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const normalized: string[] = [];
-  const seen = new Set<string>();
-  for (const value of raw) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      continue;
-    }
-    if (seen.has(trimmed)) {
-      continue;
-    }
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  }
-  return normalized;
-}
-
-function normalizeAgentNativeSlashCommandsStatus(
-  rawStatus: unknown,
-): AgentNativeSlashCommandsStatus {
-  if (typeof rawStatus !== "string") {
-    return "unknown";
-  }
-  switch (rawStatus.trim()) {
-    case "available":
-      return "available";
-    case "none":
-      return "none";
-    case "not_supported":
-      return "not_supported";
-    case "error":
-      return "error";
-    default:
-      return "unknown";
-  }
-}
-
-export function parseAgentNativeSlashCommandsStorage(
-  rawStorageValue: string | null,
-): Record<string, AgentNativeSlashCommandsEntry> {
-  if (!rawStorageValue) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(rawStorageValue);
-    if (!isRecord(parsed)) {
-      return {};
-    }
-    const normalized: Record<string, AgentNativeSlashCommandsEntry> = {};
-    for (const [engineId, rawEntry] of Object.entries(parsed)) {
-      if (!engineId.trim()) {
-        continue;
-      }
-      if (!isRecord(rawEntry)) {
-        continue;
-      }
-      const hasCommandsField = Array.isArray(rawEntry.commands);
-      const commands = normalizeSlashCommandList(rawEntry.commands);
-      const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
-      const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
-      let resolvedStatus = status;
-      if (commands.length > 0 && resolvedStatus === "unknown") {
-        resolvedStatus = "available";
-      } else if (hasCommandsField && resolvedStatus === "unknown") {
-        resolvedStatus = "none";
-      }
-      if (
-        commands.length === 0 &&
-        resolvedStatus === "unknown" &&
-        statusDetail === null
-      ) {
-        continue;
-      }
-      normalized[engineId] = {
-        commands,
-        status: resolvedStatus,
-        statusDetail,
-      };
-    }
-    return normalized;
-  } catch {
-    return {};
-  }
-}
-
-function areAgentNativeSlashEntriesEqual(
-  a: AgentNativeSlashCommandsEntry | undefined,
-  b: AgentNativeSlashCommandsEntry,
-): boolean {
-  if (!a) {
-    return false;
-  }
-  if (a.status !== b.status || a.statusDetail !== b.statusDetail) {
-    return false;
-  }
-  if (a.commands.length !== b.commands.length) {
-    return false;
-  }
-  for (let index = 0; index < a.commands.length; index += 1) {
-    if (a.commands[index] !== b.commands[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function extractAgentNativeSlashCommandsFromRun(
-  run: AgentRun,
-): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
-  const outputs = run.outputs;
-  if (!isRecord(outputs)) {
-    return null;
-  }
-  const metadata = outputs.metadata;
-  if (!isRecord(metadata)) {
-    return null;
-  }
-  const rawEngineConfigId = metadata.engineConfigId;
-  if (
-    typeof rawEngineConfigId !== "string" ||
-    rawEngineConfigId.trim() === ""
-  ) {
-    return null;
-  }
-  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
-  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
-  const status = normalizeAgentNativeSlashCommandsStatus(
-    metadata.agentNativeSlashCommandsStatus,
-  );
-  const statusDetail = normalizeOptionalString(
-    metadata.agentNativeSlashCommandsStatusDetail,
-  );
-  let resolvedStatus = status;
-  if (commands.length > 0 && resolvedStatus === "unknown") {
-    resolvedStatus = "available";
-  } else if (hasCommandsField && resolvedStatus === "unknown") {
-    resolvedStatus = "none";
-  }
-  if (
-    commands.length === 0 &&
-    resolvedStatus === "unknown" &&
-    statusDetail === null
-  ) {
-    return null;
-  }
-  return {
-    engineConfigId: rawEngineConfigId,
-    entry: {
-      commands,
-      status: resolvedStatus,
-      statusDetail,
-    },
-  };
-}
 
 function resolveAgentNativeSlashCommandsMessage(
   entry: AgentNativeSlashCommandsEntry,
@@ -488,14 +304,6 @@ export function ProjectChatSkillsMcpViewer({
   >(null);
   const [newCustomSlashCommand, setNewCustomSlashCommand] = useState("");
   const [newCustomSlashPrompt, setNewCustomSlashPrompt] = useState("");
-  const [
-    agentNativeSlashCommandsByEngineId,
-    setAgentNativeSlashCommandsByEngineId,
-  ] = useState<Record<string, AgentNativeSlashCommandsEntry>>(() => {
-    return parseAgentNativeSlashCommandsStorage(
-      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
-    );
-  });
   const [skillsRevision, setSkillsRevision] = useState(0);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
@@ -709,42 +517,6 @@ export function ProjectChatSkillsMcpViewer({
     void loadAgentRuns();
   }, [agentRunsInitialLoadComplete]);
 
-  useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      return;
-    }
-    setAgentNativeSlashCommandsByEngineId((current) => {
-      let changed = false;
-      const next: Record<string, AgentNativeSlashCommandsEntry> = {
-        ...current,
-      };
-      for (const run of agentRuns) {
-        const extracted = extractAgentNativeSlashCommandsFromRun(run);
-        if (!extracted) {
-          continue;
-        }
-        if (
-          areAgentNativeSlashEntriesEqual(
-            next[extracted.engineConfigId],
-            extracted.entry,
-          )
-        ) {
-          continue;
-        }
-        next[extracted.engineConfigId] = extracted.entry;
-        changed = true;
-      }
-      return changed ? next : current;
-    });
-  }, [agentRuns, agentRunsInitialLoadComplete]);
-
-  useEffect(() => {
-    storageAdapter.setItem(
-      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-      JSON.stringify(agentNativeSlashCommandsByEngineId),
-    );
-  }, [agentNativeSlashCommandsByEngineId, storageAdapter]);
-
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
@@ -788,6 +560,18 @@ export function ProjectChatSkillsMcpViewer({
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
   ]);
+  const activeExternalSlashEngineIds = useMemo(() => {
+    return slashCommandsByEngine
+      .filter((entry) => entry.engineType === "external_agent")
+      .map((entry) => entry.engineId);
+  }, [slashCommandsByEngine]);
+  const agentNativeSlashCommandsByEngineId = useMemo(() => {
+    return filterAgentNativeSlashCommandsByEngineId({
+      agentNativeSlashCommandsByEngineId:
+        buildAgentNativeSlashCommandsByEngineId(agentRuns),
+      allowedEngineIds: activeExternalSlashEngineIds,
+    });
+  }, [activeExternalSlashEngineIds, agentRuns]);
   const selectedSlashEngine = useMemo(() => {
     if (!selectedSlashEngineId) {
       return slashCommandsByEngine[0] ?? null;
@@ -824,41 +608,30 @@ export function ProjectChatSkillsMcpViewer({
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
   }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
-  const customSlashCommandDefinitions = useMemo(() => {
-    return buildCustomPromptSlashCommandDefinitions(
-      customProjectChatSlashCommands,
-    );
-  }, [customProjectChatSlashCommands]);
-  const customSlashCommandTokens = useMemo(() => {
-    return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
-  }, [customSlashCommandDefinitions]);
   const reservedSlashCommandTokens = useMemo(() => {
-    const reserved = new Set(
-      buildChatSlashCommands({
+    return buildReservedSlashCommandTokens({
+      managedSlashCommands: buildChatSlashCommands({
         model: true,
         permissions: true,
         search: true,
         appGenerationModes: true,
-      }).map((entry) => entry.command),
-    );
-    for (const slashCommandsForEngine of slashCommandsByEngine) {
-      for (const command of slashCommandsForEngine.commands) {
-        reserved.add(command.command);
-      }
-    }
-    for (const nativeEntry of Object.values(
+      }),
+      slashCommandsByEngine,
       agentNativeSlashCommandsByEngineId,
-    )) {
-      for (const nativeCommand of nativeEntry.commands) {
-        const normalizedCommand = normalizeSlashCommandToken(nativeCommand);
-        if (!normalizedCommand) {
-          continue;
-        }
-        reserved.add(normalizedCommand);
-      }
-    }
-    return reserved;
+    });
   }, [agentNativeSlashCommandsByEngineId, slashCommandsByEngine]);
+  const resolvedCustomSlashCommands = useMemo(() => {
+    return resolveExecutableProjectChatCustomSlashCommands({
+      customSlashCommands: customProjectChatSlashCommands,
+      reservedSlashCommandTokens,
+    });
+  }, [customProjectChatSlashCommands, reservedSlashCommandTokens]);
+  const customSlashCommandDefinitions = useMemo(() => {
+    return resolvedCustomSlashCommands.executableCustomSlashCommandDefinitions;
+  }, [resolvedCustomSlashCommands.executableCustomSlashCommandDefinitions]);
+  const customSlashCommandTokens = useMemo(() => {
+    return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
+  }, [customSlashCommandDefinitions]);
 
   useEffect(() => {
     if (slashCommandsByEngine.length === 0) {

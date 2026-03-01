@@ -328,6 +328,150 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   ).toHaveCount(0);
 });
 
+test("project chat removes custom commands that collide with newly discovered native commands", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::placeholder",
+        content: "# Placeholder",
+      }),
+    });
+  });
+
+  let externalEngineId: string | null = null;
+  let getAgentRunsCallCount = 0;
+  await page.route("**/api/getAgentRuns", async (route) => {
+    getAgentRunsCallCount += 1;
+    if (!externalEngineId || getAgentRunsCallCount < 2) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-native-slash-deploy",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-03-04T00:00:00Z",
+          finishedAt: "2026-03-04T00:00:05Z",
+          events: [],
+          inputs: {},
+          outputs: {
+            metadata: {
+              engineConfigId: externalEngineId,
+              agentNativeSlashCommands: ["/deploy"],
+              agentNativeSlashCommandsStatus: "available",
+            },
+          },
+        },
+      ]),
+    });
+  });
+
+  const submittedMessages: Array<string | null> = [];
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      message?: {
+        content?: Array<{ type?: string; text?: string }>;
+      };
+    };
+    const firstContent = payload.message?.content?.[0];
+    submittedMessages.push(
+      firstContent?.type === "text" ? (firstContent.text ?? null) : null,
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify("pw-native-deploy-chat"),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const engineConfigsResponse = await page.request.get(
+    `${backendOrigin}/api/getEngineConfigs`,
+  );
+  expect(engineConfigsResponse.ok()).toBe(true);
+  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+    id: string;
+    engineType: string;
+  }>;
+  externalEngineId =
+    engineConfigs.find((config) => config.engineType === "external_agent")?.id ??
+    null;
+  if (!externalEngineId) {
+    throw new Error("Missing external engine config for native slash test.");
+  }
+
+  await openSlashCommandsViewer(page);
+
+  await page.getByTestId("project-chat-custom-slash-command-input").fill("/deploy");
+  await page
+    .getByTestId("project-chat-custom-slash-prompt-input")
+    .fill("Use the deprecated custom deploy prompt.");
+  await page.getByTestId("project-chat-custom-slash-add").click();
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/deploy",
+    }),
+  ).toBeVisible();
+
+  await page.evaluate(async () => {
+    const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
+    await loadAgentRuns();
+  });
+  await expect.poll(() => getAgentRunsCallCount).toBeGreaterThanOrEqual(2);
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/deploy",
+    }),
+  ).toHaveCount(0);
+
+  await closeSkillsMcpViewer(page);
+
+  const chatInput = page.getByPlaceholder("Type a message...");
+  await chatInput.fill("/deploy");
+  await chatInput.press("Enter");
+
+  await expect.poll(() => submittedMessages.length).toBeGreaterThan(0);
+  expect(submittedMessages[0]).toBe("/deploy");
+});
+
 test("project ai chat can open the project ai settings pane from tools", async ({
   page,
 }) => {

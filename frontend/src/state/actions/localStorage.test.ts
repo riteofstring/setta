@@ -71,37 +71,28 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("migrates persisted BackendLogs overview tab to Notifications pane logs tab", () => {
+  it("falls back to Overview for deprecated BackendLogs overview tab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { overviewTab: OverviewTabNameEnum.BackendLogs } as Record<
-        string,
-        unknown
-      >,
+      { overviewTab: "BackendLogs" } as Record<string, unknown>,
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Notifications);
-    expect(merged.overviewNotificationsPaneTab).toBe(
-      OverviewNotificationsPaneTabEnum.BackendLogs,
-    );
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("migrates persisted ProjectAISettings overview tab to ProjectAIChat", () => {
+  it("falls back to Overview for deprecated ProjectAISettings overview tab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { overviewTab: OverviewTabNameEnum.ProjectAISettings } as Record<
-        string,
-        unknown
-      >,
+      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.ProjectAIChat);
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
   it("sanitizes invalid notifications pane tab values", () => {

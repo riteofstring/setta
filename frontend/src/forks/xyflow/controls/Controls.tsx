@@ -39,6 +39,10 @@ const WATCH_CODE_PORTAL_MARGIN_PX = 12;
 const WATCH_CODE_PORTAL_BUTTON_GAP_PX = 12;
 const WATCH_CODE_PORTAL_ESTIMATED_HEIGHT_PX = 360;
 
+type ControlsProps = {
+  showWatchCodeControls?: boolean;
+};
+
 function useZoomReached() {
   const { minZoom, maxZoom } = useSettings(
     (x) => ({
@@ -56,7 +60,7 @@ function useZoomReached() {
   );
 }
 
-const Controls = () => {
+const Controls = ({ showWatchCodeControls = true }: ControlsProps) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } = useZoomReached();
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
@@ -121,6 +125,13 @@ const Controls = () => {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
   }, [watchCodePortalOpen]);
+
+  useEffect(() => {
+    if (showWatchCodeControls) {
+      return;
+    }
+    setWatchCodePortalOpen(false);
+  }, [showWatchCodeControls]);
 
   useEffect(() => {
     if (!watchCodePortalOpen) {
@@ -280,20 +291,24 @@ const Controls = () => {
         <TbCircleDot size={15} />
       </button>
       <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
-      <button
-        ref={watchCodeButtonRef}
-        onClick={() => setWatchCodePortalOpen((prev) => !prev)}
-        className={`cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${watchCodeEnabled ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
-        aria-label="watch code settings"
-        aria-pressed={watchCodeEnabled}
-        data-testid="rf__watch-code-settings"
-        {...getFloatingBoxHandlers({
-          content: "Watch Code settings",
-        })}
-      >
-        <RiRadarLine size={15} />
-      </button>
-      <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
+      {showWatchCodeControls ? (
+        <>
+          <button
+            ref={watchCodeButtonRef}
+            onClick={() => setWatchCodePortalOpen((prev) => !prev)}
+            className={`cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${watchCodeEnabled ? styleForActive : "text-setta-400 dark:text-setta-600"}`}
+            aria-label="watch code settings"
+            aria-pressed={watchCodeEnabled}
+            data-testid="rf__watch-code-settings"
+            {...getFloatingBoxHandlers({
+              content: "Watch Code settings",
+            })}
+          >
+            <RiRadarLine size={15} />
+          </button>
+          <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
+        </>
+      ) : null}
       <button
         onClick={onZoomInHandler}
         className="react-flow__controls-zoomin cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
@@ -350,7 +365,7 @@ const Controls = () => {
       >
         <IoMapOutline size={15} />
       </button>
-      {watchCodePortalOpen && watchCodePortalPosition
+      {showWatchCodeControls && watchCodePortalOpen && watchCodePortalPosition
         ? createPortal(
             <aside
               ref={watchCodePortalRef}

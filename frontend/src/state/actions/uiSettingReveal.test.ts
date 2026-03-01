@@ -293,6 +293,28 @@ describe("receiveUISettingReveal", () => {
     });
   });
 
+  it("fails fast for deprecated overview tab keys", async () => {
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.notifications.logs",
+            overviewTabKey: "BackendLogs",
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.notifications.logs",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: "Invalid overviewTabKey for core.notifications.logs.",
+      },
+    ]);
+  });
+
   it("applies request-scoped activeSectionId for right-pane reveal", async () => {
     configureCodeSections({
       projectConfigId: "project-1",
