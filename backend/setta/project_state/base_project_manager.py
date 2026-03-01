@@ -808,6 +808,7 @@ class BaseProjectManager(ABC):
         ] = {}
         self._single_config_state_cache_revision = self.history.revision
         self._last_persisted_history_revision: int | None = None
+        self._normalized_history_entry_tokens: set[int] = set()
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -7722,6 +7723,12 @@ class BaseProjectManager(ABC):
         self._project_state_summary_cache_by_project_config.clear()
         self._single_config_state_cache_revision = self.history.revision
 
+    def _prune_normalized_history_entry_tokens(self) -> None:
+        active_tokens = set(self.history.get_entry_tokens())
+        if len(self._normalized_history_entry_tokens) <= len(active_tokens):
+            return
+        self._normalized_history_entry_tokens.intersection_update(active_tokens)
+
     def _refresh_single_config_state_cache_for_revision(self) -> None:
         history_revision = self.history.revision
         if history_revision == self._single_config_state_cache_revision:
@@ -10018,7 +10025,9 @@ class BaseProjectManager(ABC):
 
     @project_state_backend.setter
     def project_state_backend(self, x: ProjectStateBackend):
+        current_entry_token = self.history.get_current_entry_token()
         self.history.set_current(x)
+        self._normalized_history_entry_tokens.discard(current_entry_token)
         self._invalidate_single_config_state_cache()
 
     def project_state_backend_getter_fn(self):
@@ -10131,6 +10140,11 @@ class BaseProjectManager(ABC):
             coalesce_window_s=coalesce_window_s,
             copy_func=copy_func,
         )
+        # The new/active history entry may diverge after the pending mutation.
+        self._normalized_history_entry_tokens.discard(
+            self.history.get_current_entry_token()
+        )
+        self._prune_normalized_history_entry_tokens()
         self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
@@ -10638,10 +10652,15 @@ class BaseProjectManager(ABC):
         # Some lightweight metadata paths intentionally mutate the current backend
         # object in place (without pushing a new history entry). Bump revision so
         # revision-keyed caches and save dedupe stay correct for those paths.
+        current_entry_token = self.history.get_current_entry_token()
         self.history.set_current(self.project_state_backend)
+        self._normalized_history_entry_tokens.discard(current_entry_token)
         self._invalidate_single_config_state_cache()
 
     def _normalize_backend_after_history_navigation(self) -> None:
+        current_entry_token = self.history.get_current_entry_token()
+        if current_entry_token in self._normalized_history_entry_tokens:
+            return
         backend = self.project_state_backend
         section_impl_updates: dict[ID, object] = {}
         code_obj_impl_updates: dict[ID, object] = {}
@@ -10671,6 +10690,7 @@ class BaseProjectManager(ABC):
                 code_obj_impl_updates[code_obj_impl_id] = sanitized_code_obj_impl
 
         if not section_impl_updates and not code_obj_impl_updates:
+            self._normalized_history_entry_tokens.add(current_entry_token)
             return
 
         next_section_impls = dict(backend.sectionImpls)
@@ -10696,6 +10716,9 @@ class BaseProjectManager(ABC):
             projectConfigs=backend.projectConfigs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
+        )
+        self._normalized_history_entry_tokens.add(
+            self.history.get_current_entry_token()
         )
 
     @enqueue_method

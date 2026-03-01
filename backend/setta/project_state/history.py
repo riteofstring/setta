@@ -13,9 +13,11 @@ class History(Generic[T]):
         max_size: int | None = 1000,
     ) -> None:
         self._history: List[T] = []
+        self._entry_tokens: List[int] = []
         self._current: int = -1
         self._copy_func = copy.deepcopy
         self._max_size = max_size
+        self._next_entry_token = 0
         self._last_entry_key: str | None = None
         self._last_entry_ts: float | None = None
         # Monotonic revision that changes whenever the "current" state may have
@@ -36,7 +38,10 @@ class History(Generic[T]):
     def add(self, state: T) -> None:
         # Truncate history after current position when adding new state
         self._history = self._history[: self._current + 1]
+        self._entry_tokens = self._entry_tokens[: self._current + 1]
         self._history.append(state)
+        self._entry_tokens.append(self._next_entry_token)
+        self._next_entry_token += 1
         self._current = len(self._history) - 1
         self._reset_last_entry()
         self._bump_revision()
@@ -45,6 +50,7 @@ class History(Generic[T]):
         if self._max_size and len(self._history) > self._max_size:
             items_to_remove = len(self._history) - self._max_size
             self._history = self._history[items_to_remove:]
+            self._entry_tokens = self._entry_tokens[items_to_remove:]
             self._current -= items_to_remove
 
     def add_current_copy(
@@ -114,3 +120,9 @@ class History(Generic[T]):
 
     def can_redo(self, steps: int = 1) -> bool:
         return self._current + steps < len(self._history)
+
+    def get_current_entry_token(self) -> int:
+        return self._entry_tokens[self._current]
+
+    def get_entry_tokens(self) -> tuple[int, ...]:
+        return tuple(self._entry_tokens)

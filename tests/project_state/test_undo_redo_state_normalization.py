@@ -1,5 +1,6 @@
 import pytest
 
+from setta.project_state import base_project_manager
 from setta.project_state.project_manager_types import RedoRequest, UndoRequest
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl
 from setta.types.generated.effective_impls import get_effective_impl
@@ -98,3 +99,65 @@ async def test_undo_redo_normalizes_inconsistent_callable_children_from_history(
         # Accessing single-config state after redo should stay stable.
         single_config_state = manager.get_single_config_state(project_config_id)
         assert section_id in single_config_state.sections
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_skips_re_normalization_for_already_normalized_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        project_config_id = project_state.projectConfig.id
+        section_id = next(iter(project_state.sections.keys()))
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+        )
+        stale_child_id = ID("stale-child-for-normalization-cache")
+        callable_impl = _get_backend_callable_impl_for_section(
+            project_config_id=project_config_id,
+            section_id=section_id,
+            manager=manager,
+        )
+        callable_impl.children = [*callable_impl.children, stale_child_id]
+        manager.project_state_backend = manager.project_state_backend
+
+        # First undo/redo pass must normalize both entries and clear stale refs.
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        callable_impl_after = _get_backend_callable_impl_for_section(
+            project_config_id=project_config_id,
+            section_id=section_id,
+            manager=manager,
+        )
+        assert stale_child_id not in callable_impl_after.children
+
+        prepare_calls = 0
+        original_prepare = base_project_manager.prepare_sections_for_copy
+
+        def counting_prepare_sections_for_copy(*args, **kwargs):
+            nonlocal prepare_calls
+            prepare_calls += 1
+            return original_prepare(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager,
+            "prepare_sections_for_copy",
+            counting_prepare_sections_for_copy,
+        )
+
+        # Repeated toggles across the same normalized entries should no longer
+        # invoke full normalization scans.
+        for _ in range(8):
+            await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+            await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+
+        assert prepare_calls == 0
