@@ -284,6 +284,13 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="overview-tab-run-instructions"');
     expect(markup).not.toContain('data-testid="overview-tab-app"');
     expect(markup).not.toContain('id="overview-tab-plugins"');
+    const notificationsIndex = markup.indexOf(
+      'data-testid="overview-tab-notifications"',
+    );
+    const moreIndex = markup.indexOf('data-testid="overview-tab-more"');
+    expect(notificationsIndex).toBeGreaterThanOrEqual(0);
+    expect(moreIndex).toBeGreaterThanOrEqual(0);
+    expect(moreIndex).toBeGreaterThan(notificationsIndex);
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {

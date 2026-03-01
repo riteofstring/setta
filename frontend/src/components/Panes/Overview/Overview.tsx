@@ -215,6 +215,27 @@ export function Overview() {
             icon={<IoMdGitBranch size={18} />}
           />
         )}
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.ViewModes}
+          {...commonProps}
+          data-testid="overview-tab-view-modes"
+          {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
+          icon={<HiOutlineEye size={20} />}
+        />
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.Notifications}
+          {...commonProps}
+          data-testid="overview-tab-notifications"
+          {...getFloatingBoxHandlers({ content: "Notifications" })}
+          icon={
+            <div className="relative">
+              <MdNotificationsNone size={20} />
+              {hasUnreadHighSeverityBackendLogs && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
+              )}
+            </div>
+          }
+        />
         <Menubar.Root className="w-8">
           <NavbarMenuDropdown
             triggerClassName={moreMenuButtonClasses}
@@ -260,27 +281,6 @@ export function Overview() {
             </MenuItem>
           </NavbarMenuDropdown>
         </Menubar.Root>
-        <TabButton<OverviewTabKey>
-          tabName={OverviewTabNameEnum.ViewModes}
-          {...commonProps}
-          data-testid="overview-tab-view-modes"
-          {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
-          icon={<HiOutlineEye size={20} />}
-        />
-        <TabButton<OverviewTabKey>
-          tabName={OverviewTabNameEnum.Notifications}
-          {...commonProps}
-          data-testid="overview-tab-notifications"
-          {...getFloatingBoxHandlers({ content: "Notifications" })}
-          icon={
-            <div className="relative">
-              <MdNotificationsNone size={20} />
-              {hasUnreadHighSeverityBackendLogs && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
-              )}
-            </div>
-          }
-        />
         <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
