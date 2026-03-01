@@ -202,8 +202,7 @@
   - edit workflow parity cannot be preserved without UX regression.
 
 ## Immediate Next Step
-- Implement Phase 0:
-  - capability probe module,
-  - renderer backend flag plumbing,
-  - baseline perf harness extension with backend labels,
-  - append first report in `perf/reports/frontend/`.
+- Continue Phase 6 expansion after guardrails:
+  - restore `chrome-devtools-mcp` connectivity and capture a fresh project-name canary before/after trace pair on the same non-settings surface,
+  - keep explicit `setta.sceneGraphRenderer.enabled` kill-switch precedence in every rollout step,
+  - if guardrails pass, promote the next non-settings project class from canary to default-on with matching Vitest/Playwright coverage and appended perf report.
