@@ -1,3 +1,4 @@
+import React from "react";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
@@ -15,6 +16,10 @@ const singleLineStyle = {
   textOverflow: "ellipsis",
   flexShrink: 1,
 };
+
+function joinClassNames(...parts: Array<string | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
@@ -98,7 +103,7 @@ function HighlightedCode({
       return (
         <div
           id={divId}
-          className={`${className} outline-none`}
+          className={joinClassNames(className, "outline-none")}
           style={style}
           onMouseDownCapture={onMouseDownCapture}
           onFocus={onFocus}
@@ -111,7 +116,7 @@ function HighlightedCode({
     return (
       <div
         id={divId}
-        className={`${className} outline-none`}
+        className={joinClassNames(className, "outline-none")}
         style={style}
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
@@ -143,6 +148,8 @@ function HighlightedCode({
   const decorationRangeSet = builder.finish();
   // just the code content. MUST be array of lines
   const text = Text.of(code.split("\n"));
+  const scopeClassName = theme[0][0]?.value || "";
+  const baseClassName = joinClassNames(className, scopeClassName, "outline-none");
   const renderInline = singleLine || text.lines === 1;
   if (renderInline) {
     const inlineNodes = [];
@@ -172,12 +179,36 @@ function HighlightedCode({
       inlineNodes.push(text.sliceString(pos, textLength));
     }
 
-    const scopeClassName = theme[0][0]?.value || "";
+    if (
+      inlineNodes.length === 1 &&
+      React.isValidElement(inlineNodes[0]) &&
+      inlineNodes[0].type === "span"
+    ) {
+      const onlySpan = inlineNodes[0];
+      const onlySpanClassName =
+        typeof onlySpan.props.className === "string"
+          ? onlySpan.props.className
+          : undefined;
+      const flattenedClassName = joinClassNames(baseClassName, onlySpanClassName);
+
+      return (
+        <div
+          id={divId}
+          className={flattenedClassName}
+          style={style}
+          onMouseDownCapture={onMouseDownCapture}
+          onFocus={onFocus}
+          tabIndex={0}
+        >
+          {onlySpan.props.children}
+        </div>
+      );
+    }
 
     return (
       <div
         id={divId}
-        className={`${className} ${scopeClassName} outline-none`}
+        className={baseClassName}
         style={style}
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
@@ -229,13 +260,11 @@ function HighlightedCode({
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
   // ${highlightStyles.scopeClassName}
-  const scopeClassName = theme[0][0]?.value || "";
-
   // TODO: the style object here seems to reduce performance
   return (
     <div
       id={divId}
-      className={`${className} ${scopeClassName} outline-none`}
+      className={baseClassName}
       style={style}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}

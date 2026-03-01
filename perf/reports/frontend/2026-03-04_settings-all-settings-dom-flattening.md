@@ -389,6 +389,36 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `9` (`4.11%`)
   - Main-thread work: `Layout 30.35 ms`, `UpdateLayoutTree 8.16 ms`, `Paint 47.33 ms`, `PrePaint 7.35 ms`
 
+### Phase 11 (DummyCodeMirror single-token wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened the highlighted single-line `div -> span` case when syntax highlighting resolves to one token span.
+  - Merged the token class onto the existing host and rendered text directly to remove the extra wrapper node.
+  - Added automated guardrail coverage for the removed DummyCodeMirror single-span wrapper pattern.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4900` (down from `5307`, `-407`, `-7.7%` vs phase 10)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5996` (down from `6403`, `-407`)
+  - Per-node descendants: `avg 115.5`, `p95 209`, `max 864`
+  - Per-node max depth: `avg 8.45`, `p95 9`, `max 11`
+  - Legacy DummyCodeMirror single-span wrappers: `0` (down from `407`)
+  - Flattened DummyCodeMirror text hosts: `407`
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11.trace.json`
+- Trace signals from this phase run:
+  - Duration: `16,509.1 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `409` (`24.77/s`)
+  - `DrawFrame`: `239` (`14.48/s`)
+  - `DroppedFrame`: `11` (`2.69%`)
+  - Main-thread work: `Layout 49.96 ms`, `UpdateLayoutTree 22.58 ms`, `Paint 134.77 ms`, `PrePaint 18.64 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -398,15 +428,15 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 5307` (`-3312`, `-38.4%`)
-  - Per-node descendants avg: `204.05 -> 125.19` (`-38.6%`)
-  - Per-node descendants max: `1854 -> 990` (`-46.6%`)
-  - Per-node depth avg/max: `12.74/17 -> 8.71/11`
+  - Viewport descendants: `8619 -> 4900` (`-3719`, `-43.1%`)
+  - Per-node descendants avg: `204.05 -> 115.5` (`-43.4%`)
+  - Per-node descendants max: `1854 -> 864` (`-53.4%`)
+  - Per-node depth avg/max: `12.74/17 -> 8.45/11`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
@@ -441,3 +471,6 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10_fitview.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase10b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase11_fitview.png`

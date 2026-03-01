@@ -11,6 +11,7 @@ const MAX_AVG_NODE_DESCENDANTS = 170;
 const MAX_MAX_NODE_DESCENDANTS = 1400;
 const MAX_MAX_NODE_DEPTH = 16;
 const MAX_CM_LINE_WRAPPERS = 0;
+const MAX_DUMMY_SINGLE_SPAN_WRAPPERS = 0;
 
 test("all settings DOM stays within flattening guardrails", async ({
   page,
@@ -55,6 +56,9 @@ test("all settings DOM stays within flattening guardrails", async ({
     const sum = (arr: number[]) => arr.reduce((acc, val) => acc + val, 0);
     const avg = (arr: number[]) =>
       arr.length === 0 ? 0 : sum(arr) / arr.length;
+    const dummyCodeHosts = Array.from(
+      document.querySelectorAll("div.section-value.outline-none"),
+    ).filter((el) => el.classList.contains("peer/textinput"));
 
     return {
       nodeCount: nodes.length,
@@ -149,6 +153,12 @@ test("all settings DOM stays within flattening guardrails", async ({
         "button.section-value.justify-self-start.self-center",
       ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
+      legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
+        (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
+      ).length,
+      flattenedDummySingleHostCount: dummyCodeHosts.filter(
+        (el) => el.children.length === 0,
+      ).length,
     };
   });
 
@@ -176,4 +186,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.legacySwitchWrapperCount).toBe(0);
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
+  expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
+    MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
+  );
+  expect(metrics.flattenedDummySingleHostCount).toBeGreaterThan(0);
 });

@@ -23,6 +23,23 @@ describe("DummyCodeMirror", () => {
     expect(markup).toContain("print");
   });
 
+  it("flattens single-token highlighted output to one text host", () => {
+    // If highlighting produces one styled token, avoid wrapping that token in an extra span.
+    const markup = renderToStaticMarkup(
+      <DummyCodeMirror
+        divId="dummy-single-token"
+        code={'"none"'}
+        theme={theme}
+        className="section-value"
+        language="python"
+        singleLine={true}
+      />,
+    );
+
+    expect(markup).not.toContain("><span");
+    expect(markup).toContain("none");
+  });
+
   it("keeps cm-line wrappers for multiline highlighted code", () => {
     // Multiline rendering should preserve explicit line wrappers.
     const markup = renderToStaticMarkup(
