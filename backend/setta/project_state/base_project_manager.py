@@ -6502,7 +6502,7 @@ class BaseProjectManager(ABC):
                         x.newParentId,
                         terminal_id,
                     )
-        await self._update_and_broadcast_structural_patch(
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
             broadcast_name_validation_errors=False,
@@ -7733,6 +7733,40 @@ class BaseProjectManager(ABC):
         )
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
+
+    async def _merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            project_state.validate_for_update(
+                validate_code_file_bindings=True,
+                validate_name_rules=validate_name_rules,
+            )
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=updateFileWatcher,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        await self._broadcast_structural_patch(
+            project_state=project_state,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
     async def _update_and_broadcast_structural_and_code_obj_patches(
         self,
