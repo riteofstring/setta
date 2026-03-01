@@ -4237,7 +4237,11 @@ class BaseProjectManager(ABC):
         if not update_scope.did_update:
             return
         if project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=project_state_revision,
+            )
             return
 
         code_obj_ids = [
@@ -4393,7 +4397,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
 
         (
@@ -6692,7 +6700,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=x.projectConfigId,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
         await self._broadcast_active_view_mode_patch(
             project_config_id=x.projectConfigId,
@@ -8669,7 +8681,11 @@ class BaseProjectManager(ABC):
         )
         next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -8710,7 +8726,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -8747,7 +8767,11 @@ class BaseProjectManager(ABC):
         )
         next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
@@ -8813,7 +8837,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
@@ -9052,7 +9080,12 @@ class BaseProjectManager(ABC):
         broadcast_name_validation_errors: bool = True,
     ) -> None:
         if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
-            await self._broadcast_project_state_snapshot(project_state)
+            project_state_revision = self.history.revision
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=project_state_revision,
+                project_state_revision=project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
@@ -9071,7 +9104,11 @@ class BaseProjectManager(ABC):
             )
         )
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -9089,7 +9126,11 @@ class BaseProjectManager(ABC):
             project_state_revision=next_project_state_revision,
         )
         if not has_broadcast_patch:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -9117,7 +9158,12 @@ class BaseProjectManager(ABC):
         broadcast_name_validation_errors: bool = True,
     ) -> None:
         if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
-            await self._broadcast_project_state_snapshot(project_state)
+            project_state_revision = self.history.revision
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=project_state_revision,
+                project_state_revision=project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
@@ -9141,7 +9187,11 @@ class BaseProjectManager(ABC):
             )
         )
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -9159,7 +9209,11 @@ class BaseProjectManager(ABC):
             project_state_revision=next_project_state_revision,
         )
         if not has_broadcast_patch:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -9249,7 +9303,12 @@ class BaseProjectManager(ABC):
         broadcast_name_validation_errors: bool = True,
     ) -> None:
         if not section_ids:
-            await self._broadcast_project_state_snapshot(project_state)
+            project_state_revision = self.history.revision
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=project_state_revision,
+                project_state_revision=project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
             return
@@ -9266,7 +9325,11 @@ class BaseProjectManager(ABC):
             if section_id in project_state.sections
         }
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(
                     project_state,
@@ -9330,7 +9393,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
         section_variant_id = project_state.projectConfig.sectionVariantMap.get(
             section_id
@@ -9366,7 +9433,11 @@ class BaseProjectManager(ABC):
         )
         next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
         await self._broadcast_project_config_patch(
             project_config=project_state.projectConfig,
@@ -9400,7 +9471,11 @@ class BaseProjectManager(ABC):
             )
             next_project_state_revision = self.history.revision
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
         await self._broadcast_project_config_patch(
             project_config=project_state.projectConfig,
@@ -9426,7 +9501,12 @@ class BaseProjectManager(ABC):
         section_ids: list[ID],
     ) -> None:
         if not section_ids:
-            await self._broadcast_project_state_snapshot(project_state)
+            project_state_revision = self.history.revision
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=project_state_revision,
+                project_state_revision=project_state_revision,
+            )
             return
 
         previous_project_state_revision = self.history.revision
@@ -9442,7 +9522,11 @@ class BaseProjectManager(ABC):
                 section_ids,
             )
         if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
+            await self._broadcast_project_state_op_status_patch(
+                project_config_id=project_state.projectConfig.id,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
             return
         for idx, (section_id, section_impl) in enumerate(section_impl_updates):
             await self._broadcast_section_impl_patch(
@@ -9456,6 +9540,39 @@ class BaseProjectManager(ABC):
                 ),
                 project_state_revision=next_project_state_revision,
             )
+
+    async def _broadcast_project_state_op_status_patch(
+        self,
+        *,
+        project_config_id: ID,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        if (
+            not completed_op_ids
+            and not pending_op_ids
+            and project_state_revision == previous_project_state_revision
+        ):
+            return
+        logger.debug(
+            "broadcast_project_state_op_status_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_op_status_patch(
+            project_config_id,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
 
     async def _broadcast_project_state_snapshot(
         self,

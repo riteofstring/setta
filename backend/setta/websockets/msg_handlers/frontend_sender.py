@@ -13,6 +13,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
     ProjectStateAppDefinitionPatch,
     ProjectStateCodeObjsPatch,
+    ProjectStateOpStatusPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -82,6 +83,7 @@ from setta.types.websocket import (
     WebsocketMsgPatchFrontendProjectStateActiveViewMode,
     WebsocketMsgPatchFrontendProjectStateAppDefinition,
     WebsocketMsgPatchFrontendProjectStateCodeObjs,
+    WebsocketMsgPatchFrontendProjectStateOpStatus,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPatchFrontendProjectStateSectionImpl,
     WebsocketMsgPatchFrontendProjectStateStructural,
@@ -563,6 +565,29 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectConfigId=projectConfigId,
                     appDefinition=appDefinition,
                     appSpec=appSpec,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_op_status_patch(
+        self,
+        projectConfigId: ID,
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateOpStatus(
+                content=ProjectStateOpStatusPatch(
+                    projectConfigId=projectConfigId,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

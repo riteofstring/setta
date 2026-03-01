@@ -59,6 +59,7 @@ vi.mock("state/actions/sectionInfos", async () => {
     applyActiveViewModeProjectStatePatch: vi.fn(),
     applyAppDefinitionProjectStatePatch: vi.fn(),
     applyCodeObjsProjectStatePatch: vi.fn(),
+    applyProjectStateOpStatusPatch: vi.fn(),
     applyProjectConfigProjectStatePatch: vi.fn(),
     applySectionImplProjectStatePatch: vi.fn(),
     applyStructuralProjectStatePatch: vi.fn(),
@@ -1360,6 +1361,152 @@ describe("openWebSocket", () => {
       root: { key: "root", type: "Stack" },
       elements: {},
     });
+  });
+
+  it("applies op-status patches when revisions line up", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: {
+        projectState: projectConfig,
+        completedOpIds: [],
+        pendingOpIds: [],
+        projectStateRevision: 140,
+      },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(140);
+    vi.mocked(sectionInfos.applyProjectStateOpStatusPatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(sectionInfos.applyProjectStateOpStatusPatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "op-status-patch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateOpStatus,
+        content: {
+          projectConfigId: "project-1",
+          previousProjectStateRevision: 140,
+          projectStateRevision: 140,
+          completedOpIds: ["op-1"],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+
+    expect(sectionInfos.applyProjectStateOpStatusPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        previousProjectStateRevision: 140,
+        projectStateRevision: 140,
+      }),
+    );
+    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+  });
+
+  it("resyncs from backend when op-status patch revision mismatches", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    const latestPayload = {
+      projectState: projectConfig,
+      completedOpIds: [],
+      pendingOpIds: [],
+      projectStateRevision: 143,
+    };
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: latestPayload,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(140);
+    vi.mocked(sectionInfos.applyProjectStateOpStatusPatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(sectionInfos.processProjectStateUpdateFromBackend).mockClear();
+    vi.mocked(sectionInfos.applyProjectStateOpStatusPatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "op-status-patch-mismatch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateOpStatus,
+        content: {
+          projectConfigId: "project-1",
+          previousProjectStateRevision: 142,
+          projectStateRevision: 142,
+          completedOpIds: ["op-1"],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sectionInfos.applyProjectStateOpStatusPatch).not.toHaveBeenCalled();
+    expect(route_get_latest_project_state).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(
+      sectionInfos.processProjectStateUpdateFromBackend,
+    ).toHaveBeenCalledWith(latestPayload);
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {

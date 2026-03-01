@@ -55,6 +55,7 @@ import {
   ProjectStateActiveViewModePatch,
   ProjectStateAppDefinitionPatch,
   ProjectStateCodeObjsPatch,
+  ProjectStateOpStatusPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
   ProjectStateSingleConfig,
@@ -1129,6 +1130,25 @@ function reconcilePendingOperationsFromBackend(
     });
     return acc;
   }, []);
+}
+
+export function applyProjectStateOpStatusPatch(
+  patch: ProjectStateOpStatusPatch,
+): boolean {
+  if (useProjectState.getState().projectConfig.id !== patch.projectConfigId) {
+    return false;
+  }
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  const completedIds = new Set(patch.completedOpIds);
+  reconcilePendingTopLevelLayout(nextPending);
+  usePendingOperations.setState({ pending: nextPending });
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
 }
 
 export function applyActiveViewModeProjectStatePatch(

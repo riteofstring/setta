@@ -5,6 +5,7 @@ import {
   applyAppDefinitionProjectStatePatch,
   applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
+  applyProjectStateOpStatusPatch,
   applySectionImplProjectStatePatch,
   applyStructuralProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
@@ -1740,6 +1741,72 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
 
     expect(getProjectStateRevision("project-1")).toBe(17);
+  });
+
+  it("applies op-status patches and updates revision tracking", () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({
+      pending: [
+        {
+          opId: "op-complete",
+          acknowledged: false,
+          apply: () => {},
+        },
+        {
+          opId: "op-pending",
+          acknowledged: false,
+          apply: () => {},
+        },
+        {
+          opId: "op-local",
+          acknowledged: true,
+          apply: () => {},
+        },
+      ],
+    });
+
+    const applied = applyProjectStateOpStatusPatch({
+      projectConfigId: "project-1",
+      previousProjectStateRevision: 90,
+      projectStateRevision: 90,
+      completedOpIds: ["op-complete"],
+      pendingOpIds: ["op-pending"],
+    });
+
+    expect(applied).toBe(true);
+    expect(usePendingOperations.getState().pending).toEqual([
+      {
+        opId: "op-pending",
+        acknowledged: true,
+        apply: expect.any(Function),
+      },
+      {
+        opId: "op-local",
+        acknowledged: true,
+        apply: expect.any(Function),
+      },
+    ]);
+    expect(getProjectStateRevision("project-1")).toBe(90);
   });
 
   it("applies active-view-mode patches and updates revision tracking", () => {

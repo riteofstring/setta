@@ -956,6 +956,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PatchFrontendProjectStateStructural: "PatchFrontendProjectStateStructural",
   PatchFrontendProjectStateAppDefinition:
     "PatchFrontendProjectStateAppDefinition",
+  PatchFrontendProjectStateOpStatus: "PatchFrontendProjectStateOpStatus",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5364,6 +5365,26 @@ const WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema = z.object({
     ),
 });
 
+const ProjectStateOpStatusPatchSchema = z.object({
+  projectConfigId: IDSchema,
+  previousProjectStateRevision: z.int(),
+  projectStateRevision: z.int(),
+  completedOpIds: z.array(z.string()),
+  pendingOpIds: z.array(z.string()),
+});
+
+export type ProjectStateOpStatusPatch = z.infer<
+  typeof ProjectStateOpStatusPatchSchema
+>;
+
+const WebsocketMsgPatchFrontendProjectStateOpStatusSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateOpStatusPatchSchema,
+  messageType: z
+    .literal("PatchFrontendProjectStateOpStatus")
+    .default(WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateOpStatus),
+});
+
 const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -7427,6 +7448,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
   WebsocketMsgPatchFrontendProjectStateStructuralSchema,
   WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema,
+  WebsocketMsgPatchFrontendProjectStateOpStatusSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,

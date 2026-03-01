@@ -9,6 +9,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateActiveViewModePatch,
     ProjectStateAppDefinitionPatch,
     ProjectStateCodeObjsPatch,
+    ProjectStateOpStatusPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -66,6 +67,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     PatchFrontendProjectStateCodeObjs = "PatchFrontendProjectStateCodeObjs"
     PatchFrontendProjectStateStructural = "PatchFrontendProjectStateStructural"
     PatchFrontendProjectStateAppDefinition = "PatchFrontendProjectStateAppDefinition"
+    PatchFrontendProjectStateOpStatus = "PatchFrontendProjectStateOpStatus"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -253,6 +255,13 @@ class WebsocketMsgPatchFrontendProjectStateAppDefinition(FrontendWebsocketMsg):
     messageType: Literal[
         WebsocketMsgTypeForFrontend.PatchFrontendProjectStateAppDefinition
     ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateAppDefinition
+
+
+class WebsocketMsgPatchFrontendProjectStateOpStatus(FrontendWebsocketMsg):
+    content: ProjectStateOpStatusPatch
+    messageType: Literal[
+        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateOpStatus
+    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateOpStatus
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
