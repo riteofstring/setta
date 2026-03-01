@@ -2,9 +2,9 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
+  setCurrEffectiveCodeObjImplValueIfPresent,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -33,13 +33,18 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const { baseValue, codeObjType } = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+    const impl = getCurrEffectiveCodeObjImplIfPresent(
       x,
       sectionId,
       paramInfoId,
-      isBaseChildlessCodeObjImpl,
       true, // preview
     );
+    if (!impl || !isBaseChildlessCodeObjImpl(impl)) {
+      return {
+        baseValue: "",
+        codeObjType: CodeObjTypeEnum.TextParam,
+      };
+    }
     return { baseValue: impl.value, codeObjType: impl.type };
   });
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
@@ -65,7 +70,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         return;
       }
       useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
           state,
           sectionId,
           paramInfoId,
@@ -192,7 +197,7 @@ const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, paramInfoId, value) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
           state,
           sectionId,
           paramInfoId,

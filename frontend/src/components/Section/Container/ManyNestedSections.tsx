@@ -25,16 +25,16 @@ export function MaybeManyNestedSections({
   layoutVariant?: "default" | "tight";
 }) {
   const hasNested = useHasTempNested(sectionId);
-  if (!hasNested) {
-    return null;
-  }
-
   return (
-    <ManyNestedSections
-      sectionId={sectionId}
-      isGroup={isGroup}
-      layoutVariant={layoutVariant}
-    />
+    hasNested && (
+      <div className="flex flex-col">
+        <ManyNestedSections
+          sectionId={sectionId}
+          isGroup={isGroup}
+          layoutVariant={layoutVariant}
+        />
+      </div>
+    )
   );
 }
 
@@ -101,7 +101,7 @@ function ManyNestedSections({
 
 function NestedSectionsTight({ childIds }: { childIds: string[] }) {
   return (
-    <>
+    <div className="flex w-full flex-col">
       {childIds.map((e) => (
         <SortableSectionContainer
           sectionId={e}
@@ -109,7 +109,7 @@ function NestedSectionsTight({ childIds }: { childIds: string[] }) {
           className="w-full"
         />
       ))}
-    </>
+    </div>
   );
 }
 

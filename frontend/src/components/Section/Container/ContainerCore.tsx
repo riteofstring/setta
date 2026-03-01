@@ -23,45 +23,19 @@ function _Container({
   className,
   style,
   trueDragListeners,
-  flattenNonGroupWrapper,
   isEditingViewMode,
   isUserView,
   children,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
 
-  const totalRef = React.useCallback(
-    (element) => {
-      refForPosition.current = element;
-      if (droppableRef) {
-        droppableRef(element);
-      }
-      if (draggableRef) {
-        draggableRef(element);
-      }
-    },
-    [draggableRef, droppableRef, refForPosition],
-  );
+  function totalRef(e) {
+    refForPosition.current = e;
+    droppableRef && droppableRef(e);
+    draggableRef && draggableRef(e);
+  }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-  const mergedClassName = [className, "focus-visible:outline-none"]
-    .filter(Boolean)
-    .join(" ");
-
-  if (
-    !isGroup &&
-    flattenNonGroupWrapper &&
-    React.isValidElement(children) &&
-    !Array.isArray(children)
-  ) {
-    return React.cloneElement(children, {
-      containerClassName: mergedClassName,
-      containerStyle: style,
-      containerRef: totalRef,
-      containerDragListeners: trueDragListeners,
-      containerTabIndex: -1,
-    });
-  }
 
   return isGroup ? (
     <ContainerGroup
@@ -77,7 +51,7 @@ function _Container({
     </ContainerGroup>
   ) : (
     <div
-      className={mergedClassName}
+      className={`${className} focus-visible:outline-none`}
       style={style}
       {...commonProps}
       tabIndex={-1} // keeps section focusable for programmatic focus
@@ -211,7 +185,5 @@ function GroupSectionTitle({ sectionId }) {
       "cursor-pointer box-border px-1 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-lg border border-solid border-transparent w-full truncate tracking-tighter text-setta-500 dark:text-setta-500 flex-shrink",
   };
 
-  return (
-    <SectionTitle sectionId={sectionId} titleProps={titleProps} wrapperless />
-  );
+  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
