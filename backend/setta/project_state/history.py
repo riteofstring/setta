@@ -1,6 +1,5 @@
 import copy
 import time
-from collections.abc import Callable
 from typing import Generic, List, TypeVar
 
 T = TypeVar("T")
@@ -48,13 +47,9 @@ class History(Generic[T]):
             self._current -= items_to_remove
 
     def add_current_copy(
-        self,
-        coalesce_key: str | None = None,
-        coalesce_window_s: float | None = None,
-        copy_func: Callable[[T], T] | None = None,
+        self, coalesce_key: str | None = None, coalesce_window_s: float | None = None
     ) -> T:
         current = self.get_current()
-        resolved_copy_func = copy_func or self._copy_func
         if coalesce_key and coalesce_window_s:
             now = time.monotonic()
             if (
@@ -65,12 +60,12 @@ class History(Generic[T]):
                 self._last_entry_ts = now
                 self._bump_revision()
                 return current
-            new_state = resolved_copy_func(current)
+            new_state = self._copy_func(current)
             self.add(new_state)
             self._last_entry_key = coalesce_key
             self._last_entry_ts = now
             return new_state
-        new_state = resolved_copy_func(current)
+        new_state = self._copy_func(current)
         self.add(new_state)
         return new_state
 
