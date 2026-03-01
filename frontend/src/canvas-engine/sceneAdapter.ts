@@ -106,6 +106,8 @@ const DEFAULT_CONFIG: CanvasEngineSceneAdapterConfig = {
 
 const AGENTIC_HANDLE_GAP_WORLD = 12;
 const AGENTIC_HANDLE_HALF_SIZE_WORLD = 7;
+const AGENTIC_HANDLE_EXTENT_WORLD =
+  AGENTIC_HANDLE_GAP_WORLD + AGENTIC_HANDLE_HALF_SIZE_WORLD;
 const DATA_HANDLE_EXTENT_WORLD = 16;
 
 export class CanvasEngineSceneAdapter {
@@ -497,8 +499,19 @@ export class CanvasEngineSceneAdapter {
       zIndex: number;
       distance: number;
     } | null = null;
+    const queryToleranceWorld = toleranceWorld + AGENTIC_HANDLE_EXTENT_WORLD;
+    const candidateSectionIds = this.spatialIndex.queryRect({
+      x: worldX - queryToleranceWorld,
+      y: worldY - queryToleranceWorld,
+      width: queryToleranceWorld * 2,
+      height: queryToleranceWorld * 2,
+    });
 
-    for (const rect of this.rectById.values()) {
+    for (const sectionId of candidateSectionIds) {
+      const rect = this.rectById.get(sectionId);
+      if (!rect) {
+        continue;
+      }
       const candidateHandles: Array<{
         handleType: "source" | "target";
         handleWorldX: number;
