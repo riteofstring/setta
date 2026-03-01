@@ -805,38 +805,34 @@ function PinnedParamsArea({
 
   return (
     <section
-      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b pb-3 pt-2 shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
+      ref={contentRef}
     >
-      <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
-        ref={contentRef}
-      >
-        <header className="flex w-full gap-1 px-2" ref={headerRef}>
-          <i
-            className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
-          />
-          <p
-            className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
-          >
-            Pinned Params
-          </p>
-        </header>
-
-        <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-          ref={rowsRef}
+      <header className="flex w-full gap-1 px-2" ref={headerRef}>
+        <i
+          className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
+        />
+        <p
+          className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
         >
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="pinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+          Pinned Params
+        </p>
+      </header>
+
+      <div
+        className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
+        ref={rowsRef}
+      >
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey="pinned"
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
       </div>
     </section>
   );
@@ -941,28 +937,26 @@ function GetUnpinnedParams({
   });
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
-          isScrollable ? "nowheel" : ""
-        }`}
-        ref={setContainerRef}
-        style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
-        }
-      >
-        {!hideUnpinnedParams && (
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="unpinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-      </div>
+    <div
+      className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+        isScrollable ? "nowheel" : ""
+      }`}
+      ref={setContainerRef}
+      style={
+        shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+      }
+    >
+      {!hideUnpinnedParams && (
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey="unpinned"
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
     </div>
   );
 }
