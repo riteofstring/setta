@@ -442,6 +442,7 @@ from setta.types.section_impls import (
     MetaControlSectionImpl,
     SectionType,
     TerminalSectionImpl,
+    TextBlockSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
@@ -5655,6 +5656,12 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        text_block_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            TextBlockSectionImpl,
+        )
+        should_broadcast_name_validation = text_block_impl.headingAsSectionName
         set_text_block_text(project_state, x.sectionId, x.text)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
@@ -5665,6 +5672,7 @@ class BaseProjectManager(ABC):
             section_ids=section_patch_scope,
             updateFileWatcher=False,
             validate_name_rules=False,
+            broadcast_name_validation_errors=should_broadcast_name_validation,
         )
 
     @enqueue_method
@@ -5679,6 +5687,7 @@ class BaseProjectManager(ABC):
             project_state,
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -5693,6 +5702,7 @@ class BaseProjectManager(ABC):
             project_state,
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -5707,6 +5717,7 @@ class BaseProjectManager(ABC):
             project_state,
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method

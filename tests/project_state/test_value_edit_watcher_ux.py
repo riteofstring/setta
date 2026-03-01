@@ -6,6 +6,8 @@ from setta.project_state.project_manager_types import (
     SetPromptFormatRequest,
     SetPromptInputsRequest,
     SetPromptTemplateRequest,
+    SetSectionNameRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
     SetTextBlockTextRequest,
 )
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -284,10 +286,10 @@ def _assert_route_mutation(
     ("route_name", "expected_name_validation_delta"),
     [
         ("set_code", 0),
-        ("set_text_block_text", 1),
-        ("set_prompt_template", 1),
-        ("set_prompt_inputs", 1),
-        ("set_prompt_format", 1),
+        ("set_text_block_text", 0),
+        ("set_prompt_template", 0),
+        ("set_prompt_inputs", 0),
+        ("set_prompt_format", 0),
     ],
 )
 async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
@@ -371,9 +373,7 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
             await original_name_validation_broadcast(content)
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_section_impl_patch = (
-            record_section_impl_patch  # type: ignore[method-assign]
-        )
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
@@ -434,6 +434,63 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
             prompt_section_id,
             route_name,
         )
+
+
+@pytest.mark.asyncio
+async def test_set_text_block_text_broadcasts_name_validation_with_heading_name() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+        (
+            code_section_id,
+            text_section_id,
+            prompt_section_id,
+        ) = await _create_value_edit_sections(manager, project_config_id)
+        await manager.set_section_name(
+            SetSectionNameRequest(
+                projectConfigId=project_config_id,
+                sectionId=code_section_id,
+                name="Fresh heading",
+            )
+        )
+        await manager.set_text_block_heading_as_section_name(
+            SetTextBlockHeadingAsSectionNameRequest(
+                projectConfigId=project_config_id,
+                sectionId=text_section_id,
+                headingAsSectionName=True,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        sender = manager.websocket_msg_handler
+        name_validation_broadcast_calls = 0
+        original_name_validation_broadcast = sender.broadcast_name_validation_errors
+
+        async def record_name_validation_broadcast(content) -> None:
+            nonlocal name_validation_broadcast_calls
+            name_validation_broadcast_calls += 1
+            await original_name_validation_broadcast(content)
+
+        sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+        try:
+            await _run_route(
+                manager,
+                project_config_id,
+                code_section_id,
+                text_section_id,
+                prompt_section_id,
+                "set_text_block_text",
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+        assert name_validation_broadcast_calls == 1
 
 
 @pytest.mark.asyncio
