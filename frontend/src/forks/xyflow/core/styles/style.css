@@ -18,6 +18,14 @@
   stroke: var(--setta-wire-color, #b1b1b7);
 }
 
+.react-flow__viewport[data-viewport-layer-split="true"]
+  .setta-viewport-dom-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  contain: paint;
+}
+
 .react-flow__edge:hover .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path,
 .react-flow__edge:focus-visible .react-flow__edge-path,

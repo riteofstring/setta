@@ -163,9 +163,19 @@
 - Result: **not kept**. Structural observer-option cleanup did not produce reliable Playwright typing improvement versus baseline/same-day control.
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-03_settings-all-settings-observer-listener-budget.md`
+- Structural viewport layer split trialed (no canvas, no motion state machine):
+  - Added a feature-flagged pre-mounted viewport DOM wrapper layer only.
+  - Result: **kept (feature-flagged)**.
+  - Playwright 3x/3x medians:
+    - pan `120.7` vs control `37.5` (~`3.2x`)
+    - zoom `115.4` vs control `34.9` (~`3.3x`)
+    - start hitch p95 `3.6ms` vs control `3.7ms`
+    - stop hitch p95 `9.0ms` vs control `8.2ms`
+  - Decision history retained in:
+    - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-layer-split-spike.md`
 - Next Phase 0.5 focus:
-  - Optional: trial Item E scoped param virtualization only in heavy scroll-bounded param regions where full-list visibility is not required.
-  - Primary: proceed to Phase 1 minimal production-grade hybrid motion-proxy spike, since completed Item A-D passes did not yield a keepable win.
+  - Primary: harden and rollout the layer-split approach (scope, defaults, guardrails).
+  - Secondary: optional Item E scoped param virtualization only in heavy scroll-bounded param regions where full-list visibility is not required.
 
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
@@ -202,8 +212,8 @@
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-03_settings-all-settings-phase1-hybrid-motion-proxy-spike-pass2.md`
 - Next focus:
-  - Keep hybrid proxy path paused until a redesign shows clear incremental A/B value.
-  - Isolate the structural layer/compositing improvement as a simpler standalone candidate and benchmark it separately from hybrid canvas logic.
+  - Keep hybrid proxy path paused until a redesign shows clear incremental A/B value beyond the now-validated layer-split gains.
+  - Treat hybrid canvas as a later-stage option only if the simpler layer-split rollout leaves a large residual gap.
 
 ## Phase 2: Stop-Hitch Mitigation
 - Implement staged restore sequencing in settle phase.

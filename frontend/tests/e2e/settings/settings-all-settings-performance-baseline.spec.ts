@@ -4,6 +4,9 @@ import { ensureAppReady } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
+const VIEWPORT_LAYER_SPLIT_KEY = "setta.viewportLayerSplit.enabled";
+const ENABLE_VIEWPORT_LAYER_SPLIT =
+  process.env.PLAYWRIGHT_ENABLE_VIEWPORT_LAYER_SPLIT === "1";
 
 type HitchStats = {
   avgMs: number;
@@ -28,6 +31,7 @@ type DomStats = {
   topLevelSectionCount: number;
   visibleSectionCount: number;
   iconLikeNodeCount: number;
+  viewportLayerSplitEnabled: boolean;
 };
 
 type BaselineMetrics = {
@@ -41,6 +45,16 @@ type BaselineMetrics = {
 test("settings all-settings perf baseline harness", async ({
   page,
 }, testInfo) => {
+  if (ENABLE_VIEWPORT_LAYER_SPLIT) {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "1");
+    }, VIEWPORT_LAYER_SPLIT_KEY);
+  } else {
+    await page.addInitScript((key) => {
+      window.localStorage.removeItem(key);
+    }, VIEWPORT_LAYER_SPLIT_KEY);
+  }
+
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -267,6 +281,7 @@ test("settings all-settings perf baseline harness", async ({
 
     const measureDomStats = (): DomStats => {
       const viewport = viewportRect();
+      const viewportContainer = document.querySelector(".react-flow__viewport");
       const sections = Array.from(
         document.querySelectorAll<HTMLElement>("[data-section-id]"),
       );
@@ -288,6 +303,9 @@ test("settings all-settings perf baseline harness", async ({
         iconLikeNodeCount: document.querySelectorAll(
           'svg, i[class^="gg-"], i[class*=" gg-"]',
         ).length,
+        viewportLayerSplitEnabled:
+          viewportContainer?.getAttribute("data-viewport-layer-split") ===
+          "true",
       };
     };
 
