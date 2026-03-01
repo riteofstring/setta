@@ -51,8 +51,8 @@ export function ComboboxInput({
     <HiChevronDown size={small ? 10 : 12} />
   );
   const rightButtonClassName = isPaneVariant
-    ? "absolute inset-y-0 right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-    : "absolute inset-y-0 right-1";
+    ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+    : "right-1";
   const resolvedRightButtonThemeClassName = rightButtonThemeClassName
     ? ` ${rightButtonThemeClassName}`
     : "";
@@ -61,7 +61,6 @@ export function ComboboxInput({
       outerClasses={resolvedOuterClasses}
       inputStyles={isPaneVariant ? paneInputClasses : pillInputClasses}
       noLeftElement={true}
-      rightElementNoWrapper={true}
       placeholder={placeholder}
       // leftElementStyles="pl-3"
       {...getInputProps({

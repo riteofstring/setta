@@ -185,7 +185,5 @@ function GroupSectionTitle({ sectionId }) {
       "cursor-pointer box-border px-1 focus-visible:ring-0 focus-visible:outline-none focus-visible:border-blue-500 rounded-lg border border-solid border-transparent w-full truncate tracking-tighter text-setta-500 dark:text-setta-500 flex-shrink",
   };
 
-  return (
-    <SectionTitle sectionId={sectionId} titleProps={titleProps} wrapperless />
-  );
+  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
