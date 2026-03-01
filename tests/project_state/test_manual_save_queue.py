@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import types
 from typing import Awaitable, Callable, cast
 from unittest.mock import patch
@@ -226,3 +227,101 @@ class TestManualSaveWriteDeduping:
 
             on_disk_after = fixture.dbe.read_project()
             assert on_disk_after.defaultProjectConfigId == created_config_id
+
+
+@pytest.mark.asyncio
+class TestSaveWorkerBehavior:
+    async def test_autosave_save_worker_does_not_block_manager_queue(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            manager.add_new_history_entry(trigger_autosave=False)
+
+            started = threading.Event()
+            release = threading.Event()
+            original_persist = manager._persist_save_work_item
+
+            def delayed_persist(work_item):
+                started.set()
+                if not release.wait(timeout=1.0):
+                    raise TimeoutError("Timed out waiting to release save worker.")
+                original_persist(work_item)
+
+            with patch.object(
+                manager,
+                "_persist_save_work_item",
+                side_effect=delayed_persist,
+            ):
+                autosave_task = asyncio.create_task(manager.autosave())
+                started_ok = await asyncio.to_thread(started.wait, 5.0)
+                assert started_ok
+
+                # Queue processing must continue while autosave save I/O is in flight.
+                await asyncio.wait_for(manager._enqueue(asyncio.sleep(0)), timeout=1.0)
+
+                release.set()
+                await autosave_task
+
+    async def test_autosave_coalesces_pending_revisions_to_latest(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            manager.add_new_history_entry(trigger_autosave=False)
+            first_revision = manager.history.revision
+
+            started = threading.Event()
+            release = threading.Event()
+            persisted_revisions: list[int] = []
+            original_persist = manager._persist_save_work_item
+
+            def delayed_persist(work_item):
+                persisted_revisions.append(work_item.revision)
+                if len(persisted_revisions) == 1:
+                    started.set()
+                    if not release.wait(timeout=1.0):
+                        raise TimeoutError("Timed out waiting to release save worker.")
+                original_persist(work_item)
+
+            with patch.object(
+                manager,
+                "_persist_save_work_item",
+                side_effect=delayed_persist,
+            ):
+                autosave_first = asyncio.create_task(manager.autosave())
+                started_ok = await asyncio.to_thread(started.wait, 5.0)
+                assert started_ok
+
+                manager.add_new_history_entry(trigger_autosave=False)
+                second_revision = manager.history.revision
+                autosave_second = asyncio.create_task(manager.autosave())
+
+                manager.add_new_history_entry(trigger_autosave=False)
+                third_revision = manager.history.revision
+                autosave_third = asyncio.create_task(manager.autosave())
+
+                release.set()
+                await asyncio.gather(autosave_first, autosave_second, autosave_third)
+
+            # The worker must persist the first in-flight revision, then only the
+            # latest pending revision while skipping superseded pending revisions.
+            assert len(persisted_revisions) == 2
+            assert persisted_revisions[0] >= first_revision
+            assert persisted_revisions[1] == third_revision
+            assert second_revision not in persisted_revisions
+
+    async def test_manual_save_surfaces_worker_errors_and_supports_retry(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            manager.add_new_history_entry(trigger_autosave=False)
+
+            with patch.object(
+                manager,
+                "_persist_save_work_item",
+                side_effect=RuntimeError("save failed"),
+            ):
+                with pytest.raises(RuntimeError, match="save failed"):
+                    manager.perform_manual_save()
+
+            # A subsequent manual save should retry the same revision and succeed.
+            manager.perform_manual_save()
