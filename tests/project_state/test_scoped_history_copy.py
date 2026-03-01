@@ -4,6 +4,7 @@ import pytest
 
 from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
+    MoveSectionsRequest,
     RedoRequest,
     SetSectionTagColorRequest,
     SetViewportRequest,
@@ -33,10 +34,18 @@ async def _create_dict_section(
     manager: "SessionProjectManager",
     project_config_id: ID,
 ) -> ID:
+    return await _create_section(manager, project_config_id, SectionType.Dict)
+
+
+async def _create_section(
+    manager: "SessionProjectManager",
+    project_config_id: ID,
+    section_type: SectionType,
+) -> ID:
     response = await manager.create_top_level_section(
         CreateTopLevelSectionRequest(
             projectConfigId=project_config_id,
-            implType=SectionType.Dict,
+            implType=section_type,
             controlCodeObjType=None,
             implOverrides=None,
             position=None,
@@ -326,6 +335,120 @@ async def test_section_impl_only_history_entry_copies_only_targeted_section_grap
         original_name = backend_before.sections[target_section_id].name
         backend_after.sections[target_section_id].name = "section-impl-only-history-target"
         assert backend_before.sections[target_section_id].name == original_name
+
+
+@pytest.mark.asyncio
+async def test_move_sections_history_copy_isolates_project_config_and_affected_sections() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        assert project_config_id is not None
+
+        parent_a_id = await _create_section(manager, project_config_id, SectionType.Group)
+        parent_b_id = await _create_section(manager, project_config_id, SectionType.Group)
+        child_section_id = await _create_section(
+            manager, project_config_id, SectionType.Code
+        )
+        unaffected_section_id = await _create_dict_section(manager, project_config_id)
+        await manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=project_config_id,
+                sectionIds=[child_section_id],
+                newParentId=parent_a_id,
+                newIndex=0,
+                positionsById=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        current_state = manager.get_single_config_state(project_config_id)
+        parent_a_variant_id = current_state.projectConfig.sectionVariantMap[parent_a_id]
+        parent_b_variant_id = current_state.projectConfig.sectionVariantMap[parent_b_id]
+        child_variant_id = current_state.projectConfig.sectionVariantMap[child_section_id]
+        unaffected_variant_id = current_state.projectConfig.sectionVariantMap[
+            unaffected_section_id
+        ]
+        parent_a_impl_id = current_state.sectionVariants[parent_a_variant_id].impl
+        parent_b_impl_id = current_state.sectionVariants[parent_b_variant_id].impl
+        child_impl_id = current_state.sectionVariants[child_variant_id].impl
+        unaffected_impl_id = current_state.sectionVariants[unaffected_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        await manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=project_config_id,
+                sectionIds=[child_section_id],
+                newParentId=parent_b_id,
+                newIndex=0,
+                positionsById=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sections[parent_a_id] is not backend_before.sections[parent_a_id]
+        )
+        assert (
+            backend_after.sections[parent_b_id] is not backend_before.sections[parent_b_id]
+        )
+        assert (
+            backend_after.sections[child_section_id]
+            is not backend_before.sections[child_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[parent_a_variant_id]
+            is not backend_before.sectionVariants[parent_a_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[parent_b_variant_id]
+            is not backend_before.sectionVariants[parent_b_variant_id]
+        )
+        assert (
+            backend_after.sectionVariants[child_variant_id]
+            is not backend_before.sectionVariants[child_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[parent_a_impl_id]
+            is not backend_before.sectionImpls[parent_a_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[parent_b_impl_id]
+            is not backend_before.sectionImpls[parent_b_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[child_impl_id]
+            is not backend_before.sectionImpls[child_impl_id]
+        )
+        assert (
+            backend_after.sections[unaffected_section_id]
+            is backend_before.sections[unaffected_section_id]
+        )
+        assert (
+            backend_after.sectionVariants[unaffected_variant_id]
+            is backend_before.sectionVariants[unaffected_variant_id]
+        )
+        assert (
+            backend_after.sectionImpls[unaffected_impl_id]
+            is backend_before.sectionImpls[unaffected_impl_id]
+        )
+
+        moved_state = manager.get_single_config_state(project_config_id)
+        assert moved_state.parentSectionMap[child_section_id] == parent_b_id
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        undone_state = manager.get_single_config_state(project_config_id)
+        assert undone_state.parentSectionMap[child_section_id] == parent_a_id
 
 
 @pytest.mark.asyncio

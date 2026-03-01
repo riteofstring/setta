@@ -6282,11 +6282,25 @@ class BaseProjectManager(ABC):
     async def move_sections(self, x: MoveSectionsRequest):
         if not x.sectionIds:
             return
-        project_state = self.get_single_config_state(x.projectConfigId)
         if x.newParentId is None:
             if not x.positionsById:
                 raise KeyError("Expected positionsById when moving sections to pane.")
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
+        elif x.newIndex is None:
+            raise KeyError(
+                "Expected newIndex when moving sections into parent section."
+            )
+        history_section_ids = self._get_move_sections_history_section_ids_for_backend(
+            project_config_id=x.projectConfigId,
+            section_ids=x.sectionIds,
+            new_parent_id=x.newParentId,
+        )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            include_codegen_singletons=True,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.newParentId is None:
             for section_id in x.sectionIds:
                 position = x.positionsById.get(section_id)
                 if position is None:
@@ -6295,11 +6309,6 @@ class BaseProjectManager(ABC):
                     )
                 move_section_to_pane(project_state, section_id, position)
         else:
-            if x.newIndex is None:
-                raise KeyError(
-                    "Expected newIndex when moving sections into parent section."
-                )
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
             move_sections_to_parent_section(
                 project_state, x.newParentId, x.sectionIds, x.newIndex
             )
@@ -6766,6 +6775,92 @@ class BaseProjectManager(ABC):
                 f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
             )
         return section_impl
+
+    def _get_parent_section_map_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+    ) -> dict[ID, ID | None]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        parent_map: dict[ID, ID | None] = {
+            section_id: None for section_id in project_config.sectionVariantMap
+        }
+        for section_id in project_config.sectionVariantMap:
+            section_impl = self._get_active_section_impl_from_backend(
+                project_config,
+                section_id=section_id,
+            )
+            if not isinstance(section_impl, BaseParentSectionImpl):
+                continue
+            for child_id in section_impl.children:
+                if child_id not in parent_map:
+                    raise KeyError(
+                        f"Section {child_id} missing from project config {project_config_id}."
+                    )
+                existing_parent_id = parent_map[child_id]
+                if existing_parent_id is not None and existing_parent_id != section_id:
+                    raise ValueError(
+                        f"Section {child_id} has multiple parents: {existing_parent_id} and {section_id}."
+                    )
+                parent_map[child_id] = section_id
+        return parent_map
+
+    def _get_move_sections_history_section_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_ids: list[ID],
+        new_parent_id: ID | None,
+    ) -> set[ID]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        parent_map = self._get_parent_section_map_for_backend(
+            project_config_id=project_config_id
+        )
+        history_section_ids: set[ID] = set()
+        ordered_section_ids = list(dict.fromkeys(section_ids))
+        for section_id in ordered_section_ids:
+            if section_id not in parent_map:
+                raise KeyError(
+                    f"Section {section_id} missing from project config {project_config_id}."
+                )
+            history_section_ids.add(section_id)
+            parent_id = parent_map[section_id]
+            if parent_id is not None:
+                history_section_ids.add(parent_id)
+
+        if new_parent_id is None:
+            return history_section_ids
+        if new_parent_id not in parent_map:
+            raise KeyError(
+                f"Section {new_parent_id} missing from project config {project_config_id}."
+            )
+        history_section_ids.add(new_parent_id)
+        new_parent_impl = self._get_active_section_impl_from_backend(
+            project_config,
+            section_id=new_parent_id,
+        )
+        if isinstance(new_parent_impl, BaseCodeSectionImpl):
+            terminal_section_id = new_parent_impl.attachedTerminalSectionId
+            if terminal_section_id is not None:
+                if terminal_section_id not in parent_map:
+                    raise KeyError(
+                        f"Section {terminal_section_id} missing from project config {project_config_id}."
+                    )
+                history_section_ids.add(terminal_section_id)
+            elif new_parent_impl.children:
+                first_child_id = new_parent_impl.children[0]
+                if first_child_id not in parent_map:
+                    raise KeyError(
+                        f"Section {first_child_id} missing from project config {project_config_id}."
+                    )
+                history_section_ids.add(first_child_id)
+        return history_section_ids
 
     def _get_callable_history_code_obj_ids_for_backend(
         self,
