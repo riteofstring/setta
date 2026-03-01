@@ -273,6 +273,23 @@
   - Reject this worker-filter design for now.
   - Continue non-pan investigation with approaches that reduce global state/subscription churn instead of only moving filter matching off-thread.
 
+### Phase 0.5 Status Update (2026-03-03, Viewport Content-Visibility Spike)
+- A zoom/pan-focused browser occlusion spike was implemented and benchmarked:
+  - added a feature-flagged `content-visibility: auto` path on section resizable roots,
+  - wired deterministic localStorage override and Playwright A/B control.
+- Result: **not kept** and fully rolled back.
+  - Playwright clean sequential A/B pairs regressed throughput:
+    - control pan/zoom around `37.9-38.1 / 36.4-36.6`,
+    - experiment pan/zoom around `33.6-33.9 / 29.5-30.3`.
+  - CDP supplemental A/B also showed no reliable gain and stop-hitch risk:
+    - control stop p95 about `7.4ms`,
+    - experiment stop p95 about `25.6ms`.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-content-visibility-spike.md`
+- Updated direction:
+  - Reject this `content-visibility` configuration for motion optimization in this view.
+  - Prioritize motion strategies with proven throughput uplift under no-hitch constraints.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
