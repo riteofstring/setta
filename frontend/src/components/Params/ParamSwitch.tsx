@@ -246,6 +246,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
   return (
     <ParamContainer
       {...props}
+      isKwarg={isKwarg}
       isNestedParam={isNestedParam}
       hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
@@ -275,7 +276,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
           paramInfoId={paramInfoId}
           onMouseDown={onMouseDownConditional}
           bg={hasChildren ? bg : ""}
-          isNestedParam={isNestedParam}
         />
       )}
     </ParamContainer>
