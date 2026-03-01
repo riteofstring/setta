@@ -169,6 +169,154 @@ async def test_get_single_config_state_cache_invalidates_on_undo_and_redo(
 
 
 @pytest.mark.asyncio
+async def test_undo_redo_converts_only_scoped_navigation_project_configs(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        primary_id = project_state.projectConfig.id
+
+        existing_ids = set(manager.project_state_backend.projectConfigs.keys())
+        await manager.create_project_config(previewImgColor="#ffffff")
+        created_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        assert len(created_ids) == 1
+        secondary_id = next(iter(created_ids))
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=primary_id,
+            project_config_only=True,
+        )
+        manager.project_state_backend.projectConfigs[primary_id].name = (
+            "scoped-navigation-primary"
+        )
+
+        converted_project_config_ids: list[str] = []
+        original_convert = base_project_manager_module.convert_backend_to_single_config
+
+        def record_convert(*args, **kwargs):
+            converted_project_config_ids.append(str(args[1]))
+            return original_convert(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "convert_backend_to_single_config",
+            record_convert,
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=primary_id, steps=1))
+        assert set(converted_project_config_ids) == {str(primary_id)}
+        assert str(secondary_id) not in converted_project_config_ids
+
+        converted_project_config_ids.clear()
+        await manager.redo(RedoRequest(projectConfigId=primary_id, steps=1))
+        assert set(converted_project_config_ids) == {str(primary_id)}
+        assert str(secondary_id) not in converted_project_config_ids
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_scope_falls_back_to_all_configs_when_unknown(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        primary_id = project_state.projectConfig.id
+
+        existing_ids = set(manager.project_state_backend.projectConfigs.keys())
+        await manager.create_project_config(previewImgColor="#ffffff")
+        created_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        assert len(created_ids) == 1
+        all_project_config_ids = set(manager.project_state_backend.projectConfigs.keys())
+
+        manager.history.add_current_copy()
+        manager.project_state_backend.projectConfigs[primary_id].name = (
+            "unknown-navigation-scope"
+        )
+
+        converted_project_config_ids: list[str] = []
+        original_convert = base_project_manager_module.convert_backend_to_single_config
+
+        def record_convert(*args, **kwargs):
+            converted_project_config_ids.append(str(args[1]))
+            return original_convert(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "convert_backend_to_single_config",
+            record_convert,
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=primary_id, steps=1))
+        assert set(converted_project_config_ids) == {
+            str(project_config_id) for project_config_id in all_project_config_ids
+        }
+
+        converted_project_config_ids.clear()
+        await manager.redo(RedoRequest(projectConfigId=primary_id, steps=1))
+        assert set(converted_project_config_ids) == {
+            str(project_config_id) for project_config_id in all_project_config_ids
+        }
+
+
+@pytest.mark.asyncio
+async def test_multi_step_undo_redo_unions_project_config_scopes(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        primary_id = project_state.projectConfig.id
+
+        existing_ids = set(manager.project_state_backend.projectConfigs.keys())
+        await manager.create_project_config(previewImgColor="#ffffff")
+        created_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        assert len(created_ids) == 1
+        secondary_id = next(iter(created_ids))
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=primary_id,
+            project_config_only=True,
+        )
+        manager.project_state_backend.projectConfigs[primary_id].name = (
+            "multi-step-primary"
+        )
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=secondary_id,
+            project_config_only=True,
+        )
+        manager.project_state_backend.projectConfigs[secondary_id].name = (
+            "multi-step-secondary"
+        )
+
+        converted_project_config_ids: list[str] = []
+        original_convert = base_project_manager_module.convert_backend_to_single_config
+
+        def record_convert(*args, **kwargs):
+            converted_project_config_ids.append(str(args[1]))
+            return original_convert(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "convert_backend_to_single_config",
+            record_convert,
+        )
+
+        await manager.undo(UndoRequest(projectConfigId=primary_id, steps=2))
+        assert set(converted_project_config_ids) == {str(primary_id), str(secondary_id)}
+
+        converted_project_config_ids.clear()
+        await manager.redo(RedoRequest(projectConfigId=primary_id, steps=2))
+        assert set(converted_project_config_ids) == {str(primary_id), str(secondary_id)}
+
+
+@pytest.mark.asyncio
 async def test_get_latest_project_state_reuses_single_config_cache(
     monkeypatch,
 ) -> None:

@@ -809,6 +809,7 @@ class BaseProjectManager(ABC):
         self._single_config_state_cache_revision = self.history.revision
         self._last_persisted_history_revision: int | None = None
         self._normalized_history_entry_tokens: set[int] = set()
+        self._history_scope_by_entry_token: dict[int, frozenset[ID] | None] = {}
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -7729,6 +7730,80 @@ class BaseProjectManager(ABC):
             return
         self._normalized_history_entry_tokens.intersection_update(active_tokens)
 
+    def _prune_history_scope_by_entry_token(self) -> None:
+        active_tokens = set(self.history.get_entry_tokens())
+        stale_tokens = [
+            token
+            for token in self._history_scope_by_entry_token.keys()
+            if token not in active_tokens
+        ]
+        for token in stale_tokens:
+            self._history_scope_by_entry_token.pop(token, None)
+
+    def _register_current_history_entry_scope(
+        self,
+        project_config_ids: set[ID] | None,
+    ) -> None:
+        current_entry_token = self.history.get_current_entry_token()
+        existing_scope = self._history_scope_by_entry_token.get(current_entry_token)
+        if (
+            existing_scope is None
+            and current_entry_token in self._history_scope_by_entry_token
+        ):
+            return
+        if project_config_ids is None:
+            self._history_scope_by_entry_token[current_entry_token] = None
+            return
+        new_scope = frozenset(project_config_ids)
+        if existing_scope is None:
+            self._history_scope_by_entry_token[current_entry_token] = new_scope
+            return
+        self._history_scope_by_entry_token[current_entry_token] = existing_scope.union(
+            new_scope
+        )
+
+    def _collect_undo_navigation_entry_tokens(self, steps: int) -> tuple[int, ...]:
+        entry_tokens = self.history.get_entry_tokens()
+        current_entry_token = self.history.get_current_entry_token()
+        if current_entry_token not in entry_tokens:
+            raise KeyError(
+                f"Unknown current history entry token: {current_entry_token}"
+            )
+        current_index = entry_tokens.index(current_entry_token)
+        target_index = max(0, current_index - steps)
+        if target_index == current_index:
+            return ()
+        return entry_tokens[target_index + 1 : current_index + 1]
+
+    def _collect_redo_navigation_entry_tokens(self, steps: int) -> tuple[int, ...]:
+        entry_tokens = self.history.get_entry_tokens()
+        current_entry_token = self.history.get_current_entry_token()
+        if current_entry_token not in entry_tokens:
+            raise KeyError(
+                f"Unknown current history entry token: {current_entry_token}"
+            )
+        current_index = entry_tokens.index(current_entry_token)
+        target_index = min(len(entry_tokens) - 1, current_index + steps)
+        if target_index == current_index:
+            return ()
+        return entry_tokens[current_index + 1 : target_index + 1]
+
+    def _resolve_project_config_scope_for_navigation_tokens(
+        self,
+        navigation_entry_tokens: tuple[int, ...],
+    ) -> set[ID] | None:
+        if not navigation_entry_tokens:
+            return set()
+        resolved_scope: set[ID] = set()
+        for entry_token in navigation_entry_tokens:
+            if entry_token not in self._history_scope_by_entry_token:
+                return None
+            entry_scope = self._history_scope_by_entry_token[entry_token]
+            if entry_scope is None:
+                return None
+            resolved_scope.update(entry_scope)
+        return resolved_scope
+
     def _refresh_single_config_state_cache_for_revision(self) -> None:
         history_revision = self.history.revision
         if history_revision == self._single_config_state_cache_revision:
@@ -10084,6 +10159,9 @@ class BaseProjectManager(ABC):
             raise ValueError(
                 "app_definition_only cannot be combined with project_config scope arguments."
             )
+        history_entry_project_config_scope: set[ID] | None = None
+        if project_config_id is not None:
+            history_entry_project_config_scope = {project_config_id}
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if app_definition_only:
             copy_func = self._copy_backend_for_app_definition_history_entry
@@ -10140,6 +10218,8 @@ class BaseProjectManager(ABC):
             coalesce_window_s=coalesce_window_s,
             copy_func=copy_func,
         )
+        self._register_current_history_entry_scope(history_entry_project_config_scope)
+        self._prune_history_scope_by_entry_token()
         # The new/active history entry may diverge after the pending mutation.
         self._normalized_history_entry_tokens.discard(
             self.history.get_current_entry_token()
@@ -10725,36 +10805,59 @@ class BaseProjectManager(ABC):
     async def undo(self, x: UndoRequest):
         if x.steps <= 0 or not self.history.can_undo(x.steps):
             return
+        navigation_entry_tokens = self._collect_undo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
         self._normalize_backend_after_history_navigation()
         self._invalidate_single_config_state_cache()
+        affected_project_config_ids = (
+            self._resolve_project_config_scope_for_navigation_tokens(
+                navigation_entry_tokens
+            )
+        )
         await self.update_and_broadcast_all_project_state(
-            previous_project_state_revision=previous_project_state_revision
+            previous_project_state_revision=previous_project_state_revision,
+            project_config_ids=affected_project_config_ids,
         )
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
         if x.steps <= 0 or not self.history.can_redo(x.steps):
             return
+        navigation_entry_tokens = self._collect_redo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
         self._normalize_backend_after_history_navigation()
         self._invalidate_single_config_state_cache()
+        affected_project_config_ids = (
+            self._resolve_project_config_scope_for_navigation_tokens(
+                navigation_entry_tokens
+            )
+        )
         await self.update_and_broadcast_all_project_state(
-            previous_project_state_revision=previous_project_state_revision
+            previous_project_state_revision=previous_project_state_revision,
+            project_config_ids=affected_project_config_ids,
         )
 
     async def update_and_broadcast_all_project_state(
         self,
         *,
         previous_project_state_revision: int | None = None,
+        project_config_ids: set[ID] | None = None,
     ) -> None:
         backend = self.project_state_backend
         project_state_revision = self.history.revision
-        for project_config_id in backend.projectConfigs.keys():
+        if project_config_ids is None:
+            broadcast_project_config_ids = list(backend.projectConfigs.keys())
+        else:
+            broadcast_project_config_ids = sorted(
+                project_config_id
+                for project_config_id in project_config_ids
+                if project_config_id in backend.projectConfigs
+            )
+        for project_config_id in broadcast_project_config_ids:
             project_state = convert_backend_to_single_config(backend, project_config_id)
             if (
                 previous_project_state_revision is None
