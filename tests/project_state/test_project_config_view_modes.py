@@ -923,6 +923,49 @@ class TestProjectConfigViewModes:
             assert patch["activeViewModeId"] == initial_active_view_mode_id
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
+    async def test_delete_only_view_mode_is_noop_without_history_write(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            initial_state = manager.get_single_config_state(project_config_id)
+            only_view_mode_id = initial_state.projectConfig.activeViewModeId
+            assert only_view_mode_id is not None
+            assert len(initial_state.projectConfig.viewModes) == 1
+            history_revision_before = manager.history.revision
+
+            # Deleting the only view mode is a no-op and should not create a
+            # history entry.
+            await manager.delete_view_mode(
+                DeleteViewModeRequest(
+                    projectConfigId=project_config_id,
+                    viewModeId=only_view_mode_id,
+                )
+            )
+
+            updated_state = manager.get_single_config_state(project_config_id)
+            assert len(updated_state.projectConfig.viewModes) == 1
+            assert manager.history.revision == history_revision_before
+
+    async def test_delete_missing_view_mode_does_not_write_history(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            history_revision_before = manager.history.revision
+
+            with pytest.raises(KeyError):
+                await manager.delete_view_mode(
+                    DeleteViewModeRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId="missing-view-mode-id",
+                    )
+                )
+
+            assert manager.history.revision == history_revision_before
+
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager

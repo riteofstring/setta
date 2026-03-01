@@ -6933,16 +6933,20 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
+        current_project_config = self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ]
+        current_view_modes = current_project_config.viewModes
+        if x.viewModeId not in current_view_modes:
+            raise KeyError(f"View mode {x.viewModeId} not found")
+        if len(current_view_modes) < 2:
+            return
         self.add_new_history_entry(
             project_config_id=x.projectConfigId,
             project_config_only=True,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         view_modes = project_state.projectConfig.viewModes
-        if x.viewModeId not in view_modes:
-            raise KeyError(f"View mode {x.viewModeId} not found")
-        if len(view_modes) < 2:
-            return
         del view_modes[x.viewModeId]
         sorted_view_modes = sorted(
             view_modes.values(),
