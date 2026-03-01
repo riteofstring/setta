@@ -4688,7 +4688,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.topLevelSections = view_mode.topLevelSections
         project_state.projectConfig.viewport = view_mode.viewport
         project_state.projectConfig.viewportInitialized = view_mode.viewportInitialized
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
         return view_mode.id
 
     @enqueue_method
@@ -4858,7 +4858,7 @@ class BaseProjectManager(ABC):
             )
         for index, view_mode in enumerate(sorted_view_modes):
             view_mode.sortIndex = index
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     @project_state_tool(

@@ -305,7 +305,7 @@ class TestProjectConfigViewModes:
             )
             first_view_mode_id = project_state.projectConfig.activeViewModeId
             assert first_view_mode_id is not None
-            second_view_mode_id = await manager.create_view_mode(
+            await manager.create_view_mode(
                 CreateViewModeRequest(projectConfigId=project_config_id)
             )
 
@@ -469,6 +469,192 @@ class TestProjectConfigViewModes:
             assert patch["viewModeIsTab"] == (not initial_is_tab)
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
+    async def test_create_view_mode_broadcasts_project_config_patch(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            initial_state = manager.get_single_config_state(project_config_id)
+            initial_view_mode_ids = set(initial_state.projectConfig.viewModes.keys())
+
+            sender = manager.websocket_msg_handler
+            snapshot_calls = 0
+            project_config_patch_calls: list[dict[str, int | str]] = []
+            original_snapshot = sender.broadcast_project_state
+            original_project_config_patch = (
+                sender.broadcast_project_state_project_config_patch
+            )
+
+            async def record_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision=None,
+            ) -> None:
+                nonlocal snapshot_calls
+                snapshot_calls += 1
+                await original_snapshot(
+                    project_state,
+                    completed_op_ids,
+                    pending_op_ids,
+                    project_state_revision,
+                )
+
+            async def record_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            ) -> None:
+                project_config_patch_calls.append(
+                    {
+                        "projectConfigId": project_config_id_for_patch,
+                        "activeViewModeId": project_config_for_patch.activeViewModeId,
+                        "viewModeCount": len(project_config_for_patch.viewModes),
+                        "previousProjectStateRevision": previous_project_state_revision,
+                        "projectStateRevision": project_state_revision,
+                    }
+                )
+                await original_project_config_patch(
+                    project_config_id_for_patch,
+                    project_config_for_patch,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+
+            sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                record_project_config_patch  # type: ignore[method-assign]
+            )
+            try:
+                await manager.finish_pending_operations(timeout=5.0)
+                baseline_snapshot_calls = snapshot_calls
+                created_view_mode_id = await manager.create_view_mode(
+                    CreateViewModeRequest(projectConfigId=project_config_id)
+                )
+                await manager.finish_pending_operations(timeout=5.0)
+            finally:
+                sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+                sender.broadcast_project_state_project_config_patch = (
+                    original_project_config_patch  # type: ignore[method-assign]
+                )
+
+            assert snapshot_calls == baseline_snapshot_calls
+            assert 1 == len(project_config_patch_calls)
+            assert created_view_mode_id not in initial_view_mode_ids
+            patch = project_config_patch_calls[0]
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["activeViewModeId"] == created_view_mode_id
+            assert patch["viewModeCount"] == len(initial_view_mode_ids) + 1
+            assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+
+    async def test_delete_view_mode_broadcasts_project_config_patch(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            initial_state = manager.get_single_config_state(project_config_id)
+            initial_view_mode_count = len(initial_state.projectConfig.viewModes)
+            initial_active_view_mode_id = initial_state.projectConfig.activeViewModeId
+            assert initial_active_view_mode_id is not None
+
+            created_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+            await manager.set_active_view_mode(
+                SetActiveViewModeRequest(
+                    projectConfigId=project_config_id,
+                    activeViewModeId=initial_active_view_mode_id,
+                )
+            )
+
+            sender = manager.websocket_msg_handler
+            snapshot_calls = 0
+            project_config_patch_calls: list[dict[str, int | str | bool | None]] = []
+            original_snapshot = sender.broadcast_project_state
+            original_project_config_patch = (
+                sender.broadcast_project_state_project_config_patch
+            )
+
+            async def record_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision=None,
+            ) -> None:
+                nonlocal snapshot_calls
+                snapshot_calls += 1
+                await original_snapshot(
+                    project_state,
+                    completed_op_ids,
+                    pending_op_ids,
+                    project_state_revision,
+                )
+
+            async def record_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            ) -> None:
+                project_config_patch_calls.append(
+                    {
+                        "projectConfigId": project_config_id_for_patch,
+                        "viewModeCount": len(project_config_for_patch.viewModes),
+                        "deletedViewModeMissing": (
+                            created_view_mode_id not in project_config_for_patch.viewModes
+                        ),
+                        "activeViewModeId": project_config_for_patch.activeViewModeId,
+                        "previousProjectStateRevision": previous_project_state_revision,
+                        "projectStateRevision": project_state_revision,
+                    }
+                )
+                await original_project_config_patch(
+                    project_config_id_for_patch,
+                    project_config_for_patch,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+
+            sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                record_project_config_patch  # type: ignore[method-assign]
+            )
+            try:
+                await manager.finish_pending_operations(timeout=5.0)
+                baseline_snapshot_calls = snapshot_calls
+                await manager.delete_view_mode(
+                    DeleteViewModeRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=created_view_mode_id,
+                    )
+                )
+                await manager.finish_pending_operations(timeout=5.0)
+            finally:
+                sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+                sender.broadcast_project_state_project_config_patch = (
+                    original_project_config_patch  # type: ignore[method-assign]
+                )
+
+            assert snapshot_calls == baseline_snapshot_calls
+            assert 1 == len(project_config_patch_calls)
+            patch = project_config_patch_calls[0]
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["viewModeCount"] == initial_view_mode_count
+            assert patch["deletedViewModeMissing"] is True
+            assert patch["activeViewModeId"] == initial_active_view_mode_id
+            assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager
@@ -608,7 +794,7 @@ class TestProjectConfigViewModes:
 
             # Route should resolve parentage directly from backend state and never
             # rebuild full single-config state.
-            def fail_convert_backend_to_single_config(*args, **kwargs):
+            def fail_convert_backend_to_single_config(*_args, **_kwargs):
                 raise AssertionError(
                     "set_top_level_section_layout must not call convert_backend_to_single_config"
                 )
