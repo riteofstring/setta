@@ -540,6 +540,7 @@ function MaybeCardTitle({
   ) : (
     <SectionTitle
       sectionId={sectionId}
+      wrapperless={true}
       titleProps={getTitleStyles({
         isActiveSection,
         isInOtherProjectConfigs,
@@ -612,6 +613,7 @@ function TextBlockCardTitle({
     !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
+        wrapperless={true}
         titleProps={getTitleStyles({
           isActiveSection,
           isInOtherProjectConfigs,
