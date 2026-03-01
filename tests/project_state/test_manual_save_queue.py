@@ -1,6 +1,7 @@
 import asyncio
 import types
 from typing import Awaitable, Callable, cast
+from unittest.mock import patch
 
 import pytest
 from setta.project_state.base_project_manager import BaseProjectManager
@@ -152,3 +153,76 @@ class TestManualSaveQueueDrain:
                 on_disk_after.projectConfigs[default_config_id].watchCodeEnabled
                 == new_watch_code_enabled
             )
+
+
+@pytest.mark.asyncio
+class TestManualSaveWriteDeduping:
+    async def test_settings_manual_save_skips_duplicate_disk_writes(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+
+            with (
+                patch.object(
+                    fixture.dbe,
+                    "write_settings_project",
+                    wraps=fixture.dbe.write_settings_project,
+                ) as write_settings_project,
+                patch.object(
+                    fixture.artifacts,
+                    "save",
+                    wraps=fixture.artifacts.save,
+                ) as save_artifacts,
+            ):
+                # First manual save persists the current revision.
+                manager.perform_manual_save()
+                # Re-saving without changes should be a no-op on disk.
+                manager.perform_manual_save()
+
+            assert write_settings_project.call_count == 1
+            assert save_artifacts.call_count == 1
+
+    async def test_project_manual_save_persists_in_place_default_project_change(self):
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+
+            default_config_id = manager.project_state_backend.defaultProjectConfigId
+            assert default_config_id is not None
+            default_config_id = ID(default_config_id)
+
+            await manager.create_project_config(previewImgColor="#ffffff")
+
+            project_config_ids = set(
+                manager.project_state_backend.projectConfigs.keys()
+            )
+            created_ids = project_config_ids - {default_config_id}
+            assert len(created_ids) == 1
+            created_config_id = next(iter(created_ids))
+
+            with (
+                patch.object(
+                    fixture.dbe,
+                    "write_project",
+                    wraps=fixture.dbe.write_project,
+                ) as write_project,
+                patch.object(
+                    fixture.artifacts,
+                    "save",
+                    wraps=fixture.artifacts.save,
+                ) as save_artifacts,
+            ):
+                # Persist the config creation.
+                manager.perform_manual_save()
+                # No state changes, so this should not write again.
+                manager.perform_manual_save()
+                # This mutation is in-place and does not create a new history entry.
+                await manager.set_as_default_project(created_config_id)
+                # The in-place mutation must still be persisted.
+                manager.perform_manual_save()
+                # No additional changes after persistence.
+                manager.perform_manual_save()
+
+            assert write_project.call_count == 2
+            assert save_artifacts.call_count == 2
+
+            on_disk_after = fixture.dbe.read_project()
+            assert on_disk_after.defaultProjectConfigId == created_config_id

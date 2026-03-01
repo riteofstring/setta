@@ -145,11 +145,16 @@ class SessionProjectManager(BaseProjectManager):
         )
 
     def save(self) -> None:
-        if self.share_runtime_state is None:
-            if self.persistence_mode == SessionPersistenceMode.ide_settings:
-                self._save_settings_project()
-            elif self.persistence_mode == SessionPersistenceMode.ide_main:
-                self._save_project_state()
+        if self.share_runtime_state is not None:
+            return
+        history_revision = self.history.revision
+        if self._last_persisted_history_revision == history_revision:
+            return
+        if self.persistence_mode == SessionPersistenceMode.ide_settings:
+            self._save_settings_project()
+        elif self.persistence_mode == SessionPersistenceMode.ide_main:
+            self._save_project_state()
+        self._last_persisted_history_revision = history_revision
 
     async def save_as_new_project_config(
         self, x: SaveAsNewProjectConfigRequest
@@ -173,6 +178,7 @@ class SessionProjectManager(BaseProjectManager):
             self.project_state_backend.projectConfigs[new_project_config.id] = (
                 new_project_config
             )
+            self._mark_current_backend_revision_dirty()
         else:
             new_project_config = copy_project(
                 project_state, normalized_name, do_create_new_id=True

@@ -638,6 +638,7 @@ class BaseProjectManager(ABC):
         ] = {}
         self._project_state_summary_cache_by_project_config: dict[ID, object] = {}
         self._single_config_state_cache_revision = self.history.revision
+        self._last_persisted_history_revision: int | None = None
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -1819,8 +1820,14 @@ class BaseProjectManager(ABC):
             if section_id not in valid_top_level_section_ids:
                 continue
             merged_layouts[section_id] = layout
+        if (
+            project_config.topLevelSections == merged_layouts
+            and view_mode.topLevelSections == merged_layouts
+        ):
+            return
         project_config.topLevelSections = merged_layouts
         view_mode.topLevelSections = merged_layouts
+        self._mark_current_backend_revision_dirty()
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -4199,6 +4206,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
+        deleted_any = False
         for project_config_id in project_config_ids:
             project_config = self.project_state_backend.projectConfigs[
                 project_config_id
@@ -4227,14 +4235,19 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
+            deleted_any = True
         self.project_state_backend.validate_default_project_id()
-        self._invalidate_single_config_state_cache()
+        if deleted_any:
+            self._mark_current_backend_revision_dirty()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: ID):
+        if self.project_state_backend.defaultProjectConfigId == projectConfigId:
+            return
         self.project_state_backend.defaultProjectConfigId = projectConfigId
+        self._mark_current_backend_revision_dirty()
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
@@ -4259,6 +4272,7 @@ class BaseProjectManager(ABC):
         )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
         new_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        self._mark_current_backend_revision_dirty()
         if previous_output_root.exists() and old_name != new_name:
             shutil.rmtree(previous_output_root)
         if projectConfigId in self._plugin_codegen_output_root_by_project_config:
@@ -4427,9 +4441,11 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
-        self.project_state_backend.projectConfigs[
-            x.projectConfigId
-        ].activeIds = x.activeIds
+        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
+        if project_config.activeIds == x.activeIds:
+            return
+        project_config.activeIds = x.activeIds
+        self._mark_current_backend_revision_dirty()
 
     @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):
@@ -5358,6 +5374,13 @@ class BaseProjectManager(ABC):
         self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
+
+    def _mark_current_backend_revision_dirty(self) -> None:
+        # Some lightweight metadata paths intentionally mutate the current backend
+        # object in place (without pushing a new history entry). Bump revision so
+        # revision-keyed caches and save dedupe stay correct for those paths.
+        self.history.set_current(self.project_state_backend)
+        self._invalidate_single_config_state_cache()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
