@@ -20,13 +20,21 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { useProjectState } from "state/definitions";
 
-type DragPanState = {
-  pointerId: number;
-  lastClientX: number;
-  lastClientY: number;
-};
+type PointerSession =
+  | {
+      pointerId: number;
+      kind: "pane";
+      lastClientX: number;
+      lastClientY: number;
+      moved: boolean;
+    }
+  | {
+      pointerId: number;
+      kind: "section";
+    };
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
@@ -81,7 +89,7 @@ export function CanvasEngineHost() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
-  const dragPanStateRef = useRef<DragPanState | null>(null);
+  const pointerSessionRef = useRef<PointerSession | null>(null);
   const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
   if (!sceneAdapterRef.current) {
     sceneAdapterRef.current = new CanvasEngineSceneAdapter();
@@ -220,27 +228,55 @@ export function CanvasEngineHost() {
       if (event.button !== 0) {
         return;
       }
-      dragPanStateRef.current = {
-        pointerId: event.pointerId,
-        lastClientX: event.clientX,
-        lastClientY: event.clientY,
-      };
+      const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+      if (!worldPoint) {
+        return;
+      }
+      const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+      );
+      if (sectionId) {
+        applyActiveSectionChange({
+          interaction: "section-click",
+          sectionId,
+        });
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "section",
+        };
+      } else {
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "pane",
+          lastClientX: event.clientX,
+          lastClientY: event.clientY,
+          moved: false,
+        };
+      }
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [],
+    [camera, sceneAdapter],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      const dragState = dragPanStateRef.current;
-      if (!dragState || dragState.pointerId !== event.pointerId) {
+      const pointerSession = pointerSessionRef.current;
+      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+      if (pointerSession.kind !== "pane") {
         return;
       }
 
-      const deltaX = event.clientX - dragState.lastClientX;
-      const deltaY = event.clientY - dragState.lastClientY;
-      dragState.lastClientX = event.clientX;
-      dragState.lastClientY = event.clientY;
+      const deltaX = event.clientX - pointerSession.lastClientX;
+      const deltaY = event.clientY - pointerSession.lastClientY;
+      pointerSession.lastClientX = event.clientX;
+      pointerSession.lastClientY = event.clientY;
+      if (deltaX === 0 && deltaY === 0) {
+        return;
+      }
+      pointerSession.moved = true;
 
       setCamera((currentCamera) => ({
         x: currentCamera.x - deltaX / currentCamera.zoom,
@@ -253,11 +289,14 @@ export function CanvasEngineHost() {
 
   const releasePointerCapture = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      const dragState = dragPanStateRef.current;
-      if (!dragState || dragState.pointerId !== event.pointerId) {
+      const pointerSession = pointerSessionRef.current;
+      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
       }
-      dragPanStateRef.current = null;
+      if (pointerSession.kind === "pane" && !pointerSession.moved) {
+        applyActiveSectionChange({ interaction: "pane-click" });
+      }
+      pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
@@ -336,6 +375,8 @@ export function CanvasEngineHost() {
       data-canvas-engine-camera-x={camera.x.toFixed(2)}
       data-canvas-engine-camera-y={camera.y.toFixed(2)}
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
+      data-canvas-engine-active-section-count={activeSectionIds.length}
+      data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
     >
       <canvas
         ref={canvasRef}
@@ -349,6 +390,22 @@ export function CanvasEngineHost() {
       />
     </div>
   );
+}
+
+function resolveWorldPointFromPointerEvent(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+  camera: CanvasEngineCamera,
+): { x: number; y: number } | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
+  return {
+    x: camera.x + localX / camera.zoom,
+    y: camera.y + localY / camera.zoom,
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {

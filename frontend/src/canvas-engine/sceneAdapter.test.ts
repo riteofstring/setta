@@ -246,6 +246,48 @@ describe("CanvasEngineSceneAdapter", () => {
       "agentic-visible",
     ]);
   });
+
+  it("returns the topmost section for a world-space hit test", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionLow: createLayout({ x: 0, y: 0, w: 320, h: 220, zIndex: 0 }),
+          sectionHigh: createLayout({
+            x: 40,
+            y: 40,
+            w: 320,
+            h: 220,
+            zIndex: 3,
+          }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestSectionAtWorldPoint(100, 100)).toBe("sectionHigh");
+    expect(adapter.hitTestSectionAtWorldPoint(10, 10)).toBe("sectionLow");
+  });
+
+  it("uses section id ordering to break equal-z-index hit test ties", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 220, zIndex: 1 }),
+          sectionB: createLayout({ x: 0, y: 0, w: 320, h: 220, zIndex: 1 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestSectionAtWorldPoint(160, 110)).toBe("sectionB");
+    expect(adapter.hitTestSectionAtWorldPoint(-10, -10)).toBe(null);
+  });
 });
 
 function createSceneInput(overrides: SceneInput): SceneInput {

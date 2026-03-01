@@ -184,6 +184,32 @@ export class CanvasEngineSceneAdapter {
     };
   }
 
+  public hitTestSectionAtWorldPoint(
+    worldX: number,
+    worldY: number,
+  ): string | null {
+    const candidateIds = this.spatialIndex.queryRect({
+      x: worldX,
+      y: worldY,
+      width: 1,
+      height: 1,
+    });
+    let topmostRect: CanvasEngineRect | null = null;
+    for (const sectionId of candidateIds) {
+      const rect = this.rectById.get(sectionId);
+      if (!rect) {
+        continue;
+      }
+      if (!isPointInsideRect(worldX, worldY, rect)) {
+        continue;
+      }
+      if (!topmostRect || isRectAbove(rect, topmostRect)) {
+        topmostRect = rect;
+      }
+    }
+    return topmostRect?.id ?? null;
+  }
+
   private applySections(
     topLevelSections: Record<string, TopLevelSectionLayout>,
     activeSectionIdSet: Set<string>,
@@ -453,6 +479,29 @@ function isEdgeVisible(
     visibleSectionSet.has(sourceSectionId) ||
     visibleSectionSet.has(targetSectionId)
   );
+}
+
+function isPointInsideRect(
+  worldX: number,
+  worldY: number,
+  rect: CanvasEngineRect,
+): boolean {
+  return (
+    worldX >= rect.x &&
+    worldX <= rect.x + rect.width &&
+    worldY >= rect.y &&
+    worldY <= rect.y + rect.height
+  );
+}
+
+function isRectAbove(
+  candidate: CanvasEngineRect,
+  current: CanvasEngineRect,
+): boolean {
+  if (candidate.zIndex !== current.zIndex) {
+    return candidate.zIndex > current.zIndex;
+  }
+  return candidate.id.localeCompare(current.id) > 0;
 }
 
 function areRectRecordsEqual(
