@@ -521,6 +521,7 @@ async def route_get_latest_project_state(
         projectState=projectState,
         completedOpIds=[],
         pendingOpIds=list(manager.pending_frontend_ops.keys()),
+        projectStateRevision=manager.history.revision,
     )
 
 

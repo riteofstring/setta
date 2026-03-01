@@ -48,12 +48,37 @@ def get_curr_effective_section_impl(
     return get_effective_impl(base_impl, core, variant)
 
 
+def get_curr_effective_section_impl_for_read(
+    p: "ProjectStateSingleConfig",
+    section_id: ID,
+):
+    variant = get_curr_section_variant(p, section_id)
+    base_impl = p.sectionImpls[variant.impl]
+    core = p.sections[section_id]
+    if len(core.sharedModifier) == 0 and len(variant.modifier) == 0:
+        return base_impl
+    return get_effective_impl(base_impl, core, variant)
+
+
 def get_curr_effective_section_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
     section_id: ID,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
     impl = get_curr_effective_section_impl(project_state, section_id)
+
+    if not isinstance(impl, impl_type):
+        raise ValueError(f"Section {section_id} failed type guard")
+
+    return impl
+
+
+def get_curr_effective_section_impl_for_read_with_type_guard(
+    project_state: "ProjectStateSingleConfig",
+    section_id: ID,
+    impl_type: type[GenericBaseSectionImplType],
+) -> GenericBaseSectionImplType:
+    impl = get_curr_effective_section_impl_for_read(project_state, section_id)
 
     if not isinstance(impl, impl_type):
         raise ValueError(f"Section {section_id} failed type guard")
@@ -127,6 +152,45 @@ def get_curr_effective_code_obj_impl(
     return get_effective_impl(baseImpl, core, variant)
 
 
+def get_curr_effective_code_obj_impl_for_read(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    codeObjId: ID,
+):
+    """Resolve code obj impl for read-heavy paths without unnecessary deep copies."""
+    section_variant = get_curr_section_variant(p, sectionId)
+    base_section_impl = p.sectionImpls[section_variant.impl]
+    section_core = p.sections[sectionId]
+    section_impl = (
+        base_section_impl
+        if len(section_core.sharedModifier) == 0 and len(section_variant.modifier) == 0
+        else get_effective_impl(base_section_impl, section_core, section_variant)
+    )
+    if isinstance(section_impl, BaseSectionWithParamsImpl):
+        variant_id = section_impl.codeObjVariantMap[codeObjId]
+    elif isinstance(section_impl, MetaControlSectionImpl):
+        if section_impl.metaControlParamId is None:
+            raise KeyError(f"Meta control {sectionId} has no control param id.")
+        if section_impl.metaControlParamId != codeObjId:
+            raise KeyError(
+                f"Meta control {sectionId} uses different control param {section_impl.metaControlParamId}."
+            )
+        if codeObjId not in section_impl.codeObjVariantMap:
+            raise KeyError(
+                f"Meta control {sectionId} missing variant map for control param."
+            )
+        variant_id = section_impl.codeObjVariantMap[codeObjId]
+    else:
+        raise TypeError(f"Section {sectionId} does not support code obj variants.")
+
+    variant = p.codeObjVariants[variant_id]
+    base_impl = p.codeObjImpls[variant.impl]
+    core = p.codeObjs[codeObjId]
+    if len(core.sharedModifier) == 0 and len(variant.modifier) == 0:
+        return base_impl
+    return get_effective_impl(base_impl, core, variant)
+
+
 def get_curr_effective_code_obj_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
     sectionId: ID,
@@ -134,6 +198,22 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     impl_type: type[GenericBaseCodeObjImplType],
 ) -> GenericBaseCodeObjImplType:
     impl = get_curr_effective_code_obj_impl(project_state, sectionId, codeObjId)
+
+    if not isinstance(impl, impl_type):
+        raise ValueError(f"Section {sectionId}, codeObj {codeObjId} failed type guard")
+
+    return impl
+
+
+def get_curr_effective_code_obj_impl_for_read_with_type_guard(
+    project_state: "ProjectStateSingleConfig",
+    sectionId: ID,
+    codeObjId: ID,
+    impl_type: type[GenericBaseCodeObjImplType],
+) -> GenericBaseCodeObjImplType:
+    impl = get_curr_effective_code_obj_impl_for_read(
+        project_state, sectionId, codeObjId
+    )
 
     if not isinstance(impl, impl_type):
         raise ValueError(f"Section {sectionId}, codeObj {codeObjId} failed type guard")
