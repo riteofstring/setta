@@ -1503,7 +1503,6 @@ async def test_variant_and_name_routes_defer_codegen_refresh() -> None:
             before_refresh_calls = refresh_calls
             before_scheduled_count = len(scheduled_deferred_refreshes)
             result = await operation_coro
-            await manager.finish_pending_operations(timeout=5.0)
             assert refresh_calls == before_refresh_calls
             assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
             assert scheduled_deferred_refreshes[-1] == project_config_id

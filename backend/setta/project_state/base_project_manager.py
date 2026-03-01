@@ -7954,6 +7954,8 @@ class BaseProjectManager(ABC):
         validate_name_rules: bool = True,
         broadcast_name_validation_errors: bool = True,
     ) -> None:
+        project_config_id = project_state.projectConfig.id
+        self._cancel_pending_deferred_codegen_refresh(project_config_id)
         previous_project_state_revision = self.history.revision
         async with self._project_state_lock.write_lock():
             project_state._section_slug_cache = None
@@ -7984,7 +7986,7 @@ class BaseProjectManager(ABC):
                 project_state,
                 suppress_unchanged_broadcast=False,
             )
-        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
+        self._schedule_deferred_codegen_refresh(project_config_id)
 
     async def _update_and_broadcast_structural_and_code_obj_patches(
         self,
