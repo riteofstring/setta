@@ -59,6 +59,10 @@ import {
 import { useShareCapabilities } from "state/hooks/share";
 import { getIsTwitterSection } from "state/hooks/social";
 import {
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "utils/constants";
+import {
   route_set_section_sizes,
   route_set_top_level_section_layout,
 } from "utils/generatedEndpoints";
@@ -488,8 +492,20 @@ export function CanvasEngineHost() {
   }, [projectSceneRevision, rendererRevision, renderSceneSnapshot, viewport]);
 
   const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) {
+        return;
+      }
+      const pointerMultiSelectionActive = event.metaKey || event.ctrlKey;
+      if (
+        pointerMultiSelectionActive &&
+        !useReactFlow.getState().multiSelectionActive
+      ) {
+        useReactFlow.setState({
+          multiSelectionActive: true,
+        });
+      }
+      if (isCanvasGestureBlockedByTarget(event.target)) {
         return;
       }
       const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
@@ -785,9 +801,13 @@ export function CanvasEngineHost() {
   );
 
   const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession) {
+        if (isCanvasGestureBlockedByTarget(event.target)) {
+          updateHoveredEdge(null);
+          return;
+        }
         const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
         if (!worldPoint) {
           updateHoveredEdge(null);
@@ -1102,7 +1122,7 @@ export function CanvasEngineHost() {
   }, [updateHoveredEdge]);
 
   const releasePointerCapture = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
@@ -1253,45 +1273,52 @@ export function CanvasEngineHost() {
     ],
   );
 
-  const handleWheel = useCallback(
-    (event: ReactWheelEvent<HTMLCanvasElement>) => {
-      event.preventDefault();
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
-        return;
+  const handleWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+    if (isCanvasWheelBlockedByTarget(event.target)) {
+      return;
+    }
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+
+    setCamera((currentCamera) => {
+      const nextZoom = clamp(
+        currentCamera.zoom * zoomFactor,
+        MIN_ZOOM,
+        MAX_ZOOM,
+      );
+      if (nextZoom === currentCamera.zoom) {
+        return currentCamera;
       }
 
-      const localX = event.clientX - rect.left;
-      const localY = event.clientY - rect.top;
-      const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+      const worldX = currentCamera.x + localX / currentCamera.zoom;
+      const worldY = currentCamera.y + localY / currentCamera.zoom;
 
-      setCamera((currentCamera) => {
-        const nextZoom = clamp(
-          currentCamera.zoom * zoomFactor,
-          MIN_ZOOM,
-          MAX_ZOOM,
-        );
-        if (nextZoom === currentCamera.zoom) {
-          return currentCamera;
-        }
-
-        const worldX = currentCamera.x + localX / currentCamera.zoom;
-        const worldY = currentCamera.y + localY / currentCamera.zoom;
-
-        return {
-          x: worldX - localX / nextZoom,
-          y: worldY - localY / nextZoom,
-          zoom: nextZoom,
-        };
-      });
-    },
-    [],
-  );
+      return {
+        x: worldX - localX / nextZoom,
+        y: worldY - localY / nextZoom,
+        zoom: nextZoom,
+      };
+    });
+  }, []);
 
   return (
     <div
       ref={hostRef}
       className="absolute inset-0 h-full w-full"
+      style={{ touchAction: "none" }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+      onPointerUp={releasePointerCapture}
+      onPointerCancel={releasePointerCapture}
+      onWheel={handleWheel}
       data-canvas-engine-host="v1"
       data-canvas-engine-active-backend={backendSelection.activeBackend}
       data-canvas-engine-preferred-backend={backendSelection.preferredBackend}
@@ -1364,17 +1391,7 @@ export function CanvasEngineHost() {
       data-canvas-engine-active-section-count={activeSectionIds.length}
       data-canvas-engine-active-section-ids={activeSectionIds.join(",")}
     >
-      <canvas
-        ref={canvasRef}
-        className="h-full w-full"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={handlePointerLeave}
-        onPointerUp={releasePointerCapture}
-        onPointerCancel={releasePointerCapture}
-        onWheel={handleWheel}
-        style={{ touchAction: "none" }}
-      />
+      <canvas ref={canvasRef} className="h-full w-full" />
       {domIslandRects.length > 0 ? (
         <div
           aria-hidden="true"
@@ -1388,7 +1405,7 @@ export function CanvasEngineHost() {
             {domIslandRects.map((rect) => (
               <div
                 key={rect.id}
-                className="absolute overflow-hidden"
+                className={`pointer-events-auto absolute overflow-hidden ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
                 data-canvas-engine-dom-island={rect.id}
                 style={{
                   left: rect.x,
@@ -1489,8 +1506,48 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
   return true;
 }
 
+function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (!target.closest("[data-canvas-engine-dom-island]")) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      [
+        "input",
+        "textarea",
+        "select",
+        "option",
+        "[contenteditable='true']",
+      ].join(","),
+    ),
+  );
+}
+
+function isCanvasWheelBlockedByTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (!target.closest("[data-canvas-engine-dom-island]")) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      [
+        "input",
+        "textarea",
+        "select",
+        "[contenteditable='true']",
+        `.${NO_WHEEL_CLASS_NAME}`,
+      ].join(","),
+    ),
+  );
+}
+
 function resolveWorldPointFromPointerEvent(
-  event: ReactPointerEvent<HTMLCanvasElement>,
+  event: ReactPointerEvent<HTMLElement>,
   camera: CanvasEngineCamera,
 ): { x: number; y: number } | null {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -1506,7 +1563,7 @@ function resolveWorldPointFromPointerEvent(
 }
 
 function resolveCanvasPointFromPointerEvent(
-  event: ReactPointerEvent<HTMLCanvasElement>,
+  event: ReactPointerEvent<HTMLElement>,
 ): { x: number; y: number } | null {
   const rect = event.currentTarget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {

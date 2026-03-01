@@ -110,6 +110,8 @@ type CanvasEngineEdgeHandleSeed = {
 
 const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
+const SECTION_BODY_CLICK_OFFSET_X = 140;
+const SECTION_BODY_CLICK_OFFSET_Y = 110;
 const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
@@ -297,6 +299,47 @@ test("canvas engine host persists camera viewport after pan and zoom", async ({
   }
 });
 
+test("canvas engine host mounts pointer-enabled dom-island controls", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+    await expect
+      .poll(async () => await readDomIslandCount(host))
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          const controls = document.querySelectorAll(
+            [
+              "[data-canvas-engine-dom-island] button",
+              "[data-canvas-engine-dom-island] input",
+              "[data-canvas-engine-dom-island] textarea",
+              "[data-canvas-engine-dom-island] select",
+            ].join(","),
+          );
+          for (const control of controls) {
+            const style = window.getComputedStyle(control);
+            if (style.pointerEvents !== "none") {
+              return true;
+            }
+          }
+          return false;
+        });
+      })
+      .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports section click selection and pane click clear", async ({
   page,
 }) => {
@@ -364,16 +407,16 @@ test("canvas engine host supports section click selection and pane click clear",
     );
 
     await clickWorldPoint(page, host, {
-      x: firstSectionPosition.x + 40,
-      y: firstSectionPosition.y + 40,
+      x: firstSectionPosition.x + SECTION_BODY_CLICK_OFFSET_X,
+      y: firstSectionPosition.y + SECTION_BODY_CLICK_OFFSET_Y,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))
       .toEqual([firstSectionId]);
 
     await clickWorldPoint(page, host, {
-      x: secondSectionPosition.x + 40,
-      y: secondSectionPosition.y + 40,
+      x: secondSectionPosition.x + SECTION_BODY_CLICK_OFFSET_X,
+      y: secondSectionPosition.y + SECTION_BODY_CLICK_OFFSET_Y,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))
@@ -452,8 +495,8 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
     );
 
     await clickWorldPoint(page, host, {
-      x: firstLayout.x + 40,
-      y: firstLayout.y + 40,
+      x: firstLayout.x + SECTION_BODY_CLICK_OFFSET_X,
+      y: firstLayout.y + SECTION_BODY_CLICK_OFFSET_Y,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))
@@ -462,16 +505,16 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
     await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
     try {
       await clickWorldPoint(page, host, {
-        x: secondLayout.x + 40,
-        y: secondLayout.y + 40,
+        x: secondLayout.x + SECTION_BODY_CLICK_OFFSET_X,
+        y: secondLayout.y + SECTION_BODY_CLICK_OFFSET_Y,
       });
       await expect
         .poll(async () => await readActiveSectionIds(host))
         .toEqual([firstSectionId, secondSectionId]);
 
       await clickWorldPoint(page, host, {
-        x: firstLayout.x + 40,
-        y: firstLayout.y + 40,
+        x: firstLayout.x + SECTION_BODY_CLICK_OFFSET_X,
+        y: firstLayout.y + SECTION_BODY_CLICK_OFFSET_Y,
       });
       await expect
         .poll(async () => await readActiveSectionIds(host))
@@ -550,8 +593,8 @@ test("canvas engine host drags selected section groups together", async ({
     );
 
     await clickWorldPoint(page, host, {
-      x: firstLayoutBefore.x + 40,
-      y: firstLayoutBefore.y + 40,
+      x: firstLayoutBefore.x + SECTION_BODY_CLICK_OFFSET_X,
+      y: firstLayoutBefore.y + SECTION_BODY_CLICK_OFFSET_Y,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))
@@ -560,8 +603,8 @@ test("canvas engine host drags selected section groups together", async ({
     await page.keyboard.down(MULTI_SELECTION_MODIFIER_KEY);
     try {
       await clickWorldPoint(page, host, {
-        x: secondLayoutBefore.x + 40,
-        y: secondLayoutBefore.y + 40,
+        x: secondLayoutBefore.x + SECTION_BODY_CLICK_OFFSET_X,
+        y: secondLayoutBefore.y + SECTION_BODY_CLICK_OFFSET_Y,
       });
     } finally {
       await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
