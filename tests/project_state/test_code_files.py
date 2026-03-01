@@ -154,7 +154,7 @@ class TestCodeFiles:
 
         category = "TestCategory"
 
-        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+        async def _reload(_plan):  # pragma: no cover - stub
             return None
 
         self.manager.watch_code_files(category, lambda: backend, _reload)
@@ -174,7 +174,7 @@ class TestCodeFiles:
 
         category = "TestCategory"
 
-        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+        async def _reload(_plan):  # pragma: no cover - stub
             return None
 
         def _getter() -> ProjectStateBackend:
@@ -201,7 +201,7 @@ class TestCodeFiles:
 
         category = "TestCategory"
 
-        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+        async def _reload(_plan):  # pragma: no cover - stub
             return None
 
         # Pre-populate bindings with unrelated data to ensure the watcher refresh clears it.
@@ -225,6 +225,33 @@ class TestCodeFiles:
         assert binding.project_config_id == project_config_id
         assert binding.access_mode == CodeFileAccessMode.read_write
         assert stale_path not in self.manager._bindings
+
+    def test_watch_code_files_uses_single_config_fast_path_when_provided(self) -> None:
+        state, _, _, _ = self._build_project_state()
+        backend = merge_single_config_into_backend(ProjectStateBackend(), state)
+
+        category = "TestCategoryFastPath"
+
+        async def _reload(_plan):  # pragma: no cover - stub
+            return None
+
+        with patch(
+            "setta.project_state.code_files.convert_backend_to_single_config"
+        ) as convert:
+            convert.side_effect = AssertionError(
+                "Fast path should not rebuild single-config slices."
+            )
+            self.manager.watch_code_files(
+                category,
+                lambda: backend,
+                _reload,
+                project_state=state,
+            )
+            self._loop.run_until_complete(asyncio.sleep(0))
+
+        normalized = normalize_workspace_path(self.path)
+        callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
+        assert normalized in callbacks
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
