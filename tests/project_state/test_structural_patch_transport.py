@@ -21,6 +21,8 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
+    UndoRequest,
+    RedoRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
     ToggleVariantFrozenRequest,
@@ -1194,4 +1196,74 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
             manager.get_single_config_state(project_config_id)
             .singletonSections.GenPythonCode
             is not None
+        )
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_use_full_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.TextBlock,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=Position(x=1120.0, y=540.0),
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert undo_capture["structural_patch_calls"]
+        assert 1 <= undo_capture["code_obj_patch_calls"]
+        assert (
+            undo_capture["code_obj_patch_calls"]
+            <= len(undo_capture["structural_patch_calls"])
+        )
+        assert 0 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["section_impl_patch_calls"]
+        assert (
+            len(undo_capture["structural_patch_calls"])
+            == undo_capture["name_validation_broadcast_calls"]
+        )
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert redo_capture["structural_patch_calls"]
+        assert 1 <= redo_capture["code_obj_patch_calls"]
+        assert (
+            redo_capture["code_obj_patch_calls"]
+            <= len(redo_capture["structural_patch_calls"])
+        )
+        assert 0 == redo_capture["project_config_patch_calls"]
+        assert 0 == redo_capture["section_impl_patch_calls"]
+        assert (
+            len(redo_capture["structural_patch_calls"])
+            == redo_capture["name_validation_broadcast_calls"]
         )

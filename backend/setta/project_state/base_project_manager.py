@@ -7817,23 +7817,69 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
+        previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
         self._invalidate_single_config_state_cache()
-        await self.update_and_broadcast_all_project_state()
+        await self.update_and_broadcast_all_project_state(
+            previous_project_state_revision=previous_project_state_revision
+        )
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
+        previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
         self._invalidate_single_config_state_cache()
-        await self.update_and_broadcast_all_project_state()
+        await self.update_and_broadcast_all_project_state(
+            previous_project_state_revision=previous_project_state_revision
+        )
 
-    async def update_and_broadcast_all_project_state(self):
-        for projectConfigId in self.project_state_backend.projectConfigs.keys():
-            await self.update_and_broadcast_project_state(
-                convert_backend_to_single_config(
-                    self.project_state_backend, projectConfigId
+    async def update_and_broadcast_all_project_state(
+        self,
+        *,
+        previous_project_state_revision: int | None = None,
+    ) -> None:
+        backend = self.project_state_backend
+        project_state_revision = self.history.revision
+        for project_config_id in backend.projectConfigs.keys():
+            project_state = convert_backend_to_single_config(backend, project_config_id)
+            if (
+                previous_project_state_revision is None
+                or project_state_revision <= previous_project_state_revision
+            ):
+                await self._broadcast_project_state_snapshot(project_state)
+                await self._broadcast_name_validation_errors(project_state)
+                continue
+            has_broadcast_patch = False
+            code_obj_ids = sorted(project_state.codeObjs.keys())
+            if code_obj_ids:
+                (
+                    code_obj_updates,
+                    code_obj_variant_updates,
+                    code_obj_impl_updates,
+                ) = self._collect_code_obj_updates_for_patch(
+                    project_state,
+                    code_obj_ids,
+                    include_all_variants=True,
                 )
+                await self._broadcast_code_objs_patch(
+                    project_config_id=project_state.projectConfig.id,
+                    code_objs=code_obj_updates,
+                    code_obj_variants=code_obj_variant_updates,
+                    code_obj_impls=code_obj_impl_updates,
+                    previous_project_state_revision=previous_project_state_revision,
+                    project_state_revision=project_state_revision,
+                )
+                has_broadcast_patch = True
+            await self._broadcast_structural_patch(
+                project_state=project_state,
+                previous_project_state_revision=(
+                    project_state_revision
+                    if has_broadcast_patch
+                    else previous_project_state_revision
+                ),
+                project_state_revision=project_state_revision,
             )
+            await self._broadcast_name_validation_errors(project_state)
 
     @enqueue_method(require_serialization=False)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):

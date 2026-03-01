@@ -724,3 +724,89 @@ Method:
 - This removes full snapshot transport from code-file reload watcher flow.
 - Payload reduction is large (`~94.5%`) while latency remains near-flat in this
   local run.
+
+---
+
+## Addendum: `undo` / `redo` full-state patch transport (2026-03-03)
+
+### Goal
+
+Remove remaining direct full-snapshot transport in history traversal routes:
+
+- `undo`
+- `redo`
+
+### Change
+
+Backend:
+
+- Updated `undo(...)` / `redo(...)` to capture previous history revision and pass
+  it into `update_and_broadcast_all_project_state(...)`.
+- Reworked `update_and_broadcast_all_project_state(...)` to broadcast
+  full-state patch transport per project config when revision advanced:
+  - full code-obj patch (all variants),
+  - structural patch,
+  - name-validation broadcast.
+- Kept snapshot fallback when revision did not advance (no-op undo/redo case).
+
+Tests:
+
+- Added `test_undo_redo_use_full_patch_transport` in
+  `tests/project_state/test_structural_patch_transport.py`.
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/base_project_manager.py tests/project_state/test_structural_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_auto_refetch_history.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_scoped_history_copy.py`
+
+Result:
+
+- Structural transport suite: `12 passed`
+- Auto-refetch history slice: `5 passed`
+- Scoped history copy slice: `5 passed`
+
+### Benchmark scenario
+
+Synthetic state:
+
+- callable section with `1000` params.
+- one additional top-level text section created to provide an undo target.
+
+Route benchmarked:
+
+- `undo` (with `redo` used between iterations to reset baseline state).
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch `update_and_broadcast_all_project_state(...)`
+  to old behavior (`update_and_broadcast_project_state(...)` per config).
+- `patched`: native full-state patch behavior.
+2. `3` warmup + `12` measured iterations per mode.
+3. Each measured iteration:
+- ensure post-edit state via `redo` if available (outside timing),
+- measure `undo` ACK latency (`route(...)` + `finish_pending_operations(...)`),
+- measure websocket bytes for project-state transport message types:
+  - `UpdateFrontendProjectState`
+  - `PatchFrontendProjectStateProjectConfig`
+  - `PatchFrontendProjectStateSectionImpl`
+  - `PatchFrontendProjectStateCodeObjs`
+  - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `undo` | latency median | 203.8488 ms | 72.7779 ms | +64.30% faster |
+| `undo` | latency p95 | 296.3580 ms | 74.6189 ms | +74.82% faster |
+| `undo` | payload median | 763,218.0 B | 725,019.0 B | -5.00% |
+| `undo` | payload p95 | 763,218.0 B | 725,019.0 B | -5.00% |
+
+### Notes
+
+- This removes the last direct snapshot route in normal history traversal.
+- Payload drop is modest because this path intentionally emits near-full state
+  patches, but latency improved substantially by avoiding `update(...)` work in
+  the old snapshot route path.
