@@ -85,8 +85,10 @@ Expected impact:
 Goal: keep full codegen where needed, but skip unrelated watcher refresh.
 
 1. For high-frequency value updates that still need full codegen, pass `updateFileWatcher=False` explicitly when file bindings cannot change:
-   - Start with `set_param_entered_value`.
-   - Evaluate `set_param_name_and_value`, `set_code_obj_name`, and similar non-binding updates.
+   - Completed: `set_param_entered_value`.
+   - Completed: `set_param_name_and_value`.
+   - Completed: `set_code_obj_name`.
+   - Continue evaluating similar non-binding updates.
 2. Add tests that watched-file callback registration is unchanged after these operations.
 
 Expected impact:

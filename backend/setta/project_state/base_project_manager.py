@@ -3190,6 +3190,7 @@ class BaseProjectManager(ABC):
         )
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -3224,6 +3225,7 @@ class BaseProjectManager(ABC):
         project_state.codeObjs[x.codeObjId].name = normalized_name
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
