@@ -1,4 +1,3 @@
-import _ from "lodash";
 import React from "react";
 
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -61,8 +60,6 @@ function _Container({
   );
 }
 
-export const Container = React.memo(_Container, _.isEqual);
-
 function ContainerGroup({
   sectionId,
   commonProps,
@@ -93,7 +90,7 @@ function ContainerGroup({
       overflowMode: impl.overflowMode ?? false,
       size: impl.size,
     };
-  }, _.isEqual);
+  }, areContainerGroupStateEqual);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
   const { ref: overflowRef, isScrollable } = useIsScrollable();
@@ -186,4 +183,98 @@ function GroupSectionTitle({ sectionId }) {
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+}
+
+export const Container = React.memo(_Container, areContainerPropsEqual);
+
+function areContainerPropsEqual(
+  previousProps: {
+    isGroup: boolean;
+    sectionId: string;
+    droppableRef: unknown;
+    draggableRef: unknown;
+    className: string;
+    style: Record<string, unknown> | undefined;
+    trueDragListeners: Record<string, unknown> | undefined;
+    isEditingViewMode: boolean;
+    isUserView: boolean;
+    children: React.ReactNode;
+  },
+  nextProps: {
+    isGroup: boolean;
+    sectionId: string;
+    droppableRef: unknown;
+    draggableRef: unknown;
+    className: string;
+    style: Record<string, unknown> | undefined;
+    trueDragListeners: Record<string, unknown> | undefined;
+    isEditingViewMode: boolean;
+    isUserView: boolean;
+    children: React.ReactNode;
+  },
+): boolean {
+  return (
+    previousProps.isGroup === nextProps.isGroup &&
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.droppableRef === nextProps.droppableRef &&
+    previousProps.draggableRef === nextProps.draggableRef &&
+    previousProps.className === nextProps.className &&
+    previousProps.isEditingViewMode === nextProps.isEditingViewMode &&
+    previousProps.isUserView === nextProps.isUserView &&
+    previousProps.children === nextProps.children &&
+    areShallowObjectValuesEqual(previousProps.style, nextProps.style) &&
+    areShallowObjectValuesEqual(
+      previousProps.trueDragListeners,
+      nextProps.trueDragListeners,
+    )
+  );
+}
+
+function areContainerGroupStateEqual(
+  left: {
+    isActiveSection: boolean;
+    positionAndSizeLocked: boolean;
+    isInOtherProjectConfigs: boolean;
+    overflowMode: boolean;
+    size: { width: string | number; height: string | number };
+  },
+  right: {
+    isActiveSection: boolean;
+    positionAndSizeLocked: boolean;
+    isInOtherProjectConfigs: boolean;
+    overflowMode: boolean;
+    size: { width: string | number; height: string | number };
+  },
+): boolean {
+  return (
+    left.isActiveSection === right.isActiveSection &&
+    left.positionAndSizeLocked === right.positionAndSizeLocked &&
+    left.isInOtherProjectConfigs === right.isInOtherProjectConfigs &&
+    left.overflowMode === right.overflowMode &&
+    left.size.width === right.size.width &&
+    left.size.height === right.size.height
+  );
+}
+
+function areShallowObjectValuesEqual(
+  left: Record<string, unknown> | undefined,
+  right: Record<string, unknown> | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
 }

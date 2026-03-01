@@ -5,7 +5,6 @@ import {
   EditorView,
   ViewPlugin,
   WidgetType,
-  type ViewUpdate,
 } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
@@ -74,12 +73,6 @@ type GenPythonDocParts = {
 type GenPythonLineStartInfo = {
   pos: number;
   lineIndex: number;
-};
-
-type GenPythonTransactionSummary = {
-  index: number;
-  docChanged: boolean;
-  userEvent: string | null;
 };
 
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
@@ -186,20 +179,6 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     color: "rgba(148, 163, 184, 0.9)",
   },
 });
-
-function logGenPythonEditorEvent(event: string, payload: unknown): void {
-  console.log(`[gen-python-code-debug] ${event} ${JSON.stringify(payload)}`);
-}
-
-function summarizeGenPythonViewUpdate(
-  viewUpdate: ViewUpdate,
-): Array<GenPythonTransactionSummary> {
-  return viewUpdate.transactions.map((transaction, index) => ({
-    index,
-    docChanged: transaction.docChanged,
-    userEvent: transaction.annotation(Transaction.userEvent) ?? null,
-  }));
-}
 
 class GenPythonPlaceholderWidget extends WidgetType {
   constructor(private text: string) {
@@ -421,66 +400,26 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     [generatedCodeForValue, canUseLsp],
   );
 
-  function onChange(nextValue: string, viewUpdate: ViewUpdate) {
-    logGenPythonEditorEvent("onChange.received", {
-      sectionId,
-      nextValue,
-      currentValue: value,
-      generatedCodeForValue,
-      prefix,
-      suffix,
-      skipNextChangeValue: skipNextChangeRef.current,
-      isShareReadOnly,
-      transactions: summarizeGenPythonViewUpdate(viewUpdate),
-    });
+  function onChange(nextValue: string) {
     if (skipNextChangeRef.current === nextValue) {
-      logGenPythonEditorEvent("onChange.skipExactMatch", {
-        sectionId,
-        nextValue,
-      });
       skipNextChangeRef.current = null;
       return;
     }
     if (skipNextChangeRef.current) {
-      logGenPythonEditorEvent("onChange.clearSkipMarker", {
-        sectionId,
-        previousSkipValue: skipNextChangeRef.current,
-      });
       skipNextChangeRef.current = null;
     }
     if (isShareReadOnly) {
-      logGenPythonEditorEvent("onChange.skipReadOnly", {
-        sectionId,
-      });
       return;
     }
     setValue(nextValue);
     const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
-    logGenPythonEditorEvent("onChange.splitResult", {
-      sectionId,
-      nextParts,
-    });
     if (!nextParts.isValid) {
-      logGenPythonEditorEvent("onChange.skipInvalidSplit", {
-        sectionId,
-        nextValue,
-      });
       return;
     }
     if (nextParts.prefix !== prefix) {
-      logGenPythonEditorEvent("onChange.queuePrefixUpdate", {
-        sectionId,
-        oldPrefix: prefix,
-        newPrefix: nextParts.prefix,
-      });
       queueGenCodePrefixUpdate(nextParts.prefix);
     }
     if (nextParts.suffix !== suffix) {
-      logGenPythonEditorEvent("onChange.queueSuffixUpdate", {
-        sectionId,
-        oldSuffix: suffix,
-        newSuffix: nextParts.suffix,
-      });
       queueGenCodeSuffixUpdate(nextParts.suffix);
     }
   }

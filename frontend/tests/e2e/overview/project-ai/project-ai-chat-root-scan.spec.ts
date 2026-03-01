@@ -335,18 +335,10 @@ test("project chat avoids overlapping root scans while a folder request is in fl
     });
   });
   await page.route("**/api/getFolderContents", async (route) => {
-    const payload = route.request().postDataJSON() as
-      | { folderPath?: string }
-      | undefined;
-    const folderPath = payload?.folderPath ?? "";
-    if (folderPath === "/tmp/workspace-overlap-guard") {
-      getFolderContentsCalls += 1;
-      if (getFolderContentsCalls === 1) {
-        await new Promise<void>((resolve) => {
-          pendingResolvers.push(resolve);
-        });
-      }
-    }
+    getFolderContentsCalls += 1;
+    await new Promise<void>((resolve) => {
+      pendingResolvers.push(resolve);
+    });
     await route.fulfill({
       status: 200,
       contentType: "application/json",

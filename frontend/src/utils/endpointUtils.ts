@@ -14,23 +14,6 @@ export type ResponseDataAndStatus<T> = {
   hasResponse: boolean;
 };
 
-const FRONTEND_DEBUG_POST_PATHS = [
-  "/setCallable",
-  "/undo",
-  "/redo",
-  "/setGenCodePrefix",
-  "/setGenCodeSuffix",
-  "/clearTextFieldCompletion",
-];
-
-function shouldLogDebugPost(address: string): boolean {
-  return FRONTEND_DEBUG_POST_PATHS.some((path) => address.includes(path));
-}
-
-function logEndpointPostDebug(event: string, payload: unknown): void {
-  console.log(`[endpoint-post-debug] ${event} ${JSON.stringify(payload)}`);
-}
-
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
 ): res is ResponseDataAndStatus<T> & { data: T; status: number } {
@@ -272,23 +255,12 @@ export async function post<T>(
   addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = buildAddressWithParams(address, addressParams);
-  const shouldLogPost = shouldLogDebugPost(fullAddress);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const isFormData = body instanceof FormData;
     let requestBody: BodyInit | null = null;
     if (body !== null) {
       requestBody = isFormData ? body : JSON.stringify(body);
-    }
-    if (shouldLogPost) {
-      logEndpointPostDebug("request", {
-        address,
-        fullAddress,
-        body,
-        addressParams,
-        shareHeaders,
-        isFormData,
-      });
     }
     const response = await fetch(resolveBackendUrl(fullAddress), {
       method: "POST",
@@ -301,34 +273,12 @@ export async function post<T>(
           },
       body: requestBody,
     });
-    const data = await parseResponse<T>(response);
-    if (shouldLogPost) {
-      logEndpointPostDebug("response", {
-        address,
-        fullAddress,
-        body,
-        status: response.status,
-        hasResponse: true,
-        data,
-      });
-    }
     return {
-      data,
+      data: await parseResponse<T>(response),
       status: response.status,
       hasResponse: true,
     };
   } catch (error) {
-    if (shouldLogPost) {
-      logEndpointPostDebug("error", {
-        address,
-        fullAddress,
-        body,
-        error:
-          error instanceof Error
-            ? { message: error.message, stack: error.stack }
-            : error,
-      });
-    }
     console.error("POST error:", error);
     return { data: undefined, status: undefined, hasResponse: false };
   }

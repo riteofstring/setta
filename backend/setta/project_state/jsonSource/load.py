@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -74,22 +74,11 @@ class SectionVariantToUpdate:
     idRemap: dict[ID, ID]
 
 
-@dataclass
-class JSONSourceLoadMutationScope:
-    section_ids: set[ID] = field(default_factory=set)
-    code_obj_ids: set[ID] = field(default_factory=set)
-
-    @property
-    def did_update(self) -> bool:
-        return bool(self.section_ids or self.code_obj_ids)
-
-
 def load_json_sources_into_data_structures(
     p: ProjectStateCore,
     json_sources: dict[Path, ProcessedJSONInfo],
     section_variant_ids: Iterable[tuple[ID, ID]],
-) -> JSONSourceLoadMutationScope:
-    mutation_scope = JSONSourceLoadMutationScope()
+):
     section_variant_set = set(section_variant_ids)
     # set of (filename, jsonSourceKeys)
     jsonSourceAndKeysToLoad: set[tuple[Path, tuple[str, ...]]] = set()
@@ -122,7 +111,6 @@ def load_json_sources_into_data_structures(
             jsonSourceKeys = tuple(impl.jsonSourceKeys)
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue
-            mutation_scope.section_ids.add(section.id)
             processedJson = json_sources.get(filename)
             json_source_missing = processedJson is None
             if not json_source_missing:
@@ -192,9 +180,7 @@ def load_json_sources_into_data_structures(
             toUpdate.unmatched,
             codeObjsToDelete,
             toUpdate.idRemap,
-            mutation_scope,
         )
-    return mutation_scope
 
 
 def merge_into_existing(
@@ -204,11 +190,9 @@ def merge_into_existing(
     unmatchedCodeObj: dict[ID, UnmatchedCodeObjInfo],
     codeObjsToDelete: set[ID],
     id_remap: dict[ID, ID],
-    mutation_scope: JSONSourceLoadMutationScope,
 ):
     newCodeObjVariantMapEntries: dict[ID, ID] = {}
     for r in replacements.values():
-        mutation_scope.code_obj_ids.add(r.existingCodeObjId)
         codeObjCore = p.codeObjs[r.existingCodeObjId]
         variantId = to_update.impl.codeObjVariantMap.get(r.existingCodeObjId)
         if not variantId:
@@ -250,7 +234,6 @@ def merge_into_existing(
         if processed_id not in id_remap:
             raise KeyError(f"Missing JSON source id remap for {processed_id}")
         new_id = id_remap[processed_id]
-        mutation_scope.code_obj_ids.add(new_id)
         if new_id not in p.codeObjs:
             u.codeObj.variants = []
             u.codeObj.defaultVariant = None
@@ -275,7 +258,6 @@ def merge_into_existing(
     if processed_top_level_id not in id_remap:
         raise KeyError(f"Missing JSON source id remap for {processed_top_level_id}")
     newTopLevelParamId = id_remap[processed_top_level_id]
-    mutation_scope.code_obj_ids.add(newTopLevelParamId)
     set_effective_impl_value(
         to_update.baseImpl,
         to_update.section,
