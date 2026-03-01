@@ -335,3 +335,107 @@ Method:
 
 - Payload reduction is very large (`~98%`) for rename acceptance.
 - Local latency remained near-flat while transport overhead dropped sharply.
+
+---
+
+## Addendum: Watch-code file update/delete patch transport (2026-03-03)
+
+### Goal
+
+Convert internal watch-code file update/delete handlers off full snapshot transport,
+including structural callable-create/delete flows.
+
+### Change
+
+Backend:
+
+- Added `WatchCodeMutationScope` in `watch_code.py` to capture exact mutation
+  scope for watch-code processing:
+  - `did_update`
+  - `structural_changed`
+  - touched `section_ids`
+  - touched `code_obj_ids`
+- Updated watch-code update paths to return/merge scope metadata:
+  - `apply_scan_update(...)`
+  - `apply_delete_update(...)`
+  - `_apply_callable_updates(...)`
+  - `_update_sections_for_callables(...)`
+  - callable-removal helpers.
+- Converted `BaseProjectManager` watch-code handlers:
+  - `apply_watch_code_file_update`
+  - `apply_watch_code_file_delete`
+  to patch transport via new helper
+  `_broadcast_watch_code_mutation_scope(...)`.
+- Added combined broadcast helper
+  `_update_and_broadcast_structural_and_code_obj_patches(...)` for watch-code
+  structural mutations that also touch code objects.
+- Added `project_state`-aware singleton scope support in
+  `_build_section_patch_scope_with_codegen_singletons(...)` to avoid backend/
+  in-flight single-config mismatch when watch-code mutates section structure
+  before merge.
+
+Tests:
+
+- Added `test_watch_code_file_update_and_delete_use_patch_transport` in
+  `tests/project_state/test_watch_code.py`.
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/watch_code.py backend/setta/project_state/base_project_manager.py tests/project_state/test_watch_code.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_watch_code.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_param_impl_patch_transport.py tests/project_state/test_set_param_entered_value_ux.py tests/project_state/test_ui_setting_reveal_leases.py tests/project_state/test_rename_refactor_patch_transport.py tests/project_state/test_watch_code.py`
+
+Result:
+
+- Targeted backend regression slice: `61 passed`.
+
+### Benchmark scenario
+
+Synthetic callable state (`1000` params), autosave disabled.
+
+Routes benchmarked:
+
+- `apply_watch_code_file_update` (add callable; structural path)
+- `apply_watch_code_file_update` (signature change; non-structural path)
+- `apply_watch_code_file_delete`
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch `_broadcast_watch_code_mutation_scope(...)`
+  to call `update_and_broadcast_project_state(...)`.
+- `patched`: native behavior.
+2. `3` warmup + `12` measured iterations per route/mode.
+3. ACK metric per operation:
+- `route(...)` + `finish_pending_operations(...)` wall time.
+4. Payload metric:
+- Serialized websocket bytes for project-state transport message types:
+  - `WebsocketMsgUpdateFrontendProjectState`
+  - `WebsocketMsgPatchFrontendProjectStateProjectConfig`
+  - `WebsocketMsgPatchFrontendProjectStateSectionImpl`
+  - `WebsocketMsgPatchFrontendProjectStateCodeObjs`
+  - `WebsocketMsgPatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `apply_watch_code_file_update` (add callable) | latency median | 287.1054 ms | 286.7578 ms | +0.12% faster |
+| `apply_watch_code_file_update` (add callable) | latency p95 | 384.7658 ms | 387.0934 ms | -0.60% |
+| `apply_watch_code_file_update` (add callable) | payload median | 762,671 B | 40,352 B | -94.71% |
+| `apply_watch_code_file_update` (add callable) | payload p95 | 762,678 B | 40,358 B | -94.71% |
+| `apply_watch_code_file_update` (signature change) | latency median | 212.9307 ms | 211.5104 ms | +0.67% faster |
+| `apply_watch_code_file_update` (signature change) | latency p95 | 310.6000 ms | 316.1417 ms | -1.78% |
+| `apply_watch_code_file_update` (signature change) | payload median | 762,682 B | 6,607 B | -99.13% |
+| `apply_watch_code_file_update` (signature change) | payload p95 | 762,682 B | 6,607 B | -99.13% |
+| `apply_watch_code_file_delete` | latency median | 211.9363 ms | 205.4411 ms | +3.06% faster |
+| `apply_watch_code_file_delete` | latency p95 | 313.5265 ms | 313.2612 ms | +0.08% faster |
+| `apply_watch_code_file_delete` | payload median | 759,392 B | 36,849 B | -95.15% |
+| `apply_watch_code_file_delete` | payload p95 | 759,392 B | 36,849 B | -95.15% |
+
+### Notes
+
+- Payload reduction is large across all measured watch-code file update/delete
+  flows (`~95-99%` smaller project-state transport).
+- Latency is flat-to-improved locally; this route family now avoids full
+  snapshot transport while preserving structural/code-obj correctness.

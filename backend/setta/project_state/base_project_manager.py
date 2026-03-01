@@ -247,6 +247,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.watch_code import (
     WatchCodeManager,
+    WatchCodeMutationScope,
     build_watch_code_snapshot,
     normalize_watch_code_files,
     normalize_watch_code_folders,
@@ -3209,15 +3210,17 @@ class BaseProjectManager(ABC):
             normalized_path, snapshot.files, snapshot.folders
         ):
             return
-        did_update = await self.watch_code_manager.apply_scan_update(
+        update_scope = await self.watch_code_manager.apply_scan_update(
             project_state,
             normalized_path,
             raw,
             baseline_only=baseline_only,
             moved_from=moved_from,
         )
-        if did_update:
-            await self.update_and_broadcast_project_state(project_state)
+        await self._broadcast_watch_code_mutation_scope(
+            project_state=project_state,
+            update_scope=update_scope,
+        )
 
     @enqueue_method
     async def apply_watch_code_file_delete(
@@ -3237,12 +3240,47 @@ class BaseProjectManager(ABC):
             normalized_path, snapshot.files, snapshot.folders
         ):
             return
-        did_update = await self.watch_code_manager.apply_delete_update(
+        update_scope = await self.watch_code_manager.apply_delete_update(
             project_state,
             normalized_path,
         )
-        if did_update:
-            await self.update_and_broadcast_project_state(project_state)
+        await self._broadcast_watch_code_mutation_scope(
+            project_state=project_state,
+            update_scope=update_scope,
+        )
+
+    async def _broadcast_watch_code_mutation_scope(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        update_scope: WatchCodeMutationScope,
+    ) -> None:
+        if not update_scope.did_update:
+            return
+        code_obj_ids = [
+            code_obj_id
+            for code_obj_id in sorted(update_scope.code_obj_ids)
+            if code_obj_id in project_state.codeObjs
+        ]
+        if update_scope.structural_changed:
+            await self._update_and_broadcast_structural_and_code_obj_patches(
+                project_state,
+                code_obj_ids=code_obj_ids,
+            )
+            return
+        section_scope = sorted(update_scope.section_ids)
+        if section_scope or code_obj_ids:
+            section_scope = self._build_section_patch_scope_with_codegen_singletons(
+                project_config_id=project_state.projectConfig.id,
+                section_ids=section_scope,
+                project_state=project_state,
+            )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=code_obj_ids,
+            section_ids=section_scope,
+            broadcast_project_config_patch=True,
+        )
 
     async def _try_incremental_param_value_codegen_update(
         self,
@@ -3381,6 +3419,7 @@ class BaseProjectManager(ABC):
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            project_state=project_state,
         )
         await self._set_param_entered_value_and_broadcast_patch_updates(
             project_state,
@@ -3635,6 +3674,7 @@ class BaseProjectManager(ABC):
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            project_state=project_state,
         )
         await self._update_and_broadcast_code_obj_and_section_patches(
             project_state,
@@ -3826,6 +3866,7 @@ class BaseProjectManager(ABC):
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
+            project_state=project_state,
         )
         await self._update_and_broadcast_section_impl_patches(
             project_state,
@@ -3887,6 +3928,7 @@ class BaseProjectManager(ABC):
                 self._build_section_patch_scope_with_codegen_singletons(
                     project_config_id=x.projectConfigId,
                     section_ids=[x.sectionId],
+                    project_state=project_state,
                 )
             )
             await self._update_and_broadcast_section_impl_patches(
@@ -3925,6 +3967,7 @@ class BaseProjectManager(ABC):
                 self._build_section_patch_scope_with_codegen_singletons(
                     project_config_id=x.projectConfigId,
                     section_ids=[x.sectionId],
+                    project_state=project_state,
                 )
             )
             await self._update_and_broadcast_code_obj_and_section_patches(
@@ -6400,6 +6443,65 @@ class BaseProjectManager(ABC):
         if broadcast_name_validation_errors:
             await self._broadcast_name_validation_errors(project_state)
 
+    async def _update_and_broadcast_structural_and_code_obj_patches(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        code_obj_ids: list[ID],
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=validate_name_rules,
+        )
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+
+        filtered_code_obj_ids = [
+            code_obj_id
+            for code_obj_id in code_obj_ids
+            if code_obj_id in project_state.codeObjs
+        ]
+        has_broadcast_patch = False
+        if filtered_code_obj_ids:
+            (
+                code_obj_updates,
+                code_obj_variant_updates,
+                code_obj_impl_updates,
+            ) = self._collect_code_obj_updates_for_patch(
+                project_state,
+                filtered_code_obj_ids,
+            )
+            await self._broadcast_code_objs_patch(
+                project_config_id=project_state.projectConfig.id,
+                code_objs=code_obj_updates,
+                code_obj_variants=code_obj_variant_updates,
+                code_obj_impls=code_obj_impl_updates,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            has_broadcast_patch = True
+
+        await self._broadcast_structural_patch(
+            project_state=project_state,
+            previous_project_state_revision=(
+                next_project_state_revision
+                if has_broadcast_patch
+                else previous_project_state_revision
+            ),
+            project_state_revision=next_project_state_revision,
+        )
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+
     def _collect_section_impl_updates_for_patch(
         self,
         project_state: ProjectStateSingleConfig,
@@ -7129,11 +7231,39 @@ class BaseProjectManager(ABC):
                 singleton_section_ids.add(section_id)
         return singleton_section_ids
 
+    @staticmethod
+    def _get_codegen_singleton_section_ids_for_project_state(
+        project_state: ProjectStateSingleConfig,
+    ) -> set[ID]:
+        singleton_section_ids: set[ID] = set()
+        for (
+            section_id,
+            section_variant_id,
+        ) in project_state.projectConfig.sectionVariantMap.items():
+            if section_variant_id not in project_state.sectionVariants:
+                raise KeyError(
+                    f"Missing section variant {section_variant_id} in project state."
+                )
+            section_variant = project_state.sectionVariants[section_variant_id]
+            section_impl_id = section_variant.impl
+            if section_impl_id not in project_state.sectionImpls:
+                raise KeyError(
+                    f"Missing section impl {section_impl_id} in project state."
+                )
+            section_impl = project_state.sectionImpls[section_impl_id]
+            if isinstance(
+                section_impl,
+                (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
+            ):
+                singleton_section_ids.add(section_id)
+        return singleton_section_ids
+
     def _build_section_patch_scope_with_codegen_singletons(
         self,
         *,
         project_config_id: ID,
         section_ids: list[ID],
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> list[ID]:
         scoped_section_ids: list[ID] = []
         seen_section_ids: set[ID] = set()
@@ -7142,9 +7272,16 @@ class BaseProjectManager(ABC):
                 continue
             seen_section_ids.add(section_id)
             scoped_section_ids.append(section_id)
-        codegen_singleton_section_ids = (
-            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
-        )
+        if project_state is None:
+            codegen_singleton_section_ids = (
+                self._get_codegen_singleton_section_ids_for_history_entry(
+                    project_config_id
+                )
+            )
+        else:
+            codegen_singleton_section_ids = (
+                self._get_codegen_singleton_section_ids_for_project_state(project_state)
+            )
         for singleton_section_id in codegen_singleton_section_ids:
             if singleton_section_id in seen_section_ids:
                 continue

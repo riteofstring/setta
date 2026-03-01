@@ -82,6 +82,158 @@ def _capture_logger(
         logger.setLevel(previous_level)
 
 
+def _install_transport_capture(sender):
+    capture = {
+        "project_state_broadcast_calls": 0,
+        "structural_patch_calls": 0,
+        "project_config_patch_calls": 0,
+        "code_obj_patch_calls": 0,
+        "section_impl_patch_calls": 0,
+        "name_validation_broadcast_calls": 0,
+    }
+    original_project_state_broadcast = sender.broadcast_project_state
+    original_structural_patch_broadcast = (
+        sender.broadcast_project_state_structural_patch
+    )
+    original_project_config_patch_broadcast = (
+        sender.broadcast_project_state_project_config_patch
+    )
+    original_code_obj_patch_broadcast = sender.broadcast_project_state_code_objs_patch
+    original_section_impl_patch_broadcast = (
+        sender.broadcast_project_state_section_impl_patch
+    )
+    original_name_validation_broadcast = sender.broadcast_name_validation_errors
+
+    async def record_project_state_broadcast(
+        project_state,
+        completed_op_ids,
+        pending_op_ids,
+        project_state_revision=None,
+    ) -> None:
+        capture["project_state_broadcast_calls"] += 1
+        await original_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision,
+        )
+
+    async def record_structural_patch(
+        project_config_id_for_patch,
+        project_config_for_patch,
+        sections_for_patch,
+        section_variants_for_patch,
+        section_impls_for_patch,
+        parent_section_map_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["structural_patch_calls"] += 1
+        await original_structural_patch_broadcast(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            sections_for_patch,
+            section_variants_for_patch,
+            section_impls_for_patch,
+            parent_section_map_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_project_config_patch(
+        project_config_id_for_patch,
+        project_config_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["project_config_patch_calls"] += 1
+        await original_project_config_patch_broadcast(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_code_obj_patch(
+        project_config_id_for_patch,
+        code_objs_for_patch,
+        code_obj_variants_for_patch,
+        code_obj_impls_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["code_obj_patch_calls"] += 1
+        await original_code_obj_patch_broadcast(
+            project_config_id_for_patch,
+            code_objs_for_patch,
+            code_obj_variants_for_patch,
+            code_obj_impls_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_section_impl_patch(
+        project_config_id_for_patch,
+        section_id_for_patch,
+        section_impl_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["section_impl_patch_calls"] += 1
+        await original_section_impl_patch_broadcast(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_name_validation_broadcast(content) -> None:
+        capture["name_validation_broadcast_calls"] += 1
+        await original_name_validation_broadcast(content)
+
+    sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+    sender.broadcast_project_state_structural_patch = (  # type: ignore[method-assign]
+        record_structural_patch
+    )
+    sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+        record_project_config_patch
+    )
+    sender.broadcast_project_state_code_objs_patch = record_code_obj_patch  # type: ignore[method-assign]
+    sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+    sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+
+    def restore() -> None:
+        sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_structural_patch = (  # type: ignore[method-assign]
+            original_structural_patch_broadcast
+        )
+        sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+            original_project_config_patch_broadcast
+        )
+        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+    return capture, restore
+
+
 @pytest.mark.asyncio
 class TestWatchCode:
     @pytest_asyncio.fixture(autouse=True)
@@ -408,6 +560,107 @@ class TestWatchCode:
         )
         state = self.manager.get_single_config_state(self.project_config_id)
         assert state.projectConfig.watchCodeRegistry == {}
+
+    async def test_watch_code_file_update_and_delete_use_patch_transport(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+
+        module_path = convert_path_to_module_path(
+            workspace_relative_path(self.watch_file_path)
+        )
+        identity = build_callable_identity(
+            f"{module_path}.transport_added",
+            WatchCodeCallableKind.function,
+        )
+
+        create_code = (
+            "def existing(a):\n    return a\n\n"
+            "def transport_added(value):\n    return value\n"
+        )
+        sender = self.manager.websocket_msg_handler
+        create_capture, restore_create = _install_transport_capture(sender)
+        try:
+            await self.manager.apply_watch_code_file_update(
+                self.project_config_id,
+                self.watch_file_path,
+                create_code,
+                baseline_only=False,
+                moved_from=None,
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_create()
+
+        assert 0 == create_capture["project_state_broadcast_calls"]
+        assert 1 == create_capture["structural_patch_calls"]
+        assert 0 == create_capture["project_config_patch_calls"]
+        assert 1 == create_capture["code_obj_patch_calls"]
+        assert 0 == create_capture["section_impl_patch_calls"]
+        assert 1 == create_capture["name_validation_broadcast_calls"]
+        state_after_create = self.manager.get_single_config_state(self.project_config_id)
+        assert identity in state_after_create.projectConfig.watchCodeRegistry
+        created_entry = state_after_create.projectConfig.watchCodeRegistry[identity]
+        created_signature_hash = created_entry.signatureHash
+
+        signature_only_code = (
+            "def existing(a):\n    return a\n\n"
+            "def transport_added(value, extra):\n    return value + extra\n"
+        )
+        signature_capture, restore_signature = _install_transport_capture(sender)
+        try:
+            await self.manager.apply_watch_code_file_update(
+                self.project_config_id,
+                self.watch_file_path,
+                signature_only_code,
+                baseline_only=False,
+                moved_from=None,
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_signature()
+
+        assert 0 == signature_capture["project_state_broadcast_calls"]
+        assert 0 == signature_capture["structural_patch_calls"]
+        assert 1 == signature_capture["project_config_patch_calls"]
+        assert 1 == signature_capture["code_obj_patch_calls"]
+        assert 1 <= signature_capture["section_impl_patch_calls"]
+        assert 1 == signature_capture["name_validation_broadcast_calls"]
+        state_after_signature = self.manager.get_single_config_state(
+            self.project_config_id
+        )
+        assert identity in state_after_signature.projectConfig.watchCodeRegistry
+        updated_entry = state_after_signature.projectConfig.watchCodeRegistry[identity]
+        assert created_signature_hash != updated_entry.signatureHash
+
+        delete_capture, restore_delete = _install_transport_capture(sender)
+        try:
+            await self.manager.apply_watch_code_file_delete(
+                self.project_config_id,
+                self.watch_file_path,
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_delete()
+
+        assert 0 == delete_capture["project_state_broadcast_calls"]
+        assert 1 == delete_capture["structural_patch_calls"]
+        assert 0 == delete_capture["project_config_patch_calls"]
+        assert 0 == delete_capture["code_obj_patch_calls"]
+        assert 0 == delete_capture["section_impl_patch_calls"]
+        assert 1 == delete_capture["name_validation_broadcast_calls"]
+        state_after_delete = self.manager.get_single_config_state(self.project_config_id)
+        assert identity not in state_after_delete.projectConfig.watchCodeRegistry
 
     async def test_disable_cancels_pending_watch_code_scans(self) -> None:
         await self.manager.set_watch_code_inputs(
