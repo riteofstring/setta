@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from setta.project_state.project_manager_types import (
+    RedoRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -16,6 +17,7 @@ from setta.project_state.project_manager_types import (
     ToggleGroupOrientationRequest,
     ToggleMinimizedRequest,
     TogglePositionLocksRequest,
+    UndoRequest,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -329,3 +331,342 @@ async def test_chat_section_state_still_triggers_full_refresh() -> None:
             updated, section_ids.chat_section_id, ChatSectionImpl
         )
         assert chat_impl.inputText == "hello"
+
+
+@pytest.mark.asyncio
+async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        json_source_watch_calls = 0
+        artifact_watch_calls = 0
+        code_watch_calls = 0
+        original_watch_json_source_files = manager.watch_json_source_files
+        original_watch_artifact_files = manager.watch_artifact_files
+        original_watch_code_files = manager.watch_code_files
+
+        def record_watch_json_source_files() -> None:
+            nonlocal json_source_watch_calls
+            json_source_watch_calls += 1
+            original_watch_json_source_files()
+
+        def record_watch_artifact_files() -> None:
+            nonlocal artifact_watch_calls
+            artifact_watch_calls += 1
+            original_watch_artifact_files()
+
+        def record_watch_code_files() -> None:
+            nonlocal code_watch_calls
+            code_watch_calls += 1
+            original_watch_code_files()
+
+        manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
+        manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
+        manager.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+        try:
+
+            async def assert_watcher_delta(expected_delta: int, operation_coro) -> None:
+                # Drain queued/background work so deltas only reflect this call.
+                await manager.finish_pending_operations(timeout=5.0)
+                before_json = json_source_watch_calls
+                before_artifact = artifact_watch_calls
+                before_code = code_watch_calls
+                await operation_coro
+                await manager.finish_pending_operations(timeout=5.0)
+                assert json_source_watch_calls - before_json == expected_delta
+                assert artifact_watch_calls - before_artifact == expected_delta
+                assert code_watch_calls - before_code == expected_delta
+
+            # Fast-path routes should persist and broadcast without watcher refresh.
+            await assert_watcher_delta(
+                0,
+                manager.toggle_position_locks(
+                    TogglePositionLocksRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[section_ids.callable_section_id],
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_minimized(
+                    ToggleMinimizedRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_group_orientation(
+                    ToggleGroupOrientationRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.group_section_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_group_overflow_mode(
+                    SetGroupOverflowModeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.group_section_id,
+                        overflowMode=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_tag_color(
+                    SetSectionTagColorRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        tagColor="#ef4444",
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_style_color(
+                    SetSectionStyleColorRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        styleColor="#22c55e",
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_browser_column_widths(
+                    SetBrowserColumnWidthsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.browser_section_id,
+                        columnWidth=280.0,
+                        typesColumnWidth=120.0,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_browser_area_view_mode(
+                    SetBrowserAreaViewModeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.browser_section_id,
+                        viewMode=BrowserAreaViewMode.thumbnail,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_browser_hide_column(
+                    SetBrowserHideColumnRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.browser_section_id,
+                        hideColumn=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_browser_saved_searches(
+                    SetBrowserSavedSearchesRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.browser_section_id,
+                        savedSearches=[BrowserSavedSearch(name="docs", query="README")],
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_text_block_format(
+                    SetTextBlockFormatRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        format=TextBlockFormat.Markdown,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_social_url(
+                    SetSocialUrlRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.social_section_id,
+                        url="https://example.com",
+                    )
+                ),
+            )
+        finally:
+            manager.watch_json_source_files = original_watch_json_source_files  # type: ignore[method-assign]
+            manager.watch_artifact_files = original_watch_artifact_files  # type: ignore[method-assign]
+            manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+
+
+@pytest.mark.asyncio
+async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        sender = manager.websocket_msg_handler
+        project_state_broadcast_calls = 0
+        name_validation_broadcast_calls = 0
+        original_project_state_broadcast = sender.broadcast_project_state
+        original_name_validation_broadcast = sender.broadcast_name_validation_errors
+
+        async def record_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal project_state_broadcast_calls
+            project_state_broadcast_calls += 1
+            await original_project_state_broadcast(
+                project_state, completed_op_ids, pending_op_ids
+            )
+
+        async def record_name_validation_broadcast(content) -> None:
+            nonlocal name_validation_broadcast_calls
+            name_validation_broadcast_calls += 1
+            await original_name_validation_broadcast(content)
+
+        sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+        try:
+            # Fast-path routes should still push a project snapshot.
+            await manager.finish_pending_operations(timeout=5.0)
+            before_project_state = project_state_broadcast_calls
+            before_name_validation = name_validation_broadcast_calls
+            await manager.set_section_style_color(
+                SetSectionStyleColorRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_ids.callable_section_id,
+                    styleColor="#10b981",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+            sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+        assert project_state_broadcast_calls - before_project_state == 1
+        assert name_validation_broadcast_calls - before_name_validation == 0
+
+
+@pytest.mark.asyncio
+async def test_ui_only_fast_path_preserves_undo_redo_with_coalescing() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        baseline = manager.get_single_config_state(project_config_id)
+        baseline_callable = get_curr_effective_section_impl_with_type_guard(
+            baseline,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        baseline_browser = get_curr_effective_section_impl_with_type_guard(
+            baseline, section_ids.browser_section_id, BrowserSectionImpl
+        )
+        baseline_style_color = baseline_callable.styleColor
+        baseline_column_width = baseline_browser.columnWidth
+        baseline_types_column_width = baseline_browser.typesColumnWidth
+
+        # Style-color writes share a coalesce key and should collapse into one undo step.
+        await manager.set_section_style_color(
+            SetSectionStyleColorRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.callable_section_id,
+                styleColor="#111827",
+            )
+        )
+        await manager.set_section_style_color(
+            SetSectionStyleColorRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.callable_section_id,
+                styleColor="#6366f1",
+            )
+        )
+        await manager.set_browser_column_widths(
+            SetBrowserColumnWidthsRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.browser_section_id,
+                columnWidth=301.0,
+                typesColumnWidth=149.0,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        changed = manager.get_single_config_state(project_config_id)
+        changed_callable = get_curr_effective_section_impl_with_type_guard(
+            changed,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        changed_browser = get_curr_effective_section_impl_with_type_guard(
+            changed, section_ids.browser_section_id, BrowserSectionImpl
+        )
+        assert changed_callable.styleColor == "#6366f1"
+        assert changed_browser.columnWidth == 301.0
+        assert changed_browser.typesColumnWidth == 149.0
+
+        # First undo reverts the most recent browser-width mutation only.
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_first_undo = manager.get_single_config_state(project_config_id)
+        after_first_undo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_first_undo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        after_first_undo_browser = get_curr_effective_section_impl_with_type_guard(
+            after_first_undo, section_ids.browser_section_id, BrowserSectionImpl
+        )
+        assert after_first_undo_callable.styleColor == "#6366f1"
+        assert after_first_undo_browser.columnWidth == baseline_column_width
+        assert (
+            after_first_undo_browser.typesColumnWidth == baseline_types_column_width
+        )
+
+        # Second undo should remove both style-color edits as one coalesced step.
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_second_undo = manager.get_single_config_state(project_config_id)
+        after_second_undo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_second_undo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_second_undo_callable.styleColor == baseline_style_color
+
+        # Redo should replay style-color then browser-width mutations in order.
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_first_redo = manager.get_single_config_state(project_config_id)
+        after_first_redo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_first_redo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_first_redo_callable.styleColor == "#6366f1"
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_second_redo = manager.get_single_config_state(project_config_id)
+        after_second_redo_browser = get_curr_effective_section_impl_with_type_guard(
+            after_second_redo,
+            section_ids.browser_section_id,
+            BrowserSectionImpl,
+        )
+        assert after_second_redo_browser.columnWidth == 301.0
+        assert after_second_redo_browser.typesColumnWidth == 149.0
