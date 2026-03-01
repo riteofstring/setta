@@ -439,3 +439,101 @@ Method:
   flows (`~95-99%` smaller project-state transport).
 - Latency is flat-to-improved locally; this route family now avoids full
   snapshot transport while preserving structural/code-obj correctness.
+
+---
+
+## Addendum: `set_callable` + auto-refetch patch transport (2026-03-03)
+
+### Goal
+
+Eliminate remaining full snapshot transport in callable-binding refresh flows:
+
+- `set_callable`
+- `_refetch_callable_params` (used by `auto_refetch_callable_params` and
+  `auto_refetch_callable_params_on_lsp_mismatch`)
+
+### Change
+
+Backend:
+
+- Added set-callable patch-scope helpers in `BaseProjectManager`:
+  - `_did_set_callable_update_section(...)`
+  - `_collect_set_callable_code_obj_patch_ids(...)`
+- Converted `_refetch_callable_params(...)` to:
+  - aggregate touched `section_ids` and `code_obj_ids` across refetch targets,
+  - emit one scoped
+    `_update_and_broadcast_code_obj_and_section_patches(...)` broadcast instead
+    of `update_and_broadcast_project_state(...)`.
+- Converted `set_callable(...)` to patch transport:
+  - section scope always includes target section (+ codegen singleton expansion),
+  - code-obj patches are emitted when code-object mutation is expected
+    (`SignatureHelpStatus.MATCHED` or new callable creation),
+  - preserves prior `validate_name_rules=False` behavior.
+
+Tests:
+
+- Added route coverage in
+  `tests/project_state/test_param_structure_patch_transport.py`:
+  - `test_set_callable_uses_code_obj_and_section_patch_transport`
+  - `test_set_callable_clear_uses_section_patch_transport`
+- Added auto-refetch transport coverage in
+  `tests/project_state/test_auto_refetch_history.py`:
+  - `test_auto_refetch_mutation_uses_patch_transport`
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/base_project_manager.py tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_auto_refetch_history.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_auto_refetch_history.py tests/project_state/test_watch_code.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py tests/project_state/test_param_structure_patch_transport.py tests/project_state/test_param_impl_patch_transport.py tests/project_state/test_set_param_entered_value_ux.py tests/project_state/test_ui_setting_reveal_leases.py tests/project_state/test_rename_refactor_patch_transport.py tests/project_state/test_watch_code.py tests/project_state/test_auto_refetch_history.py`
+
+Result:
+
+- Targeted regression slices: `39 passed` and `68 passed`.
+
+### Benchmark scenario
+
+Synthetic callable state (`1000` params), autosave disabled.
+
+Routes benchmarked:
+
+- `set_callable` (new callable name, `refetchParams=True`)
+- `auto_refetch_callable_params`
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch
+  `_update_and_broadcast_code_obj_and_section_patches(...)` to call
+  `update_and_broadcast_project_state(...)`.
+- `patched`: native behavior.
+2. `3` warmup + `12` measured iterations per route/mode.
+3. ACK metric:
+- `route(...)` + `finish_pending_operations(...)` wall time.
+4. Payload metric:
+- Serialized websocket bytes for project-state transport message types:
+  - `UpdateFrontendProjectState`
+  - `PatchFrontendProjectStateProjectConfig`
+  - `PatchFrontendProjectStateSectionImpl`
+  - `PatchFrontendProjectStateCodeObjs`
+  - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `set_callable` | latency median | 222.4600 ms | 232.0482 ms | -4.31% |
+| `set_callable` | latency p95 | 356.1551 ms | 452.6793 ms | -27.10% |
+| `set_callable` | payload median | 722,367.0 B | 1,685.0 B | -99.77% |
+| `set_callable` | payload p95 | 722,371.9 B | 1,688.5 B | -99.77% |
+| `auto_refetch_callable_params` | latency median | 256.6231 ms | 251.8302 ms | +1.87% faster |
+| `auto_refetch_callable_params` | latency p95 | 364.3298 ms | 364.1007 ms | +0.06% faster |
+| `auto_refetch_callable_params` | payload median | 759,224.0 B | 593.0 B | -99.92% |
+| `auto_refetch_callable_params` | payload p95 | 759,224.0 B | 593.0 B | -99.92% |
+
+### Notes
+
+- Payload reduction is very large for both converted routes (`~99.8-99.9%`).
+- `set_callable` local latency was slower in this run despite much smaller
+  transport payload; callable mutation/codegen work dominates wall time here.
+- `auto_refetch_callable_params` latency stayed flat-to-slightly improved while
+  eliminating snapshot transport.

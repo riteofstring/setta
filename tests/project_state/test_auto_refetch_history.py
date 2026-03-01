@@ -36,6 +36,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
 
+
 class AutoRefetchHistoryManager(BaseProjectManager):
     def __init__(
         self,
@@ -69,7 +70,7 @@ class AutoRefetchHistoryManager(BaseProjectManager):
     def save(self):  # pragma: no cover - not exercised in tests
         return None
 
-    async def save_as_new_project_config(self, x):  # pragma: no cover
+    async def save_as_new_project_config(self, _x):  # pragma: no cover
         return None
 
 
@@ -167,6 +168,129 @@ def build_project_state() -> tuple[ProjectStateSingleConfig, ID]:
         },
     )
     return project_state, section_id
+
+
+def _install_transport_capture(sender):
+    capture = {
+        "project_state_broadcast_calls": 0,
+        "project_config_patch_calls": 0,
+        "code_obj_patch_calls": 0,
+        "section_impl_patch_calls": [],
+        "name_validation_broadcast_calls": 0,
+    }
+    original_project_state_broadcast = sender.broadcast_project_state
+    original_project_config_patch_broadcast = (
+        sender.broadcast_project_state_project_config_patch
+    )
+    original_code_obj_patch_broadcast = sender.broadcast_project_state_code_objs_patch
+    original_section_impl_patch_broadcast = (
+        sender.broadcast_project_state_section_impl_patch
+    )
+    original_name_validation_broadcast = sender.broadcast_name_validation_errors
+
+    async def record_project_state_broadcast(
+        project_state,
+        completed_op_ids,
+        pending_op_ids,
+        project_state_revision=None,
+    ) -> None:
+        capture["project_state_broadcast_calls"] += 1
+        await original_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision,
+        )
+
+    async def record_project_config_patch(
+        project_config_id_for_patch,
+        project_config_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["project_config_patch_calls"] += 1
+        await original_project_config_patch_broadcast(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_code_obj_patch(
+        project_config_id_for_patch,
+        code_objs_for_patch,
+        code_obj_variants_for_patch,
+        code_obj_impls_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["code_obj_patch_calls"] += 1
+        await original_code_obj_patch_broadcast(
+            project_config_id_for_patch,
+            code_objs_for_patch,
+            code_obj_variants_for_patch,
+            code_obj_impls_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_section_impl_patch(
+        project_config_id_for_patch,
+        section_id_for_patch,
+        section_impl_for_patch,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["section_impl_patch_calls"].append(
+            {
+                "projectConfigId": project_config_id_for_patch,
+                "sectionId": section_id_for_patch,
+                "previousProjectStateRevision": previous_project_state_revision,
+                "projectStateRevision": project_state_revision,
+            }
+        )
+        await original_section_impl_patch_broadcast(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    async def record_name_validation_broadcast(content) -> None:
+        capture["name_validation_broadcast_calls"] += 1
+        await original_name_validation_broadcast(content)
+
+    sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+    sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+        record_project_config_patch
+    )
+    sender.broadcast_project_state_code_objs_patch = record_code_obj_patch  # type: ignore[method-assign]
+    sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
+    sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+
+    def restore() -> None:
+        sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+            original_project_config_patch_broadcast
+        )
+        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = original_section_impl_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+
+    return capture, restore
 
 
 @pytest.mark.asyncio
@@ -300,3 +424,38 @@ class TestAutoRefetchHistory:
             updated_gen_code.latest_callable_mismatch_sections
             == {self.section_id}
         )
+
+    async def test_auto_refetch_mutation_uses_patch_transport(self):
+        project_state = self.project_state.model_copy(deep=True)
+        section_impl = get_curr_effective_section_impl(project_state, self.section_id)
+        assert isinstance(section_impl, CallableSectionImpl)
+        callable_id = section_impl.callable
+        assert callable_id is not None
+        project_state.codeObjs[callable_id].name = ""
+        await self.manager.update(project_state)
+
+        sender = self.manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await self.manager.auto_refetch_callable_params(
+                self.project_state.projectConfig.id,
+                {self.section_id},
+            )
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == capture["project_config_patch_calls"]
+        assert 0 == capture["code_obj_patch_calls"]
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == self.section_id
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+        updated_state = self.manager.get_single_config_state(
+            self.project_state.projectConfig.id
+        )
+        updated_impl = get_curr_effective_section_impl(updated_state, self.section_id)
+        assert isinstance(updated_impl, CallableSectionImpl)
+        assert updated_impl.callable is None

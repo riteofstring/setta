@@ -286,6 +286,7 @@ from setta.types.helpers_lvl2 import (
     append_draw_area_layer_item,
     apply_top_level_section_layout_snapshot,
     auto_layout_top_level_sections,
+    callable_has_been_selected_before,
     change_param_impl,
     collect_ignore_type_errors_by_section,
     create_agentic_edge,
@@ -2171,6 +2172,33 @@ class BaseProjectManager(ABC):
             if _is_lsp_code_entry(code_entry):
                 await code_entry.type_check()
 
+    @staticmethod
+    def _did_set_callable_update_section(
+        response: SetCallableResponse,
+        prev_callable_id: ID | None,
+    ) -> bool:
+        return (
+            response.lspStatus != SignatureHelpStatus.SKIPPED
+            or response.callableId != prev_callable_id
+        )
+
+    @staticmethod
+    def _collect_set_callable_code_obj_patch_ids(
+        response: SetCallableResponse,
+    ) -> list[ID]:
+        code_obj_ids: list[ID] = []
+        seen_code_obj_ids: set[ID] = set()
+        if response.callableId is not None:
+            seen_code_obj_ids.add(response.callableId)
+            code_obj_ids.append(response.callableId)
+        for child_code_obj in response.childCodeObjs:
+            code_obj_id = child_code_obj.codeObjId
+            if code_obj_id in seen_code_obj_ids:
+                continue
+            seen_code_obj_ids.add(code_obj_id)
+            code_obj_ids.append(code_obj_id)
+        return code_obj_ids
+
     async def _refetch_callable_params(
         self,
         projectConfigId: ID,
@@ -2227,6 +2255,10 @@ class BaseProjectManager(ABC):
             on_before_mutation = record_history
         settings = self.settings_file.settings
         did_update = False
+        section_patch_ids: list[ID] = []
+        code_obj_patch_ids: list[ID] = []
+        seen_section_patch_ids: set[ID] = set()
+        seen_code_obj_patch_ids: set[ID] = set()
         for section_id, callable_name in refetch_targets:
             prev_callable = get_curr_section_callable_code_obj(
                 project_state, section_id
@@ -2240,13 +2272,32 @@ class BaseProjectManager(ABC):
                 True,
                 on_before_mutation=on_before_mutation,
             )
-            if response.lspStatus != SignatureHelpStatus.SKIPPED:
-                did_update = True
+            if not self._did_set_callable_update_section(response, prev_callable_id):
                 continue
-            if response.callableId != prev_callable_id:
-                did_update = True
+            did_update = True
+            if section_id not in seen_section_patch_ids:
+                seen_section_patch_ids.add(section_id)
+                section_patch_ids.append(section_id)
+            if response.lspStatus != SignatureHelpStatus.MATCHED:
+                continue
+            for code_obj_id in self._collect_set_callable_code_obj_patch_ids(response):
+                if code_obj_id in seen_code_obj_patch_ids:
+                    continue
+                seen_code_obj_patch_ids.add(code_obj_id)
+                code_obj_patch_ids.append(code_obj_id)
         if did_update:
-            await self.update_and_broadcast_project_state(project_state)
+            section_patch_scope = (
+                self._build_section_patch_scope_with_codegen_singletons(
+                    project_config_id=projectConfigId,
+                    section_ids=section_patch_ids,
+                    project_state=project_state,
+                )
+            )
+            await self._update_and_broadcast_code_obj_and_section_patches(
+                project_state,
+                code_obj_ids=code_obj_patch_ids,
+                section_ids=section_patch_scope,
+            )
 
     @enqueue_method
     async def auto_refetch_callable_params(
@@ -2320,6 +2371,16 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         gen_code = self._require_python_codegen(x.projectConfigId)
+        prev_callable = get_curr_section_callable_code_obj(project_state, x.sectionId)
+        prev_callable_id = prev_callable.id if prev_callable else None
+        callable_selected_before = (
+            callable_has_been_selected_before(
+                project_state,
+                x.sectionId,
+                x.callableName,
+            )
+            is not None
+        )
         result = await gen_code.set_callable(
             self.settings_file.settings,
             project_state,
@@ -2327,8 +2388,28 @@ class BaseProjectManager(ABC):
             x.callableName,
             x.refetchParams,
         )
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+            project_state=project_state,
+        )
+        code_obj_ids_for_patch: list[ID] = []
+        should_broadcast_code_obj_patch = (
+            result.lspStatus == SignatureHelpStatus.MATCHED
+            or (
+                result.callableId is not None
+                and not callable_selected_before
+                and result.callableId != prev_callable_id
+            )
+        )
+        if should_broadcast_code_obj_patch:
+            code_obj_ids_for_patch = self._collect_set_callable_code_obj_patch_ids(
+                result
+            )
+        await self._update_and_broadcast_code_obj_and_section_patches(
             project_state,
+            code_obj_ids=code_obj_ids_for_patch,
+            section_ids=section_patch_scope,
             validate_name_rules=False,
         )
         return result

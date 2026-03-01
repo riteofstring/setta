@@ -8,6 +8,7 @@ from setta.project_state.project_manager_types import (
     MoveParamGroup,
     MoveParamGroupsRequest,
     MoveParamsRequest,
+    SetCallableRequest,
     UnindentParamsRequest,
 )
 from setta.types.code_obj_impls import (
@@ -655,3 +656,98 @@ async def test_unindent_params_uses_code_obj_and_section_patch_transport() -> No
         )
         if isinstance(parent_impl_after, BaseParentCodeObjImpl):
             assert PARAM_TWO_ID not in parent_impl_after.children
+
+
+@pytest.mark.asyncio
+async def test_set_callable_uses_code_obj_and_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        current_callable_id, _ = _get_callable_impl(manager, project_config_id)
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            response = await manager.set_callable(
+                SetCallableRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    callableName="patch_transport_new_callable",
+                    refetchParams=True,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert response.callableId is not None
+        assert response.callableId != current_callable_id
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert code_obj_patch["projectConfigId"] == project_config_id
+        assert response.callableId in code_obj_patch["codeObjIds"]
+        assert (
+            code_obj_patch["previousProjectStateRevision"]
+            < code_obj_patch["projectStateRevision"]
+        )
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        assert section_impl.callable == response.callableId
+
+
+@pytest.mark.asyncio
+async def test_set_callable_clear_uses_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            response = await manager.set_callable(
+                SetCallableRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    callableName="",
+                    refetchParams=False,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert response.callableId is None
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 0 == len(capture["code_obj_patch_calls"])
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        assert section_impl.callable is None
