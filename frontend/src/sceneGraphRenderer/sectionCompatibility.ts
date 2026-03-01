@@ -18,7 +18,7 @@ const SCENE_GRAPH_SECTION_RENDER_MODE_BY_TYPE: Record<
   [SectionTypeEnum.Group]: "scene",
   [SectionTypeEnum.Image]: "scene",
   [SectionTypeEnum.Chart]: "scene",
-  [SectionTypeEnum.Draw]: "dom",
+  [SectionTypeEnum.Draw]: "scene",
   [SectionTypeEnum.TextBlock]: "scene",
   [SectionTypeEnum.Prompt]: "scene",
   [SectionTypeEnum.MetaControl]: "scene",

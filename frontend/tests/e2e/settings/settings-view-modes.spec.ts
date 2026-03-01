@@ -643,7 +643,7 @@ test("settings all-settings forces unsupported section types to DOM islands", as
   }
 });
 
-test("settings all-settings keeps chart, spreadsheet, task board, browser, image, and social sections scene-compatible", async ({
+test("settings all-settings keeps chart, spreadsheet, task board, browser, image, social, and draw sections scene-compatible", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -709,7 +709,13 @@ test("settings all-settings keeps chart, spreadsheet, task board, browser, image
 
   const sectionIdsToDelete: string[] = [];
   const sceneCompatibleImplTypes: Array<
-    "Chart" | "Spreadsheet" | "TaskBoard" | "Browser" | "Image" | "Social"
+    | "Chart"
+    | "Spreadsheet"
+    | "TaskBoard"
+    | "Browser"
+    | "Image"
+    | "Social"
+    | "Draw"
   > = [
     "Chart",
     "Spreadsheet",
@@ -717,6 +723,7 @@ test("settings all-settings keeps chart, spreadsheet, task board, browser, image
     "Browser",
     "Image",
     "Social",
+    "Draw",
   ];
   try {
     for (let index = 0; index < sceneCompatibleImplTypes.length; index += 1) {

@@ -54,6 +54,9 @@ describe("scene graph section compatibility", () => {
     expect(isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.Image)).toBe(
       true,
     );
+    expect(isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.Draw)).toBe(
+      true,
+    );
     expect(isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.Social)).toBe(
       true,
     );
