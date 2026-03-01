@@ -69,6 +69,11 @@ export type CanvasEngineConnectionPreview = {
   targetValid: boolean;
 };
 
+export type CanvasEngineHoveredEdge = {
+  kind: "data" | "agentic";
+  id: string;
+};
+
 export type CanvasEngineSceneSnapshot = {
   camera: CanvasEngineCamera;
   clearColor: [number, number, number];
@@ -76,4 +81,5 @@ export type CanvasEngineSceneSnapshot = {
   dataEdges: CanvasEngineDataEdge[];
   agenticEdges: CanvasEngineAgenticEdge[];
   connectionPreview: CanvasEngineConnectionPreview | null;
+  hoveredEdge: CanvasEngineHoveredEdge | null;
 };

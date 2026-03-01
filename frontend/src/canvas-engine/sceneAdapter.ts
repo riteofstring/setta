@@ -221,6 +221,7 @@ export class CanvasEngineSceneAdapter {
         dataEdges,
         agenticEdges,
         connectionPreview: null,
+        hoveredEdge: null,
       },
       visibleRectCount: rects.length,
       totalRectCount: this.rectById.size,

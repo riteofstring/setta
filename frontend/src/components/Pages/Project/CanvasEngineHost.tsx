@@ -10,6 +10,7 @@ import type {
   CanvasEngineBackendSelection,
   CanvasEngineCamera,
   CanvasEngineConnectionPreview,
+  CanvasEngineHoveredEdge,
   CanvasEngineRect,
   CanvasEngineViewport,
 } from "canvas-engine/types";
@@ -235,6 +236,8 @@ export function CanvasEngineHost() {
     useState<CanvasEngineViewport>(DEFAULT_VIEWPORT);
   const [connectionPreview, setConnectionPreview] =
     useState<CanvasEngineConnectionPreview | null>(null);
+  const [hoveredEdge, setHoveredEdge] =
+    useState<CanvasEngineHoveredEdge | null>(null);
 
   const updateConnectionPreview = useCallback(
     (nextPreview: CanvasEngineConnectionPreview | null) => {
@@ -243,6 +246,18 @@ export function CanvasEngineHost() {
           return currentPreview;
         }
         return nextPreview;
+      });
+    },
+    [],
+  );
+
+  const updateHoveredEdge = useCallback(
+    (nextHoveredEdge: CanvasEngineHoveredEdge | null) => {
+      setHoveredEdge((currentHoveredEdge) => {
+        if (areHoveredEdgesEqual(currentHoveredEdge, nextHoveredEdge)) {
+          return currentHoveredEdge;
+        }
+        return nextHoveredEdge;
       });
     },
     [],
@@ -278,8 +293,9 @@ export function CanvasEngineHost() {
     () => ({
       ...sceneSnapshot,
       connectionPreview,
+      hoveredEdge,
     }),
-    [connectionPreview, sceneSnapshot],
+    [connectionPreview, hoveredEdge, sceneSnapshot],
   );
 
   useEffect(() => {
@@ -376,6 +392,7 @@ export function CanvasEngineHost() {
         return;
       }
       updateConnectionPreview(null);
+      updateHoveredEdge(null);
       const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
@@ -606,13 +623,28 @@ export function CanvasEngineHost() {
       sectionSizingPolicy,
       topLevelSections,
       updateConnectionPreview,
+      updateHoveredEdge,
     ],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       const pointerSession = pointerSessionRef.current;
-      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+      if (!pointerSession) {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          updateHoveredEdge(null);
+          return;
+        }
+        const edgeHit = sceneAdapter.hitTestEdgeAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveEdgeHitToleranceWorld(camera.zoom),
+        );
+        updateHoveredEdge(edgeHit);
+        return;
+      }
+      if (pointerSession.pointerId !== event.pointerId) {
         return;
       }
       if (pointerSession.kind === "resize") {
@@ -859,8 +891,12 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [camera, sceneAdapter, updateConnectionPreview],
+    [camera, sceneAdapter, updateConnectionPreview, updateHoveredEdge],
   );
+
+  const handlePointerLeave = useCallback(() => {
+    updateHoveredEdge(null);
+  }, [updateHoveredEdge]);
 
   const releasePointerCapture = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -987,12 +1023,19 @@ export function CanvasEngineHost() {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
       updateConnectionPreview(null);
+      updateHoveredEdge(null);
       pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [camera, projectConfigId, sceneAdapter, updateConnectionPreview],
+    [
+      camera,
+      projectConfigId,
+      sceneAdapter,
+      updateConnectionPreview,
+      updateHoveredEdge,
+    ],
   );
 
   const handleWheel = useCallback(
@@ -1077,6 +1120,9 @@ export function CanvasEngineHost() {
           ? connectionPreview.targetHandleY.toFixed(2)
           : ""
       }
+      data-canvas-engine-hovered-edge-active={String(hoveredEdge !== null)}
+      data-canvas-engine-hovered-edge-kind={hoveredEdge?.kind ?? ""}
+      data-canvas-engine-hovered-edge-id={hoveredEdge?.id ?? ""}
       data-canvas-engine-last-sections-added={lastPatchSummary.sectionsAdded}
       data-canvas-engine-last-sections-updated={
         lastPatchSummary.sectionsUpdated
@@ -1095,6 +1141,7 @@ export function CanvasEngineHost() {
         className="h-full w-full"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
         onPointerUp={releasePointerCapture}
         onPointerCancel={releasePointerCapture}
         onWheel={handleWheel}
@@ -1124,6 +1171,19 @@ function areConnectionPreviewsEqual(
     left.targetHandleY === right.targetHandleY &&
     left.targetValid === right.targetValid
   );
+}
+
+function areHoveredEdgesEqual(
+  left: CanvasEngineHoveredEdge | null,
+  right: CanvasEngineHoveredEdge | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.kind === right.kind && left.id === right.id;
 }
 
 function resolveWorldPointFromPointerEvent(

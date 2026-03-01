@@ -100,6 +100,14 @@ const DATA_EDGE_COLOR: [number, number, number] = [0.27, 0.52, 0.9];
 const DATA_EDGE_SELECTED_COLOR: [number, number, number] = [0.58, 0.78, 1.0];
 const AGENTIC_EDGE_COLOR: [number, number, number] = [0.96, 0.66, 0.24];
 const AGENTIC_EDGE_SELECTED_COLOR: [number, number, number] = [1.0, 0.83, 0.52];
+const DATA_EDGE_HOVER_COLOR: [number, number, number] = [0.43, 0.69, 0.98];
+const DATA_EDGE_SELECTED_HOVER_COLOR: [number, number, number] = [
+  0.75, 0.89, 1.0,
+];
+const AGENTIC_EDGE_HOVER_COLOR: [number, number, number] = [1.0, 0.79, 0.46];
+const AGENTIC_EDGE_SELECTED_HOVER_COLOR: [number, number, number] = [
+  1.0, 0.9, 0.66,
+];
 const ACTIVE_RECT_OUTLINE_COLOR: [number, number, number] = [0.92, 0.96, 1.0];
 const ACTIVE_HANDLE_COLOR: [number, number, number] = [0.73, 0.84, 0.99];
 const CONNECTION_PREVIEW_COLOR: [number, number, number] = [0.81, 0.91, 1.0];
@@ -128,6 +136,8 @@ const AGENTIC_CONNECTION_PREVIEW_TARGET_INVALID_COLOR: [
 ] = [0.83, 0.75, 0.64];
 const EDGE_THICKNESS_PX = 2.4;
 const SELECTED_EDGE_THICKNESS_PX = 3.8;
+const HOVER_EDGE_THICKNESS_PX = 3.4;
+const HOVER_SELECTED_EDGE_THICKNESS_PX = 4.4;
 const OUTLINE_THICKNESS_PX = 2.0;
 const HANDLE_HALF_SIZE_PX = 4.0;
 const CONNECTION_PREVIEW_THICKNESS_PX = 2.8;
@@ -669,6 +679,7 @@ function buildSceneVertexData(
 
   appendDataEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
   appendAgenticEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
+  appendHoveredEdgePrimitives(values, scene, viewport, clampedZoom, rectById);
 
   for (const rect of sortedRects) {
     if (rect.width <= 0 || rect.height <= 0) {
@@ -796,6 +807,104 @@ function appendAgenticEdgePrimitives(
       edge.selected ? AGENTIC_EDGE_SELECTED_COLOR : AGENTIC_EDGE_COLOR,
     );
   }
+}
+
+function appendHoveredEdgePrimitives(
+  destination: number[],
+  scene: CanvasEngineSceneSnapshot,
+  viewport: CanvasEngineViewport,
+  zoom: number,
+  rectById: Map<string, CanvasEngineSceneSnapshot["rects"][number]>,
+): void {
+  const hoveredEdge = scene.hoveredEdge;
+  if (!hoveredEdge) {
+    return;
+  }
+
+  if (hoveredEdge.kind === "data") {
+    const edge = scene.dataEdges.find(
+      (candidate) => candidate.id === hoveredEdge.id,
+    );
+    if (!edge || edge.hidden) {
+      return;
+    }
+    const sourceRect = rectById.get(edge.sourceSectionId);
+    const targetRect = rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      return;
+    }
+
+    const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
+    const start = worldToScreen(
+      anchors.startX,
+      anchors.startY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+    const end = worldToScreen(
+      anchors.endX,
+      anchors.endY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+
+    appendLineSegmentQuad(
+      destination,
+      viewport,
+      start.x,
+      start.y,
+      end.x,
+      end.y,
+      edge.selected
+        ? HOVER_SELECTED_EDGE_THICKNESS_PX
+        : HOVER_EDGE_THICKNESS_PX,
+      edge.selected ? DATA_EDGE_SELECTED_HOVER_COLOR : DATA_EDGE_HOVER_COLOR,
+    );
+    return;
+  }
+
+  const edge = scene.agenticEdges.find(
+    (candidate) => candidate.id === hoveredEdge.id,
+  );
+  if (!edge || edge.hidden) {
+    return;
+  }
+  const sourceRect = rectById.get(edge.sourceSectionId);
+  const targetRect = rectById.get(edge.targetSectionId);
+  if (!sourceRect || !targetRect) {
+    return;
+  }
+
+  const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+  const start = worldToScreen(
+    anchors.startX,
+    anchors.startY,
+    scene.camera.x,
+    scene.camera.y,
+    zoom,
+  );
+  const end = worldToScreen(
+    anchors.endX,
+    anchors.endY,
+    scene.camera.x,
+    scene.camera.y,
+    zoom,
+  );
+
+  appendLineSegmentQuad(
+    destination,
+    viewport,
+    start.x,
+    start.y,
+    end.x,
+    end.y,
+    edge.selected ? HOVER_SELECTED_EDGE_THICKNESS_PX : HOVER_EDGE_THICKNESS_PX,
+    edge.selected
+      ? AGENTIC_EDGE_SELECTED_HOVER_COLOR
+      : AGENTIC_EDGE_HOVER_COLOR,
+  );
 }
 
 function appendConnectionPreviewPrimitives(

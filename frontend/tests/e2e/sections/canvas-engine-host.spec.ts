@@ -80,6 +80,12 @@ type CanvasEngineConnectionPreviewState = {
   hasTargetHandle: boolean;
 };
 
+type CanvasEngineHoveredEdgeState = {
+  active: boolean;
+  kind: string;
+  id: string;
+};
+
 type CanvasEngineEdgeHandleSeed = {
   sectionId: string;
   portId: string;
@@ -1024,6 +1030,209 @@ test("canvas engine host reconnects data edges via endpoint drag", async ({
   }
 });
 
+test("canvas engine host supports data edge hover and click selection", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sourcePosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.34,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const targetPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.72,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      "sorted",
+    );
+
+    const [targetPortId] = await readSectionParamIds(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      1,
+    );
+    const sourcePortId = "canvas-engine-hover-source-port";
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: targetSectionId,
+      edgeInputParams: [targetPortId],
+    });
+
+    const sourceVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const targetVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+    );
+    await postBackend(page, "/createEdge", {
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourceVariantId,
+      sourcePortId,
+      targetSectionId,
+      targetVariantId,
+      targetPortId,
+      type: "default",
+    });
+    await expect
+      .poll(async () => await readDataEdgeCount(host))
+      .toBeGreaterThanOrEqual(1);
+
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourcePortId,
+      targetSectionId,
+      targetPortId,
+    });
+
+    const sourceLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const targetLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+    );
+    const sourceWidth =
+      typeof sourceLayout.w === "number"
+        ? sourceLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const sourceHeight =
+      typeof sourceLayout.h === "number"
+        ? sourceLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const targetHeight =
+      typeof targetLayout.h === "number"
+        ? targetLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const sourceHandle: WorldPoint = {
+      x: sourceLayout.x + sourceWidth,
+      y: sourceLayout.y + sourceHeight / 2,
+    };
+    const targetHandle: WorldPoint = {
+      x: targetLayout.x,
+      y: targetLayout.y + targetHeight / 2,
+    };
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: targetSectionId,
+        portId: targetPortId,
+        type: "target",
+        side: "left",
+        x: targetHandle.x,
+        y: targetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(2);
+
+    const edgeMidpoint: WorldPoint = {
+      x: (sourceHandle.x + targetHandle.x) / 2,
+      y: (sourceHandle.y + targetHandle.y) / 2,
+    };
+    const edgeMidpointScreen = await worldPointToScreen(host, edgeMidpoint);
+    await page.mouse.move(edgeMidpointScreen.x, edgeMidpointScreen.y);
+
+    await expect
+      .poll(async () => await readHoveredEdgeState(host))
+      .toEqual({
+        active: true,
+        kind: "data",
+        id: edgeId,
+      });
+
+    await page.mouse.click(edgeMidpointScreen.x, edgeMidpointScreen.y);
+    await expect
+      .poll(
+        async () =>
+          await readSelectedDataEdgeIds(page, projectContext.projectConfigId),
+      )
+      .toEqual([edgeId]);
+
+    await page.mouse.move(edgeMidpointScreen.x, edgeMidpointScreen.y + 180);
+    await expect
+      .poll(async () => (await readHoveredEdgeState(host)).active)
+      .toBe(false);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host creates agentic edges via handle drag", async ({
   page,
 }) => {
@@ -1259,9 +1468,24 @@ test("canvas engine host supports agentic edge click selection", async ({
       x: targetOnRight ? targetLayout.x : targetLayout.x + targetWidth,
       y: targetLayout.y + targetHeight / 2,
     };
-    await clickWorldPoint(page, host, {
+    const edgeMidpoint = {
       x: (edgeStart.x + edgeEnd.x) / 2,
       y: (edgeStart.y + edgeEnd.y) / 2,
+    };
+    const edgeMidpointScreen = await worldPointToScreen(host, edgeMidpoint);
+    await page.mouse.move(edgeMidpointScreen.x, edgeMidpointScreen.y);
+
+    await expect
+      .poll(async () => await readHoveredEdgeState(host))
+      .toEqual({
+        active: true,
+        kind: "agentic",
+        id: edgeId,
+      });
+
+    await clickWorldPoint(page, host, {
+      x: edgeMidpoint.x,
+      y: edgeMidpoint.y,
     });
 
     await expect
@@ -1441,6 +1665,26 @@ async function readConnectionPreviewState(
       "data-canvas-engine-connection-preview-has-target-handle",
       hasTargetHandleRaw,
     ),
+  };
+}
+
+async function readHoveredEdgeState(
+  host: Locator,
+): Promise<CanvasEngineHoveredEdgeState> {
+  const activeRaw = await host.getAttribute(
+    "data-canvas-engine-hovered-edge-active",
+  );
+  const kind =
+    (await host.getAttribute("data-canvas-engine-hovered-edge-kind")) ?? "";
+  const id =
+    (await host.getAttribute("data-canvas-engine-hovered-edge-id")) ?? "";
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-hovered-edge-active",
+      activeRaw,
+    ),
+    kind,
+    id,
   };
 }
 
@@ -1887,6 +2131,21 @@ async function readSelectedAgenticEdgeIds(
     { projectConfigId },
   );
   const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
+  return edges
+    .filter((edge) => edge.selected && typeof edge.id === "string")
+    .map((edge) => edge.id as string);
+}
+
+async function readSelectedDataEdgeIds(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
   return edges
     .filter((edge) => edge.selected && typeof edge.id === "string")
     .map((edge) => edge.id as string);
