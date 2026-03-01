@@ -39,9 +39,6 @@ const EdgeRenderer = () => {
   }));
 
   useEffect(() => {
-    if (edges.length === 0) {
-      return;
-    }
     recomputeEdgeHandlePositions();
   }, [edges, width, height, topLevelSections]);
 
