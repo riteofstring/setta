@@ -10,6 +10,7 @@ export function ContainerSwitch({
   visibility,
   isEditingViewMode,
   isUserView,
+  flattenNonGroupWrapper,
 }: {
   isGroup: boolean;
   sectionId: string;
@@ -19,6 +20,7 @@ export function ContainerSwitch({
   visibility: boolean;
   isEditingViewMode: boolean;
   isUserView: boolean;
+  flattenNonGroupWrapper: boolean;
 }) {
   return isTopLevel ? (
     <TopLevelContainer
@@ -27,6 +29,7 @@ export function ContainerSwitch({
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
+      flattenNonGroupWrapper={flattenNonGroupWrapper}
     >
       {children}
     </TopLevelContainer>
@@ -39,6 +42,7 @@ export function ContainerSwitch({
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
+      flattenNonGroupWrapper={flattenNonGroupWrapper}
     >
       {children}
     </DndSlotAndDndWatcher>

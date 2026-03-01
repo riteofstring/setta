@@ -46,20 +46,15 @@ export function MinimizeButton({
   const colorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)] hover:bg-[color:var(--setta-section-style-bg)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]"
     : "text-setta-600 hover:bg-blue-500 hover:text-white";
+  const iconClassName = !isMinimized ? "gg-math-minus" : "gg-maximize !scale-[.4]";
 
   return (
     <button
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
-      } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${colorClassName} ${twClasses ?? ""}`}
+      } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${iconClassName} ${colorClassName} ${twClasses ?? ""}`}
       onClick={onClick}
       {...buttonProps}
-    >
-      {!isMinimized ? (
-        <i className="gg-math-minus" />
-      ) : (
-        <i className="gg-maximize !scale-[.4]" />
-      )}
-    </button>
+    />
   );
 }
