@@ -328,6 +328,212 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   ).toHaveCount(0);
 });
 
+test("project ai chat keeps skill save disabled for truncated editable previews", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::custom/deploy-helper",
+          name: "deploy-helper",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "custom/deploy-helper",
+          description: "Custom deployment helper skill.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId:
+          payload.skillId ?? "workspace_agents_skills::custom/deploy-helper",
+        content: "# Deploy helper\n\nPreview text only.",
+        truncated: true,
+        originalSizeBytes: 500_000,
+      }),
+    });
+  });
+
+  let upsertCallCount = 0;
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    upsertCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_agents_skills::custom/deploy-helper",
+        created: false,
+        rootPath: "/workspace/.agents/skills",
+        skillDocPath: "/workspace/.agents/skills/custom/deploy-helper/SKILL.md",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await expect(
+    page.getByText("Preview truncated from 500,000 bytes."),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
+  expect(upsertCallCount).toBe(0);
+});
+
+test("project ai chat does not copy load errors into editable skill draft content", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::custom/incident-guide",
+          name: "incident-guide",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "custom/incident-guide",
+          description: "Custom incident guide skill.",
+        },
+      ]),
+    });
+  });
+
+  let skillContentCallCount = 0;
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    skillContentCallCount += 1;
+    if (skillContentCallCount === 1) {
+      const payload = route.request().postDataJSON() as { skillId?: string };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skillId:
+            payload.skillId ?? "workspace_agents_skills::custom/incident-guide",
+          content: "# Incident guide\n\nOriginal editable content.",
+          truncated: false,
+          originalSizeBytes: 48,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "Failed to load selected skill content from disk.",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  const rawEditor = page.getByLabel("Skill Markdown Content");
+  await expect(rawEditor).toContainText("Original editable content.");
+
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkillContent",
+    statuses: [400],
+    method: "POST",
+  });
+  await page.getByTestId("project-chat-skills-refresh").click();
+  await expect(rawEditor).toContainText("Original editable content.");
+  await expect(rawEditor).not.toContainText(
+    "Failed to load selected skill content from disk.",
+  );
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
+});
+
+test("project ai chat scopes agent-run side effects to slash commands view", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::placeholder",
+        content: "# Placeholder",
+      }),
+    });
+  });
+
+  let getAgentRunsCallCount = 0;
+  await page.route("**/api/getAgentRuns", async (route) => {
+    getAgentRunsCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  await ensureAppReady(page);
+
+  const baselineAgentRunsCalls = getAgentRunsCallCount;
+
+  await openSkillsViewer(page);
+  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  await page.waitForTimeout(750);
+  expect(getAgentRunsCallCount).toBe(baselineAgentRunsCalls);
+
+  await page.getByTestId("project-chat-aux-tab-mcp").click();
+  await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
+  await page.waitForTimeout(750);
+  expect(getAgentRunsCallCount).toBe(baselineAgentRunsCalls);
+
+  await page.getByTestId("project-chat-aux-tab-slash-commands").click();
+  await expect(
+    page.getByTestId("project-chat-slash-commands-view"),
+  ).toBeVisible();
+  await page
+    .getByTestId("skills-mcp-slash-tab")
+    .filter({ hasText: "External Agent" })
+    .first()
+    .click();
+  await expect
+    .poll(() => getAgentRunsCallCount, { timeout: 5_000 })
+    .toBeGreaterThan(baselineAgentRunsCalls);
+});
+
 test("project chat removes custom commands that collide with newly discovered native commands", async ({
   page,
 }) => {
@@ -356,9 +562,10 @@ test("project chat removes custom commands that collide with newly discovered na
 
   let externalEngineId: string | null = null;
   let getAgentRunsCallCount = 0;
+  let nativeDeployCommandVisible = false;
   await page.route("**/api/getAgentRuns", async (route) => {
     getAgentRunsCallCount += 1;
-    if (!externalEngineId || getAgentRunsCallCount < 2) {
+    if (!externalEngineId || !nativeDeployCommandVisible) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -399,7 +606,7 @@ test("project chat removes custom commands that collide with newly discovered na
     };
     const firstContent = payload.message?.content?.[0];
     submittedMessages.push(
-      firstContent?.type === "text" ? (firstContent.text ?? null) : null,
+      firstContent?.type === "text" ? firstContent.text ?? null : null,
     );
     await route.fulfill({
       status: 200,
@@ -432,15 +639,17 @@ test("project chat removes custom commands that collide with newly discovered na
     engineType: string;
   }>;
   externalEngineId =
-    engineConfigs.find((config) => config.engineType === "external_agent")?.id ??
-    null;
+    engineConfigs.find((config) => config.engineType === "external_agent")
+      ?.id ?? null;
   if (!externalEngineId) {
     throw new Error("Missing external engine config for native slash test.");
   }
 
   await openSlashCommandsViewer(page);
 
-  await page.getByTestId("project-chat-custom-slash-command-input").fill("/deploy");
+  await page
+    .getByTestId("project-chat-custom-slash-command-input")
+    .fill("/deploy");
   await page
     .getByTestId("project-chat-custom-slash-prompt-input")
     .fill("Use the deprecated custom deploy prompt.");
@@ -451,16 +660,71 @@ test("project chat removes custom commands that collide with newly discovered na
     }),
   ).toBeVisible();
 
+  const callsBeforeNativeRefresh = getAgentRunsCallCount;
+  nativeDeployCommandVisible = true;
   await page.evaluate(async () => {
     const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
     await loadAgentRuns();
   });
-  await expect.poll(() => getAgentRunsCallCount).toBeGreaterThanOrEqual(2);
+  await expect
+    .poll(() => getAgentRunsCallCount)
+    .toBeGreaterThan(callsBeforeNativeRefresh);
   await expect(
     page.getByTestId("project-chat-custom-slash-command").filter({
       hasText: "/deploy",
     }),
   ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        const byProject =
+          parsed?.state?.customProjectChatSlashCommandsByProjectConfigId;
+        if (!byProject || typeof byProject !== "object") {
+          return null;
+        }
+        return Object.values(byProject)
+          .flatMap((value) => (Array.isArray(value) ? value : []))
+          .map((entry) => entry.command)
+          .filter((entry) => typeof entry === "string");
+      }),
+    )
+    .not.toContain("/deploy");
+
+  nativeDeployCommandVisible = false;
+  await page.evaluate(async () => {
+    const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
+    await loadAgentRuns();
+  });
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/deploy",
+    }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        const byProject =
+          parsed?.state?.customProjectChatSlashCommandsByProjectConfigId;
+        if (!byProject || typeof byProject !== "object") {
+          return null;
+        }
+        return Object.values(byProject)
+          .flatMap((value) => (Array.isArray(value) ? value : []))
+          .map((entry) => entry.command)
+          .filter((entry) => typeof entry === "string");
+      }),
+    )
+    .not.toContain("/deploy");
 
   await closeSkillsMcpViewer(page);
 

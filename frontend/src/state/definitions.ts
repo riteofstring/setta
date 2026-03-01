@@ -1,3 +1,4 @@
+import { buildCustomPromptSlashCommandDefinitions } from "components/Chat/chatComposerControls";
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
@@ -993,6 +994,36 @@ type ZustandLocalStorage = {
   trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
 };
 
+function normalizeCustomProjectChatSlashCommandsByProjectConfigId(
+  rawValue: unknown,
+): Record<string, Array<ProjectChatCustomSlashCommand>> {
+  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) {
+    return {};
+  }
+  const normalizedByProjectConfigId: Record<
+    string,
+    Array<ProjectChatCustomSlashCommand>
+  > = {};
+  for (const [projectConfigId, rawCommands] of Object.entries(rawValue)) {
+    if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
+      continue;
+    }
+    const commandDefinitions = buildCustomPromptSlashCommandDefinitions(
+      Array.isArray(rawCommands) ? rawCommands : [],
+    );
+    if (commandDefinitions.length === 0) {
+      continue;
+    }
+    normalizedByProjectConfigId[projectConfigId] = commandDefinitions.map(
+      (entry) => ({
+        command: entry.command,
+        prompt: entry.promptTemplate ?? "",
+      }),
+    );
+  }
+  return normalizedByProjectConfigId;
+}
+
 export const useLocalStorage = createWithEqualityFn(
   persist<ZustandLocalStorage>(
     () => ({
@@ -1101,14 +1132,10 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
         }
-        if (
-          !merged.customProjectChatSlashCommandsByProjectConfigId ||
-          typeof merged.customProjectChatSlashCommandsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.customProjectChatSlashCommandsByProjectConfigId)
-        ) {
-          merged.customProjectChatSlashCommandsByProjectConfigId = {};
-        }
+        merged.customProjectChatSlashCommandsByProjectConfigId =
+          normalizeCustomProjectChatSlashCommandsByProjectConfigId(
+            merged.customProjectChatSlashCommandsByProjectConfigId,
+          );
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==

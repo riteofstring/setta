@@ -136,6 +136,36 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(280);
   });
 
+  it("normalizes persisted custom slash command rows by project config", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        customProjectChatSlashCommandsByProjectConfigId: {
+          "project-a": [
+            { command: " /deploy ", prompt: "  Deploy the project.  " },
+            {
+              command: "deploy",
+              prompt: "Duplicate command should be dropped.",
+            },
+            { command: "/empty", prompt: "   " },
+            { command: 42, prompt: "Invalid command type." },
+            "invalid entry",
+          ],
+          "project-b": "invalid-project-value",
+          "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
+        },
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.customProjectChatSlashCommandsByProjectConfigId).toEqual({
+      "project-a": [{ command: "/deploy", prompt: "Deploy the project." }],
+      "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
+    });
+  });
+
   it("keeps canonical home pane values when persisted values are valid", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();

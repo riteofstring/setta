@@ -179,6 +179,25 @@ describe("chatComposerControls", () => {
     expect(parsed?.promptTemplate).toBe("Summarize regressions.");
   });
 
+  it("drops malformed custom prompt slash command entries without throwing", () => {
+    const commands = buildCustomPromptSlashCommandDefinitions([
+      { command: "/triage", prompt: "Summarize regressions." },
+      null,
+      { command: 123, prompt: "invalid command" },
+      { command: "/broken", prompt: 42 },
+      { command: "/empty", prompt: "   " },
+    ]);
+
+    expect(commands).toEqual([
+      {
+        command: "/triage",
+        action: "custom_prompt",
+        summary: "Run a saved custom prompt.",
+        promptTemplate: "Summarize regressions.",
+      },
+    ]);
+  });
+
   it("creates shared managed execution setting handlers without clobbering sibling settings", () => {
     let currentSettings: ManagedChatExecutionSettings = {
       permissionMode: "minimal",

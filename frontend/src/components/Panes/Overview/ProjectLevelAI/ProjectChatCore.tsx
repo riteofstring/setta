@@ -54,7 +54,6 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
   useLocalStorage,
@@ -92,13 +91,13 @@ import {
 } from "./projectChatHydrationAuthority";
 import { buildSlashCommandsByEngine } from "./projectChatSkillsMcpViewerUtils";
 import {
-  areProjectChatCustomSlashCommandsEqual,
   buildAgentNativeSlashCommandsByEngineId,
   buildReservedSlashCommandTokens,
   filterAgentNativeSlashCommandsByEngineId,
   resolveExecutableProjectChatCustomSlashCommands,
 } from "./projectChatSlashCommandResolver";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
+import { useProjectChatCustomSlashCommandSanitizer } from "./useProjectChatCustomSlashCommandSanitizer";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -364,11 +363,6 @@ type ProjectChatRuntimeActivityEntry =
 
 type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
 
-const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
-  {
-    activeBackgroundTerminals: 0,
-    activeSubagents: 0,
-  };
 const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
   {
     activeBackgroundTerminals: [],
@@ -1307,53 +1301,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     managedSlashCommands,
     resolvedCustomProjectChatSlashCommands.executableCustomSlashCommandDefinitions,
   ]);
-  useEffect(() => {
-    const sanitizedCustomSlashCommands =
-      resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands;
-    if (
-      areProjectChatCustomSlashCommandsEqual(
-        customProjectChatSlashCommands,
-        sanitizedCustomSlashCommands,
-      )
-    ) {
-      return;
-    }
-    const conflictedCustomSlashCommands = [
-      ...resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
-    ].sort();
-    useLocalStorage.setState((state) => {
-      const currentByProject =
-        state.customProjectChatSlashCommandsByProjectConfigId;
-      const currentCommands = currentByProject[projectConfigId] ?? [];
-      if (
-        areProjectChatCustomSlashCommandsEqual(
-          currentCommands,
-          sanitizedCustomSlashCommands,
-        )
-      ) {
-        return state;
-      }
-      const nextByProject = { ...currentByProject };
-      if (sanitizedCustomSlashCommands.length === 0) {
-        delete nextByProject[projectConfigId];
-      } else {
-        nextByProject[projectConfigId] = sanitizedCustomSlashCommands;
-      }
-      return {
-        customProjectChatSlashCommandsByProjectConfigId: nextByProject,
-      };
-    });
-    if (conflictedCustomSlashCommands.length > 0) {
-      addTemporaryNotification(
-        `Removed conflicting custom slash command${conflictedCustomSlashCommands.length === 1 ? "" : "s"}: ${conflictedCustomSlashCommands.join(", ")}.`,
-      );
-    }
-  }, [
-    customProjectChatSlashCommands,
+  useProjectChatCustomSlashCommandSanitizer({
     projectConfigId,
-    resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
-    resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands,
-  ]);
+    customProjectChatSlashCommands,
+    sanitizedCustomSlashCommands:
+      resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands,
+    conflictedCustomSlashCommands:
+      resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
+  });
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>

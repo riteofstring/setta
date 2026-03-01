@@ -56,6 +56,7 @@ import {
   filterAgentNativeSlashCommandsByEngineId,
   resolveExecutableProjectChatCustomSlashCommands,
 } from "./projectChatSlashCommandResolver";
+import { useProjectChatCustomSlashCommandSanitizer } from "./useProjectChatCustomSlashCommandSanitizer";
 
 type PathGroupHeaderProps = {
   title: string;
@@ -89,6 +90,11 @@ const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 type SkillMarkdownViewMode =
   | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
   | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
+type SkillContentAuthority =
+  | "none"
+  | "loaded_full"
+  | "loaded_truncated"
+  | "load_error";
 type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
@@ -244,6 +250,10 @@ export function ProjectChatSkillsMcpViewer({
   const [skillFilter, setSkillFilter] = useState("");
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillContent, setSelectedSkillContent] = useState("");
+  const [selectedSkillContentLoadError, setSelectedSkillContentLoadError] =
+    useState<string | null>(null);
+  const [selectedSkillContentAuthority, setSelectedSkillContentAuthority] =
+    useState<SkillContentAuthority>("none");
   const [selectedSkillContentTruncated, setSelectedSkillContentTruncated] =
     useState(false);
   const [selectedSkillOriginalSizeBytes, setSelectedSkillOriginalSizeBytes] =
@@ -379,6 +389,8 @@ export function ProjectChatSkillsMcpViewer({
         skillContentRequestSequence.current += 1;
         setSkillContentLoading(false);
         setSelectedSkillContent("");
+        setSelectedSkillContentLoadError(null);
+        setSelectedSkillContentAuthority("none");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
         return;
@@ -387,6 +399,8 @@ export function ProjectChatSkillsMcpViewer({
         skillContentRequestSequence.current += 1;
         setSkillContentLoading(false);
         setSelectedSkillContent("");
+        setSelectedSkillContentLoadError(null);
+        setSelectedSkillContentAuthority("none");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
         return;
@@ -396,6 +410,10 @@ export function ProjectChatSkillsMcpViewer({
       if (cached) {
         setSkillContentLoading(false);
         setSelectedSkillContent(cached.content);
+        setSelectedSkillContentLoadError(null);
+        setSelectedSkillContentAuthority(
+          cached.truncated ? "loaded_truncated" : "loaded_full",
+        );
         setSelectedSkillContentTruncated(cached.truncated);
         setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
         return;
@@ -404,6 +422,7 @@ export function ProjectChatSkillsMcpViewer({
       const requestSequence = skillContentRequestSequence.current + 1;
       skillContentRequestSequence.current = requestSequence;
       setSkillContentLoading(true);
+      setSelectedSkillContentLoadError(null);
       const res = await route_get_app_gen_skill_content({
         skillId: requestedSkillId,
       });
@@ -416,14 +435,20 @@ export function ProjectChatSkillsMcpViewer({
       setSkillContentLoading(false);
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
-        setSelectedSkillContent(
+        setSelectedSkillContent("");
+        setSelectedSkillContentLoadError(
           detail ?? "Failed to load selected skill content.",
         );
+        setSelectedSkillContentAuthority("load_error");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       setSelectedSkillContent(res.data.content);
+      setSelectedSkillContentLoadError(null);
+      setSelectedSkillContentAuthority(
+        res.data.truncated ? "loaded_truncated" : "loaded_full",
+      );
       setSelectedSkillContentTruncated(res.data.truncated);
       setSelectedSkillOriginalSizeBytes(res.data.originalSizeBytes);
       skillContentCache.current.set(cacheKey, {
@@ -436,6 +461,9 @@ export function ProjectChatSkillsMcpViewer({
   }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
 
   useEffect(() => {
+    if (viewMode !== "mcp") {
+      return;
+    }
     let cancelled = false;
     async function loadMcpRuntimeStatus() {
       if (!allLLMConfigsInitialLoadComplete) {
@@ -487,9 +515,10 @@ export function ProjectChatSkillsMcpViewer({
     };
   }, [
     allLLMConfigsInitialLoadComplete,
+    allLLMConfigs?.mcpServers,
     chatId,
     engineConfigId,
-    allLLMConfigs?.mcpServers,
+    viewMode,
   ]);
 
   useEffect(() => {
@@ -507,15 +536,24 @@ export function ProjectChatSkillsMcpViewer({
   }, [skillMarkdownViewMode, storageAdapter]);
 
   useEffect(() => {
+    if (
+      selectedSkillContentAuthority !== "loaded_full" &&
+      selectedSkillContentAuthority !== "loaded_truncated"
+    ) {
+      return;
+    }
     setSkillMarkdownRawDraft(selectedSkillContent);
-  }, [selectedSkillContent, selectedSkillId]);
+  }, [selectedSkillContent, selectedSkillContentAuthority, selectedSkillId]);
 
   useEffect(() => {
+    if (viewMode !== "slash_commands") {
+      return;
+    }
     if (agentRunsInitialLoadComplete) {
       return;
     }
     void loadAgentRuns();
-  }, [agentRunsInitialLoadComplete]);
+  }, [agentRunsInitialLoadComplete, viewMode]);
 
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
@@ -626,6 +664,14 @@ export function ProjectChatSkillsMcpViewer({
       reservedSlashCommandTokens,
     });
   }, [customProjectChatSlashCommands, reservedSlashCommandTokens]);
+  useProjectChatCustomSlashCommandSanitizer({
+    projectConfigId,
+    customProjectChatSlashCommands,
+    sanitizedCustomSlashCommands:
+      resolvedCustomSlashCommands.sanitizedCustomSlashCommands,
+    conflictedCustomSlashCommands:
+      resolvedCustomSlashCommands.conflictedCustomSlashCommands,
+  });
   const customSlashCommandDefinitions = useMemo(() => {
     return resolvedCustomSlashCommands.executableCustomSlashCommandDefinitions;
   }, [resolvedCustomSlashCommands.executableCustomSlashCommandDefinitions]);
@@ -652,6 +698,9 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
+    if (viewMode !== "slash_commands") {
+      return;
+    }
     if (!selectedSlashEngine) {
       return;
     }
@@ -666,7 +715,7 @@ export function ProjectChatSkillsMcpViewer({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [selectedSlashEngine]);
+  }, [selectedSlashEngine, viewMode]);
 
   const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({
@@ -757,7 +806,8 @@ export function ProjectChatSkillsMcpViewer({
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
-      : selectedSkillContent || "Select a skill to preview SKILL.md.";
+      : selectedSkillContentLoadError ??
+        (selectedSkillContent || "Select a skill to preview SKILL.md.");
   const skillPreviewTruncationNotice =
     selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
       ? `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`
@@ -769,7 +819,20 @@ export function ProjectChatSkillsMcpViewer({
     !!selectedSkillId &&
     isRawMarkdownView &&
     !skillContentLoading &&
-    !customSkillSaveInFlight;
+    !customSkillSaveInFlight &&
+    selectedSkillContentAuthority === "loaded_full";
+  const saveSelectedSkillTitle = useMemo(() => {
+    if (!selectedSkillIsEditable) {
+      return "Only custom skills can be edited.";
+    }
+    if (selectedSkillContentAuthority === "loaded_truncated") {
+      return "Cannot save while only a truncated preview is loaded.";
+    }
+    if (selectedSkillContentAuthority === "load_error") {
+      return "Cannot save while skill content failed to load.";
+    }
+    return "Save selected custom skill";
+  }, [selectedSkillContentAuthority, selectedSkillIsEditable]);
 
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
@@ -926,6 +989,8 @@ export function ProjectChatSkillsMcpViewer({
     setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
     setSelectedSkillId(res.data.skillId);
     setSelectedSkillContent(initialContent);
+    setSelectedSkillContentLoadError(null);
+    setSelectedSkillContentAuthority("loaded_full");
     setSkillMarkdownRawDraft(initialContent);
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(initialContent.length);
@@ -947,6 +1012,14 @@ export function ProjectChatSkillsMcpViewer({
       );
       return;
     }
+    if (selectedSkillContentAuthority !== "loaded_full") {
+      addTemporaryNotification(
+        selectedSkillContentAuthority === "loaded_truncated"
+          ? "Cannot save while only a truncated preview is loaded."
+          : "Cannot save until full skill content is loaded.",
+      );
+      return;
+    }
     setCustomSkillSaveInFlight(true);
     const res = await route_upsert_app_gen_custom_skill({
       skillId: selectedSkillId,
@@ -965,6 +1038,8 @@ export function ProjectChatSkillsMcpViewer({
     }
     setCustomSkillRootPathHint(res.data.rootPath);
     setSelectedSkillContent(skillMarkdownRawDraft);
+    setSelectedSkillContentLoadError(null);
+    setSelectedSkillContentAuthority("loaded_full");
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(skillMarkdownRawDraft.length);
     const cacheEntry = {
@@ -978,7 +1053,12 @@ export function ProjectChatSkillsMcpViewer({
       }
     }
     addTemporaryNotification("Saved custom skill.");
-  }, [selectedSkillId, selectedSkillIsEditable, skillMarkdownRawDraft]);
+  }, [
+    selectedSkillContentAuthority,
+    selectedSkillId,
+    selectedSkillIsEditable,
+    skillMarkdownRawDraft,
+  ]);
 
   const beginSkillsListResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1425,11 +1505,7 @@ export function ProjectChatSkillsMcpViewer({
                             className="inline-flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
                             onClick={() => void saveSelectedCustomSkill()}
                             disabled={!canSaveSelectedSkill}
-                            title={
-                              selectedSkillIsEditable
-                                ? "Save selected custom skill"
-                                : "Only custom skills can be edited."
-                            }
+                            title={saveSelectedSkillTitle}
                           >
                             <FiSave className="h-3 w-3" />
                             Save
