@@ -4,10 +4,7 @@ import {
   useBackendLogEvents,
   useLocalStorage,
 } from "state/definitions";
-import {
-  OverviewNotificationsPaneTabEnum,
-  OverviewTabNameEnum,
-} from "utils/constants";
+import { OverviewTabNameEnum } from "utils/constants";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 
 const MAX_BACKEND_LOG_EVENTS = 500;
@@ -17,19 +14,8 @@ function isHighSeverity(event: SettaBackendLogEvent) {
 }
 
 function backendLogsTabIsVisible() {
-  const { overviewTab, overviewVis, overviewNotificationsPaneTab } =
-    useLocalStorage.getState();
-  if (!overviewVis) {
-    return false;
-  }
-  if (overviewTab === OverviewTabNameEnum.BackendLogs) {
-    return true;
-  }
-  return (
-    overviewTab === OverviewTabNameEnum.Notifications &&
-    overviewNotificationsPaneTab ===
-      OverviewNotificationsPaneTabEnum.BackendLogs
-  );
+  const { overviewTab, overviewVis } = useLocalStorage.getState();
+  return overviewVis && overviewTab === OverviewTabNameEnum.BackendLogs;
 }
 
 export function addBackendLogEvent(event: SettaBackendLogEvent) {
