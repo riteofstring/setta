@@ -195,6 +195,37 @@
   - Keep hybrid canvas paused.
   - Expand layer-split scope cautiously (additional heavy view modes/projects) behind deterministic gating and same guardrail process.
 
+### Phase 0.5 Status Update (2026-03-03, Global Default-On Switch)
+- Scope gating was removed; viewport layer split now resolves to global default-on when no explicit override is set.
+- Explicit localStorage kill switch is still retained:
+  - `setta.viewportLayerSplit.enabled=0/false/off` forces off.
+- Verification in this pass:
+  - Vitest flag tests passed.
+  - Playwright baseline + forced-off control + guardrail all passed.
+  - CDP control/enabled rerun preserved the same directional uplift (large pan/zoom gain with split enabled).
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-layer-split-global-default-on.md`
+- Updated next focus:
+  - Keep hybrid canvas paused.
+  - Prioritize broad non-pan interaction work (per-keystroke reduction and subscription partitioning redesign) now that motion throughput is no longer scope-locked to one project/view pair.
+
+### Phase 0.5 Status Update (2026-03-03, Clipping Regression Correction)
+- User-reported regression discovered in `Settings -> All Settings`:
+  - only a subset of sections rendered in the viewport,
+  - some visible sections appeared clipped.
+- Root cause:
+  - `contain: paint` on the split wrapper clipped in transformed world coordinates.
+- Fix landed:
+  - removed paint containment from the split wrapper,
+  - added Playwright guardrail assertion for visible section count to catch this class of failure.
+- Re-measurement after fix:
+  - split-on and split-off pan/zoom throughput are near parity in this benchmark.
+  - prior large layer-split throughput uplift is now treated as non-robust (artifact of clipping behavior).
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-layer-split-clipping-regression-fix.md`
+- Updated interpretation:
+  - layer-split remains a structural path, but not a proven fundamental pan/zoom performance win in its corrected form.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.

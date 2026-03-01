@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isViewportLayerSplitScopeDefaultEnabled,
-  parseViewportLayerSplitFlagOverride,
-} from "./viewportLayerSplitFlag";
+import { parseViewportLayerSplitFlagOverride } from "./viewportLayerSplitFlag";
 
 describe("viewportLayerSplitFlag", () => {
   it("parses explicit enable overrides", () => {
@@ -23,24 +20,8 @@ describe("viewportLayerSplitFlag", () => {
     expect(parseViewportLayerSplitFlagOverride("disabled")).toBe("unset");
   });
 
-  it("defaults on only for settings/all-settings scope", () => {
-    expect(
-      isViewportLayerSplitScopeDefaultEnabled({
-        projectName: "settings",
-        activeViewModeName: "All Settings",
-      }),
-    ).toBe(true);
-    expect(
-      isViewportLayerSplitScopeDefaultEnabled({
-        projectName: "settings",
-        activeViewModeName: "Core",
-      }),
-    ).toBe(false);
-    expect(
-      isViewportLayerSplitScopeDefaultEnabled({
-        projectName: "other-project",
-        activeViewModeName: "All Settings",
-      }),
-    ).toBe(false);
+  it("preserves explicit off overrides for kill-switch use", () => {
+    expect(parseViewportLayerSplitFlagOverride("0")).toBe("disabled");
+    expect(parseViewportLayerSplitFlagOverride("off")).toBe("disabled");
   });
 });

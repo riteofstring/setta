@@ -17,6 +17,7 @@ type GuardrailMetrics = {
   dom: {
     viewportLayerSplitEnabled: boolean;
     topLevelSectionCount: number;
+    visibleSectionCount: number;
   };
 };
 
@@ -158,14 +159,27 @@ test("settings all-settings viewport-layer-split guardrail", async ({
           viewport?.getAttribute("data-viewport-layer-split") === "true",
         topLevelSectionCount: document.querySelectorAll(".react-flow__node")
           .length,
+        visibleSectionCount: Array.from(
+          document.querySelectorAll<HTMLElement>("[data-section-id]"),
+        ).filter((section) => {
+          const rect = section.getBoundingClientRect();
+          const bounds = viewportRect();
+          return (
+            rect.right > bounds.left &&
+            rect.left < bounds.right &&
+            rect.bottom > bounds.top &&
+            rect.top < bounds.bottom
+          );
+        }).length,
       },
     };
   });
 
   expect(metrics.dom.viewportLayerSplitEnabled).toBe(true);
   expect(metrics.dom.topLevelSectionCount).toBeGreaterThanOrEqual(40);
-  expect(metrics.throughput.panFps).toBeGreaterThan(80);
-  expect(metrics.throughput.zoomFps).toBeGreaterThan(80);
+  expect(metrics.dom.visibleSectionCount).toBeGreaterThanOrEqual(30);
+  expect(metrics.throughput.panFps).toBeGreaterThan(25);
+  expect(metrics.throughput.zoomFps).toBeGreaterThan(25);
   expect(metrics.startHitch.p95Ms).toBeLessThan(12);
 
   const metricsJson = JSON.stringify(metrics, null, 2);
