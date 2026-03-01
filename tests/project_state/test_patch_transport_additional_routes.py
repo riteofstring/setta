@@ -121,10 +121,24 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
         sender = manager.websocket_msg_handler
         project_state_broadcast_calls = 0
         section_impl_patch_calls: list[dict[str, int | str | list[str]]] = []
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = (
+            manager._schedule_deferred_codegen_refresh
+        )
         original_project_state_broadcast = sender.broadcast_project_state
         original_section_impl_patch_broadcast = (
             sender.broadcast_project_state_section_impl_patch
         )
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
 
         async def record_project_state_broadcast(
             project_state,
@@ -180,6 +194,8 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             await manager.finish_pending_operations(timeout=5.0)
             before_snapshot_calls = project_state_broadcast_calls
             before_patch_count = len(section_impl_patch_calls)
+            before_refresh_calls = refresh_calls
+            before_deferred_refresh_count = len(scheduled_deferred_refreshes)
             await operation_coro
             await manager.finish_pending_operations(timeout=5.0)
             assert project_state_broadcast_calls == before_snapshot_calls
@@ -190,7 +206,17 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
             assert patch["sectionId"] == expected_section_id
             assert patch["sectionImplType"] == expected_section_type
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+            assert refresh_calls == before_refresh_calls
+            assert (
+                len(scheduled_deferred_refreshes)
+                == before_deferred_refresh_count + 1
+            )
+            assert scheduled_deferred_refreshes[-1] == project_config_id
 
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
         sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         try:
@@ -405,6 +431,10 @@ async def test_additional_section_scoped_routes_use_section_impl_patch_transport
                 ),
             )
         finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
             sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
             sender.broadcast_project_state_section_impl_patch = (
                 original_section_impl_patch_broadcast  # type: ignore[method-assign]

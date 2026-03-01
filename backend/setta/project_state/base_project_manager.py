@@ -495,6 +495,7 @@ def _is_ui_setting_compare_and_set_noop(
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
 GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S = 0.2
+DEFERRED_CODEGEN_REFRESH_WAIT_S = 0.2
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
     "type": "Stack",
@@ -695,6 +696,12 @@ class BaseProjectManager(ABC):
             ID, AsyncDebouncer
         ] = {}
         self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config: dict[
+            ID, int
+        ] = {}
+        self._deferred_codegen_refresh_debouncer_by_project_config: dict[
+            ID, AsyncDebouncer
+        ] = {}
+        self._pending_deferred_codegen_refresh_revision_by_project_config: dict[
             ID, int
         ] = {}
         self.completed_op_ids_since_last_broadcast: list[str] = []
@@ -969,6 +976,7 @@ class BaseProjectManager(ABC):
     ):
         project_config_id = x.projectConfigId
         await self._flush_pending_gen_code_prefix_suffix_refresh(project_config_id)
+        await self._flush_pending_deferred_codegen_refresh(project_config_id)
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
@@ -2099,6 +2107,12 @@ class BaseProjectManager(ABC):
             debouncer.cancel()
         self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.clear()
         self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.clear()
+        for (
+            debouncer
+        ) in self._deferred_codegen_refresh_debouncer_by_project_config.values():
+            debouncer.cancel()
+        self._deferred_codegen_refresh_debouncer_by_project_config.clear()
+        self._pending_deferred_codegen_refresh_revision_by_project_config.clear()
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
 
@@ -2110,6 +2124,20 @@ class BaseProjectManager(ABC):
         allow_reserved_project_name: bool = False,
         validate_name_rules: bool = True,
     ):
+        project_config_id = projectState.projectConfig.id
+        if (
+            project_config_id
+            in self._pending_deferred_codegen_refresh_revision_by_project_config
+        ):
+            self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+                project_config_id,
+                None,
+            )
+            debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
+                project_config_id
+            )
+            if debouncer is not None:
+                debouncer.cancel_pending()
         async with self._project_state_lock.write_lock():
             projectState._section_slug_cache = None
             projectState.validate_for_update(
@@ -2399,6 +2427,85 @@ class BaseProjectManager(ABC):
         if debouncer is not None:
             debouncer.cancel_pending()
         await self._refresh_gen_code_prefix_suffix_now(project_config_id)
+
+    def _get_deferred_codegen_refresh_debouncer(
+        self,
+        project_config_id: ID,
+    ) -> AsyncDebouncer:
+        existing = self._deferred_codegen_refresh_debouncer_by_project_config.get(
+            project_config_id
+        )
+        if existing is not None:
+            return existing
+
+        async def run_deferred_refresh() -> None:
+            await self._run_deferred_codegen_refresh(project_config_id)
+
+        debouncer = AsyncDebouncer(
+            run_deferred_refresh,
+            wait=DEFERRED_CODEGEN_REFRESH_WAIT_S,
+            label=f"{type(self).__name__}-deferred-codegen-refresh",
+        )
+        self._deferred_codegen_refresh_debouncer_by_project_config[
+            project_config_id
+        ] = debouncer
+        return debouncer
+
+    def _schedule_deferred_codegen_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        self._pending_deferred_codegen_refresh_revision_by_project_config[
+            project_config_id
+        ] = self.history.revision
+        self._get_deferred_codegen_refresh_debouncer(project_config_id).trigger()
+
+    async def _refresh_deferred_codegen_now(self, project_config_id: ID) -> None:
+        if (
+            project_config_id
+            not in self._pending_deferred_codegen_refresh_revision_by_project_config
+        ):
+            return
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+                project_config_id,
+                None,
+            )
+            return
+        project_state = self.get_single_config_state(project_config_id)
+        await self.update(
+            project_state,
+            updateFileWatcher=False,
+            validate_name_rules=False,
+        )
+        await self._broadcast_project_state_snapshot(project_state)
+        self._pending_deferred_codegen_refresh_revision_by_project_config.pop(
+            project_config_id,
+            None,
+        )
+
+    @enqueue_method
+    async def _run_deferred_codegen_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        await self._refresh_deferred_codegen_now(project_config_id)
+
+    async def _flush_pending_deferred_codegen_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        if (
+            project_config_id
+            not in self._pending_deferred_codegen_refresh_revision_by_project_config
+        ):
+            return
+        debouncer = self._deferred_codegen_refresh_debouncer_by_project_config.get(
+            project_config_id
+        )
+        if debouncer is not None:
+            debouncer.cancel_pending()
+        await self._refresh_deferred_codegen_now(project_config_id)
 
     @enqueue_method
     @project_state_tool(
@@ -3236,9 +3343,11 @@ class BaseProjectManager(ABC):
         set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     async def _apply_code_section_diagnostics_ignore_state(
@@ -3280,9 +3389,11 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
         await self._apply_code_section_diagnostics_ignore_state(
             x.projectConfigId, x.sectionId
@@ -3307,9 +3418,11 @@ class BaseProjectManager(ABC):
             x.code,
             x.suppress,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
         await self._apply_code_section_diagnostics_ignore_state(
             x.projectConfigId, x.sectionId
@@ -3508,9 +3621,11 @@ class BaseProjectManager(ABC):
             autoBinding=False,
         )
         set_code_file_binding(project_state, x.sectionId, updated_binding)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5056,9 +5171,11 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.defaultChildSectionType,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5069,9 +5186,11 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.viewMode,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5084,9 +5203,11 @@ class BaseProjectManager(ABC):
             x.columns,
             x.tasks,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5098,9 +5219,11 @@ class BaseProjectManager(ABC):
             x.filePath,
             x.activeSheet,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5116,9 +5239,11 @@ class BaseProjectManager(ABC):
             x.density,
             x.autoReloadOnExternalChange,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5192,9 +5317,11 @@ class BaseProjectManager(ABC):
             x.searchEnabled,
             x.dictationMode,
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5248,9 +5375,11 @@ class BaseProjectManager(ABC):
             if run_ids:
                 return chat_id
         set_chat_section_chat_id(project_state, x.sectionId, None)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
         return None
 
@@ -5258,9 +5387,11 @@ class BaseProjectManager(ABC):
     async def set_chat_section_chat_id(self, x: SetChatSectionChatIdRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     async def _apply_listener_emit_updates_to_state(
@@ -5316,27 +5447,33 @@ class BaseProjectManager(ABC):
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_image_area_image_path(project_state, x.sectionId, x.imagePath)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
     async def set_chart_area_data_path(self, x: SetChartAreaDataPathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_area_data_path(project_state, x.sectionId, x.dataPath)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
     async def set_chart_type(self, x: SetChartTypeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_type(project_state, x.sectionId, x.chartType)
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5345,9 +5482,11 @@ class BaseProjectManager(ABC):
         set_chart_settings(
             project_state, x.sectionId, x.chartSettings, x.changedSettings
         )
-        await self._update_and_broadcast_section_impl_patch_no_name_validation(
-            project_state,
-            section_id=x.sectionId,
+        await (
+            self._merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+                project_state,
+                section_id=x.sectionId,
+            )
         )
 
     @enqueue_method
@@ -5637,6 +5776,48 @@ class BaseProjectManager(ABC):
             previous_project_state_revision=previous_project_state_revision,
             project_state_revision=next_project_state_revision,
         )
+
+    async def _merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_id: ID,
+        updateFileWatcher: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            project_state.validate_for_update(
+                validate_code_file_bindings=True,
+                validate_name_rules=False,
+            )
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=updateFileWatcher,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        section_variant_id = project_state.projectConfig.sectionVariantMap.get(
+            section_id
+        )
+        if section_variant_id is None:
+            raise KeyError(f"Section {section_id} missing section variant id.")
+        section_variant = project_state.sectionVariants.get(section_variant_id)
+        if section_variant is None:
+            raise KeyError(f"Section variant {section_variant_id} not found.")
+        section_impl = project_state.sectionImpls.get(section_variant.impl)
+        if section_impl is None:
+            raise KeyError(f"Section impl {section_variant.impl} not found.")
+        await self._broadcast_section_impl_patch(
+            project_config_id=project_state.projectConfig.id,
+            section_id=section_id,
+            section_impl=section_impl,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+        self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
     async def _update_and_broadcast_project_config_patch_no_name_validation(
         self,
