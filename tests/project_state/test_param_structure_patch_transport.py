@@ -21,6 +21,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
+from setta.types.helpers_lvl2 import set_section_edge_inputs
 from setta.types.id import ID
 from setta.types.section_impls import CallableSectionImpl
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
@@ -193,6 +194,26 @@ def _get_callable_impl(manager, project_config_id: ID) -> tuple[ID, CodeCallable
     return callable_id, callable_impl
 
 
+def _set_callable_edge_inputs(manager, project_state, param_ids: list[ID]) -> None:
+    set_section_edge_inputs(
+        manager.settings_file.settings,
+        project_state,
+        SECTION_ID,
+        list(param_ids),
+    )
+
+
+def _set_callable_param_core_names_editable(project_state, param_count: int) -> None:
+    for idx in range(param_count):
+        variant_id = ID(f"param-variant-{idx}")
+        variant = project_state.codeObjVariants[variant_id]
+        impl_id = variant.impl
+        impl = project_state.codeObjImpls[impl_id]
+        if not isinstance(impl, CodeParamCodeObjImpl):
+            raise TypeError(f"Expected CodeParamCodeObjImpl for {impl_id}")
+        impl.coreNameEditable = True
+
+
 @pytest.mark.asyncio
 async def test_add_kwarg_uses_code_obj_and_section_impl_patch_transport() -> None:
     async with real_settings_manager() as fixture:
@@ -262,9 +283,7 @@ async def test_add_kwarg_uses_code_obj_and_section_impl_patch_transport() -> Non
 
 
 @pytest.mark.asyncio
-async def test_delete_kwarg_uses_project_config_code_obj_and_section_patch_transport() -> (
-    None
-):
+async def test_delete_kwarg_uses_code_obj_and_section_patch_transport_when_no_edge_input() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -274,6 +293,80 @@ async def test_delete_kwarg_uses_project_config_code_obj_and_section_patch_trans
         project_config_id = project_state.projectConfig.id
         callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
         removed_param_id = callable_impl_before.children[-1]
+        before_child_count = len(callable_impl_before.children)
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.delete_kwarg(
+                DeleteKwargRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert code_obj_patch["projectConfigId"] == project_config_id
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert removed_param_id in code_obj_patch["codeObjIds"]
+        assert (
+            code_obj_patch["previousProjectStateRevision"]
+            < code_obj_patch["projectStateRevision"]
+        )
+
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        for section_patch in capture["section_impl_patch_calls"]:
+            assert section_patch["projectConfigId"] == project_config_id
+            assert (
+                section_patch["previousProjectStateRevision"]
+                == code_obj_patch["projectStateRevision"]
+            )
+            assert (
+                section_patch["projectStateRevision"]
+                == code_obj_patch["projectStateRevision"]
+            )
+
+        assert 1 == capture["name_validation_broadcast_calls"]
+        _, callable_impl_after = _get_callable_impl(manager, project_config_id)
+        assert len(callable_impl_after.children) == before_child_count - 1
+        assert removed_param_id not in callable_impl_after.children
+
+
+@pytest.mark.asyncio
+async def test_delete_kwarg_includes_project_config_patch_when_deleting_edge_input() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        section_impl_before_update = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        if section_impl_before_update.callable is None:
+            raise KeyError("Callable section missing callable code object id.")
+        callable_impl_before_update = get_curr_effective_code_obj_impl_with_type_guard(
+            project_state,
+            SECTION_ID,
+            section_impl_before_update.callable,
+            CodeCallableCodeObjImpl,
+        )
+        removed_param_id = callable_impl_before_update.children[-1]
+        _set_callable_edge_inputs(manager, project_state, [removed_param_id])
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
         before_child_count = len(callable_impl_before.children)
 
         sender = manager.websocket_msg_handler
@@ -335,21 +428,80 @@ async def test_delete_kwarg_uses_project_config_code_obj_and_section_patch_trans
 
 
 @pytest.mark.asyncio
-async def test_delete_selected_params_uses_project_config_code_obj_and_section_patch_transport() -> (
+async def test_delete_selected_params_uses_code_obj_and_section_patch_transport_when_no_edge_input() -> (
     None
 ):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
         project_state = build_callable_project_state(4)
-        for idx in range(4):
-            variant_id = ID(f"param-variant-{idx}")
-            variant = project_state.codeObjVariants[variant_id]
-            impl_id = variant.impl
-            impl = project_state.codeObjImpls[impl_id]
-            if not isinstance(impl, CodeParamCodeObjImpl):
-                raise TypeError(f"Expected CodeParamCodeObjImpl for {impl_id}")
-            impl.coreNameEditable = True
+        _set_callable_param_core_names_editable(project_state, 4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        assert PARAM_ONE_ID in callable_impl_before.children
+        assert PARAM_TWO_ID in callable_impl_before.children
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.delete_selected_params(
+                DeleteSelectedParamsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramInfoIds=[PARAM_ONE_ID, PARAM_TWO_ID],
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert code_obj_patch["projectConfigId"] == project_config_id
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert PARAM_ONE_ID in code_obj_patch["codeObjIds"]
+        assert PARAM_TWO_ID in code_obj_patch["codeObjIds"]
+        assert (
+            code_obj_patch["previousProjectStateRevision"]
+            < code_obj_patch["projectStateRevision"]
+        )
+
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        for section_patch in capture["section_impl_patch_calls"]:
+            assert section_patch["projectConfigId"] == project_config_id
+            assert (
+                section_patch["previousProjectStateRevision"]
+                == code_obj_patch["projectStateRevision"]
+            )
+            assert (
+                section_patch["projectStateRevision"]
+                == code_obj_patch["projectStateRevision"]
+            )
+
+        assert 1 == capture["name_validation_broadcast_calls"]
+        _, callable_impl_after = _get_callable_impl(manager, project_config_id)
+        assert PARAM_ONE_ID not in callable_impl_after.children
+        assert PARAM_TWO_ID not in callable_impl_after.children
+
+
+@pytest.mark.asyncio
+async def test_delete_selected_params_includes_project_config_patch_when_deleting_edge_inputs() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        _set_callable_param_core_names_editable(project_state, 4)
+        _set_callable_edge_inputs(manager, project_state, [PARAM_ONE_ID])
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id

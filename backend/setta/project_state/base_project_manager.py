@@ -264,6 +264,7 @@ from setta.types.clipboard import (
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
+    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
 )
 from setta.types.core import Core, Variant
@@ -4897,18 +4898,28 @@ class BaseProjectManager(ABC):
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
-        root_code_obj_id, removed_param_id = (
-            self._get_delete_kwarg_history_targets_for_backend(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-            )
-        )
-        self._add_project_config_and_scoped_history_entry(
+        (
+            root_code_obj_id,
+            removed_param_id,
+            removed_param_was_edge_input,
+        ) = self._get_delete_kwarg_history_targets_for_backend(
             project_config_id=x.projectConfigId,
-            code_obj_ids=[root_code_obj_id, removed_param_id],
-            section_ids=[x.sectionId],
-            include_codegen_singletons=True,
+            section_id=x.sectionId,
         )
+        if removed_param_was_edge_input:
+            self._add_project_config_and_scoped_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_ids=[root_code_obj_id, removed_param_id],
+                section_ids=[x.sectionId],
+                include_codegen_singletons=True,
+            )
+        else:
+            self._add_section_and_code_obj_scoped_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_ids=[root_code_obj_id, removed_param_id],
+                section_ids=[x.sectionId],
+                include_codegen_singletons=True,
+            )
         project_state = self.get_single_config_state(x.projectConfigId)
         removed_param_id = delete_kwarg(
             self.settings_file.settings,
@@ -4923,7 +4934,7 @@ class BaseProjectManager(ABC):
             project_state,
             code_obj_ids=[root_code_obj_id, removed_param_id],
             section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
+            broadcast_project_config_patch=removed_param_was_edge_input,
         )
 
     @enqueue_method
@@ -4935,19 +4946,27 @@ class BaseProjectManager(ABC):
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
-        parent_code_obj_ids = (
-            self._get_parent_code_obj_ids_for_section_params_for_backend(
+        parent_code_obj_ids, deleted_params_touch_edge_inputs = (
+            self._get_delete_selected_params_history_targets_for_backend(
                 project_config_id=x.projectConfigId,
                 section_id=x.sectionId,
                 param_ids=x.paramInfoIds,
             )
         )
-        self._add_project_config_and_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
-            section_ids=[x.sectionId],
-            include_codegen_singletons=True,
-        )
+        if deleted_params_touch_edge_inputs:
+            self._add_project_config_and_scoped_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
+                section_ids=[x.sectionId],
+                include_codegen_singletons=True,
+            )
+        else:
+            self._add_section_and_code_obj_scoped_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
+                section_ids=[x.sectionId],
+                include_codegen_singletons=True,
+            )
         project_state = self.get_single_config_state(x.projectConfigId)
         removed_param_ids = delete_selected_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
@@ -4960,7 +4979,7 @@ class BaseProjectManager(ABC):
             project_state,
             code_obj_ids=[*parent_code_obj_ids, *removed_param_ids],
             section_ids=section_patch_scope,
-            broadcast_project_config_patch=True,
+            broadcast_project_config_patch=deleted_params_touch_edge_inputs,
         )
 
     def create_project_code(
@@ -6801,7 +6820,7 @@ class BaseProjectManager(ABC):
         *,
         project_config_id: ID,
         section_id: ID,
-    ) -> tuple[ID, ID]:
+    ) -> tuple[ID, ID, bool]:
         backend = self.project_state_backend
         section_impl = self._get_param_section_impl_for_backend(
             project_config_id=project_config_id,
@@ -6846,30 +6865,58 @@ class BaseProjectManager(ABC):
             )
         if not root_impl.children:
             raise ValueError(f"Section {section_id} has no kwargs to delete.")
-        return root_code_obj_id, root_impl.children[-1]
+        removed_param_id = root_impl.children[-1]
+        removed_param_was_edge_input = removed_param_id in section_impl.edgeInputParams
+        return root_code_obj_id, removed_param_id, removed_param_was_edge_input
 
-    def _get_parent_code_obj_ids_for_section_params_for_backend(
+    def _get_delete_selected_params_history_targets_for_backend(
         self,
         *,
         project_config_id: ID,
         section_id: ID,
         param_ids: list[ID],
-    ) -> list[ID]:
-        _, parent_map = self._get_param_section_impl_and_parent_map_for_backend(
-            project_config_id=project_config_id,
-            section_id=section_id,
+    ) -> tuple[list[ID], bool]:
+        backend = self.project_state_backend
+        section_impl, parent_map = (
+            self._get_param_section_impl_and_parent_map_for_backend(
+                project_config_id=project_config_id,
+                section_id=section_id,
+            )
         )
         parent_code_obj_ids: list[ID] = []
         seen_parent_ids: set[ID] = set()
+        edge_input_param_ids = set(section_impl.edgeInputParams)
+        deleted_params_touch_edge_inputs = False
         for param_id in dict.fromkeys(param_ids):
             parent_id = parent_map.get(param_id)
-            if parent_id is None:
+            if parent_id is not None and parent_id not in seen_parent_ids:
+                seen_parent_ids.add(parent_id)
+                parent_code_obj_ids.append(parent_id)
+            if deleted_params_touch_edge_inputs or param_id not in edge_input_param_ids:
                 continue
-            if parent_id in seen_parent_ids:
+            if param_id not in section_impl.codeObjVariantMap:
                 continue
-            seen_parent_ids.add(parent_id)
-            parent_code_obj_ids.append(parent_id)
-        return parent_code_obj_ids
+            if param_id not in backend.codeObjs:
+                continue
+            param_variant_id = section_impl.codeObjVariantMap[param_id]
+            if param_variant_id not in backend.codeObjVariants:
+                continue
+            param_variant = backend.codeObjVariants[param_variant_id]
+            param_impl_id = param_variant.impl
+            if param_impl_id not in backend.codeObjImpls:
+                continue
+            param_impl = get_effective_impl(
+                backend.codeObjImpls[param_impl_id],
+                backend.codeObjs[param_id],
+                param_variant,
+            )
+            if (
+                isinstance(param_impl, BaseParamCodeObjImpl)
+                and param_impl.coreNameEditable
+                and parent_id is not None
+            ):
+                deleted_params_touch_edge_inputs = True
+        return parent_code_obj_ids, deleted_params_touch_edge_inputs
 
     def _get_param_section_impl_and_parent_map_for_backend(
         self,
