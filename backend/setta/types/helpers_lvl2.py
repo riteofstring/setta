@@ -3099,9 +3099,29 @@ def set_section_sizes(
     p: "ProjectStateSingleConfig",
     sectionSizes: dict[ID, SectionSize],
 ):
+    normalized_section_sizes = normalize_section_sizes(settings, p, sectionSizes)
+    apply_section_sizes(p, normalized_section_sizes)
+
+
+def normalize_section_sizes(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionSizes: dict[ID, SectionSize],
+) -> dict[ID, SectionSize]:
+    normalized_section_sizes: dict[ID, SectionSize] = {}
     for s, size in sectionSizes.items():
         impl = get_curr_effective_section_impl(p, s)
-        normalized_size = normalize_section_size(settings, impl.type, s, size)
+        normalized_section_sizes[s] = normalize_section_size(
+            settings, impl.type, s, size
+        )
+    return normalized_section_sizes
+
+
+def apply_section_sizes(
+    p: "ProjectStateSingleConfig",
+    sectionSizes: dict[ID, SectionSize],
+) -> None:
+    for s, normalized_size in sectionSizes.items():
         set_curr_effective_section_impl_value(
             p, s, BaseSectionImplArgsWithCallable(size=normalized_size)
         )

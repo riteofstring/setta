@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 
 import pytest
 
@@ -42,7 +43,10 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.artifact import ArtifactType, DrawAreaLayerItem
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
+)
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
     get_curr_top_level_param_ids,
@@ -2156,6 +2160,57 @@ async def test_column_width_type_failures_do_not_write_history() -> None:
                 )
             )
         assert manager.history.revision == history_revision_before_browser_column
+
+
+@pytest.mark.asyncio
+async def test_set_section_sizes_validation_failure_is_atomic() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+        await manager.finish_pending_operations(timeout=5.0)
+
+        callable_before = get_curr_effective_section_impl(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        ).size
+        browser_before = get_curr_effective_section_impl(
+            manager.get_single_config_state(project_config_id),
+            section_ids.browser_section_id,
+        ).size
+        history_revision_before = manager.history.revision
+
+        # Invalid payloads should not write history or partially mutate section sizes.
+        with pytest.raises(ValueError, match="non-finite width"):
+            await manager.set_section_sizes(
+                SetSectionSizesRequest(
+                    projectConfigId=project_config_id,
+                    sectionSizes={
+                        section_ids.callable_section_id: SectionSize(
+                            width=420.0,
+                            height=260.0,
+                        ),
+                        section_ids.browser_section_id: SectionSize(
+                            width=math.nan,
+                            height=260.0,
+                        ),
+                    },
+                )
+            )
+
+        callable_after = get_curr_effective_section_impl(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        ).size
+        browser_after = get_curr_effective_section_impl(
+            manager.get_single_config_state(project_config_id),
+            section_ids.browser_section_id,
+        ).size
+        assert manager.history.revision == history_revision_before
+        assert callable_after == callable_before
+        assert browser_after == browser_before
 
 
 @pytest.mark.asyncio

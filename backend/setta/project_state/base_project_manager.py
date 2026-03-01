@@ -290,6 +290,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
+    apply_section_sizes,
     apply_top_level_section_layout_snapshot,
     auto_layout_top_level_sections,
     callable_has_been_selected_before,
@@ -323,6 +324,7 @@ from setta.types.helpers_lvl2 import (
     move_section_to_pane,
     move_section_to_parent_section,
     move_sections_to_parent_section,
+    normalize_section_sizes,
     reconnect_edge,
     resolve_top_level_section_position_and_pan,
     set_agentic_edges,
@@ -360,7 +362,6 @@ from setta.types.helpers_lvl2 import (
     set_section_name,
     set_section_param_filter,
     set_section_pinned_params,
-    set_section_sizes,
     set_section_style_color,
     set_section_tag_color,
     set_section_variant,
@@ -2690,7 +2691,13 @@ class BaseProjectManager(ABC):
     )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
-        target_section_ids = set(x.sectionSizes.keys())
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        normalized_section_sizes = normalize_section_sizes(
+            self.settings_file.settings,
+            project_state_for_validation,
+            x.sectionSizes,
+        )
+        target_section_ids = set(normalized_section_sizes.keys())
         section_ids = sorted(target_section_ids)
         coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
         self.add_new_history_entry(
@@ -2700,7 +2707,7 @@ class BaseProjectManager(ABC):
             section_impl_only_ids=target_section_ids,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
+        apply_section_sizes(project_state, normalized_section_sizes)
         await self._merge_and_broadcast_ui_only_section_impl_patches(
             project_state,
             section_ids=section_ids,
