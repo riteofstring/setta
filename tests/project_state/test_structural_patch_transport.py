@@ -2534,6 +2534,75 @@ async def test_undo_redo_unknown_scope_code_obj_changes_still_broadcast_code_obj
 
 
 @pytest.mark.asyncio
+async def test_undo_redo_unknown_scope_section_impl_changes_use_section_impl_patch() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            undo_redo_full_patch_fallback=True,
+        )
+        section_variant_id = manager.project_state_backend.projectConfigs[
+            project_config_id
+        ].sectionVariantMap[SECTION_ID]
+        section_impl_id = manager.project_state_backend.sectionVariants[
+            section_variant_id
+        ].impl
+        section_impl = manager.project_state_backend.sectionImpls[section_impl_id]
+        assert hasattr(section_impl, "selectedParams")
+        assert hasattr(section_impl, "codeObjVariantMap")
+        target_code_obj_id = next(iter(section_impl.codeObjVariantMap.keys()))
+        next_selected_params = (
+            []
+            if target_code_obj_id in section_impl.selectedParams
+            else [target_code_obj_id]
+        )
+        manager.project_state_backend.sectionImpls[section_impl_id] = (
+            section_impl.model_copy(update={"selectedParams": next_selected_params})
+        )
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 0 == undo_capture["code_obj_patch_calls"]
+        assert 0 == undo_capture["project_config_patch_calls"]
+        assert 1 <= undo_capture["section_impl_patch_calls"]
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 0 == redo_capture["code_obj_patch_calls"]
+        assert 0 == redo_capture["project_config_patch_calls"]
+        assert 1 <= redo_capture["section_impl_patch_calls"]
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
 async def test_undo_redo_structural_include_project_config_history_uses_structural_fallback_transport() -> (
     None
 ):

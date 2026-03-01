@@ -11112,26 +11112,66 @@ class BaseProjectManager(ABC):
         )
 
     @staticmethod
-    def _build_undo_redo_unknown_scope_change_flags(
+    def _build_undo_redo_unknown_scope_patch_plan(
         *,
         previous_project_state: ProjectStateSingleConfig,
         project_state: ProjectStateSingleConfig,
-    ) -> tuple[bool, bool, bool]:
+    ) -> tuple[bool, bool, bool, list[ID]]:
         project_config_changed = (
             previous_project_state.projectConfig != project_state.projectConfig
         )
-        structural_changed = (
+        topology_changed = (
             previous_project_state.sections != project_state.sections
             or previous_project_state.sectionVariants != project_state.sectionVariants
-            or previous_project_state.sectionImpls != project_state.sectionImpls
             or previous_project_state.parentSectionMap != project_state.parentSectionMap
+            or previous_project_state.projectConfig.sectionVariantMap
+            != project_state.projectConfig.sectionVariantMap
         )
         code_obj_changed = (
             previous_project_state.codeObjs != project_state.codeObjs
             or previous_project_state.codeObjVariants != project_state.codeObjVariants
             or previous_project_state.codeObjImpls != project_state.codeObjImpls
         )
-        return project_config_changed, structural_changed, code_obj_changed
+        changed_section_impl_ids: list[ID] = []
+        if not topology_changed:
+            for section_id, section_variant_id in sorted(
+                project_state.projectConfig.sectionVariantMap.items()
+            ):
+                if section_variant_id not in previous_project_state.sectionVariants:
+                    topology_changed = True
+                    changed_section_impl_ids = []
+                    break
+                if section_variant_id not in project_state.sectionVariants:
+                    topology_changed = True
+                    changed_section_impl_ids = []
+                    break
+                previous_section_variant = previous_project_state.sectionVariants[
+                    section_variant_id
+                ]
+                next_section_variant = project_state.sectionVariants[section_variant_id]
+                previous_section_impl_id = previous_section_variant.impl
+                next_section_impl_id = next_section_variant.impl
+                if (
+                    previous_section_impl_id not in previous_project_state.sectionImpls
+                    or next_section_impl_id not in project_state.sectionImpls
+                ):
+                    topology_changed = True
+                    changed_section_impl_ids = []
+                    break
+                if previous_section_impl_id != next_section_impl_id:
+                    changed_section_impl_ids.append(section_id)
+                    continue
+                if (
+                    previous_project_state.sectionImpls[previous_section_impl_id]
+                    != project_state.sectionImpls[next_section_impl_id]
+                ):
+                    changed_section_impl_ids.append(section_id)
+        return (
+            project_config_changed,
+            topology_changed,
+            code_obj_changed,
+            changed_section_impl_ids,
+        )
 
     async def update_and_broadcast_all_project_state(
         self,
@@ -11233,13 +11273,14 @@ class BaseProjectManager(ABC):
                 else:
                     (
                         project_config_changed,
-                        structural_changed,
+                        topology_changed,
                         code_obj_changed,
-                    ) = self._build_undo_redo_unknown_scope_change_flags(
+                        changed_section_impl_ids,
+                    ) = self._build_undo_redo_unknown_scope_patch_plan(
                         previous_project_state=previous_project_state_for_diff,
                         project_state=project_state,
                     )
-                    if project_config_changed and not structural_changed:
+                    if project_config_changed and not topology_changed:
                         await self._broadcast_project_config_patch(
                             project_config=project_state.projectConfig,
                             previous_project_state_revision=(
@@ -11273,7 +11314,31 @@ class BaseProjectManager(ABC):
                                 project_state_revision=project_state_revision,
                             )
                             has_broadcast_patch = True
-                    if structural_changed:
+                    if changed_section_impl_ids:
+                        section_impl_updates = (
+                            self._collect_section_impl_updates_for_patch(
+                                project_state,
+                                changed_section_impl_ids,
+                            )
+                        )
+                        for idx, (
+                            section_id,
+                            section_impl,
+                        ) in enumerate(section_impl_updates):
+                            await self._broadcast_section_impl_patch(
+                                project_config_id=project_state.projectConfig.id,
+                                section_id=section_id,
+                                section_impl=section_impl,
+                                previous_project_state_revision=(
+                                    previous_project_state_revision
+                                    if idx == 0 and not has_broadcast_patch
+                                    else project_state_revision
+                                ),
+                                project_state_revision=project_state_revision,
+                            )
+                        if section_impl_updates:
+                            has_broadcast_patch = True
+                    if topology_changed:
                         await self._broadcast_structural_patch(
                             project_state=project_state,
                             previous_project_state_revision=(
