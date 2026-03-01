@@ -107,6 +107,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks cool_mild as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes cool_mild from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "cool-mild-config-id",
+          projectConfigName: "cool_mild",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -190,6 +203,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "slow-leaf-config-id",
           projectConfigName: "slow_leaf",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports cool_mild rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "cool-mild-config-id",
+          projectConfigName: "cool_mild",
           activeViewModeName: "Overview",
         }),
       ),
