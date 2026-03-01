@@ -284,6 +284,47 @@ export class CanvasEngineSceneAdapter {
     return resolveDataEdgeAnchors(edge, sourceRect, targetRect);
   }
 
+  public querySectionIdsInWorldRect(
+    selectionRect: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    },
+    partially: boolean,
+  ): string[] {
+    if (selectionRect.width <= 0 || selectionRect.height <= 0) {
+      return [];
+    }
+
+    const candidateIds = this.spatialIndex.queryRect(selectionRect);
+    const selectedIds: string[] = [];
+    for (const sectionId of candidateIds) {
+      const sectionRect = this.rectById.get(sectionId);
+      if (!sectionRect) {
+        continue;
+      }
+      if (
+        !isRectSelectedBySelectionRect(sectionRect, selectionRect, partially)
+      ) {
+        continue;
+      }
+      selectedIds.push(sectionId);
+    }
+    selectedIds.sort((leftId, rightId) => {
+      const leftRect = this.rectById.get(leftId);
+      const rightRect = this.rectById.get(rightId);
+      if (!leftRect || !rightRect) {
+        return leftId.localeCompare(rightId);
+      }
+      if (leftRect.zIndex !== rightRect.zIndex) {
+        return leftRect.zIndex - rightRect.zIndex;
+      }
+      return leftId.localeCompare(rightId);
+    });
+    return selectedIds;
+  }
+
   public hitTestEdgeAtWorldPoint(
     worldX: number,
     worldY: number,
@@ -1087,6 +1128,61 @@ function distancePointToSegment(
   const projectedX = startX + segmentX * t;
   const projectedY = startY + segmentY * t;
   return Math.hypot(pointX - projectedX, pointY - projectedY);
+}
+
+function isRectSelectedBySelectionRect(
+  sectionRect: CanvasEngineRect,
+  selectionRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+  partially: boolean,
+): boolean {
+  const overlapArea = getOverlappingArea(selectionRect, sectionRect);
+  if (overlapArea <= 0) {
+    return false;
+  }
+  if (partially) {
+    return true;
+  }
+  const sectionArea = sectionRect.width * sectionRect.height;
+  return overlapArea >= sectionArea;
+}
+
+function getOverlappingArea(
+  leftRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+  rightRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+): number {
+  const leftX = leftRect.x;
+  const leftY = leftRect.y;
+  const leftRight = leftRect.x + leftRect.width;
+  const leftBottom = leftRect.y + leftRect.height;
+
+  const rightX = rightRect.x;
+  const rightY = rightRect.y;
+  const rightRight = rightRect.x + rightRect.width;
+  const rightBottom = rightRect.y + rightRect.height;
+
+  const overlapWidth =
+    Math.min(leftRight, rightRight) - Math.max(leftX, rightX);
+  const overlapHeight =
+    Math.min(leftBottom, rightBottom) - Math.max(leftY, rightY);
+  if (overlapWidth <= 0 || overlapHeight <= 0) {
+    return 0;
+  }
+  return overlapWidth * overlapHeight;
 }
 
 function areRectRecordsEqual(

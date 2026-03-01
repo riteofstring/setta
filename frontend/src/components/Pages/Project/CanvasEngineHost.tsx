@@ -63,6 +63,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
+  SelectionModeEnum,
   type SectionSize,
   type SectionSizingPolicy,
 } from "utils/generatedTypes";
@@ -114,6 +115,16 @@ type PointerSession =
     }
   | {
       pointerId: number;
+      kind: "selection-rect";
+      startWorldX: number;
+      startWorldY: number;
+      startCanvasX: number;
+      startCanvasY: number;
+      moved: boolean;
+      selectedIds: string[];
+    }
+  | {
+      pointerId: number;
       kind: "agentic-connect";
       sourceSectionId: string;
       sourceHandleWorldX: number;
@@ -148,6 +159,13 @@ type ResizeCapabilities = {
   aspectRatioExtraHeight: number;
 };
 
+type CanvasEngineSelectionRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
@@ -155,6 +173,8 @@ const EDGE_HIT_TOLERANCE_PX = 8;
 const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
 const DATA_HANDLE_HIT_TOLERANCE_WORLD = 10;
 const DATA_EDGE_ENDPOINT_HIT_RADIUS_PX = 12;
+const SELECTION_RECT_FILL_COLOR = "rgba(0, 89, 220, 0.08)";
+const SELECTION_RECT_BORDER_COLOR = "rgba(0, 89, 220, 0.8)";
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -238,6 +258,8 @@ export function CanvasEngineHost() {
     useState<CanvasEngineConnectionPreview | null>(null);
   const [hoveredEdge, setHoveredEdge] =
     useState<CanvasEngineHoveredEdge | null>(null);
+  const [selectionRect, setSelectionRect] =
+    useState<CanvasEngineSelectionRect | null>(null);
 
   const updateConnectionPreview = useCallback(
     (nextPreview: CanvasEngineConnectionPreview | null) => {
@@ -258,6 +280,18 @@ export function CanvasEngineHost() {
           return currentHoveredEdge;
         }
         return nextHoveredEdge;
+      });
+    },
+    [],
+  );
+
+  const updateSelectionRect = useCallback(
+    (nextSelectionRect: CanvasEngineSelectionRect | null) => {
+      setSelectionRect((currentSelectionRect) => {
+        if (areSelectionRectsEqual(currentSelectionRect, nextSelectionRect)) {
+          return currentSelectionRect;
+        }
+        return nextSelectionRect;
       });
     },
     [],
@@ -393,6 +427,7 @@ export function CanvasEngineHost() {
       }
       updateConnectionPreview(null);
       updateHoveredEdge(null);
+      updateSelectionRect(null);
       const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
@@ -606,6 +641,29 @@ export function CanvasEngineHost() {
           event.currentTarget.setPointerCapture(event.pointerId);
           return;
         }
+        const selectionKeyPressed = useReactFlow.getState().selectionKeyPressed;
+        if (selectionKeyPressed) {
+          const canvasPoint = resolveCanvasPointFromPointerEvent(event);
+          if (!canvasPoint) {
+            return;
+          }
+          applyActiveSectionChange({
+            interaction: "selection-rect",
+            selectedIds: [],
+          });
+          pointerSessionRef.current = {
+            pointerId: event.pointerId,
+            kind: "selection-rect",
+            startWorldX: worldPoint.x,
+            startWorldY: worldPoint.y,
+            startCanvasX: canvasPoint.x,
+            startCanvasY: canvasPoint.y,
+            moved: false,
+            selectedIds: [],
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          return;
+        }
         pointerSessionRef.current = {
           pointerId: event.pointerId,
           kind: "pane",
@@ -624,6 +682,7 @@ export function CanvasEngineHost() {
       topLevelSections,
       updateConnectionPreview,
       updateHoveredEdge,
+      updateSelectionRect,
     ],
   );
 
@@ -705,6 +764,45 @@ export function CanvasEngineHost() {
           x: nextX,
           y: nextY,
         });
+        return;
+      }
+      if (pointerSession.kind === "selection-rect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        const canvasPoint = resolveCanvasPointFromPointerEvent(event);
+        if (!worldPoint || !canvasPoint) {
+          return;
+        }
+        pointerSession.moved = true;
+
+        const selectionRectWorld = resolveSelectionRectBounds(
+          pointerSession.startWorldX,
+          pointerSession.startWorldY,
+          worldPoint.x,
+          worldPoint.y,
+        );
+        const selectionMode =
+          useSettings.getState().gui?.selectionMode ??
+          SelectionModeEnum.partial;
+        const selectedIds = sceneAdapter.querySectionIdsInWorldRect(
+          selectionRectWorld,
+          selectionMode === SelectionModeEnum.partial,
+        );
+        if (!areStringArraysEqual(pointerSession.selectedIds, selectedIds)) {
+          pointerSession.selectedIds = selectedIds;
+          applyActiveSectionChange({
+            interaction: "selection-rect",
+            selectedIds,
+          });
+        }
+
+        updateSelectionRect(
+          resolveSelectionRectBounds(
+            pointerSession.startCanvasX,
+            pointerSession.startCanvasY,
+            canvasPoint.x,
+            canvasPoint.y,
+          ),
+        );
         return;
       }
       if (pointerSession.kind === "agentic-connect") {
@@ -891,7 +989,13 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [camera, sceneAdapter, updateConnectionPreview, updateHoveredEdge],
+    [
+      camera,
+      sceneAdapter,
+      updateConnectionPreview,
+      updateHoveredEdge,
+      updateSelectionRect,
+    ],
   );
 
   const handlePointerLeave = useCallback(() => {
@@ -1019,11 +1123,15 @@ export function CanvasEngineHost() {
           }
         }
       }
+      if (pointerSession.kind === "selection-rect" && !pointerSession.moved) {
+        applyActiveSectionChange({ interaction: "pane-click" });
+      }
       if (pointerSession.kind === "pane" && !pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
       updateConnectionPreview(null);
       updateHoveredEdge(null);
+      updateSelectionRect(null);
       pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1035,6 +1143,7 @@ export function CanvasEngineHost() {
       sceneAdapter,
       updateConnectionPreview,
       updateHoveredEdge,
+      updateSelectionRect,
     ],
   );
 
@@ -1123,6 +1232,19 @@ export function CanvasEngineHost() {
       data-canvas-engine-hovered-edge-active={String(hoveredEdge !== null)}
       data-canvas-engine-hovered-edge-kind={hoveredEdge?.kind ?? ""}
       data-canvas-engine-hovered-edge-id={hoveredEdge?.id ?? ""}
+      data-canvas-engine-selection-rect-active={String(selectionRect !== null)}
+      data-canvas-engine-selection-rect-x={
+        selectionRect ? selectionRect.x.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-y={
+        selectionRect ? selectionRect.y.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-width={
+        selectionRect ? selectionRect.width.toFixed(2) : ""
+      }
+      data-canvas-engine-selection-rect-height={
+        selectionRect ? selectionRect.height.toFixed(2) : ""
+      }
       data-canvas-engine-last-sections-added={lastPatchSummary.sectionsAdded}
       data-canvas-engine-last-sections-updated={
         lastPatchSummary.sectionsUpdated
@@ -1147,6 +1269,20 @@ export function CanvasEngineHost() {
         onWheel={handleWheel}
         style={{ touchAction: "none" }}
       />
+      {selectionRect ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute box-border border border-dotted"
+          style={{
+            left: selectionRect.x,
+            top: selectionRect.y,
+            width: selectionRect.width,
+            height: selectionRect.height,
+            background: SELECTION_RECT_FILL_COLOR,
+            borderColor: SELECTION_RECT_BORDER_COLOR,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1186,6 +1322,39 @@ function areHoveredEdgesEqual(
   return left.kind === right.kind && left.id === right.id;
 }
 
+function areSelectionRectsEqual(
+  left: CanvasEngineSelectionRect | null,
+  right: CanvasEngineSelectionRect | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function resolveWorldPointFromPointerEvent(
   event: ReactPointerEvent<HTMLCanvasElement>,
   camera: CanvasEngineCamera,
@@ -1199,6 +1368,33 @@ function resolveWorldPointFromPointerEvent(
   return {
     x: camera.x + localX / camera.zoom,
     y: camera.y + localY / camera.zoom,
+  };
+}
+
+function resolveCanvasPointFromPointerEvent(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+): { x: number; y: number } | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function resolveSelectionRectBounds(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): CanvasEngineSelectionRect {
+  return {
+    x: Math.min(startX, endX),
+    y: Math.min(startY, endY),
+    width: Math.abs(endX - startX),
+    height: Math.abs(endY - startY),
   };
 }
 

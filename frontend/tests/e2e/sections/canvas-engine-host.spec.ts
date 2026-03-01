@@ -86,6 +86,14 @@ type CanvasEngineHoveredEdgeState = {
   id: string;
 };
 
+type CanvasEngineSelectionRectState = {
+  active: boolean;
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+};
+
 type CanvasEngineEdgeHandleSeed = {
   sectionId: string;
   portId: string;
@@ -390,6 +398,140 @@ test("canvas engine host preserves modifier-click multi-section selection", asyn
     } finally {
       await page.keyboard.up(MULTI_SELECTION_MODIFIER_KEY);
     }
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host supports shift-drag marquee section selection", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const firstPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.36,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const secondPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.68,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const firstSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: firstPosition,
+    });
+    const secondSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: secondPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    const firstLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
+    const firstSectionWidth =
+      firstLayout.w ?? DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const firstSectionHeight =
+      firstLayout.h ?? DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const secondSectionWidth =
+      secondLayout.w ?? DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const secondSectionHeight =
+      secondLayout.h ?? DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const selectionStartWorld = {
+      x: firstLayout.x - 24,
+      y: firstLayout.y - 24,
+    };
+    const selectionEndWorld = {
+      x: secondLayout.x + secondSectionWidth + 24,
+      y:
+        Math.max(
+          firstLayout.y + firstSectionHeight,
+          secondLayout.y + secondSectionHeight,
+        ) + 24,
+    };
+    const selectionStartScreen = await worldPointToScreen(
+      host,
+      selectionStartWorld,
+    );
+    const selectionEndScreen = await worldPointToScreen(
+      host,
+      selectionEndWorld,
+    );
+
+    await page.keyboard.down("Shift");
+    try {
+      await page.mouse.move(selectionStartScreen.x, selectionStartScreen.y);
+      await page.mouse.down();
+      await page.mouse.move(selectionEndScreen.x, selectionEndScreen.y, {
+        steps: 12,
+      });
+
+      await expect
+        .poll(async () => await readSelectionRectState(host))
+        .toMatchObject({ active: true });
+      await expect
+        .poll(async () => (await readSelectionRectState(host)).width)
+        .toBeGreaterThan(0);
+      await expect
+        .poll(async () => (await readSelectionRectState(host)).height)
+        .toBeGreaterThan(0);
+      await expect
+        .poll(
+          async () => [...(await readActiveSectionIds(host))].sort(),
+          // Keep polling short while the drag session is active.
+          { timeout: 5000 },
+        )
+        .toEqual([firstSectionId, secondSectionId].sort());
+      await page.mouse.up();
+    } finally {
+      await page.keyboard.up("Shift");
+    }
+
+    await expect
+      .poll(async () => (await readSelectionRectState(host)).active)
+      .toBe(false);
+    await expect
+      .poll(async () => [...(await readActiveSectionIds(host))].sort())
+      .toEqual([firstSectionId, secondSectionId].sort());
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -1688,6 +1830,38 @@ async function readHoveredEdgeState(
   };
 }
 
+async function readSelectionRectState(
+  host: Locator,
+): Promise<CanvasEngineSelectionRectState> {
+  const activeRaw = await host.getAttribute(
+    "data-canvas-engine-selection-rect-active",
+  );
+  const xRaw = await host.getAttribute("data-canvas-engine-selection-rect-x");
+  const yRaw = await host.getAttribute("data-canvas-engine-selection-rect-y");
+  const widthRaw = await host.getAttribute(
+    "data-canvas-engine-selection-rect-width",
+  );
+  const heightRaw = await host.getAttribute(
+    "data-canvas-engine-selection-rect-height",
+  );
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-selection-rect-active",
+      activeRaw,
+    ),
+    x: parseNumericHostAttribute("data-canvas-engine-selection-rect-x", xRaw),
+    y: parseNumericHostAttribute("data-canvas-engine-selection-rect-y", yRaw),
+    width: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-width",
+      widthRaw,
+    ),
+    height: parseNumericHostAttribute(
+      "data-canvas-engine-selection-rect-height",
+      heightRaw,
+    ),
+  };
+}
+
 function parseBooleanHostAttribute(
   attributeName: string,
   value: string | null,
@@ -1701,6 +1875,22 @@ function parseBooleanHostAttribute(
   throw new Error(
     `Invalid boolean host attribute ${attributeName}: ${String(value)}`,
   );
+}
+
+function parseNumericHostAttribute(
+  attributeName: string,
+  value: string | null,
+): number | null {
+  if (value === null || value.length === 0) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(
+      `Invalid numeric host attribute ${attributeName}: ${String(value)}`,
+    );
+  }
+  return parsed;
 }
 
 async function readActiveSectionIds(host: Locator): Promise<string[]> {

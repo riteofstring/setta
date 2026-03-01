@@ -321,6 +321,31 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(adapter.getRectById("missing-section")).toBe(null);
   });
 
+  it("queries section ids inside a selection rectangle for partial and full modes", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 200, h: 160, zIndex: 1 }),
+          sectionB: createLayout({ x: 260, y: 0, w: 200, h: 160, zIndex: 2 }),
+          sectionC: createLayout({ x: 900, y: 0, w: 200, h: 160, zIndex: 3 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    const selectionRect = { x: 180, y: -20, width: 300, height: 220 };
+    expect(adapter.querySectionIdsInWorldRect(selectionRect, true)).toEqual([
+      "sectionA",
+      "sectionB",
+    ]);
+    expect(adapter.querySectionIdsInWorldRect(selectionRect, false)).toEqual([
+      "sectionB",
+    ]);
+  });
+
   it("hit-tests visible edges in world space and prioritizes agentic overlays", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
