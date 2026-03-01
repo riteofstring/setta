@@ -5953,6 +5953,11 @@ class BaseProjectManager(ABC):
     async def move_params(self, x: MoveParamsRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
         move_params_to_parent(
             self.settings_file.settings,
             project_state,
@@ -5961,14 +5966,45 @@ class BaseProjectManager(ABC):
             x.newParentId,
             x.newIndex,
         )
-        await self.update_and_broadcast_project_state(project_state)
+        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(
+                dict.fromkeys(
+                    [
+                        *parent_code_obj_ids_before,
+                        x.newParentId,
+                        *parent_code_obj_ids_after,
+                    ]
+                )
+            ),
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         next_state = copy.deepcopy(project_state)
+        code_obj_ids_for_patch: list[ID] = []
         for move in x.moves:
+            parent_code_obj_ids_before = (
+                self._get_parent_code_obj_ids_for_section_params(
+                    next_state,
+                    x.sectionId,
+                    move.paramIds,
+                )
+            )
+            code_obj_ids_for_patch.extend(parent_code_obj_ids_before)
+            code_obj_ids_for_patch.append(move.newParentId)
             move_params_to_parent(
                 self.settings_file.settings,
                 next_state,
@@ -5977,25 +6013,81 @@ class BaseProjectManager(ABC):
                 move.newParentId,
                 move.newIndex,
             )
-        await self.update_and_broadcast_project_state(next_state)
+            parent_code_obj_ids_after = (
+                self._get_parent_code_obj_ids_for_section_params(
+                    next_state,
+                    x.sectionId,
+                    move.paramIds,
+                )
+            )
+            code_obj_ids_for_patch.extend(parent_code_obj_ids_after)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            next_state,
+            code_obj_ids=list(dict.fromkeys(code_obj_ids_for_patch)),
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
         indent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
         )
-        await self.update_and_broadcast_project_state(project_state)
+        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(
+                dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
+            ),
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     async def unindent_params(self, x: UnindentParamsRequest):
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
+        parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
         unindent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
         )
-        await self.update_and_broadcast_project_state(project_state)
+        parent_code_obj_ids_after = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramIds,
+        )
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=list(
+                dict.fromkeys([*parent_code_obj_ids_before, *parent_code_obj_ids_after])
+            ),
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     async def group_sections(self, x: GroupSectionsRequest):

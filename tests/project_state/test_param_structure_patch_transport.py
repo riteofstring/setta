@@ -4,9 +4,19 @@ from setta.project_state.project_manager_types import (
     AddKwargRequest,
     DeleteKwargRequest,
     DeleteSelectedParamsRequest,
+    IndentParamsRequest,
+    MoveParamGroup,
+    MoveParamGroupsRequest,
+    MoveParamsRequest,
+    UnindentParamsRequest,
 )
-from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    BaseParentCodeObjImpl,
+    CodeCallableCodeObjImpl,
+    CodeParamCodeObjImpl,
+)
 from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -19,6 +29,7 @@ from tests.utils.manager_fixture import real_settings_manager
 SECTION_ID = ID("section-1")
 PARAM_ONE_ID = ID("param-1")
 PARAM_TWO_ID = ID("param-2")
+PARAM_THREE_ID = ID("param-3")
 
 
 def _install_transport_capture(sender):
@@ -403,3 +414,244 @@ async def test_delete_selected_params_uses_project_config_code_obj_and_section_p
         _, callable_impl_after = _get_callable_impl(manager, project_config_id)
         assert PARAM_ONE_ID not in callable_impl_after.children
         assert PARAM_TWO_ID not in callable_impl_after.children
+
+
+@pytest.mark.asyncio
+async def test_move_params_uses_code_obj_and_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        assert PARAM_TWO_ID in callable_impl_before.children
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.move_params(
+                MoveParamsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramIds=[PARAM_TWO_ID],
+                    newParentId=PARAM_ONE_ID,
+                    newIndex=0,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert PARAM_ONE_ID in code_obj_patch["codeObjIds"]
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+
+        callable_impl_after = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        assert PARAM_TWO_ID not in callable_impl_after.children
+        new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+            BaseParentCodeObjImpl,
+        )
+        assert PARAM_TWO_ID in new_parent_impl.children
+
+
+@pytest.mark.asyncio
+async def test_move_param_groups_uses_code_obj_and_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, _ = _get_callable_impl(manager, project_config_id)
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.move_param_groups(
+                MoveParamGroupsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    moves=[
+                        MoveParamGroup(
+                            paramIds=[PARAM_TWO_ID],
+                            newParentId=PARAM_ONE_ID,
+                            newIndex=0,
+                        ),
+                        MoveParamGroup(
+                            paramIds=[PARAM_THREE_ID],
+                            newParentId=PARAM_ONE_ID,
+                            newIndex=1,
+                        ),
+                    ],
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert PARAM_ONE_ID in code_obj_patch["codeObjIds"]
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+
+        callable_impl_after = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        assert PARAM_TWO_ID not in callable_impl_after.children
+        assert PARAM_THREE_ID not in callable_impl_after.children
+        new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+            BaseParentCodeObjImpl,
+        )
+        assert new_parent_impl.children[:2] == [PARAM_TWO_ID, PARAM_THREE_ID]
+
+
+@pytest.mark.asyncio
+async def test_indent_params_uses_code_obj_and_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        assert PARAM_TWO_ID in callable_impl_before.children
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.indent_params(
+                IndentParamsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramIds=[PARAM_TWO_ID],
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert PARAM_ONE_ID in code_obj_patch["codeObjIds"]
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+
+        callable_impl_after = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        assert PARAM_TWO_ID not in callable_impl_after.children
+        new_parent_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+            BaseParentCodeObjImpl,
+        )
+        assert PARAM_TWO_ID in new_parent_impl.children
+
+
+@pytest.mark.asyncio
+async def test_unindent_params_uses_code_obj_and_section_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+        callable_id, _ = _get_callable_impl(manager, project_config_id)
+
+        await manager.indent_params(
+            IndentParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramIds=[PARAM_TWO_ID],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            await manager.unindent_params(
+                UnindentParamsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramIds=[PARAM_TWO_ID],
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 0 == len(capture["project_config_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])
+        code_obj_patch = capture["code_obj_patch_calls"][0]
+        assert callable_id in code_obj_patch["codeObjIds"]
+        assert PARAM_ONE_ID in code_obj_patch["codeObjIds"]
+        assert len(capture["section_impl_patch_calls"]) >= 1
+        assert any(
+            patch["sectionId"] == SECTION_ID
+            for patch in capture["section_impl_patch_calls"]
+        )
+        assert 1 == capture["name_validation_broadcast_calls"]
+
+        callable_impl_after = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        assert PARAM_TWO_ID in callable_impl_after.children
+        parent_impl_after = get_curr_effective_code_obj_impl(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+        )
+        if isinstance(parent_impl_after, BaseParentCodeObjImpl):
+            assert PARAM_TWO_ID not in parent_impl_after.children
