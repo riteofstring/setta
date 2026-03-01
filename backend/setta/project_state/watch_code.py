@@ -38,6 +38,7 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
+    BaseParentSectionImpl,
     CallableSectionImpl,
     CodeLanguage,
     CodeSectionImpl,
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
 
     from setta.project_state.base_project_manager import BaseProjectManager
+    from setta.project_state.project_code import ProjectGenPythonCode
 
 logger = logging.getLogger(__name__)
 
@@ -1494,6 +1496,16 @@ class WatchCodeManager:
                 for section_id in section_ids
                 if create_dep_key(section_id) not in gen_code.dep_graph.graph
             ]
+            if prefix_mismatch or missing_dep_keys:
+                missing_dep_keys = self._prepare_gen_code_for_callable_updates(
+                    project_state,
+                    gen_code,
+                    section_ids,
+                )
+                prefix_mismatch = (
+                    gen_code.code_generator.gen_code_prefix
+                    != python_target.genCodePrefix
+                )
         needs_refresh = gen_code is None or prefix_mismatch or bool(missing_dep_keys)
         logger.debug(
             "watch_code._update_sections_for_callables callables=%s section_ids=%s gen_code=%s prefix_mismatch=%s missing_dep_keys=%s needs_refresh=%s",
@@ -1571,6 +1583,79 @@ class WatchCodeManager:
                         project_config_id, callable_name, source=callable_name
                     )
         return update_scope
+
+    def _prepare_gen_code_for_callable_updates(
+        self,
+        project_state: ProjectStateSingleConfig,
+        gen_code: "ProjectGenPythonCode",
+        section_ids: list[ID],
+    ) -> list[ID]:
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        if gen_code.code_generator.gen_code_prefix != python_target.genCodePrefix:
+            gen_code.code_generator.set_gen_code_prefix(python_target.genCodePrefix)
+
+        dep_graph = gen_code.dep_graph
+        top_level_index_by_section: dict[ID, int] = {
+            section_id: idx
+            for idx, section_id in enumerate(
+                project_state.projectConfig.topLevelSections.keys()
+            )
+        }
+        for section_id in section_ids:
+            if create_dep_key(section_id) in dep_graph.graph:
+                continue
+            self._try_export_missing_section_dep_key(
+                project_state=project_state,
+                section_id=section_id,
+                gen_code=gen_code,
+                top_level_index_by_section=top_level_index_by_section,
+            )
+        dep_graph.resolve_references()
+        return [
+            section_id
+            for section_id in section_ids
+            if create_dep_key(section_id) not in dep_graph.graph
+        ]
+
+    def _try_export_missing_section_dep_key(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        gen_code: "ProjectGenPythonCode",
+        top_level_index_by_section: dict[ID, int],
+    ) -> None:
+        if section_id not in project_state.sections:
+            return
+        parent_id = project_state.parentSectionMap.get(section_id)
+        dep_graph = gen_code.dep_graph
+        if parent_id is None:
+            if section_id not in top_level_index_by_section:
+                return
+            dep_graph.export_section(
+                project_state,
+                section_id,
+                isTopLevel=True,
+                idx=top_level_index_by_section[section_id],
+            )
+            return
+        parent_dep_key = create_dep_key(parent_id)
+        parent_node = dep_graph.get_node(parent_dep_key)
+        if parent_node is None:
+            return
+        parent_impl = get_curr_effective_section_impl(project_state, parent_id)
+        if not isinstance(parent_impl, BaseParentSectionImpl):
+            return
+        if section_id not in parent_impl.children:
+            return
+        dep_graph.export_section(
+            project_state,
+            section_id,
+            parent_node=parent_node,
+            idx=parent_impl.children.index(section_id),
+        )
 
     def _rename_sections_for_callable(
         self,

@@ -721,6 +721,20 @@ class TestWatchCode:
                 enabled=True,
             )
         )
+        # Warm codegen once so this test isolates structural-update behavior on an
+        # already initialized gen-code state.
+        warmup_code = (
+            "def existing(a):\n    return a\n\n"
+            "def deferred_warmup(value):\n    return value\n"
+        )
+        await self.manager.apply_watch_code_file_update(
+            self.project_config_id,
+            self.watch_file_path,
+            warmup_code,
+            baseline_only=False,
+            moved_from=None,
+        )
+        await self.manager.finish_pending_operations(timeout=5.0)
 
         refresh_calls = 0
         scheduled_deferred_refreshes: list[ID] = []
@@ -747,6 +761,7 @@ class TestWatchCode:
             before_scheduled_count = len(scheduled_deferred_refreshes)
             structural_code = (
                 "def existing(a):\n    return a\n\n"
+                "def deferred_warmup(value):\n    return value\n\n"
                 "def deferred_structural(value):\n    return value\n"
             )
             await self.manager.apply_watch_code_file_update(
@@ -764,9 +779,8 @@ class TestWatchCode:
             )
 
         # Structural watch-code updates should ACK via stage-A patch transport and
-        # defer the extra update-path codegen refresh to stage-B. One refresh is
-        # still expected here from watch-code dependency graph synchronization.
-        assert refresh_calls - before_refresh_calls == 1
+        # defer update-path codegen refresh to stage-B.
+        assert refresh_calls == before_refresh_calls
         assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
         assert scheduled_deferred_refreshes[-1] == self.project_config_id
 
