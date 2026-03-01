@@ -3,6 +3,18 @@
 ## Goal
 Reduce DOM size and frontend render/style/layout cost in `Settings -> All Settings` by simplifying param-row markup while preserving existing UX and behavior.
 
+## Progress
+- Completed:
+  - Step 1 (`Add UX-preservation tests first`)
+  - Step 2 (`Flatten non-kwarg key wrappers`)
+- Current measured impact for Step 2:
+  - Total DOM elements: `9715` -> `9088` (`-6.5%`)
+  - `.section-key` wrappers in non-nested rows: `627` -> `0`
+  - Avg param-row subtree size: `15.35` -> `13.93` (`-9.3%`)
+  - Tab switch medians (9-run harness, warmup 2):
+    - `All -> Core`: elapsed `446.4 ms` -> `421.6 ms` (`-5.6%`)
+    - `Core -> All`: elapsed `1044.1 ms` -> `1039.4 ms` (`-0.5%`)
+
 ## Guardrails
 - No intentional UX changes.
 - No loss of visible information in any section.
