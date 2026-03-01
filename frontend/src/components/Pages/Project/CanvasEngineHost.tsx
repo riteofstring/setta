@@ -22,6 +22,7 @@ import {
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { useProjectState } from "state/definitions";
+import { route_set_top_level_section_layout } from "utils/generatedEndpoints";
 
 type PointerSession =
   | {
@@ -34,6 +35,12 @@ type PointerSession =
   | {
       pointerId: number;
       kind: "section";
+      sectionId: string;
+      anchorWorldX: number;
+      anchorWorldY: number;
+      sectionStartX: number;
+      sectionStartY: number;
+      moved: boolean;
     };
 
 const MIN_ZOOM = 0.1;
@@ -86,6 +93,7 @@ export function CanvasEngineHost() {
   const persistedViewport = useProjectState(
     (state) => state.projectConfig.viewport,
   );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
@@ -237,6 +245,15 @@ export function CanvasEngineHost() {
         worldPoint.y,
       );
       if (sectionId) {
+        const sectionLayout = topLevelSections[sectionId];
+        const sectionStartX =
+          sectionLayout && typeof sectionLayout.x === "number"
+            ? sectionLayout.x
+            : 0;
+        const sectionStartY =
+          sectionLayout && typeof sectionLayout.y === "number"
+            ? sectionLayout.y
+            : 0;
         applyActiveSectionChange({
           interaction: "section-click",
           sectionId,
@@ -244,6 +261,12 @@ export function CanvasEngineHost() {
         pointerSessionRef.current = {
           pointerId: event.pointerId,
           kind: "section",
+          sectionId,
+          anchorWorldX: worldPoint.x,
+          anchorWorldY: worldPoint.y,
+          sectionStartX,
+          sectionStartY,
+          moved: false,
         };
       } else {
         pointerSessionRef.current = {
@@ -256,13 +279,30 @@ export function CanvasEngineHost() {
       }
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [camera, sceneAdapter],
+    [camera, sceneAdapter, topLevelSections],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+      if (pointerSession.kind === "section") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const deltaX = worldPoint.x - pointerSession.anchorWorldX;
+        const deltaY = worldPoint.y - pointerSession.anchorWorldY;
+        if (deltaX === 0 && deltaY === 0) {
+          return;
+        }
+        pointerSession.moved = true;
+        setTopLevelSectionLayoutPosition(pointerSession.sectionId, {
+          x: pointerSession.sectionStartX + deltaX,
+          y: pointerSession.sectionStartY + deltaY,
+        });
         return;
       }
       if (pointerSession.kind !== "pane") {
@@ -293,6 +333,14 @@ export function CanvasEngineHost() {
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
       }
+      if (pointerSession.kind === "section" && pointerSession.moved) {
+        const latestLayouts =
+          useProjectState.getState().projectConfig.topLevelSections;
+        void route_set_top_level_section_layout({
+          projectConfigId,
+          topLevelSections: latestLayouts,
+        });
+      }
       if (pointerSession.kind === "pane" && !pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
@@ -301,7 +349,7 @@ export function CanvasEngineHost() {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [],
+    [projectConfigId],
   );
 
   const handleWheel = useCallback(
@@ -406,6 +454,28 @@ function resolveWorldPointFromPointerEvent(
     x: camera.x + localX / camera.zoom,
     y: camera.y + localY / camera.zoom,
   };
+}
+
+function setTopLevelSectionLayoutPosition(
+  sectionId: string,
+  position: { x: number; y: number },
+): void {
+  useProjectState.setState((state) => {
+    const existingLayout = state.projectConfig.topLevelSections[sectionId];
+    if (!existingLayout) {
+      return;
+    }
+    const nextLayout = {
+      ...existingLayout,
+      x: position.x,
+      y: position.y,
+    };
+    state.projectConfig.topLevelSections[sectionId] = nextLayout;
+    const { activeViewModeId, viewModes } = state.projectConfig;
+    if (activeViewModeId && viewModes[activeViewModeId]) {
+      viewModes[activeViewModeId].topLevelSections[sectionId] = nextLayout;
+    }
+  });
 }
 
 function clamp(value: number, min: number, max: number): number {

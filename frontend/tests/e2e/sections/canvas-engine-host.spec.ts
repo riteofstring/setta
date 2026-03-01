@@ -13,6 +13,19 @@ type CreateTopLevelSectionResponse = {
 
 type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
 
+type TopLevelSectionLayoutSnapshot = {
+  x?: number;
+  y?: number;
+};
+
+type LatestProjectStateResponse = {
+  projectState?: {
+    projectConfig?: {
+      topLevelSections?: Record<string, TopLevelSectionLayoutSnapshot>;
+    };
+  };
+};
+
 type FlowViewportBounds = {
   x: number;
   y: number;
@@ -202,6 +215,85 @@ test("canvas engine host supports section click selection and pane click clear",
   }
 });
 
+test("canvas engine host drags sections and persists top-level layout", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sectionScreenPoint = {
+      x: hostBounds.x + hostBounds.width * 0.48,
+      y: hostBounds.y + hostBounds.height * 0.5,
+    };
+    const sectionPosition = screenToWorldPoint(
+      sectionScreenPoint,
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sectionPosition,
+    });
+
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(1);
+
+    const initialPosition = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    const dragDelta = { x: 120, y: 80 };
+    await dragWorldPoint(page, host, {
+      start: {
+        x: initialPosition.x + 50,
+        y: initialPosition.y + 50,
+      },
+      end: {
+        x: initialPosition.x + 50 + dragDelta.x,
+        y: initialPosition.y + 50 + dragDelta.y,
+      },
+    });
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([sectionId]);
+    await expect
+      .poll(
+        async () =>
+          await readTopLevelSectionPosition(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+      )
+      .toEqual({
+        x: initialPosition.x + dragDelta.x,
+        y: initialPosition.y + dragDelta.y,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function createTopLevelSection({
   page,
   projectConfigId,
@@ -295,23 +387,7 @@ async function clickWorldPoint(
   host: Locator,
   worldPoint: WorldPoint,
 ): Promise<void> {
-  const bounds = await host.boundingBox();
-  if (!bounds) {
-    throw new Error("Unable to resolve canvas host bounds.");
-  }
-  const camera = await readCamera(host);
-  const screenX = bounds.x + (worldPoint.x - camera.x) * camera.zoom;
-  const screenY = bounds.y + (worldPoint.y - camera.y) * camera.zoom;
-  if (
-    screenX < bounds.x ||
-    screenX > bounds.x + bounds.width ||
-    screenY < bounds.y ||
-    screenY > bounds.y + bounds.height
-  ) {
-    throw new Error(
-      `World point ${JSON.stringify(worldPoint)} resolved outside canvas bounds.`,
-    );
-  }
+  const { x: screenX, y: screenY } = await worldPointToScreen(host, worldPoint);
   await page.mouse.click(screenX, screenY);
 }
 
@@ -365,6 +441,70 @@ async function clearSelectionByPaneClick(
   }
 
   throw new Error("Unable to clear active section ids via pane click targets.");
+}
+
+async function worldPointToScreen(
+  host: Locator,
+  worldPoint: WorldPoint,
+): Promise<{ x: number; y: number }> {
+  const bounds = await host.boundingBox();
+  if (!bounds) {
+    throw new Error("Unable to resolve canvas host bounds.");
+  }
+  const camera = await readCamera(host);
+  const screenX = bounds.x + (worldPoint.x - camera.x) * camera.zoom;
+  const screenY = bounds.y + (worldPoint.y - camera.y) * camera.zoom;
+  if (
+    screenX < bounds.x ||
+    screenX > bounds.x + bounds.width ||
+    screenY < bounds.y ||
+    screenY > bounds.y + bounds.height
+  ) {
+    throw new Error(
+      `World point ${JSON.stringify(worldPoint)} resolved outside canvas bounds.`,
+    );
+  }
+  return { x: screenX, y: screenY };
+}
+
+async function dragWorldPoint(
+  page: Page,
+  host: Locator,
+  points: {
+    start: WorldPoint;
+    end: WorldPoint;
+  },
+): Promise<void> {
+  const start = await worldPointToScreen(host, points.start);
+  const end = await worldPointToScreen(host, points.end);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await page.mouse.up();
+}
+
+async function readTopLevelSectionPosition(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{ x: number; y: number }> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const layout =
+    response?.projectState?.projectConfig?.topLevelSections?.[sectionId] ??
+    null;
+  if (!layout) {
+    throw new Error(`Missing top-level layout for section ${sectionId}.`);
+  }
+  if (typeof layout.x !== "number" || typeof layout.y !== "number") {
+    throw new Error(
+      `Invalid top-level layout position for section ${sectionId}: ${JSON.stringify(layout)}`,
+    );
+  }
+  return { x: layout.x, y: layout.y };
 }
 
 async function createAgenticEdge({
