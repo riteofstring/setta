@@ -45,16 +45,25 @@ class _DummyProjectManager:
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)
+        self.single_config_state_reads = 0
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
         return self.history.get_current()
 
-    async def get_latest_project_state_summary(self, _request):
-        single = convert_backend_to_single_config(
+    def get_single_config_state(
+        self, project_config_id: ID
+    ) -> ProjectStateSingleConfig:
+        if project_config_id != self._project_config_id:
+            raise KeyError(f"Unexpected project config id: {project_config_id}")
+        self.single_config_state_reads += 1
+        return convert_backend_to_single_config(
             self.project_state_backend,
             self._project_config_id,
         )
+
+    async def get_latest_project_state_summary(self, _request):
+        single = self.get_single_config_state(self._project_config_id)
         return build_project_state_summary(single)
 
 
@@ -161,7 +170,9 @@ def _build_context_with_meta(
 
 
 @pytest.mark.asyncio
-async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path) -> None:
+async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -253,6 +264,7 @@ async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path)
         peer_chat_section_id,
         blocked_section_id,
     }
+    assert manager.single_config_state_reads == 2
 
 
 @pytest.mark.asyncio
@@ -338,3 +350,4 @@ async def test_mcp_agentic_scope_cache_does_not_clear_all_entries_when_full(
     scope_cache = mcp_server._agentic_scope_cache_by_session.get(session)
     assert scope_cache is not None
     assert len(scope_cache) == len(chat_section_ids)
+    assert manager.single_config_state_reads == 1
