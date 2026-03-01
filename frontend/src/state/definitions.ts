@@ -165,6 +165,18 @@ export const useProjectState = withProjectState(
   ),
 );
 
+type ProjectStateSyncState = {
+  revisionByProjectConfigId: Record<string, number>;
+};
+
+export const useProjectStateSync = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ProjectStateSyncState>(() => ({
+      revisionByProjectConfigId: {},
+    })),
+  ),
+);
+
 type AppDefinitionState = {
   appDefinition: AppDefinition | null;
   appSpec: unknown | null;
@@ -922,7 +934,6 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  useCanvasEngineV1: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -991,7 +1002,6 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      useCanvasEngineV1: false,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1051,9 +1061,6 @@ export const useLocalStorage = createWithEqualityFn(
           merged.homeProjectGalleryViewMode !== "list"
         ) {
           merged.homeProjectGalleryViewMode = "thumbnails";
-        }
-        if (typeof merged.useCanvasEngineV1 !== "boolean") {
-          merged.useCanvasEngineV1 = false;
         }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
