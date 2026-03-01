@@ -10415,6 +10415,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
+        if x.steps <= 0 or not self.history.can_undo(x.steps):
+            return
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
@@ -10426,6 +10428,8 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
+        if x.steps <= 0 or not self.history.can_redo(x.steps):
+            return
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)

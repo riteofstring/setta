@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -2126,3 +2128,92 @@ async def test_undo_redo_use_full_patch_transport() -> None:
             len(redo_capture["structural_patch_calls"])
             == redo_capture["name_validation_broadcast_calls"]
         )
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_boundary_noops_skip_transport_broadcasts() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        # Create an extra history entry so we can navigate to both boundaries.
+        await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.TextBlock,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=Position(x=1120.0, y=540.0),
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        await manager.undo(
+            UndoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        assert not manager.history.can_undo(1)
+
+        undo_boundary_revision_before = manager.history.revision
+        undo_boundary_capture, _ = await _run_with_transport_capture(
+            manager,
+            asyncio.gather(
+                *[
+                    manager.undo(
+                        UndoRequest(
+                            projectConfigId=project_config_id,
+                            steps=1,
+                        )
+                    )
+                    for _ in range(20)
+                ]
+            ),
+        )
+        assert manager.history.revision == undo_boundary_revision_before
+        assert 0 == undo_boundary_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_boundary_capture["structural_patch_calls"])
+        assert 0 == undo_boundary_capture["project_config_patch_calls"]
+        assert 0 == undo_boundary_capture["code_obj_patch_calls"]
+        assert 0 == undo_boundary_capture["section_impl_patch_calls"]
+        assert 0 == undo_boundary_capture["name_validation_broadcast_calls"]
+
+        await manager.redo(
+            RedoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        assert not manager.history.can_redo(1)
+
+        redo_boundary_revision_before = manager.history.revision
+        redo_boundary_capture, _ = await _run_with_transport_capture(
+            manager,
+            asyncio.gather(
+                *[
+                    manager.redo(
+                        RedoRequest(
+                            projectConfigId=project_config_id,
+                            steps=1,
+                        )
+                    )
+                    for _ in range(20)
+                ]
+            ),
+        )
+        assert manager.history.revision == redo_boundary_revision_before
+        assert 0 == redo_boundary_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_boundary_capture["structural_patch_calls"])
+        assert 0 == redo_boundary_capture["project_config_patch_calls"]
+        assert 0 == redo_boundary_capture["code_obj_patch_calls"]
+        assert 0 == redo_boundary_capture["section_impl_patch_calls"]
+        assert 0 == redo_boundary_capture["name_validation_broadcast_calls"]
