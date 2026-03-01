@@ -45,6 +45,7 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  forceShellMode?: boolean;
 };
 
 export function SectionContainerCoreResizable({
@@ -56,6 +57,7 @@ export function SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  forceShellMode = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -153,13 +155,17 @@ export function SectionContainerCoreResizable({
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {forceShellMode ? (
+        <div className="h-8 w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
+      ) : (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      )}
     </CustomResizable>
   );
 }
