@@ -32,6 +32,8 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  forceShellMode?: boolean;
+  enableMotionShell?: boolean;
 };
 
 function _SectionContainerCore({
@@ -41,6 +43,8 @@ function _SectionContainerCore({
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  forceShellMode = false,
+  enableMotionShell = false,
 }: SectionContainerCoreProps) {
   const {
     isActiveSection,
@@ -176,7 +180,7 @@ function _SectionContainerCore({
     ? ""
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+    !forceShellMode && !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -192,7 +196,7 @@ function _SectionContainerCore({
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
       )}
-      <MinimizedDataEdgeHandles sectionId={sectionId} />
+      {!forceShellMode && <MinimizedDataEdgeHandles sectionId={sectionId} />}
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
@@ -202,6 +206,8 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        forceShellMode={forceShellMode}
+        enableMotionShell={enableMotionShell}
       />
     </section>
   );

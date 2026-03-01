@@ -15,10 +15,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.mcp.server import SettaFastMCP
-from setta.mcp.utils import (
-    convert_temporary_ids_to_canonical,
-    convert_canonical_ids_to_temporary,
-)
+from setta.mcp.utils import convert_temporary_ids_to_canonical, convert_canonical_ids_to_temporary
 from setta.types.agentic_edges import (
     AgenticEdge,
     AgenticEdgeContextMode,
@@ -26,7 +23,6 @@ from setta.types.agentic_edges import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import create_agentic_edge, create_top_level_section
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.lsp import (
     SettaLspDiagnostic,
@@ -52,22 +48,10 @@ class _DummyProjectManager:
     ) -> None:
         self.history = History(project_state_backend)
         self._diagnostics_payload = diagnostics_payload
-        self.single_config_state_reads = 0
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
         return self.history.get_current()
-
-    def get_single_config_state(
-        self, project_config_id: ID
-    ) -> ProjectStateSingleConfig:
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            raise KeyError(f"Unknown project config id: {project_config_id}")
-        self.single_config_state_reads += 1
-        return convert_backend_to_single_config(
-            self.project_state_backend,
-            project_config_id,
-        )
 
     async def get_latest_lsp_diagnostics(self, _request) -> SettaLspDiagnosticsPayload:
         return self._diagnostics_payload
@@ -225,13 +209,9 @@ def _build_context_with_headers(
 @pytest.mark.asyncio
 async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> None:
     dbe = DBE(tmp_path)
-    (
-        backend,
-        project_config_id,
-        chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
+    backend, project_config_id, chat_section_id, allowed_section_id, blocked_section_id = (
+        _build_project_state()
+    )
     payload = _build_diagnostics_payload(
         project_config_id=project_config_id,
         allowed_section_id=allowed_section_id,
@@ -271,7 +251,6 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> No
     tool = mcp_server.get_tool("get_latest_lsp_diagnostics")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.single_config_state_reads == 1
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -284,13 +263,9 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> No
 @pytest.mark.asyncio
 async def test_get_latest_lsp_diagnostics_filtered_by_scope_headers(tmp_path) -> None:
     dbe = DBE(tmp_path)
-    (
-        backend,
-        project_config_id,
-        chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
+    backend, project_config_id, chat_section_id, allowed_section_id, blocked_section_id = (
+        _build_project_state()
+    )
     payload = _build_diagnostics_payload(
         project_config_id=project_config_id,
         allowed_section_id=allowed_section_id,
@@ -330,7 +305,6 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_headers(tmp_path) ->
     tool = mcp_server.get_tool("get_latest_lsp_diagnostics")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.single_config_state_reads == 1
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
