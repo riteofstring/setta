@@ -398,7 +398,7 @@ export function CanvasEngineHost() {
       }
       return left.zIndex - right.zIndex;
     });
-  }, [activeSectionIds, camera, sceneAdapter, viewport]);
+  }, [activeSectionIds, camera, projectSceneRevision, sceneAdapter, viewport]);
   const domIslandLayerTransform = useMemo(
     () => ({
       transform: `translate(${-camera.x * camera.zoom}px, ${-camera.y * camera.zoom}px) scale(${camera.zoom})`,
@@ -1520,6 +1520,7 @@ function isCanvasGestureBlockedByTarget(target: EventTarget | null): boolean {
         "textarea",
         "select",
         "option",
+        "[role='menuitem']",
         "[contenteditable='true']",
       ].join(","),
     ),

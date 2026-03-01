@@ -340,6 +340,58 @@ test("canvas engine host mounts pointer-enabled dom-island controls", async ({
   }
 });
 
+test("canvas engine host mounts dom islands for newly visible sections", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const createdSectionPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.58,
+        y: hostBounds.y + hostBounds.height * 0.5,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const createdSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: createdSectionPosition,
+    });
+
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(
+        async () =>
+          await page
+            .locator(`[data-canvas-engine-dom-island="${createdSectionId}"]`)
+            .count(),
+      )
+      .toBe(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports section click selection and pane click clear", async ({
   page,
 }) => {
@@ -424,6 +476,89 @@ test("canvas engine host supports section click selection and pane click clear",
 
     await clearSelectionByPaneClick(page, host);
     await expect.poll(async () => await readActiveSectionIds(host)).toEqual([]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host ignores section-control clicks for canvas selection", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const firstPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.38,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const secondPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.74,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const firstSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: firstPosition,
+    });
+    const secondSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: secondPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    const firstLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    await clickWorldPoint(page, host, {
+      x: firstLayout.x + SECTION_BODY_CLICK_OFFSET_X,
+      y: firstLayout.y + SECTION_BODY_CLICK_OFFSET_Y,
+    });
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
+
+    const secondSectionMenuItems = page.locator(
+      `[data-canvas-engine-dom-island="${secondSectionId}"] [role="menuitem"]`,
+    );
+    await expect
+      .poll(async () => await secondSectionMenuItems.count())
+      .toBeGreaterThan(0);
+    await secondSectionMenuItems.first().click();
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([firstSectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
