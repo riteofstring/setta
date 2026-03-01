@@ -11030,6 +11030,7 @@ class BaseProjectManager(ABC):
             return
         navigation_entry_tokens = self._collect_undo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
+        previous_project_state_backend = self.project_state_backend
         previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
         self._normalize_backend_after_history_navigation()
@@ -11050,6 +11051,7 @@ class BaseProjectManager(ABC):
             undo_redo_patch_scope_by_project_config=(
                 undo_redo_patch_scope_by_project_config
             ),
+            previous_project_state_backend=previous_project_state_backend,
         )
 
     @enqueue_method
@@ -11058,6 +11060,7 @@ class BaseProjectManager(ABC):
             return
         navigation_entry_tokens = self._collect_redo_navigation_entry_tokens(x.steps)
         self._cancel_all_pending_codegen_refreshes()
+        previous_project_state_backend = self.project_state_backend
         previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
         self._normalize_backend_after_history_navigation()
@@ -11078,6 +11081,7 @@ class BaseProjectManager(ABC):
             undo_redo_patch_scope_by_project_config=(
                 undo_redo_patch_scope_by_project_config
             ),
+            previous_project_state_backend=previous_project_state_backend,
         )
 
     async def _broadcast_undo_redo_scoped_patch(
@@ -11107,6 +11111,28 @@ class BaseProjectManager(ABC):
             project_state_revision=project_state_revision,
         )
 
+    @staticmethod
+    def _build_undo_redo_unknown_scope_change_flags(
+        *,
+        previous_project_state: ProjectStateSingleConfig,
+        project_state: ProjectStateSingleConfig,
+    ) -> tuple[bool, bool, bool]:
+        project_config_changed = (
+            previous_project_state.projectConfig != project_state.projectConfig
+        )
+        structural_changed = (
+            previous_project_state.sections != project_state.sections
+            or previous_project_state.sectionVariants != project_state.sectionVariants
+            or previous_project_state.sectionImpls != project_state.sectionImpls
+            or previous_project_state.parentSectionMap != project_state.parentSectionMap
+        )
+        code_obj_changed = (
+            previous_project_state.codeObjs != project_state.codeObjs
+            or previous_project_state.codeObjVariants != project_state.codeObjVariants
+            or previous_project_state.codeObjImpls != project_state.codeObjImpls
+        )
+        return project_config_changed, structural_changed, code_obj_changed
+
     async def update_and_broadcast_all_project_state(
         self,
         *,
@@ -11116,6 +11142,7 @@ class BaseProjectManager(ABC):
             ID, _UndoRedoProjectConfigPatchScope
         ]
         | None = None,
+        previous_project_state_backend: ProjectStateBackend | None = None,
     ) -> None:
         backend = self.project_state_backend
         project_state_revision = self.history.revision
@@ -11159,35 +11186,104 @@ class BaseProjectManager(ABC):
                         project_state_revision=project_state_revision,
                     )
             else:
-                code_obj_ids = sorted(project_state.codeObjs.keys())
-                if code_obj_ids:
-                    (
-                        code_obj_updates,
-                        code_obj_variant_updates,
-                        code_obj_impl_updates,
-                    ) = self._collect_code_obj_updates_for_patch(
-                        project_state,
-                        code_obj_ids,
-                        include_all_variants=True,
+                previous_project_state_for_diff: ProjectStateSingleConfig | None = None
+                if (
+                    previous_project_state_backend is not None
+                    and project_config_id
+                    in previous_project_state_backend.projectConfigs
+                ):
+                    previous_project_state_for_diff = convert_backend_to_single_config(
+                        previous_project_state_backend,
+                        project_config_id,
                     )
-                    await self._broadcast_code_objs_patch(
-                        project_config_id=project_state.projectConfig.id,
-                        code_objs=code_obj_updates,
-                        code_obj_variants=code_obj_variant_updates,
-                        code_obj_impls=code_obj_impl_updates,
-                        previous_project_state_revision=previous_project_state_revision,
+
+                if previous_project_state_for_diff is None:
+                    code_obj_ids = sorted(project_state.codeObjs.keys())
+                    if code_obj_ids:
+                        (
+                            code_obj_updates,
+                            code_obj_variant_updates,
+                            code_obj_impl_updates,
+                        ) = self._collect_code_obj_updates_for_patch(
+                            project_state,
+                            code_obj_ids,
+                            include_all_variants=True,
+                        )
+                        await self._broadcast_code_objs_patch(
+                            project_config_id=project_state.projectConfig.id,
+                            code_objs=code_obj_updates,
+                            code_obj_variants=code_obj_variant_updates,
+                            code_obj_impls=code_obj_impl_updates,
+                            previous_project_state_revision=(
+                                previous_project_state_revision
+                            ),
+                            project_state_revision=project_state_revision,
+                        )
+                        has_broadcast_patch = True
+                    await self._broadcast_structural_patch(
+                        project_state=project_state,
+                        previous_project_state_revision=(
+                            project_state_revision
+                            if has_broadcast_patch
+                            else previous_project_state_revision
+                        ),
                         project_state_revision=project_state_revision,
                     )
                     has_broadcast_patch = True
-                await self._broadcast_structural_patch(
-                    project_state=project_state,
-                    previous_project_state_revision=(
-                        project_state_revision
-                        if has_broadcast_patch
-                        else previous_project_state_revision
-                    ),
-                    project_state_revision=project_state_revision,
-                )
+                else:
+                    (
+                        project_config_changed,
+                        structural_changed,
+                        code_obj_changed,
+                    ) = self._build_undo_redo_unknown_scope_change_flags(
+                        previous_project_state=previous_project_state_for_diff,
+                        project_state=project_state,
+                    )
+                    if project_config_changed and not structural_changed:
+                        await self._broadcast_project_config_patch(
+                            project_config=project_state.projectConfig,
+                            previous_project_state_revision=(
+                                previous_project_state_revision
+                            ),
+                            project_state_revision=project_state_revision,
+                        )
+                        has_broadcast_patch = True
+                    if code_obj_changed:
+                        code_obj_ids = sorted(project_state.codeObjs.keys())
+                        if code_obj_ids:
+                            (
+                                code_obj_updates,
+                                code_obj_variant_updates,
+                                code_obj_impl_updates,
+                            ) = self._collect_code_obj_updates_for_patch(
+                                project_state,
+                                code_obj_ids,
+                                include_all_variants=True,
+                            )
+                            await self._broadcast_code_objs_patch(
+                                project_config_id=project_state.projectConfig.id,
+                                code_objs=code_obj_updates,
+                                code_obj_variants=code_obj_variant_updates,
+                                code_obj_impls=code_obj_impl_updates,
+                                previous_project_state_revision=(
+                                    previous_project_state_revision
+                                    if not has_broadcast_patch
+                                    else project_state_revision
+                                ),
+                                project_state_revision=project_state_revision,
+                            )
+                            has_broadcast_patch = True
+                    if structural_changed:
+                        await self._broadcast_structural_patch(
+                            project_state=project_state,
+                            previous_project_state_revision=(
+                                previous_project_state_revision
+                                if not has_broadcast_patch
+                                else project_state_revision
+                            ),
+                            project_state_revision=project_state_revision,
+                        )
+                        has_broadcast_patch = True
             await self._broadcast_name_validation_errors(
                 project_state,
                 suppress_unchanged_broadcast=False,
