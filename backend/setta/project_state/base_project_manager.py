@@ -3588,11 +3588,15 @@ class BaseProjectManager(ABC):
         self, x: SetProjectConfigCodegenTargetsRequest
     ):
         """Update the codegen targets for a project configuration."""
+        self._validate_project_config_codegen_targets(
+            codegen_targets=x.codegenTargets,
+        )
         self._add_codegen_target_scoped_history_entry(x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_project_config_codegen_targets(
             project_state=project_state,
             codegen_targets=x.codegenTargets,
+            validate_targets=False,
         )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
@@ -3600,10 +3604,9 @@ class BaseProjectManager(ABC):
             broadcast_name_validation_errors=False,
         )
 
-    def _apply_project_config_codegen_targets(
+    def _validate_project_config_codegen_targets(
         self,
         *,
-        project_state: ProjectStateSingleConfig,
         codegen_targets: list[ProjectCodegenTarget],
     ) -> None:
         seen_languages: set[str] = set()
@@ -3614,6 +3617,18 @@ class BaseProjectManager(ABC):
                 )
             seen_languages.add(target.language)
         self._resolve_plugin_codegen_targets(codegen_targets)
+
+    def _apply_project_config_codegen_targets(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        codegen_targets: list[ProjectCodegenTarget],
+        validate_targets: bool = True,
+    ) -> None:
+        if validate_targets:
+            self._validate_project_config_codegen_targets(
+                codegen_targets=codegen_targets,
+            )
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
