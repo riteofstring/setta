@@ -10,6 +10,7 @@ const MAX_TOTAL_ELEMENTS = 7800;
 const MAX_AVG_NODE_DESCENDANTS = 170;
 const MAX_MAX_NODE_DESCENDANTS = 1400;
 const MAX_MAX_NODE_DEPTH = 16;
+const MAX_CM_LINE_WRAPPERS = 0;
 
 test("all settings DOM stays within flattening guardrails", async ({
   page,
@@ -109,6 +110,7 @@ test("all settings DOM stays within flattening guardrails", async ({
       flattenedSwitchRootCount: document.querySelectorAll(
         "button.section-value.justify-self-start.self-center",
       ).length,
+      cmLineCount: document.querySelectorAll(".cm-line").length,
     };
   });
 
@@ -129,4 +131,5 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.comboboxSearchContainerCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchWrapperCount).toBe(0);
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
+  expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
 });

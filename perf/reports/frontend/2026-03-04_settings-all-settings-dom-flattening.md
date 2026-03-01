@@ -263,6 +263,36 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `135` (`41.28%`)
   - Main-thread work: `Layout 29.1 ms`, `UpdateLayoutTree 8.64 ms`, `Paint 92.15 ms`, `PrePaint 8.62 ms`
 
+### Phase 7 (DummyCodeMirror line-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx`
+- Change:
+  - Added inline rendering paths so single-line content avoids creating `.cm-line` child wrappers.
+  - Applied the same flattening to one-line highlighted code even when multiline mode is enabled.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `5467` (down from `5893`, `-426`, `-7.2%` vs phase 6)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `6563` (down from `6989`, `-426`)
+  - Per-node descendants: `avg 129`, `p95 162`, `max 1022`
+  - Per-node max depth: `avg 10.4`, `p95 11`, `max 13`
+  - `.cm-line` wrappers: `0` (down from `426`)
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b.trace.json`
+- Notes on trace reliability:
+  - `phase7` was captured during a longer interaction window with more background task noise.
+  - `phase7b` is a shorter normalization rerun and is used for the numbers below.
+- Trace signals from normalized rerun (`phase7b`):
+  - Duration: `11,920.89 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `16`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `424` (`35.57/s`)
+  - `DrawFrame`: `120` (`10.07/s`)
+  - `DroppedFrame`: `78` (`18.40%`)
+  - Main-thread work: `Layout 30.19 ms`, `UpdateLayoutTree 8.42 ms`, `Paint 43.38 ms`, `PrePaint 8.03 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -272,15 +302,15 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy switch wrappers)
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 5893` (`-2726`, `-31.6%`)
-  - Per-node descendants avg: `204.05 -> 139.14` (`-31.8%`)
-  - Per-node descendants max: `1854 -> 1148` (`-38.1%`)
-  - Per-node depth avg/max: `12.74/17 -> 10.69/13`
+  - Viewport descendants: `8619 -> 5467` (`-3152`, `-36.6%`)
+  - Per-node descendants avg: `204.05 -> 129` (`-36.8%`)
+  - Per-node descendants max: `1854 -> 1022` (`-44.9%`)
+  - Per-node depth avg/max: `12.74/17 -> 10.40/13`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
@@ -299,3 +329,9 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase6_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b_fitview.png`
