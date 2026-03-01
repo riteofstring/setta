@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import _ from "lodash";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
-import { useProjectState, useProjectViewModeState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
 import { sortViewModes } from "utils/viewModeOrdering";
@@ -13,33 +13,41 @@ import {
 const TAB_LABEL_FALLBACK = "Untitled View";
 
 export function ViewModeTabs() {
-  const projectConfigId = useProjectViewModeState(
-    (state) => state.projectConfigId,
+  const {
+    projectConfigId,
+    tabModes,
+    activeViewModeId,
+    orderedViewModeIds,
+    tabSlotIndices,
+  } = useProjectState(
+    (x) => ({
+      projectConfigId: x.projectConfig.id,
+      activeViewModeId: x.projectConfig.activeViewModeId,
+      ...(() => {
+        const sortedModes = sortViewModes(
+          Object.values(x.projectConfig.viewModes),
+        );
+        const tabModes: Array<{ id: string; name: string }> = [];
+        const tabSlotIndices: Array<number> = [];
+        for (let index = 0; index < sortedModes.length; index += 1) {
+          const mode = sortedModes[index];
+          if (!mode) {
+            continue;
+          }
+          if (mode.isTab) {
+            tabModes.push({ id: mode.id, name: mode.name });
+            tabSlotIndices.push(index);
+          }
+        }
+        return {
+          tabModes,
+          orderedViewModeIds: sortedModes.map((mode) => mode.id),
+          tabSlotIndices,
+        };
+      })(),
+    }),
+    _.isEqual,
   );
-  const activeViewModeId = useProjectViewModeState(
-    (state) => state.activeViewModeId,
-  );
-  const viewModes = useProjectState((state) => state.projectConfig.viewModes);
-  const { tabModes, orderedViewModeIds, tabSlotIndices } = useMemo(() => {
-    const sortedModes = sortViewModes(Object.values(viewModes));
-    const nextTabModes: Array<{ id: string; name: string }> = [];
-    const nextTabSlotIndices: Array<number> = [];
-    for (let index = 0; index < sortedModes.length; index += 1) {
-      const mode = sortedModes[index];
-      if (!mode) {
-        continue;
-      }
-      if (mode.isTab) {
-        nextTabModes.push({ id: mode.id, name: mode.name });
-        nextTabSlotIndices.push(index);
-      }
-    }
-    return {
-      tabModes: nextTabModes,
-      orderedViewModeIds: sortedModes.map((mode) => mode.id),
-      tabSlotIndices: nextTabSlotIndices,
-    };
-  }, [viewModes]);
   const { canEditVariants, canEditStructure } = useShareCapabilities();
   const sortableEnabled = canEditStructure && tabModes.length > 1;
 

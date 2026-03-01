@@ -24,10 +24,7 @@ import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
-import {
-  createNodesMapFromProjectConfigChildren,
-  syncProjectViewModeState,
-} from "../sectionInfos";
+import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -63,7 +60,6 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
     });
   }
   useProjectState.setState({ ...p, previewSectionVariantMap: {} });
-  syncProjectViewModeState(useProjectState.getState());
   applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(

@@ -482,7 +482,9 @@ class SessionProjectManager(BaseProjectManager):
         if self.share_runtime_state is None:
             await super()._broadcast_project_state_snapshot(project_state)
             return
-        completed_op_ids, pending_op_ids = self._collect_frontend_op_ids_for_broadcast()
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         redacted = self.share_runtime_state.format_project_state_for_client(
             project_state
         )
@@ -490,40 +492,6 @@ class SessionProjectManager(BaseProjectManager):
             redacted,
             completed_op_ids,
             pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_view_mode_state_delta(
-        self,
-        project_state: "ProjectStateSingleConfig",
-        *,
-        updated_view_mode_ids: list[ID],
-    ) -> None:
-        if self.share_runtime_state is None:
-            await super()._broadcast_view_mode_state_delta(
-                project_state,
-                updated_view_mode_ids=updated_view_mode_ids,
-            )
-            return
-        completed_op_ids, pending_op_ids = self._collect_frontend_op_ids_for_broadcast()
-        redacted = self.share_runtime_state.format_project_state_for_client(
-            project_state
-        )
-        project_config = redacted.projectConfig
-        updated_view_modes = self._collect_updated_view_modes(
-            redacted,
-            updated_view_mode_ids,
-        )
-        await self.websocket_msg_handler.broadcast_view_mode_state(
-            project_config_id=project_config.id,
-            active_view_mode_id=project_config.activeViewModeId,
-            is_editing_view_mode=project_config.isEditingViewMode,
-            top_level_sections=project_config.topLevelSections,
-            viewport=project_config.viewport,
-            viewport_initialized=project_config.viewportInitialized,
-            updated_view_modes=updated_view_modes,
-            completed_op_ids=completed_op_ids,
-            pending_op_ids=pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 

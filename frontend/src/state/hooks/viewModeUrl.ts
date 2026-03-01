@@ -5,7 +5,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { useProjectState, useProjectViewModeState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { VIEW_MODE_ROUTER_PATH } from "utils/constants";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
@@ -27,13 +27,13 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     activeAtRequest: string | null;
   } | null>(null);
   const { canEditVariants } = useShareCapabilities();
-  const projectConfigId = useProjectViewModeState(
-    (state) => state.projectConfigId,
+  const { projectConfigId, activeViewModeId, viewModes } = useProjectState(
+    (x) => ({
+      projectConfigId: x.projectConfig.id,
+      activeViewModeId: x.projectConfig.activeViewModeId,
+      viewModes: x.projectConfig.viewModes,
+    }),
   );
-  const activeViewModeId = useProjectViewModeState(
-    (state) => state.activeViewModeId,
-  );
-  const viewModes = useProjectState((state) => state.projectConfig.viewModes);
   const isViewRoute = Boolean(viewMatch);
 
   const requestedViewModeId = useMemo(() => {

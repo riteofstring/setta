@@ -1,3 +1,4 @@
+import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect } from "react";
 import {
@@ -5,12 +6,7 @@ import {
   recomputeEdgeHandlePositions,
 } from "state/actions/edgeHandles";
 import { reconnectEdgeFromConnection } from "state/actions/edges";
-import {
-  useEdgeHandleRegistry,
-  useProjectState,
-  useProjectViewModeState,
-} from "state/definitions";
-import { shallow } from "zustand/shallow";
+import { useEdgeHandleRegistry, useProjectState } from "state/definitions";
 import { ConnectionLine } from "../components/ConnectionLine";
 import BezierEdge from "../components/Edges/BezierEdge";
 import StraightEdge from "../components/Edges/StraightEdge";
@@ -28,15 +24,13 @@ const edgeTypes = {
 };
 
 const EdgeRenderer = () => {
-  const { edges, sectionVariantMap } = useProjectState(
+  const { edges, sectionVariantMap, topLevelSections } = useProjectState(
     (state) => ({
       edges: state.projectConfig.edges,
       sectionVariantMap: state.projectConfig.sectionVariantMap,
+      topLevelSections: state.projectConfig.topLevelSections,
     }),
-    shallow,
-  );
-  const topLevelSections = useProjectViewModeState(
-    (state) => state.topLevelSections,
+    _.isEqual,
   );
   const positions = useEdgeHandleRegistry((state) => state.positions);
   const { width, height } = useReactFlow((state) => ({

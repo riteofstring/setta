@@ -165,38 +165,6 @@ export const useProjectState = withProjectState(
   ),
 );
 
-export type ZustandProjectViewModeState = {
-  projectConfigId: string;
-  activeViewModeId: ProjectStateSingleConfig["projectConfig"]["activeViewModeId"];
-  isEditingViewMode: ProjectStateSingleConfig["projectConfig"]["isEditingViewMode"];
-  topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
-  viewport: ProjectStateSingleConfig["projectConfig"]["viewport"];
-  viewportInitialized: ProjectStateSingleConfig["projectConfig"]["viewportInitialized"];
-};
-
-function createProjectViewModeState(
-  projectConfig: ProjectStateSingleConfig["projectConfig"],
-): ZustandProjectViewModeState {
-  return {
-    projectConfigId: projectConfig.id,
-    activeViewModeId: projectConfig.activeViewModeId,
-    isEditingViewMode: projectConfig.isEditingViewMode,
-    topLevelSections: projectConfig.topLevelSections,
-    viewport: projectConfig.viewport,
-    viewportInitialized: projectConfig.viewportInitialized,
-  };
-}
-
-export const useProjectViewModeState = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandProjectViewModeState>(() =>
-      createProjectViewModeState(
-        createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
-      ),
-    ),
-  ),
-);
-
 type AppDefinitionState = {
   appDefinition: AppDefinition | null;
   appSpec: unknown | null;

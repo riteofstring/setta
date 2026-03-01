@@ -4545,10 +4545,7 @@ class BaseProjectManager(ABC):
             next_view_mode.viewportInitialized
         )
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
-        await self._merge_and_broadcast_view_mode_state_delta(
-            project_state,
-            updated_view_mode_ids=[current_view_mode.id, next_view_mode.id],
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_is_editing_view_mode(
@@ -4558,14 +4555,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = (
             not project_state.projectConfig.isEditingViewMode
         )
-        active_view_mode_id = project_state.projectConfig.activeViewModeId
-        updated_view_mode_ids = (
-            [active_view_mode_id] if active_view_mode_id is not None else []
-        )
-        await self._merge_and_broadcast_view_mode_state_delta(
-            project_state,
-            updated_view_mode_ids=updated_view_mode_ids,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_section_visibility(
@@ -4595,10 +4585,7 @@ class BaseProjectManager(ABC):
         next_visibility = not all_visible
         for section_id in x.sectionIds:
             visibility_by_section_id[section_id] = next_visibility
-        await self._merge_and_broadcast_view_mode_state_delta(
-            project_state,
-            updated_view_mode_ids=[active_view_mode_id],
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_user_facing(
@@ -5314,82 +5301,13 @@ class BaseProjectManager(ABC):
             )
         await self._broadcast_project_state_snapshot(project_state)
 
-    async def _merge_and_broadcast_view_mode_state_delta(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        updated_view_mode_ids: list[ID],
-    ) -> None:
-        """Persist UI-only view-mode changes and broadcast a targeted delta."""
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_view_mode_state_delta(
-            project_state,
-            updated_view_mode_ids=updated_view_mode_ids,
-        )
-
-    def _collect_frontend_op_ids_for_broadcast(self) -> tuple[list[str], list[str]]:
-        self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
-        pending_op_ids = list(self.pending_frontend_ops.keys())
-        return completed_op_ids, pending_op_ids
-
-    def _collect_updated_view_modes(
-        self,
-        project_state: ProjectStateSingleConfig,
-        updated_view_mode_ids: list[ID],
-    ) -> dict[ID, ViewModeConfig]:
-        output: dict[ID, ViewModeConfig] = {}
-        for view_mode_id in updated_view_mode_ids:
-            if view_mode_id in output:
-                continue
-            view_mode = project_state.projectConfig.viewModes.get(view_mode_id)
-            if view_mode is None:
-                raise KeyError(f"View mode {view_mode_id} not found")
-            output[view_mode_id] = view_mode
-        return output
-
-    async def _broadcast_view_mode_state_delta(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        updated_view_mode_ids: list[ID],
-    ) -> None:
-        completed_op_ids, pending_op_ids = self._collect_frontend_op_ids_for_broadcast()
-        project_config = project_state.projectConfig
-        updated_view_modes = self._collect_updated_view_modes(
-            project_state,
-            updated_view_mode_ids,
-        )
-        logger.debug(
-            "broadcast_view_mode_state project_config_id=%s updated_view_modes=%s completed_ops=%s pending_ops=%s",
-            project_config.id,
-            len(updated_view_modes),
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_view_mode_state(
-            project_config_id=project_config.id,
-            active_view_mode_id=project_config.activeViewModeId,
-            is_editing_view_mode=project_config.isEditingViewMode,
-            top_level_sections=project_config.topLevelSections,
-            viewport=project_config.viewport,
-            viewport_initialized=project_config.viewportInitialized,
-            updated_view_modes=updated_view_modes,
-            completed_op_ids=completed_op_ids,
-            pending_op_ids=pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
-        completed_op_ids, pending_op_ids = self._collect_frontend_op_ids_for_broadcast()
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         logger.debug(
             "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,

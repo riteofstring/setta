@@ -40,12 +40,7 @@ from setta.types.notifications import (
     SettaBackendLogEventSeverity,
     SettaNotification,
 )
-from setta.types.project_config import (
-    ProjectConfig,
-    TopLevelSectionLayout,
-    ViewModeConfig,
-    Viewport,
-)
+from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
     AllProjectMetadata,
     ProjectStateSingleConfig,
@@ -54,7 +49,6 @@ from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
-    FrontendViewModeStateUpdateContent,
     UISettingRevealContent,
     WebsocketConnectionType,
     WebsocketMsgAgentProfilesUpdated,
@@ -78,7 +72,6 @@ from setta.types.websocket import (
     WebsocketMsgUISettingReveal,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
-    WebsocketMsgUpdateFrontendViewModeState,
     WebsocketMsgUpdateSettings,
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
@@ -386,37 +379,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectState=projectState,
                     completedOpIds=completedOpIds,
                     pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_view_mode_state(
-        self,
-        *,
-        project_config_id: ID,
-        active_view_mode_id: ID | None,
-        is_editing_view_mode: bool,
-        top_level_sections: dict[ID, TopLevelSectionLayout],
-        viewport: Viewport | None,
-        viewport_initialized: bool,
-        updated_view_modes: dict[ID, ViewModeConfig],
-        completed_op_ids: list[str],
-        pending_op_ids: list[str],
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgUpdateFrontendViewModeState(
-                content=FrontendViewModeStateUpdateContent(
-                    projectConfigId=project_config_id,
-                    activeViewModeId=active_view_mode_id,
-                    isEditingViewMode=is_editing_view_mode,
-                    topLevelSections=top_level_sections,
-                    viewport=viewport,
-                    viewportInitialized=viewport_initialized,
-                    updatedViewModes=updated_view_modes,
-                    completedOpIds=completed_op_ids,
-                    pendingOpIds=pending_op_ids,
                 )
             ),
             share_session_id,

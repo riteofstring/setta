@@ -4,7 +4,6 @@ import {
   useAIFollow,
   useNodeInternals,
   useProjectState,
-  useProjectViewModeState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -167,14 +166,6 @@ describe("AgenticEdgeRenderer", () => {
       };
       state.previewSectionVariantMap = {};
     });
-    useProjectViewModeState.setState({
-      projectConfigId: projectConfig.id,
-      activeViewModeId: projectConfig.activeViewModeId,
-      isEditingViewMode: projectConfig.isEditingViewMode,
-      topLevelSections: projectConfig.topLevelSections,
-      viewport: projectConfig.viewport,
-      viewportInitialized: projectConfig.viewportInitialized,
-    });
 
     useAIFollow.setState({
       mode: "all",
@@ -227,7 +218,6 @@ describe("AgenticEdgeRenderer", () => {
     useNodeInternals.setState({ x: nodes });
 
     syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useProjectViewModeState);
     syncStoreInitialState(useAIFollow);
     syncStoreInitialState(useNodeInternals);
     syncStoreInitialState(useAgenticScopeHighlights);
