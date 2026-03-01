@@ -207,8 +207,8 @@
   then proceed to a full UI engine rewrite plan (GPU-native rendering + interaction layer) rather than accepting reduced UX fidelity.
 
 ## Immediate Next Step
-- Phase 0 benchmark hardening and threshold gating:
-  - keep `Settings -> All Settings` plus non-settings large-project scenarios as the required suite,
-  - use interaction-time frame metrics (not request latency) as the perf source of truth,
-  - remove zoom-control fallback dependence by making wheel-zoom measurement deterministic in automation,
-  - promote the suite to explicit go/no-go threshold checks for default-on readiness.
+- Phase 1 follow-up: parity-safe DOM residency tightening.
+  - Keep strict viewport DOM residency as a hard parity rule for visible sections.
+  - Add bounded offscreen residency budgets + hysteresis so recently visible sections can stay warm without mounting the full project graph.
+  - Validate that no hitch spikes are introduced during pan/zoom while reducing non-visible DOM residency.
+  - Keep benchmark-suite interaction thresholds as release gates while this tuning lands.

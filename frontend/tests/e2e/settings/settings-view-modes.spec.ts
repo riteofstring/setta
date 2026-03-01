@@ -787,7 +787,7 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
   }
 });
 
-test("settings all-settings promotes scene-only sections into DOM islands on first click", async ({
+test("settings all-settings keeps viewport sections DOM-mounted in scene mode", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -819,58 +819,40 @@ test("settings all-settings promotes scene-only sections into DOM islands on fir
   const labels = await readSceneGraphRendererPerfLabels(page);
   test.skip(
     labels.resolvedBackend !== "webgl",
-    "Scene-only DOM island promotion requires the WebGL backend.",
+    "Viewport DOM residency assertions require the WebGL backend.",
   );
 
-  const clickTarget = await findSceneOnlyPromotionClickTarget(page);
+  const initialResidency = await readViewportDomResidencyState(page);
+  expect(initialResidency.viewportDomAnchorCount).toBeGreaterThan(0);
+  expect(initialResidency.domIslandCount).toBeGreaterThanOrEqual(
+    initialResidency.viewportDomAnchorCount,
+  );
+  expect(initialResidency.renderedNodeCount).toBeGreaterThanOrEqual(
+    initialResidency.viewportDomAnchorCount,
+  );
+  expect(initialResidency.sceneOnlyClickTargetSectionId).toBe("");
 
-  expect(clickTarget).not.toBeNull();
-  if (!clickTarget) {
-    return;
-  }
-
-  await page.mouse.click(clickTarget.clientX, clickTarget.clientY);
-  await page.waitForFunction((sectionId) => {
+  const zoomInButton = page.getByRole("button", { name: "zoom in" });
+  await expect(zoomInButton).toBeVisible();
+  await zoomInButton.click();
+  await page.waitForFunction((zoomBefore) => {
     const layer = document.querySelector(".setta-scene-graph-renderer-layer");
     if (!(layer instanceof HTMLCanvasElement)) {
       return false;
     }
-    const activeSectionCount = Number(
-      layer.getAttribute("data-scene-graph-layer-active-sections") ?? "0",
+    return (
+      Number(
+        layer.getAttribute("data-scene-graph-layer-camera-zoom") ?? "0",
+      ) > zoomBefore
     );
-    const mountedNode = document.querySelector(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    return activeSectionCount > 0 && mountedNode instanceof HTMLElement;
-  }, clickTarget.sectionId);
+  }, initialResidency.cameraZoom);
 
-  const promotedState = await page.evaluate((sectionId) => {
-    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
-    const root = document.querySelector(".react-flow");
-    return {
-      isDomMounted:
-        document.querySelector(`.react-flow__node[data-id="${sectionId}"]`) !==
-        null,
-      activeSectionCount:
-        layer instanceof HTMLCanvasElement
-          ? Number(
-              layer.getAttribute("data-scene-graph-layer-active-sections") ??
-                "0",
-            )
-          : 0,
-      domIslandCount:
-        root instanceof HTMLElement
-          ? Number(
-              root.getAttribute("data-scene-graph-renderer-dom-island-count") ??
-                "0",
-            )
-          : 0,
-    };
-  }, clickTarget.sectionId);
-
-  expect(promotedState.activeSectionCount).toBeGreaterThan(0);
-  expect(promotedState.domIslandCount).toBeGreaterThan(0);
-  expect(promotedState.isDomMounted).toBe(true);
+  const postZoomResidency = await readViewportDomResidencyState(page);
+  expect(postZoomResidency.viewportDomAnchorCount).toBeGreaterThan(0);
+  expect(postZoomResidency.domIslandCount).toBeGreaterThanOrEqual(
+    postZoomResidency.viewportDomAnchorCount,
+  );
+  expect(postZoomResidency.sceneOnlyClickTargetSectionId).toBe("");
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -1249,6 +1231,47 @@ test("settings all-settings keeps chart, spreadsheet, task board, browser, image
     }
   }
 });
+
+type ViewportDomResidencyState = {
+  viewportDomAnchorCount: number;
+  domIslandCount: number;
+  renderedNodeCount: number;
+  sceneOnlyClickTargetSectionId: string;
+  cameraZoom: number;
+};
+
+async function readViewportDomResidencyState(
+  page: Page,
+): Promise<ViewportDomResidencyState> {
+  return await page.evaluate(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      throw new Error("Missing .react-flow root.");
+    }
+    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
+    if (!(layer instanceof HTMLCanvasElement)) {
+      throw new Error("Missing scene graph renderer canvas layer.");
+    }
+    return {
+      viewportDomAnchorCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-viewport-dom-anchor-count",
+        ) ?? "0",
+      ),
+      domIslandCount: Number(
+        root.getAttribute("data-scene-graph-renderer-dom-island-count") ?? "0",
+      ),
+      renderedNodeCount: document.querySelectorAll(".react-flow__node").length,
+      sceneOnlyClickTargetSectionId:
+        root.getAttribute(
+          "data-scene-graph-renderer-scene-only-click-target-section-id",
+        ) ?? "",
+      cameraZoom: Number(
+        layer.getAttribute("data-scene-graph-layer-camera-zoom") ?? "0",
+      ),
+    };
+  });
+}
 
 type SceneOnlyPromotionClickTarget = {
   sectionId: string;

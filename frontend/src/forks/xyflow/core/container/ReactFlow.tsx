@@ -12,6 +12,7 @@ import {
 import { SceneGraphRendererLayer } from "sceneGraphRenderer/SceneGraphRendererLayer";
 import {
   computeSceneGraphDomIslandSectionIds,
+  computeViewportDomAnchorSectionIds,
   findTopmostSceneOnlySectionAtFlowPosition,
 } from "sceneGraphRenderer/domIslands";
 import {
@@ -44,6 +45,9 @@ const wrapperStyle: CSSProperties = {
 
 const SCROLL_INIT = 5000;
 const EMPTY_DOM_ISLAND_SECTION_IDS = new Set<string>();
+const SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_MARGIN_PX = 320;
+const SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_POSITION_QUANTIZE_PX = 96;
+const SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_ZOOM_QUANTIZE = 0.05;
 type SceneOnlyClickTarget = {
   sectionId: string;
   flowX: number;
@@ -100,6 +104,26 @@ const ReactFlow = () => {
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
   const transform = useReactFlow((state) => state.transform);
+  const viewportDomResidencyTransform = useMemo((): [
+    number,
+    number,
+    number,
+  ] => {
+    return [
+      quantizeValue(
+        transform[0],
+        SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_POSITION_QUANTIZE_PX,
+      ),
+      quantizeValue(
+        transform[1],
+        SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_POSITION_QUANTIZE_PX,
+      ),
+      quantizeValue(
+        transform[2],
+        SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_ZOOM_QUANTIZE,
+      ),
+    ];
+  }, [transform[0], transform[1], transform[2]]);
   useTabScope({
     scopeId: "canvas",
     order: 20,
@@ -140,6 +164,24 @@ const ReactFlow = () => {
     sectionVariantMap,
     sectionVariants,
   ]);
+  const viewportDomAnchorSectionIds = useMemo(() => {
+    if (!renderSceneOnlySections) {
+      return EMPTY_DOM_ISLAND_SECTION_IDS;
+    }
+    return computeViewportDomAnchorSectionIds({
+      nodesById,
+      transform: viewportDomResidencyTransform,
+      viewportWidth: wrapperDimensions.width,
+      viewportHeight: wrapperDimensions.height,
+      marginPx: SCENE_GRAPH_VIEWPORT_DOM_RESIDENCY_MARGIN_PX,
+    });
+  }, [
+    nodesById,
+    renderSceneOnlySections,
+    viewportDomResidencyTransform,
+    wrapperDimensions.height,
+    wrapperDimensions.width,
+  ]);
   const domIslandSectionIds = useMemo(() => {
     if (!renderSceneOnlySections) {
       return EMPTY_DOM_ISLAND_SECTION_IDS;
@@ -151,6 +193,7 @@ const ReactFlow = () => {
       activeSectionIds: activeIds,
       focusedSectionId,
       domIslandRadius: sceneGraphRendererRuntime.flags.domIslandRadius,
+      viewportDomAnchorSectionIds,
     });
     if (sectionCompatibilitySnapshot.forcedDomSectionIds.size === 0) {
       return domIslandSectionIds;
@@ -169,6 +212,7 @@ const ReactFlow = () => {
     sceneGraphRendererRuntime.flags.domIslandRadius,
     sectionCompatibilitySnapshot.forcedDomSectionIds,
     sectionVariantMap,
+    viewportDomAnchorSectionIds,
   ]);
   const sceneOnlyClickTarget = useMemo(() => {
     if (!renderSceneOnlySections) {
@@ -253,6 +297,9 @@ const ReactFlow = () => {
       }
       data-scene-graph-renderer-dom-island-count={String(
         domIslandSectionIds.size,
+      )}
+      data-scene-graph-renderer-viewport-dom-anchor-count={String(
+        viewportDomAnchorSectionIds.size,
       )}
       data-scene-graph-renderer-scene-compatible-section-count={String(
         sectionCompatibilitySnapshot.sceneCompatibleSectionCount,
@@ -384,6 +431,13 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
   }, [overviewWidth, uiEditorWidth]);
 
   return wrapperDimensions;
+}
+
+function quantizeValue(value: number, step: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) {
+    return value;
+  }
+  return Math.round(value / step) * step;
 }
 
 function findFirstVisibleSceneOnlyClickTarget(input: {

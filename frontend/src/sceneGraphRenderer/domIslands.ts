@@ -15,6 +15,15 @@ type DomIslandComputationInput = {
   activeSectionIds: Array<string>;
   focusedSectionId: string | null;
   domIslandRadius: number;
+  viewportDomAnchorSectionIds?: ReadonlySet<string>;
+};
+
+type ViewportDomAnchorComputationInput = {
+  nodesById: Map<string, Node>;
+  transform: [number, number, number];
+  viewportWidth: number;
+  viewportHeight: number;
+  marginPx: number;
 };
 
 type SceneOnlyHitTestInput = {
@@ -29,6 +38,15 @@ type QueueEntry = {
   distance: number;
 };
 
+type FlowViewportBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+const EMPTY_SECTION_IDS: ReadonlySet<string> = new Set();
+
 export function computeSceneGraphDomIslandSectionIds(
   input: DomIslandComputationInput,
 ): ReadonlySet<string> {
@@ -40,6 +58,14 @@ export function computeSceneGraphDomIslandSectionIds(
   }
   if (input.focusedSectionId && input.nodesById.has(input.focusedSectionId)) {
     anchorSectionIds.add(input.focusedSectionId);
+  }
+  if (input.viewportDomAnchorSectionIds) {
+    for (const sectionId of input.viewportDomAnchorSectionIds) {
+      if (!input.nodesById.has(sectionId)) {
+        continue;
+      }
+      anchorSectionIds.add(sectionId);
+    }
   }
 
   const domIslandSectionIds = new Set<string>(anchorSectionIds);
@@ -89,6 +115,27 @@ export function computeSceneGraphDomIslandSectionIds(
   return domIslandSectionIds;
 }
 
+export function computeViewportDomAnchorSectionIds(
+  input: ViewportDomAnchorComputationInput,
+): ReadonlySet<string> {
+  const viewportBounds = resolveFlowViewportBounds(input);
+  if (viewportBounds === null) {
+    return EMPTY_SECTION_IDS;
+  }
+
+  const sectionIds = new Set<string>();
+  for (const node of input.nodesById.values()) {
+    if (!isNodeVisibleBounds(node)) {
+      continue;
+    }
+    if (!intersectsFlowViewportBounds(node, viewportBounds)) {
+      continue;
+    }
+    sectionIds.add(node.id);
+  }
+  return sectionIds;
+}
+
 export function findTopmostSceneOnlySectionAtFlowPosition(
   input: SceneOnlyHitTestInput,
 ): string | null {
@@ -129,6 +176,46 @@ function sanitizeDomIslandRadius(radius: number): number {
     return 0;
   }
   return radius;
+}
+
+function sanitizeViewportMarginPx(marginPx: number): number {
+  if (!Number.isFinite(marginPx) || marginPx <= 0) {
+    return 0;
+  }
+  return marginPx;
+}
+
+function resolveFlowViewportBounds(
+  input: ViewportDomAnchorComputationInput,
+): FlowViewportBounds | null {
+  const [translateX, translateY, zoom] = input.transform;
+  if (!Number.isFinite(zoom) || zoom <= 0) {
+    return null;
+  }
+  if (input.viewportWidth <= 0 || input.viewportHeight <= 0) {
+    return null;
+  }
+
+  const marginPx = sanitizeViewportMarginPx(input.marginPx);
+  const minX = (-translateX - marginPx) / zoom;
+  const minY = (-translateY - marginPx) / zoom;
+  const maxX = (input.viewportWidth - translateX + marginPx) / zoom;
+  const maxY = (input.viewportHeight - translateY + marginPx) / zoom;
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null;
+  }
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+  };
 }
 
 function buildSectionAdjacency(input: {
@@ -212,4 +299,20 @@ function containsFlowPosition(node: Node, flowX: number, flowY: number) {
   const maxX = minX + node.width;
   const maxY = minY + node.height;
   return flowX >= minX && flowX <= maxX && flowY >= minY && flowY <= maxY;
+}
+
+function intersectsFlowViewportBounds(
+  node: Node & { width: number; height: number },
+  viewportBounds: FlowViewportBounds,
+): boolean {
+  const nodeMinX = node.position.x;
+  const nodeMinY = node.position.y;
+  const nodeMaxX = nodeMinX + node.width;
+  const nodeMaxY = nodeMinY + node.height;
+  return !(
+    nodeMaxX < viewportBounds.minX ||
+    nodeMinX > viewportBounds.maxX ||
+    nodeMaxY < viewportBounds.minY ||
+    nodeMinY > viewportBounds.maxY
+  );
 }

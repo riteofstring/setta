@@ -2,6 +2,7 @@ import type { Node } from "forks/xyflow/core/types";
 import { describe, expect, it } from "vitest";
 import {
   computeSceneGraphDomIslandSectionIds,
+  computeViewportDomAnchorSectionIds,
   findTopmostSceneOnlySectionAtFlowPosition,
 } from "./domIslands";
 
@@ -124,6 +125,100 @@ describe("computeSceneGraphDomIslandSectionIds", () => {
     });
 
     expect(Array.from(domIslandSectionIds)).toEqual([]);
+  });
+
+  it("treats viewport anchors as deterministic DOM residency seeds", () => {
+    // Ensures visible/near-viewport sections stay mounted even without active/focused anchors.
+    const nodesById = new Map<string, Node>([
+      ["a", createNode({ id: "a", position: { x: 0, y: 0 } })],
+      ["b", createNode({ id: "b", position: { x: 200, y: 0 } })],
+      ["c", createNode({ id: "c", position: { x: 400, y: 0 } })],
+    ]);
+
+    const domIslandSectionIds = computeSceneGraphDomIslandSectionIds({
+      nodesById,
+      edges: [
+        {
+          sourceSectionId: "a",
+          targetSectionId: "b",
+          hidden: false,
+        },
+        {
+          sourceSectionId: "b",
+          targetSectionId: "c",
+          hidden: false,
+        },
+      ],
+      sectionVariantMap: {},
+      activeSectionIds: [],
+      focusedSectionId: null,
+      domIslandRadius: 1,
+      viewportDomAnchorSectionIds: new Set(["b"]),
+    });
+
+    expect(Array.from(domIslandSectionIds).sort()).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("computeViewportDomAnchorSectionIds", () => {
+  it("includes sections intersecting the viewport plus margin", () => {
+    // Verifies deterministic viewport-residency capture using camera transform + margin.
+    const nodesById = new Map<string, Node>([
+      [
+        "inside",
+        createNode({
+          id: "inside",
+          position: { x: 10, y: 10 },
+          width: 60,
+          height: 60,
+        }),
+      ],
+      [
+        "margin-hit",
+        createNode({
+          id: "margin-hit",
+          position: { x: 330, y: 10 },
+          width: 60,
+          height: 60,
+        }),
+      ],
+      [
+        "outside",
+        createNode({
+          id: "outside",
+          position: { x: 520, y: 10 },
+          width: 60,
+          height: 60,
+        }),
+      ],
+    ]);
+
+    const sectionIds = computeViewportDomAnchorSectionIds({
+      nodesById,
+      transform: [0, 0, 1],
+      viewportWidth: 300,
+      viewportHeight: 180,
+      marginPx: 100,
+    });
+
+    expect(Array.from(sectionIds).sort()).toEqual(["inside", "margin-hit"]);
+  });
+
+  it("returns an empty set when viewport geometry is invalid", () => {
+    // Guards against unstable residency calculations before viewport size/zoom are ready.
+    const nodesById = new Map<string, Node>([
+      ["a", createNode({ id: "a", position: { x: 0, y: 0 } })],
+    ]);
+
+    const sectionIds = computeViewportDomAnchorSectionIds({
+      nodesById,
+      transform: [0, 0, 0],
+      viewportWidth: 0,
+      viewportHeight: 0,
+      marginPx: 100,
+    });
+
+    expect(Array.from(sectionIds)).toEqual([]);
   });
 });
 
