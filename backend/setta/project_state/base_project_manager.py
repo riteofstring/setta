@@ -388,6 +388,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.lsp import SettaLspDiagnosticsPayload
@@ -418,6 +419,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
@@ -4390,8 +4392,26 @@ class BaseProjectManager(ABC):
         """Append a blank keyword argument entry to the section."""
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
-        add_kwarg(self.settings_file.settings, project_state, x.sectionId)
-        await self.update_and_broadcast_project_state(project_state)
+        new_param_id = add_kwarg(
+            self.settings_file.settings, project_state, x.sectionId
+        )
+        root_code_obj_id = self._get_param_container_code_obj_id_for_section(
+            project_state,
+            x.sectionId,
+        )
+        changed_section_ids = self._find_section_ids_for_code_obj(
+            project_state,
+            new_param_id,
+        )
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=changed_section_ids,
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[root_code_obj_id, new_param_id],
+            section_ids=section_patch_scope,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4404,8 +4424,25 @@ class BaseProjectManager(ABC):
         """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
-        delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
-        await self.update_and_broadcast_project_state(project_state)
+        root_code_obj_id = self._get_param_container_code_obj_id_for_section(
+            project_state,
+            x.sectionId,
+        )
+        removed_param_id = delete_kwarg(
+            self.settings_file.settings,
+            project_state,
+            x.sectionId,
+        )
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[root_code_obj_id, removed_param_id],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4418,10 +4455,24 @@ class BaseProjectManager(ABC):
         """Remove selected parameters from the section."""
         self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
-        delete_selected_params(
+        parent_code_obj_ids = self._get_parent_code_obj_ids_for_section_params(
+            project_state,
+            x.sectionId,
+            x.paramInfoIds,
+        )
+        removed_param_ids = delete_selected_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
         )
-        await self.update_and_broadcast_project_state(project_state)
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+        )
+        await self._update_and_broadcast_code_obj_and_section_patches(
+            project_state,
+            code_obj_ids=[*parent_code_obj_ids, *removed_param_ids],
+            section_ids=section_patch_scope,
+            broadcast_project_config_patch=True,
+        )
 
     def create_project_code(
         self,
@@ -5837,6 +5888,75 @@ class BaseProjectManager(ABC):
             raise KeyError(f"Code obj {code_obj_id} not found in any section.")
         return matches
 
+    def _get_param_container_code_obj_id_for_section(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> ID:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            BaseSectionWithParamsImpl,
+        )
+        if isinstance(section_impl, CallableSectionImpl):
+            if section_impl.callable is None:
+                raise KeyError(f"Section {section_id} has no callable root code obj.")
+            return section_impl.callable
+        if isinstance(section_impl, BaseDictSectionImpl):
+            if section_impl.topLevelParamId is None:
+                raise KeyError(f"Section {section_id} has no top-level param.")
+            return section_impl.topLevelParamId
+        raise TypeError(
+            f"Section {section_id} has unsupported param container type {section_impl.type}."
+        )
+
+    def _get_parent_code_obj_ids_for_section_params(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        param_ids: list[ID],
+    ) -> list[ID]:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            BaseSectionWithParamsImpl,
+        )
+        root_id: ID | None
+        if isinstance(section_impl, CallableSectionImpl):
+            root_id = section_impl.callable
+        elif isinstance(section_impl, BaseDictSectionImpl):
+            root_id = section_impl.topLevelParamId
+        else:
+            raise TypeError(
+                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
+            )
+        if root_id is None:
+            return []
+        if root_id not in section_impl.codeObjVariantMap:
+            raise KeyError(
+                f"Root param container {root_id} missing for section {section_id}"
+            )
+        traversal = traverse_hierarchy(
+            project_state.codeObjs,
+            project_state.codeObjImpls,
+            project_state.codeObjVariants,
+            section_impl.codeObjVariantMap,
+            top_level_ids=[],
+            root_id=root_id,
+            options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
+        )
+        parent_code_obj_ids: list[ID] = []
+        seen_parent_ids: set[ID] = set()
+        for param_id in dict.fromkeys(param_ids):
+            parent_id = traversal.parent_map.get(param_id)
+            if parent_id is None:
+                continue
+            if parent_id in seen_parent_ids:
+                continue
+            seen_parent_ids.add(parent_id)
+            parent_code_obj_ids.append(parent_id)
+        return parent_code_obj_ids
+
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
@@ -5955,11 +6075,12 @@ class BaseProjectManager(ABC):
         *,
         code_obj_ids: list[ID],
         section_ids: list[ID],
+        broadcast_project_config_patch: bool = False,
         updateFileWatcher: bool = True,
         validate_name_rules: bool = True,
         broadcast_name_validation_errors: bool = True,
     ) -> None:
-        if not code_obj_ids and not section_ids:
+        if not code_obj_ids and not section_ids and not broadcast_project_config_patch:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
                 await self._broadcast_name_validation_errors(project_state)
@@ -5978,6 +6099,14 @@ class BaseProjectManager(ABC):
             return
 
         has_broadcast_patch = False
+        if broadcast_project_config_patch:
+            await self._broadcast_project_config_patch(
+                project_config=project_state.projectConfig,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            has_broadcast_patch = True
+
         if code_obj_ids:
             (
                 code_obj_updates,
@@ -5992,7 +6121,11 @@ class BaseProjectManager(ABC):
                 code_objs=code_obj_updates,
                 code_obj_variants=code_obj_variant_updates,
                 code_obj_impls=code_obj_impl_updates,
-                previous_project_state_revision=previous_project_state_revision,
+                previous_project_state_revision=(
+                    previous_project_state_revision
+                    if not has_broadcast_patch
+                    else next_project_state_revision
+                ),
                 project_state_revision=next_project_state_revision,
             )
             has_broadcast_patch = True
