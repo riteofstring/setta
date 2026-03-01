@@ -294,7 +294,7 @@ async def test_set_section_variant_uses_structural_patch_transport() -> None:
         assert 0 == capture["project_config_patch_calls"]
         assert 0 == capture["code_obj_patch_calls"]
         assert 0 == capture["section_impl_patch_calls"]
-        assert 1 == capture["name_validation_broadcast_calls"]
+        assert 0 == capture["name_validation_broadcast_calls"]
 
         assert (
             manager.get_single_config_state(project_config_id)
@@ -356,7 +356,7 @@ async def test_set_default_section_variant_uses_structural_patch_transport() -> 
         assert 0 == capture["project_config_patch_calls"]
         assert 0 == capture["code_obj_patch_calls"]
         assert 0 == capture["section_impl_patch_calls"]
-        assert 1 == capture["name_validation_broadcast_calls"]
+        assert 0 == capture["name_validation_broadcast_calls"]
 
         assert (
             manager.get_single_config_state(project_config_id).sections[
@@ -655,7 +655,7 @@ async def test_move_sections_uses_structural_patch_transport() -> None:
         assert 0 == capture["project_config_patch_calls"]
         assert 0 == capture["code_obj_patch_calls"]
         assert 0 == capture["section_impl_patch_calls"]
-        assert 1 == capture["name_validation_broadcast_calls"]
+        assert 0 == capture["name_validation_broadcast_calls"]
 
         updated_layout = manager.get_single_config_state(
             project_config_id

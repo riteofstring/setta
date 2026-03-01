@@ -6502,7 +6502,11 @@ class BaseProjectManager(ABC):
                         x.newParentId,
                         terminal_id,
                     )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
