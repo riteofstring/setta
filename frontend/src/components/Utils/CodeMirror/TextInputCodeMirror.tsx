@@ -12,12 +12,6 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
-function logTextInputCodeMirrorEvent(event: string, payload: unknown): void {
-  console.log(
-    `[text-input-codemirror-debug] ${event} ${JSON.stringify(payload)}`,
-  );
-}
-
 export function TextInputCodeMirror({
   sectionId,
   paramInfoId,
@@ -47,20 +41,10 @@ export function TextInputCodeMirror({
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
-    logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnBlur", {
-      sectionId,
-      paramInfoId,
-      activationEvent,
-      realIsInitialized,
-    });
     // hack to prevent codemirror from
     // blocking other inputs on blur
     // https://github.com/uiwjs/react-codemirror/issues/677
     setTimeout(() => {
-      logTextInputCodeMirrorEvent("TextInputCodeMirror.blurTimeoutReset", {
-        sectionId,
-        paramInfoId,
-      });
       setActivationEvent(null);
       setRealIsInitialized(false);
     }, 0);
@@ -70,12 +54,6 @@ export function TextInputCodeMirror({
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
   function localOnMouseDownCapture(event) {
-    logTextInputCodeMirrorEvent("TextInputCodeMirror.localOnMouseDownCapture", {
-      sectionId,
-      paramInfoId,
-      isDisabled,
-      button: event.button,
-    });
     if (isDisabled) {
       onMouseDown?.(event);
       return;
@@ -89,12 +67,6 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
-    logTextInputCodeMirrorEvent("TextInputCodeMirror.onFocus", {
-      sectionId,
-      paramInfoId,
-      isDisabled,
-      activationEvent,
-    });
     if (isDisabled) {
       return;
     }
@@ -215,19 +187,6 @@ function CoreCodeMirror({
     defaultVal,
   });
 
-  function onCodeMirrorChange(nextValue: string, viewUpdate) {
-    logTextInputCodeMirrorEvent("CoreCodeMirror.onChange", {
-      sectionId,
-      paramInfoId,
-      divId,
-      nextValue,
-      hasViewUpdate: viewUpdate != null,
-      docChanged: viewUpdate?.docChanged ?? null,
-      transactionCount: viewUpdate?.transactions?.length ?? null,
-    });
-    onChange(nextValue);
-  }
-
   return (
     <CodeMirror
       id={divId}
@@ -243,7 +202,7 @@ function CoreCodeMirror({
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
-      onChange={onCodeMirrorChange}
+      onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
       tabIndex={0} // keep focusable for tab navigation

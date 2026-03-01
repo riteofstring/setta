@@ -110,111 +110,6 @@ def merge_single_config_into_backend(
     )
 
 
-def _filter_code_obj_variant_map_for_copy(
-    *,
-    code_obj_variant_map: dict[ID, ID],
-    valid_code_obj_ids: set[ID],
-    valid_code_obj_variant_ids: set[ID],
-    context: str,
-) -> dict[ID, ID]:
-    filtered_map: dict[ID, ID] = {}
-    for code_obj_id, code_obj_variant_id in code_obj_variant_map.items():
-        if code_obj_id not in valid_code_obj_ids:
-            logger.warning(
-                "prepare_sections_for_copy dropping missing code obj reference context=%s code_obj_id=%s",
-                context,
-                code_obj_id,
-            )
-            continue
-        if code_obj_variant_id not in valid_code_obj_variant_ids:
-            logger.warning(
-                "prepare_sections_for_copy dropping missing code obj variant reference context=%s code_obj_id=%s code_obj_variant_id=%s",
-                context,
-                code_obj_id,
-                code_obj_variant_id,
-            )
-            continue
-        filtered_map[code_obj_id] = code_obj_variant_id
-    return filtered_map
-
-
-def _sanitize_section_impl_code_obj_variant_maps(
-    *,
-    section_impls: dict[ID, BaseSectionImplUnion],
-    valid_code_obj_ids: set[ID],
-    valid_code_obj_variant_ids: set[ID],
-) -> dict[ID, BaseSectionImplUnion]:
-    sanitized_section_impls = section_impls
-    for impl_id, section_impl in section_impls.items():
-        if not isinstance(section_impl, BaseSectionWithParamsImpl) and not isinstance(
-            section_impl, MetaControlSectionImpl
-        ):
-            continue
-        filtered_map = _filter_code_obj_variant_map_for_copy(
-            code_obj_variant_map=section_impl.codeObjVariantMap,
-            valid_code_obj_ids=valid_code_obj_ids,
-            valid_code_obj_variant_ids=valid_code_obj_variant_ids,
-            context=f"section_impl:{impl_id}",
-        )
-        if len(filtered_map) == len(section_impl.codeObjVariantMap):
-            continue
-        if sanitized_section_impls is section_impls:
-            sanitized_section_impls = dict(section_impls)
-        section_impl_copy = copy.deepcopy(section_impl)
-        section_impl_copy.codeObjVariantMap = filtered_map
-        if (
-            isinstance(section_impl_copy, MetaControlSectionImpl)
-            and section_impl_copy.metaControlParamId is not None
-            and section_impl_copy.metaControlParamId not in filtered_map
-        ):
-            logger.warning(
-                "prepare_sections_for_copy clearing stale metaControlParamId section_impl_id=%s meta_control_param_id=%s",
-                impl_id,
-                section_impl_copy.metaControlParamId,
-            )
-            section_impl_copy.metaControlParamId = None
-        sanitized_section_impls[impl_id] = section_impl_copy
-    return sanitized_section_impls
-
-
-def _sanitize_code_obj_impl_children_for_copy(
-    *,
-    code_obj_impls: dict[ID, BaseCodeObjImplUnion],
-    valid_code_obj_ids: set[ID],
-    valid_code_obj_ids_from_section_variant_maps: set[ID],
-) -> dict[ID, BaseCodeObjImplUnion]:
-    sanitized_code_obj_impls = code_obj_impls
-    for impl_id, code_obj_impl in code_obj_impls.items():
-        if not isinstance(code_obj_impl, BaseParentCodeObjImpl):
-            continue
-        filtered_children = [
-            child_id
-            for child_id in code_obj_impl.children
-            if (
-                child_id in valid_code_obj_ids
-                and child_id in valid_code_obj_ids_from_section_variant_maps
-            )
-        ]
-        if len(filtered_children) == len(code_obj_impl.children):
-            continue
-        if sanitized_code_obj_impls is code_obj_impls:
-            sanitized_code_obj_impls = dict(code_obj_impls)
-        for child_id in code_obj_impl.children:
-            if child_id in valid_code_obj_ids:
-                continue
-            logger.warning(
-                "prepare_sections_for_copy dropping stale code obj child reference code_obj_impl_id=%s child_code_obj_id=%s in_code_objs=%s in_section_variant_map=%s",
-                impl_id,
-                child_id,
-                child_id in valid_code_obj_ids,
-                child_id in valid_code_obj_ids_from_section_variant_maps,
-            )
-        code_obj_impl_copy = copy.deepcopy(code_obj_impl)
-        code_obj_impl_copy.children = filtered_children
-        sanitized_code_obj_impls[impl_id] = code_obj_impl_copy
-    return sanitized_code_obj_impls
-
-
 def prepare_sections_for_copy(
     p: ProjectStateCore, sections_to_process: set[ID]
 ) -> ProjectStateCore:
@@ -234,12 +129,6 @@ def prepare_sections_for_copy(
         section_id = sections_to_process.pop()
         if section_id in section_ids:
             continue
-        if section_id not in p.sections:
-            logger.warning(
-                "prepare_sections_for_copy skipping missing section section_id=%s",
-                section_id,
-            )
-            continue
 
         section_ids.add(section_id)
         section = p.sections[section_id]
@@ -247,81 +136,26 @@ def prepare_sections_for_copy(
         for variant_id in section.variants:
             if variant_id in section_variant_ids:
                 continue
-            if variant_id not in p.sectionVariants:
-                logger.warning(
-                    "prepare_sections_for_copy skipping missing section variant section_id=%s section_variant_id=%s",
-                    section_id,
-                    variant_id,
-                )
-                continue
-            section_variant = p.sectionVariants[variant_id]
-            if section_variant.impl not in p.sectionImpls:
-                logger.warning(
-                    "prepare_sections_for_copy skipping section variant with missing impl section_id=%s section_variant_id=%s section_impl_id=%s",
-                    section_id,
-                    variant_id,
-                    section_variant.impl,
-                )
-                continue
             section_variant_ids.add(variant_id)
             variant, impl, effective_impl = get_variant_base_and_effective_section_impl(
                 p, section, variant_id
             )
             section_impl_ids.add(impl.id)
-            for non_preset_impl_id in variant.nonPresetImpls:
-                if non_preset_impl_id not in p.sectionImpls:
-                    logger.warning(
-                        "prepare_sections_for_copy skipping missing non-preset section impl section_id=%s section_variant_id=%s section_impl_id=%s",
-                        section_id,
-                        variant_id,
-                        non_preset_impl_id,
-                    )
-                    continue
-                section_impl_ids.add(non_preset_impl_id)
+            section_impl_ids.update(variant.nonPresetImpls)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
                 sections_to_process.update(effective_impl.children)
-            section_code_obj_variant_map: dict[ID, ID] | None = None
-            if isinstance(effective_impl, BaseSectionWithParamsImpl):
-                section_code_obj_variant_map = effective_impl.codeObjVariantMap
+            elif isinstance(effective_impl, BaseSectionWithParamsImpl):
+                code_objs_to_process.update(effective_impl.codeObjVariantMap)
             elif isinstance(effective_impl, MetaControlSectionImpl):
-                section_code_obj_variant_map = effective_impl.codeObjVariantMap
-            if section_code_obj_variant_map is None:
-                continue
-            for (
-                code_obj_id,
-                code_obj_variant_id,
-            ) in section_code_obj_variant_map.items():
-                if code_obj_id not in p.codeObjs:
-                    logger.warning(
-                        "prepare_sections_for_copy skipping missing section code obj reference section_id=%s section_variant_id=%s code_obj_id=%s",
-                        section_id,
-                        variant_id,
-                        code_obj_id,
-                    )
-                    continue
-                if code_obj_variant_id not in p.codeObjVariants:
-                    logger.warning(
-                        "prepare_sections_for_copy skipping missing section code obj variant reference section_id=%s section_variant_id=%s code_obj_id=%s code_obj_variant_id=%s",
-                        section_id,
-                        variant_id,
-                        code_obj_id,
-                        code_obj_variant_id,
-                    )
-                    continue
-                code_objs_to_process.add(code_obj_id)
+                if effective_impl.metaControlParamId is not None:
+                    code_objs_to_process.add(effective_impl.metaControlParamId)
 
     # Process code_objs recursively
     while code_objs_to_process:
         obj_id = code_objs_to_process.pop()
         if obj_id in code_obj_ids:
-            continue
-        if obj_id not in p.codeObjs:
-            logger.warning(
-                "prepare_sections_for_copy skipping missing code obj code_obj_id=%s",
-                obj_id,
-            )
             continue
 
         code_obj_ids.add(obj_id)
@@ -330,82 +164,23 @@ def prepare_sections_for_copy(
         for variant_id in obj.variants:
             if variant_id in code_obj_variant_ids:
                 continue
-            if variant_id not in p.codeObjVariants:
-                logger.warning(
-                    "prepare_sections_for_copy skipping missing code obj variant code_obj_id=%s code_obj_variant_id=%s",
-                    obj_id,
-                    variant_id,
-                )
-                continue
-            code_obj_variant = p.codeObjVariants[variant_id]
-            if code_obj_variant.impl not in p.codeObjImpls:
-                logger.warning(
-                    "prepare_sections_for_copy skipping code obj variant with missing impl code_obj_id=%s code_obj_variant_id=%s code_obj_impl_id=%s",
-                    obj_id,
-                    variant_id,
-                    code_obj_variant.impl,
-                )
-                continue
             code_obj_variant_ids.add(variant_id)
             variant, base_impl, effective_impl = (
                 get_variant_base_and_effective_code_obj_impl(p, obj, variant_id)
             )
             code_obj_impl_ids.add(base_impl.id)
-            for non_preset_impl_id in variant.nonPresetImpls:
-                if non_preset_impl_id not in p.codeObjImpls:
-                    logger.warning(
-                        "prepare_sections_for_copy skipping missing non-preset code obj impl code_obj_id=%s code_obj_variant_id=%s code_obj_impl_id=%s",
-                        obj_id,
-                        variant_id,
-                        non_preset_impl_id,
-                    )
-                    continue
-                code_obj_impl_ids.add(non_preset_impl_id)
+            code_obj_impl_ids.update(variant.nonPresetImpls)
 
             if isinstance(effective_impl, BaseParentCodeObjImpl):
-                for child_code_obj_id in effective_impl.children:
-                    if child_code_obj_id not in p.codeObjs:
-                        logger.warning(
-                            "prepare_sections_for_copy skipping missing child code obj reference parent_code_obj_id=%s child_code_obj_id=%s",
-                            obj_id,
-                            child_code_obj_id,
-                        )
-                        continue
-                    code_objs_to_process.add(child_code_obj_id)
+                code_objs_to_process.update(effective_impl.children)
 
     # Build the sliced state
-    sections = {x: p.sections[x] for x in section_ids if x in p.sections}
-    sectionImpls = {
-        x: p.sectionImpls[x] for x in section_impl_ids if x in p.sectionImpls
-    }
-    sectionVariants = {
-        x: p.sectionVariants[x] for x in section_variant_ids if x in p.sectionVariants
-    }
-    codeObjs = {x: p.codeObjs[x] for x in code_obj_ids if x in p.codeObjs}
-    codeObjImpls = {
-        x: p.codeObjImpls[x] for x in code_obj_impl_ids if x in p.codeObjImpls
-    }
-    codeObjVariants = {
-        x: p.codeObjVariants[x] for x in code_obj_variant_ids if x in p.codeObjVariants
-    }
-    sectionImpls = _sanitize_section_impl_code_obj_variant_maps(
-        section_impls=sectionImpls,
-        valid_code_obj_ids=set(codeObjs.keys()),
-        valid_code_obj_variant_ids=set(codeObjVariants.keys()),
-    )
-    valid_code_obj_ids_from_section_variant_maps: set[ID] = set()
-    for section_impl in sectionImpls.values():
-        if isinstance(section_impl, BaseSectionWithParamsImpl) or isinstance(
-            section_impl, MetaControlSectionImpl
-        ):
-            valid_code_obj_ids_from_section_variant_maps.update(
-                section_impl.codeObjVariantMap.keys()
-            )
-    codeObjImpls = _sanitize_code_obj_impl_children_for_copy(
-        code_obj_impls=codeObjImpls,
-        valid_code_obj_ids=set(codeObjs.keys()),
-        valid_code_obj_ids_from_section_variant_maps=valid_code_obj_ids_from_section_variant_maps,
-    )
+    sections = {x: p.sections[x] for x in section_ids}
+    sectionImpls = {x: p.sectionImpls[x] for x in section_impl_ids}
+    sectionVariants = {x: p.sectionVariants[x] for x in section_variant_ids}
+    codeObjs = {x: p.codeObjs[x] for x in code_obj_ids}
+    codeObjImpls = {x: p.codeObjImpls[x] for x in code_obj_impl_ids}
+    codeObjVariants = {x: p.codeObjVariants[x] for x in code_obj_variant_ids}
     return ProjectStateCore(
         sections=sections,
         sectionImpls=sectionImpls,
