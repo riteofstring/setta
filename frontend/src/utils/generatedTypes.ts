@@ -5136,6 +5136,7 @@ const ProjectStateSectionImplPatchSchema = z.object({
   projectStateRevision: z.int(),
   completedOpIds: z.array(z.string()),
   pendingOpIds: z.array(z.string()),
+  shownParamIds: z.union([ShownParamIdsSchema, z.null()]).default(null),
 });
 
 export type ProjectStateSectionImplPatch = z.infer<

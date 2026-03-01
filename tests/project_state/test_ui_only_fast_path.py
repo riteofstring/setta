@@ -989,7 +989,7 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ui_only_set_section_pinned_params_broadcasts_project_state_snapshot() -> None:
+async def test_ui_only_set_section_pinned_params_broadcasts_section_impl_patch() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -1005,9 +1005,11 @@ async def test_ui_only_set_section_pinned_params_broadcasts_project_state_snapsh
 
         sender = manager.websocket_msg_handler
         project_state_broadcast_calls = 0
-        name_validation_broadcast_calls = 0
+        section_impl_patch_calls: list[dict[str, object]] = []
         original_project_state_broadcast = sender.broadcast_project_state
-        original_name_validation_broadcast = sender.broadcast_name_validation_errors
+        original_section_impl_patch_broadcast = (
+            sender.broadcast_project_state_section_impl_patch
+        )
 
         async def record_project_state_broadcast(
             project_state,
@@ -1024,19 +1026,50 @@ async def test_ui_only_set_section_pinned_params_broadcasts_project_state_snapsh
                 project_state_revision,
             )
 
-        async def record_name_validation_broadcast(content) -> None:
-            nonlocal name_validation_broadcast_calls
-            name_validation_broadcast_calls += 1
-            await original_name_validation_broadcast(content)
+        async def record_section_impl_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+            shown_param_ids=None,
+        ) -> None:
+            section_impl_patch_calls.append(
+                {
+                    "projectConfigId": project_config_id_for_patch,
+                    "sectionId": section_id_for_patch,
+                    "sectionImplId": section_impl_for_patch.id,
+                    "sectionImplType": section_impl_for_patch.type,
+                    "previousProjectStateRevision": previous_project_state_revision,
+                    "projectStateRevision": project_state_revision,
+                    "completedOpIds": list(completed_op_ids),
+                    "pendingOpIds": list(pending_op_ids),
+                    "shownParamIds": (
+                        shown_param_ids.model_dump(mode="json")
+                        if shown_param_ids is not None
+                        else None
+                    ),
+                }
+            )
+            await original_section_impl_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+                shown_param_ids,
+            )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
-        sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         try:
-            # set_section_pinned_params also updates shownParamIds, so it still
-            # relies on full project-state snapshot transport.
             await manager.finish_pending_operations(timeout=5.0)
             before_project_state = project_state_broadcast_calls
-            before_name_validation = name_validation_broadcast_calls
+            before_patch_count = len(section_impl_patch_calls)
             await manager.set_section_pinned_params(
                 SetSectionPinnedParamsRequest(
                     projectConfigId=project_config_id,
@@ -1047,10 +1080,21 @@ async def test_ui_only_set_section_pinned_params_broadcasts_project_state_snapsh
             await manager.finish_pending_operations(timeout=5.0)
         finally:
             sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
-            sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_impl_patch_broadcast  # type: ignore[method-assign]
+            )
 
-        assert project_state_broadcast_calls - before_project_state == 1
-        assert name_validation_broadcast_calls - before_name_validation == 0
+        assert project_state_broadcast_calls == before_project_state
+        patches = section_impl_patch_calls[before_patch_count:]
+        assert len(patches) == 1
+        patch = patches[0]
+        assert patch["projectConfigId"] == project_config_id
+        assert patch["sectionId"] == section_ids.callable_section_id
+        assert patch["sectionImplType"] == SectionType.Callable
+        assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+        shown_param_ids = patch["shownParamIds"]
+        assert shown_param_ids is not None
+        assert pinned_param_id in shown_param_ids["pinned"]["topLevelParamIds"]
 
 
 @pytest.mark.asyncio
@@ -1099,6 +1143,7 @@ async def test_ui_only_param_selection_routes_broadcast_section_impl_patch() -> 
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids=None,
         ) -> None:
             section_impl_patch_calls.append(
                 {
@@ -1120,6 +1165,7 @@ async def test_ui_only_param_selection_routes_broadcast_section_impl_patch() -> 
                 project_state_revision,
                 completed_op_ids,
                 pending_op_ids,
+                shown_param_ids,
             )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
@@ -1200,6 +1246,7 @@ async def test_ui_only_section_size_routes_broadcast_section_impl_patch() -> Non
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids=None,
         ) -> None:
             section_impl_patch_calls.append(
                 {
@@ -1221,6 +1268,7 @@ async def test_ui_only_section_size_routes_broadcast_section_impl_patch() -> Non
                 project_state_revision,
                 completed_op_ids,
                 pending_op_ids,
+                shown_param_ids,
             )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
@@ -1331,6 +1379,7 @@ async def test_ui_only_param_visibility_routes_broadcast_section_impl_patch() ->
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids=None,
         ) -> None:
             section_impl_patch_calls.append(
                 {
@@ -1352,6 +1401,7 @@ async def test_ui_only_param_visibility_routes_broadcast_section_impl_patch() ->
                 project_state_revision,
                 completed_op_ids,
                 pending_op_ids,
+                shown_param_ids,
             )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
@@ -1441,6 +1491,7 @@ async def test_ui_only_group_layout_routes_broadcast_section_impl_patch() -> Non
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids=None,
         ) -> None:
             section_impl_patch_calls.append(
                 {
@@ -1462,6 +1513,7 @@ async def test_ui_only_group_layout_routes_broadcast_section_impl_patch() -> Non
                 project_state_revision,
                 completed_op_ids,
                 pending_op_ids,
+                shown_param_ids,
             )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
@@ -1577,6 +1629,7 @@ async def test_ui_only_text_chrome_routes_broadcast_section_impl_patch() -> None
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids=None,
         ) -> None:
             section_impl_patch_calls.append(
                 {
@@ -1598,6 +1651,7 @@ async def test_ui_only_text_chrome_routes_broadcast_section_impl_patch() -> None
                 project_state_revision,
                 completed_op_ids,
                 pending_op_ids,
+                shown_param_ids,
             )
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]

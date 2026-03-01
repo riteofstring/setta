@@ -1164,6 +1164,9 @@ export function applySectionImplProjectStatePatch(
       return;
     }
     state.sectionImpls[sectionImplId] = patch.sectionImpl;
+    if (patch.shownParamIds !== undefined && patch.shownParamIds !== null) {
+      state.shownParamIds[sectionVariantId] = patch.shownParamIds;
+    }
     applied = true;
   });
   if (!applied) {

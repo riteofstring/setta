@@ -50,6 +50,7 @@ from setta.types.project_state import (
 )
 from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.section_impls import BaseSectionImpl
+from setta.types.shown_params import ShownParamIds
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
@@ -452,6 +453,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectStateRevision: int,
         completedOpIds: list[str],
         pendingOpIds: list[str],
+        shownParamIds: ShownParamIds | None = None,
         *,
         share_session_id: str | None = None,
     ) -> None:
@@ -465,6 +467,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,
                     pendingOpIds=pendingOpIds,
+                    shownParamIds=shownParamIds,
                 )
             ),
             share_session_id,

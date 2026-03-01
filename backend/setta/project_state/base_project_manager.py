@@ -432,6 +432,7 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.shown_params import ShownParamIds
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
@@ -5010,7 +5011,18 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
         project_state.refresh_shown_param_ids_for_section(x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        if x.sectionId not in project_state.projectConfig.sectionVariantMap:
+            raise KeyError(f"Section {x.sectionId} missing section variant id.")
+        section_variant_id = project_state.projectConfig.sectionVariantMap[x.sectionId]
+        if section_variant_id not in project_state.shownParamIds:
+            raise KeyError(
+                f"Section variant {section_variant_id} missing shown param ids."
+            )
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+            shown_param_ids=project_state.shownParamIds[section_variant_id],
+        )
 
     @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
@@ -5580,10 +5592,14 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         *,
         section_id: ID,
+        shown_param_ids: ShownParamIds | None = None,
     ) -> None:
         await self._merge_and_broadcast_ui_only_section_impl_patches(
             project_state,
             section_ids=[section_id],
+            shown_param_ids_by_section_id=(
+                {section_id: shown_param_ids} if shown_param_ids is not None else None
+            ),
         )
 
     async def _merge_and_broadcast_ui_only_section_impl_patches(
@@ -5591,6 +5607,7 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         *,
         section_ids: list[ID],
+        shown_param_ids_by_section_id: dict[ID, ShownParamIds] | None = None,
     ) -> None:
         if not section_ids:
             await self._broadcast_project_state_snapshot(project_state)
@@ -5604,7 +5621,9 @@ class BaseProjectManager(ABC):
                 updateFileWatcher=False,
             )
             next_project_state_revision = self.history.revision
-            section_impl_updates: list[tuple[ID, BaseSectionImpl]] = []
+            section_impl_updates: list[
+                tuple[ID, BaseSectionImpl, ShownParamIds | None]
+            ] = []
             seen_section_ids: set[ID] = set()
             for section_id in section_ids:
                 if section_id in seen_section_ids:
@@ -5621,11 +5640,19 @@ class BaseProjectManager(ABC):
                 section_impl = project_state.sectionImpls.get(section_variant.impl)
                 if section_impl is None:
                     raise KeyError(f"Section impl {section_variant.impl} not found.")
-                section_impl_updates.append((section_id, section_impl))
+                shown_param_ids = None
+                if (
+                    shown_param_ids_by_section_id is not None
+                    and section_id in shown_param_ids_by_section_id
+                ):
+                    shown_param_ids = shown_param_ids_by_section_id[section_id]
+                section_impl_updates.append((section_id, section_impl, shown_param_ids))
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             return
-        for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+        for idx, (section_id, section_impl, shown_param_ids) in enumerate(
+            section_impl_updates
+        ):
             await self._broadcast_section_impl_patch(
                 project_config_id=project_state.projectConfig.id,
                 section_id=section_id,
@@ -5636,6 +5663,7 @@ class BaseProjectManager(ABC):
                     else next_project_state_revision
                 ),
                 project_state_revision=next_project_state_revision,
+                shown_param_ids=shown_param_ids,
             )
 
     async def _broadcast_project_state_snapshot(
@@ -5735,6 +5763,7 @@ class BaseProjectManager(ABC):
         section_impl: BaseSectionImpl,
         previous_project_state_revision: int,
         project_state_revision: int,
+        shown_param_ids: ShownParamIds | None = None,
     ) -> None:
         completed_op_ids, pending_op_ids = (
             self._consume_frontend_op_status_for_broadcast()
@@ -5756,6 +5785,7 @@ class BaseProjectManager(ABC):
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            shown_param_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 

@@ -1722,4 +1722,87 @@ describe("processProjectStateUpdateFromBackend", () => {
     ).toBe("after");
     expect(getProjectStateRevision("project-1")).toBe(32);
   });
+
+  it("applies shown param ids from section-impl patches when provided", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "chat-impl-1";
+    const initialShown: ShownParamIds = {
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+      unpinned: {
+        requiredParamIdsToPaths: { "param-a": ["param-a"] },
+        topLevelParamIds: ["param-a"],
+      },
+    };
+    const nextShown: ShownParamIds = {
+      pinned: {
+        requiredParamIdsToPaths: { "param-a": ["param-a"] },
+        topLevelParamIds: ["param-a"],
+      },
+      unpinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+    };
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createChatSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Chat,
+          inputText: "before",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: { [variantId]: initialShown },
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applySectionImplProjectStatePatch({
+      projectConfigId: "project-1",
+      sectionId,
+      sectionImpl: createChatSectionImpl({
+        id: implId,
+        type: SectionTypeEnum.Chat,
+        inputText: "after",
+      }),
+      previousProjectStateRevision: 40,
+      projectStateRevision: 41,
+      completedOpIds: [],
+      pendingOpIds: [],
+      shownParamIds: nextShown,
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().shownParamIds[variantId]).toEqual(
+      nextShown,
+    );
+    expect(getProjectStateRevision("project-1")).toBe(41);
+  });
 });
