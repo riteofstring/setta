@@ -140,6 +140,17 @@
 - Re-measure both motion and non-pan baselines after this tranche.
 - Reconfirm if pan/zoom remains far below target; then proceed with proxy phases.
 
+### Phase 0.5 Status Update (2026-03-02)
+- Baseline harness is landed and recorded:
+  - `perf/reports/frontend/2026-03-02_settings-all-settings-performance-baseline.md`
+- Item A trialed: per-keystroke param-filter match cache (`GetParamSwitch` path).
+- Result: **not kept**. Repeated runs showed only small/noisy typing change relative to baseline.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-02_settings-all-settings-param-filter-match-cache.md`
+- Next Phase 0.5 focus:
+  - Item B: state subscription partitioning.
+  - Item C: lazy overlay mounting.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
