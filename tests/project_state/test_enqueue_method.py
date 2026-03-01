@@ -358,3 +358,68 @@ class TestEnqueueMethod:
             "partitioned-cross-1",
             "partitioned-cross-2",
         }
+
+    async def test_op_status_broadcasts_do_not_reemit_inflight_completed_ids(self):
+        manager = self.manager
+        sender = manager.websocket_msg_handler
+        first_project_config_id = self.project_config_id
+        second_project_config_id = ID("project-config-other")
+        first_broadcast_started = asyncio.Event()
+        allow_first_broadcast_to_finish = asyncio.Event()
+        captured_completed_ids_by_project: list[tuple[ID, list[str]]] = []
+
+        original_broadcast = sender.broadcast_project_state_op_status_patch
+
+        async def capture_op_status_patch(
+            projectConfigId: ID,
+            previousProjectStateRevision: int,
+            projectStateRevision: int,
+            completedOpIds: list[str],
+            pendingOpIds: list[str],
+            *,
+            share_session_id: str | None = None,
+        ) -> None:
+            captured_completed_ids_by_project.append(
+                (projectConfigId, list(completedOpIds))
+            )
+            if projectConfigId == first_project_config_id:
+                first_broadcast_started.set()
+                await allow_first_broadcast_to_finish.wait()
+            await original_broadcast(
+                projectConfigId,
+                previousProjectStateRevision,
+                projectStateRevision,
+                completedOpIds,
+                pendingOpIds,
+                share_session_id=share_session_id,
+            )
+
+        sender.broadcast_project_state_op_status_patch = capture_op_status_patch  # type: ignore[method-assign]
+        try:
+            manager.completed_op_ids_since_last_broadcast = ["op-first"]
+            first_broadcast_task = asyncio.create_task(
+                manager._broadcast_project_state_op_status_patch(
+                    project_config_id=first_project_config_id,
+                    previous_project_state_revision=0,
+                    project_state_revision=1,
+                )
+            )
+            await asyncio.wait_for(first_broadcast_started.wait(), timeout=1)
+
+            # Simulate another completed op while the first broadcast is still in flight.
+            manager.completed_op_ids_since_last_broadcast.append("op-second")
+
+            await manager._broadcast_project_state_op_status_patch(
+                project_config_id=second_project_config_id,
+                previous_project_state_revision=1,
+                project_state_revision=2,
+            )
+            allow_first_broadcast_to_finish.set()
+            await first_broadcast_task
+        finally:
+            sender.broadcast_project_state_op_status_patch = original_broadcast  # type: ignore[method-assign]
+
+        assert captured_completed_ids_by_project == [
+            (first_project_config_id, ["op-first"]),
+            (second_project_config_id, ["op-second"]),
+        ]

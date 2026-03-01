@@ -10098,14 +10098,17 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_op_status_patch(
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state_op_status_patch(
+                project_config_id,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_project_state_snapshot(
         self,
@@ -10125,22 +10128,40 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state(
-            project_state,
-            completed_op_ids,
-            pending_op_ids,
-            project_state_revision,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     def _consume_frontend_op_status_for_broadcast(self) -> tuple[list[str], list[str]]:
         self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        # Snapshot and clear immediately so concurrent broadcast tasks do not
+        # re-emit ids already claimed by another in-flight broadcast.
+        completed_op_ids = list(self.completed_op_ids_since_last_broadcast)
+        self.completed_op_ids_since_last_broadcast = []
         # Frontend pending-op reconciliation only requires completed ids for
         # correctness. Omitting pending ids keeps patch payloads bounded under
         # queue backlog during high-frequency edits.
         pending_op_ids: list[str] = []
         return completed_op_ids, pending_op_ids
+
+    def _restore_frontend_op_status_after_broadcast_failure(
+        self, completed_op_ids: list[str]
+    ) -> None:
+        if not completed_op_ids:
+            return
+        if not self.completed_op_ids_since_last_broadcast:
+            self.completed_op_ids_since_last_broadcast = completed_op_ids
+            return
+        self.completed_op_ids_since_last_broadcast = (
+            completed_op_ids + self.completed_op_ids_since_last_broadcast
+        )
 
     async def _broadcast_active_view_mode_patch(
         self,
@@ -10161,15 +10182,18 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
-            project_config_id,
-            active_view_mode_id,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
+                project_config_id,
+                active_view_mode_id,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_project_config_patch(
         self,
@@ -10189,15 +10213,20 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
-            project_config.id,
-            project_config,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await (
+                self.websocket_msg_handler.broadcast_project_state_project_config_patch(
+                    project_config.id,
+                    project_config,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_structural_patch(
         self,
@@ -10268,20 +10297,23 @@ class BaseProjectManager(ABC):
             structural_patch_kwargs["removedParentSectionIds"] = (
                 removed_parent_section_ids
             )
-        await self.websocket_msg_handler.broadcast_project_state_structural_patch(
-            project_state.projectConfig.id,
-            project_state.projectConfig,
-            patch_sections,
-            patch_section_variants,
-            patch_section_impls,
-            patch_parent_section_map,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-            **structural_patch_kwargs,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state_structural_patch(
+                project_state.projectConfig.id,
+                project_state.projectConfig,
+                patch_sections,
+                patch_section_variants,
+                patch_section_impls,
+                patch_parent_section_map,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+                **structural_patch_kwargs,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_app_definition_patch(
         self,
@@ -10303,16 +10335,21 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_app_definition_patch(
-            project_config_id,
-            app_definition,
-            app_spec,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await (
+                self.websocket_msg_handler.broadcast_project_state_app_definition_patch(
+                    project_config_id,
+                    app_definition,
+                    app_spec,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_section_impl_patch(
         self,
@@ -10335,16 +10372,19 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_section_impl_patch(
-            project_config_id,
-            section_id,
-            section_impl,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state_section_impl_patch(
+                project_config_id,
+                section_id,
+                section_impl,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_section_impls_patch(
         self,
@@ -10366,15 +10406,20 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_section_impls_patch(
-            project_config_id,
-            section_impls,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await (
+                self.websocket_msg_handler.broadcast_project_state_section_impls_patch(
+                    project_config_id,
+                    section_impls,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_code_objs_patch(
         self,
@@ -10400,17 +10445,20 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        await self.websocket_msg_handler.broadcast_project_state_code_objs_patch(
-            project_config_id,
-            code_objs,
-            code_obj_variants,
-            code_obj_impls,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state_code_objs_patch(
+                project_config_id,
+                code_objs,
+                code_obj_variants,
+                code_obj_impls,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     async def _broadcast_name_validation_errors(
         self,
