@@ -72,7 +72,7 @@ export function subscribe() {
       }
 
       // used by forked xterm to make text appear correctly
-      window.reactFlowZoom = newState.renderTransform[2];
+      window.reactFlowZoom = newState.transform[2];
 
       debouncedDispatchViewportUpdate();
     },
@@ -134,7 +134,7 @@ export function subscribe() {
 
 function reactFlowTransformSubscriptionFn(state) {
   return {
-    renderTransform: state.renderTransform,
+    transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,
     fitViewOnInitDone: state.fitViewOnInitDone,
   };

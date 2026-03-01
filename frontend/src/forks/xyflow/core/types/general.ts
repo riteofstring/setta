@@ -32,7 +32,6 @@ export type ReactFlowStore = {
   width: number;
   height: number;
   transform: Transform;
-  renderTransform: Transform;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
 

@@ -22,6 +22,7 @@ import {
   resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityCounts,
+  resolveProjectChatRuntimeActivityDetails,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
@@ -689,6 +690,96 @@ describe("resolveProjectChatRuntimeActivityCounts", () => {
     expect(counts).toEqual({
       activeBackgroundTerminals: 0,
       activeSubagents: 0,
+    });
+  });
+});
+
+describe("resolveProjectChatRuntimeActivityDetails", () => {
+  it("returns list entries for unresolved terminal and subagent tool calls", () => {
+    const details = resolveProjectChatRuntimeActivityDetails({
+      waitingForResponse: true,
+      messages: [
+        createAssistantChatMessage({
+          id: "assistant-streaming",
+          tool_calls: [
+            createToolCall({
+              id: "tool-command",
+              function: createToolCallFunction({
+                name: "command_execution",
+                arguments: { command: "pnpm test" },
+              }),
+            }),
+            createToolCall({
+              id: "tool-subagent",
+              function: createToolCallFunction({
+                name: "mcp__setta__run_agent_profile",
+                arguments: { profileId: "research_profile" },
+              }),
+            }),
+          ],
+        }),
+      ],
+    });
+
+    expect(details).toEqual({
+      activeBackgroundTerminals: [
+        {
+          id: "tool-command",
+          label: "pnpm test",
+          toolName: "command_execution",
+        },
+      ],
+      activeSubagents: [
+        {
+          id: "tool-subagent",
+          label: "research_profile",
+          toolName: "setta__run_agent_profile",
+        },
+      ],
+    });
+  });
+
+  it("falls back to tool name and id labels when command/profile metadata is missing", () => {
+    const details = resolveProjectChatRuntimeActivityDetails({
+      waitingForResponse: true,
+      messages: [
+        createAssistantChatMessage({
+          id: "assistant-streaming",
+          tool_calls: [
+            createToolCall({
+              id: "tool-command",
+              function: createToolCallFunction({
+                name: "command_execution",
+                arguments: {},
+              }),
+            }),
+            createToolCall({
+              id: "tool-subagent",
+              function: createToolCallFunction({
+                name: "run_sub_agent",
+                arguments: {},
+              }),
+            }),
+          ],
+        }),
+      ],
+    });
+
+    expect(details).toEqual({
+      activeBackgroundTerminals: [
+        {
+          id: "tool-command",
+          label: "command_execution (tool-command)",
+          toolName: "command_execution",
+        },
+      ],
+      activeSubagents: [
+        {
+          id: "tool-subagent",
+          label: "run_sub_agent (tool-subagent)",
+          toolName: "run_sub_agent",
+        },
+      ],
     });
   });
 });

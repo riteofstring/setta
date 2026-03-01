@@ -200,15 +200,13 @@ export function getPaneRect(
   s: ReactFlowState,
   overviewWidth: number,
   uiEditorWidth: number,
-  transformOverride?: Transform,
 ): Rect {
-  const transform = transformOverride ?? s.transform;
   if (!s.domNode) {
     return {
-      x: (-transform[0] + overviewWidth) / transform[2],
-      y: -transform[1] / transform[2],
-      width: s.width / transform[2],
-      height: s.height / transform[2],
+      x: (-s.transform[0] + overviewWidth) / s.transform[2],
+      y: -s.transform[1] / s.transform[2],
+      width: s.width / s.transform[2],
+      height: s.height / s.transform[2],
     };
   }
 
@@ -218,18 +216,15 @@ export function getPaneRect(
     0,
   );
   const visibleHeight = Math.max(bounds.height, 0);
-  const topLeft = pointToRendererPoint(
-    { x: overviewWidth, y: 0 },
-    transform,
-    false,
-    [1, 1],
+  const topLeft = screenToFlowPosition(
+    { x: bounds.left + overviewWidth, y: bounds.top },
     true,
   );
-  const bottomRight = pointToRendererPoint(
-    { x: overviewWidth + visibleWidth, y: visibleHeight },
-    transform,
-    false,
-    [1, 1],
+  const bottomRight = screenToFlowPosition(
+    {
+      x: bounds.left + overviewWidth + visibleWidth,
+      y: bounds.top + visibleHeight,
+    },
     true,
   );
 

@@ -12,13 +12,7 @@ import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
-import { createRenderTransformScheduler } from "../store/renderTransformScheduler";
-import type {
-  CoordinateExtent,
-  ReactFlowState,
-  Transform,
-  Viewport,
-} from "../types";
+import type { CoordinateExtent, ReactFlowState, Viewport } from "../types";
 import { getWheelDelta } from "../utils";
 
 type InternalWheelEvent = WheelEvent & { internal?: boolean };
@@ -73,28 +67,6 @@ const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
 });
 
-function scheduleAnimationFrame(onFrame: () => void): number {
-  if (typeof requestAnimationFrame === "function") {
-    return requestAnimationFrame(() => onFrame());
-  }
-  return setTimeout(onFrame, 16) as unknown as number;
-}
-
-function cancelScheduledAnimationFrame(frameId: number) {
-  if (typeof cancelAnimationFrame === "function") {
-    cancelAnimationFrame(frameId);
-    return;
-  }
-  clearTimeout(frameId);
-}
-
-function getCurrentTimeMs(): number {
-  if (typeof performance !== "undefined") {
-    return performance.now();
-  }
-  return Date.now();
-}
-
 const ZoomPane = ({
   zoomOnScroll = true,
   zoomOnPinch = true,
@@ -111,35 +83,11 @@ const ZoomPane = ({
 }: ZoomPaneProps) => {
   const isZoomingOrPanning = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
-  const renderTransformSchedulerRef = useRef<ReturnType<
-    typeof createRenderTransformScheduler
-  > | null>(null);
-  if (!renderTransformSchedulerRef.current) {
-    renderTransformSchedulerRef.current = createRenderTransformScheduler({
-      applyTransform: (transform) => {
-        useReactFlow.setState({ renderTransform: transform });
-      },
-      cancelFrame: cancelScheduledAnimationFrame,
-      getNow: getCurrentTimeMs,
-      maxFps: 60,
-      scheduleFrame: scheduleAnimationFrame,
-    });
-  }
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
-  const renderTransformScheduler = renderTransformSchedulerRef.current;
-  if (!renderTransformScheduler) {
-    throw new Error("Render transform scheduler is not initialized.");
-  }
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   useZoomPaneInit(zoomPane, translateExtent);
-
-  useEffect(() => {
-    return () => {
-      renderTransformScheduler.cancel();
-    };
-  }, [renderTransformScheduler]);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
@@ -294,19 +242,17 @@ const ZoomPane = ({
           ) {
             return;
           }
-          const nextTransform: Transform = [
-            event.transform.x,
-            event.transform.y,
-            event.transform.k,
-          ];
           useReactFlow.setState({
-            transform: nextTransform,
+            transform: [
+              event.transform.x,
+              event.transform.y,
+              event.transform.k,
+            ],
           });
-          renderTransformScheduler.schedule(nextTransform);
         });
       }
     }
-  }, [userSelectionActive, d3Zoom, renderTransformScheduler]);
+  }, [userSelectionActive, d3Zoom]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -318,10 +264,9 @@ const ZoomPane = ({
 
         isZoomingOrPanning.current = false;
         useReactFlow.setState({ paneDragging: false });
-        renderTransformScheduler.flush(useReactFlow.getState().transform);
       });
     }
-  }, [d3Zoom, renderTransformScheduler]);
+  }, [d3Zoom]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -509,11 +454,6 @@ function zoomPaneInit({
       d3ZoomHandler,
       // we need to pass transform because zoom handler is not registered when we set the initial transform
       transform: [
-        constrainedTransform.x,
-        constrainedTransform.y,
-        constrainedTransform.k,
-      ],
-      renderTransform: [
         constrainedTransform.x,
         constrainedTransform.y,
         constrainedTransform.k,
