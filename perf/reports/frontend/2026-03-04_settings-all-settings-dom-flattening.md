@@ -963,3 +963,51 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase23_fitview.png`
+
+## After (continued)
+
+### Phase 24 (section header controls-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened section header trailing controls from `header > div.z-10.ml-auto.flex.items-center > controls` to direct `header > controls` rendering.
+  - Removed the dedicated per-header controls wrapper while preserving the existing controls and interaction behavior.
+  - Extended unit + E2E guardrails to assert zero legacy section header controls wrappers and positive flattened direct-host counts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4041` (down from `4083`, `-42`, `-1.0%` vs phase 23)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5137` (down from `5179`, `-42`)
+  - Per-node descendants: `avg 95.05`, `p95 182`, `max 790`
+  - Per-node max depth: `avg 6.07`, `p95 7`, `max 8`
+  - Legacy section-header controls wrappers (`header.section-title > div.z-10.ml-auto.flex.items-center`): `0` (down from `42`)
+  - Flattened section-header control hosts (`header.section-title` with direct lock button hosts): `42`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24.trace.json`
+- Trace signals (`phase24`):
+  - Duration: `15,976.81 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `3`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `356` (`22.28/s`)
+  - `DrawFrame`: `202` (`12.64/s`)
+  - `DroppedFrame`: `17` (`4.78%`)
+  - Main-thread work: `Layout 46.51 ms`, `UpdateLayoutTree 18.96 ms`, `Paint 108.97 ms`, `PrePaint 15.18 ms`
+
+## Conclusion (latest update)
+
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 4041` (`-4578`, `-53.1%`)
+  - Per-node descendants avg: `204.05 -> 95.05` (`-53.4%`)
+  - Per-node descendants max: `1854 -> 790` (`-57.4%`)
+  - Per-node depth avg/max: `12.74/17 -> 6.07/8`
+- DOM flattening now includes full removal of section-header controls wrappers in the benchmark path (`42 -> 0`) with automated unit + E2E guardrails for the new direct-host structure.
+- Runtime traces remain variable run-to-run, but DOM-shape reduction continues and frame-drop ratios in the latest passes remain materially lower than baseline.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase24_fitview.png`

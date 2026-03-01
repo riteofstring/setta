@@ -195,6 +195,27 @@ test("all settings DOM stays within flattening guardrails", async ({
           Array.from(el.children[0].classList).includes("gg-menu");
         return hasFlattenedHostIcon || hasLegacyChildIcon;
       });
+    const sectionHeaderControlWrappers = Array.from(
+      document.querySelectorAll("header.section-title > div"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      return (
+        classes.includes("z-10") &&
+        classes.includes("ml-auto") &&
+        classes.includes("flex") &&
+        classes.includes("items-center")
+      );
+    });
+    const sectionHeaderControlHosts = Array.from(
+      document.querySelectorAll("header.section-title"),
+    ).filter((header) =>
+      Array.from(header.children).some(
+        (child) =>
+          child.tagName === "BUTTON" &&
+          (Array.from(child.classList).includes("gg-lock") ||
+            Array.from(child.classList).includes("gg-lock-unlock")),
+      ),
+    );
 
     return {
       nodeCount: nodes.length,
@@ -403,6 +424,8 @@ test("all settings DOM stays within flattening guardrails", async ({
         (el) =>
           Array.from(el.classList).includes("setta-prevent-section-active-css"),
       ).length,
+      legacySectionHeaderControlWrapperCount: sectionHeaderControlWrappers.length,
+      flattenedSectionHeaderControlHostCount: sectionHeaderControlHosts.length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -460,6 +483,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSectionMenuIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacySectionMenuRootWrapperCount).toBe(0);
   expect(metrics.flattenedSectionMenuRootlessTriggerCount).toBeGreaterThan(0);
+  expect(metrics.legacySectionHeaderControlWrapperCount).toBe(0);
+  expect(metrics.flattenedSectionHeaderControlHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
