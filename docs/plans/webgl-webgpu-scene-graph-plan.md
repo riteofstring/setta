@@ -154,6 +154,9 @@
 - `setta.sceneGraphRenderer.backend` = `auto|webgpu|webgl|dom`
 - `setta.sceneGraphRenderer.domIslandRadius` = integer ring radius
 - `setta.sceneGraphRenderer.debugOverlay` = `0|1`
+- `setta.sceneGraphRenderer.rolloutProjectConfigIds` = strict JSON string array of `projectConfigId` canary targets
+- `setta.sceneGraphRenderer.rolloutProjectConfigNames` = strict JSON string array of `projectConfigName` canary targets
+- explicit `setta.sceneGraphRenderer.enabled` storage override remains top-priority kill switch over rollout defaults
 
 ## Acceptance Targets
 - On `Settings -> All Settings` benchmark:
