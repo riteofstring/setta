@@ -2972,6 +2972,7 @@ class BaseProjectManager(ABC):
         )
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             broadcast_name_validation_errors=False,
             validate_name_rules=False,
         )
