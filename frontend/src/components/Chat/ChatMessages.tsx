@@ -6407,7 +6407,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   const toolResultMessages = allMessagesForToolResults ?? messages;
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
-    `flex min-h-0 min-w-0 flex-1 flex-col-reverse overflow-x-hidden overflow-y-auto pr-1 ${className ?? ""}`.trim();
+    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-1 ${className ?? ""}`.trim();
   const previousActiveSearchMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
