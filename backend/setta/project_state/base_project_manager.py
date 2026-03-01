@@ -494,6 +494,7 @@ def _is_ui_setting_compare_and_set_noop(
 
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
+GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S = 0.2
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
     "type": "Stack",
@@ -690,6 +691,12 @@ class BaseProjectManager(ABC):
             wait=2.0,
             label=f"{type(self).__name__}-autosave",
         )
+        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config: dict[
+            ID, AsyncDebouncer
+        ] = {}
+        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config: dict[
+            ID, int
+        ] = {}
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
@@ -961,6 +968,7 @@ class BaseProjectManager(ABC):
         x: RunCodeRequest,
     ):
         project_config_id = x.projectConfigId
+        await self._flush_pending_gen_code_prefix_suffix_refresh(project_config_id)
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
@@ -2080,6 +2088,12 @@ class BaseProjectManager(ABC):
         for category in categories:
             self.specific_file_watcher.update_callbacks({}, category, [])
         self.watch_code_manager.shutdown()
+        for (
+            debouncer
+        ) in self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.values():
+            debouncer.cancel()
+        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.clear()
+        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.clear()
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
 
@@ -2300,19 +2314,105 @@ class BaseProjectManager(ABC):
             gen_code = self._require_python_codegen(x.projectConfigId)
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
+    def _get_gen_code_prefix_suffix_refresh_debouncer(
+        self,
+        project_config_id: ID,
+    ) -> AsyncDebouncer:
+        existing = self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
+            project_config_id
+        )
+        if existing is not None:
+            return existing
+
+        async def run_deferred_refresh() -> None:
+            await self._run_deferred_gen_code_prefix_suffix_refresh(project_config_id)
+
+        debouncer = AsyncDebouncer(
+            run_deferred_refresh,
+            wait=GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S,
+            label=f"{type(self).__name__}-gen-code-prefix-suffix-refresh",
+        )
+        self._gen_code_prefix_suffix_refresh_debouncer_by_project_config[
+            project_config_id
+        ] = debouncer
+        return debouncer
+
+    def _schedule_deferred_gen_code_prefix_suffix_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config[
+            project_config_id
+        ] = self.history.revision
+        self._get_gen_code_prefix_suffix_refresh_debouncer(project_config_id).trigger()
+
+    async def _refresh_gen_code_prefix_suffix_now(self, project_config_id: ID) -> None:
+        if (
+            project_config_id
+            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+        ):
+            return
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+                project_config_id,
+                None,
+            )
+            return
+        project_state = self.get_single_config_state(project_config_id)
+        await self.update(
+            project_state,
+            updateFileWatcher=False,
+            validate_name_rules=False,
+        )
+        await self._broadcast_project_state_snapshot(project_state)
+        self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config.pop(
+            project_config_id,
+            None,
+        )
+
+    @enqueue_method
+    async def _run_deferred_gen_code_prefix_suffix_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        await self._refresh_gen_code_prefix_suffix_now(project_config_id)
+
+    async def _flush_pending_gen_code_prefix_suffix_refresh(
+        self,
+        project_config_id: ID,
+    ) -> None:
+        if (
+            project_config_id
+            not in self._pending_gen_code_prefix_suffix_refresh_revision_by_project_config
+        ):
+            return
+        debouncer = (
+            self._gen_code_prefix_suffix_refresh_debouncer_by_project_config.get(
+                project_config_id
+            )
+        )
+        if debouncer is not None:
+            debouncer.cancel_pending()
+        await self._refresh_gen_code_prefix_suffix_now(project_config_id)
+
     @enqueue_method
     @project_state_tool(
         access_type="write", default_target_singleton_section="GenPythonCode"
     )
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
+            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            project_config_id=x.projectConfigId,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
         python_target.genCodePrefix = x.genCodePrefix
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        self._schedule_deferred_gen_code_prefix_suffix_refresh(x.projectConfigId)
 
     @enqueue_method
     @project_state_tool(
@@ -2320,13 +2420,18 @@ class BaseProjectManager(ABC):
     )
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
+            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            project_config_id=x.projectConfigId,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
         python_target.genCodeSuffix = x.genCodeSuffix
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        self._schedule_deferred_gen_code_prefix_suffix_refresh(x.projectConfigId)
 
     @enqueue_method
     @project_state_tool(access_type="structural")
