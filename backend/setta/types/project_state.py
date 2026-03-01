@@ -289,6 +289,20 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.shownParamIds = output
         return self
 
+    def refresh_shown_param_ids_for_section(self, section_id: ID):
+        if section_id not in self.sections:
+            raise KeyError(f"Missing section {section_id} in project state.")
+        section = self.sections[section_id]
+        for variant_id in section.variants:
+            _, _, impl = get_variant_base_and_effective_section_impl(
+                self, section, variant_id
+            )
+            if not isinstance(impl, BaseSectionWithParamsImpl):
+                self.shownParamIds.pop(variant_id, None)
+                continue
+            self.shownParamIds[variant_id] = get_param_ids_to_show(self, impl)
+        return self
+
     def validate_required_decoded_images(self):
         output: set[str] = set()
         for s in self.sections.values():

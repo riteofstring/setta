@@ -3573,7 +3573,7 @@ class BaseProjectManager(ABC):
         """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
@@ -4776,7 +4776,7 @@ class BaseProjectManager(ABC):
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_callable_hide_params(project_state, x.sectionId, x.hideParams)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_section_hide_unpinned_params(
@@ -4786,13 +4786,14 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
-        await self.update_and_broadcast_project_state(project_state)
+        project_state.refresh_shown_param_ids_for_section(x.sectionId)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):

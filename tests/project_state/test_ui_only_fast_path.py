@@ -4,6 +4,7 @@ import pytest
 
 from setta.project_state.project_manager_types import (
     RedoRequest,
+    SetCallableHideParamsRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -11,6 +12,9 @@ from setta.project_state.project_manager_types import (
     SetChatSectionStateRequest,
     SetGroupOverflowModeRequest,
     SetSectionColumnWidthRequest,
+    SetSectionHideUnpinnedParamsRequest,
+    SetSectionParamFilterRequest,
+    SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionStyleColorRequest,
     SetSectionTagColorRequest,
@@ -23,7 +27,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.helpers_lvl2 import create_top_level_section, get_curr_top_level_param_ids
 from setta.types.id import ID
 from setta.types.project_config import Position
 from setta.types.project_state import ProjectStateSingleConfig
@@ -115,6 +119,12 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         project_state, section_ids = build_state_for_ui_only_fast_path()
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
+        top_level_param_ids = get_curr_top_level_param_ids(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        )
+        assert top_level_param_ids
+        pinned_param_id = top_level_param_ids[0]
 
         refresh_calls = 0
         original_refresh = manager._refresh_codegen_state
@@ -219,6 +229,46 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.set_section_param_filter(
+                    SetSectionParamFilterRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        value="fast-path-filter",
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_callable_hide_params(
+                    SetCallableHideParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        hideParams=True,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_section_hide_unpinned_params(
+                    SetSectionHideUnpinnedParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        hideUnpinnedParams=True,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_section_pinned_params(
+                    SetSectionPinnedParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        pinnedParams=[pinned_param_id],
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.set_browser_column_widths(
                     SetBrowserColumnWidthsRequest(
                         projectConfigId=project_config_id,
@@ -295,6 +345,15 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         assert callable_impl.size.width == 640.0
         assert callable_impl.size.height == 420.0
         assert callable_impl.columnWidth == 244.0
+        assert callable_impl.paramFilter == "fast-path-filter"
+        assert callable_impl.hideParams is True
+        assert callable_impl.hideUnpinnedParams is True
+        assert callable_impl.pinnedParams == [pinned_param_id]
+        callable_variant_id = updated.projectConfig.sectionVariantMap[
+            section_ids.callable_section_id
+        ]
+        callable_shown = updated.shownParamIds[callable_variant_id]
+        assert pinned_param_id in callable_shown.pinned.requiredParamIdsToPaths
 
         group_impl = get_curr_effective_section_impl_with_type_guard(
             updated, section_ids.group_section_id, GroupSectionImpl
@@ -372,6 +431,12 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
         project_state, section_ids = build_state_for_ui_only_fast_path()
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
+        top_level_param_ids = get_curr_top_level_param_ids(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        )
+        assert top_level_param_ids
+        pinned_param_id = top_level_param_ids[0]
 
         json_source_watch_calls = 0
         artifact_watch_calls = 0
@@ -491,6 +556,46 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
                         projectConfigId=project_config_id,
                         sectionId=section_ids.callable_section_id,
                         columnWidth=233.0,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_param_filter(
+                    SetSectionParamFilterRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        value="watcher-filter",
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_callable_hide_params(
+                    SetCallableHideParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        hideParams=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_hide_unpinned_params(
+                    SetSectionHideUnpinnedParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        hideUnpinnedParams=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_pinned_params(
+                    SetSectionPinnedParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        pinnedParams=[pinned_param_id],
                     )
                 ),
             )
@@ -850,3 +955,38 @@ async def test_ui_only_section_size_routes_preserve_undo_redo_with_coalescing() 
         assert after_second_redo_callable.size.width == 700.0
         assert after_second_redo_callable.size.height == 500.0
         assert after_second_redo_callable.columnWidth == 330.0
+
+
+@pytest.mark.asyncio
+async def test_set_section_pinned_params_fast_path_matches_full_validation() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        param_ids = get_curr_top_level_param_ids(
+            manager.get_single_config_state(project_config_id),
+            section_ids.callable_section_id,
+        )
+        assert param_ids
+        pinned_param_id = param_ids[0]
+
+        await manager.set_section_pinned_params(
+            SetSectionPinnedParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.callable_section_id,
+                pinnedParams=[pinned_param_id],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        fast_state = manager.get_single_config_state(project_config_id)
+        fully_validated_state = fast_state.model_copy(deep=True)
+        fully_validated_state.validate_for_update(
+            validate_code_file_bindings=True,
+            validate_name_rules=False,
+        )
+
+        assert fast_state.shownParamIds == fully_validated_state.shownParamIds
