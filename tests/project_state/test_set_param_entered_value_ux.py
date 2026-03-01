@@ -58,11 +58,15 @@ async def test_set_param_entered_value_preserves_broadcast_shape_and_value_updat
             project_state,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision=None,
         ) -> None:
             nonlocal project_state_broadcast_calls
             project_state_broadcast_calls += 1
             await original_project_state_broadcast(
-                project_state, completed_op_ids, pending_op_ids
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
             )
 
         async def record_name_validation_broadcast(content) -> None:
@@ -399,7 +403,9 @@ async def test_set_param_entered_value_skips_full_validate_for_update(
 
 
 @pytest.mark.asyncio
-async def test_set_param_entered_value_fast_validation_matches_full_validation() -> None:
+async def test_set_param_entered_value_fast_validation_matches_full_validation() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False

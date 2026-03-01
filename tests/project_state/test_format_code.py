@@ -168,6 +168,7 @@ async def _assert_preserves_broadcast_shape(
         project_state,
         completed_op_ids,
         pending_op_ids,
+        project_state_revision=None,
     ) -> None:
         nonlocal project_state_broadcast_calls
         project_state_broadcast_calls += 1
@@ -175,6 +176,7 @@ async def _assert_preserves_broadcast_shape(
             project_state,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision,
         )
 
     async def record_name_validation_broadcast(content) -> None:

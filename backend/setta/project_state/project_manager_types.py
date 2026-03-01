@@ -1207,6 +1207,17 @@ class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig
     completedOpIds: list[str]
     pendingOpIds: list[str]
+    projectStateRevision: int | None = None
+
+
+@dataclass
+class ProjectStateActiveViewModePatch:
+    projectConfigId: ID
+    activeViewModeId: ID
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
 
 
 class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithProjectConfig):

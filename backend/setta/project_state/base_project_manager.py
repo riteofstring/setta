@@ -4544,7 +4544,23 @@ class BaseProjectManager(ABC):
             next_view_mode.viewportInitialized
         )
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        previous_project_state_revision = self.history.revision
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+            next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        await self._broadcast_active_view_mode_patch(
+            project_config_id=x.projectConfigId,
+            active_view_mode_id=x.activeViewModeId,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
 
     @enqueue_method
     async def toggle_is_editing_view_mode(
@@ -5305,12 +5321,14 @@ class BaseProjectManager(ABC):
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
-        self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
-        pending_op_ids = list(self.pending_frontend_ops.keys())
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        project_state_revision = self.history.revision
         logger.debug(
-            "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_state project_config_id=%s revision=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,
+            project_state_revision,
             len(project_state.sections),
             len(project_state.codeObjs),
             len(project_state.sectionVariants),
@@ -5319,6 +5337,42 @@ class BaseProjectManager(ABC):
         )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    def _consume_frontend_op_status_for_broadcast(self) -> tuple[list[str], list[str]]:
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
+        return completed_op_ids, pending_op_ids
+
+    async def _broadcast_active_view_mode_patch(
+        self,
+        *,
+        project_config_id: ID,
+        active_view_mode_id: ID,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_active_view_mode_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
+            project_config_id,
+            active_view_mode_id,
+            previous_project_state_revision,
+            project_state_revision,
             completed_op_ids,
             pending_op_ids,
         )
@@ -5380,6 +5434,7 @@ class BaseProjectManager(ABC):
     ):
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if project_config_id is not None:
+
             def copy_project_config_backend(
                 backend: ProjectStateBackend,
             ) -> ProjectStateBackend:
@@ -5431,7 +5486,9 @@ class BaseProjectManager(ABC):
         section_variants = dict(backend.sectionVariants)
         for variant_id in project_core.sectionVariants.keys():
             if variant_id not in backend.sectionVariants:
-                raise KeyError(f"Missing section variant {variant_id} in backend state.")
+                raise KeyError(
+                    f"Missing section variant {variant_id} in backend state."
+                )
             section_variants[variant_id] = copy.deepcopy(
                 backend.sectionVariants[variant_id]
             )

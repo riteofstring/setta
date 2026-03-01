@@ -42,6 +42,7 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
+  ProjectStateActiveViewModePatch,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
@@ -87,7 +88,9 @@ import {
 } from "./listenerCoverage";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
+  applyActiveViewModeProjectStatePatch,
   getCurrProjectConfigId,
+  getProjectStateRevision,
   processProjectStateUpdateFromBackend,
   updateAllProjectMetadata,
 } from "./sectionInfos";
@@ -534,6 +537,9 @@ function receiveMessage(message: string, socketGeneration: number) {
         return processAppProjectStateUpdateFromBackend(m.content);
       }
       return processProjectStateUpdateFromBackend(m.content);
+    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode:
+      void handleActiveViewModeProjectStatePatch(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
@@ -571,6 +577,41 @@ function receiveMessage(message: string, socketGeneration: number) {
     default:
       return m satisfies never;
   }
+}
+
+async function handleActiveViewModeProjectStatePatch(
+  patch: ProjectStateActiveViewModePatch,
+): Promise<void> {
+  if (useServerMode.getState().mode === "app") {
+    return;
+  }
+  if (patch.projectConfigId !== getCurrProjectConfigId()) {
+    return;
+  }
+  const currentRevision = getProjectStateRevision(patch.projectConfigId);
+  if (currentRevision !== patch.previousProjectStateRevision) {
+    await resyncProjectStateFromBackend(patch.projectConfigId);
+    return;
+  }
+  const applied = applyActiveViewModeProjectStatePatch(patch);
+  if (applied) {
+    return;
+  }
+  await resyncProjectStateFromBackend(patch.projectConfigId);
+}
+
+async function resyncProjectStateFromBackend(
+  projectConfigId: string,
+): Promise<void> {
+  const res = await route_get_latest_project_state({ projectConfigId });
+  if (!res200(res)) {
+    return;
+  }
+  if (useServerMode.getState().mode === "app") {
+    processAppProjectStateUpdateFromBackend(res.data);
+    return;
+  }
+  processProjectStateUpdateFromBackend(res.data);
 }
 
 function enqueueUISettingRevealMessage(

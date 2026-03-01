@@ -127,11 +127,15 @@ async def test_set_param_name_and_value_preserves_broadcast_shape_and_mutation()
             project_state,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision=None,
         ) -> None:
             nonlocal project_state_broadcast_calls
             project_state_broadcast_calls += 1
             await original_project_state_broadcast(
-                project_state, completed_op_ids, pending_op_ids
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
             )
 
         async def record_name_validation_broadcast(content) -> None:
@@ -187,11 +191,15 @@ async def test_set_code_obj_name_preserves_broadcast_shape_and_mutation() -> Non
             project_state,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision=None,
         ) -> None:
             nonlocal project_state_broadcast_calls
             project_state_broadcast_calls += 1
             await original_project_state_broadcast(
-                project_state, completed_op_ids, pending_op_ids
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
             )
 
         async def record_name_validation_broadcast(content) -> None:

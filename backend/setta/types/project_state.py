@@ -219,21 +219,17 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         if section_id not in self.sections:
             raise KeyError(f"Missing section {section_id} in project state.")
         if section_id not in self.projectConfig.sectionVariantMap:
-            raise KeyError(
-                f"Missing sectionVariantMap entry for section {section_id}."
-            )
+            raise KeyError(f"Missing sectionVariantMap entry for section {section_id}.")
         if param_id not in self.codeObjs:
             raise KeyError(f"Missing code obj {param_id} in project state.")
 
         section_impl = get_curr_effective_section_impl_for_read(self, section_id)
-        if not isinstance(section_impl, (BaseSectionWithParamsImpl, MetaControlSectionImpl)):
-            raise TypeError(
-                f"Section {section_id} does not expose parameter values."
-            )
+        if not isinstance(
+            section_impl, (BaseSectionWithParamsImpl, MetaControlSectionImpl)
+        ):
+            raise TypeError(f"Section {section_id} does not expose parameter values.")
         if param_id not in section_impl.codeObjVariantMap:
-            raise KeyError(
-                f"Param {param_id} is not linked to section {section_id}."
-            )
+            raise KeyError(f"Param {param_id} is not linked to section {section_id}.")
 
         # Resolve the current effective impl to guarantee section/param variant maps
         # remain internally consistent for this edit.

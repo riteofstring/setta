@@ -160,12 +160,16 @@ class TestProjectConfigViewModes:
             )
 
             stale_section_id = "stale-section-id"
-            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            project_config = manager.project_state_backend.projectConfigs[
+                project_config_id
+            ]
             project_config.topLevelSections[stale_section_id] = TopLevelSectionLayout()
             active_view_mode_id = project_config.activeViewModeId
             assert active_view_mode_id is not None
             active_view_mode = project_config.viewModes[active_view_mode_id]
-            active_view_mode.topLevelSections[stale_section_id] = TopLevelSectionLayout()
+            active_view_mode.topLevelSections[stale_section_id] = (
+                TopLevelSectionLayout()
+            )
             active_view_mode.visibilityBySectionId[stale_section_id] = True
 
             create_response = await manager.create_top_level_section(
@@ -222,6 +226,7 @@ class TestProjectConfigViewModes:
             second_view_mode_id = await manager.create_view_mode(
                 CreateViewModeRequest(projectConfigId=project_config_id)
             )
+            assert second_view_mode_id != first_view_mode_id
 
             state_after_create = manager.get_single_config_state(project_config_id)
             assert (
@@ -287,6 +292,92 @@ class TestProjectConfigViewModes:
             assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(
                 1.6
             )
+
+    async def test_set_active_view_mode_broadcasts_incremental_patch(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            _, project_state = await ensure_top_level_section(
+                manager, project_config_id
+            )
+            first_view_mode_id = project_state.projectConfig.activeViewModeId
+            assert first_view_mode_id is not None
+            second_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+
+            sender = manager.websocket_msg_handler
+            snapshot_calls = 0
+            patch_calls: list[dict[str, int | str | list[str]]] = []
+            original_snapshot = sender.broadcast_project_state
+            original_patch = sender.broadcast_project_state_active_view_mode_patch
+
+            async def record_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision=None,
+            ) -> None:
+                nonlocal snapshot_calls
+                snapshot_calls += 1
+                await original_snapshot(
+                    project_state,
+                    completed_op_ids,
+                    pending_op_ids,
+                    project_state_revision,
+                )
+
+            async def record_patch(
+                project_config_id_for_patch,
+                active_view_mode_id_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            ) -> None:
+                patch_calls.append(
+                    {
+                        "projectConfigId": project_config_id_for_patch,
+                        "activeViewModeId": active_view_mode_id_for_patch,
+                        "previousProjectStateRevision": previous_project_state_revision,
+                        "projectStateRevision": project_state_revision,
+                        "completedOpIds": list(completed_op_ids),
+                        "pendingOpIds": list(pending_op_ids),
+                    }
+                )
+                await original_patch(
+                    project_config_id_for_patch,
+                    active_view_mode_id_for_patch,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+
+            sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_active_view_mode_patch = record_patch  # type: ignore[method-assign]
+            try:
+                await manager.finish_pending_operations(timeout=5.0)
+                baseline_snapshot_calls = snapshot_calls
+                await manager.set_active_view_mode(
+                    SetActiveViewModeRequest(
+                        projectConfigId=project_config_id,
+                        activeViewModeId=first_view_mode_id,
+                    )
+                )
+                await manager.finish_pending_operations(timeout=5.0)
+            finally:
+                sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+                sender.broadcast_project_state_active_view_mode_patch = original_patch  # type: ignore[method-assign]
+
+            assert snapshot_calls == baseline_snapshot_calls
+            assert 1 == len(patch_calls)
+            patch = patch_calls[0]
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["activeViewModeId"] == first_view_mode_id
+            assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:
@@ -378,7 +469,9 @@ class TestProjectConfigViewModes:
             recovered_layout.x += 240
             recovered_layout.y += 120
 
-            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            project_config = manager.project_state_backend.projectConfigs[
+                project_config_id
+            ]
             active_view_mode_id = project_config.activeViewModeId
             assert active_view_mode_id is not None
             active_view_mode = project_config.viewModes[active_view_mode_id]
@@ -460,16 +553,16 @@ class TestProjectConfigViewModes:
                     )
                 )
 
-    async def test_set_section_variant_sort_order_raises_for_missing_section(self) -> None:
+    async def test_set_section_variant_sort_order_raises_for_missing_section(
+        self,
+    ) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager
             project_config_id = next(
                 iter(manager.project_state_backend.projectConfigs.keys())
             )
 
-            with pytest.raises(
-                KeyError, match="Section missing-section-id not found"
-            ):
+            with pytest.raises(KeyError, match="Section missing-section-id not found"):
                 await manager.set_section_variant_sort_order(
                     SetSectionVariantSortOrderRequest(
                         projectConfigId=project_config_id,
@@ -528,6 +621,5 @@ class TestProjectConfigViewModes:
                 == 0
             )
             assert (
-                updated_state.projectConfig.viewModes[first_view_mode_id].sortIndex
-                == 1
+                updated_state.projectConfig.viewModes[first_view_mode_id].sortIndex == 1
             )

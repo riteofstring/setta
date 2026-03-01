@@ -10,6 +10,7 @@ from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
+    ProjectStateActiveViewModePatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -65,6 +66,7 @@ from setta.types.websocket import (
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
+    WebsocketMsgPatchFrontendProjectStateActiveViewMode,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -370,6 +372,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectState: ProjectStateSingleConfig,
         completedOpIds: list[str],
         pendingOpIds: list[str],
+        projectStateRevision: int | None = None,
         *,
         share_session_id: str | None = None,
     ):
@@ -377,6 +380,32 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgUpdateFrontendProjectState(
                 content=ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                    projectStateRevision=projectStateRevision,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_active_view_mode_patch(
+        self,
+        projectConfigId: ID,
+        activeViewModeId: ID,
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateActiveViewMode(
+                content=ProjectStateActiveViewModePatch(
+                    projectConfigId=projectConfigId,
+                    activeViewModeId=activeViewModeId,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,
                     pendingOpIds=pendingOpIds,
                 )

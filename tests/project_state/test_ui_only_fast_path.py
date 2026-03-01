@@ -41,7 +41,10 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl2 import create_top_level_section, get_curr_top_level_param_ids
+from setta.types.helpers_lvl2 import (
+    create_top_level_section,
+    get_curr_top_level_param_ids,
+)
 from setta.types.id import ID
 from setta.types.project_config import Position
 from setta.types.project_state import ProjectStateSingleConfig
@@ -1004,11 +1007,15 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
             project_state,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision=None,
         ) -> None:
             nonlocal project_state_broadcast_calls
             project_state_broadcast_calls += 1
             await original_project_state_broadcast(
-                project_state, completed_op_ids, pending_op_ids
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
             )
 
         async def record_name_validation_broadcast(content) -> None:

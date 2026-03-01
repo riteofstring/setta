@@ -482,9 +482,10 @@ class SessionProjectManager(BaseProjectManager):
         if self.share_runtime_state is None:
             await super()._broadcast_project_state_snapshot(project_state)
             return
-        self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
-        pending_op_ids = list(self.pending_frontend_ops.keys())
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        project_state_revision = self.history.revision
         redacted = self.share_runtime_state.format_project_state_for_client(
             project_state
         )
@@ -492,6 +493,7 @@ class SessionProjectManager(BaseProjectManager):
             redacted,
             completed_op_ids,
             pending_op_ids,
+            project_state_revision,
         )
         self.completed_op_ids_since_last_broadcast = []
 
