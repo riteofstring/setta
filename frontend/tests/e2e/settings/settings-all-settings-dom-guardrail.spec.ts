@@ -219,6 +219,41 @@ test("all settings DOM stays within flattening guardrails", async ({
     const agenticHandles = Array.from(
       document.querySelectorAll(".react-flow__handle.agentic-handle"),
     );
+    const legacyResizableHandleWrappers = Array.from(
+      document.querySelectorAll("div"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      const hasResizeWrapperZClass =
+        classes.includes("[&>div]:z-20") || classes.includes("[&>div]:z-30");
+      return (
+        classes.includes("absolute") &&
+        classes.includes("pointer-events-none") &&
+        classes.includes("h-full") &&
+        classes.includes("bottom-0") &&
+        classes.includes("w-full") &&
+        classes.includes("nodrag") &&
+        classes.includes("[&>*]:pointer-events-auto") &&
+        hasResizeWrapperZClass &&
+        el.querySelectorAll(".section-resize-handle").length > 0
+      );
+    });
+    const flattenedResizableHandleHostCount = Array.from(
+      document.querySelectorAll(".section-resize-handle"),
+    ).filter((el) => {
+      const parent = el.parentElement;
+      if (!parent) {
+        return false;
+      }
+      const parentClasses = Array.from(parent.classList);
+      const parentIsLegacyWrapper =
+        parent.tagName === "DIV" &&
+        parentClasses.includes("absolute") &&
+        parentClasses.includes("pointer-events-none") &&
+        parentClasses.includes("bottom-0") &&
+        parentClasses.includes("w-full") &&
+        parentClasses.includes("[&>*]:pointer-events-auto");
+      return !parentIsLegacyWrapper;
+    }).length;
 
     return {
       nodeCount: nodes.length,
@@ -436,6 +471,8 @@ test("all settings DOM stays within flattening guardrails", async ({
         const beforeContent = window.getComputedStyle(el, "::before").content;
         return beforeContent !== "none";
       }).length,
+      legacyResizableHandleWrapperCount: legacyResizableHandleWrappers.length,
+      flattenedResizableHandleHostCount,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -497,6 +534,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedSectionHeaderControlHostCount).toBeGreaterThan(0);
   expect(metrics.legacyAgenticSafeZoneWrapperCount).toBe(0);
   expect(metrics.flattenedAgenticSafeZoneHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyResizableHandleWrapperCount).toBe(0);
+  expect(metrics.flattenedResizableHandleHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,

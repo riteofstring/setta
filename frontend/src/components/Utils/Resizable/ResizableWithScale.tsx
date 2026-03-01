@@ -1,6 +1,19 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Resizable } from "re-resizable";
-import { useState } from "react";
+import { isValidElement, type ReactNode, useState } from "react";
+
+class WrapperlessHandleResizable extends Resizable {
+  renderResizer() {
+    const resizers = super.renderResizer();
+    if (
+      isValidElement<{ children?: ReactNode }>(resizers) &&
+      resizers.type === "div"
+    ) {
+      return <>{resizers.props.children}</>;
+    }
+    return resizers;
+  }
+}
 
 export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
   const { scale, onResizeStart: onResizeStart_ } = useSetScaleOnResizeStart();
@@ -11,14 +24,14 @@ export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
   }
 
   return (
-    <Resizable
+    <WrapperlessHandleResizable
       {...props}
       scale={scale}
       as={as}
       onResizeStart={localOnResizeStart}
     >
       {children}
-    </Resizable>
+    </WrapperlessHandleResizable>
   );
 }
 

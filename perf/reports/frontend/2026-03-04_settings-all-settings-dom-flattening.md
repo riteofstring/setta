@@ -1059,3 +1059,50 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase25_fitview.png`
+
+## After (continued)
+
+### Phase 26 (resizable handle-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Utils/Resizable/ResizableWithScale.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened section resize-handle structure by removing `re-resizable`'s internal handle wrapper host in the section-resizable path.
+  - Switched `ResizableWithScale` to a local `Resizable` subclass that strips the legacy wrapper node while preserving handle rendering and resize behavior.
+  - Extended E2E guardrails to assert zero legacy resize-handle wrappers and positive flattened resize-handle host counts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `3915` (down from `3957`, `-42`, `-1.1%` vs phase 25)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5011` (down from `5053`, `-42`)
+  - Per-node descendants: `avg 92.05`, `p95 179`, `max 787`
+  - Per-node max depth: `avg 6.07`, `p95 7`, `max 8`
+  - Legacy resize-handle wrappers (`div.absolute.pointer-events-none.bottom-0.w-full...[&>*]:pointer-events-auto`): `0` (down from `42`)
+  - Flattened resize-handle hosts (`.section-resize-handle` without legacy wrapper parent): `126`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase26.trace.json`
+- Trace signals (`phase26`):
+  - Duration: `16,974.44 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `2`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `475` (`27.98/s`)
+  - `DrawFrame`: `214` (`12.61/s`)
+  - `DroppedFrame`: `13` (`2.74%`)
+  - Main-thread work: `Layout 56.71 ms`, `UpdateLayoutTree 19.77 ms`, `Paint 154.12 ms`, `PrePaint 15.28 ms`
+
+## Conclusion (latest update)
+
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 3915` (`-4704`, `-54.6%`)
+  - Per-node descendants avg: `204.05 -> 92.05` (`-54.9%`)
+  - Per-node descendants max: `1854 -> 787` (`-57.6%`)
+  - Per-node depth avg/max: `12.74/17 -> 6.07/8`
+- DOM flattening now includes full removal of `re-resizable` handle wrappers in the benchmark path (`42 -> 0`) with resize behavior validated via section-sizing and minimized-callable E2E coverage.
+- Runtime traces remain run-to-run variable, but late-phase dropped-frame ratios continue to trend materially below baseline while DOM-shape reductions accumulate.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase26.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase26.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase26_fitview.png`
