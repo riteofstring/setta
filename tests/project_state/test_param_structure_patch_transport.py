@@ -2,6 +2,7 @@ import pytest
 
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
+    CreateTopLevelSectionRequest,
     DeleteKwargRequest,
     DeleteSelectedParamsRequest,
     IndentParamsRequest,
@@ -23,7 +24,8 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import set_section_edge_inputs
 from setta.types.id import ID
-from setta.types.section_impls import CallableSectionImpl
+from setta.types.project_config import Position
+from setta.types.section_impls import CallableSectionImpl, SectionType
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -927,6 +929,68 @@ async def test_set_callable_clear_uses_section_patch_transport() -> None:
             CallableSectionImpl,
         )
         assert section_impl.callable is None
+
+
+@pytest.mark.asyncio
+async def test_set_callable_flushes_pending_deferred_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def mark_pending_refresh_only(project_config_id_for_refresh: ID) -> None:
+            manager._pending_deferred_codegen_refresh_revision_by_project_config[  # type: ignore[attr-defined]
+                project_config_id_for_refresh
+            ] = manager.history.revision
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = mark_pending_refresh_only  # type: ignore[method-assign]
+        try:
+            create_response = await manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Callable,
+                    position=Position(x=640, y=320),
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+            assert 0 == refresh_calls
+
+            response = await manager.set_callable(
+                SetCallableRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=create_response.sectionId,
+                    callableName="deferred_refresh_before_set_callable",
+                    refetchParams=False,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+        assert response.callableId is not None
+        assert refresh_calls == 1
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            create_response.sectionId,
+            CallableSectionImpl,
+        )
+        assert section_impl.callable == response.callableId
 
 
 @pytest.mark.asyncio

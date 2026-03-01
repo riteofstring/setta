@@ -332,3 +332,54 @@ async def test_load_json_sources_defers_codegen_refresh() -> None:
         assert refresh_calls == before_refresh_calls
         assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
         assert scheduled_deferred_refreshes[-1] == project_config_id
+
+
+@pytest.mark.asyncio
+async def test_load_json_sources_skips_name_validation_for_reserved_settings_name() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="settings")
+        )
+        section_id = create_top_level_section(
+            manager.settings_file.settings,
+            project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        set_curr_effective_section_impl_value(
+            project_state,
+            section_id,
+            BaseDictSectionImplArgsWithCallable(
+                isJsonSource=True,
+                jsonSourceKeys=[],
+                configLanguage=ConfigLanguage.json,
+            ),
+        )
+        variant = get_curr_section_variant(project_state, section_id)
+        json_source_path = normalize_workspace_path(Path("json-source-settings.json"))
+        variant.name = str(json_source_path)
+        await manager.update(
+            project_state,
+            updateFileWatcher=True,
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        sender = manager.websocket_msg_handler
+        capture, restore = _install_transport_capture(sender)
+        try:
+            processed = manager.json_source.process_json_object({"alpha": {"value": 1}})
+            await manager.load_json_sources(
+                {json_source_path: processed},
+                [(section_id, variant.id)],
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore()
+
+        assert 0 == capture["project_state_broadcast_calls"]
+        assert 1 == len(capture["structural_patch_calls"])
+        assert 1 == len(capture["code_obj_patch_calls"])

@@ -2401,6 +2401,7 @@ class BaseProjectManager(ABC):
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
+        await self._flush_pending_deferred_codegen_refresh(x.projectConfigId)
         history_code_obj_ids = self._get_callable_history_code_obj_ids_for_backend(
             project_config_id=x.projectConfigId,
             section_id=x.sectionId,
@@ -8378,6 +8379,7 @@ class BaseProjectManager(ABC):
                 code_obj_ids=touched_code_obj_ids,
                 include_all_code_obj_variants=True,
                 updateFileWatcher=False,
+                validate_name_rules=False,
             )
 
     async def _update_and_broadcast_section_impl_patches(
