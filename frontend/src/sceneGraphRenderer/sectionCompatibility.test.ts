@@ -45,6 +45,9 @@ describe("scene graph section compatibility", () => {
     expect(
       isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.Spreadsheet),
     ).toBe(true);
+    expect(
+      isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.TaskBoard),
+    ).toBe(true);
     expect(isSceneGraphSectionTypeSceneCompatible(SectionTypeEnum.Chat)).toBe(
       false,
     );
