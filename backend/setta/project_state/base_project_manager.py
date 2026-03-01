@@ -281,6 +281,7 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
+    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -2364,7 +2365,19 @@ class BaseProjectManager(ABC):
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        project_state_before_history = self.get_single_config_state(x.projectConfigId)
+        history_code_obj_ids = (
+            self._get_callable_history_code_obj_ids_for_project_state(
+                project_state_before_history,
+                x.sectionId,
+            )
+        )
+        self._add_section_and_code_obj_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=[x.sectionId],
+            code_obj_ids=history_code_obj_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         gen_code = self._require_python_codegen(x.projectConfigId)
         prev_callable = get_curr_section_callable_code_obj(project_state, x.sectionId)
@@ -4636,7 +4649,11 @@ class BaseProjectManager(ABC):
     )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_section_and_code_obj_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[x.paramInfoId],
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
             self.settings_file.settings,
@@ -4801,7 +4818,11 @@ class BaseProjectManager(ABC):
     )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_section_and_code_obj_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[x.paramInfoId],
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -4837,7 +4858,34 @@ class BaseProjectManager(ABC):
     )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        project_state_before_history = self.get_single_config_state(x.projectConfigId)
+        history_section_ids: set[ID] = {x.sectionId}
+        history_code_obj_ids: set[ID] = set()
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state_before_history,
+            x.sectionId,
+            BaseSectionWithParamsImpl,
+        )
+        if isinstance(section_impl, CallableSectionImpl):
+            if section_impl.callable is None:
+                raise KeyError(f"Section {x.sectionId} has no callable root code obj.")
+            history_code_obj_ids.add(section_impl.callable)
+        elif isinstance(section_impl, BaseDictSectionImpl):
+            top_level_param_id = section_impl.topLevelParamId
+            if top_level_param_id is not None:
+                history_code_obj_ids.add(top_level_param_id)
+                history_section_ids.update(
+                    self._find_section_ids_for_code_obj(
+                        project_state_before_history,
+                        top_level_param_id,
+                    )
+                )
+        self._add_section_and_code_obj_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            section_ids=history_section_ids,
+            code_obj_ids=history_code_obj_ids,
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         new_param_id = add_kwarg(
             self.settings_file.settings, project_state, x.sectionId
@@ -4869,12 +4917,21 @@ class BaseProjectManager(ABC):
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
-        project_state = self.get_single_config_state(x.projectConfigId)
-        root_code_obj_id = self._get_param_container_code_obj_id_for_section(
-            project_state,
+        project_state_before_history = self.get_single_config_state(x.projectConfigId)
+        (
+            root_code_obj_id,
+            removed_param_id,
+        ) = self._get_delete_kwarg_history_targets_for_project_state(
+            project_state_before_history,
             x.sectionId,
         )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[root_code_obj_id, removed_param_id],
+            section_ids=[x.sectionId],
+            include_codegen_singletons=True,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
         removed_param_id = delete_kwarg(
             self.settings_file.settings,
             project_state,
@@ -4900,13 +4957,19 @@ class BaseProjectManager(ABC):
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
-        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state_before_history = self.get_single_config_state(x.projectConfigId)
         parent_code_obj_ids = self._get_parent_code_obj_ids_for_section_params(
-            project_state,
+            project_state_before_history,
             x.sectionId,
             x.paramInfoIds,
         )
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[*parent_code_obj_ids, *x.paramInfoIds],
+            section_ids=[x.sectionId],
+            include_codegen_singletons=True,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
         removed_param_ids = delete_selected_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
         )
@@ -6628,6 +6691,58 @@ class BaseProjectManager(ABC):
             parent_code_obj_ids.append(parent_id)
         return parent_code_obj_ids
 
+    def _get_callable_history_code_obj_ids_for_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> set[ID]:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        return set(section_impl.codeObjVariantMap.keys())
+
+    def _get_delete_kwarg_history_targets_for_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> tuple[ID, ID]:
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            BaseSectionWithParamsImpl,
+        )
+        if isinstance(section_impl, CallableSectionImpl):
+            callable_id = section_impl.callable
+            if callable_id is None:
+                raise ValueError
+            callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                project_state,
+                section_id,
+                callable_id,
+                BaseParentCodeObjImpl,
+            )
+            if not callable_impl.children:
+                raise ValueError(f"Section {section_id} has no kwargs to delete.")
+            return callable_id, callable_impl.children[-1]
+        if isinstance(section_impl, BaseDictSectionImpl):
+            top_level_param_id = section_impl.topLevelParamId
+            if top_level_param_id is None:
+                raise ValueError
+            top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                project_state,
+                section_id,
+                top_level_param_id,
+                BaseParentCodeObjImpl,
+            )
+            if not top_level_impl.children:
+                raise ValueError(f"Section {section_id} has no kwargs to delete.")
+            return top_level_param_id, top_level_impl.children[-1]
+        raise TypeError(
+            f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
+        )
+
     def _get_param_section_impl_and_parent_map_for_backend(
         self,
         *,
@@ -6864,6 +6979,51 @@ class BaseProjectManager(ABC):
             )
             return
         self.add_new_history_entry(project_config_id=project_config_id)
+
+    def _add_section_and_code_obj_scoped_history_entry(
+        self,
+        *,
+        project_config_id: ID,
+        code_obj_ids: list[ID] | set[ID] | None = None,
+        section_ids: list[ID] | set[ID] | None = None,
+        include_codegen_singletons: bool = False,
+    ) -> None:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+
+        scoped_section_ids: set[ID] = set(section_ids) if section_ids else set()
+        if include_codegen_singletons:
+            scoped_section_ids.update(
+                self._get_codegen_singleton_section_ids_for_history_entry(
+                    project_config_id
+                )
+            )
+
+        scoped_code_obj_ids: set[ID] = set()
+        if code_obj_ids:
+            for code_obj_id in code_obj_ids:
+                if code_obj_id not in backend.codeObjs:
+                    continue
+                active_variant_ids = (
+                    self._get_active_code_obj_variant_ids_for_project_config(
+                        backend,
+                        project_config_id,
+                        code_obj_id,
+                    )
+                )
+                if active_variant_ids:
+                    scoped_code_obj_ids.add(code_obj_id)
+
+        if not scoped_section_ids and not scoped_code_obj_ids:
+            self.add_new_history_entry(project_config_id=project_config_id)
+            return
+
+        self.add_new_history_entry(
+            project_config_id=project_config_id,
+            section_impl_only_ids=(scoped_section_ids if scoped_section_ids else None),
+            code_obj_only_ids=scoped_code_obj_ids if scoped_code_obj_ids else None,
+        )
 
     def _add_project_config_and_scoped_history_entry(
         self,

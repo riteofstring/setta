@@ -1,6 +1,8 @@
 import pytest
 
 from setta.project_state.project_manager_types import (
+    ChangeParamImplRequest,
+    DeleteSelectedParamsRequest,
     IndentParamsRequest,
     MoveParamsRequest,
     RedoRequest,
@@ -9,9 +11,12 @@ from setta.project_state.project_manager_types import (
     UndoRequest,
 )
 from setta.types.code_obj_impls import (
+    BaseParamCodeObjImpl,
     BaseChildlessCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
+    CodeObjType,
+    CodeParamCodeObjImpl,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
@@ -285,6 +290,283 @@ async def test_set_param_entered_value_history_copy_isolates_codegen_singletons(
             BaseChildlessCodeObjImpl,
         )
         assert updated_param.value == "scoped-history-value"
+
+
+@pytest.mark.asyncio
+async def test_change_param_impl_history_copy_isolates_target_and_codegen_singletons() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        settings = SettingsState()
+        gen_code_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.GenPythonCode,
+            Position(x=900, y=0),
+            core_overrides={"name": "scoped_history_change_impl_gen_code"},
+        )
+        gen_meta_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.GenPythonMetadata,
+            Position(x=980, y=80),
+            core_overrides={"name": "scoped_history_change_impl_gen_meta"},
+        )
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        callable_impl = get_curr_effective_section_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        target_variant_id = callable_impl.codeObjVariantMap[TARGET_PARAM_ID]
+        sibling_variant_id = callable_impl.codeObjVariantMap[SIBLING_PARAM_ID]
+        target_impl_id = current_state.codeObjVariants[target_variant_id].impl
+        sibling_impl_id = current_state.codeObjVariants[sibling_variant_id].impl
+        gen_code_variant_id = current_state.projectConfig.sectionVariantMap[
+            gen_code_section_id
+        ]
+        gen_meta_variant_id = current_state.projectConfig.sectionVariantMap[
+            gen_meta_section_id
+        ]
+        gen_code_impl_id = current_state.sectionVariants[gen_code_variant_id].impl
+        gen_meta_impl_id = current_state.sectionVariants[gen_meta_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        baseline_gen_code_impl = backend_before.sectionImpls[gen_code_impl_id].model_dump()
+        baseline_gen_meta_impl = backend_before.sectionImpls[gen_meta_impl_id].model_dump()
+
+        await manager.change_param_impl(
+            ChangeParamImplRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=TARGET_PARAM_ID,
+                selectedId=ID(CodeObjType.TextParam.value),
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert (
+            backend_after.codeObjs[TARGET_PARAM_ID]
+            is not backend_before.codeObjs[TARGET_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjVariants[target_variant_id]
+            is not backend_before.codeObjVariants[target_variant_id]
+        )
+        assert (
+            backend_after.codeObjImpls[target_impl_id]
+            is not backend_before.codeObjImpls[target_impl_id]
+        )
+        assert (
+            backend_after.codeObjs[SIBLING_PARAM_ID]
+            is backend_before.codeObjs[SIBLING_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjVariants[sibling_variant_id]
+            is backend_before.codeObjVariants[sibling_variant_id]
+        )
+        assert (
+            backend_after.codeObjImpls[sibling_impl_id]
+            is backend_before.codeObjImpls[sibling_impl_id]
+        )
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.sectionImpls[gen_code_impl_id]
+            is not backend_before.sectionImpls[gen_code_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[gen_meta_impl_id]
+            is not backend_before.sectionImpls[gen_meta_impl_id]
+        )
+        assert (
+            backend_before.sectionImpls[gen_code_impl_id].model_dump()
+            == baseline_gen_code_impl
+        )
+        assert (
+            backend_before.sectionImpls[gen_meta_impl_id].model_dump()
+            == baseline_gen_meta_impl
+        )
+
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            TARGET_PARAM_ID,
+            BaseParamCodeObjImpl,
+        )
+        assert updated_impl.type == CodeObjType.TextParam
+
+
+@pytest.mark.asyncio
+async def test_delete_selected_params_history_copy_isolates_parent_graph_and_codegen_singletons() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        settings = SettingsState()
+        gen_code_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.GenPythonCode,
+            Position(x=900, y=0),
+            core_overrides={"name": "scoped_history_delete_selected_gen_code"},
+        )
+        gen_meta_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.GenPythonMetadata,
+            Position(x=980, y=80),
+            core_overrides={"name": "scoped_history_delete_selected_gen_meta"},
+        )
+        callable_impl_before_update = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        sibling_variant_id_before_update = callable_impl_before_update.codeObjVariantMap[
+            SIBLING_PARAM_ID
+        ]
+        sibling_impl_id_before_update = project_state.codeObjVariants[
+            sibling_variant_id_before_update
+        ].impl
+        sibling_impl_before_update = project_state.codeObjImpls[
+            sibling_impl_id_before_update
+        ]
+        if not isinstance(sibling_impl_before_update, CodeParamCodeObjImpl):
+            raise TypeError(
+                f"Expected CodeParamCodeObjImpl for {sibling_impl_id_before_update}."
+            )
+        sibling_impl_before_update.coreNameEditable = True
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        callable_impl = get_curr_effective_section_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        callable_id = callable_impl.callable
+        assert callable_id is not None
+        parent_code_obj_ids = manager._get_parent_code_obj_ids_for_section_params(
+            current_state,
+            SECTION_ID,
+            [SIBLING_PARAM_ID],
+        )
+        assert parent_code_obj_ids
+        parent_variant_ids = [
+            callable_impl.codeObjVariantMap[parent_code_obj_id]
+            for parent_code_obj_id in parent_code_obj_ids
+        ]
+        parent_impl_ids = [
+            current_state.codeObjVariants[parent_variant_id].impl
+            for parent_variant_id in parent_variant_ids
+        ]
+        sibling_variant_id = callable_impl.codeObjVariantMap[SIBLING_PARAM_ID]
+        unchanged_variant_id = callable_impl.codeObjVariantMap[UNCHANGED_PARAM_ID]
+        sibling_impl_id = current_state.codeObjVariants[sibling_variant_id].impl
+        unchanged_impl_id = current_state.codeObjVariants[unchanged_variant_id].impl
+        gen_code_variant_id = current_state.projectConfig.sectionVariantMap[
+            gen_code_section_id
+        ]
+        gen_meta_variant_id = current_state.projectConfig.sectionVariantMap[
+            gen_meta_section_id
+        ]
+        gen_code_impl_id = current_state.sectionVariants[gen_code_variant_id].impl
+        gen_meta_impl_id = current_state.sectionVariants[gen_meta_variant_id].impl
+        assert SIBLING_PARAM_ID in get_curr_effective_code_obj_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        ).children
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        baseline_gen_code_impl = backend_before.sectionImpls[gen_code_impl_id].model_dump()
+        baseline_gen_meta_impl = backend_before.sectionImpls[gen_meta_impl_id].model_dump()
+
+        await manager.delete_selected_params(
+            DeleteSelectedParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoIds=[SIBLING_PARAM_ID],
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        for parent_variant_id in parent_variant_ids:
+            assert (
+                backend_after.codeObjVariants[parent_variant_id]
+                is not backend_before.codeObjVariants[parent_variant_id]
+            )
+        for parent_impl_id in parent_impl_ids:
+            assert (
+                backend_after.codeObjImpls[parent_impl_id]
+                is not backend_before.codeObjImpls[parent_impl_id]
+            )
+        assert (
+            backend_after.codeObjs[SIBLING_PARAM_ID]
+            is not backend_before.codeObjs[SIBLING_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjVariants[sibling_variant_id]
+            is not backend_before.codeObjVariants[sibling_variant_id]
+        )
+        assert (
+            backend_after.codeObjImpls[sibling_impl_id]
+            is not backend_before.codeObjImpls[sibling_impl_id]
+        )
+        assert (
+            backend_after.codeObjs[UNCHANGED_PARAM_ID]
+            is backend_before.codeObjs[UNCHANGED_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjVariants[unchanged_variant_id]
+            is backend_before.codeObjVariants[unchanged_variant_id]
+        )
+        assert (
+            backend_after.codeObjImpls[unchanged_impl_id]
+            is backend_before.codeObjImpls[unchanged_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[gen_code_impl_id]
+            is not backend_before.sectionImpls[gen_code_impl_id]
+        )
+        assert (
+            backend_after.sectionImpls[gen_meta_impl_id]
+            is not backend_before.sectionImpls[gen_meta_impl_id]
+        )
+        assert (
+            backend_before.sectionImpls[gen_code_impl_id].model_dump()
+            == baseline_gen_code_impl
+        )
+        assert (
+            backend_before.sectionImpls[gen_meta_impl_id].model_dump()
+            == baseline_gen_meta_impl
+        )
+
+        updated_callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        assert SIBLING_PARAM_ID not in updated_callable_impl.children
 
 
 @pytest.mark.asyncio
