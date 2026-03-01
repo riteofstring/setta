@@ -662,8 +662,10 @@ class DependencyGraph:
             dep_key = create_dep_key(sectionId=sectionId, codeObjId=pid)
             param_node = self.get_node(dep_key)
             if not param_node:
-                code_obj_impl = get_curr_effective_code_obj_impl_for_read_with_type_guard(
-                    p, sectionId, pid, BaseParamCodeObjImpl
+                code_obj_impl = (
+                    get_curr_effective_code_obj_impl_for_read_with_type_guard(
+                        p, sectionId, pid, BaseParamCodeObjImpl
+                    )
                 )
                 name = p.codeObjs[pid].name
                 raw_value = ""

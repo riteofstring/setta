@@ -7,8 +7,8 @@ from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_for_read,
     get_curr_effective_code_obj_impl_for_read_with_type_guard,
-    get_curr_effective_section_impl_for_read,
     get_curr_effective_section_impl,
+    get_curr_effective_section_impl_for_read,
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy

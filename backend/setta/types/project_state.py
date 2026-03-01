@@ -19,8 +19,8 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_for_read,
-    get_curr_effective_section_impl_for_read,
     get_curr_effective_section_impl,
+    get_curr_effective_section_impl_for_read,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl2 import (

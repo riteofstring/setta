@@ -285,11 +285,12 @@ class WebsocketManager:
         payload = message.model_dump_json()
         await self._broadcast_payload(payload, target_ids)
 
-    async def _broadcast_payload(
-        self, payload: str, target_ids: list[str]
-    ) -> None:
+    async def _broadcast_payload(self, payload: str, target_ids: list[str]) -> None:
         await asyncio.gather(
-            *(self._send_text_payload(payload, websocket_id) for websocket_id in target_ids)
+            *(
+                self._send_text_payload(payload, websocket_id)
+                for websocket_id in target_ids
+            )
         )
 
     async def broadcast_to_session(
