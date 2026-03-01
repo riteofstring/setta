@@ -728,6 +728,57 @@ async def test_move_param_groups_uses_code_obj_and_section_patch_transport() -> 
 
 
 @pytest.mark.asyncio
+async def test_move_param_groups_invalid_batch_is_atomic() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        _, callable_impl_before = _get_callable_impl(manager, project_config_id)
+        callable_children_before = list(callable_impl_before.children)
+        param_one_impl_before = get_curr_effective_code_obj_impl(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+        )
+        assert isinstance(param_one_impl_before, CodeParamCodeObjImpl)
+
+        # A batched move must be all-or-nothing: an invalid later move cannot
+        # leave earlier moves applied.
+        with pytest.raises(KeyError):
+            await manager.move_param_groups(
+                MoveParamGroupsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    moves=[
+                        MoveParamGroup(
+                            paramIds=[PARAM_TWO_ID],
+                            newParentId=PARAM_ONE_ID,
+                            newIndex=0,
+                        ),
+                        MoveParamGroup(
+                            paramIds=[ID("missing-param-id")],
+                            newParentId=PARAM_ONE_ID,
+                            newIndex=0,
+                        ),
+                    ],
+                )
+            )
+
+        _, callable_impl_after = _get_callable_impl(manager, project_config_id)
+        assert list(callable_impl_after.children) == callable_children_before
+        param_one_impl_after = get_curr_effective_code_obj_impl(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ONE_ID,
+        )
+        assert isinstance(param_one_impl_after, CodeParamCodeObjImpl)
+
+
+@pytest.mark.asyncio
 async def test_indent_params_uses_code_obj_and_section_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

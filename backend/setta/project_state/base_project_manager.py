@@ -7639,6 +7639,21 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
+        if not x.moves:
+            return
+
+        project_state = self.get_single_config_state(x.projectConfigId)
+        validation_project_state = project_state.model_copy(deep=True)
+        for move in x.moves:
+            move_params_to_parent(
+                self.settings_file.settings,
+                validation_project_state,
+                x.sectionId,
+                move.paramIds,
+                move.newParentId,
+                move.newIndex,
+            )
+
         history_param_ids = [param_id for move in x.moves for param_id in move.paramIds]
         history_new_parent_ids = [move.newParentId for move in x.moves]
         self._add_param_tree_scoped_history_entry(
@@ -7647,7 +7662,6 @@ class BaseProjectManager(ABC):
             param_ids=history_param_ids,
             new_parent_ids=history_new_parent_ids,
         )
-        project_state = self.get_single_config_state(x.projectConfigId)
         code_obj_ids_for_patch: list[ID] = []
         for move in x.moves:
             parent_code_obj_ids_before = (
