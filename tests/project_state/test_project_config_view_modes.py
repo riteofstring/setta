@@ -4,6 +4,7 @@ import pytest
 
 import setta.project_state.base_project_manager as base_project_manager
 from setta.project_state.project_manager_types import (
+    AutoLayoutTopLevelSectionsRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
@@ -467,6 +468,112 @@ class TestProjectConfigViewModes:
             patch = project_config_patch_calls[0]
             assert patch["projectConfigId"] == project_config_id
             assert patch["viewModeIsTab"] == (not initial_is_tab)
+            assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
+
+    async def test_auto_layout_top_level_sections_broadcasts_project_config_patch(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            first_section_id = await create_top_level_section(
+                manager, project_config_id, SectionType.Dict
+            )
+            second_section_id = await create_top_level_section(
+                manager, project_config_id, SectionType.Code
+            )
+            state_before_layout = manager.get_single_config_state(project_config_id)
+            pre_auto_layout = dict(state_before_layout.projectConfig.topLevelSections)
+            pre_auto_layout[first_section_id] = TopLevelSectionLayout(x=0.0, y=0.0)
+            pre_auto_layout[second_section_id] = TopLevelSectionLayout(x=0.0, y=0.0)
+            await manager.set_top_level_section_layout(
+                SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections=pre_auto_layout,
+                )
+            )
+
+            sender = manager.websocket_msg_handler
+            snapshot_calls = 0
+            project_config_patch_calls: list[dict[str, int | str | bool]] = []
+            original_snapshot = sender.broadcast_project_state
+            original_project_config_patch = (
+                sender.broadcast_project_state_project_config_patch
+            )
+
+            async def record_snapshot(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision=None,
+            ) -> None:
+                nonlocal snapshot_calls
+                snapshot_calls += 1
+                await original_snapshot(
+                    project_state,
+                    completed_op_ids,
+                    pending_op_ids,
+                    project_state_revision,
+                )
+
+            async def record_project_config_patch(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            ) -> None:
+                next_layouts = project_config_for_patch.topLevelSections
+                first_layout = next_layouts[first_section_id]
+                second_layout = next_layouts[second_section_id]
+                project_config_patch_calls.append(
+                    {
+                        "projectConfigId": project_config_id_for_patch,
+                        "sectionsDiverged": (
+                            first_layout.x != second_layout.x
+                            or first_layout.y != second_layout.y
+                        ),
+                        "previousProjectStateRevision": previous_project_state_revision,
+                        "projectStateRevision": project_state_revision,
+                    }
+                )
+                await original_project_config_patch(
+                    project_config_id_for_patch,
+                    project_config_for_patch,
+                    previous_project_state_revision,
+                    project_state_revision,
+                    completed_op_ids,
+                    pending_op_ids,
+                )
+
+            sender.broadcast_project_state = record_snapshot  # type: ignore[method-assign]
+            sender.broadcast_project_state_project_config_patch = (
+                record_project_config_patch  # type: ignore[method-assign]
+            )
+            try:
+                await manager.finish_pending_operations(timeout=5.0)
+                baseline_snapshot_calls = snapshot_calls
+                await manager.auto_layout_top_level_sections(
+                    AutoLayoutTopLevelSectionsRequest(
+                        projectConfigId=project_config_id,
+                        margin=60,
+                    )
+                )
+                await manager.finish_pending_operations(timeout=5.0)
+            finally:
+                sender.broadcast_project_state = original_snapshot  # type: ignore[method-assign]
+                sender.broadcast_project_state_project_config_patch = (
+                    original_project_config_patch  # type: ignore[method-assign]
+                )
+
+            assert snapshot_calls == baseline_snapshot_calls
+            assert 1 == len(project_config_patch_calls)
+            patch = project_config_patch_calls[0]
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["sectionsDiverged"] is True
             assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
     async def test_create_view_mode_broadcasts_project_config_patch(self) -> None:

@@ -1888,7 +1888,7 @@ class BaseProjectManager(ABC):
         auto_layout_top_level_sections(
             self.settings_file.settings, project_state, margin=x.margin
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
