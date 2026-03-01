@@ -303,6 +303,58 @@ async def test_change_param_impl_uses_code_obj_patch_transport() -> None:
 
 
 @pytest.mark.asyncio
+async def test_param_impl_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        baseline_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ID,
+            BaseParamCodeObjImpl,
+        ).model_copy(deep=True)
+
+        async def assert_failure_does_not_write_history(operation) -> None:
+            history_revision_before = manager.history.revision
+            with pytest.raises(KeyError):
+                await operation
+            assert manager.history.revision == history_revision_before
+            current_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                manager.get_single_config_state(project_config_id),
+                SECTION_ID,
+                PARAM_ID,
+                BaseParamCodeObjImpl,
+            )
+            assert current_impl == baseline_impl
+
+        await assert_failure_does_not_write_history(
+            manager.update_param_impl_config(
+                UpdateParamImplConfigRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramInfoId=ID("missing-param-id"),
+                    newConfig={"coreNameEditable": False},
+                )
+            )
+        )
+        await assert_failure_does_not_write_history(
+            manager.change_param_impl(
+                ChangeParamImplRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramInfoId=PARAM_ID,
+                    selectedId=ID("missing-impl-type"),
+                )
+            )
+        )
+
+
+@pytest.mark.asyncio
 async def test_param_impl_routes_defer_codegen_refresh() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

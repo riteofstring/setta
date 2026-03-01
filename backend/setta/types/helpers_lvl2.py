@@ -1784,6 +1784,7 @@ def change_param_impl(
     paramInfoId: ID,
     selectedId: ID,
 ):
+    validate_change_param_impl(settings, p, sectionId, paramInfoId, selectedId)
     section_impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(section_impl, MetaControlSectionImpl):
         allowed_types = ControlCodeObjTypeSet
@@ -1841,7 +1842,61 @@ def change_param_impl(
     maybe_convert_code_obj_value(old_impl, impl, core, variant)
 
 
+def validate_change_param_impl(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    paramInfoId: ID,
+    selectedId: ID,
+):
+    section_impl = get_curr_effective_section_impl(p, sectionId)
+    if isinstance(section_impl, MetaControlSectionImpl):
+        allowed_types = ControlCodeObjTypeSet
+    elif isinstance(section_impl, BaseSectionWithParamsImpl):
+        allowed_types = SectionParamCodeObjTypeSet
+    else:
+        raise TypeError(f"Section {sectionId} does not support params.")
+
+    get_curr_code_obj_variant(
+        p,
+        sectionId,
+        paramInfoId,
+    )
+    impl = p.codeObjImpls.get(selectedId)
+    if impl is not None:
+        impl_type = impl.type
+    else:
+        impl_type = CodeObjType[selectedId]
+        # Build a candidate impl to validate that defaults can be materialized.
+        create_code_obj_impl(
+            type=impl_type,  # type: ignore
+            defaults=get_user_default_code_obj_from_settings(settings, impl_type),  # type: ignore
+        )
+    if impl_type not in allowed_types:
+        raise ValueError(
+            f"Section {sectionId} does not allow code obj type {impl_type}."
+        )
+
+
 def update_param_impl_config(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    paramInfoId: ID,
+    newConfig: dict,
+):
+    validate_update_param_impl_config(p, sectionId, paramInfoId, newConfig)
+    variant = get_curr_code_obj_variant(
+        p,
+        sectionId,
+        paramInfoId,
+    )
+    impl = p.codeObjImpls[variant.impl]
+    for k, v in newConfig.items():
+        setattr(impl, k, v)
+    maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
+
+
+def validate_update_param_impl_config(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
     paramInfoId: ID,
@@ -1853,9 +1908,17 @@ def update_param_impl_config(
         paramInfoId,
     )
     impl = p.codeObjImpls[variant.impl]
+    impl_for_validation = impl.model_copy(deep=True)
+    core_for_validation = p.codeObjs[paramInfoId].model_copy(deep=True)
+    variant_for_validation = variant.model_copy(deep=True)
     for k, v in newConfig.items():
-        setattr(impl, k, v)
-    maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
+        setattr(impl_for_validation, k, v)
+    maybe_convert_code_obj_value(
+        impl_for_validation,
+        impl_for_validation,
+        core_for_validation,
+        variant_for_validation,
+    )
 
 
 def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):

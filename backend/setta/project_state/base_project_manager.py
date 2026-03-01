@@ -389,6 +389,7 @@ from setta.types.helpers_lvl2 import (
     update_agentic_edge,
     update_edge,
     update_param_impl_config,
+    validate_change_param_impl,
     validate_create_agentic_edge,
     validate_create_edge,
     validate_delete_agentic_edges,
@@ -398,6 +399,7 @@ from setta.types.helpers_lvl2 import (
     validate_set_edges,
     validate_update_agentic_edge,
     validate_update_edge,
+    validate_update_param_impl_config,
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -5736,6 +5738,14 @@ class BaseProjectManager(ABC):
     )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_change_param_impl(
+            self.settings_file.settings,
+            project_state_for_validation,
+            x.sectionId,
+            x.paramInfoId,
+            x.selectedId,
+        )
         self._add_section_and_code_obj_scoped_history_entry(
             project_config_id=x.projectConfigId,
             code_obj_ids=[x.paramInfoId],
@@ -5964,6 +5974,13 @@ class BaseProjectManager(ABC):
     )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
+        project_state_for_validation = self.get_single_config_state(x.projectConfigId)
+        validate_update_param_impl_config(
+            project_state_for_validation,
+            x.sectionId,
+            x.paramInfoId,
+            x.newConfig,
+        )
         self._add_section_and_code_obj_scoped_history_entry(
             project_config_id=x.projectConfigId,
             code_obj_ids=[x.paramInfoId],
