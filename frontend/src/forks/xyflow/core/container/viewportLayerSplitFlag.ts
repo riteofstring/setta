@@ -30,13 +30,13 @@ export function readViewportLayerSplitFlagOverride(): ViewportLayerSplitFlagOver
   );
 }
 
+export function resolveViewportLayerSplitEnabled(
+  flagOverride: ViewportLayerSplitFlagOverride,
+): boolean {
+  return flagOverride === "enabled";
+}
+
 export function useViewportLayerSplitEnabled(): boolean {
   const flagOverride = useMemo(readViewportLayerSplitFlagOverride, []);
-  if (flagOverride === "enabled") {
-    return true;
-  }
-  if (flagOverride === "disabled") {
-    return false;
-  }
-  return true;
+  return resolveViewportLayerSplitEnabled(flagOverride);
 }

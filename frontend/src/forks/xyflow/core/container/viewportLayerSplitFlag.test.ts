@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseViewportLayerSplitFlagOverride } from "./viewportLayerSplitFlag";
+import {
+  parseViewportLayerSplitFlagOverride,
+  resolveViewportLayerSplitEnabled,
+} from "./viewportLayerSplitFlag";
 
 describe("viewportLayerSplitFlag", () => {
   it("parses explicit enable overrides", () => {
@@ -23,5 +26,11 @@ describe("viewportLayerSplitFlag", () => {
   it("preserves explicit off overrides for kill-switch use", () => {
     expect(parseViewportLayerSplitFlagOverride("0")).toBe("disabled");
     expect(parseViewportLayerSplitFlagOverride("off")).toBe("disabled");
+  });
+
+  it("defaults to disabled unless explicitly enabled", () => {
+    expect(resolveViewportLayerSplitEnabled("enabled")).toBe(true);
+    expect(resolveViewportLayerSplitEnabled("disabled")).toBe(false);
+    expect(resolveViewportLayerSplitEnabled("unset")).toBe(false);
   });
 });

@@ -226,6 +226,21 @@
 - Updated interpretation:
   - layer-split remains a structural path, but not a proven fundamental pan/zoom performance win in its corrected form.
 
+### Phase 0.5 Status Update (2026-03-03, Default-Off Reversion)
+- Layer-split rollout mode changed from default-on to experiment-only default-off.
+- Decision:
+  - unset localStorage override now resolves to disabled,
+  - explicit `setta.viewportLayerSplit.enabled=1/true/on` remains available for controlled experiments.
+- Validation in this pass:
+  - default path baseline reports split disabled with expected full section visibility,
+  - forced-on guardrail still passes correctness checks (including visible section count),
+  - split-on throughput remains near parity with split-off in this corrected path.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-layer-split-default-off-experiment-only.md`
+- Updated direction:
+  - Treat viewport layer split as an experimental hook only.
+  - Prioritize larger architectural motion wins (hybrid proxy redesign or equivalent) instead of further incremental tuning on this path.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
