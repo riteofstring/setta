@@ -42,6 +42,7 @@ export function DummyCodeMirror({
       className={className}
       language={language}
       useJsx={useJsx}
+      singleLine={singleLine}
       style={resolvedStyle}
     />
   ) : (
@@ -87,11 +88,26 @@ function HighlightedCode({
   className,
   language,
   useJsx,
+  singleLine,
   onFocus,
   style,
 }) {
   const parser = getCodeMirrorLanguageParser(language, useJsx);
   if (!parser) {
+    if (singleLine || !code.includes("\n")) {
+      return (
+        <div
+          id={divId}
+          className={`${className} outline-none`}
+          style={style}
+          onMouseDownCapture={onMouseDownCapture}
+          onFocus={onFocus}
+          tabIndex={0}
+        >
+          {code}
+        </div>
+      );
+    }
     return (
       <div
         id={divId}
@@ -127,6 +143,51 @@ function HighlightedCode({
   const decorationRangeSet = builder.finish();
   // just the code content. MUST be array of lines
   const text = Text.of(code.split("\n"));
+  const renderInline = singleLine || text.lines === 1;
+  if (renderInline) {
+    const inlineNodes = [];
+    const textLength = text.length;
+    let pos = 0;
+    const cursor = decorationRangeSet.iter();
+
+    while (cursor.value) {
+      const from = Math.min(cursor.from, textLength);
+      const to = Math.min(cursor.to, textLength);
+
+      if (from > pos) {
+        inlineNodes.push(text.sliceString(pos, from));
+      }
+
+      const className = cursor.value.spec.class;
+      inlineNodes.push(
+        <span key={`single-line-${from}-${to}`} className={className}>
+          {text.sliceString(from, to)}
+        </span>,
+      );
+      pos = to;
+      cursor.next();
+    }
+
+    if (pos < textLength) {
+      inlineNodes.push(text.sliceString(pos, textLength));
+    }
+
+    const scopeClassName = theme[0][0]?.value || "";
+
+    return (
+      <div
+        id={divId}
+        className={`${className} ${scopeClassName} outline-none`}
+        style={style}
+        onMouseDownCapture={onMouseDownCapture}
+        onFocus={onFocus}
+        tabIndex={0}
+      >
+        {inlineNodes}
+      </div>
+    );
+  }
+
   const outputDivs = [];
   let pos, isJustLineBreak;
 
