@@ -1,6 +1,9 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
+  applyActiveViewModeProjectStatePatch,
+  applyProjectConfigProjectStatePatch,
+  applySectionImplProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
@@ -9,6 +12,7 @@ import {
   getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
+  getProjectStateRevision,
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
@@ -1451,5 +1455,271 @@ describe("processProjectStateUpdateFromBackend", () => {
     processProjectStateUpdateFromBackend(update);
 
     expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
+  });
+
+  it("stores project-state revisions from backend snapshots", () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    processProjectStateUpdateFromBackend({
+      projectState: {
+        projectConfig,
+        sections: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        codeObjs: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: {},
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+      },
+      completedOpIds: [],
+      pendingOpIds: [],
+      projectStateRevision: 17,
+    });
+
+    expect(getProjectStateRevision("project-1")).toBe(17);
+  });
+
+  it("applies active-view-mode patches and updates revision tracking", () => {
+    const viewModeAId = "view-a";
+    const viewModeBId = "view-b";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: viewModeAId,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+      topLevelSections: {},
+      viewModes: {
+        [viewModeAId]: {
+          id: viewModeAId,
+          name: "View A",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: true,
+          topLevelSections: {},
+        },
+        [viewModeBId]: {
+          id: viewModeBId,
+          name: "View B",
+          sortIndex: 1,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 42, y: -9, zoom: 1.25 },
+          viewportInitialized: true,
+          topLevelSections: {},
+        },
+      },
+      sectionVariantMap: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+
+    const applied = applyActiveViewModeProjectStatePatch({
+      projectConfigId: "project-1",
+      activeViewModeId: viewModeBId,
+      previousProjectStateRevision: 11,
+      projectStateRevision: 12,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().projectConfig.activeViewModeId).toBe(
+      viewModeBId,
+    );
+    expect(useProjectState.getState().projectConfig.viewport).toEqual({
+      x: 42,
+      y: -9,
+      zoom: 1.25,
+    });
+    expect(getProjectStateRevision("project-1")).toBe(12);
+  });
+
+  it("applies project-config patches and updates revision tracking", () => {
+    const viewModeAId = "view-a";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: viewModeAId,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+      topLevelSections: {},
+      viewModes: {
+        [viewModeAId]: {
+          id: viewModeAId,
+          name: "View A",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: true,
+          topLevelSections: {},
+        },
+      },
+      sectionVariantMap: {},
+      activeIds: [],
+      isEditingViewMode: false,
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    const nextProjectConfig = createProjectConfig({
+      ...initialProjectConfig,
+      id: "project-1",
+      isEditingViewMode: true,
+      viewModes: {
+        ...initialProjectConfig.viewModes,
+        [viewModeAId]: {
+          ...initialProjectConfig.viewModes[viewModeAId],
+          name: "Renamed View",
+        },
+      },
+    });
+    const applied = applyProjectConfigProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      previousProjectStateRevision: 20,
+      projectStateRevision: 21,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().projectConfig.isEditingViewMode).toBe(
+      true,
+    );
+    expect(
+      useProjectState.getState().projectConfig.viewModes[viewModeAId].name,
+    ).toBe("Renamed View");
+    expect(getProjectStateRevision("project-1")).toBe(21);
+  });
+
+  it("applies section-impl patches and updates revision tracking", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "chat-impl-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createChatSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Chat,
+          inputText: "before",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applySectionImplProjectStatePatch({
+      projectConfigId: "project-1",
+      sectionId,
+      sectionImpl: createChatSectionImpl({
+        id: implId,
+        type: SectionTypeEnum.Chat,
+        inputText: "after",
+      }),
+      previousProjectStateRevision: 31,
+      projectStateRevision: 32,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(
+      (useProjectState.getState().sectionImpls[implId] as { inputText: string })
+        .inputText,
+    ).toBe("after");
+    expect(getProjectStateRevision("project-1")).toBe(32);
   });
 });

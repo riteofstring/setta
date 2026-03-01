@@ -45,6 +45,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 from watchdog.observers.polling import PollingObserver
 
 from tests.utils.setta_paths import temporary_setta_paths
+
 specific_file_watcher.Observer = PollingObserver
 lsp_file_watcher.Observer = PollingObserver
 
@@ -221,12 +222,19 @@ class TestApplyListenerEmitUpdates:
 
         captured_broadcasts: list[ProjectStateSingleConfigWithCompletedOpIds] = []
 
-        async def capture_broadcast(self, projectState, completedOpIds, pendingOpIds):
+        async def capture_broadcast(
+            self,
+            projectState,
+            completedOpIds,
+            pendingOpIds,
+            projectStateRevision=None,
+        ):
             captured_broadcasts.append(
                 ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
                     completedOpIds=list(completedOpIds),
                     pendingOpIds=list(pendingOpIds),
+                    projectStateRevision=projectStateRevision,
                 )
             )
 
@@ -268,12 +276,19 @@ class TestApplyListenerEmitUpdates:
         sender = self.manager.websocket_msg_handler
         captured_broadcasts: list[ProjectStateSingleConfigWithCompletedOpIds] = []
 
-        async def capture_broadcast(self, projectState, completedOpIds, pendingOpIds):
+        async def capture_broadcast(
+            self,
+            projectState,
+            completedOpIds,
+            pendingOpIds,
+            projectStateRevision=None,
+        ):
             captured_broadcasts.append(
                 ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
                     completedOpIds=list(completedOpIds),
                     pendingOpIds=list(pendingOpIds),
+                    projectStateRevision=projectStateRevision,
                 )
             )
 
@@ -309,13 +324,18 @@ class TestApplyListenerEmitUpdates:
             captured_artifact_calls.append((artifacts, updateType))
 
         async def capture_project_broadcast(
-            self, projectState, completedOpIds, pendingOpIds
+            self,
+            projectState,
+            completedOpIds,
+            pendingOpIds,
+            projectStateRevision=None,
         ):
             captured_project_calls.append(
                 ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
                     completedOpIds=list(completedOpIds),
                     pendingOpIds=list(pendingOpIds),
+                    projectStateRevision=projectStateRevision,
                 )
             )
 
@@ -344,7 +364,9 @@ class TestApplyListenerEmitUpdates:
         assert "update" == update_type
         assert 1 == len(artifacts_payload)
         artifact = artifacts_payload[0]
-        assert normalize_state_path("listener/new-image.png") == normalize_state_path(artifact.id)
+        assert normalize_state_path("listener/new-image.png") == normalize_state_path(
+            artifact.id
+        )
         assert (
             BinaryContentRef(
                 contentId="listener-image",

@@ -181,7 +181,7 @@ class WebsocketManager:
         self._remove_frontend_affinity_token_for_websocket_id(websocket_id)
         return removed
 
-    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
+    async def _send_text_payload(self, payload: str, toWebsocketId: str) -> bool:
         socket_info = self.sockets.get(toWebsocketId)
         if not socket_info:
             return False
@@ -190,7 +190,6 @@ class WebsocketManager:
             self._remove_socket(toWebsocketId)
             return False
         try:
-            payload = message.model_dump_json()
             if self._send_timeout_s is None:
                 await websocket.send_text(payload)
                 return True
@@ -223,6 +222,10 @@ class WebsocketManager:
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self._remove_socket(toWebsocketId)
             return False
+
+    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
+        payload = message.model_dump_json()
+        return await self._send_text_payload(payload, toWebsocketId)
 
     async def send_bytes(self, payload: bytes, toWebsocketId: str) -> None:
         socket_info = self.sockets.get(toWebsocketId)
@@ -279,8 +282,15 @@ class WebsocketManager:
                 target_ids.append(websocket_id)
         if not target_ids:
             return
+        payload = message.model_dump_json()
+        await self._broadcast_payload(payload, target_ids)
+
+    async def _broadcast_payload(self, payload: str, target_ids: list[str]) -> None:
         await asyncio.gather(
-            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
+            *(
+                self._send_text_payload(payload, websocket_id)
+                for websocket_id in target_ids
+            )
         )
 
     async def broadcast_to_session(
@@ -304,9 +314,8 @@ class WebsocketManager:
                 target_ids.append(websocket_id)
         if not target_ids:
             return
-        await asyncio.gather(
-            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
-        )
+        payload = message.model_dump_json()
+        await self._broadcast_payload(payload, target_ids)
 
     async def broadcast_connections(self):
         connections: list[WebsocketConnectionInfo] = []

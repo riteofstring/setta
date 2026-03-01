@@ -28,6 +28,7 @@ from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectCodegenTarget,
+    ProjectConfig,
     TopLevelSectionLayout,
     Viewport,
     ViewportBounds,
@@ -36,6 +37,7 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
+    BaseSectionImpl,
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatDictationMode,
@@ -1205,6 +1207,38 @@ class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithSection):
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+    projectStateRevision: int | None = None
+
+
+@dataclass
+class ProjectStateActiveViewModePatch:
+    projectConfigId: ID
+    activeViewModeId: ID
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateProjectConfigPatch:
+    projectConfigId: ID
+    projectConfig: ProjectConfig
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateSectionImplPatch:
+    projectConfigId: ID
+    sectionId: ID
+    sectionImpl: BaseSectionImpl
+    previousProjectStateRevision: int
+    projectStateRevision: int
     completedOpIds: list[str]
     pendingOpIds: list[str]
 
