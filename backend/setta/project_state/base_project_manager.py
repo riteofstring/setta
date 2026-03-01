@@ -452,6 +452,7 @@ from setta.utils.format_code import ruff_format_with_error
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     collect_param_name_errors,
+    collect_param_name_errors_for_sections,
     collect_project_name_format_errors,
     collect_section_name_conflicts,
     collect_section_name_format_errors,
@@ -654,6 +655,12 @@ class BaseProjectManager(ABC):
             ID, ProjectStateSingleConfig
         ] = {}
         self._project_state_summary_cache_by_project_config: dict[ID, object] = {}
+        self._name_validation_cache_by_project_config: dict[
+            ID, SettaProjectNameValidationErrors
+        ] = {}
+        self._name_validation_param_error_ids_by_section_by_project_config: dict[
+            ID, dict[ID, set[ID]]
+        ] = {}
         self._single_config_state_cache_revision = self.history.revision
         self._last_persisted_history_revision: int | None = None
         watch_loop = None
@@ -5467,6 +5474,11 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
+            self._name_validation_cache_by_project_config.pop(project_config_id, None)
+            self._name_validation_param_error_ids_by_section_by_project_config.pop(
+                project_config_id,
+                None,
+            )
             deleted_any = True
         self.project_state_backend.validate_default_project_id()
         if deleted_any:
@@ -7964,6 +7976,40 @@ class BaseProjectManager(ABC):
                 code_obj_impl_updates[impl_id] = project_state.codeObjImpls[impl_id]
         return code_obj_updates, code_obj_variant_updates, code_obj_impl_updates
 
+    def _build_name_validation_section_scope_for_patch(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        section_ids: list[ID],
+        code_obj_ids: list[ID],
+    ) -> set[ID]:
+        scoped_section_ids: set[ID] = {
+            section_id
+            for section_id in section_ids
+            if section_id in project_state.sections
+        }
+        remaining_code_obj_ids = set(code_obj_ids)
+        if not remaining_code_obj_ids:
+            return scoped_section_ids
+
+        for section_id in project_state.sections:
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(
+                section_impl, BaseSectionWithParamsImpl
+            ) and not isinstance(section_impl, MetaControlSectionImpl):
+                continue
+            has_match = False
+            for code_obj_id in section_impl.codeObjVariantMap:
+                if code_obj_id not in remaining_code_obj_ids:
+                    continue
+                remaining_code_obj_ids.remove(code_obj_id)
+                has_match = True
+            if has_match:
+                scoped_section_ids.add(section_id)
+            if not remaining_code_obj_ids:
+                break
+        return scoped_section_ids
+
     async def _broadcast_code_obj_and_section_patch_payloads(
         self,
         *,
@@ -8050,10 +8096,20 @@ class BaseProjectManager(ABC):
             validate_name_rules=validate_name_rules,
         )
         next_project_state_revision = self.history.revision
+        name_validation_section_scope = (
+            self._build_name_validation_section_scope_for_patch(
+                project_state=project_state,
+                section_ids=section_ids,
+                code_obj_ids=code_obj_ids,
+            )
+        )
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
             return
 
         has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
@@ -8067,11 +8123,17 @@ class BaseProjectManager(ABC):
         if not has_broadcast_patch:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
             return
 
         if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                section_scope_for_param_errors=name_validation_section_scope,
+            )
 
     async def _merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
         self,
@@ -8101,10 +8163,20 @@ class BaseProjectManager(ABC):
                 updateFileWatcher=updateFileWatcher,
             )
             next_project_state_revision = self.history.revision
+        name_validation_section_scope = (
+            self._build_name_validation_section_scope_for_patch(
+                project_state=project_state,
+                section_ids=section_ids,
+                code_obj_ids=code_obj_ids,
+            )
+        )
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
             return
 
         has_broadcast_patch = await self._broadcast_code_obj_and_section_patch_payloads(
@@ -8118,12 +8190,18 @@ class BaseProjectManager(ABC):
         if not has_broadcast_patch:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
             self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
             return
 
         if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                section_scope_for_param_errors=name_validation_section_scope,
+            )
         self._schedule_deferred_codegen_refresh(project_state.projectConfig.id)
 
     def _collect_referenced_code_obj_ids_for_project_state(
@@ -8208,10 +8286,18 @@ class BaseProjectManager(ABC):
             validate_name_rules=validate_name_rules,
         )
         next_project_state_revision = self.history.revision
+        name_validation_section_scope = {
+            section_id
+            for section_id in section_ids
+            if section_id in project_state.sections
+        }
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             if broadcast_name_validation_errors:
-                await self._broadcast_name_validation_errors(project_state)
+                await self._broadcast_name_validation_errors(
+                    project_state,
+                    section_scope_for_param_errors=name_validation_section_scope,
+                )
             return
         section_impl_updates = self._collect_section_impl_updates_for_patch(
             project_state,
@@ -8230,7 +8316,10 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
         if broadcast_name_validation_errors:
-            await self._broadcast_name_validation_errors(project_state)
+            await self._broadcast_name_validation_errors(
+                project_state,
+                section_scope_for_param_errors=name_validation_section_scope,
+            )
 
     async def _update_and_broadcast_section_impl_patch_no_name_validation(
         self,
@@ -8620,25 +8709,140 @@ class BaseProjectManager(ABC):
     async def _broadcast_name_validation_errors(
         self,
         project_state: ProjectStateSingleConfig,
+        *,
+        section_scope_for_param_errors: set[ID] | None = None,
     ) -> None:
+        project_config_id = project_state.projectConfig.id
         section_errors = collect_section_name_conflicts(project_state)
-        param_errors, param_format_errors = collect_param_name_errors(project_state)
         section_format_errors = collect_section_name_format_errors(project_state)
         heading_name_errors = collect_text_block_heading_name_errors(project_state)
         for section_id, errors in section_format_errors.items():
             section_errors.setdefault(section_id, []).extend(errors)
         for section_id, errors in heading_name_errors.items():
             section_errors.setdefault(section_id, []).extend(errors)
-        for param_id, errors in param_format_errors.items():
-            param_errors.setdefault(param_id, []).extend(errors)
         project_errors = collect_project_name_format_errors(project_state)
+        cached_content = self._name_validation_cache_by_project_config.get(
+            project_config_id
+        )
+        cached_param_error_ids_by_section = (
+            self._name_validation_param_error_ids_by_section_by_project_config.get(
+                project_config_id
+            )
+        )
+        scoped_sections = (
+            {
+                section_id
+                for section_id in section_scope_for_param_errors
+                if section_id in project_state.sections
+            }
+            if section_scope_for_param_errors is not None
+            else None
+        )
+        if (
+            scoped_sections is None
+            or not scoped_sections
+            or cached_content is None
+            or cached_param_error_ids_by_section is None
+        ):
+            param_conflict_errors, param_format_errors = collect_param_name_errors(
+                project_state
+            )
+            param_errors = self._merge_param_name_errors(
+                param_conflict_errors,
+                param_format_errors,
+            )
+            param_error_ids_by_section = self._collect_param_error_ids_by_section(
+                project_state,
+                section_ids=set(project_state.sections.keys()),
+                param_errors=param_errors,
+            )
+        else:
+            param_errors = {
+                param_id: list(errors)
+                for param_id, errors in cached_content.paramErrors.items()
+            }
+            param_error_ids_by_section = {
+                section_id: set(param_ids)
+                for section_id, param_ids in cached_param_error_ids_by_section.items()
+            }
+            for section_id in scoped_sections:
+                stale_param_ids = param_error_ids_by_section.pop(section_id, set())
+                for param_id in stale_param_ids:
+                    param_errors.pop(param_id, None)
+            scoped_param_conflict_errors, scoped_param_format_errors = (
+                collect_param_name_errors_for_sections(
+                    project_state,
+                    scoped_sections,
+                )
+            )
+            scoped_param_errors = self._merge_param_name_errors(
+                scoped_param_conflict_errors,
+                scoped_param_format_errors,
+            )
+            param_errors.update(scoped_param_errors)
+            scoped_param_error_ids_by_section = (
+                self._collect_param_error_ids_by_section(
+                    project_state,
+                    section_ids=scoped_sections,
+                    param_errors=scoped_param_errors,
+                )
+            )
+            for section_id in scoped_sections:
+                param_error_ids_by_section[section_id] = (
+                    scoped_param_error_ids_by_section.get(section_id, set())
+                )
         content = SettaProjectNameValidationErrors(
-            projectConfigId=project_state.projectConfig.id,
+            projectConfigId=project_config_id,
             projectErrors=project_errors,
             sectionErrors=section_errors,
             paramErrors=param_errors,
         )
+        self._name_validation_cache_by_project_config[project_config_id] = content
+        self._name_validation_param_error_ids_by_section_by_project_config[
+            project_config_id
+        ] = param_error_ids_by_section
         await self.websocket_msg_handler.broadcast_name_validation_errors(content)
+
+    @staticmethod
+    def _merge_param_name_errors(
+        param_conflict_errors: dict[ID, list[str]],
+        param_format_errors: dict[ID, list[str]],
+    ) -> dict[ID, list[str]]:
+        merged_param_errors = {
+            param_id: list(errors) for param_id, errors in param_conflict_errors.items()
+        }
+        for param_id, errors in param_format_errors.items():
+            merged_param_errors.setdefault(param_id, []).extend(errors)
+        return merged_param_errors
+
+    def _collect_param_error_ids_by_section(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_ids: set[ID],
+        param_errors: dict[ID, list[str]],
+    ) -> dict[ID, set[ID]]:
+        param_error_id_set = set(param_errors.keys())
+        error_ids_by_section: dict[ID, set[ID]] = {}
+        for section_id in section_ids:
+            if section_id not in project_state.sections:
+                error_ids_by_section[section_id] = set()
+                continue
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(
+                section_impl, BaseSectionWithParamsImpl
+            ) and not isinstance(
+                section_impl,
+                MetaControlSectionImpl,
+            ):
+                error_ids_by_section[section_id] = set()
+                continue
+            section_error_ids: set[ID] = set()
+            for code_obj_id in section_impl.codeObjVariantMap:
+                if code_obj_id in param_error_id_set:
+                    section_error_ids.add(code_obj_id)
+            error_ids_by_section[section_id] = section_error_ids
+        return error_ids_by_section
 
     def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId

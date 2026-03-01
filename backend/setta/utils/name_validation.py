@@ -677,6 +677,16 @@ def collect_section_name_format_errors(
 def collect_param_name_errors(
     project_state: "ProjectStateSingleConfig",
 ) -> tuple[dict["ID", list[str]], dict["ID", list[str]]]:
+    return collect_param_name_errors_for_sections(
+        project_state,
+        set(project_state.sections.keys()),
+    )
+
+
+def collect_param_name_errors_for_sections(
+    project_state: "ProjectStateSingleConfig",
+    section_ids: set["ID"],
+) -> tuple[dict["ID", list[str]], dict["ID", list[str]]]:
     conflict_errors: dict["ID", list[str]] = {}
     format_errors: dict["ID", list[str]] = {}
     python_codegen_enabled = project_config_has_codegen_language(
@@ -690,6 +700,8 @@ def collect_param_name_errors(
         format_errors.setdefault(param_id, []).append(message)
 
     for section_id in project_state.sections:
+        if section_id not in section_ids:
+            continue
         section_impl = get_curr_effective_section_impl_for_read(
             project_state, section_id
         )
