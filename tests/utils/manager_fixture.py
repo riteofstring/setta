@@ -30,6 +30,7 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
+
 __all__ = [
     "ProjectManagerFixture",
     "SettingsManagerFixture",
@@ -258,7 +259,9 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
     while True:
         try:
-            coroutine, future, frontend_op_id = manager.message_queue.get_nowait()
+            coroutine, future, frontend_op_id, _enqueued_at_seconds = (
+                manager.message_queue.get_nowait()
+            )
         except asyncio.QueueEmpty:
             break
 
@@ -294,8 +297,11 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
+
 def _populate_project_fixture_files(setta_root: Path) -> None:
     _seed_minimal_setta_files(setta_root)
+
+
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")

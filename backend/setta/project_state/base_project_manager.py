@@ -7,6 +7,7 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import (
@@ -531,6 +532,120 @@ PluginCodegenTargetState = tuple[
 ]
 
 
+@dataclass(slots=True)
+class _DurationTimingMetrics:
+    count: int = 0
+    total_seconds: float = 0.0
+    min_seconds: float | None = None
+    max_seconds: float | None = None
+
+    def record(self, duration_seconds: float) -> None:
+        self.count += 1
+        self.total_seconds += duration_seconds
+        if self.min_seconds is None or duration_seconds < self.min_seconds:
+            self.min_seconds = duration_seconds
+        if self.max_seconds is None or duration_seconds > self.max_seconds:
+            self.max_seconds = duration_seconds
+
+    def snapshot(self) -> dict[str, int | float | None]:
+        average_seconds: float | None = None
+        if self.count > 0:
+            average_seconds = self.total_seconds / self.count
+        return {
+            "count": self.count,
+            "totalSeconds": self.total_seconds,
+            "minSeconds": self.min_seconds,
+            "maxSeconds": self.max_seconds,
+            "avgSeconds": average_seconds,
+        }
+
+
+@dataclass(slots=True)
+class _QueueTimingMetricsBucket:
+    calls: int = 0
+    successes: int = 0
+    failures: int = 0
+    queue_wait_seconds: _DurationTimingMetrics = field(
+        default_factory=_DurationTimingMetrics
+    )
+    execute_seconds: _DurationTimingMetrics = field(
+        default_factory=_DurationTimingMetrics
+    )
+    end_to_end_seconds: _DurationTimingMetrics = field(
+        default_factory=_DurationTimingMetrics
+    )
+
+    def record(
+        self,
+        *,
+        queue_wait_seconds: float,
+        execute_seconds: float,
+        end_to_end_seconds: float,
+        success: bool,
+    ) -> None:
+        self.calls += 1
+        if success:
+            self.successes += 1
+        else:
+            self.failures += 1
+        self.queue_wait_seconds.record(queue_wait_seconds)
+        self.execute_seconds.record(execute_seconds)
+        self.end_to_end_seconds.record(end_to_end_seconds)
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "calls": self.calls,
+            "successes": self.successes,
+            "failures": self.failures,
+            "queueWaitSeconds": self.queue_wait_seconds.snapshot(),
+            "executeSeconds": self.execute_seconds.snapshot(),
+            "endToEndSeconds": self.end_to_end_seconds.snapshot(),
+        }
+
+
+@dataclass(slots=True)
+class _QueueTimingMetricsState:
+    total: _QueueTimingMetricsBucket = field(default_factory=_QueueTimingMetricsBucket)
+    by_handler: dict[str, _QueueTimingMetricsBucket] = field(default_factory=dict)
+
+    def reset(self) -> None:
+        self.total = _QueueTimingMetricsBucket()
+        self.by_handler.clear()
+
+    def record(
+        self,
+        *,
+        handler_name: str,
+        queue_wait_seconds: float,
+        execute_seconds: float,
+        end_to_end_seconds: float,
+        success: bool,
+    ) -> None:
+        self.total.record(
+            queue_wait_seconds=queue_wait_seconds,
+            execute_seconds=execute_seconds,
+            end_to_end_seconds=end_to_end_seconds,
+            success=success,
+        )
+        if handler_name not in self.by_handler:
+            self.by_handler[handler_name] = _QueueTimingMetricsBucket()
+        self.by_handler[handler_name].record(
+            queue_wait_seconds=queue_wait_seconds,
+            execute_seconds=execute_seconds,
+            end_to_end_seconds=end_to_end_seconds,
+            success=success,
+        )
+
+    def snapshot(self, *, queue_depth: int) -> dict[str, object]:
+        by_handler_snapshot: dict[str, object] = {}
+        for handler_name in sorted(self.by_handler.keys()):
+            by_handler_snapshot[handler_name] = self.by_handler[handler_name].snapshot()
+        total_snapshot = self.total.snapshot()
+        total_snapshot["queueDepth"] = queue_depth
+        total_snapshot["byHandler"] = by_handler_snapshot
+        return total_snapshot
+
+
 def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
     pieces = key.split(":", 1)
     if len(pieces) != 2 or not pieces[0] or not pieces[1]:
@@ -689,8 +804,9 @@ class BaseProjectManager(ABC):
             ID, ProjectLspDiagnosticsState
         ] = {}
         self.message_queue: asyncio.Queue[
-            tuple[Coroutine, asyncio.Future, str | None]
+            tuple[Coroutine, asyncio.Future, str | None, float]
         ] = asyncio.Queue()
+        self._queue_timing_metrics = _QueueTimingMetricsState()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
         self._pending_ops_idle: asyncio.Event = asyncio.Event()
@@ -763,14 +879,23 @@ class BaseProjectManager(ABC):
             logger.debug("Queue size before get: %s", self.message_queue.qsize())
             # Get the next message handler and its arguments
             logger.debug("Waiting for next message in queue...")
-            coroutine, future, frontend_op_id = await self.message_queue.get()
+            (
+                coroutine,
+                future,
+                frontend_op_id,
+                enqueued_at_seconds,
+            ) = await self.message_queue.get()
             handler_name = self._describe_coroutine(coroutine)
+            processing_started_seconds = asyncio.get_running_loop().time()
+            queue_wait_seconds = processing_started_seconds - enqueued_at_seconds
+            success = False
             try:
                 # Execute the actual implementation
                 logger.debug("Starting handler %s", handler_name)
                 async with self._track_frontend_op(frontend_op_id):
                     result = await coroutine
                 logger.debug("Completed handler %s", handler_name)
+                success = True
                 # Set the result for the waiting call unless it was cancelled.
                 if future.cancelled():
                     logger.debug("Skipping result for cancelled future")
@@ -797,6 +922,20 @@ class BaseProjectManager(ABC):
                 else:
                     future.set_exception(exc)
             finally:
+                processing_completed_seconds = asyncio.get_running_loop().time()
+                self._queue_timing_metrics.record(
+                    handler_name=handler_name,
+                    queue_wait_seconds=max(queue_wait_seconds, 0.0),
+                    execute_seconds=max(
+                        processing_completed_seconds - processing_started_seconds,
+                        0.0,
+                    ),
+                    end_to_end_seconds=max(
+                        processing_completed_seconds - enqueued_at_seconds,
+                        0.0,
+                    ),
+                    success=success,
+                )
                 # Mark the task as done
                 logger.debug("Marking queue task as done")
                 self.message_queue.task_done()
@@ -822,27 +961,31 @@ class BaseProjectManager(ABC):
             )
 
         # Create a future to hold the result
-        future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[_T] = loop.create_future()
         logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
         logger.debug("Putting message in queue")
+        enqueued_at_seconds = loop.time()
         self._register_pending_frontend_op(frontend_op_id)
-        await self.message_queue.put((coroutine, future, frontend_op_id))
+        await self.message_queue.put(
+            (coroutine, future, frontend_op_id, enqueued_at_seconds)
+        )
         logger.debug("Message in queue, waiting for result")
 
         # Wait for the message to be processed and return the result
         logger.debug("Awaiting future %s", id(future))
-        start_time = asyncio.get_event_loop().time()
+        start_time = loop.time()
         try:
             result = await future
-            end_time = asyncio.get_event_loop().time()
+            end_time = loop.time()
             logger.debug(
                 "Future completed after %.2fs with result", end_time - start_time
             )
             return result
         except Exception as e:
-            end_time = asyncio.get_event_loop().time()
+            end_time = loop.time()
             logger.debug(
                 "Future raised exception after %.2fs: %s", end_time - start_time, e
             )
@@ -963,6 +1106,14 @@ class BaseProjectManager(ABC):
             self._pending_ops_idle.clear()
             return
         self._pending_ops_idle.set()
+
+    def get_queue_timing_metrics_snapshot(self) -> dict[str, object]:
+        return self._queue_timing_metrics.snapshot(
+            queue_depth=self.message_queue.qsize()
+        )
+
+    def reset_queue_timing_metrics(self) -> None:
+        self._queue_timing_metrics.reset()
 
     def _flush_code_files(
         self, projectConfigId: ID
