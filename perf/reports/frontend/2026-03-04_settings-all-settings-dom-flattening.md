@@ -322,6 +322,36 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `11` (`2.88%`)
   - Main-thread work: `Layout 31.0 ms`, `UpdateLayoutTree 8.13 ms`, `Paint 51.14 ms`, `PrePaint 6.55 ms`
 
+### Phase 9 (section title-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/Header/SectionTitle.tsx`
+  - `frontend/src/components/Section/Header/SectionHeader.tsx`
+  - `frontend/src/components/Section/Container/ContainerCore.tsx`
+- Change:
+  - Added a wrapperless render path for editable section titles in normal (no-validation-error) state.
+  - Enabled the wrapperless path for section headers and group headers in the settings canvas.
+  - Kept the wrapper only when validation tooltip positioning is needed.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `5349` (down from `5391`, `-42`, `-0.8%` vs phase 8)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `6445` (down from `6487`, `-42`)
+  - Per-node descendants: `avg 126.19`, `p95 159`, `max 991`
+  - Per-node max depth: `avg 9.71`, `p95 10`, `max 12`
+  - Legacy section title wrappers (`header.section-title > div.relative.flex.min-w-0.flex-1.flex-col`): `0` (down from `42`)
+  - Flattened section title hosts (`header.section-title > p/input` with `min-w-0 flex-1`): `42`
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9.trace.json`
+- Trace signals from this phase run:
+  - Duration: `13,019.90 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `4`
+  - Renderer main long tasks (`>=50ms`): `3`
+  - `BeginFrame`: `385` (`29.57/s`)
+  - `DrawFrame`: `126` (`9.68/s`)
+  - `DroppedFrame`: `9` (`2.34%`)
+  - Main-thread work: `Layout 31.17 ms`, `UpdateLayoutTree 8.18 ms`, `Paint 51.53 ms`, `PrePaint 6.58 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -331,14 +361,14 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 5391` (`-3228`, `-37.5%`)
-  - Per-node descendants avg: `204.05 -> 127.19` (`-37.7%`)
-  - Per-node descendants max: `1854 -> 992` (`-46.5%`)
+  - Viewport descendants: `8619 -> 5349` (`-3270`, `-37.9%`)
+  - Per-node descendants avg: `204.05 -> 126.19` (`-38.2%`)
+  - Per-node descendants max: `1854 -> 991` (`-46.5%`)
   - Per-node depth avg/max: `12.74/17 -> 9.71/12`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
@@ -367,3 +397,6 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase9_fitview.png`

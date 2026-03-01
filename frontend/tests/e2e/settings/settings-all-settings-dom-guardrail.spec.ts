@@ -127,6 +127,15 @@ test("all settings DOM stays within flattening guardrails", async ({
           classes.includes("right-1")
         );
       }).length,
+      legacySectionTitleWrapperCount: document.querySelectorAll(
+        "header.section-title > div.relative.flex.min-w-0.flex-1.flex-col",
+      ).length,
+      flattenedSectionTitleCount: Array.from(
+        document.querySelectorAll("header.section-title > p, header.section-title > input"),
+      ).filter((el) => {
+        const classes = Array.from(el.classList);
+        return classes.includes("min-w-0") && classes.includes("flex-1");
+      }).length,
       legacySwitchWrapperCount: document.querySelectorAll(
         "div.section-value.flex.justify-self-start.self-center",
       ).length,
@@ -154,6 +163,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.comboboxSearchContainerCount).toBeGreaterThan(0);
   expect(metrics.legacyComboboxRightWrapperCount).toBe(0);
   expect(metrics.flattenedComboboxRightButtonCount).toBeGreaterThan(0);
+  expect(metrics.legacySectionTitleWrapperCount).toBe(0);
+  expect(metrics.flattenedSectionTitleCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchWrapperCount).toBe(0);
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
