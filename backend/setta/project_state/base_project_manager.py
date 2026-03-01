@@ -3004,10 +3004,9 @@ class BaseProjectManager(ABC):
         value: str,
     ) -> None:
         async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            project_state.validate_for_update(
-                validate_code_file_bindings=True,
-                validate_name_rules=False,
+            project_state.validate_for_param_value_update(
+                section_id=section_id,
+                param_id=param_id,
             )
             updated_incrementally = (
                 await self._try_incremental_param_value_codegen_update(

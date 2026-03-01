@@ -8,6 +8,7 @@ from setta.project_state.project_manager_types import (
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.id import ID
+from setta.types.project_state import ProjectStateSingleConfig
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -350,3 +351,86 @@ async def test_set_param_entered_value_falls_back_to_full_refresh_without_python
             _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
             == "fallback-refresh"
         )
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_skips_full_validate_for_update(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        # Guard the fast path: value edits should avoid full derived-state
+        # recomputation via validate_for_update.
+        def fail_validate_for_update(
+            _self: ProjectStateSingleConfig,
+            *,
+            _validate_code_file_bindings: bool,
+            _allow_reserved_project_name: bool = False,
+            _validate_name_rules: bool = True,
+        ) -> ProjectStateSingleConfig:
+            raise AssertionError(
+                "set_param_entered_value should not call validate_for_update"
+            )
+
+        monkeypatch.setattr(
+            ProjectStateSingleConfig,
+            "validate_for_update",
+            fail_validate_for_update,
+        )
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="fast-validate-path",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == "fast-validate-path"
+        )
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_fast_validation_matches_full_validation() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="derived-parity",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        # Re-run full validation on a deep copy and verify the fast path already
+        # left all derived state in the same final shape.
+        fast_state = manager.get_single_config_state(project_config_id)
+        fully_validated_state = fast_state.model_copy(deep=True)
+        fully_validated_state.validate_for_update(
+            validate_code_file_bindings=True,
+            validate_name_rules=False,
+        )
+
+        assert fast_state.singletonSections == fully_validated_state.singletonSections
+        assert fast_state.parentSectionMap == fully_validated_state.parentSectionMap
+        assert fast_state.shownParamIds == fully_validated_state.shownParamIds
+        assert set(fast_state.requiredDecodedImages) == set(
+            fully_validated_state.requiredDecodedImages
+        )
+        assert fast_state.genCodeBinding == fully_validated_state.genCodeBinding
+        assert fast_state.projectConfig == fully_validated_state.projectConfig
