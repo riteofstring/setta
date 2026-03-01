@@ -7,6 +7,8 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
   isOverviewTabKey,
+  OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabNameEnum,
   ProjectSearchMode,
@@ -850,7 +852,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "off",
+        mode: "all",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -941,6 +943,7 @@ type ZustandLocalStorage = {
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
+  overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1009,6 +1012,8 @@ export const useLocalStorage = createWithEqualityFn(
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
+      overviewNotificationsPaneTab:
+        OverviewNotificationsPaneTabEnum.Notifications,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -1076,6 +1081,20 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
+        }
+        if (merged.overviewTab === OverviewTabNameEnum.BackendLogs) {
+          merged.overviewTab = OverviewTabNameEnum.Notifications;
+          merged.overviewNotificationsPaneTab =
+            OverviewNotificationsPaneTabEnum.BackendLogs;
+        }
+        if (
+          merged.overviewNotificationsPaneTab !==
+            OverviewNotificationsPaneTabEnum.Notifications &&
+          merged.overviewNotificationsPaneTab !==
+            OverviewNotificationsPaneTabEnum.BackendLogs
+        ) {
+          merged.overviewNotificationsPaneTab =
+            OverviewNotificationsPaneTabEnum.Notifications;
         }
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
