@@ -62,7 +62,6 @@ import {
   useLocalStorage,
   useProjectState,
 } from "state/definitions";
-import { OverviewTabNameEnum } from "utils/constants";
 import {
   buildSearchableTextForMessage,
   matchesConversationSearchText,
@@ -79,11 +78,11 @@ import {
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
-import { onOverviewTabClick } from "../../paneFns";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
 } from "./ProjectChatCore";
+import { ProjectAISettings } from "./ProjectAISettings";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
@@ -126,8 +125,13 @@ type ProjectAISettingsPopoverProps = {
 };
 
 type ProjectDictationMode = "auto" | "browser" | "provider";
-type ProjectChatAuxView = "none" | "skills" | "mcp" | "slash_commands";
-type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none"> | "ai_settings";
+type ProjectChatAuxView =
+  | "none"
+  | "skills"
+  | "mcp"
+  | "slash_commands"
+  | "ai_settings";
+type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
 const INLINE_THREADS_BREAKPOINT_PX = 760;
 const INLINE_THREADS_MIN_WIDTH_PX = 220;
 const INLINE_THREADS_DEFAULT_WIDTH_PX = 288;
@@ -1345,8 +1349,8 @@ export function ProjectChat() {
       };
     });
   }, [overviewPaneWidth]);
-  const handleOpenProjectSettingsPane = useCallback(() => {
-    onOverviewTabClick(OverviewTabNameEnum.ProjectAISettings);
+  const handleOpenProjectSettingsAuxView = useCallback(() => {
+    setProjectChatAuxView("ai_settings");
   }, []);
   const handleOpenSkillsAuxView = useCallback(() => {
     setProjectChatAuxView("skills");
@@ -1357,10 +1361,6 @@ export function ProjectChat() {
   const handleOpenSlashCommandsAuxView = useCallback(() => {
     setProjectChatAuxView("slash_commands");
   }, []);
-  const handleOpenProjectSettingsFromAuxTabs = useCallback(() => {
-    setProjectChatAuxView("none");
-    handleOpenProjectSettingsPane();
-  }, [handleOpenProjectSettingsPane]);
   const startNewChatDraft = useCallback(
     ({
       targetGroupId,
@@ -1443,6 +1443,8 @@ export function ProjectChat() {
               ? "Leave MCP and reopen chat."
               : projectChatAuxView === "slash_commands"
                 ? "Leave Slash Commands and reopen chat."
+                : projectChatAuxView === "ai_settings"
+                  ? "Leave AI Settings and reopen chat."
                 : "Close threads-only view and reopen chat.",
       }),
     [projectChatAuxView],
@@ -1483,13 +1485,13 @@ export function ProjectChat() {
         id: "ai_settings",
         label: "AI Settings",
         testId: "project-chat-aux-tab-ai-settings",
-        active: false,
-        onClick: handleOpenProjectSettingsFromAuxTabs,
+        active: projectChatAuxView === "ai_settings",
+        onClick: handleOpenProjectSettingsAuxView,
       },
     ],
     [
       handleOpenMcpAuxView,
-      handleOpenProjectSettingsFromAuxTabs,
+      handleOpenProjectSettingsAuxView,
       handleOpenSkillsAuxView,
       handleOpenSlashCommandsAuxView,
       projectChatAuxView,
@@ -1577,10 +1579,11 @@ export function ProjectChat() {
       setDraftThreadContinuationSourceChatId(null);
     }
   }, [draftThreadContinuationSourceChatId, draftThreadState.phase]);
-  const auxViewContent =
+  const auxViewContent = (
     projectChatAuxView === "skills" ||
     projectChatAuxView === "mcp" ||
-    projectChatAuxView === "slash_commands" ? (
+    projectChatAuxView === "slash_commands"
+  ) ? (
       <ProjectChatSkillsMcpViewer
         chatId={chatId}
         engineConfigId={effectiveEngineId}
@@ -1588,6 +1591,8 @@ export function ProjectChat() {
         externalAgentToolType={externalAgentConfig?.toolType ?? null}
         viewMode={projectChatAuxView}
       />
+    ) : projectChatAuxView === "ai_settings" ? (
+      <ProjectAISettings />
     ) : null;
 
   return (
@@ -1724,7 +1729,7 @@ export function ProjectChat() {
                         onOpenMcpView={handleOpenMcpAuxView}
                         onOpenSlashCommandsView={handleOpenSlashCommandsAuxView}
                         onOpenProjectSettingsView={
-                          handleOpenProjectSettingsPane
+                          handleOpenProjectSettingsAuxView
                         }
                         onEngineChange={handleEngineChange}
                         onLLMConfigChange={handleLLMConfigChange}

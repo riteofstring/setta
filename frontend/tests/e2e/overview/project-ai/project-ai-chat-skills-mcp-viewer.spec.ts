@@ -178,6 +178,14 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     "aria-current",
     "page",
   );
+  await page.getByTestId("project-chat-aux-tab-ai-settings").click();
+  await expect(
+    page.getByTestId("project-ai-settings-scroll-region"),
+  ).toBeVisible();
+  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-aux-tab-ai-settings"),
+  ).toHaveAttribute("aria-current", "page");
   await page.getByTestId("project-chat-aux-tab-skills").click();
   await expect(page.getByTestId("project-chat-skills-content")).toBeVisible();
 
@@ -301,6 +309,10 @@ test("project ai chat can open the project ai settings pane from tools", async (
   await expect(
     page.getByTestId("project-ai-settings-scroll-region"),
   ).toBeVisible();
+  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-aux-tab-ai-settings"),
+  ).toHaveAttribute("aria-current", "page");
 });
 
 test("project ai chat keeps MCP runtime statuses distinct across matching server ids", async ({
