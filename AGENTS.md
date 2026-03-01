@@ -72,6 +72,7 @@
 ## Commit & Pull Request Guidelines
 
 - Commit messages should explain clearly, succinctly, and in detail, the main purposes of the commit.
+- Commit frequently in small, logical increments. Commit messages must be understandable later without additional context.
 
 ## Memory Logging
 
