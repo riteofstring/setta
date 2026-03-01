@@ -475,6 +475,58 @@ class TestSaveWorkerBehavior:
             assert persisted_revisions[1] == third_revision
             assert second_revision not in persisted_revisions
 
+    async def test_autosave_does_not_persist_mid_handler_intermediate_state(self):
+        async with real_settings_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+
+            default_config_id = manager.project_state_backend.defaultProjectConfigId
+            assert default_config_id is not None
+            default_config_id = ID(default_config_id)
+            initial_watch_code_enabled = manager.project_state_backend.projectConfigs[
+                default_config_id
+            ].watchCodeEnabled
+            intermediate_watch_code_enabled = not initial_watch_code_enabled
+            mutation_started = asyncio.Event()
+            release_mutation = asyncio.Event()
+
+            async def two_phase_in_place_mutation() -> None:
+                manager.add_new_history_entry(
+                    trigger_autosave=False,
+                    project_config_id=default_config_id,
+                    project_config_only=True,
+                )
+                project_config = manager.project_state_backend.projectConfigs[
+                    default_config_id
+                ]
+                project_config.watchCodeEnabled = intermediate_watch_code_enabled
+                mutation_started.set()
+                await release_mutation.wait()
+                # Final state in this history revision differs from the intermediate
+                # value and must be what autosave persists.
+                project_config.watchCodeEnabled = initial_watch_code_enabled
+
+            mutation_task = asyncio.create_task(manager._enqueue(two_phase_in_place_mutation()))
+            await asyncio.wait_for(mutation_started.wait(), timeout=5.0)
+
+            autosave_task = asyncio.create_task(manager.autosave())
+            await asyncio.sleep(0)
+            assert not autosave_task.done()
+            release_mutation.set()
+            await mutation_task
+            await autosave_task
+
+            assert (
+                manager.project_state_backend.projectConfigs[
+                    default_config_id
+                ].watchCodeEnabled
+                == initial_watch_code_enabled
+            )
+            on_disk = fixture.dbe.read_settings_project()
+            assert (
+                on_disk.projectConfig.watchCodeEnabled == initial_watch_code_enabled
+            )
+
     async def test_manual_save_surfaces_worker_errors_and_supports_retry(self):
         async with real_settings_manager() as fixture:
             manager = fixture.manager

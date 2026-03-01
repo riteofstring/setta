@@ -178,6 +178,10 @@ class SessionProjectManager(BaseProjectManager):
 
     async def autosave(self):
         try:
+            # Autosave runs outside the serialized queue in session mode. Drain
+            # pending operations first so we persist a stable post-handler state
+            # instead of an intermediate in-flight mutation snapshot.
+            await self.finish_pending_operations()
             revision = self._queue_save_for_current_revision()
             if revision is not None:
                 await asyncio.to_thread(self._wait_for_persisted_revision, revision)
