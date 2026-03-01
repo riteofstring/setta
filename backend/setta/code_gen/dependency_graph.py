@@ -30,7 +30,7 @@ from setta.types.dependency_value import (
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl_for_read_with_type_guard,
+    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
 )
@@ -662,7 +662,7 @@ class DependencyGraph:
             dep_key = create_dep_key(sectionId=sectionId, codeObjId=pid)
             param_node = self.get_node(dep_key)
             if not param_node:
-                code_obj_impl = get_curr_effective_code_obj_impl_for_read_with_type_guard(
+                code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
                     p, sectionId, pid, BaseParamCodeObjImpl
                 )
                 name = p.codeObjs[pid].name
