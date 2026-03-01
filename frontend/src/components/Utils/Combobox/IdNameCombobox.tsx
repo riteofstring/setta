@@ -49,6 +49,15 @@ export function IdNameCombobox<T>({
   clearInputAfterSelection?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const comboboxContainerClasses = `flex ${
+    small ? "h-[20px]" : "h-8"
+  } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`;
+  const resolvedInputOuterClasses = [
+    comboboxContainerClasses,
+    inputOuterClasses ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const {
     isOpen,
@@ -69,11 +78,7 @@ export function IdNameCombobox<T>({
   });
 
   return (
-    <div
-      className={`flex ${
-        small ? "h-[20px]" : "h-8"
-      } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
-    >
+    <>
       <ComboboxInput
         divId={inputDivId}
         getInputProps={getInputProps}
@@ -85,7 +90,7 @@ export function IdNameCombobox<T>({
         bg={bg}
         isDisabled={isDisabled}
         inputRef={inputRef}
-        inputOuterClasses={inputOuterClasses}
+        inputOuterClasses={resolvedInputOuterClasses}
         inputThemeClassName={inputThemeClassName}
         rightButtonThemeClassName={rightButtonThemeClassName}
         variant={variant}
@@ -107,6 +112,6 @@ export function IdNameCombobox<T>({
           itemHighlightedThemeClassName={itemHighlightedThemeClassName}
         />
       </ComboboxList>
-    </div>
+    </>
   );
 }
