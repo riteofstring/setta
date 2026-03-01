@@ -1280,6 +1280,11 @@ class ProjectStateStructuralPatch:
     projectStateRevision: int
     completedOpIds: list[str]
     pendingOpIds: list[str]
+    isFullSnapshot: bool | None = None
+    removedSectionIds: list[ID] | None = None
+    removedSectionVariantIds: list[ID] | None = None
+    removedSectionImplIds: list[ID] | None = None
+    removedParentSectionIds: list[ID] | None = None
 
 
 @dataclass

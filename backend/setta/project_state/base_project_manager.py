@@ -280,6 +280,7 @@ from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
     BaseCodeObjImplUnionWithDiscriminator,
+    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl,
@@ -692,6 +693,18 @@ class _UndoRedoProjectConfigPatchScope:
         self.project_config_only = self.project_config_only or other.project_config_only
         self.section_impl_ids.update(other.section_impl_ids)
         self.code_obj_ids.update(other.code_obj_ids)
+
+
+@dataclass(slots=True)
+class _StructuralDeltaPatch:
+    sections: dict[ID, Core]
+    section_variants: dict[ID, Variant]
+    section_impls: dict[ID, BaseSectionImplUnionWithDiscriminator]
+    parent_section_map: dict[ID, ID | None]
+    removed_section_ids: list[ID]
+    removed_section_variant_ids: list[ID]
+    removed_section_impl_ids: list[ID]
+    removed_parent_section_ids: list[ID]
 
 
 def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
@@ -9926,32 +9939,81 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         previous_project_state_revision: int,
         project_state_revision: int,
+        sections_for_patch: dict[ID, Core] | None = None,
+        section_variants_for_patch: dict[ID, Variant] | None = None,
+        section_impls_for_patch: dict[ID, BaseSectionImplUnionWithDiscriminator]
+        | None = None,
+        parent_section_map_for_patch: dict[ID, ID | None] | None = None,
+        is_full_snapshot: bool | None = None,
+        removed_section_ids: list[ID] | None = None,
+        removed_section_variant_ids: list[ID] | None = None,
+        removed_section_impl_ids: list[ID] | None = None,
+        removed_parent_section_ids: list[ID] | None = None,
     ) -> None:
+        patch_sections = (
+            project_state.sections if sections_for_patch is None else sections_for_patch
+        )
+        patch_section_variants = (
+            project_state.sectionVariants
+            if section_variants_for_patch is None
+            else section_variants_for_patch
+        )
+        patch_section_impls = (
+            project_state.sectionImpls
+            if section_impls_for_patch is None
+            else section_impls_for_patch
+        )
+        patch_parent_section_map = (
+            project_state.parentSectionMap
+            if parent_section_map_for_patch is None
+            else parent_section_map_for_patch
+        )
         completed_op_ids, pending_op_ids = (
             self._consume_frontend_op_status_for_broadcast()
         )
         logger.debug(
-            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s completed_ops=%s pending_ops=%s",
+            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s removed_sections=%s removed_variants=%s removed_impls=%s removed_parent_sections=%s full_snapshot=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,
             previous_project_state_revision,
             project_state_revision,
-            len(project_state.sections),
-            len(project_state.sectionVariants),
-            len(project_state.sectionImpls),
+            len(patch_sections),
+            len(patch_section_variants),
+            len(patch_section_impls),
+            len(removed_section_ids or []),
+            len(removed_section_variant_ids or []),
+            len(removed_section_impl_ids or []),
+            len(removed_parent_section_ids or []),
+            is_full_snapshot,
             len(completed_op_ids),
             len(pending_op_ids),
         )
+        structural_patch_kwargs: dict[str, object] = {}
+        if is_full_snapshot is not None:
+            structural_patch_kwargs["isFullSnapshot"] = is_full_snapshot
+        if removed_section_ids is not None:
+            structural_patch_kwargs["removedSectionIds"] = removed_section_ids
+        if removed_section_variant_ids is not None:
+            structural_patch_kwargs["removedSectionVariantIds"] = (
+                removed_section_variant_ids
+            )
+        if removed_section_impl_ids is not None:
+            structural_patch_kwargs["removedSectionImplIds"] = removed_section_impl_ids
+        if removed_parent_section_ids is not None:
+            structural_patch_kwargs["removedParentSectionIds"] = (
+                removed_parent_section_ids
+            )
         await self.websocket_msg_handler.broadcast_project_state_structural_patch(
             project_state.projectConfig.id,
             project_state.projectConfig,
-            project_state.sections,
-            project_state.sectionVariants,
-            project_state.sectionImpls,
-            project_state.parentSectionMap,
+            patch_sections,
+            patch_section_variants,
+            patch_section_impls,
+            patch_parent_section_map,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            **structural_patch_kwargs,
         )
         self.completed_op_ids_since_last_broadcast = []
 
@@ -11112,6 +11174,70 @@ class BaseProjectManager(ABC):
         )
 
     @staticmethod
+    def _collect_map_upserts_and_removals(
+        *,
+        previous_values: dict[ID, _T],
+        next_values: dict[ID, _T],
+    ) -> tuple[dict[ID, _T], list[ID]]:
+        upserts: dict[ID, _T] = {}
+        for value_id in sorted(next_values.keys()):
+            next_value = next_values[value_id]
+            previous_value = previous_values.get(value_id)
+            if previous_value == next_value:
+                continue
+            upserts[value_id] = next_value
+        removed_ids = sorted(
+            value_id
+            for value_id in previous_values.keys()
+            if value_id not in next_values
+        )
+        return upserts, removed_ids
+
+    @staticmethod
+    def _build_structural_delta_patch(
+        *,
+        previous_project_state: ProjectStateSingleConfig,
+        project_state: ProjectStateSingleConfig,
+    ) -> _StructuralDeltaPatch:
+        sections, removed_section_ids = (
+            BaseProjectManager._collect_map_upserts_and_removals(
+                previous_values=previous_project_state.sections,
+                next_values=project_state.sections,
+            )
+        )
+        (
+            section_variants,
+            removed_section_variant_ids,
+        ) = BaseProjectManager._collect_map_upserts_and_removals(
+            previous_values=previous_project_state.sectionVariants,
+            next_values=project_state.sectionVariants,
+        )
+        (
+            section_impls,
+            removed_section_impl_ids,
+        ) = BaseProjectManager._collect_map_upserts_and_removals(
+            previous_values=previous_project_state.sectionImpls,
+            next_values=project_state.sectionImpls,
+        )
+        (
+            parent_section_map,
+            removed_parent_section_ids,
+        ) = BaseProjectManager._collect_map_upserts_and_removals(
+            previous_values=previous_project_state.parentSectionMap,
+            next_values=project_state.parentSectionMap,
+        )
+        return _StructuralDeltaPatch(
+            sections=sections,
+            section_variants=section_variants,
+            section_impls=section_impls,
+            parent_section_map=parent_section_map,
+            removed_section_ids=removed_section_ids,
+            removed_section_variant_ids=removed_section_variant_ids,
+            removed_section_impl_ids=removed_section_impl_ids,
+            removed_parent_section_ids=removed_parent_section_ids,
+        )
+
+    @staticmethod
     def _build_undo_redo_unknown_scope_patch_plan(
         *,
         previous_project_state: ProjectStateSingleConfig,
@@ -11339,6 +11465,10 @@ class BaseProjectManager(ABC):
                         if section_impl_updates:
                             has_broadcast_patch = True
                     if topology_changed:
+                        structural_delta_patch = self._build_structural_delta_patch(
+                            previous_project_state=previous_project_state_for_diff,
+                            project_state=project_state,
+                        )
                         await self._broadcast_structural_patch(
                             project_state=project_state,
                             previous_project_state_revision=(
@@ -11347,6 +11477,29 @@ class BaseProjectManager(ABC):
                                 else project_state_revision
                             ),
                             project_state_revision=project_state_revision,
+                            sections_for_patch=structural_delta_patch.sections,
+                            section_variants_for_patch=(
+                                structural_delta_patch.section_variants
+                            ),
+                            section_impls_for_patch=(
+                                structural_delta_patch.section_impls
+                            ),
+                            parent_section_map_for_patch=(
+                                structural_delta_patch.parent_section_map
+                            ),
+                            is_full_snapshot=False,
+                            removed_section_ids=(
+                                structural_delta_patch.removed_section_ids
+                            ),
+                            removed_section_variant_ids=(
+                                structural_delta_patch.removed_section_variant_ids
+                            ),
+                            removed_section_impl_ids=(
+                                structural_delta_patch.removed_section_impl_ids
+                            ),
+                            removed_parent_section_ids=(
+                                structural_delta_patch.removed_parent_section_ids
+                            ),
                         )
                         has_broadcast_patch = True
             await self._broadcast_name_validation_errors(

@@ -5261,6 +5261,13 @@ const ProjectStateStructuralPatchSchema = z.object({
   projectStateRevision: z.int(),
   completedOpIds: z.array(z.string()),
   pendingOpIds: z.array(z.string()),
+  isFullSnapshot: z.union([z.boolean(), z.null()]).default(null),
+  removedSectionIds: z.union([z.array(IDSchema), z.null()]).default(null),
+  removedSectionVariantIds: z
+    .union([z.array(IDSchema), z.null()])
+    .default(null),
+  removedSectionImplIds: z.union([z.array(IDSchema), z.null()]).default(null),
+  removedParentSectionIds: z.union([z.array(IDSchema), z.null()]).default(null),
 });
 
 export type ProjectStateStructuralPatch = z.infer<

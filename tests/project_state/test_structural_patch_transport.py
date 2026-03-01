@@ -149,6 +149,11 @@ def _install_transport_capture(sender):
         project_state_revision,
         completed_op_ids,
         pending_op_ids,
+        isFullSnapshot=None,
+        removedSectionIds=None,
+        removedSectionVariantIds=None,
+        removedSectionImplIds=None,
+        removedParentSectionIds=None,
     ) -> None:
         capture["structural_patch_calls"].append(
             {
@@ -160,6 +165,11 @@ def _install_transport_capture(sender):
                 "parentSectionMap": dict(parent_section_map_for_patch),
                 "previousProjectStateRevision": previous_project_state_revision,
                 "projectStateRevision": project_state_revision,
+                "isFullSnapshot": isFullSnapshot,
+                "removedSectionIds": list(removedSectionIds or []),
+                "removedSectionVariantIds": list(removedSectionVariantIds or []),
+                "removedSectionImplIds": list(removedSectionImplIds or []),
+                "removedParentSectionIds": list(removedParentSectionIds or []),
             }
         )
         await original_structural_patch_broadcast(
@@ -173,6 +183,11 @@ def _install_transport_capture(sender):
             project_state_revision,
             completed_op_ids,
             pending_op_ids,
+            isFullSnapshot=isFullSnapshot,
+            removedSectionIds=removedSectionIds,
+            removedSectionVariantIds=removedSectionVariantIds,
+            removedSectionImplIds=removedSectionImplIds,
+            removedParentSectionIds=removedParentSectionIds,
         )
 
     async def record_project_config_patch(
@@ -2446,6 +2461,13 @@ async def test_undo_redo_unknown_scope_uses_diff_aware_fallback_transport() -> N
             len(undo_capture["structural_patch_calls"])
             == undo_capture["name_validation_broadcast_calls"]
         )
+        for structural_patch in undo_capture["structural_patch_calls"]:
+            assert structural_patch["isFullSnapshot"] is False
+            assert structural_patch["removedSectionIds"] == []
+            assert structural_patch["removedSectionVariantIds"] == []
+            assert structural_patch["removedSectionImplIds"] == []
+            assert structural_patch["removedParentSectionIds"] == []
+            assert structural_patch["sectionIds"] == [SECTION_ID]
 
         redo_capture, _ = await _run_with_transport_capture(
             manager,
@@ -2465,6 +2487,13 @@ async def test_undo_redo_unknown_scope_uses_diff_aware_fallback_transport() -> N
             len(redo_capture["structural_patch_calls"])
             == redo_capture["name_validation_broadcast_calls"]
         )
+        for structural_patch in redo_capture["structural_patch_calls"]:
+            assert structural_patch["isFullSnapshot"] is False
+            assert structural_patch["removedSectionIds"] == []
+            assert structural_patch["removedSectionVariantIds"] == []
+            assert structural_patch["removedSectionImplIds"] == []
+            assert structural_patch["removedParentSectionIds"] == []
+            assert structural_patch["sectionIds"] == [SECTION_ID]
 
 
 @pytest.mark.asyncio
@@ -2655,6 +2684,10 @@ async def test_undo_redo_structural_include_project_config_history_uses_structur
             len(undo_capture["structural_patch_calls"])
             == undo_capture["name_validation_broadcast_calls"]
         )
+        undo_structural_patch = undo_capture["structural_patch_calls"][0]
+        assert undo_structural_patch["isFullSnapshot"] is False
+        assert undo_structural_patch["removedSectionIds"]
+        assert undo_structural_patch["removedParentSectionIds"]
 
         redo_capture, _ = await _run_with_transport_capture(
             manager,
@@ -2674,6 +2707,10 @@ async def test_undo_redo_structural_include_project_config_history_uses_structur
             len(redo_capture["structural_patch_calls"])
             == redo_capture["name_validation_broadcast_calls"]
         )
+        redo_structural_patch = redo_capture["structural_patch_calls"][0]
+        assert redo_structural_patch["isFullSnapshot"] is False
+        assert redo_structural_patch["removedSectionIds"] == []
+        assert redo_structural_patch["sectionIds"]
 
 
 @pytest.mark.asyncio

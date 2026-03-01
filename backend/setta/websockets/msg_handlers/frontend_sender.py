@@ -553,6 +553,11 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectStateRevision: int,
         completedOpIds: list[str],
         pendingOpIds: list[str],
+        isFullSnapshot: bool | None = None,
+        removedSectionIds: list[ID] | None = None,
+        removedSectionVariantIds: list[ID] | None = None,
+        removedSectionImplIds: list[ID] | None = None,
+        removedParentSectionIds: list[ID] | None = None,
         *,
         share_session_id: str | None = None,
     ) -> None:
@@ -569,6 +574,11 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,
                     pendingOpIds=pendingOpIds,
+                    isFullSnapshot=isFullSnapshot,
+                    removedSectionIds=removedSectionIds,
+                    removedSectionVariantIds=removedSectionVariantIds,
+                    removedSectionImplIds=removedSectionImplIds,
+                    removedParentSectionIds=removedParentSectionIds,
                 )
             ),
             share_session_id,

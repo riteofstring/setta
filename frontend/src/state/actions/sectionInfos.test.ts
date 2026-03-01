@@ -2313,6 +2313,224 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(getProjectStateRevision("project-1")).toBe(61);
   });
 
+  it("applies structural delta patches with removals and updates revision tracking", () => {
+    const keepSectionId = "section-keep";
+    const removedSectionId = "section-removed";
+    const addedSectionId = "section-added";
+    const keepVariantId = "variant-keep";
+    const removedVariantId = "variant-removed";
+    const addedVariantId = "variant-added";
+    const keepImplId = "impl-keep";
+    const removedImplId = "impl-removed";
+    const addedImplId = "impl-added";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {
+        [keepSectionId]: keepVariantId,
+        [removedSectionId]: removedVariantId,
+      },
+      topLevelSections: {
+        [keepSectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+        [removedSectionId]: { x: 20, y: 10, zIndex: 0, w: 200, h: 160 },
+      },
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {
+        [keepSectionId]: createCore({ id: keepSectionId, name: "keep-before" }),
+        [removedSectionId]: createCore({ id: removedSectionId }),
+      },
+      sectionImpls: {
+        [keepImplId]: createTerminalSectionImpl({
+          id: keepImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+        [removedImplId]: createTerminalSectionImpl({
+          id: removedImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [keepVariantId]: createVariant({
+          id: keepVariantId,
+          impl: keepImplId,
+          nonPresetImpls: [],
+        }),
+        [removedVariantId]: createVariant({
+          id: removedVariantId,
+          impl: removedImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [keepSectionId]: null,
+        [removedSectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {
+        [keepSectionId]: keepVariantId,
+        [removedSectionId]: removedVariantId,
+      },
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    const nextProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {
+        [keepSectionId]: keepVariantId,
+        [addedSectionId]: addedVariantId,
+      },
+      topLevelSections: {
+        [keepSectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+        [addedSectionId]: { x: 60, y: 30, zIndex: 0, w: 220, h: 180 },
+      },
+      activeIds: [],
+    });
+    const applied = applyStructuralProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      sections: {
+        [keepSectionId]: createCore({ id: keepSectionId, name: "keep-after" }),
+        [addedSectionId]: createCore({ id: addedSectionId }),
+      },
+      sectionVariants: {
+        [addedVariantId]: createVariant({
+          id: addedVariantId,
+          impl: addedImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      sectionImpls: {
+        [addedImplId]: createTerminalSectionImpl({
+          id: addedImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      parentSectionMap: {
+        [keepSectionId]: null,
+        [addedSectionId]: null,
+      },
+      previousProjectStateRevision: 70,
+      projectStateRevision: 71,
+      completedOpIds: [],
+      pendingOpIds: [],
+      isFullSnapshot: false,
+      removedSectionIds: [removedSectionId],
+      removedSectionVariantIds: [removedVariantId],
+      removedSectionImplIds: [removedImplId],
+      removedParentSectionIds: [removedSectionId],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().sections[keepSectionId].name).toBe(
+      "keep-after",
+    );
+    expect(
+      useProjectState.getState().sections[removedSectionId],
+    ).toBeUndefined();
+    expect(useProjectState.getState().sections[addedSectionId]).toBeDefined();
+    expect(
+      useProjectState.getState().sectionVariants[removedVariantId],
+    ).toBeUndefined();
+    expect(
+      useProjectState.getState().sectionVariants[addedVariantId],
+    ).toBeDefined();
+    expect(
+      useProjectState.getState().sectionImpls[removedImplId],
+    ).toBeUndefined();
+    expect(useProjectState.getState().sectionImpls[addedImplId]).toBeDefined();
+    expect(
+      useProjectState.getState().parentSectionMap[removedSectionId],
+    ).toBeUndefined();
+    expect(
+      useProjectState.getState().previewSectionVariantMap[removedSectionId],
+    ).toBeUndefined();
+    expect(getProjectStateRevision("project-1")).toBe(71);
+  });
+
+  it("rejects structural delta patches when required variants are missing", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "impl-1";
+    const invalidVariantId = "variant-invalid";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+      },
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId, name: "before" }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    const revisionBefore = getProjectStateRevision("project-1");
+
+    const nextProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: invalidVariantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+      },
+      activeIds: [],
+    });
+    const applied = applyStructuralProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
+      previousProjectStateRevision: 72,
+      projectStateRevision: 73,
+      completedOpIds: [],
+      pendingOpIds: [],
+      isFullSnapshot: false,
+    });
+
+    expect(applied).toBe(false);
+    expect(useProjectState.getState().sections[sectionId].name).toBe("before");
+    expect(
+      useProjectState.getState().projectConfig.sectionVariantMap[sectionId],
+    ).toBe(variantId);
+    expect(getProjectStateRevision("project-1")).toBe(revisionBefore);
+  });
+
   it("rejects structural patches when shown-param ids for param sections are missing", () => {
     const oldSectionId = "section-old";
     const oldVariantId = "variant-old";
