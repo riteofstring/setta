@@ -101,9 +101,10 @@ test("formatting errors show diagnostics for code sections", async ({
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
-
-    await expect(page.getByText("Problems").first()).toBeVisible();
+    const issuesPopover = await openIssuesPopover(page, issuesButton);
+    await expect(
+      issuesPopover.getByText("Problems", { exact: true }).first(),
+    ).toBeVisible();
     await expectFormatterDetail(page, detail);
 
     const lintTarget = section
@@ -227,10 +228,9 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
-
+    const issuesPopover = await openIssuesPopover(page, issuesButton);
     await expect(
-      page.getByText("Generated code issues").first(),
+      issuesPopover.getByText("Generated code issues", { exact: true }).first(),
     ).toBeVisible();
     await expectFormatterDetail(page, detail);
   } finally {
