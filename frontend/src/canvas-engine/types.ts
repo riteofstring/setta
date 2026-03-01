@@ -39,6 +39,10 @@ export type CanvasEngineDataEdge = {
   targetSectionId: string;
   targetVariantId: string;
   targetPortId: string;
+  sourceX: number | null;
+  sourceY: number | null;
+  targetX: number | null;
+  targetY: number | null;
   hidden: boolean;
   selected: boolean;
   zIndex: number;

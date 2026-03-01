@@ -3,13 +3,21 @@ import type {
   TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { CanvasEngineSceneAdapter } from "./sceneAdapter";
+import {
+  CanvasEngineSceneAdapter,
+  type CanvasEngineEdgeHandlePosition,
+} from "./sceneAdapter";
 
 type SceneInput = {
   topLevelSections: Record<string, TopLevelSectionLayout>;
   activeSectionIds: string[];
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
+  edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
+};
+
+type SceneInputOverrides = Omit<SceneInput, "edgeHandlePositions"> & {
+  edgeHandlePositions?: Record<string, CanvasEngineEdgeHandlePosition>;
 };
 
 describe("CanvasEngineSceneAdapter", () => {
@@ -372,14 +380,172 @@ describe("CanvasEngineSceneAdapter", () => {
     });
     expect(adapter.hitTestAgenticHandleAtWorldPoint(100, 140, 12)).toBe(null);
   });
+
+  it("hit-tests data handles and edge endpoints using registered port anchors", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 80, y: 80, w: 320, h: 200, zIndex: 1 }),
+          sectionB: createLayout({ x: 520, y: 120, w: 320, h: 200, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-anchored", "sectionA", "sectionB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("sectionA", "out-1", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionA",
+              portId: "out-1",
+              type: "source",
+              x: 412,
+              y: 170,
+            }),
+          [buildDataHandleKey("sectionB", "in-1", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionB",
+              portId: "in-1",
+              type: "target",
+              x: 518,
+              y: 206,
+            }),
+        },
+      }),
+    );
+
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(412, 170, 8, { handleType: "source" }),
+    ).toEqual({
+      sectionId: "sectionA",
+      portId: "out-1",
+      handleType: "source",
+      handleWorldX: 412,
+      handleWorldY: 170,
+    });
+    expect(
+      adapter.hitTestDataHandleAtWorldPoint(518, 206, 8, { handleType: "target" }),
+    ).toEqual({
+      sectionId: "sectionB",
+      portId: "in-1",
+      handleType: "target",
+      handleWorldX: 518,
+      handleWorldY: 206,
+    });
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(412, 170, 8)).toEqual({
+      edgeId: "edge-data-anchored",
+      endpointType: "source",
+    });
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(518, 206, 8)).toEqual({
+      edgeId: "edge-data-anchored",
+      endpointType: "target",
+    });
+    expect(adapter.hitTestEdgeAtWorldPoint(465, 188, 16)).toEqual({
+      kind: "data",
+      id: "edge-data-anchored",
+    });
+  });
+
+  it("updates data edge anchor coordinates when handle positions move", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-moving-anchor", "sectionA", "sectionB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("sectionA", "out-1", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionA",
+              portId: "out-1",
+              type: "source",
+              x: 330,
+              y: 120,
+            }),
+          [buildDataHandleKey("sectionB", "in-1", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionB",
+              portId: "in-1",
+              type: "target",
+              x: 420,
+              y: 140,
+            }),
+        },
+      }),
+    );
+
+    expect(adapter.getDataEdgeById("edge-data-moving-anchor")).toMatchObject({
+      sourceX: 330,
+      sourceY: 120,
+      targetX: 420,
+      targetY: 140,
+    });
+
+    const patchSummary = adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-moving-anchor", "sectionA", "sectionB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("sectionA", "out-1", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionA",
+              portId: "out-1",
+              type: "source",
+              x: 336,
+              y: 132,
+            }),
+          [buildDataHandleKey("sectionB", "in-1", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionB",
+              portId: "in-1",
+              type: "target",
+              x: 420,
+              y: 164,
+            }),
+        },
+      }),
+    );
+
+    expect(patchSummary.dataEdgesUpdated).toBe(1);
+    expect(adapter.getDataEdgeById("edge-data-moving-anchor")).toMatchObject({
+      sourceX: 336,
+      sourceY: 132,
+      targetX: 420,
+      targetY: 164,
+    });
+  });
 });
 
-function createSceneInput(overrides: SceneInput): SceneInput {
+function createSceneInput(overrides: SceneInputOverrides): SceneInput {
   return {
     topLevelSections: overrides.topLevelSections,
     activeSectionIds: overrides.activeSectionIds,
     edges: overrides.edges,
     agenticEdges: overrides.agenticEdges,
+    edgeHandlePositions: overrides.edgeHandlePositions ?? {},
   };
 }
 
@@ -448,5 +614,35 @@ function createAgenticEdge(
     zIndex: 0,
     selected: false,
     ...overrides,
+  };
+}
+
+function buildDataHandleKey(
+  sectionId: string,
+  portId: string,
+  type: "source" | "target",
+): string {
+  return `${sectionId}:${portId}:${type}`;
+}
+
+function createEdgeHandlePosition({
+  sectionId,
+  portId,
+  type,
+  x,
+  y,
+}: {
+  sectionId: string;
+  portId: string;
+  type: "source" | "target";
+  x: number;
+  y: number;
+}): CanvasEngineEdgeHandlePosition {
+  return {
+    sectionId,
+    portId,
+    type,
+    x,
+    y,
   };
 }

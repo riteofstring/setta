@@ -25,6 +25,15 @@ type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
       topLevelSections?: Record<string, TopLevelSectionLayoutSnapshot>;
+      sectionVariantMap?: Record<string, string>;
+      edges?: Array<{
+        id?: string;
+        selected?: boolean;
+        sourceSectionId?: string;
+        sourcePortId?: string;
+        targetSectionId?: string;
+        targetPortId?: string;
+      }>;
       agenticEdges?: Array<{
         id?: string;
         selected?: boolean;
@@ -33,6 +42,16 @@ type LatestProjectStateResponse = {
         kind?: AgenticEdgeKind;
       }>;
     };
+    sectionVariants?: Record<string, { impl?: string }>;
+    sectionImpls?: Record<
+      string,
+      {
+        codeObjVariantMap?: Record<string, string>;
+        edgeInputParams?: string[];
+      }
+    >;
+    codeObjVariants?: Record<string, { impl?: string }>;
+    codeObjImpls?: Record<string, { type?: string }>;
   };
 };
 
@@ -54,11 +73,35 @@ type CanvasEngineCameraSnapshot = {
   zoom: number;
 };
 
+type CanvasEngineEdgeHandleSeed = {
+  sectionId: string;
+  portId: string;
+  type: "source" | "target";
+  side: "left" | "right" | "top" | "bottom";
+  x: number;
+  y: number;
+};
+
 const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
 const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
+const SECTION_PARAM_CODE_OBJ_TYPES = new Set<string>([
+  "CodeParam",
+  "TextParam",
+  "DateParam",
+  "TimeParam",
+  "TextAreaParam",
+  "SliderParam",
+  "RotaryParam",
+  "SwitchParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "PasswordParam",
+  "DropzoneParam",
+  "NestedParam",
+]);
 
 test("canvas engine host path mounts and tracks top-level section geometry", async ({
   page,
@@ -528,6 +571,403 @@ test("canvas engine host resizes sections and persists top-level size", async ({
   }
 });
 
+test("canvas engine host creates data edges via handle drag", async ({ page }) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sourcePosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.34,
+        y: hostBounds.y + hostBounds.height * 0.4,
+      },
+      hostBounds,
+      camera,
+    );
+    const targetPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.72,
+        y: hostBounds.y + hostBounds.height * 0.4,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      "sorted",
+    );
+
+    const [targetPortId] = await readSectionParamIds(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+      1,
+    );
+    const sourcePortId = "canvas-engine-source-port";
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: targetSectionId,
+      edgeInputParams: [targetPortId],
+    });
+
+    const sourceLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const targetLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+    );
+    const sourceWidth =
+      typeof sourceLayout.w === "number"
+        ? sourceLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const sourceHeight =
+      typeof sourceLayout.h === "number"
+        ? sourceLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const targetHeight =
+      typeof targetLayout.h === "number"
+        ? targetLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const sourceHandle: WorldPoint = {
+      x: sourceLayout.x + sourceWidth,
+      y: sourceLayout.y + sourceHeight / 2,
+    };
+    const targetHandle: WorldPoint = {
+      x: targetLayout.x,
+      y: targetLayout.y + targetHeight / 2,
+    };
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: targetSectionId,
+        portId: targetPortId,
+        type: "target",
+        side: "left",
+        x: targetHandle.x,
+        y: targetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(2);
+
+    await dragWorldPoint(page, host, {
+      start: sourceHandle,
+      end: targetHandle,
+    });
+
+    await expect
+      .poll(async () => await readDataEdgeLinks(page, projectContext.projectConfigId))
+      .toContain(
+        `${sourceSectionId}:${sourcePortId}->${targetSectionId}:${targetPortId}`,
+      );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host reconnects data edges via endpoint drag", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sourcePosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.28,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const firstTargetPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.54,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const secondTargetPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.78,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sourcePosition,
+    });
+    const firstTargetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: firstTargetPosition,
+    });
+    const secondTargetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: secondTargetPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(3);
+
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+      "sorted",
+    );
+    await setSectionCallable(
+      page,
+      projectContext.projectConfigId,
+      secondTargetSectionId,
+      "sorted",
+    );
+
+    const [firstTargetPortId] = await readSectionParamIds(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+      1,
+    );
+    const [secondTargetPortId] = await readSectionParamIds(
+      page,
+      projectContext.projectConfigId,
+      secondTargetSectionId,
+      1,
+    );
+    const sourcePortId = "canvas-engine-reconnect-source-port";
+    await postBackend(page, "/setSectionEdgeOutputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: sourceSectionId,
+      edgeOutputPorts: [{ id: sourcePortId, accessor: "output" }],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: firstTargetSectionId,
+      edgeInputParams: [firstTargetPortId],
+    });
+    await postBackend(page, "/setSectionEdgeInputs", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: secondTargetSectionId,
+      edgeInputParams: [secondTargetPortId],
+    });
+
+    const sourceVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const firstTargetVariantId = await readSectionVariantId(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+    );
+    await postBackend(page, "/createEdge", {
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourceVariantId,
+      sourcePortId,
+      targetSectionId: firstTargetSectionId,
+      targetVariantId: firstTargetVariantId,
+      targetPortId: firstTargetPortId,
+      type: "default",
+    });
+    await expect
+      .poll(async () => await readDataEdgeCount(host))
+      .toBeGreaterThanOrEqual(1);
+
+    const edgeId = await readDataEdgeIdByLink({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      sourceSectionId,
+      sourcePortId,
+      targetSectionId: firstTargetSectionId,
+      targetPortId: firstTargetPortId,
+    });
+
+    const sourceLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const firstTargetLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      firstTargetSectionId,
+    );
+    const secondTargetLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      secondTargetSectionId,
+    );
+    const sourceWidth =
+      typeof sourceLayout.w === "number"
+        ? sourceLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const sourceHeight =
+      typeof sourceLayout.h === "number"
+        ? sourceLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const firstTargetHeight =
+      typeof firstTargetLayout.h === "number"
+        ? firstTargetLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const secondTargetHeight =
+      typeof secondTargetLayout.h === "number"
+        ? secondTargetLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const sourceHandle: WorldPoint = {
+      x: sourceLayout.x + sourceWidth,
+      y: sourceLayout.y + sourceHeight / 2,
+    };
+    const firstTargetHandle: WorldPoint = {
+      x: firstTargetLayout.x,
+      y: firstTargetLayout.y + firstTargetHeight / 2,
+    };
+    const secondTargetHandle: WorldPoint = {
+      x: secondTargetLayout.x,
+      y: secondTargetLayout.y + secondTargetHeight / 2,
+    };
+    await setCanvasEngineEdgeHandlePositions(page, [
+      {
+        sectionId: sourceSectionId,
+        portId: sourcePortId,
+        type: "source",
+        side: "right",
+        x: sourceHandle.x,
+        y: sourceHandle.y,
+      },
+      {
+        sectionId: firstTargetSectionId,
+        portId: firstTargetPortId,
+        type: "target",
+        side: "left",
+        x: firstTargetHandle.x,
+        y: firstTargetHandle.y,
+      },
+      {
+        sectionId: secondTargetSectionId,
+        portId: secondTargetPortId,
+        type: "target",
+        side: "left",
+        x: secondTargetHandle.x,
+        y: secondTargetHandle.y,
+      },
+    ]);
+    await expect
+      .poll(async () => await readEdgeHandleRegistryPositionCount(page))
+      .toBeGreaterThanOrEqual(3);
+
+    await dragWorldPoint(page, host, {
+      start: firstTargetHandle,
+      end: secondTargetHandle,
+    });
+
+    await expect
+      .poll(
+        async () =>
+          await readDataEdgeById(page, projectContext.projectConfigId, edgeId),
+      )
+      .toMatchObject({
+        id: edgeId,
+        sourceSectionId,
+        sourcePortId,
+        targetSectionId: secondTargetSectionId,
+        targetPortId: secondTargetPortId,
+      });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host creates agentic edges via handle drag", async ({
   page,
 }) => {
@@ -794,6 +1234,69 @@ async function createTopLevelSection({
   return response.sectionId;
 }
 
+async function setSectionCallable(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  callableName: string,
+): Promise<void> {
+  await postBackend(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams: true,
+  });
+}
+
+async function readSectionParamIds(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  minCount: number,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const variantId =
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ?? null;
+  if (!variantId) {
+    throw new Error(`Missing variant id for section ${sectionId}.`);
+  }
+  const implId = response?.projectState?.sectionVariants?.[variantId]?.impl ?? null;
+  if (!implId) {
+    throw new Error(`Missing impl id for section variant ${variantId}.`);
+  }
+  const impl = response?.projectState?.sectionImpls?.[implId] ?? null;
+  if (!impl) {
+    throw new Error(`Missing section impl ${implId}.`);
+  }
+  const codeObjVariantMap = impl.codeObjVariantMap ?? {};
+  const codeObjVariants = response?.projectState?.codeObjVariants ?? {};
+  const codeObjImpls = response?.projectState?.codeObjImpls ?? {};
+  const ids = Object.entries(codeObjVariantMap)
+    .filter((entry) => {
+      const codeObjVariantId = entry[1];
+      const codeObjImplId = codeObjVariants[codeObjVariantId]?.impl;
+      if (!codeObjImplId) {
+        return false;
+      }
+      const codeObjType = codeObjImpls[codeObjImplId]?.type;
+      return (
+        typeof codeObjType === "string" &&
+        SECTION_PARAM_CODE_OBJ_TYPES.has(codeObjType)
+      );
+    })
+    .map((entry) => entry[0]);
+  if (ids.length < minCount) {
+    throw new Error(
+      `Expected at least ${minCount} section param ids in section ${sectionId}. Found ${ids.length}.`,
+    );
+  }
+  return ids;
+}
+
 async function getEngineViewportBounds(
   page: Page,
 ): Promise<FlowViewportBounds> {
@@ -821,6 +1324,15 @@ async function readAgenticEdgeCount(host: Locator): Promise<number> {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     throw new Error(`Invalid agentic edge count attribute: ${String(value)}`);
+  }
+  return parsed;
+}
+
+async function readDataEdgeCount(host: Locator): Promise<number> {
+  const value = await host.getAttribute("data-canvas-engine-data-edge-count");
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid data edge count attribute: ${String(value)}`);
   }
   return parsed;
 }
@@ -999,6 +1511,164 @@ async function readTopLevelSectionLayout(
     w: typeof layout.w === "number" ? layout.w : null,
     h: typeof layout.h === "number" ? layout.h : null,
   };
+}
+
+async function setCanvasEngineEdgeHandlePositions(
+  page: Page,
+  handles: CanvasEngineEdgeHandleSeed[],
+): Promise<void> {
+  await page.evaluate(async (nextHandles) => {
+    const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
+    const { makeEdgeHandleKey } = await import("/src/state/actions/edgeHandles.ts");
+    useEdgeHandleRegistry.setState((state) => {
+      const nextPositions: Record<
+        string,
+        {
+          sectionId: string;
+          portId: string;
+          type: "source" | "target";
+          side: "left" | "right" | "top" | "bottom";
+          x: number;
+          y: number;
+        }
+      > = {};
+      for (const handle of nextHandles) {
+        const key = makeEdgeHandleKey(handle.sectionId, handle.portId, handle.type);
+        nextPositions[key] = {
+          sectionId: handle.sectionId,
+          portId: handle.portId,
+          type: handle.type,
+          side: handle.side,
+          x: handle.x,
+          y: handle.y,
+        };
+      }
+      state.positions = nextPositions;
+    });
+  }, handles);
+}
+
+async function readEdgeHandleRegistryPositionCount(page: Page): Promise<number> {
+  return await page.evaluate(async () => {
+    const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
+    return Object.keys(useEdgeHandleRegistry.getState().positions).length;
+  });
+}
+
+async function readSectionVariantId(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const variantId =
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ?? null;
+  if (!variantId) {
+    throw new Error(`Missing variant id for section ${sectionId}.`);
+  }
+  return variantId;
+}
+
+async function readDataEdgeLinks(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  return edges
+    .filter(
+      (edge) =>
+        typeof edge.sourceSectionId === "string" &&
+        typeof edge.sourcePortId === "string" &&
+        typeof edge.targetSectionId === "string" &&
+        typeof edge.targetPortId === "string",
+    )
+    .map(
+      (edge) =>
+        `${edge.sourceSectionId as string}:${edge.sourcePortId as string}->${edge.targetSectionId as string}:${edge.targetPortId as string}`,
+    );
+}
+
+async function readDataEdgeIdByLink({
+  page,
+  projectConfigId,
+  sourceSectionId,
+  sourcePortId,
+  targetSectionId,
+  targetPortId,
+}: {
+  page: Page;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+}): Promise<string> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  for (const edge of edges) {
+    if (
+      edge.sourceSectionId === sourceSectionId &&
+      edge.sourcePortId === sourcePortId &&
+      edge.targetSectionId === targetSectionId &&
+      edge.targetPortId === targetPortId &&
+      typeof edge.id === "string"
+    ) {
+      return edge.id;
+    }
+  }
+  throw new Error(
+    `Unable to find data edge ${sourceSectionId}:${sourcePortId}->${targetSectionId}:${targetPortId}.`,
+  );
+}
+
+async function readDataEdgeById(
+  page: Page,
+  projectConfigId: string,
+  edgeId: string,
+): Promise<{
+  id: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+}> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.edges ?? [];
+  for (const edge of edges) {
+    if (
+      edge.id === edgeId &&
+      typeof edge.sourceSectionId === "string" &&
+      typeof edge.sourcePortId === "string" &&
+      typeof edge.targetSectionId === "string" &&
+      typeof edge.targetPortId === "string"
+    ) {
+      return {
+        id: edge.id,
+        sourceSectionId: edge.sourceSectionId,
+        sourcePortId: edge.sourcePortId,
+        targetSectionId: edge.targetSectionId,
+        targetPortId: edge.targetPortId,
+      };
+    }
+  }
+  throw new Error(`Unable to find data edge ${edgeId}.`);
 }
 
 function resolveAgenticHandleWorldPoint({

@@ -15,6 +15,14 @@ import type {
 type DataEdgeInput = ProjectConfig["edges"][number];
 type AgenticEdgeInput = ProjectConfig["agenticEdges"][number];
 
+export type CanvasEngineEdgeHandlePosition = {
+  sectionId: string;
+  portId: string;
+  type: "source" | "target";
+  x: number;
+  y: number;
+};
+
 export type CanvasEngineSceneAdapterConfig = {
   defaultSectionWidth: number;
   defaultSectionHeight: number;
@@ -27,6 +35,7 @@ export type CanvasEngineProjectSceneInput = {
   activeSectionIds: string[];
   edges: ProjectConfig["edges"];
   agenticEdges: ProjectConfig["agenticEdges"];
+  edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>;
 };
 
 export type CanvasEngineScenePatchSummary = {
@@ -62,6 +71,19 @@ export type CanvasEngineEdgeHitResult =
       id: string;
     };
 
+export type CanvasEngineDataHandleHitResult = {
+  sectionId: string;
+  portId: string;
+  handleType: "source" | "target";
+  handleWorldX: number;
+  handleWorldY: number;
+};
+
+export type CanvasEngineDataEdgeEndpointHitResult = {
+  edgeId: string;
+  endpointType: "source" | "target";
+};
+
 export type CanvasEngineAgenticHandleHitResult = {
   sectionId: string;
   handleType: "source" | "target";
@@ -90,6 +112,8 @@ export class CanvasEngineSceneAdapter {
 
   private readonly agenticEdgeById: Map<string, CanvasEngineAgenticEdge>;
 
+  private edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>;
+
   private activeSectionIdSet: Set<string>;
 
   public constructor(config?: Partial<CanvasEngineSceneAdapterConfig>) {
@@ -103,12 +127,14 @@ export class CanvasEngineSceneAdapter {
     this.rectById = new Map();
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
+    this.edgeHandlePositionByKey = new Map();
     this.activeSectionIdSet = new Set();
   }
 
   public applyProjectState(
     input: CanvasEngineProjectSceneInput,
   ): CanvasEngineScenePatchSummary {
+    this.applyEdgeHandlePositions(input.edgeHandlePositions);
     const nextActiveSectionIdSet = new Set(input.activeSectionIds);
     const sectionSummary = this.applySections(
       input.topLevelSections,
@@ -234,6 +260,10 @@ export class CanvasEngineSceneAdapter {
     return this.rectById.get(sectionId) ?? null;
   }
 
+  public getDataEdgeById(edgeId: string): CanvasEngineDataEdge | null {
+    return this.dataEdgeById.get(edgeId) ?? null;
+  }
+
   public hitTestEdgeAtWorldPoint(
     worldX: number,
     worldY: number,
@@ -256,7 +286,7 @@ export class CanvasEngineSceneAdapter {
       if (!sourceRect || !targetRect) {
         continue;
       }
-      const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+      const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
       const distance = distancePointToSegment(
         worldX,
         worldY,
@@ -395,6 +425,139 @@ export class CanvasEngineSceneAdapter {
     };
   }
 
+  public hitTestDataHandleAtWorldPoint(
+    worldX: number,
+    worldY: number,
+    toleranceWorld: number,
+    options?: {
+      handleType?: "source" | "target";
+    },
+  ): CanvasEngineDataHandleHitResult | null {
+    let hitCandidate: {
+      sectionId: string;
+      portId: string;
+      handleType: "source" | "target";
+      handleWorldX: number;
+      handleWorldY: number;
+      zIndex: number;
+      distance: number;
+    } | null = null;
+
+    for (const handle of this.edgeHandlePositionByKey.values()) {
+      if (options?.handleType && handle.type !== options.handleType) {
+        continue;
+      }
+      if (isAgenticHandlePortId(handle.portId)) {
+        continue;
+      }
+      const rect = this.rectById.get(handle.sectionId);
+      if (!rect) {
+        continue;
+      }
+      const distance = Math.hypot(worldX - handle.x, worldY - handle.y);
+      if (distance > toleranceWorld) {
+        continue;
+      }
+      const candidate = {
+        sectionId: handle.sectionId,
+        portId: handle.portId,
+        handleType: handle.type,
+        handleWorldX: handle.x,
+        handleWorldY: handle.y,
+        zIndex: rect.zIndex,
+        distance,
+      };
+      if (!hitCandidate || isDataHandleHitCandidateAbove(candidate, hitCandidate)) {
+        hitCandidate = candidate;
+      }
+    }
+
+    if (!hitCandidate) {
+      return null;
+    }
+    return {
+      sectionId: hitCandidate.sectionId,
+      portId: hitCandidate.portId,
+      handleType: hitCandidate.handleType,
+      handleWorldX: hitCandidate.handleWorldX,
+      handleWorldY: hitCandidate.handleWorldY,
+    };
+  }
+
+  public hitTestDataEdgeEndpointAtWorldPoint(
+    worldX: number,
+    worldY: number,
+    toleranceWorld: number,
+  ): CanvasEngineDataEdgeEndpointHitResult | null {
+    let hitCandidate: {
+      edgeId: string;
+      endpointType: "source" | "target";
+      zIndex: number;
+      distance: number;
+    } | null = null;
+
+    for (const edge of this.dataEdgeById.values()) {
+      if (edge.hidden) {
+        continue;
+      }
+      const sourceRect = this.rectById.get(edge.sourceSectionId);
+      const targetRect = this.rectById.get(edge.targetSectionId);
+      if (!sourceRect || !targetRect) {
+        continue;
+      }
+      const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
+      const sourceDistance = Math.hypot(
+        worldX - anchors.startX,
+        worldY - anchors.startY,
+      );
+      const targetDistance = Math.hypot(worldX - anchors.endX, worldY - anchors.endY);
+
+      const endpointCandidates: Array<{
+        endpointType: "source" | "target";
+        distance: number;
+      }> = [
+        { endpointType: "source", distance: sourceDistance },
+        { endpointType: "target", distance: targetDistance },
+      ];
+
+      for (const endpoint of endpointCandidates) {
+        if (endpoint.distance > toleranceWorld) {
+          continue;
+        }
+        const candidate = {
+          edgeId: edge.id,
+          endpointType: endpoint.endpointType,
+          zIndex: edge.zIndex,
+          distance: endpoint.distance,
+        };
+        if (
+          !hitCandidate ||
+          isDataEdgeEndpointHitCandidateAbove(candidate, hitCandidate)
+        ) {
+          hitCandidate = candidate;
+        }
+      }
+    }
+
+    if (!hitCandidate) {
+      return null;
+    }
+    return {
+      edgeId: hitCandidate.edgeId,
+      endpointType: hitCandidate.endpointType,
+    };
+  }
+
+  private applyEdgeHandlePositions(
+    edgeHandlePositions: Record<string, CanvasEngineEdgeHandlePosition>,
+  ): void {
+    const nextByKey = new Map<string, CanvasEngineEdgeHandlePosition>();
+    for (const [key, handle] of Object.entries(edgeHandlePositions)) {
+      nextByKey.set(key, handle);
+    }
+    this.edgeHandlePositionByKey = nextByKey;
+  }
+
   private applySections(
     topLevelSections: Record<string, TopLevelSectionLayout>,
     activeSectionIdSet: Set<string>,
@@ -515,7 +678,10 @@ export class CanvasEngineSceneAdapter {
 
     for (const edge of edges) {
       nextEdgeIds.add(edge.id);
-      const nextEdgeRecord = createDataEdgeRecord(edge);
+      const nextEdgeRecord = createDataEdgeRecord(
+        edge,
+        this.edgeHandlePositionByKey,
+      );
       const previousEdgeRecord = this.dataEdgeById.get(edge.id);
       if (!previousEdgeRecord) {
         this.dataEdgeById.set(edge.id, nextEdgeRecord);
@@ -626,7 +792,16 @@ function resolveSectionColor(
   ];
 }
 
-function createDataEdgeRecord(edge: DataEdgeInput): CanvasEngineDataEdge {
+function createDataEdgeRecord(
+  edge: DataEdgeInput,
+  edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>,
+): CanvasEngineDataEdge {
+  const sourceHandle = edgeHandlePositionByKey.get(
+    buildDataHandleKey(edge.sourceSectionId, edge.sourcePortId, "source"),
+  );
+  const targetHandle = edgeHandlePositionByKey.get(
+    buildDataHandleKey(edge.targetSectionId, edge.targetPortId, "target"),
+  );
   return {
     id: edge.id,
     sourceSectionId: edge.sourceSectionId,
@@ -635,6 +810,10 @@ function createDataEdgeRecord(edge: DataEdgeInput): CanvasEngineDataEdge {
     targetSectionId: edge.targetSectionId,
     targetVariantId: edge.targetVariantId,
     targetPortId: edge.targetPortId,
+    sourceX: sourceHandle?.x ?? null,
+    sourceY: sourceHandle?.y ?? null,
+    targetX: targetHandle?.x ?? null,
+    targetY: targetHandle?.y ?? null,
     hidden: edge.hidden,
     selected: edge.selected,
     zIndex: edge.zIndex,
@@ -664,6 +843,18 @@ function isEdgeVisible(
     visibleSectionSet.has(sourceSectionId) ||
     visibleSectionSet.has(targetSectionId)
   );
+}
+
+function buildDataHandleKey(
+  sectionId: string,
+  portId: string,
+  type: "source" | "target",
+): string {
+  return `${sectionId}:${portId}:${type}`;
+}
+
+function isAgenticHandlePortId(portId: string): boolean {
+  return portId.startsWith("agentic-edge-");
 }
 
 function isPointInsideRect(
@@ -715,6 +906,63 @@ function isEdgeHitCandidateAbove(
   return candidate.id.localeCompare(current.id) > 0;
 }
 
+function isDataHandleHitCandidateAbove(
+  candidate: {
+    sectionId: string;
+    portId: string;
+    handleType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+  current: {
+    sectionId: string;
+    portId: string;
+    handleType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+): boolean {
+  if (candidate.zIndex !== current.zIndex) {
+    return candidate.zIndex > current.zIndex;
+  }
+  if (candidate.distance !== current.distance) {
+    return candidate.distance < current.distance;
+  }
+  if (candidate.handleType !== current.handleType) {
+    return candidate.handleType === "source";
+  }
+  if (candidate.sectionId !== current.sectionId) {
+    return candidate.sectionId.localeCompare(current.sectionId) > 0;
+  }
+  return candidate.portId.localeCompare(current.portId) > 0;
+}
+
+function isDataEdgeEndpointHitCandidateAbove(
+  candidate: {
+    edgeId: string;
+    endpointType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+  current: {
+    edgeId: string;
+    endpointType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+): boolean {
+  if (candidate.zIndex !== current.zIndex) {
+    return candidate.zIndex > current.zIndex;
+  }
+  if (candidate.distance !== current.distance) {
+    return candidate.distance < current.distance;
+  }
+  if (candidate.endpointType !== current.endpointType) {
+    return candidate.endpointType === "source";
+  }
+  return candidate.edgeId.localeCompare(current.edgeId) > 0;
+}
+
 function isAgenticHandleHitCandidateAbove(
   candidate: {
     sectionId: string;
@@ -762,6 +1010,32 @@ function resolveEdgeAnchors(
     endX: targetOnRight ? targetRect.x : targetRect.x + targetRect.width,
     endY: targetCenterY,
   };
+}
+
+function resolveDataEdgeAnchors(
+  edge: CanvasEngineDataEdge,
+  sourceRect: CanvasEngineRect,
+  targetRect: CanvasEngineRect,
+): {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+} {
+  if (
+    typeof edge.sourceX === "number" &&
+    typeof edge.sourceY === "number" &&
+    typeof edge.targetX === "number" &&
+    typeof edge.targetY === "number"
+  ) {
+    return {
+      startX: edge.sourceX,
+      startY: edge.sourceY,
+      endX: edge.targetX,
+      endY: edge.targetY,
+    };
+  }
+  return resolveEdgeAnchors(sourceRect, targetRect);
 }
 
 function distancePointToSegment(
@@ -824,6 +1098,10 @@ function areDataEdgeRecordsEqual(
     left.targetSectionId === right.targetSectionId &&
     left.targetVariantId === right.targetVariantId &&
     left.targetPortId === right.targetPortId &&
+    left.sourceX === right.sourceX &&
+    left.sourceY === right.sourceY &&
+    left.targetX === right.targetX &&
+    left.targetY === right.targetY &&
     left.hidden === right.hidden &&
     left.selected === right.selected &&
     left.zIndex === right.zIndex

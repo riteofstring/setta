@@ -687,7 +687,7 @@ function appendDataEdgePrimitives(
       continue;
     }
 
-    const anchors = resolveEdgeAnchors(sourceRect, targetRect);
+    const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
     const start = worldToScreen(
       anchors.startX,
       anchors.startY,
@@ -888,6 +888,32 @@ function resolveEdgeAnchors(
     endX: targetOnRight ? targetRect.x : targetRect.x + targetRect.width,
     endY: targetCenterY,
   };
+}
+
+function resolveDataEdgeAnchors(
+  edge: CanvasEngineSceneSnapshot["dataEdges"][number],
+  sourceRect: CanvasEngineSceneSnapshot["rects"][number],
+  targetRect: CanvasEngineSceneSnapshot["rects"][number],
+): {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+} {
+  if (
+    typeof edge.sourceX === "number" &&
+    typeof edge.sourceY === "number" &&
+    typeof edge.targetX === "number" &&
+    typeof edge.targetY === "number"
+  ) {
+    return {
+      startX: edge.sourceX,
+      startY: edge.sourceY,
+      endX: edge.targetX,
+      endY: edge.targetY,
+    };
+  }
+  return resolveEdgeAnchors(sourceRect, targetRect);
 }
 
 function worldToScreen(
