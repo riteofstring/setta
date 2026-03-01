@@ -279,6 +279,23 @@
   - Keep hybrid proxy path paused until a redesign shows clear incremental A/B value beyond the now-validated layer-split gains.
   - Treat hybrid canvas as a later-stage option only if the simpler layer-split rollout leaves a large residual gap.
 
+### Phase 1 Status Update (2026-03-03, Pass 3)
+- A third Phase 1 spike pass was implemented and benchmarked behind a new explicit localStorage flag:
+  - motion-only canvas shell overlay,
+  - transform-driven `idle/active/settling` proxy lifecycle,
+  - DOM hide during active motion.
+- Result: **not kept** in this pass and fully rolled back.
+  - Playwright A/B remained near parity:
+    - pan `36.0` vs control `36.7`,
+    - zoom `35.4` vs control `33.5`,
+    - typing `181.22` vs control `178.14`.
+  - CDP supplementary control/on samples were also near parity.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-phase1-hybrid-motion-proxy-spike-pass3.md`
+- Updated interpretation:
+  - This design does not provide a robust motion win.
+  - Further hybrid work should require a materially different architecture before another implementation pass.
+
 ## Phase 2: Stop-Hitch Mitigation
 - Implement staged restore sequencing in settle phase.
 - Compare:
