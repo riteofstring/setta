@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 import { FiChevronDown, FiRefreshCw } from "react-icons/fi";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
@@ -63,6 +65,8 @@ const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
 const DEFAULT_SKILLS_LIST_HEIGHT_PCT = 66;
 const MIN_SKILLS_LIST_HEIGHT_PCT = 30;
 const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
+const SKILL_MARKDOWN_RENDERED_CLASS =
+  "prose prose-sm max-w-none dark:prose-invert prose-headings:my-2 prose-headings:font-semibold prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0";
 const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 type AgentNativeSlashCommandsStatus =
   | "unknown"
@@ -1150,13 +1154,14 @@ export function ProjectChatSkillsMcpViewer({
                 data-testid="project-chat-skills-resize-handle"
                 role="separator"
                 aria-label="Resize skill list and markdown viewer"
-                className="group/resize relative h-3 cursor-row-resize"
+                className="group/resize relative flex h-3 cursor-row-resize items-center justify-center"
                 onPointerDown={beginSkillsListResize}
                 onDoubleClick={() =>
                   setSkillsListHeightPct(DEFAULT_SKILLS_LIST_HEIGHT_PCT)
                 }
               >
-                <div className="absolute left-1/2 top-1/2 h-px w-full -translate-y-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
+                <div className="relative z-[1] h-1 w-10 rounded-full bg-setta-300/90 transition-colors group-hover/resize:bg-blue-400 dark:bg-setta-600 dark:group-hover/resize:bg-blue-400" />
               </div>
             ) : null}
             <div
@@ -1202,16 +1207,24 @@ export function ProjectChatSkillsMcpViewer({
                     }`}
                   >
                     {isSkillMarkdownViewerOpen ? (
-                      <div className="grid h-full min-h-0">
+                      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(140px,42%)]">
                         {skillPreviewTruncationNotice ? (
                           <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                             {skillPreviewTruncationNotice}
                           </div>
                         ) : null}
+                        <div className="min-h-0 overflow-auto border-b border-setta-200/80 px-3 py-2 dark:border-setta-700/80">
+                          <ReactMarkdown
+                            className={SKILL_MARKDOWN_RENDERED_CLASS}
+                            remarkPlugins={[remarkGfm]}
+                          >
+                            {skillPreviewContent}
+                          </ReactMarkdown>
+                        </div>
                         <div className="h-full min-h-[120px] overflow-hidden">
                           <CodeMirror
                             aria-label="Skill Markdown Content"
-                            className="h-full"
+                            className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
                             height="100%"
                             value={skillPreviewContent}
                             theme={codeMirrorTheme}
