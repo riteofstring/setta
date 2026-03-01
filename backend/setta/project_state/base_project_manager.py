@@ -428,6 +428,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
+    MetaControlSectionImpl,
     SectionType,
     TerminalSectionImpl,
 )
@@ -3302,10 +3303,17 @@ class BaseProjectManager(ABC):
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
+        )
         self.add_new_history_entry(
             coalesce_key=(f"param:{x.projectConfigId}:{x.sectionId}:{x.paramInfoId}"),
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids=(
+                codegen_singleton_section_ids if codegen_singleton_section_ids else None
+            ),
+            code_obj_only_ids={x.paramInfoId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
@@ -3540,10 +3548,17 @@ class BaseProjectManager(ABC):
     )
     async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
         """Set a parameter's name and value in one step."""
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
+        )
         self.add_new_history_entry(
             coalesce_key=f"param:{x.projectConfigId}:{x.sectionId}:{x.codeObjId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
             project_config_id=x.projectConfigId,
+            section_impl_only_ids=(
+                codegen_singleton_section_ids if codegen_singleton_section_ids else None
+            ),
+            code_obj_only_ids={x.codeObjId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         normalized_name = validate_param_name(
@@ -6114,6 +6129,7 @@ class BaseProjectManager(ABC):
         project_config_id: ID | None = None,
         project_config_only: bool = False,
         section_impl_only_ids: set[ID] | None = None,
+        code_obj_only_ids: set[ID] | None = None,
     ):
         if project_config_only and project_config_id is None:
             raise ValueError(
@@ -6123,9 +6139,15 @@ class BaseProjectManager(ABC):
             raise ValueError(
                 "section_impl_only_ids history entries require project_config_id."
             )
-        if project_config_only and section_impl_only_ids is not None:
+        if code_obj_only_ids is not None and project_config_id is None:
             raise ValueError(
-                "project_config_only and section_impl_only_ids are mutually exclusive."
+                "code_obj_only_ids history entries require project_config_id."
+            )
+        if project_config_only and (
+            section_impl_only_ids is not None or code_obj_only_ids is not None
+        ):
+            raise ValueError(
+                "project_config_only cannot be combined with section_impl_only_ids or code_obj_only_ids."
             )
         copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
         if project_config_id is not None:
@@ -6134,16 +6156,35 @@ class BaseProjectManager(ABC):
                 if section_impl_only_ids is not None
                 else None
             )
+            frozen_code_obj_only_ids = (
+                frozenset(code_obj_only_ids) if code_obj_only_ids is not None else None
+            )
 
             def copy_project_config_backend(
                 backend: ProjectStateBackend,
             ) -> ProjectStateBackend:
-                if frozen_section_impl_only_ids is not None:
-                    return self._copy_backend_for_section_impl_only_history_entry(
-                        backend,
-                        project_config_id,
-                        frozen_section_impl_only_ids,
-                    )
+                if (
+                    frozen_section_impl_only_ids is not None
+                    or frozen_code_obj_only_ids is not None
+                ):
+                    scoped_backend = backend
+                    if frozen_section_impl_only_ids is not None:
+                        scoped_backend = (
+                            self._copy_backend_for_section_impl_only_history_entry(
+                                scoped_backend,
+                                project_config_id,
+                                frozen_section_impl_only_ids,
+                            )
+                        )
+                    if frozen_code_obj_only_ids is not None:
+                        scoped_backend = (
+                            self._copy_backend_for_code_obj_only_history_entry(
+                                scoped_backend,
+                                project_config_id,
+                                frozen_code_obj_only_ids,
+                            )
+                        )
+                    return scoped_backend
                 if project_config_only:
                     return self._copy_backend_for_project_config_only_history_entry(
                         backend,
@@ -6163,6 +6204,73 @@ class BaseProjectManager(ABC):
         self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
+
+    def _get_codegen_singleton_section_ids_for_history_entry(
+        self,
+        project_config_id: ID,
+    ) -> set[ID]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        singleton_section_ids: set[ID] = set()
+        for section_id, section_variant_id in project_config.sectionVariantMap.items():
+            if section_variant_id not in backend.sectionVariants:
+                raise KeyError(
+                    f"Missing section variant {section_variant_id} in backend state."
+                )
+            section_variant = backend.sectionVariants[section_variant_id]
+            section_impl_id = section_variant.impl
+            if section_impl_id not in backend.sectionImpls:
+                raise KeyError(
+                    f"Missing section impl {section_impl_id} in backend state."
+                )
+            section_impl = backend.sectionImpls[section_impl_id]
+            if isinstance(
+                section_impl,
+                (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
+            ):
+                singleton_section_ids.add(section_id)
+        return singleton_section_ids
+
+    def _get_active_code_obj_variant_ids_for_project_config(
+        self,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+        code_obj_id: ID,
+    ) -> set[ID]:
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        active_variant_ids: set[ID] = set()
+        for section_id, section_variant_id in project_config.sectionVariantMap.items():
+            if section_id not in backend.sections:
+                raise KeyError(f"Missing section {section_id} in backend state.")
+            if section_variant_id not in backend.sectionVariants:
+                raise KeyError(
+                    f"Missing section variant {section_variant_id} in backend state."
+                )
+            section_variant = backend.sectionVariants[section_variant_id]
+            section_impl_id = section_variant.impl
+            if section_impl_id not in backend.sectionImpls:
+                raise KeyError(
+                    f"Missing section impl {section_impl_id} in backend state."
+                )
+            section_impl = get_effective_impl(
+                backend.sectionImpls[section_impl_id],
+                backend.sections[section_id],
+                section_variant,
+            )
+            if isinstance(section_impl, BaseSectionWithParamsImpl):
+                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
+                if variant_id is not None:
+                    active_variant_ids.add(variant_id)
+                continue
+            if isinstance(section_impl, MetaControlSectionImpl):
+                variant_id = section_impl.codeObjVariantMap.get(code_obj_id)
+                if variant_id is not None:
+                    active_variant_ids.add(variant_id)
+        return active_variant_ids
 
     def _copy_backend_for_section_impl_only_history_entry(
         self,
@@ -6219,6 +6327,71 @@ class BaseProjectManager(ABC):
             codeObjs=backend.codeObjs,
             codeObjImpls=backend.codeObjImpls,
             codeObjVariants=backend.codeObjVariants,
+            projectConfigs=backend.projectConfigs,
+            defaultProjectConfigId=backend.defaultProjectConfigId,
+            appDefinition=backend.appDefinition,
+        )
+
+    def _copy_backend_for_code_obj_only_history_entry(
+        self,
+        backend: ProjectStateBackend,
+        project_config_id: ID,
+        code_obj_ids: frozenset[ID],
+    ) -> ProjectStateBackend:
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+
+        code_objs = dict(backend.codeObjs)
+        code_obj_variants = dict(backend.codeObjVariants)
+        code_obj_impls = dict(backend.codeObjImpls)
+
+        copied_variant_ids: set[ID] = set()
+        copied_impl_ids: set[ID] = set()
+
+        for code_obj_id in code_obj_ids:
+            if code_obj_id not in backend.codeObjs:
+                raise KeyError(f"Missing code obj {code_obj_id} in backend state.")
+            code_objs[code_obj_id] = copy.deepcopy(backend.codeObjs[code_obj_id])
+            active_variant_ids = (
+                self._get_active_code_obj_variant_ids_for_project_config(
+                    backend,
+                    project_config_id,
+                    code_obj_id,
+                )
+            )
+            if not active_variant_ids:
+                raise KeyError(
+                    f"Code obj {code_obj_id} is not active in project config {project_config_id}."
+                )
+            for code_obj_variant_id in active_variant_ids:
+                if code_obj_variant_id not in backend.codeObjVariants:
+                    raise KeyError(
+                        f"Missing code obj variant {code_obj_variant_id} in backend state."
+                    )
+                if code_obj_variant_id not in copied_variant_ids:
+                    code_obj_variants[code_obj_variant_id] = copy.deepcopy(
+                        backend.codeObjVariants[code_obj_variant_id]
+                    )
+                    copied_variant_ids.add(code_obj_variant_id)
+
+                code_obj_impl_id = backend.codeObjVariants[code_obj_variant_id].impl
+                if code_obj_impl_id not in backend.codeObjImpls:
+                    raise KeyError(
+                        f"Missing code obj impl {code_obj_impl_id} in backend state."
+                    )
+                if code_obj_impl_id not in copied_impl_ids:
+                    code_obj_impls[code_obj_impl_id] = copy.deepcopy(
+                        backend.codeObjImpls[code_obj_impl_id]
+                    )
+                    copied_impl_ids.add(code_obj_impl_id)
+
+        return ProjectStateBackend(
+            sections=backend.sections,
+            sectionImpls=backend.sectionImpls,
+            sectionVariants=backend.sectionVariants,
+            codeObjs=code_objs,
+            codeObjImpls=code_obj_impls,
+            codeObjVariants=code_obj_variants,
             projectConfigs=backend.projectConfigs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
