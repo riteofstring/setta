@@ -300,4 +300,20 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
     expect(markup).toContain(">Overview<");
   });
+
+  it("maps deprecated project ai settings tab selection to project ai chat", () => {
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.ProjectAISettings,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain(">Project AI Chat<");
+    expect(markup).not.toContain('data-testid="project-ai-settings-scroll-region"');
+  });
 });

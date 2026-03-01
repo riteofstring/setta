@@ -104,6 +104,12 @@ export function Overview() {
     }
   }
   if (
+    showLLMTabs &&
+    selectedTabName === OverviewTabNameEnum.ProjectAISettings
+  ) {
+    effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
+  }
+  if (
     !showFileBrowserTab &&
     selectedTabName === OverviewTabNameEnum.FileBrowser
   ) {
