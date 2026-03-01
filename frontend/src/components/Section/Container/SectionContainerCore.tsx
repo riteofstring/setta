@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -32,6 +33,11 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  containerClassName?: string;
+  containerStyle?: React.CSSProperties;
+  containerRef?: (element: HTMLElement | null) => void;
+  containerDragListeners?: React.HTMLAttributes<HTMLElement>;
+  containerTabIndex?: number;
 };
 
 function _SectionContainerCore({
@@ -41,6 +47,11 @@ function _SectionContainerCore({
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  containerClassName = "",
+  containerStyle,
+  containerRef,
+  containerDragListeners,
+  containerTabIndex,
 }: SectionContainerCoreProps) {
   const {
     isActiveSection,
@@ -177,17 +188,35 @@ function _SectionContainerCore({
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const mergedContainerClassName = containerClassName
+    ? ` ${containerClassName}`
+    : "";
+  const mergedContainerStyle =
+    sectionStyleVars || containerStyle
+      ? ({ ...(sectionStyleVars ?? {}), ...(containerStyle ?? {}) } as React.CSSProperties)
+      : undefined;
+  const setContainerRef = React.useCallback(
+    (element: HTMLElement | null) => {
+      refForPosition.current = element;
+      if (containerRef) {
+        containerRef(element);
+      }
+    },
+    [containerRef, refForPosition],
+  );
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}${mergedContainerClassName}`}
+      {...(containerDragListeners ?? {})}
       onClick={getOnSectionClick(sectionId)}
-      ref={refForPosition}
+      ref={setContainerRef}
+      tabIndex={containerTabIndex}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
-      style={sectionStyleVars}
+      style={mergedContainerStyle}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
@@ -208,5 +237,11 @@ function _SectionContainerCore({
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  (p, n) =>
+    p.isUserView === n.isUserView &&
+    p.containerClassName === n.containerClassName &&
+    p.containerTabIndex === n.containerTabIndex &&
+    p.containerRef === n.containerRef &&
+    _.isEqual(p.containerStyle, n.containerStyle) &&
+    _.isEqual(p.containerDragListeners, n.containerDragListeners),
 );

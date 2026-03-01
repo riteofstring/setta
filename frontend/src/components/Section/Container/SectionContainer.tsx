@@ -1,4 +1,5 @@
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
+import _ from "lodash";
 import React from "react";
 import {
   getActiveViewModeConfig,
@@ -14,14 +15,11 @@ import {
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
-import { getOutlineColor } from "./utils";
-
-type SectionContainerDragListeners = Record<string, unknown> | undefined;
+import { getOutlineColor, useHasTempNested } from "./utils";
 
 function _SectionContainer({
   sectionId,
@@ -30,7 +28,7 @@ function _SectionContainer({
 }: {
   sectionId: string;
   isTopLevel: boolean;
-  dragListeners?: SectionContainerDragListeners;
+  dragListeners?: any;
 }) {
   const {
     visibility,
@@ -54,50 +52,42 @@ function _SectionContainer({
     );
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const isCode = isBaseCodeSectionType(impl.type);
-    const isGenPython = impl.type === SectionTypeEnum.GenPythonCode;
-    const isGenPythonMetadata = impl.type === SectionTypeEnum.GenPythonMetadata;
-    let hasPythonCodegen = true;
-    let hasMetadata = true;
-    if (isGenPython || isGenPythonMetadata) {
-      const pythonTarget = getPythonCodegenTarget(x.projectConfig);
-      hasPythonCodegen = projectConfigHasPythonCodegen(x.projectConfig);
-      hasMetadata = Boolean(pythonTarget?.generateMetadata);
-    }
+    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     const activeIds = x.projectConfig.activeIds;
     const isActive = activeIds.includes(sectionId);
     let isJoinedAttachedTerminalGroup = false;
     let isJoinedGroupActive = isActive;
 
-    if (isCode) {
-      const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-        x,
-        sectionId,
-      );
-      if (embeddedTerminal) {
-        isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
-        isJoinedGroupActive =
-          isJoinedGroupActive ||
-          activeIds.includes(embeddedTerminal.attachedTerminalId);
-      }
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+    );
+    if (embeddedTerminal) {
+      isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
+      isJoinedGroupActive =
+        isJoinedGroupActive ||
+        activeIds.includes(embeddedTerminal.attachedTerminalId);
     }
     return {
       visibility,
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode,
-      isGenPython,
-      isGenPythonMetadata,
-      hasPythonCodegen,
-      hasMetadata,
+      isCode: isBaseCodeSectionType(impl.type),
+      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
+      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
+      hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
+      hasMetadata: Boolean(pythonTarget?.generateMetadata),
       sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       isJoinedAttachedTerminalGroup,
       isJoinedGroupActive,
     };
-  }, shallow);
+  }, _.isEqual);
+  const hasNested = useHasTempNested(sectionId);
+  const flattenNonGroupWrapper =
+    !isGroup && !isJoinedAttachedTerminalGroup && !hasNested;
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -120,90 +110,58 @@ function _SectionContainer({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
+        flattenNonGroupWrapper={flattenNonGroupWrapper}
       >
-        <>
-          {!isGroup && isJoinedAttachedTerminalGroup ? (
-            <div
-              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
-                {
-                  isActiveSection: isJoinedGroupActive,
-                  isGlobalVariables: false,
-                  isInOtherProjectConfigs,
-                },
-              )}`}
-              data-joined-code-terminal-group
-            >
-              <AgenticEdgeHandles isUserView={isUserView} />
-              <SectionContainerCore
+        {!isGroup && isJoinedAttachedTerminalGroup ? (
+          <div
+            className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+              {
+                isActiveSection: isJoinedGroupActive,
+                isGlobalVariables: false,
+                isInOtherProjectConfigs,
+              },
+            )}`}
+            data-joined-code-terminal-group
+          >
+            <AgenticEdgeHandles isUserView={isUserView} />
+            <SectionContainerCore
+              sectionId={sectionId}
+              isUserView={isUserView}
+              forceHideOutline={true}
+              hideAgenticEdgeHandles={true}
+              omitAgenticHandleScopeClass={true}
+              joinedCorners="code-terminal-parent"
+            />
+            <div className="-mt-px">
+              <MaybeManyNestedSections
                 sectionId={sectionId}
-                isUserView={isUserView}
-                forceHideOutline={true}
-                hideAgenticEdgeHandles={true}
-                omitAgenticHandleScopeClass={true}
-                joinedCorners="code-terminal-parent"
+                isGroup={isGroup}
+                layoutVariant="tight"
               />
-              <div className="-mt-px">
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                  layoutVariant="tight"
-                />
-              </div>
             </div>
-          ) : (
-            <>
-              {!isGroup && (
-                <SectionContainerCore
-                  sectionId={sectionId}
-                  isUserView={isUserView}
-                />
-              )}
-              {isCode ? (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                  layoutVariant="tight"
-                />
-              ) : (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                />
-              )}
-            </>
-          )}
-        </>
+          </div>
+        ) : flattenNonGroupWrapper ? (
+          <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
+        ) : (
+          <>
+            {!isGroup && (
+              <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
+            )}
+            {isCode ? (
+              <MaybeManyNestedSections
+                sectionId={sectionId}
+                isGroup={isGroup}
+                layoutVariant="tight"
+              />
+            ) : (
+              <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
+            )}
+          </>
+        )}
       </ContainerSwitch>
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) => {
-  return (
-    p.sectionId === n.sectionId &&
-    p.isTopLevel === n.isTopLevel &&
-    areDragListenersEqual(p.dragListeners, n.dragListeners)
-  );
-});
-
-function areDragListenersEqual(
-  left: SectionContainerDragListeners,
-  right: SectionContainerDragListeners,
-): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (left[key] !== right[key]) {
-      return false;
-    }
-  }
-  return true;
-}
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
+);

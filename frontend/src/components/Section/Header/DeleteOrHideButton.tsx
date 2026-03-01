@@ -92,6 +92,8 @@ export function DeleteOrHideButton({
   const defaultIcon = getDeleteOrHideIcon(isEditingViewMode, visibility);
   const resolvedOnClick = onClickOverride ?? onClick;
   const resolvedIcon = icon ?? defaultIcon;
+  const shouldFlattenCloseIcon =
+    icon === undefined && !isEditingViewMode && children == null;
   const isDisabled = !canToggleVisibility;
   const cursorClass = isDisabled
     ? "cursor-not-allowed opacity-50"
@@ -121,14 +123,16 @@ export function DeleteOrHideButton({
         bg ?? defaultBg
       } ${color ?? defaultColor} ${
         rounded ?? "rounded-full"
-      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${cursorClass} ${
+      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${
+        shouldFlattenCloseIcon ? "gg-close" : ""
+      } ${cursorClass} ${
         twClasses ?? ""
       }`}
       {...buttonProps}
       onClick={resolvedOnClick}
       disabled={buttonProps.disabled || isDisabled}
     >
-      {resolvedIcon}
+      {shouldFlattenCloseIcon ? null : resolvedIcon}
       {children}
     </button>
   );
