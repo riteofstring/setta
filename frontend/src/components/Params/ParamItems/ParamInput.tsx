@@ -2,7 +2,7 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValueIfPresent,
 } from "state/actions/sectionInfos";
@@ -33,13 +33,18 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const { baseValue, codeObjType } = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+    const impl = getCurrEffectiveCodeObjImplIfPresent(
       x,
       sectionId,
       paramInfoId,
-      isBaseChildlessCodeObjImpl,
       true, // preview
     );
+    if (!impl || !isBaseChildlessCodeObjImpl(impl)) {
+      return {
+        baseValue: "",
+        codeObjType: CodeObjTypeEnum.TextParam,
+      };
+    }
     return { baseValue: impl.value, codeObjType: impl.type };
   });
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;

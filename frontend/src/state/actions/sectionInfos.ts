@@ -673,6 +673,23 @@ export function getCurrEffectiveCodeObjImpl(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
+export function getCurrEffectiveCodeObjImplIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+): BaseCodeObjImplUnion | null {
+  const sectionImpl = getCurrEffectiveSectionImplIfPresent(
+    p,
+    sectionId,
+    preview,
+  );
+  if (!sectionImpl) {
+    return null;
+  }
+  return getEffectiveCodeObjImplIfPresent(p, sectionImpl, codeObjId);
+}
+
 export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   p: ZustandProjectState,
   sectionId: string,

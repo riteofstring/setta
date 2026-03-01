@@ -5297,18 +5297,20 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
+        backend = self.project_state_backend
+        if x.projectConfigId not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {x.projectConfigId}")
+        project_config = backend.projectConfigs[x.projectConfigId]
         edge_ids = set(x.edgeIds)
         target_param_ids_for_patch = [
-            edge.targetPortId
-            for edge in project_state.projectConfig.edges
-            if edge.id in edge_ids
+            edge.targetPortId for edge in project_config.edges if edge.id in edge_ids
         ]
         self._add_project_config_and_scoped_history_entry(
             project_config_id=x.projectConfigId,
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
         )
+        project_state = self.get_single_config_state(x.projectConfigId)
         delete_edges(project_state, x.edgeIds)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
@@ -5325,9 +5327,12 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
+        backend = self.project_state_backend
+        if x.projectConfigId not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {x.projectConfigId}")
+        project_config = backend.projectConfigs[x.projectConfigId]
         original_edge = next(
-            (edge for edge in project_state.projectConfig.edges if edge.id == x.edgeId),
+            (edge for edge in project_config.edges if edge.id == x.edgeId),
             None,
         )
         if original_edge is None:
@@ -5345,6 +5350,7 @@ class BaseProjectManager(ABC):
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
         )
+        project_state = self.get_single_config_state(x.projectConfigId)
         reconnect_edge(
             project_state,
             x.edgeId,
@@ -5380,11 +5386,14 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
+        backend = self.project_state_backend
+        if x.projectConfigId not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {x.projectConfigId}")
+        project_config = backend.projectConfigs[x.projectConfigId]
         incoming_edge_ids = {edge.id for edge in x.edges}
         target_param_ids_for_patch = [
             edge.targetPortId
-            for edge in project_state.projectConfig.edges
+            for edge in project_config.edges
             if edge.id not in incoming_edge_ids
         ]
         self._add_project_config_and_scoped_history_entry(
@@ -5392,6 +5401,7 @@ class BaseProjectManager(ABC):
             code_obj_ids=target_param_ids_for_patch,
             include_codegen_singletons=True,
         )
+        project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,

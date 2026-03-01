@@ -177,6 +177,44 @@ def _sanitize_section_impl_code_obj_variant_maps(
     return sanitized_section_impls
 
 
+def _sanitize_code_obj_impl_children_for_copy(
+    *,
+    code_obj_impls: dict[ID, BaseCodeObjImplUnion],
+    valid_code_obj_ids: set[ID],
+    valid_code_obj_ids_from_section_variant_maps: set[ID],
+) -> dict[ID, BaseCodeObjImplUnion]:
+    sanitized_code_obj_impls = code_obj_impls
+    for impl_id, code_obj_impl in code_obj_impls.items():
+        if not isinstance(code_obj_impl, BaseParentCodeObjImpl):
+            continue
+        filtered_children = [
+            child_id
+            for child_id in code_obj_impl.children
+            if (
+                child_id in valid_code_obj_ids
+                and child_id in valid_code_obj_ids_from_section_variant_maps
+            )
+        ]
+        if len(filtered_children) == len(code_obj_impl.children):
+            continue
+        if sanitized_code_obj_impls is code_obj_impls:
+            sanitized_code_obj_impls = dict(code_obj_impls)
+        for child_id in code_obj_impl.children:
+            if child_id in valid_code_obj_ids:
+                continue
+            logger.warning(
+                "prepare_sections_for_copy dropping stale code obj child reference code_obj_impl_id=%s child_code_obj_id=%s in_code_objs=%s in_section_variant_map=%s",
+                impl_id,
+                child_id,
+                child_id in valid_code_obj_ids,
+                child_id in valid_code_obj_ids_from_section_variant_maps,
+            )
+        code_obj_impl_copy = copy.deepcopy(code_obj_impl)
+        code_obj_impl_copy.children = filtered_children
+        sanitized_code_obj_impls[impl_id] = code_obj_impl_copy
+    return sanitized_code_obj_impls
+
+
 def prepare_sections_for_copy(
     p: ProjectStateCore, sections_to_process: set[ID]
 ) -> ProjectStateCore:
@@ -354,6 +392,19 @@ def prepare_sections_for_copy(
         section_impls=sectionImpls,
         valid_code_obj_ids=set(codeObjs.keys()),
         valid_code_obj_variant_ids=set(codeObjVariants.keys()),
+    )
+    valid_code_obj_ids_from_section_variant_maps: set[ID] = set()
+    for section_impl in sectionImpls.values():
+        if isinstance(section_impl, BaseSectionWithParamsImpl) or isinstance(
+            section_impl, MetaControlSectionImpl
+        ):
+            valid_code_obj_ids_from_section_variant_maps.update(
+                section_impl.codeObjVariantMap.keys()
+            )
+    codeObjImpls = _sanitize_code_obj_impl_children_for_copy(
+        code_obj_impls=codeObjImpls,
+        valid_code_obj_ids=set(codeObjs.keys()),
+        valid_code_obj_ids_from_section_variant_maps=valid_code_obj_ids_from_section_variant_maps,
     )
     return ProjectStateCore(
         sections=sections,

@@ -1,17 +1,22 @@
+import logging
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from setta.types.code_obj_impls import BaseParamCodeObjImpl
-from setta.types.helpers_lvl2 import get_top_level_param_ids
+from setta.types.code_obj_impls import BaseParamCodeObjImpl, BaseParentCodeObjImpl
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.section_impls import (
+    BaseDictSectionImpl,
     BaseSectionWithParamsImpl,
+    CallableSectionImpl,
 )
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ShownParamIdDetails(BaseModel, extra="forbid"):
@@ -31,8 +36,63 @@ def get_param_ids_to_show(
     Get both pinned and unpinned parameter IDs for UI display.
     Uses a single traversal followed by filtering.
     """
-    # Determine root IDs based on section type
-    top_level_ids = get_top_level_param_ids(p, impl)
+    if isinstance(impl, CallableSectionImpl):
+        root_code_obj_id = impl.callable
+    elif isinstance(impl, BaseDictSectionImpl):
+        root_code_obj_id = impl.topLevelParamId
+    else:
+        raise TypeError(
+            f"Unsupported section impl type for shown params traversal: {impl.type}"
+        )
+    if root_code_obj_id is None:
+        return ShownParamIds()
+    if root_code_obj_id not in impl.codeObjVariantMap:
+        logger.warning(
+            "get_param_ids_to_show missing root mapping section_impl_id=%s root_code_obj_id=%s",
+            impl.id,
+            root_code_obj_id,
+        )
+        return ShownParamIds()
+    if root_code_obj_id not in p.codeObjs:
+        logger.warning(
+            "get_param_ids_to_show missing root code obj section_impl_id=%s root_code_obj_id=%s",
+            impl.id,
+            root_code_obj_id,
+        )
+        return ShownParamIds()
+    root_variant_id = impl.codeObjVariantMap[root_code_obj_id]
+    if root_variant_id not in p.codeObjVariants:
+        logger.warning(
+            "get_param_ids_to_show missing root variant section_impl_id=%s root_code_obj_id=%s root_variant_id=%s",
+            impl.id,
+            root_code_obj_id,
+            root_variant_id,
+        )
+        return ShownParamIds()
+    root_variant = p.codeObjVariants[root_variant_id]
+    root_impl_id = root_variant.impl
+    if root_impl_id not in p.codeObjImpls:
+        logger.warning(
+            "get_param_ids_to_show missing root impl section_impl_id=%s root_code_obj_id=%s root_impl_id=%s",
+            impl.id,
+            root_code_obj_id,
+            root_impl_id,
+        )
+        return ShownParamIds()
+    root_impl = get_effective_impl(
+        p.codeObjImpls[root_impl_id],
+        p.codeObjs[root_code_obj_id],
+        root_variant,
+    )
+    if not isinstance(root_impl, BaseParentCodeObjImpl):
+        logger.warning(
+            "get_param_ids_to_show root impl is not parent section_impl_id=%s root_code_obj_id=%s root_impl_type=%s",
+            impl.id,
+            root_code_obj_id,
+            type(root_impl).__name__,
+        )
+        return ShownParamIds()
+    top_level_ids = root_impl.children
 
     # Single traversal to get all parameters and their relationships
     result = traverse_hierarchy(
@@ -46,6 +106,7 @@ def get_param_ids_to_show(
             track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
             build_id_to_id_path=True,
             build_children_map=True,
+            skip_missing_references=True,
         ),
     )
 
