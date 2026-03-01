@@ -16,6 +16,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateOpStatusPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
+    ProjectStateSectionImplsPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
@@ -86,6 +87,7 @@ from setta.types.websocket import (
     WebsocketMsgPatchFrontendProjectStateOpStatus,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPatchFrontendProjectStateSectionImpl,
+    WebsocketMsgPatchFrontendProjectStateSectionImpls,
     WebsocketMsgPatchFrontendProjectStateStructural,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
@@ -476,6 +478,31 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectConfigId=projectConfigId,
                     sectionId=sectionId,
                     sectionImpl=sectionImpl,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_section_impls_patch(
+        self,
+        projectConfigId: ID,
+        sectionImpls: dict[ID, BaseSectionImpl],
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateSectionImpls(
+                content=ProjectStateSectionImplsPatch(
+                    projectConfigId=projectConfigId,
+                    sectionImpls=sectionImpls,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

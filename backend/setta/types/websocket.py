@@ -12,6 +12,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateOpStatusPatch,
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
+    ProjectStateSectionImplsPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
@@ -64,6 +65,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     PatchFrontendProjectStateActiveViewMode = "PatchFrontendProjectStateActiveViewMode"
     PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
     PatchFrontendProjectStateSectionImpl = "PatchFrontendProjectStateSectionImpl"
+    PatchFrontendProjectStateSectionImpls = "PatchFrontendProjectStateSectionImpls"
     PatchFrontendProjectStateCodeObjs = "PatchFrontendProjectStateCodeObjs"
     PatchFrontendProjectStateStructural = "PatchFrontendProjectStateStructural"
     PatchFrontendProjectStateAppDefinition = "PatchFrontendProjectStateAppDefinition"
@@ -234,6 +236,13 @@ class WebsocketMsgPatchFrontendProjectStateSectionImpl(FrontendWebsocketMsg):
     messageType: Literal[
         WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
     ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpl
+
+
+class WebsocketMsgPatchFrontendProjectStateSectionImpls(FrontendWebsocketMsg):
+    content: ProjectStateSectionImplsPatch
+    messageType: Literal[
+        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpls
+    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateSectionImpls
 
 
 class WebsocketMsgPatchFrontendProjectStateCodeObjs(FrontendWebsocketMsg):

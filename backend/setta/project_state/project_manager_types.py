@@ -1247,6 +1247,16 @@ class ProjectStateSectionImplPatch:
 
 
 @dataclass
+class ProjectStateSectionImplsPatch:
+    projectConfigId: ID
+    sectionImpls: dict[ID, BaseSectionImpl]
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
 class ProjectStateCodeObjsPatch:
     projectConfigId: ID
     codeObjs: dict[ID, Core]

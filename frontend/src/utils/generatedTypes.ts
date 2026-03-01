@@ -952,6 +952,8 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PatchFrontendProjectStateProjectConfig:
     "PatchFrontendProjectStateProjectConfig",
   PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
+  PatchFrontendProjectStateSectionImpls:
+    "PatchFrontendProjectStateSectionImpls",
   PatchFrontendProjectStateCodeObjs: "PatchFrontendProjectStateCodeObjs",
   PatchFrontendProjectStateStructural: "PatchFrontendProjectStateStructural",
   PatchFrontendProjectStateAppDefinition:
@@ -5157,6 +5159,29 @@ const WebsocketMsgPatchFrontendProjectStateSectionImplSchema = z.object({
     ),
 });
 
+const ProjectStateSectionImplsPatchSchema = z.object({
+  projectConfigId: IDSchema,
+  sectionImpls: z.record(IDSchema, BaseSectionImplSchema),
+  previousProjectStateRevision: z.int(),
+  projectStateRevision: z.int(),
+  completedOpIds: z.array(z.string()),
+  pendingOpIds: z.array(z.string()),
+});
+
+export type ProjectStateSectionImplsPatch = z.infer<
+  typeof ProjectStateSectionImplsPatchSchema
+>;
+
+const WebsocketMsgPatchFrontendProjectStateSectionImplsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateSectionImplsPatchSchema,
+  messageType: z
+    .literal("PatchFrontendProjectStateSectionImpls")
+    .default(
+      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpls,
+    ),
+});
+
 const ProjectStateCodeObjsPatchSchema = z.object({
   projectConfigId: IDSchema,
   codeObjs: z.record(IDSchema, CoreSchema),
@@ -7445,6 +7470,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema,
   WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
   WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
+  WebsocketMsgPatchFrontendProjectStateSectionImplsSchema,
   WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
   WebsocketMsgPatchFrontendProjectStateStructuralSchema,
   WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema,

@@ -62,6 +62,7 @@ vi.mock("state/actions/sectionInfos", async () => {
     applyProjectStateOpStatusPatch: vi.fn(),
     applyProjectConfigProjectStatePatch: vi.fn(),
     applySectionImplProjectStatePatch: vi.fn(),
+    applySectionImplsProjectStatePatch: vi.fn(),
     applyStructuralProjectStatePatch: vi.fn(),
     getProjectStateRevision: vi.fn(),
     processProjectStateUpdateFromBackend: vi.fn(),
@@ -750,6 +751,180 @@ describe("openWebSocket", () => {
 
     expect(
       sectionInfos.applySectionImplProjectStatePatch,
+    ).not.toHaveBeenCalled();
+    expect(route_get_latest_project_state).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(
+      sectionInfos.processProjectStateUpdateFromBackend,
+    ).toHaveBeenCalledWith(latestPayload);
+  });
+
+  it("applies section-impls patches when revisions line up", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: {
+        projectState: projectConfig,
+        completedOpIds: [],
+        pendingOpIds: [],
+        projectStateRevision: 74,
+      },
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(74);
+    vi.mocked(sectionInfos.applySectionImplsProjectStatePatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(sectionInfos.applySectionImplsProjectStatePatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "section-impls-patch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpls,
+        content: {
+          projectConfigId: "project-1",
+          sectionImpls: {
+            "section-1": {
+              id: "section-impl-1",
+              type: "TextBlock",
+              textDisplayMode: "default",
+            },
+            "section-2": {
+              id: "section-impl-2",
+              type: "TextBlock",
+              textDisplayMode: "default",
+            },
+          },
+          previousProjectStateRevision: 74,
+          projectStateRevision: 75,
+          completedOpIds: [],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+
+    expect(
+      sectionInfos.applySectionImplsProjectStatePatch,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        previousProjectStateRevision: 74,
+        projectStateRevision: 75,
+      }),
+    );
+    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+  });
+
+  it("resyncs from backend when section-impls patch revision mismatches", async () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {},
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = {};
+      state.sectionVariants = {};
+      state.sectionImpls = {};
+      state.previewSectionVariantMap = {};
+    });
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
+    const sectionInfos = await import("state/actions/sectionInfos");
+    const latestPayload = {
+      projectState: projectConfig,
+      completedOpIds: [],
+      pendingOpIds: [],
+      projectStateRevision: 86,
+    };
+    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+      status: 200,
+      data: latestPayload,
+      hasResponse: true,
+    });
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+      status: 404,
+      data: null,
+      hasResponse: true,
+    });
+    vi.mocked(sectionInfos.getProjectStateRevision).mockReturnValue(84);
+    vi.mocked(sectionInfos.applySectionImplsProjectStatePatch).mockReturnValue(
+      true,
+    );
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    vi.mocked(route_get_latest_project_state).mockClear();
+    vi.mocked(sectionInfos.processProjectStateUpdateFromBackend).mockClear();
+    vi.mocked(sectionInfos.applySectionImplsProjectStatePatch).mockClear();
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "section-impls-patch-mismatch",
+        messageType:
+          WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpls,
+        content: {
+          projectConfigId: "project-1",
+          sectionImpls: {
+            "section-1": {
+              id: "section-impl-1",
+              type: "TextBlock",
+              textDisplayMode: "default",
+            },
+            "section-2": {
+              id: "section-impl-2",
+              type: "TextBlock",
+              textDisplayMode: "default",
+            },
+          },
+          previousProjectStateRevision: 85,
+          projectStateRevision: 86,
+          completedOpIds: [],
+          pendingOpIds: [],
+        },
+      }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      sectionInfos.applySectionImplsProjectStatePatch,
     ).not.toHaveBeenCalled();
     expect(route_get_latest_project_state).toHaveBeenCalledWith({
       projectConfigId: "project-1",

@@ -58,6 +58,7 @@ import {
   ProjectStateOpStatusPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
+  ProjectStateSectionImplsPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   ProjectStateStructuralPatch,
@@ -1260,48 +1261,86 @@ export function applyProjectConfigProjectStatePatch(
 export function applySectionImplProjectStatePatch(
   patch: ProjectStateSectionImplPatch,
 ): boolean {
+  const sectionImplsPatch: ProjectStateSectionImplsPatch = {
+    projectConfigId: patch.projectConfigId,
+    sectionImpls: {
+      [patch.sectionId]: patch.sectionImpl,
+    },
+    previousProjectStateRevision: patch.previousProjectStateRevision,
+    projectStateRevision: patch.projectStateRevision,
+    completedOpIds: patch.completedOpIds,
+    pendingOpIds: patch.pendingOpIds,
+  };
+  return applySectionImplsProjectStatePatch(sectionImplsPatch);
+}
+
+export function applySectionImplsProjectStatePatch(
+  patch: ProjectStateSectionImplsPatch,
+): boolean {
   let applied = false;
   useProjectState.setState((state) => {
     if (state.projectConfig.id !== patch.projectConfigId) {
       return;
     }
-    const sectionVariantId =
-      state.projectConfig.sectionVariantMap[patch.sectionId];
-    if (!sectionVariantId) {
-      return;
-    }
-    const sectionVariant = state.sectionVariants[sectionVariantId];
-    if (!sectionVariant) {
-      return;
-    }
-    const sectionImplId = sectionVariant.impl;
-    const sectionImpl = state.sectionImpls[sectionImplId];
-    if (!sectionImpl) {
-      return;
-    }
-    if (patch.sectionImpl.id !== sectionImplId) {
-      return;
-    }
-    const nextSectionImpl = _.merge(
-      _.cloneDeep(sectionImpl),
-      patch.sectionImpl,
-    );
-    let nextPinnedParams: string[] | null = null;
-    if (
-      isBaseSectionWithParamsImpl(sectionImpl) &&
-      isBaseSectionWithParamsImpl(nextSectionImpl) &&
-      !_.isEqual(sectionImpl.pinnedParams, nextSectionImpl.pinnedParams)
-    ) {
-      nextPinnedParams = nextSectionImpl.pinnedParams;
-    }
-    state.sectionImpls[sectionImplId] = nextSectionImpl;
-    if (nextPinnedParams !== null) {
-      updateShownParamIdsForPinnedParams(
-        state,
-        patch.sectionId,
-        nextPinnedParams,
-        false,
+    type SectionImplUpdate = {
+      nextPinnedParams: string[] | null;
+      nextSectionImpl: BaseSectionImplUnion;
+      sectionId: string;
+      sectionImplId: string;
+    };
+    const sectionImplUpdates: Array<SectionImplUpdate> = [];
+    for (const [sectionId, sectionImplPatch] of Object.entries(
+      patch.sectionImpls,
+    )) {
+      const sectionVariantId = state.projectConfig.sectionVariantMap[sectionId];
+      if (!sectionVariantId) {
+        return;
+      }
+      const sectionVariant = state.sectionVariants[sectionVariantId];
+      if (!sectionVariant) {
+        return;
+      }
+      const sectionImplId = sectionVariant.impl;
+      const sectionImpl = state.sectionImpls[sectionImplId];
+      if (!sectionImpl) {
+        return;
+      }
+      if (sectionImplPatch.id !== sectionImplId) {
+        return;
+      }
+      const nextSectionImpl = _.merge(
+        _.cloneDeep(sectionImpl),
+        sectionImplPatch,
       );
+      let nextPinnedParams: string[] | null = null;
+      if (
+        isBaseSectionWithParamsImpl(sectionImpl) &&
+        isBaseSectionWithParamsImpl(nextSectionImpl) &&
+        !_.isEqual(sectionImpl.pinnedParams, nextSectionImpl.pinnedParams)
+      ) {
+        nextPinnedParams = nextSectionImpl.pinnedParams;
+      }
+      sectionImplUpdates.push({
+        sectionId,
+        sectionImplId,
+        nextSectionImpl,
+        nextPinnedParams,
+      });
+    }
+    if (sectionImplUpdates.length === 0) {
+      return;
+    }
+    for (const sectionImplUpdate of sectionImplUpdates) {
+      state.sectionImpls[sectionImplUpdate.sectionImplId] =
+        sectionImplUpdate.nextSectionImpl;
+      if (sectionImplUpdate.nextPinnedParams !== null) {
+        updateShownParamIdsForPinnedParams(
+          state,
+          sectionImplUpdate.sectionId,
+          sectionImplUpdate.nextPinnedParams,
+          false,
+        );
+      }
     }
     applied = true;
   });

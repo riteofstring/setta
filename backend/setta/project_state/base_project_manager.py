@@ -511,6 +511,7 @@ HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
 GEN_CODE_PREFIX_SUFFIX_DEFERRED_REFRESH_WAIT_S = 0.2
 DEFERRED_CODEGEN_REFRESH_WAIT_S = 0.2
+SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS = 3
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
     "type": "Stack",
@@ -9528,6 +9529,20 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
             return
+        if (
+            len(section_impl_updates) >= SECTION_IMPL_BATCH_PATCH_MIN_SECTIONS
+            and section_impl_updates
+        ):
+            section_impls: dict[ID, BaseSectionImpl] = {}
+            for section_id, section_impl in section_impl_updates:
+                section_impls[section_id] = section_impl
+            await self._broadcast_section_impls_patch(
+                project_config_id=project_state.projectConfig.id,
+                section_impls=section_impls,
+                previous_project_state_revision=previous_project_state_revision,
+                project_state_revision=next_project_state_revision,
+            )
+            return
         for idx, (section_id, section_impl) in enumerate(section_impl_updates):
             await self._broadcast_section_impl_patch(
                 project_config_id=project_state.projectConfig.id,
@@ -9757,6 +9772,36 @@ class BaseProjectManager(ABC):
             project_config_id,
             section_id,
             section_impl,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    async def _broadcast_section_impls_patch(
+        self,
+        *,
+        project_config_id: ID,
+        section_impls: dict[ID, BaseSectionImpl],
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_section_impls_patch project_config_id=%s section_impls=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
+            project_config_id,
+            len(section_impls),
+            previous_project_state_revision,
+            project_state_revision,
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_section_impls_patch(
+            project_config_id,
+            section_impls,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,

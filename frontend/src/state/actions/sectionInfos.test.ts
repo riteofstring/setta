@@ -7,6 +7,7 @@ import {
   applyProjectConfigProjectStatePatch,
   applyProjectStateOpStatusPatch,
   applySectionImplProjectStatePatch,
+  applySectionImplsProjectStatePatch,
   applyStructuralProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
@@ -2024,6 +2025,109 @@ describe("processProjectStateUpdateFromBackend", () => {
         .inputText,
     ).toBe("after");
     expect(getProjectStateRevision("project-1")).toBe(32);
+  });
+
+  it("applies section-impls patches for multiple sections in one update", () => {
+    const sectionOneId = "section-1";
+    const sectionTwoId = "section-2";
+    const variantOneId = "variant-1";
+    const variantTwoId = "variant-2";
+    const implOneId = "terminal-impl-1";
+    const implTwoId = "terminal-impl-2";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {
+        [sectionOneId]: variantOneId,
+        [sectionTwoId]: variantTwoId,
+      },
+      topLevelSections: {},
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig,
+      sections: {
+        [sectionOneId]: createCore({ id: sectionOneId }),
+        [sectionTwoId]: createCore({ id: sectionTwoId }),
+      },
+      sectionImpls: {
+        [implOneId]: createTerminalSectionImpl({
+          id: implOneId,
+          type: SectionTypeEnum.Terminal,
+          isMinimized: false,
+        }),
+        [implTwoId]: createTerminalSectionImpl({
+          id: implTwoId,
+          type: SectionTypeEnum.Terminal,
+          isMinimized: false,
+        }),
+      },
+      sectionVariants: {
+        [variantOneId]: createVariant({
+          id: variantOneId,
+          impl: implOneId,
+          nonPresetImpls: [],
+        }),
+        [variantTwoId]: createVariant({
+          id: variantTwoId,
+          impl: implTwoId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionOneId]: null,
+        [sectionTwoId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+
+    const applied = applySectionImplsProjectStatePatch({
+      projectConfigId: "project-1",
+      sectionImpls: {
+        [sectionOneId]: createTerminalSectionImpl({
+          id: implOneId,
+          type: SectionTypeEnum.Terminal,
+          isMinimized: true,
+        }),
+        [sectionTwoId]: createTerminalSectionImpl({
+          id: implTwoId,
+          type: SectionTypeEnum.Terminal,
+          isMinimized: true,
+        }),
+      },
+      previousProjectStateRevision: 44,
+      projectStateRevision: 45,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    const sectionOneImpl = getCurrEffectiveSectionImpl(
+      useProjectState.getState(),
+      sectionOneId,
+    );
+    const sectionTwoImpl = getCurrEffectiveSectionImpl(
+      useProjectState.getState(),
+      sectionTwoId,
+    );
+    expect(sectionOneImpl.type).toBe(SectionTypeEnum.Terminal);
+    expect(sectionTwoImpl.type).toBe(SectionTypeEnum.Terminal);
+    if (sectionOneImpl.type !== SectionTypeEnum.Terminal) {
+      throw new Error("Expected first section impl to remain terminal.");
+    }
+    if (sectionTwoImpl.type !== SectionTypeEnum.Terminal) {
+      throw new Error("Expected second section impl to remain terminal.");
+    }
+    expect(sectionOneImpl.isMinimized).toBe(true);
+    expect(sectionTwoImpl.isMinimized).toBe(true);
+    expect(getProjectStateRevision("project-1")).toBe(45);
   });
 
   it("applies code-obj patches and updates revision tracking", () => {
