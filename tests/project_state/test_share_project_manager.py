@@ -285,7 +285,6 @@ def _write_project_with_states(
     backend.defaultProjectConfigId = resolved_default_id
     dbe = DBE(root)
     dbe.write_project(backend)
-    default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -1047,8 +1046,8 @@ class TestShareRuntimeState:
                 for text in _sent_text_messages(frontend_messages_b)
             ]
 
-            assert "UpdateFrontendProjectState" in types_a
-            assert "UpdateFrontendProjectState" not in types_b
+            assert "PatchFrontendProjectStateSectionImpl" in types_a
+            assert "PatchFrontendProjectStateSectionImpl" not in types_b
 
             self._loop.run_until_complete(websocket_a.close())
             self._loop.run_until_complete(websocket_b.close())
