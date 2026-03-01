@@ -2,11 +2,13 @@ import {
   createCanvasEngineRenderer,
   type CanvasEngineRenderer,
 } from "canvas-engine/renderer";
+import {
+  CanvasEngineSceneAdapter,
+  type CanvasEngineScenePatchSummary,
+} from "canvas-engine/sceneAdapter";
 import type {
   CanvasEngineBackendSelection,
   CanvasEngineCamera,
-  CanvasEngineRect,
-  CanvasEngineSceneSnapshot,
   CanvasEngineViewport,
 } from "canvas-engine/types";
 import {
@@ -26,16 +28,6 @@ type DragPanState = {
   lastClientY: number;
 };
 
-type TopLevelSectionLayout = {
-  x?: number | null;
-  y?: number | null;
-  zIndex?: number | null;
-  w?: number | null;
-  h?: number | null;
-};
-
-const DEFAULT_RECT_WIDTH = 320;
-const DEFAULT_RECT_HEIGHT = 200;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 
@@ -59,16 +51,29 @@ const DEFAULT_VIEWPORT: CanvasEngineViewport = {
   dpr: 1,
 };
 
+const EMPTY_PATCH_SUMMARY: CanvasEngineScenePatchSummary = {
+  hasChanges: false,
+  sectionsAdded: 0,
+  sectionsUpdated: 0,
+  sectionsRemoved: 0,
+  dataEdgesAdded: 0,
+  dataEdgesUpdated: 0,
+  dataEdgesRemoved: 0,
+  agenticEdgesAdded: 0,
+  agenticEdgesUpdated: 0,
+  agenticEdgesRemoved: 0,
+};
+
 export function CanvasEngineHost() {
   const topLevelSections = useProjectState(
-    (state) =>
-      state.projectConfig.topLevelSections as Record<
-        string,
-        TopLevelSectionLayout
-      >,
+    (state) => state.projectConfig.topLevelSections,
   );
   const activeSectionIds = useProjectState(
     (state) => state.projectConfig.activeIds,
+  );
+  const dataEdges = useProjectState((state) => state.projectConfig.edges);
+  const agenticEdges = useProjectState(
+    (state) => state.projectConfig.agenticEdges,
   );
   const persistedViewport = useProjectState(
     (state) => state.projectConfig.viewport,
@@ -77,9 +82,18 @@ export function CanvasEngineHost() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
   const dragPanStateRef = useRef<DragPanState | null>(null);
+  const sceneAdapterRef = useRef<CanvasEngineSceneAdapter | null>(null);
+  if (!sceneAdapterRef.current) {
+    sceneAdapterRef.current = new CanvasEngineSceneAdapter();
+  }
+  const sceneAdapter = sceneAdapterRef.current;
+
   const [rendererRevision, setRendererRevision] = useState(0);
+  const [projectSceneRevision, setProjectSceneRevision] = useState(0);
   const [backendSelection, setBackendSelection] =
     useState<CanvasEngineBackendSelection>(INITIAL_BACKEND_SELECTION);
+  const [lastPatchSummary, setLastPatchSummary] =
+    useState<CanvasEngineScenePatchSummary>(EMPTY_PATCH_SUMMARY);
   const [camera, setCamera] = useState<CanvasEngineCamera>({
     x: persistedViewport?.x ?? DEFAULT_CAMERA.x,
     y: persistedViewport?.y ?? DEFAULT_CAMERA.y,
@@ -92,39 +106,30 @@ export function CanvasEngineHost() {
   const [viewport, setViewport] =
     useState<CanvasEngineViewport>(DEFAULT_VIEWPORT);
 
-  const sceneSnapshot = useMemo<CanvasEngineSceneSnapshot>(() => {
-    const activeSet = new Set(activeSectionIds);
-    const rects: CanvasEngineRect[] = [];
-    for (const [sectionId, layout] of Object.entries(topLevelSections)) {
-      const positionX = typeof layout.x === "number" ? layout.x : 0;
-      const positionY = typeof layout.y === "number" ? layout.y : 0;
-      const width =
-        typeof layout.w === "number" && layout.w > 0
-          ? layout.w
-          : DEFAULT_RECT_WIDTH;
-      const height =
-        typeof layout.h === "number" && layout.h > 0
-          ? layout.h
-          : DEFAULT_RECT_HEIGHT;
-      const isActive = activeSet.has(sectionId);
-      rects.push({
-        id: sectionId,
-        x: positionX,
-        y: positionY,
-        width,
-        height,
-        zIndex: layout.zIndex ?? 0,
-        isActive,
-        color: getSectionColor(sectionId, isActive),
-      });
+  useEffect(() => {
+    const patchSummary = sceneAdapter.applyProjectState({
+      topLevelSections,
+      activeSectionIds,
+      edges: dataEdges,
+      agenticEdges,
+    });
+    setLastPatchSummary(patchSummary);
+    if (patchSummary.hasChanges) {
+      setProjectSceneRevision((value) => value + 1);
     }
+  }, [
+    activeSectionIds,
+    agenticEdges,
+    dataEdges,
+    sceneAdapter,
+    topLevelSections,
+  ]);
 
-    return {
-      camera,
-      clearColor: [0.07, 0.08, 0.1],
-      rects,
-    };
-  }, [activeSectionIds, camera, topLevelSections]);
+  const snapshotResult = useMemo(
+    () => sceneAdapter.createSnapshot(camera, viewport),
+    [camera, projectSceneRevision, sceneAdapter, viewport],
+  );
+  const sceneSnapshot = snapshotResult.snapshot;
 
   useEffect(() => {
     const hostElement = hostRef.current;
@@ -208,7 +213,7 @@ export function CanvasEngineHost() {
       return;
     }
     renderer.render(sceneSnapshot, viewport);
-  }, [rendererRevision, sceneSnapshot, viewport]);
+  }, [projectSceneRevision, rendererRevision, sceneSnapshot, viewport]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -309,7 +314,19 @@ export function CanvasEngineHost() {
         backendSelection.webgl2Available,
       )}
       data-canvas-engine-fallback-reason={backendSelection.fallbackReason ?? ""}
-      data-canvas-engine-rect-count={sceneSnapshot.rects.length}
+      data-canvas-engine-rect-count={snapshotResult.totalRectCount}
+      data-canvas-engine-visible-rect-count={snapshotResult.visibleRectCount}
+      data-canvas-engine-data-edge-count={snapshotResult.totalDataEdgeCount}
+      data-canvas-engine-agentic-edge-count={
+        snapshotResult.totalAgenticEdgeCount
+      }
+      data-canvas-engine-last-sections-added={lastPatchSummary.sectionsAdded}
+      data-canvas-engine-last-sections-updated={
+        lastPatchSummary.sectionsUpdated
+      }
+      data-canvas-engine-last-sections-removed={
+        lastPatchSummary.sectionsRemoved
+      }
       data-canvas-engine-camera-x={camera.x.toFixed(2)}
       data-canvas-engine-camera-y={camera.y.toFixed(2)}
       data-canvas-engine-camera-zoom={camera.zoom.toFixed(3)}
@@ -326,33 +343,6 @@ export function CanvasEngineHost() {
       />
     </div>
   );
-}
-
-function getSectionColor(
-  sectionId: string,
-  isActive: boolean,
-): [number, number, number] {
-  const hash = hashString(sectionId);
-  const red = 0.3 + ((hash & 0xff) / 255) * 0.4;
-  const green = 0.25 + (((hash >> 8) & 0xff) / 255) * 0.45;
-  const blue = 0.2 + (((hash >> 16) & 0xff) / 255) * 0.5;
-
-  if (!isActive) {
-    return [red * 0.7, green * 0.7, blue * 0.7];
-  }
-  return [
-    Math.min(1, red + 0.2),
-    Math.min(1, green + 0.2),
-    Math.min(1, blue + 0.2),
-  ];
-}
-
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
 }
 
 function clamp(value: number, min: number, max: number): number {

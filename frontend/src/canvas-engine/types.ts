@@ -31,8 +31,33 @@ export type CanvasEngineRect = {
   color: [number, number, number];
 };
 
+export type CanvasEngineDataEdge = {
+  id: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  hidden: boolean;
+  selected: boolean;
+  zIndex: number;
+};
+
+export type CanvasEngineAgenticEdge = {
+  id: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: string;
+  hidden: boolean;
+  selected: boolean;
+  zIndex: number;
+};
+
 export type CanvasEngineSceneSnapshot = {
   camera: CanvasEngineCamera;
   clearColor: [number, number, number];
   rects: CanvasEngineRect[];
+  dataEdges: CanvasEngineDataEdge[];
+  agenticEdges: CanvasEngineAgenticEdge[];
 };
