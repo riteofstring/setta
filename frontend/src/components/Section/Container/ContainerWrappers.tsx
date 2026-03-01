@@ -17,6 +17,7 @@ function _DndSlotAndDndWatcher({
   visibility,
   isEditingViewMode,
   isUserView,
+  flattenNonGroupWrapper,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -36,6 +37,7 @@ function _DndSlotAndDndWatcher({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
+        flattenNonGroupWrapper={flattenNonGroupWrapper}
         style={style}
       >
         {children}
@@ -52,6 +54,7 @@ export const DndSlotAndDndWatcher = React.memo(
     p.visibility === n.visibility &&
     p.isEditingViewMode === n.isEditingViewMode &&
     p.isUserView === n.isUserView &&
+    p.flattenNonGroupWrapper === n.flattenNonGroupWrapper &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -65,6 +68,7 @@ function _DndWatcherAndContainer({
   visibility,
   isEditingViewMode,
   isUserView,
+  flattenNonGroupWrapper,
   style,
   children,
 }) {
@@ -124,6 +128,7 @@ function _DndWatcherAndContainer({
       trueDragListeners={wrappedDragListeners}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
+      flattenNonGroupWrapper={flattenNonGroupWrapper}
       className={className}
       style={fullStyle}
     >
