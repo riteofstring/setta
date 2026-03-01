@@ -5167,7 +5167,10 @@ class BaseProjectManager(ABC):
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_section_impl_patch_no_name_validation(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def set_social_url(self, x: SetSocialUrlRequest):
@@ -5545,6 +5548,42 @@ class BaseProjectManager(ABC):
             updateFileWatcher=updateFileWatcher,
             broadcast_name_validation_errors=False,
             validate_name_rules=False,
+        )
+
+    async def _update_and_broadcast_section_impl_patch_no_name_validation(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_id: ID,
+        updateFileWatcher: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=False,
+        )
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            return
+        section_variant_id = project_state.projectConfig.sectionVariantMap.get(
+            section_id
+        )
+        if section_variant_id is None:
+            raise KeyError(f"Section {section_id} missing section variant id.")
+        section_variant = project_state.sectionVariants.get(section_variant_id)
+        if section_variant is None:
+            raise KeyError(f"Section variant {section_variant_id} not found.")
+        section_impl = project_state.sectionImpls.get(section_variant.impl)
+        if section_impl is None:
+            raise KeyError(f"Section impl {section_variant.impl} not found.")
+        await self._broadcast_section_impl_patch(
+            project_config_id=project_state.projectConfig.id,
+            section_id=section_id,
+            section_impl=section_impl,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
         )
 
     async def _merge_and_broadcast_ui_only_project_state(

@@ -628,16 +628,73 @@ async def test_chat_section_state_still_triggers_full_refresh() -> None:
 
         refresh_calls = 0
         original_refresh = manager._refresh_codegen_state
+        sender = manager.websocket_msg_handler
+        project_state_broadcast_calls = 0
+        section_impl_patch_calls: list[dict[str, int | str | list[str]]] = []
+        original_project_state_broadcast = sender.broadcast_project_state
+        original_section_impl_patch_broadcast = (
+            sender.broadcast_project_state_section_impl_patch
+        )
 
         async def record_refresh(next_state):
             nonlocal refresh_calls
             refresh_calls += 1
             await original_refresh(next_state)
 
+        async def record_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision=None,
+        ) -> None:
+            nonlocal project_state_broadcast_calls
+            project_state_broadcast_calls += 1
+            await original_project_state_broadcast(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+
+        async def record_section_impl_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            section_impl_patch_calls.append(
+                {
+                    "projectConfigId": project_config_id_for_patch,
+                    "sectionId": section_id_for_patch,
+                    "sectionImplId": section_impl_for_patch.id,
+                    "sectionImplType": section_impl_for_patch.type,
+                    "previousProjectStateRevision": previous_project_state_revision,
+                    "projectStateRevision": project_state_revision,
+                    "completedOpIds": list(completed_op_ids),
+                    "pendingOpIds": list(pending_op_ids),
+                }
+            )
+            await original_section_impl_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before = refresh_calls
+            before_project_state = project_state_broadcast_calls
+            before_patch_count = len(section_impl_patch_calls)
             # Chat state contributes to dependency graph/codegen value output.
             await manager.set_chat_section_state(
                 SetChatSectionStateRequest(
@@ -649,8 +706,20 @@ async def test_chat_section_state_still_triggers_full_refresh() -> None:
             await manager.finish_pending_operations(timeout=5.0)
         finally:
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_impl_patch_broadcast  # type: ignore[method-assign]
+            )
 
         assert refresh_calls - before > 0
+        assert project_state_broadcast_calls == before_project_state
+        patches = section_impl_patch_calls[before_patch_count:]
+        assert len(patches) == 1
+        patch = patches[0]
+        assert patch["projectConfigId"] == project_config_id
+        assert patch["sectionId"] == section_ids.chat_section_id
+        assert patch["sectionImplType"] == SectionType.Chat
+        assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
         updated = manager.get_single_config_state(project_config_id)
         chat_impl = get_curr_effective_section_impl_with_type_guard(
             updated, section_ids.chat_section_id, ChatSectionImpl
