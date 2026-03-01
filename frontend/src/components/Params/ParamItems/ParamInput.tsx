@@ -4,7 +4,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValueIfPresent,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -65,7 +65,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         return;
       }
       useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
           sectionId,
           paramInfoId,
@@ -192,7 +192,7 @@ const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, paramInfoId, value) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValueIfPresent<"BaseChildlessCodeObj">(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
           sectionId,
           paramInfoId,

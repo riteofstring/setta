@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady, postBackend } from "../helpers";
+import {
+  ensureAppReady,
+  postBackend,
+  readSceneGraphRendererPerfLabels,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -32,7 +36,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   );
 
   const allZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThanOrEqual(allZoom);
+  expect(coreZoom).toBeGreaterThan(allZoom);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -45,8 +49,50 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(paramZoom).toBeGreaterThanOrEqual(allZoom);
-  expect(coreZoom).toBeGreaterThanOrEqual(paramZoom);
+  expect(paramZoom).toBeGreaterThan(allZoom);
+  expect(coreZoom).toBeGreaterThan(paramZoom);
+});
+
+test("settings all-settings flow exposes scene-graph renderer perf labels", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+    localStorage.setItem("setta.sceneGraphRenderer.backend", "auto");
+    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "2");
+    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!root) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const labels = await readSceneGraphRendererPerfLabels(page);
+  expect(labels.enabled).toBe(true);
+  expect(labels.requestedBackend).toBe("auto");
+  expect(["webgpu", "webgl", "dom"]).toContain(labels.resolvedBackend);
+  expect(labels.probeStatus).toBe("ready");
+  expect(labels.domIslandRadius).toBe(2);
+
+  await testInfo.attach("scene-graph-renderer-perf-labels.json", {
+    body: Buffer.from(JSON.stringify(labels, null, 2)),
+    contentType: "application/json",
+  });
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -104,8 +150,7 @@ async function waitForOverviewCount(
 ): Promise<void> {
   await setOverviewTab(page, "Overview");
   await page.waitForFunction(
-    (count) =>
-      document.querySelectorAll("#OverviewPane li").length === count,
+    (count) => document.querySelectorAll("#OverviewPane li").length === count,
     expected,
   );
 }
@@ -163,7 +208,9 @@ function findViewModeId(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
   name: string,
 ): string {
-  for (const viewMode of Object.values(payload.projectState.projectConfig.viewModes)) {
+  for (const viewMode of Object.values(
+    payload.projectState.projectConfig.viewModes,
+  )) {
     if (viewMode.name === name) {
       return viewMode.id;
     }
