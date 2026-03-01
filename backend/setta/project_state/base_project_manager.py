@@ -5182,7 +5182,10 @@ class BaseProjectManager(ABC):
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     async def get_chat_section_chat_id(
