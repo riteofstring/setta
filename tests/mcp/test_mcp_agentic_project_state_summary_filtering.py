@@ -48,15 +48,26 @@ class _DummyProjectManager:
             codeObjs=project_state_single.codeObjs,
             codeObjImpls=project_state_single.codeObjImpls,
             codeObjVariants=project_state_single.codeObjVariants,
-            projectConfigs={project_state_single.projectConfig.id: project_state_single.projectConfig},
+            projectConfigs={
+                project_state_single.projectConfig.id: project_state_single.projectConfig
+            },
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)
         self.summary_calls = 0
+        self.single_config_state_reads = 0
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
         return self.history.get_current()
+
+    def get_single_config_state(
+        self, project_config_id: ID
+    ) -> ProjectStateSingleConfig:
+        if project_config_id != self._single.projectConfig.id:
+            raise KeyError(f"Unexpected project config id: {project_config_id}")
+        self.single_config_state_reads += 1
+        return self._single
 
     async def get_latest_project_state_summary(self, _request):
         self.summary_calls += 1
@@ -185,9 +196,7 @@ def _build_context_with_headers(
         meta=None,
         session=object(),
         lifespan_context=object(),
-        request=_DummyRequest(
-            headers=headers
-        ),
+        request=_DummyRequest(headers=headers),
     )
     return Context(fastmcp=mcp_server, request_context=request_context)
 
@@ -228,7 +237,9 @@ def _build_context_with_raw_meta(
 
 
 @pytest.mark.asyncio
-async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path) -> None:
+async def test_get_latest_project_state_summary_filtered_by_scope_meta(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -284,6 +295,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
     assert manager.summary_calls == 0
+    assert manager.single_config_state_reads == 1
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -295,7 +307,9 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_path) -> None:
+async def test_get_latest_project_state_summary_filtered_by_scope_headers(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -351,6 +365,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_pa
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
     assert manager.summary_calls == 0
+    assert manager.single_config_state_reads == 1
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -478,7 +493,9 @@ async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> N
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
@@ -607,7 +624,9 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
 
     init_tool = mcp_server.get_tool("set_agentic_context")
     assert init_tool is not None
@@ -640,9 +659,9 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
 
 
 @pytest.mark.asyncio
-async def test_set_agentic_context_rejects_blank_frontend_affinity_token(tmp_path) -> (
-    None
-):
+async def test_set_agentic_context_rejects_blank_frontend_affinity_token(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,
@@ -691,7 +710,9 @@ async def test_set_agentic_context_rejects_blank_frontend_affinity_token(tmp_pat
     )
 
     session = type("_Session", (), {})()
-    ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
+    ctx = _build_context_without_agentic_metadata(
+        mcp_server=mcp_server, session=session
+    )
     init_tool = mcp_server.get_tool("set_agentic_context")
     assert init_tool is not None
 
@@ -845,7 +866,9 @@ async def test_resolve_agentic_context_rejects_blank_frontend_affinity_token_met
 
 
 @pytest.mark.asyncio
-async def test_report_completion_status_allowed_in_scoped_chat_context(tmp_path) -> None:
+async def test_report_completion_status_allowed_in_scoped_chat_context(
+    tmp_path,
+) -> None:
     dbe = DBE(tmp_path)
     (
         project_state,

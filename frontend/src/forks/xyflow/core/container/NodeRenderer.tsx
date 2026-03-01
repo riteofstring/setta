@@ -15,15 +15,7 @@ const selector = (s: ReactFlowState) => ({
   panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
-type NodeRendererProps = {
-  renderSceneOnlySections: boolean;
-  domIslandSectionIds: ReadonlySet<string>;
-};
-
-const NodeRenderer = ({
-  renderSceneOnlySections,
-  domIslandSectionIds,
-}: NodeRendererProps) => {
+const NodeRenderer = () => {
   const { panActivationKeyPressed } = useReactFlow(selector, shallow);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
@@ -31,12 +23,6 @@ const NodeRenderer = ({
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
   const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
-  const renderedNodeIds = useMemo(() => {
-    if (!renderSceneOnlySections) {
-      return nodeIds;
-    }
-    return nodeIds.filter((nodeId) => domIslandSectionIds.has(nodeId));
-  }, [domIslandSectionIds, nodeIds, renderSceneOnlySections]);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const resizeObserver = useMemo(() => {
@@ -62,7 +48,7 @@ const NodeRenderer = ({
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {renderedNodeIds.map((nodeId) => (
+      {nodeIds.map((nodeId) => (
         <NodeWrapper
           key={nodeId}
           id={nodeId}
