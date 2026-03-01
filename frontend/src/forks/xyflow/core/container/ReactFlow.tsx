@@ -205,6 +205,15 @@ const ReactFlow = () => {
       data-scene-graph-renderer-enabled={
         sceneGraphPerfLabels.enabled ? "1" : "0"
       }
+      data-scene-graph-renderer-rollout-default-on={
+        sceneGraphPerfLabels.rolloutDefaultOn ? "1" : "0"
+      }
+      data-scene-graph-renderer-rollout-default-on-reason={
+        sceneGraphPerfLabels.rolloutDefaultOnReason
+      }
+      data-scene-graph-renderer-has-enabled-storage-override={
+        sceneGraphPerfLabels.hasEnabledStorageOverride ? "1" : "0"
+      }
       data-scene-graph-renderer-backend-requested={
         sceneGraphPerfLabels.requestedBackend
       }

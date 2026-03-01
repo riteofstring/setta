@@ -93,6 +93,9 @@ test("settings all-settings flow exposes scene-graph renderer perf labels", asyn
 
   const labels = await readSceneGraphRendererPerfLabels(page);
   expect(labels.enabled).toBe(true);
+  expect(labels.rolloutDefaultOn).toBe(true);
+  expect(labels.rolloutDefaultOnReason).toBe("project_config_name_default");
+  expect(labels.hasEnabledStorageOverride).toBe(true);
   expect(labels.requestedBackend).toBe("auto");
   expect(["webgpu", "webgl", "dom"]).toContain(labels.resolvedBackend);
   expect(labels.probeStatus).toBe("ready");
@@ -140,6 +143,11 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
 
   const rolloutLabels = await readSceneGraphRendererPerfLabels(page);
   expect(rolloutLabels.enabled).toBe(true);
+  expect(rolloutLabels.rolloutDefaultOn).toBe(true);
+  expect(rolloutLabels.rolloutDefaultOnReason).toBe(
+    "project_config_name_default",
+  );
+  expect(rolloutLabels.hasEnabledStorageOverride).toBe(false);
   expect(rolloutLabels.requestedBackend).toBe("auto");
   expect(["webgpu", "webgl", "dom"]).toContain(rolloutLabels.resolvedBackend);
 
@@ -160,6 +168,11 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
   });
   const rolloutCoreLabels = await readSceneGraphRendererPerfLabels(page);
   expect(rolloutCoreLabels.enabled).toBe(true);
+  expect(rolloutCoreLabels.rolloutDefaultOn).toBe(true);
+  expect(rolloutCoreLabels.rolloutDefaultOnReason).toBe(
+    "project_config_name_default",
+  );
+  expect(rolloutCoreLabels.hasEnabledStorageOverride).toBe(false);
 
   await page.evaluate(() => {
     localStorage.setItem("setta.sceneGraphRenderer.enabled", "0");
@@ -185,6 +198,11 @@ test("settings project defaults renderer on across tabs and keeps explicit kill 
 
   const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
   expect(killSwitchLabels.enabled).toBe(false);
+  expect(killSwitchLabels.rolloutDefaultOn).toBe(true);
+  expect(killSwitchLabels.rolloutDefaultOnReason).toBe(
+    "project_config_name_default",
+  );
+  expect(killSwitchLabels.hasEnabledStorageOverride).toBe(true);
   expect(killSwitchLabels.resolvedBackend).toBe("dom");
   expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
 });
@@ -232,6 +250,11 @@ test("scene graph canary allowlist enables non-settings project ids and keeps ex
 
     const canaryLabels = await readSceneGraphRendererPerfLabels(page);
     expect(canaryLabels.enabled).toBe(true);
+    expect(canaryLabels.rolloutDefaultOn).toBe(true);
+    expect(canaryLabels.rolloutDefaultOnReason).toBe(
+      "project_config_id_canary",
+    );
+    expect(canaryLabels.hasEnabledStorageOverride).toBe(false);
     expect(canaryLabels.requestedBackend).toBe("auto");
     expect(["webgpu", "webgl", "dom"]).toContain(canaryLabels.resolvedBackend);
 
@@ -252,6 +275,11 @@ test("scene graph canary allowlist enables non-settings project ids and keeps ex
 
     const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
     expect(killSwitchLabels.enabled).toBe(false);
+    expect(killSwitchLabels.rolloutDefaultOn).toBe(true);
+    expect(killSwitchLabels.rolloutDefaultOnReason).toBe(
+      "project_config_id_canary",
+    );
+    expect(killSwitchLabels.hasEnabledStorageOverride).toBe(true);
     expect(killSwitchLabels.resolvedBackend).toBe("dom");
     expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
   } finally {
@@ -316,6 +344,11 @@ test("scene graph canary allowlist enables non-settings project names and keeps 
 
     const canaryLabels = await readSceneGraphRendererPerfLabels(page);
     expect(canaryLabels.enabled).toBe(true);
+    expect(canaryLabels.rolloutDefaultOn).toBe(true);
+    expect(canaryLabels.rolloutDefaultOnReason).toBe(
+      "project_config_name_canary",
+    );
+    expect(canaryLabels.hasEnabledStorageOverride).toBe(false);
     expect(canaryLabels.requestedBackend).toBe("auto");
     expect(["webgpu", "webgl", "dom"]).toContain(canaryLabels.resolvedBackend);
 
@@ -336,6 +369,11 @@ test("scene graph canary allowlist enables non-settings project names and keeps 
 
     const killSwitchLabels = await readSceneGraphRendererPerfLabels(page);
     expect(killSwitchLabels.enabled).toBe(false);
+    expect(killSwitchLabels.rolloutDefaultOn).toBe(true);
+    expect(killSwitchLabels.rolloutDefaultOnReason).toBe(
+      "project_config_name_canary",
+    );
+    expect(killSwitchLabels.hasEnabledStorageOverride).toBe(true);
     expect(killSwitchLabels.resolvedBackend).toBe("dom");
     expect(killSwitchLabels.resolutionReason).toBe("renderer_disabled");
   } finally {

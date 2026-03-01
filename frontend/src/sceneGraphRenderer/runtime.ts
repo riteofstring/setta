@@ -7,6 +7,7 @@ import type {
   SceneGraphRendererBackendPreference,
   SceneGraphRendererFlags,
 } from "./flags";
+import type { SceneGraphRendererRolloutDefaultOnReason } from "./rollout";
 
 export type SceneGraphRendererResolvedBackend = "webgpu" | "webgl" | "dom";
 
@@ -30,6 +31,9 @@ export type SceneGraphRendererBackendSelection = {
 
 export type SceneGraphRendererPerfLabels = {
   enabled: boolean;
+  rolloutDefaultOn: boolean;
+  rolloutDefaultOnReason: SceneGraphRendererRolloutDefaultOnReason;
+  hasEnabledStorageOverride: boolean;
   requestedBackend: SceneGraphRendererBackendPreference;
   resolvedBackend: SceneGraphRendererResolvedBackend;
   resolutionReason: SceneGraphRendererBackendResolutionReason;
@@ -127,9 +131,14 @@ export function buildSceneGraphRendererPerfLabels(
   flags: SceneGraphRendererFlags,
   capabilities: SceneGraphRendererCapabilities,
   selection: SceneGraphRendererBackendSelection,
+  rolloutDefaultOnReason: SceneGraphRendererRolloutDefaultOnReason,
+  hasEnabledStorageOverride: boolean,
 ): SceneGraphRendererPerfLabels {
   return {
     enabled: flags.enabled,
+    rolloutDefaultOn: rolloutDefaultOnReason !== "none",
+    rolloutDefaultOnReason,
+    hasEnabledStorageOverride,
     requestedBackend: selection.requestedBackend,
     resolvedBackend: selection.resolvedBackend,
     resolutionReason: selection.reason,

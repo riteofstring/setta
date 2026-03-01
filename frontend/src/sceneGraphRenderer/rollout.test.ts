@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SceneGraphRendererFlags } from "./flags";
 import {
   isSceneGraphRendererDefaultOnSurface,
+  resolveSceneGraphRendererRolloutDefaultOnReason,
   resolveSceneGraphRendererRolloutFlags,
   type SceneGraphRendererRolloutSurface,
 } from "./rollout";
@@ -79,6 +80,54 @@ describe("scene graph renderer rollout policy", () => {
         ["chief_quick"],
       ),
     ).toBe(true);
+  });
+
+  it("reports settings project rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "settings-config-id",
+          projectConfigName: "settings",
+          activeViewModeName: "Core",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports canary rollout reasons for project id and project name", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "canary-project-config-id",
+          projectConfigName: "home",
+          activeViewModeName: "Overview",
+        }),
+        ["canary-project-config-id"],
+      ),
+    ).toBe("project_config_id_canary");
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "other-project-config-id",
+          projectConfigName: "chief_quick",
+          activeViewModeName: "Overview",
+        }),
+        [],
+        ["chief_quick"],
+      ),
+    ).toBe("project_config_name_canary");
+  });
+
+  it("reports none when a surface is outside rollout targets", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "non-target-config-id",
+          projectConfigName: "home",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("none");
   });
 
   it("does not default-enable unrelated surfaces", () => {

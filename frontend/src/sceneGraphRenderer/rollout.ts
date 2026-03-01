@@ -6,6 +6,14 @@ export type SceneGraphRendererRolloutSurface = {
   activeViewModeName: string;
 };
 
+export type SceneGraphRendererRolloutDefaultOnReason =
+  | "none"
+  | "project_config_name_default"
+  | "project_config_name_canary"
+  | "project_config_id_default"
+  | "project_config_id_canary"
+  | "surface_exact_match";
+
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES: ReadonlySet<string> =
   new Set(["settings"]);
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_IDS: ReadonlySet<string> =
@@ -18,21 +26,33 @@ export function isSceneGraphRendererDefaultOnSurface(
   rolloutProjectConfigIds: readonly string[] = [],
   rolloutProjectConfigNames: readonly string[] = [],
 ): boolean {
-  if (
-    isSceneGraphRendererDefaultOnProjectConfigName(
-      surface.projectConfigName,
-      rolloutProjectConfigNames,
-    )
-  ) {
-    return true;
-  }
-  if (
-    isSceneGraphRendererDefaultOnProjectConfigId(
-      surface.projectConfigId,
+  return (
+    resolveSceneGraphRendererRolloutDefaultOnReason(
+      surface,
       rolloutProjectConfigIds,
-    )
-  ) {
-    return true;
+      rolloutProjectConfigNames,
+    ) !== "none"
+  );
+}
+
+export function resolveSceneGraphRendererRolloutDefaultOnReason(
+  surface: SceneGraphRendererRolloutSurface,
+  rolloutProjectConfigIds: readonly string[] = [],
+  rolloutProjectConfigNames: readonly string[] = [],
+): SceneGraphRendererRolloutDefaultOnReason {
+  const projectConfigNameReason = resolveProjectConfigNameRolloutReason(
+    surface.projectConfigName,
+    rolloutProjectConfigNames,
+  );
+  if (projectConfigNameReason !== null) {
+    return projectConfigNameReason;
+  }
+  const projectConfigIdReason = resolveProjectConfigIdRolloutReason(
+    surface.projectConfigId,
+    rolloutProjectConfigIds,
+  );
+  if (projectConfigIdReason !== null) {
+    return projectConfigIdReason;
   }
   for (const candidateSurface of SCENE_GRAPH_RENDERER_DEFAULT_ON_SURFACES) {
     if (
@@ -40,10 +60,10 @@ export function isSceneGraphRendererDefaultOnSurface(
       candidateSurface.projectConfigName === surface.projectConfigName &&
       candidateSurface.activeViewModeName === surface.activeViewModeName
     ) {
-      return true;
+      return "surface_exact_match";
     }
   }
-  return false;
+  return "none";
 }
 
 export function resolveSceneGraphRendererRolloutFlags(input: {
@@ -71,34 +91,34 @@ export function resolveSceneGraphRendererRolloutFlags(input: {
   };
 }
 
-function isSceneGraphRendererDefaultOnProjectConfigId(
+function resolveProjectConfigIdRolloutReason(
   projectConfigId: string,
   rolloutProjectConfigIds: readonly string[],
-): boolean {
+): SceneGraphRendererRolloutDefaultOnReason | null {
   if (SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_IDS.has(projectConfigId)) {
-    return true;
+    return "project_config_id_default";
   }
   for (const candidateProjectConfigId of rolloutProjectConfigIds) {
     if (candidateProjectConfigId === projectConfigId) {
-      return true;
+      return "project_config_id_canary";
     }
   }
-  return false;
+  return null;
 }
 
-function isSceneGraphRendererDefaultOnProjectConfigName(
+function resolveProjectConfigNameRolloutReason(
   projectConfigName: string,
   rolloutProjectConfigNames: readonly string[],
-): boolean {
+): SceneGraphRendererRolloutDefaultOnReason | null {
   if (
     SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES.has(projectConfigName)
   ) {
-    return true;
+    return "project_config_name_default";
   }
   for (const candidateProjectConfigName of rolloutProjectConfigNames) {
     if (candidateProjectConfigName === projectConfigName) {
-      return true;
+      return "project_config_name_canary";
     }
   }
-  return false;
+  return null;
 }

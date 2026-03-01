@@ -310,6 +310,15 @@ export async function setOverviewTab(
 
 type SceneGraphRendererPerfLabels = {
   enabled: boolean;
+  rolloutDefaultOn: boolean;
+  rolloutDefaultOnReason:
+    | "none"
+    | "project_config_name_default"
+    | "project_config_name_canary"
+    | "project_config_id_default"
+    | "project_config_id_canary"
+    | "surface_exact_match";
+  hasEnabledStorageOverride: boolean;
   requestedBackend: "auto" | "webgpu" | "webgl" | "dom";
   resolvedBackend: "webgpu" | "webgl" | "dom";
   resolutionReason: string;
@@ -409,6 +418,30 @@ export async function readSceneGraphRendererPerfLabels(
       }
       return parsed;
     };
+    const parseRolloutDefaultOnReason = (
+      value: string | undefined,
+      fallback: SceneGraphRendererPerfLabels["rolloutDefaultOnReason"],
+    ): SceneGraphRendererPerfLabels["rolloutDefaultOnReason"] => {
+      if (value === "project_config_name_default") {
+        return "project_config_name_default";
+      }
+      if (value === "project_config_name_canary") {
+        return "project_config_name_canary";
+      }
+      if (value === "project_config_id_default") {
+        return "project_config_id_default";
+      }
+      if (value === "project_config_id_canary") {
+        return "project_config_id_canary";
+      }
+      if (value === "surface_exact_match") {
+        return "surface_exact_match";
+      }
+      if (value === "none") {
+        return "none";
+      }
+      return fallback;
+    };
 
     const fallbackRequestedBackend = parseBackend(
       dataset.sceneGraphRendererBackendRequested,
@@ -432,6 +465,17 @@ export async function readSceneGraphRendererPerfLabels(
       enabled:
         runtimeLabels.enabled ??
         parseBool(dataset.sceneGraphRendererEnabled, false),
+      rolloutDefaultOn:
+        runtimeLabels.rolloutDefaultOn ??
+        parseBool(dataset.sceneGraphRendererRolloutDefaultOn, false),
+      rolloutDefaultOnReason: parseRolloutDefaultOnReason(
+        runtimeLabels.rolloutDefaultOnReason ??
+          dataset.sceneGraphRendererRolloutDefaultOnReason,
+        "none",
+      ),
+      hasEnabledStorageOverride:
+        runtimeLabels.hasEnabledStorageOverride ??
+        parseBool(dataset.sceneGraphRendererHasEnabledStorageOverride, false),
       requestedBackend:
         runtimeLabels.requestedBackend ?? fallbackRequestedBackend,
       resolvedBackend: runtimeLabels.resolvedBackend ?? fallbackResolvedBackend,

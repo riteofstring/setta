@@ -13,6 +13,7 @@ import {
   type SceneGraphRendererFlags,
 } from "./flags";
 import {
+  resolveSceneGraphRendererRolloutDefaultOnReason,
   resolveSceneGraphRendererRolloutFlags,
   type SceneGraphRendererRolloutSurface,
 } from "./rollout";
@@ -100,6 +101,20 @@ export function useSceneGraphRendererRuntime(
     rolloutSurface.projectConfigName,
   ]);
 
+  const rolloutDefaultOnReason = useMemo(() => {
+    return resolveSceneGraphRendererRolloutDefaultOnReason(
+      rolloutSurface,
+      rolloutProjectConfigIds,
+      rolloutProjectConfigNames,
+    );
+  }, [
+    rolloutProjectConfigIds,
+    rolloutProjectConfigNames,
+    rolloutSurface.activeViewModeName,
+    rolloutSurface.projectConfigId,
+    rolloutSurface.projectConfigName,
+  ]);
+
   useEffect(() => {
     let cancelled = false;
     probeSceneGraphRendererCapabilities().then((nextCapabilities) => {
@@ -118,8 +133,20 @@ export function useSceneGraphRendererRuntime(
   }, [flags, capabilities]);
 
   const perfLabels = useMemo(() => {
-    return buildSceneGraphRendererPerfLabels(flags, capabilities, selection);
-  }, [capabilities, flags, selection]);
+    return buildSceneGraphRendererPerfLabels(
+      flags,
+      capabilities,
+      selection,
+      rolloutDefaultOnReason,
+      hasEnabledStorageOverride,
+    );
+  }, [
+    capabilities,
+    flags,
+    hasEnabledStorageOverride,
+    rolloutDefaultOnReason,
+    selection,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

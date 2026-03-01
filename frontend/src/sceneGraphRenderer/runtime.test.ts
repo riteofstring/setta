@@ -207,10 +207,15 @@ describe("buildSceneGraphRendererPerfLabels", () => {
       flags,
       capabilities,
       selection,
+      "project_config_name_default",
+      false,
     );
 
     expect(labels).toEqual({
       enabled: true,
+      rolloutDefaultOn: true,
+      rolloutDefaultOnReason: "project_config_name_default",
+      hasEnabledStorageOverride: false,
       requestedBackend: "auto",
       resolvedBackend: "webgpu",
       resolutionReason: "auto_webgpu_selected",
