@@ -162,6 +162,18 @@ async function setFrontendActiveIds(
   }, nextActiveIds);
 }
 
+async function setFrontendActiveIdsAndWait(
+  page: Page,
+  nextActiveIds: string[],
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      await setFrontendActiveIds(page, nextActiveIds);
+      return await readFrontendActiveIds(page);
+    })
+    .toEqual(nextActiveIds);
+}
+
 async function rewriteNextRevealActiveSectionId(
   page: Page,
   replacementSectionId: string,
@@ -508,10 +520,7 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
         seedResult.projectConfigId,
         requestedSectionName,
       );
-    await setFrontendActiveIds(page, [temporaryInitialSectionId]);
-    await expect
-      .poll(async () => readFrontendActiveIds(page))
-      .toEqual([temporaryInitialSectionId]);
+    await setFrontendActiveIdsAndWait(page, [temporaryInitialSectionId]);
 
     await rewriteNextRevealActiveSectionId(
       page,

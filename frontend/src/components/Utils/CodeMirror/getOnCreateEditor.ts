@@ -1,6 +1,8 @@
 import { Completion, CompletionSource } from "@codemirror/autocomplete";
 import { useReactFlow } from "forks/xyflow/core/store";
 
+type InitialEditorActivation = "tab" | { clientX: number; clientY: number };
+
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
@@ -18,6 +20,12 @@ export function getOnCreateEditor({
   divId,
   value,
   defaultVal,
+}: {
+  initialEvent: InitialEditorActivation;
+  setRealIsInitialized: (isInitialized: boolean) => void;
+  divId: string;
+  value: string;
+  defaultVal: string | undefined;
 }) {
   return (view) => {
     if (view.contentDOM?.focus) {
@@ -28,7 +36,9 @@ export function getOnCreateEditor({
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;
       const pos = view.posAtCoords({ x: clientX, y: clientY });
-      view.dispatch({ selection: { anchor: pos, head: pos } });
+      if (pos !== null) {
+        view.dispatch({ selection: { anchor: pos, head: pos } });
+      }
     }
 
     fixPlaceholderCursor(divId, value, defaultVal);
