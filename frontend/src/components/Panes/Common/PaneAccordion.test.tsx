@@ -77,7 +77,9 @@ describe("PaneAccordion", () => {
       )?.[0] ?? "";
 
     expect(enabledTriggerTag).toContain('aria-expanded="true"');
+    expect(enabledTriggerTag).toContain("cursor-pointer");
     expect(disabledTriggerTag).toContain('aria-expanded="false"');
     expect(disabledTriggerTag).toContain('disabled=""');
+    expect(disabledTriggerTag).not.toContain("cursor-pointer");
   });
 });

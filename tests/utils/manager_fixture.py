@@ -30,7 +30,6 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
-
 __all__ = [
     "ProjectManagerFixture",
     "SettingsManagerFixture",
@@ -259,22 +258,16 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
     while True:
         try:
-            work_item = manager.message_queue.get_nowait()
+            coroutine, future, frontend_op_id = manager.message_queue.get_nowait()
         except asyncio.QueueEmpty:
             break
 
         # We are tearing down the manager and won't run the queue to completion.
         # Close the coroutine to avoid "coroutine was never awaited" warnings.
-        work_item.coroutine.close()
-        for future in work_item.futures:
-            if not future.done():
-                future.cancel()
-        manager._finalize_frontend_op(work_item.frontend_op_id, success=False)
-        manager._finalize_coalesced_frontend_ops(
-            work_item.frontend_op_id,
-            tuple(work_item.coalesced_frontend_op_ids),
-            success=False,
-        )
+        coroutine.close()
+        if not future.done():
+            future.cancel()
+        manager._finalize_frontend_op(frontend_op_id, success=False)
         manager.message_queue.task_done()
 
     try:
@@ -301,11 +294,8 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
-
 def _populate_project_fixture_files(setta_root: Path) -> None:
     _seed_minimal_setta_files(setta_root)
-
-
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")
