@@ -947,10 +947,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  PatchFrontendProjectStateActiveViewMode:
-    "PatchFrontendProjectStateActiveViewMode",
-  PatchFrontendProjectStateProjectConfig:
-    "PatchFrontendProjectStateProjectConfig",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5047,7 +5043,6 @@ const ProjectStateSingleConfigWithCompletedOpIdsSchema = z.object({
   projectState: ProjectStateSingleConfigSchema,
   completedOpIds: z.array(z.string()),
   pendingOpIds: z.array(z.string()),
-  projectStateRevision: z.union([z.int(), z.null()]).default(null),
 });
 
 export type ProjectStateSingleConfigWithCompletedOpIds = z.infer<
@@ -5060,52 +5055,6 @@ const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
-});
-
-const ProjectStateActiveViewModePatchSchema = z.object({
-  projectConfigId: IDSchema,
-  activeViewModeId: IDSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateActiveViewModePatch = z.infer<
-  typeof ProjectStateActiveViewModePatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateActiveViewModePatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateActiveViewMode")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode,
-    ),
-});
-
-const ProjectStateProjectConfigPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  projectConfig: ProjectConfigSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateProjectConfigPatch = z.infer<
-  typeof ProjectStateProjectConfigPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateProjectConfigSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateProjectConfigPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateProjectConfig")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateProjectConfig,
-    ),
 });
 
 const WebsocketMsgTerminalMetadataSchema = z.object({
@@ -7165,8 +7114,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgNameValidationErrorsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema,
-  WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,

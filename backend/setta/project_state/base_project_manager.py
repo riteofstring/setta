@@ -258,10 +258,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
-    BaseParentCodeObjImpl,
-)
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -273,7 +270,6 @@ from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -633,12 +629,6 @@ class BaseProjectManager(ABC):
         self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
-        self._single_config_state_cache_by_project_config: dict[
-            ID, ProjectStateSingleConfig
-        ] = {}
-        self._project_state_summary_cache_by_project_config: dict[ID, object] = {}
-        self._single_config_state_cache_revision = self.history.revision
-        self._last_persisted_history_revision: int | None = None
         watch_loop = None
         try:
             watch_loop = asyncio.get_running_loop()
@@ -1820,14 +1810,8 @@ class BaseProjectManager(ABC):
             if section_id not in valid_top_level_section_ids:
                 continue
             merged_layouts[section_id] = layout
-        if (
-            project_config.topLevelSections == merged_layouts
-            and view_mode.topLevelSections == merged_layouts
-        ):
-            return
         project_config.topLevelSections = merged_layouts
         view_mode.topLevelSections = merged_layouts
-        self._mark_current_backend_revision_dirty()
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -1855,11 +1839,10 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def load_json_sources(
@@ -2009,7 +1992,7 @@ class BaseProjectManager(ABC):
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
-            self.watch_code_files(projectState)
+            self.watch_code_files()
             self.watch_code_manager.sync_from_backend(self.project_state_backend)
 
     def _bootstrap_watch_code_baselines(self) -> None:
@@ -2127,7 +2110,6 @@ class BaseProjectManager(ABC):
                 self.add_new_history_entry(
                     coalesce_key=coalesce_key,
                     coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-                    project_config_id=projectConfigId,
                 )
 
             on_before_mutation = record_history
@@ -2223,7 +2205,7 @@ class BaseProjectManager(ABC):
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         gen_code = self._require_python_codegen(x.projectConfigId)
         result = await gen_code.set_callable(
@@ -2265,7 +2247,7 @@ class BaseProjectManager(ABC):
     )
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
@@ -2279,7 +2261,7 @@ class BaseProjectManager(ABC):
     )
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
@@ -2293,7 +2275,7 @@ class BaseProjectManager(ABC):
         self, x: SetProjectConfigCodegenTargetsRequest
     ):
         """Update the codegen targets for a project configuration."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         self._apply_project_config_codegen_targets(
             project_state=project_state,
@@ -2428,7 +2410,7 @@ class BaseProjectManager(ABC):
                 for target in existing_targets
                 if target.language != ProjectCodegenLanguage.python
             ]
-        self.add_new_history_entry(project_config_id=project_config_id)
+        self.add_new_history_entry()
         self._apply_project_config_codegen_targets(
             project_state=project_state,
             codegen_targets=next_targets,
@@ -2963,67 +2945,6 @@ class BaseProjectManager(ABC):
         if did_update:
             await self.update_and_broadcast_project_state(project_state)
 
-    async def _try_incremental_param_value_codegen_update(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-        param_id: ID,
-        value: str,
-    ) -> bool:
-        project_config = project_state.projectConfig
-        if not project_config_has_codegen_language(
-            project_config,
-            ProjectCodegenLanguage.python,
-        ):
-            return False
-        project_config_id = project_config.id
-        gen_code = self.gen_code.get(project_config_id)
-        if gen_code is None:
-            return False
-        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        if dep_key not in gen_code.code_generator.dep_graph.graph:
-            return False
-        gen_code.code_generator.change_value(dep_key, value)
-        if self.lsp_writers.full is not None:
-            await gen_code.sync_lsp(gen_code.code)
-        else:
-            await gen_code.diagnostics_state.reset(
-                clear_gen_code=True,
-                clear_unmapped=True,
-            )
-        maybe_update_gen_python_code_section(project_state, gen_code.generated_code)
-        maybe_update_gen_python_metadata_section(project_state, gen_code.meta_code)
-        self._refresh_plugin_codegen_outputs(project_state)
-        return True
-
-    async def _set_param_entered_value_and_broadcast_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-        section_id: ID,
-        param_id: ID,
-        value: str,
-    ) -> None:
-        async with self._project_state_lock.write_lock():
-            project_state.validate_for_param_value_update(
-                section_id=section_id,
-                param_id=param_id,
-            )
-            updated_incrementally = (
-                await self._try_incremental_param_value_codegen_update(
-                    project_state,
-                    section_id=section_id,
-                    param_id=param_id,
-                    value=value,
-                )
-            )
-            if not updated_incrementally:
-                await self._refresh_codegen_state(project_state)
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_project_state_snapshot(project_state)
-
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
@@ -3041,7 +2962,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=(f"param:{x.projectConfigId}:{x.sectionId}:{x.paramInfoId}"),
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
@@ -3050,19 +2970,10 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        effective_impl = get_curr_effective_code_obj_impl(
+        await self.update_and_broadcast_project_state(
             project_state,
-            x.sectionId,
-            x.paramInfoId,
-        )
-        effective_value = x.value
-        if isinstance(effective_impl, BaseChildlessCodeObjImpl):
-            effective_value = effective_impl.value
-        await self._set_param_entered_value_and_broadcast_project_state(
-            project_state,
-            section_id=x.sectionId,
-            param_id=x.paramInfoId,
-            value=effective_value,
+            broadcast_name_validation_errors=False,
+            validate_name_rules=False,
         )
 
     @enqueue_method
@@ -3074,7 +2985,7 @@ class BaseProjectManager(ABC):
     )
     async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
         """Toggle ignoring type errors for the targeted section entry."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
@@ -3117,7 +3028,7 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticsMuteRequest
     ):
         """Toggle muting LSP diagnostics for a code section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostics_mute(project_state, x.sectionId, x.mute)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
@@ -3136,7 +3047,7 @@ class BaseProjectManager(ABC):
         self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
     ):
         """Toggle suppressing an LSP diagnostic code for a code section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code_section_diagnostic_code_suppression(
             project_state,
@@ -3166,7 +3077,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.terminalSectionId,
         )
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         get_curr_effective_section_impl_with_type_guard(
             project_state, x.sectionId, BaseCodeSectionImpl
@@ -3232,7 +3143,7 @@ class BaseProjectManager(ABC):
                     attached_terminal_id,
                 )
                 return attached_terminal_id
-        self.add_new_history_entry(project_config_id=projectConfigId)
+        self.add_new_history_entry()
         terminal_id = ensure_code_section_attached_terminal(
             self.settings_file.settings,
             project_state,
@@ -3264,7 +3175,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"param:{x.projectConfigId}:{x.sectionId}:{x.codeObjId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         normalized_name = validate_param_name(
@@ -3279,7 +3189,6 @@ class BaseProjectManager(ABC):
         )
         await self.update_and_broadcast_project_state(
             project_state,
-            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -3314,7 +3223,6 @@ class BaseProjectManager(ABC):
         project_state.codeObjs[x.codeObjId].name = normalized_name
         await self.update_and_broadcast_project_state(
             project_state,
-            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -3333,7 +3241,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         canonical_path = normalize_workspace_path(x.binding.canonical_path)
         updated_binding = CodeFileBinding(
@@ -3355,7 +3263,7 @@ class BaseProjectManager(ABC):
         """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_locks(project_state, x.sectionIds)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3368,7 +3276,7 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3381,7 +3289,7 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3394,7 +3302,7 @@ class BaseProjectManager(ABC):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3433,10 +3341,7 @@ class BaseProjectManager(ABC):
         await self.watch_code_manager.handle_code_section_update(
             project_state, x.sectionId, x.code
         )
-        await self._update_and_broadcast_project_state_no_name_validation(
-            project_state,
-            updateFileWatcher=False,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3487,8 +3392,7 @@ class BaseProjectManager(ABC):
                 project_state, x.sectionId, formatted_code
             )
             await self._update_and_broadcast_project_state_no_name_validation(
-                project_state,
-                updateFileWatcher=False,
+                project_state
             )
             return
         if isinstance(section_impl, GenPythonCodeSectionImpl):
@@ -3516,8 +3420,7 @@ class BaseProjectManager(ABC):
             python_target.genCodePrefix = formatted_prefix
             python_target.genCodeSuffix = formatted_suffix
             await self._update_and_broadcast_project_state_no_name_validation(
-                project_state,
-                updateFileWatcher=False,
+                project_state
             )
             return
         raise HTTPException(
@@ -3573,7 +3476,7 @@ class BaseProjectManager(ABC):
         """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_edge_inputs(self, x: SetSectionEdgeInputsRequest):
@@ -3623,7 +3526,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_edge(self, x: CreateEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         edge = Edge(
             sourceSectionId=x.sourceSectionId,
@@ -3646,21 +3549,21 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_edge(project_state, x.edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_edges(project_state, x.edgeIds)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         reconnect_edge(
             project_state,
@@ -3683,14 +3586,14 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         edge_kwargs = {
             "sourceSectionId": x.sourceSectionId,
@@ -3709,21 +3612,21 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_agentic_edge(project_state, x.edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_agentic_edges(project_state, x.edgeIds)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_agentic_edges(project_state, x.edges)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
@@ -3797,7 +3700,7 @@ class BaseProjectManager(ABC):
     )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
             self.settings_file.settings,
@@ -3823,7 +3726,7 @@ class BaseProjectManager(ABC):
         Returns:
             CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
         """
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         apply_top_level_section_layout_snapshot(
             project_state,
@@ -3868,7 +3771,7 @@ class BaseProjectManager(ABC):
     )
     async def create_child_sections(self, x: CreateChildSectionsRequest):
         """Create one or more child sections beneath a parent section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
@@ -3891,7 +3794,7 @@ class BaseProjectManager(ABC):
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
         """Expand incrementer-driven child sections for a repeated structure."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
@@ -3904,7 +3807,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
-        self.add_new_history_entry(project_config_id=projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
@@ -3924,7 +3827,7 @@ class BaseProjectManager(ABC):
     )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
@@ -3940,7 +3843,7 @@ class BaseProjectManager(ABC):
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
         """Shrink an incrementer-driven group by deleting trailing children."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self.update_and_broadcast_project_state(project_state)
@@ -3954,7 +3857,7 @@ class BaseProjectManager(ABC):
     )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         await self.update_and_broadcast_project_state(project_state)
@@ -3968,7 +3871,7 @@ class BaseProjectManager(ABC):
     )
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         """Duplicate the current section state into an additional variant."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
@@ -3982,7 +3885,7 @@ class BaseProjectManager(ABC):
     )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         add_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
@@ -3996,7 +3899,7 @@ class BaseProjectManager(ABC):
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
@@ -4010,7 +3913,7 @@ class BaseProjectManager(ABC):
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_selected_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramInfoIds
@@ -4209,7 +4112,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
-        deleted_any = False
         for project_config_id in project_config_ids:
             project_config = self.project_state_backend.projectConfigs[
                 project_config_id
@@ -4238,19 +4140,13 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
-            deleted_any = True
         self.project_state_backend.validate_default_project_id()
-        if deleted_any:
-            self._mark_current_backend_revision_dirty()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: ID):
-        if self.project_state_backend.defaultProjectConfigId == projectConfigId:
-            return
         self.project_state_backend.defaultProjectConfigId = projectConfigId
-        self._mark_current_backend_revision_dirty()
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
@@ -4275,7 +4171,6 @@ class BaseProjectManager(ABC):
         )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
         new_name = self.project_state_backend.projectConfigs[projectConfigId].name
-        self._mark_current_backend_revision_dirty()
         if previous_output_root.exists() and old_name != new_name:
             shutil.rmtree(previous_output_root)
         if projectConfigId in self._plugin_codegen_output_root_by_project_config:
@@ -4405,7 +4300,6 @@ class BaseProjectManager(ABC):
         set_text_block_text(project_state, x.sectionId, x.text)
         await self.update_and_broadcast_project_state(
             project_state,
-            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -4413,28 +4307,19 @@ class BaseProjectManager(ABC):
     async def set_prompt_template(self, x: SetPromptTemplateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_template(project_state, x.sectionId, x.template)
-        await self.update_and_broadcast_project_state(
-            project_state,
-            updateFileWatcher=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_prompt_inputs(self, x: SetPromptInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        await self.update_and_broadcast_project_state(
-            project_state,
-            updateFileWatcher=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_prompt_format(self, x: SetPromptFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_format(project_state, x.sectionId, x.format)
-        await self.update_and_broadcast_project_state(
-            project_state,
-            updateFileWatcher=False,
-        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
@@ -4444,11 +4329,9 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
-        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
-        if project_config.activeIds == x.activeIds:
-            return
-        project_config.activeIds = x.activeIds
-        self._mark_current_backend_revision_dirty()
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].activeIds = x.activeIds
 
     @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):
@@ -4460,7 +4343,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
         )
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.viewport = x.viewport
@@ -4476,7 +4358,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         visibility_by_section_id = {
             section_id: True for section_id in project_state.sections.keys()
@@ -4544,23 +4426,7 @@ class BaseProjectManager(ABC):
             next_view_mode.viewportInitialized
         )
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
-            return
-        await self._broadcast_active_view_mode_patch(
-            project_config_id=x.projectConfigId,
-            active_view_mode_id=x.activeViewModeId,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_is_editing_view_mode(
@@ -4570,7 +4436,7 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = (
             not project_state.projectConfig.isEditingViewMode
         )
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_section_visibility(
@@ -4600,7 +4466,7 @@ class BaseProjectManager(ABC):
         next_visibility = not all_visible
         for section_id in x.sectionIds:
             visibility_by_section_id[section_id] = next_visibility
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_user_facing(
@@ -4609,14 +4475,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def toggle_view_mode_tab(self, x: ToggleViewModeTabRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isTab = not view_mode.isTab
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
@@ -4624,7 +4490,7 @@ class BaseProjectManager(ABC):
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         normalized_name = validate_view_mode_name(project_state, x.viewModeId, x.name)
         view_mode.name = normalized_name
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_view_mode_sort_order(self, x: SetViewModeSortOrderRequest) -> None:
@@ -4647,11 +4513,11 @@ class BaseProjectManager(ABC):
             seen.add(view_mode_id)
         for index, view_mode_id in enumerate(ordered_ids):
             view_modes[view_mode_id].sortIndex = index
-        await self._merge_and_broadcast_ui_only_project_config_patch(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         view_modes = project_state.projectConfig.viewModes
         if x.viewModeId not in view_modes:
@@ -4713,11 +4579,10 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_tag_color(project_state, x.sectionId, x.tagColor)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4731,11 +4596,10 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_style_color(project_state, x.sectionId, x.styleColor)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4752,7 +4616,7 @@ class BaseProjectManager(ABC):
         set_meta_control_show_section_title(
             project_state, x.sectionId, x.showSectionTitle
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_heading_as_section_name(
@@ -4768,7 +4632,7 @@ class BaseProjectManager(ABC):
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_master_font_size(
@@ -4776,7 +4640,7 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_master_font_size(project_state, x.sectionId, x.masterFontSizePx)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_meta_control_style(
@@ -4786,13 +4650,13 @@ class BaseProjectManager(ABC):
         set_text_block_meta_control_style(
             project_state, x.sectionId, x.metaControlStyle
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_callable_hide_params(project_state, x.sectionId, x.hideParams)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_hide_unpinned_params(
@@ -4802,25 +4666,23 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
-        project_state.refresh_shown_param_ids_for_section(x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_parent_default_child_section_type(
@@ -4887,7 +4749,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"browserColumnWidths:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_column_widths(
@@ -4896,31 +4757,39 @@ class BaseProjectManager(ABC):
             x.columnWidth,
             x.typesColumnWidth,
         )
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        # Pure UI state: avoid running full `update()` (which can trigger expensive
+        # codegen/LSP refresh) for a simple view-mode toggle.
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        await self._broadcast_project_state_snapshot(project_state)
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_saved_searches(self, x: SetBrowserSavedSearchesRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_saved_searches(project_state, x.sectionId, x.savedSearches)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
@@ -4949,7 +4818,7 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
@@ -5073,7 +4942,7 @@ class BaseProjectManager(ABC):
         if x.newParentId is None:
             if not x.positionsById:
                 raise KeyError("Expected positionsById when moving sections to pane.")
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
+            self.add_new_history_entry()
             for section_id in x.sectionIds:
                 position = x.positionsById.get(section_id)
                 if position is None:
@@ -5086,7 +4955,7 @@ class BaseProjectManager(ABC):
                 raise KeyError(
                     "Expected newIndex when moving sections into parent section."
                 )
-            self.add_new_history_entry(project_config_id=x.projectConfigId)
+            self.add_new_history_entry()
             move_sections_to_parent_section(
                 project_state, x.newParentId, x.sectionIds, x.newIndex
             )
@@ -5106,7 +4975,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         move_params_to_parent(
             self.settings_file.settings,
@@ -5120,7 +4989,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         next_state = copy.deepcopy(project_state)
         for move in x.moves:
@@ -5136,7 +5005,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def indent_params(self, x: IndentParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         indent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
@@ -5145,7 +5014,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def unindent_params(self, x: UnindentParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         unindent_params(
             self.settings_file.settings, project_state, x.sectionId, x.paramIds
@@ -5177,13 +5046,13 @@ class BaseProjectManager(ABC):
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_param_selected(project_state, x.sectionId, x.paramInfoId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def unselect_all_params(self, x: UnselectAllParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         unselect_all_params(project_state)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
@@ -5219,39 +5088,10 @@ class BaseProjectManager(ABC):
             raise KeyError("Missing default project config.")
         return self.get_single_config_state(default_id)
 
-    def _invalidate_single_config_state_cache(self) -> None:
-        self._single_config_state_cache_by_project_config.clear()
-        self._project_state_summary_cache_by_project_config.clear()
-        self._single_config_state_cache_revision = self.history.revision
-
-    def _refresh_single_config_state_cache_for_revision(self) -> None:
-        history_revision = self.history.revision
-        if history_revision == self._single_config_state_cache_revision:
-            return
-        self._single_config_state_cache_by_project_config.clear()
-        self._project_state_summary_cache_by_project_config.clear()
-        self._single_config_state_cache_revision = history_revision
-
     def get_single_config_state(self, projectConfigId: ID):
-        self._refresh_single_config_state_cache_for_revision()
-        backend = self.project_state_backend
-        if projectConfigId not in backend.projectConfigs:
-            self._single_config_state_cache_by_project_config.pop(projectConfigId, None)
-            return convert_backend_to_single_config(backend, projectConfigId)
-        if projectConfigId not in self._single_config_state_cache_by_project_config:
-            self._single_config_state_cache_by_project_config[projectConfigId] = (
-                convert_backend_to_single_config(backend, projectConfigId)
-            )
-        return self._single_config_state_cache_by_project_config[projectConfigId]
-
-    def get_project_state_summary(self, projectConfigId: ID):
-        self._refresh_single_config_state_cache_for_revision()
-        if projectConfigId not in self._project_state_summary_cache_by_project_config:
-            project_state = self.get_single_config_state(projectConfigId)
-            self._project_state_summary_cache_by_project_config[projectConfigId] = (
-                build_project_state_summary(project_state)
-            )
-        return self._project_state_summary_cache_by_project_config[projectConfigId]
+        return convert_backend_to_single_config(
+            self.project_state_backend, projectConfigId
+        )
 
     def _find_section_ids_for_code_obj(
         self,
@@ -5304,52 +5144,16 @@ class BaseProjectManager(ABC):
             validate_name_rules=False,
         )
 
-    async def _merge_and_broadcast_ui_only_project_state(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        """Persist UI-only section changes without codegen or watcher refresh."""
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_project_state_snapshot(project_state)
-
-    async def _merge_and_broadcast_ui_only_project_config_patch(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        previous_project_state_revision = self.history.revision
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-            next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
-            return
-        await self._broadcast_project_config_patch(
-            project_config=project_state.projectConfig,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
-        )
-
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        project_state_revision = self.history.revision
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         logger.debug(
-            "broadcast_project_state project_config_id=%s revision=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
+            "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,
-            project_state_revision,
             len(project_state.sections),
             len(project_state.codeObjs),
             len(project_state.sectionVariants),
@@ -5358,70 +5162,6 @@ class BaseProjectManager(ABC):
         )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
-            completed_op_ids,
-            pending_op_ids,
-            project_state_revision,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    def _consume_frontend_op_status_for_broadcast(self) -> tuple[list[str], list[str]]:
-        self._mark_current_frontend_op_completed_before_broadcast()
-        completed_op_ids = self.completed_op_ids_since_last_broadcast
-        pending_op_ids = list(self.pending_frontend_ops.keys())
-        return completed_op_ids, pending_op_ids
-
-    async def _broadcast_active_view_mode_patch(
-        self,
-        *,
-        project_config_id: ID,
-        active_view_mode_id: ID,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_active_view_mode_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config_id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_active_view_mode_patch(
-            project_config_id,
-            active_view_mode_id,
-            previous_project_state_revision,
-            project_state_revision,
-            completed_op_ids,
-            pending_op_ids,
-        )
-        self.completed_op_ids_since_last_broadcast = []
-
-    async def _broadcast_project_config_patch(
-        self,
-        *,
-        project_config: ProjectConfig,
-        previous_project_state_revision: int,
-        project_state_revision: int,
-    ) -> None:
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        logger.debug(
-            "broadcast_project_config_patch project_config_id=%s previous_revision=%s revision=%s completed_ops=%s pending_ops=%s",
-            project_config.id,
-            previous_project_state_revision,
-            project_state_revision,
-            len(completed_op_ids),
-            len(pending_op_ids),
-        )
-        await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
-            project_config.id,
-            project_config,
-            previous_project_state_revision,
-            project_state_revision,
             completed_op_ids,
             pending_op_ids,
         )
@@ -5469,7 +5209,6 @@ class BaseProjectManager(ABC):
     @project_state_backend.setter
     def project_state_backend(self, x: ProjectStateBackend):
         self.history.set_current(x)
-        self._invalidate_single_config_state_cache()
 
     def project_state_backend_getter_fn(self):
         return self.project_state_backend
@@ -5479,127 +5218,21 @@ class BaseProjectManager(ABC):
         trigger_autosave: bool = True,
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
-        project_config_id: ID | None = None,
     ):
-        copy_func: Callable[[ProjectStateBackend], ProjectStateBackend] | None = None
-        if project_config_id is not None:
-
-            def copy_project_config_backend(
-                backend: ProjectStateBackend,
-            ) -> ProjectStateBackend:
-                return self._copy_backend_for_project_config_history_entry(
-                    backend,
-                    project_config_id,
-                )
-
-            copy_func = copy_project_config_backend
         self.history.add_current_copy(
-            coalesce_key=coalesce_key,
-            coalesce_window_s=coalesce_window_s,
-            copy_func=copy_func,
+            coalesce_key=coalesce_key, coalesce_window_s=coalesce_window_s
         )
-        self._invalidate_single_config_state_cache()
         if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
-
-    def _copy_backend_for_project_config_history_entry(
-        self,
-        backend: ProjectStateBackend,
-        project_config_id: ID,
-    ) -> ProjectStateBackend:
-        if project_config_id not in backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-
-        project_config = backend.projectConfigs[project_config_id]
-        project_core = prepare_sections_for_copy(
-            backend,
-            set(project_config.sectionVariantMap.keys()),
-        )
-
-        sections = dict(backend.sections)
-        for section_id in project_core.sections.keys():
-            if section_id not in backend.sections:
-                raise KeyError(f"Missing section {section_id} in backend state.")
-            sections[section_id] = copy.deepcopy(backend.sections[section_id])
-
-        section_impls = dict(backend.sectionImpls)
-        for section_impl_id in project_core.sectionImpls.keys():
-            if section_impl_id not in backend.sectionImpls:
-                raise KeyError(
-                    f"Missing section impl {section_impl_id} in backend state."
-                )
-            section_impls[section_impl_id] = copy.deepcopy(
-                backend.sectionImpls[section_impl_id]
-            )
-
-        section_variants = dict(backend.sectionVariants)
-        for variant_id in project_core.sectionVariants.keys():
-            if variant_id not in backend.sectionVariants:
-                raise KeyError(
-                    f"Missing section variant {variant_id} in backend state."
-                )
-            section_variants[variant_id] = copy.deepcopy(
-                backend.sectionVariants[variant_id]
-            )
-
-        code_objs = dict(backend.codeObjs)
-        for code_obj_id in project_core.codeObjs.keys():
-            if code_obj_id not in backend.codeObjs:
-                raise KeyError(f"Missing code obj {code_obj_id} in backend state.")
-            code_objs[code_obj_id] = copy.deepcopy(backend.codeObjs[code_obj_id])
-
-        code_obj_impls = dict(backend.codeObjImpls)
-        for code_obj_impl_id in project_core.codeObjImpls.keys():
-            if code_obj_impl_id not in backend.codeObjImpls:
-                raise KeyError(
-                    f"Missing code obj impl {code_obj_impl_id} in backend state."
-                )
-            code_obj_impls[code_obj_impl_id] = copy.deepcopy(
-                backend.codeObjImpls[code_obj_impl_id]
-            )
-
-        code_obj_variants = dict(backend.codeObjVariants)
-        for code_obj_variant_id in project_core.codeObjVariants.keys():
-            if code_obj_variant_id not in backend.codeObjVariants:
-                raise KeyError(
-                    f"Missing code obj variant {code_obj_variant_id} in backend state."
-                )
-            code_obj_variants[code_obj_variant_id] = copy.deepcopy(
-                backend.codeObjVariants[code_obj_variant_id]
-            )
-
-        project_configs = dict(backend.projectConfigs)
-        project_configs[project_config_id] = copy.deepcopy(project_config)
-
-        return ProjectStateBackend(
-            sections=sections,
-            sectionImpls=section_impls,
-            sectionVariants=section_variants,
-            codeObjs=code_objs,
-            codeObjImpls=code_obj_impls,
-            codeObjVariants=code_obj_variants,
-            projectConfigs=project_configs,
-            defaultProjectConfigId=backend.defaultProjectConfigId,
-            appDefinition=copy.deepcopy(backend.appDefinition),
-        )
-
-    def _mark_current_backend_revision_dirty(self) -> None:
-        # Some lightweight metadata paths intentionally mutate the current backend
-        # object in place (without pushing a new history entry). Bump revision so
-        # revision-keyed caches and save dedupe stay correct for those paths.
-        self.history.set_current(self.project_state_backend)
-        self._invalidate_single_config_state_cache()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
         self.history.undo(x.steps)
-        self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state()
 
     @enqueue_method
     async def redo(self, x: RedoRequest):
         self.history.redo(x.steps)
-        self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state()
 
     async def update_and_broadcast_all_project_state(self):
@@ -5610,14 +5243,15 @@ class BaseProjectManager(ABC):
                 )
             )
 
-    @enqueue_method(require_serialization=False)
+    @enqueue_method
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         """Return the most recent project state snapshot for the requested config."""
-        async with self._project_state_lock.read_lock():
-            projectState = self.get_single_config_state(x.projectConfigId)
-            return projectState
+        projectState = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return projectState
 
-    @enqueue_method(require_serialization=False)
+    @enqueue_method
     @project_state_tool(
         tool_type=SettaToolType.init,
         access_type="read",
@@ -5627,8 +5261,10 @@ class BaseProjectManager(ABC):
         self, x: GetLatestProjectStateSummaryRequest
     ):
         """Return a lightweight summary for the requested project config."""
-        async with self._project_state_lock.read_lock():
-            return self.get_project_state_summary(x.projectConfigId)
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(
@@ -5735,28 +5371,11 @@ class BaseProjectManager(ABC):
             self.project_state_backend,
         )
 
-    def watch_code_files(
-        self,
-        project_state: ProjectStateSingleConfig | None = None,
-    ):
-        project_state_for_watch_refresh: ProjectStateSingleConfig | None = None
-        if project_state is not None:
-            project_configs = self.project_state_backend.projectConfigs
-            project_config_id = project_state.projectConfig.id
-            if project_config_id in project_configs:
-                updated_section_ids = set(project_state.projectConfig.sectionVariantMap)
-                has_shared_sections = any(
-                    bool(updated_section_ids.intersection(config.sectionVariantMap))
-                    for other_project_config_id, config in project_configs.items()
-                    if other_project_config_id != project_config_id
-                )
-                if not has_shared_sections:
-                    project_state_for_watch_refresh = project_state
+    def watch_code_files(self):
         self.code_files.watch_code_files(
             f"{self._file_watcher_category_prefix}_CodeFiles",
             self.project_state_backend_getter_fn,
             self.reload_code_sections,
-            project_state=project_state_for_watch_refresh,
         )
 
     async def reload_code_sections(

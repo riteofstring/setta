@@ -110,63 +110,29 @@ def filter_for_ui_display(
 def _add_descendants(
     param_id: ID, children_map: dict[ID, list[ID]], target_set: set[ID]
 ):
-    """Add all descendants of a parameter to the target set."""
-    to_visit = list(children_map.get(param_id, []))
-    while to_visit:
-        child_id = to_visit.pop()
-        if child_id in target_set:
-            continue
+    """Recursively add all descendants of a parameter to the target set."""
+    for child_id in children_map.get(param_id, []):
         target_set.add(child_id)
-        to_visit.extend(children_map.get(child_id, []))
+        _add_descendants(child_id, children_map, target_set)
 
 
-def _build_parent_map(children_map: dict[ID, list[ID]]) -> dict[ID, ID]:
-    parent_map: dict[ID, ID] = {}
-    for parent_id, children in children_map.items():
-        for child_id in children:
-            parent_map[child_id] = parent_id
-    return parent_map
+def _should_include_param(
+    param_id: ID, candidates: set[ID], children_map: dict[ID, list[ID]]
+) -> bool:
+    """Check if a param should be included (is a leaf or has children in candidates)."""
+    if param_id not in candidates:
+        return False
 
+    children = children_map.get(param_id, [])
+    if not children:  # Leaf node
+        return True
 
-def _compute_included_params(
-    candidates: set[ID],
-    children_map: dict[ID, list[ID]],
-    parent_map: dict[ID, ID],
-) -> set[ID]:
-    if not candidates:
-        return set()
-
-    remaining_candidate_children: dict[ID, int] = {}
-    has_included_candidate_child: dict[ID, bool] = {}
-    ready: list[ID] = []
-    for param_id in candidates:
-        candidate_child_count = 0
-        for child_id in children_map.get(param_id, []):
-            if child_id in candidates:
-                candidate_child_count += 1
-        remaining_candidate_children[param_id] = candidate_child_count
-        has_included_candidate_child[param_id] = False
-        if candidate_child_count == 0:
-            ready.append(param_id)
-
-    included: set[ID] = set()
-    while ready:
-        current = ready.pop()
-        children = children_map.get(current, [])
-        is_leaf = len(children) == 0
-        current_included = is_leaf or has_included_candidate_child[current]
-        if current_included:
-            included.add(current)
-
-        parent_id = parent_map.get(current)
-        if parent_id in remaining_candidate_children:
-            if current_included:
-                has_included_candidate_child[parent_id] = True
-            remaining_candidate_children[parent_id] -= 1
-            if remaining_candidate_children[parent_id] == 0:
-                ready.append(parent_id)
-
-    return included
+    # Has children - include only if at least one child is also included
+    return any(
+        _should_include_param(child, candidates, children_map)
+        for child in children
+        if child in candidates
+    )
 
 
 def _build_area(
@@ -177,25 +143,25 @@ def _build_area(
 ) -> ShownParamIdDetails:
     """Build a area including only params that are leaves or have children in the area."""
     result = ShownParamIdDetails()
-    parent_map = _build_parent_map(children_map)
-    included = _compute_included_params(candidates, children_map, parent_map)
+    included = set()
 
     # Build the result for params that should be included
     for param_id in param_ids:
-        if param_id not in included:
-            continue
-        path = id_to_id_path.get(param_id, [])
-        for path_param_id in path:
-            result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
-                path_param_id, ()
-            )
+        if _should_include_param(param_id, candidates, children_map):
+            path = id_to_id_path.get(param_id, [])
+            for path_param_id in path:
+                result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
+                    path_param_id, ()
+                )
+            included.add(param_id)
 
     # Identify top-level params (those with no parents in the included set)
     for param_id in param_ids:
-        if param_id not in included:
-            continue
-        parent_id = parent_map.get(param_id)
-        if parent_id not in included:
-            result.topLevelParamIds.append(param_id)
+        if param_id in included:
+            has_parent = any(
+                param_id in children_map.get(other, []) for other in included
+            )
+            if not has_parent:
+                result.topLevelParamIds.append(param_id)
 
     return result
