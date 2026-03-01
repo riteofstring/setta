@@ -6780,6 +6780,17 @@ class BaseProjectManager(ABC):
         project_config.activeIds = x.activeIds
         self._mark_current_backend_revision_dirty()
 
+    @staticmethod
+    def _resolve_active_view_mode_id_for_viewport(
+        project_config: ProjectConfig,
+    ) -> ID:
+        active_view_mode_id = project_config.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        if active_view_mode_id not in project_config.viewModes:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        return active_view_mode_id
+
     @enqueue_method(
         coalesce_key_fn=_set_viewport_enqueue_coalesce_key,
         partition_key_fn=_set_viewport_enqueue_partition_key,
@@ -6790,6 +6801,12 @@ class BaseProjectManager(ABC):
         Passing `None` for the viewport instructs the UI to re-fit the project into
         view instead of persisting explicit coordinates.
         """
+        project_config_for_validation = self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ]
+        active_view_mode_id = self._resolve_active_view_mode_id_for_viewport(
+            project_config_for_validation
+        )
         self.add_new_history_entry(
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
@@ -6799,12 +6816,7 @@ class BaseProjectManager(ABC):
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.viewport = x.viewport
         project_config.viewportInitialized = x.viewport is not None
-        active_view_mode_id = project_config.activeViewModeId
-        if active_view_mode_id is None:
-            raise KeyError("Active view mode is not set")
-        view_mode = project_config.viewModes.get(active_view_mode_id)
-        if view_mode is None:
-            raise KeyError(f"View mode {active_view_mode_id} not found")
+        view_mode = project_config.viewModes[active_view_mode_id]
         view_mode.viewport = x.viewport
         view_mode.viewportInitialized = x.viewport is not None
 

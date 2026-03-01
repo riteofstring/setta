@@ -966,6 +966,63 @@ class TestProjectConfigViewModes:
 
             assert manager.history.revision == history_revision_before
 
+    async def test_set_viewport_missing_active_view_mode_does_not_write_history(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            state = manager.get_single_config_state(project_config_id)
+            existing_active_view_mode_id = state.projectConfig.activeViewModeId
+            assert existing_active_view_mode_id is not None
+
+            project_viewport_before = (
+                state.projectConfig.viewport.model_copy(deep=True)
+                if state.projectConfig.viewport is not None
+                else None
+            )
+            project_viewport_initialized_before = (
+                state.projectConfig.viewportInitialized
+            )
+            existing_view_mode = state.projectConfig.viewModes[existing_active_view_mode_id]
+            view_mode_viewport_before = (
+                existing_view_mode.viewport.model_copy(deep=True)
+                if existing_view_mode.viewport is not None
+                else None
+            )
+            view_mode_viewport_initialized_before = (
+                existing_view_mode.viewportInitialized
+            )
+
+            state.projectConfig.activeViewModeId = "missing-view-mode-id"
+            history_revision_before = manager.history.revision
+
+            with pytest.raises(KeyError, match="View mode missing-view-mode-id not found"):
+                await manager.set_viewport(
+                    SetViewportRequest(
+                        projectConfigId=project_config_id,
+                        viewport=Viewport(x=42.0, y=-7.0, zoom=1.1),
+                    )
+                )
+
+            current_state = manager.get_single_config_state(project_config_id)
+            assert manager.history.revision == history_revision_before
+            assert current_state.projectConfig.viewport == project_viewport_before
+            assert (
+                current_state.projectConfig.viewportInitialized
+                == project_viewport_initialized_before
+            )
+            current_view_mode = current_state.projectConfig.viewModes[
+                existing_active_view_mode_id
+            ]
+            assert current_view_mode.viewport == view_mode_viewport_before
+            assert (
+                current_view_mode.viewportInitialized
+                == view_mode_viewport_initialized_before
+            )
+
     async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager
