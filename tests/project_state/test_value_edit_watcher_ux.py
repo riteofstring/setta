@@ -314,8 +314,12 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
 
         sender = manager.websocket_msg_handler
         project_state_broadcast_calls = 0
+        section_impl_patch_calls: list[dict[str, int | str]] = []
         name_validation_broadcast_calls = 0
         original_project_state_broadcast = sender.broadcast_project_state
+        original_section_impl_patch_broadcast = (
+            sender.broadcast_project_state_section_impl_patch
+        )
         original_name_validation_broadcast = sender.broadcast_name_validation_errors
 
         async def record_project_state_broadcast(
@@ -333,16 +337,48 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
                 project_state_revision,
             )
 
+        async def record_section_impl_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            section_impl_patch_calls.append(
+                {
+                    "projectConfigId": project_config_id_for_patch,
+                    "sectionId": section_id_for_patch,
+                    "sectionImplId": section_impl_for_patch.id,
+                    "previousProjectStateRevision": previous_project_state_revision,
+                    "projectStateRevision": project_state_revision,
+                }
+            )
+            await original_section_impl_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
         async def record_name_validation_broadcast(content) -> None:
             nonlocal name_validation_broadcast_calls
             name_validation_broadcast_calls += 1
             await original_name_validation_broadcast(content)
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = (
+            record_section_impl_patch  # type: ignore[method-assign]
+        )
         sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
             before_project_state = project_state_broadcast_calls
+            before_section_patch_count = len(section_impl_patch_calls)
             before_name_validation = name_validation_broadcast_calls
             await _run_route(
                 manager,
@@ -355,10 +391,37 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
             await manager.finish_pending_operations(timeout=5.0)
         finally:
             sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_impl_patch_broadcast  # type: ignore[method-assign]
+            )
             sender.broadcast_name_validation_errors = original_name_validation_broadcast  # type: ignore[method-assign]
 
-        # Route behavior should remain one project-state broadcast per edit.
-        assert project_state_broadcast_calls - before_project_state == 1
+        if route_name == "set_code":
+            expected_primary_section_id = code_section_id
+        elif route_name == "set_text_block_text":
+            expected_primary_section_id = text_section_id
+        else:
+            expected_primary_section_id = prompt_section_id
+
+        # Value-edit routes should now use section-impl patch transport.
+        assert project_state_broadcast_calls - before_project_state == 0
+        patches = section_impl_patch_calls[before_section_patch_count:]
+        assert len(patches) >= 1
+        assert patches[0]["projectConfigId"] == project_config_id
+        assert (
+            patches[0]["previousProjectStateRevision"]
+            < patches[0]["projectStateRevision"]
+        )
+        for patch in patches[1:]:
+            assert patch["projectConfigId"] == project_config_id
+            assert patch["projectStateRevision"] == patches[0]["projectStateRevision"]
+            assert (
+                patch["previousProjectStateRevision"]
+                == patches[0]["projectStateRevision"]
+            )
+        assert any(
+            patch["sectionId"] == expected_primary_section_id for patch in patches
+        )
         assert (
             name_validation_broadcast_calls - before_name_validation
             == expected_name_validation_delta

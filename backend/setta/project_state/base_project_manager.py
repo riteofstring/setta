@@ -3744,9 +3744,16 @@ class BaseProjectManager(ABC):
         await self.watch_code_manager.handle_code_section_update(
             project_state, x.sectionId, x.code
         )
-        await self._update_and_broadcast_project_state_no_name_validation(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+        )
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -4717,8 +4724,13 @@ class BaseProjectManager(ABC):
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_text(project_state, x.sectionId, x.text)
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+        )
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
             validate_name_rules=False,
         )
@@ -4727,8 +4739,13 @@ class BaseProjectManager(ABC):
     async def set_prompt_template(self, x: SetPromptTemplateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_template(project_state, x.sectionId, x.template)
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+        )
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
         )
 
@@ -4736,8 +4753,13 @@ class BaseProjectManager(ABC):
     async def set_prompt_inputs(self, x: SetPromptInputsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_inputs(project_state, x.sectionId, x.inputs)
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+        )
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
         )
 
@@ -4745,8 +4767,13 @@ class BaseProjectManager(ABC):
     async def set_prompt_format(self, x: SetPromptFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_prompt_section_format(project_state, x.sectionId, x.format)
-        await self.update_and_broadcast_project_state(
+        section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+        )
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=section_patch_scope,
             updateFileWatcher=False,
         )
 
@@ -5756,6 +5783,76 @@ class BaseProjectManager(ABC):
             validate_name_rules=False,
         )
 
+    def _collect_section_impl_updates_for_patch(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_ids: list[ID],
+    ) -> list[tuple[ID, BaseSectionImpl]]:
+        section_impl_updates: list[tuple[ID, BaseSectionImpl]] = []
+        seen_section_ids: set[ID] = set()
+        for section_id in section_ids:
+            if section_id in seen_section_ids:
+                continue
+            seen_section_ids.add(section_id)
+            section_variant_id = project_state.projectConfig.sectionVariantMap.get(
+                section_id
+            )
+            if section_variant_id is None:
+                raise KeyError(f"Section {section_id} missing section variant id.")
+            section_variant = project_state.sectionVariants.get(section_variant_id)
+            if section_variant is None:
+                raise KeyError(f"Section variant {section_variant_id} not found.")
+            section_impl = project_state.sectionImpls.get(section_variant.impl)
+            if section_impl is None:
+                raise KeyError(f"Section impl {section_variant.impl} not found.")
+            section_impl_updates.append((section_id, section_impl))
+        return section_impl_updates
+
+    async def _update_and_broadcast_section_impl_patches(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        section_ids: list[ID],
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        if not section_ids:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        previous_project_state_revision = self.history.revision
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=validate_name_rules,
+        )
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        section_impl_updates = self._collect_section_impl_updates_for_patch(
+            project_state,
+            section_ids,
+        )
+        for idx, (section_id, section_impl) in enumerate(section_impl_updates):
+            await self._broadcast_section_impl_patch(
+                project_config_id=project_state.projectConfig.id,
+                section_id=section_id,
+                section_impl=section_impl,
+                previous_project_state_revision=(
+                    previous_project_state_revision
+                    if idx == 0
+                    else next_project_state_revision
+                ),
+                project_state_revision=next_project_state_revision,
+            )
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
+
     async def _update_and_broadcast_section_impl_patch_no_name_validation(
         self,
         project_state: ProjectStateSingleConfig,
@@ -5763,33 +5860,12 @@ class BaseProjectManager(ABC):
         section_id: ID,
         updateFileWatcher: bool = True,
     ) -> None:
-        previous_project_state_revision = self.history.revision
-        await self.update(
+        await self._update_and_broadcast_section_impl_patches(
             project_state,
+            section_ids=[section_id],
             updateFileWatcher=updateFileWatcher,
             validate_name_rules=False,
-        )
-        next_project_state_revision = self.history.revision
-        if next_project_state_revision <= previous_project_state_revision:
-            await self._broadcast_project_state_snapshot(project_state)
-            return
-        section_variant_id = project_state.projectConfig.sectionVariantMap.get(
-            section_id
-        )
-        if section_variant_id is None:
-            raise KeyError(f"Section {section_id} missing section variant id.")
-        section_variant = project_state.sectionVariants.get(section_variant_id)
-        if section_variant is None:
-            raise KeyError(f"Section variant {section_variant_id} not found.")
-        section_impl = project_state.sectionImpls.get(section_variant.impl)
-        if section_impl is None:
-            raise KeyError(f"Section impl {section_variant.impl} not found.")
-        await self._broadcast_section_impl_patch(
-            project_config_id=project_state.projectConfig.id,
-            section_id=section_id,
-            section_impl=section_impl,
-            previous_project_state_revision=previous_project_state_revision,
-            project_state_revision=next_project_state_revision,
+            broadcast_name_validation_errors=False,
         )
 
     async def _merge_and_broadcast_section_impl_patch_with_deferred_codegen_refresh(
@@ -5919,24 +5995,10 @@ class BaseProjectManager(ABC):
                 updateFileWatcher=False,
             )
             next_project_state_revision = self.history.revision
-            section_impl_updates: list[tuple[ID, BaseSectionImpl]] = []
-            seen_section_ids: set[ID] = set()
-            for section_id in section_ids:
-                if section_id in seen_section_ids:
-                    continue
-                seen_section_ids.add(section_id)
-                section_variant_id = project_state.projectConfig.sectionVariantMap.get(
-                    section_id
-                )
-                if section_variant_id is None:
-                    raise KeyError(f"Section {section_id} missing section variant id.")
-                section_variant = project_state.sectionVariants.get(section_variant_id)
-                if section_variant is None:
-                    raise KeyError(f"Section variant {section_variant_id} not found.")
-                section_impl = project_state.sectionImpls.get(section_variant.impl)
-                if section_impl is None:
-                    raise KeyError(f"Section impl {section_variant.impl} not found.")
-                section_impl_updates.append((section_id, section_impl))
+            section_impl_updates = self._collect_section_impl_updates_for_patch(
+                project_state,
+                section_ids,
+            )
         if next_project_state_revision <= previous_project_state_revision:
             await self._broadcast_project_state_snapshot(project_state)
             return
@@ -6232,6 +6294,24 @@ class BaseProjectManager(ABC):
             ):
                 singleton_section_ids.add(section_id)
         return singleton_section_ids
+
+    def _build_section_patch_scope_with_codegen_singletons(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> list[ID]:
+        scoped_section_ids: list[ID] = [section_id]
+        seen_section_ids: set[ID] = {section_id}
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(project_config_id)
+        )
+        for singleton_section_id in codegen_singleton_section_ids:
+            if singleton_section_id in seen_section_ids:
+                continue
+            seen_section_ids.add(singleton_section_id)
+            scoped_section_ids.append(singleton_section_id)
+        return scoped_section_ids
 
     def _get_active_code_obj_variant_ids_for_project_config(
         self,
