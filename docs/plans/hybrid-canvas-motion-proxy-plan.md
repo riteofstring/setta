@@ -257,6 +257,22 @@
   - Reject RAF-throttled transform commits for motion path due no-hitch requirement failure.
   - Continue non-pan and motion investigations using approaches that do not defer final interaction work into stop frames.
 
+### Phase 0.5 Status Update (2026-03-03, Param Filter Worker Spike)
+- A worker-based per-keystroke filter-compute spike was implemented and benchmarked:
+  - moved section param-filter visibility matching to a Web Worker,
+  - reused list-scoped visibility results across nested param rows,
+  - removed nested `GetParamSwitch` matching work from the render path.
+- Result: **not kept** and fully rolled back.
+  - Playwright A/B (layer split off) showed near-parity pan/zoom but typing regression:
+    - control typing avg about `157-160ms`,
+    - worker typing avg about `163-172ms`.
+  - CDP supplementary A/B also showed near-parity throughput and no reliable typing gain.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-param-filter-worker-spike.md`
+- Updated direction:
+  - Reject this worker-filter design for now.
+  - Continue non-pan investigation with approaches that reduce global state/subscription churn instead of only moving filter matching off-thread.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
