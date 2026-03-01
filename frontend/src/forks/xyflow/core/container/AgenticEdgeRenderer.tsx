@@ -8,6 +8,7 @@ import {
   useAIFollow,
   useNodeInternals,
   useProjectState,
+  useProjectViewModeState,
 } from "state/definitions";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import { useShareCapabilities } from "state/hooks/share";
@@ -64,9 +65,11 @@ const AgenticEdgeRenderer = () => {
     height: state.height,
     multiSelectionActive: state.multiSelectionActive,
   }));
+  const topLevelSections = useProjectViewModeState(
+    (state) => state.topLevelSections,
+  );
   const {
     agenticEdges,
-    topLevelSections,
     sectionVariantMap,
     sectionVariants,
     sectionImpls,
@@ -75,7 +78,6 @@ const AgenticEdgeRenderer = () => {
   } = useProjectState(
     (state) => ({
       agenticEdges: state.projectConfig.agenticEdges,
-      topLevelSections: state.projectConfig.topLevelSections,
       sectionVariantMap: state.projectConfig.sectionVariantMap,
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,

@@ -21,6 +21,7 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  useProjectViewModeState,
   type ZustandProjectState,
 } from "state/definitions";
 import {
@@ -1135,6 +1136,14 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(reactFlowState.transform).toEqual([10, -20, 1.5]);
     expect(reactFlowState.fitViewOnInit).toBe(false);
     expect(reactFlowState.fitViewOnInitDone).toBe(true);
+    const viewModeRuntimeState = useProjectViewModeState.getState();
+    expect(viewModeRuntimeState.projectConfigId).toBe("project-1");
+    expect(viewModeRuntimeState.viewport).toEqual({
+      x: 10,
+      y: -20,
+      zoom: 1.5,
+    });
+    expect(viewModeRuntimeState.viewportInitialized).toBe(true);
   });
 
   it("fits view to visible sections when viewport is unset", () => {
@@ -1655,6 +1664,15 @@ describe("processViewModeStateUpdateFromBackend", () => {
       pendingViewport.zoom,
     ]);
     expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
+    const viewModeRuntimeState = useProjectViewModeState.getState();
+    expect(viewModeRuntimeState.projectConfigId).toBe("project-1");
+    expect(viewModeRuntimeState.activeViewModeId).toBe(viewModeBId);
+    expect(viewModeRuntimeState.isEditingViewMode).toBe(false);
+    expect(viewModeRuntimeState.topLevelSections).toBe(
+      nextProjectState.projectConfig.topLevelSections,
+    );
+    expect(viewModeRuntimeState.viewport).toEqual(pendingViewport);
+    expect(viewModeRuntimeState.viewportInitialized).toBe(true);
   });
 
   it("keeps unchanged node objects when only sibling visibility changes", () => {

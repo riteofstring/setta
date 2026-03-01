@@ -2,9 +2,8 @@ import {
   useViewModeSortableItem,
   ViewModeSortableProvider,
 } from "components/Pages/Project/ViewModeDnd";
-import _ from "lodash";
 import { Resizable } from "re-resizable";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiBookmark,
   FiCheck,
@@ -19,7 +18,7 @@ import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useProjectViewModeState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -58,18 +57,20 @@ export function compactViewModeSortIndices(
 }
 
 export function ViewingEditingMode() {
-  const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
-    useProjectState((x) => {
-      const sortedViewModes = sortViewModes(
-        Object.values(x.projectConfig.viewModes),
-      );
-      return {
-        projectConfigId: x.projectConfig.id,
-        viewModeList: sortedViewModes,
-        activeViewModeId: x.projectConfig.activeViewModeId,
-        isEditingViewMode: x.projectConfig.isEditingViewMode,
-      };
-    }, _.isEqual);
+  const projectConfigId = useProjectViewModeState(
+    (state) => state.projectConfigId,
+  );
+  const activeViewModeId = useProjectViewModeState(
+    (state) => state.activeViewModeId,
+  );
+  const isEditingViewMode = useProjectViewModeState(
+    (state) => state.isEditingViewMode,
+  );
+  const viewModes = useProjectState((state) => state.projectConfig.viewModes);
+  const viewModeList = useMemo(
+    () => sortViewModes(Object.values(viewModes)),
+    [viewModes],
+  );
   const { canEditVariants, canEditStructure } = useShareCapabilities();
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
   const [isViewModesCollapsed, setIsViewModesCollapsed] = useState(false);

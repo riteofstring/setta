@@ -243,3 +243,64 @@ Touched code paths:
   - `Core -> All Settings` slightly regressed (`1044ms -> 1063ms`).
   - `All Settings` transform FPS stayed in the same range (`89.4 -> 88.2`).
 - Conclusion: incremental node-map patch is behavior-safe and low-risk, but by itself it does not move the needle enough toward the 10x target; the larger wins are still likely in param rendering/layout/paint phases.
+
+## CDP Rerun (2026-03-02, after view-mode runtime store split)
+
+- Branch/commit at rerun: `frontend-performance-2` working tree on top of `a1ddcff7` (runtime store split not yet committed).
+- Trigger: evaluate impact of splitting frequently changing view-mode runtime fields (`activeViewModeId`, `isEditingViewMode`, `topLevelSections`, `viewport`) into a dedicated store and migrating high-impact subscribers.
+
+### Automated guardrail rerun
+
+- Command:
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-performance-guardrails.spec.ts`
+- Result:
+  - `2 passed` (`settings tab switching long-task cost stays within budget`, `settings DOM complexity stays within guardrail budgets`).
+
+### CDP metric run
+
+- Method:
+  - `chrome-devtools-mcp` on `http://127.0.0.1:3002/settings`.
+  - In-page metric script via `evaluate_script`:
+    - DOM counters by tab.
+    - 2.2s long-task windows for tab switches.
+    - 180-frame transform stress loop per tab via synthetic `ctrl+wheel` events on `.react-flow__pane`.
+- Key metrics:
+  - DOM by tab:
+    - `Core`: 3696 elements, 5 nodes, 301 param rows, max depth 30, max children 62.
+    - `Param Defaults`: 1868 elements, 13 nodes, 76 param rows, max depth 26, max children 57.
+    - `All Settings`: 9715 elements, 42 nodes, 697 param rows, max depth 30, max children 166.
+  - Long-task switch cost (2.2s windows):
+    - `Core -> All Settings`: 1201ms total, 834ms max.
+    - `Param Defaults -> All Settings`: 1672ms total, 1191ms max.
+    - `All Settings -> Core`: 366ms total/max.
+    - `All Settings -> Param Defaults`: 222ms total/max.
+  - Transform stress (180 frames):
+    - `Core`: 120.8 FPS avg.
+    - `Param Defaults`: 121.6 FPS avg.
+    - `All Settings`: 33.8 FPS avg.
+    - Long-task count during transform loops: 0 in all runs.
+  - Repeat check (`All Settings` transform only, same method):
+    - Run 1: 32.3 FPS.
+    - Run 2: 32.1 FPS.
+
+### CDP trace run
+
+- Method:
+  - DevTools MCP trace around `Core -> All Settings` interaction.
+  - Artifact saved to:
+    - `perf/artifacts/frontend/2026-03-02-view-mode-runtime-store-core-to-all.trace.json`
+- Trace summary:
+  - Insight set remained `NO_NAVIGATION` (bootstrap URL context), consistent with previous CDP trace behavior in this environment.
+  - `DOMSize` insight reported:
+    - Total elements: 3638.
+    - Max DOM depth: 30.
+    - Max children on one element: 62.
+    - Largest style recalculation event: 1386ms affecting 6310 elements.
+
+### Observations from rerun
+
+- DOM size is effectively unchanged versus prior runs.
+- Switch-time long-task results are mixed and do not show a clear net improvement in this single rerun:
+  - Entering `All Settings` regressed versus the immediately prior CDP rerun.
+  - `All Settings -> Param Defaults` improved materially.
+- Heavy-view transform performance remains poor under the synthetic pan/zoom stress path (`~32-34 FPS` in `All Settings`) with zero long tasks, reinforcing that rendering/layout cost remains the dominant bottleneck.

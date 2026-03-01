@@ -21,10 +21,12 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  useProjectViewModeState,
   useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
+  ZustandProjectViewModeState,
 } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
@@ -65,6 +67,72 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
+
+type ProjectViewModeRuntimeSnapshot = Pick<
+  ZustandProjectViewModeState,
+  | "projectConfigId"
+  | "activeViewModeId"
+  | "isEditingViewMode"
+  | "topLevelSections"
+  | "viewport"
+  | "viewportInitialized"
+>;
+
+function getProjectViewModeRuntimeSnapshotFromProjectState(
+  projectState: ProjectStateSingleConfig,
+): ProjectViewModeRuntimeSnapshot {
+  const { projectConfig } = projectState;
+  return {
+    projectConfigId: projectConfig.id,
+    activeViewModeId: projectConfig.activeViewModeId,
+    isEditingViewMode: projectConfig.isEditingViewMode,
+    topLevelSections: projectConfig.topLevelSections,
+    viewport: projectConfig.viewport,
+    viewportInitialized: projectConfig.viewportInitialized,
+  };
+}
+
+function getResolvedProjectViewModeRuntimeSnapshot(
+  projectState: ProjectStateSingleConfig,
+): ProjectViewModeRuntimeSnapshot {
+  const projectConfigSnapshot =
+    getProjectViewModeRuntimeSnapshotFromProjectState(projectState);
+  const runtimeState = useProjectViewModeState.getState();
+  if (
+    runtimeState.projectConfigId !== projectConfigSnapshot.projectConfigId ||
+    runtimeState.activeViewModeId !== projectConfigSnapshot.activeViewModeId ||
+    runtimeState.isEditingViewMode !==
+      projectConfigSnapshot.isEditingViewMode ||
+    runtimeState.topLevelSections !== projectConfigSnapshot.topLevelSections ||
+    runtimeState.viewport !== projectConfigSnapshot.viewport ||
+    runtimeState.viewportInitialized !==
+      projectConfigSnapshot.viewportInitialized
+  ) {
+    return projectConfigSnapshot;
+  }
+  return runtimeState;
+}
+
+export function syncProjectViewModeState(
+  projectState: ProjectStateSingleConfig,
+): void {
+  const nextState = getProjectViewModeRuntimeSnapshotFromProjectState(
+    projectState,
+  );
+  useProjectViewModeState.setState((state) => {
+    if (
+      state.projectConfigId === nextState.projectConfigId &&
+      state.activeViewModeId === nextState.activeViewModeId &&
+      state.isEditingViewMode === nextState.isEditingViewMode &&
+      state.topLevelSections === nextState.topLevelSections &&
+      state.viewport === nextState.viewport &&
+      state.viewportInitialized === nextState.viewportInitialized
+    ) {
+      return state;
+    }
+    return nextState;
+  });
+}
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -975,6 +1043,8 @@ export function processProjectStateUpdateFromBackend(
     return;
   }
   const currentState = useProjectState.getState();
+  const previousProjectViewModeState =
+    getResolvedProjectViewModeRuntimeSnapshot(currentState);
   mergeStreamingChatSections(x.projectState, currentState);
   const { completedIds, nextPending } = reconcilePendingOperationsWithBackend(
     x.completedOpIds,
@@ -983,7 +1053,10 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
+  const shouldRequestFitView = applyViewportFromProjectState(
+    x.projectState,
+    previousProjectViewModeState,
+  );
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
@@ -992,6 +1065,7 @@ export function processProjectStateUpdateFromBackend(
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
+    syncProjectViewModeState(x.projectState);
   });
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
@@ -1017,7 +1091,9 @@ export function processViewModeStateUpdateFromBackend(
     x.completedOpIds,
     x.pendingOpIds,
   );
-  const previousProjectConfig = useProjectState.getState().projectConfig;
+  const previousProjectViewModeState = getResolvedProjectViewModeRuntimeSnapshot(
+    useProjectState.getState(),
+  );
   let shouldRequestFitView = false;
 
   unstable_batchedUpdates(() => {
@@ -1037,9 +1113,10 @@ export function processViewModeStateUpdateFromBackend(
       }
     });
     const nextProjectState = useProjectState.getState();
+    syncProjectViewModeState(nextProjectState);
     shouldRequestFitView = applyViewportFromProjectState(
       nextProjectState,
-      previousProjectConfig,
+      previousProjectViewModeState,
     );
     const currentNodesMap = useNodeInternals.getState().x;
     const nextNodesMap = patchNodesMapForViewModeStateUpdate(
@@ -1090,9 +1167,10 @@ function reconcilePendingOperationsWithBackend(
 
 function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
-  currentConfig: ProjectStateSingleConfig["projectConfig"] = useProjectState
-    .getState()
-    .projectConfig,
+  currentConfig: Pick<
+    ProjectViewModeRuntimeSnapshot,
+    "activeViewModeId" | "viewport" | "viewportInitialized"
+  > = getResolvedProjectViewModeRuntimeSnapshot(useProjectState.getState()),
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
   const viewModeChanged =
@@ -1754,6 +1832,7 @@ export function debounced_route_set_top_level_section_layout() {
       viewModes[activeViewModeId].topLevelSections = topLevelSections;
     }
   });
+  syncProjectViewModeState(useProjectState.getState());
   if (!pendingTopLevelLayoutRef.opId) {
     pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
   }
@@ -1853,6 +1932,7 @@ export function dispatchOptimisticProjectStateUpdate({
   rollback?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
+  syncProjectViewModeState(useProjectState.getState());
   const opId = addPendingOp(apply);
   const result = send(opId);
   if (result instanceof Promise) {
@@ -1864,6 +1944,7 @@ export function dispatchOptimisticProjectStateUpdate({
         removePendingOp(opId);
         if (rollback) {
           useProjectState.setState(rollback);
+          syncProjectViewModeState(useProjectState.getState());
         }
       }
     });
@@ -1965,7 +2046,10 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
+  const currentViewModeState = getResolvedProjectViewModeRuntimeSnapshot(
+    useProjectState.getState(),
+  );
+  if (_.isEqual(currentViewModeState.viewport, viewport)) {
     return;
   }
   dispatchOptimisticProjectStateUpdate({
