@@ -162,9 +162,7 @@ async def _assert_skips_file_watcher_refresh_calls(
         manager.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
         manager.watch_code_manager.sync_from_backend = original_watch_code_sync  # type: ignore[method-assign]
         manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
-        manager._schedule_deferred_codegen_refresh = (
-            original_schedule_deferred_refresh  # type: ignore[method-assign]
-        )
+        manager._schedule_deferred_codegen_refresh = original_schedule_deferred_refresh  # type: ignore[method-assign]
 
     assert json_source_watch_calls - before_json == 0
     assert artifact_watch_calls - before_artifact == 0
@@ -339,7 +337,9 @@ async def _assert_preserves_broadcast_shape(
         sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
             original_section_impl_patch_broadcast
         )
-        sender.broadcast_project_state_code_objs_patch = original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_code_objs_patch = (
+            original_code_obj_patch_broadcast  # type: ignore[method-assign]
+        )
         sender.broadcast_project_state_structural_patch = (  # type: ignore[method-assign]
             original_structural_patch_broadcast
         )
@@ -363,7 +363,9 @@ async def _assert_preserves_broadcast_shape(
         assert project_config_patch_calls - before_project_config_patch == 1
         assert section_impl_patch_calls - before_section_impl_patch >= 1
         return
-    raise TypeError(f"Unsupported section impl type for format_code: {section_impl.type}")
+    raise TypeError(
+        f"Unsupported section impl type for format_code: {section_impl.type}"
+    )
 
 
 @pytest.mark.asyncio
@@ -797,6 +799,8 @@ class TestFormatCode:
         await _assert_skips_file_watcher_refresh_calls(
             self.manager,
             self.manager.format_code(request),
+            expected_deferred_codegen_refresh=True,
+            expected_project_config_id=self.project_config_id,
         )
 
     async def test_format_code_skips_file_watcher_refresh_for_gen_python_section(

@@ -4207,8 +4207,9 @@ class BaseProjectManager(ABC):
             section_ids=[x.sectionId],
             project_state=project_state,
         )
-        await self._update_and_broadcast_section_impl_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
+            code_obj_ids=[],
             section_ids=section_patch_scope,
             updateFileWatcher=False,
             validate_name_rules=False,
@@ -4270,8 +4271,9 @@ class BaseProjectManager(ABC):
                     project_state=project_state,
                 )
             )
-            await self._update_and_broadcast_section_impl_patches(
+            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
                 project_state,
+                code_obj_ids=[],
                 section_ids=section_patch_scope,
                 updateFileWatcher=False,
                 validate_name_rules=False,
@@ -5670,6 +5672,16 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
+        if not should_broadcast_name_validation:
+            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
+                project_state,
+                code_obj_ids=[],
+                section_ids=section_patch_scope,
+                updateFileWatcher=False,
+                validate_name_rules=False,
+                broadcast_name_validation_errors=False,
+            )
+            return
         await self._update_and_broadcast_section_impl_patches(
             project_state,
             section_ids=section_patch_scope,
@@ -5686,10 +5698,12 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_section_impl_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
+            code_obj_ids=[],
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
 
@@ -5701,10 +5715,12 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_section_impl_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
+            code_obj_ids=[],
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
 
@@ -5716,10 +5732,12 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
         )
-        await self._update_and_broadcast_section_impl_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
+            code_obj_ids=[],
             section_ids=section_patch_scope,
             updateFileWatcher=False,
+            validate_name_rules=False,
             broadcast_name_validation_errors=False,
         )
 
