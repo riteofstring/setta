@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
 import {
@@ -252,7 +252,9 @@ export function Overview() {
           >
             <MenuItem
               className={moreMenuItemClasses}
-              onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
+              onClick={() =>
+                onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
+              }
             >
               <i className="w-3 opacity-80">
                 <RiPlayList2Fill />

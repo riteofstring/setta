@@ -830,9 +830,7 @@ export function ProjectChatSkillsMcpViewer({
     );
   }, [customProjectChatSlashCommands]);
   const customSlashCommandTokens = useMemo(() => {
-    return new Set(
-      customSlashCommandDefinitions.map((entry) => entry.command),
-    );
+    return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
   }, [customSlashCommandDefinitions]);
   const reservedSlashCommandTokens = useMemo(() => {
     const reserved = new Set(
@@ -848,7 +846,9 @@ export function ProjectChatSkillsMcpViewer({
         reserved.add(command.command);
       }
     }
-    for (const nativeEntry of Object.values(agentNativeSlashCommandsByEngineId)) {
+    for (const nativeEntry of Object.values(
+      agentNativeSlashCommandsByEngineId,
+    )) {
       for (const nativeCommand of nativeEntry.commands) {
         const normalizedCommand = normalizeSlashCommandToken(nativeCommand);
         if (!normalizedCommand) {
@@ -980,12 +980,7 @@ export function ProjectChatSkillsMcpViewer({
         return CUSTOM_SKILL_ROOT_IDS.has(rootId);
       }) ?? null;
     return discoveredRoot?.rootPath ?? customSkillRootPathHint;
-  }, [
-    customSkillRootPathHint,
-    selectedSkill,
-    selectedSkillRootId,
-    skills,
-  ]);
+  }, [customSkillRootPathHint, selectedSkill, selectedSkillRootId, skills]);
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
@@ -1416,7 +1411,10 @@ export function ProjectChatSkillsMcpViewer({
               <span
                 className="truncate"
                 data-testid="project-chat-custom-skill-root-path"
-                title={customSkillRootPath ?? "Custom skill root will be created on first save."}
+                title={
+                  customSkillRootPath ??
+                  "Custom skill root will be created on first save."
+                }
               >
                 {customSkillRootPath
                   ? `Custom skills root: ${customSkillRootPath}`
@@ -1426,7 +1424,9 @@ export function ProjectChatSkillsMcpViewer({
                 type="button"
                 data-testid="project-chat-custom-skill-root-reveal"
                 className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                onClick={() => void revealPathInFileExplorer(customSkillRootPath)}
+                onClick={() =>
+                  void revealPathInFileExplorer(customSkillRootPath)
+                }
                 disabled={!isActionablePath(customSkillRootPath)}
               >
                 Open
@@ -1583,7 +1583,9 @@ export function ProjectChatSkillsMcpViewer({
                 <Accordion.Item
                   value={SKILL_MARKDOWN_VIEWER_VALUE}
                   className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${
-                    isSkillMarkdownViewerOpen ? "flex h-full min-h-0 flex-col" : ""
+                    isSkillMarkdownViewerOpen
+                      ? "flex h-full min-h-0 flex-col"
+                      : ""
                   }`}
                 >
                   <Accordion.Header>
@@ -1682,7 +1684,9 @@ export function ProjectChatSkillsMcpViewer({
                               aria-label="Skill Markdown Content"
                               className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
                               height="100%"
-                              value={skillMarkdownRawDraft || skillPreviewContent}
+                              value={
+                                skillMarkdownRawDraft || skillPreviewContent
+                              }
                               onChange={(value) => {
                                 if (!selectedSkillIsEditable) {
                                   return;

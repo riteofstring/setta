@@ -56,10 +56,10 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
-  type ProjectChatCustomSlashCommand,
   useAIStore,
   useLocalStorage,
   useProjectState,
+  type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
@@ -419,16 +419,17 @@ function resolveRuntimeActivityEntryLabel(
   }
   if (ACTIVE_SUBAGENT_TOOL_IDS.has(normalizedName)) {
     const profileIdValue = argumentsByName?.profileId;
-    if (typeof profileIdValue === "string" && profileIdValue.trim().length > 0) {
+    if (
+      typeof profileIdValue === "string" &&
+      profileIdValue.trim().length > 0
+    ) {
       return profileIdValue.trim();
     }
   }
   return `${normalizedToolName} (${toolCall.id})`;
 }
 
-function resolveProjectChatRuntimeActivityEntry(
-  toolCall: ToolCall,
-): {
+function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
   category: "background_terminal" | "subagent";
   entry: ProjectChatRuntimeActivityEntry;
 } | null {
@@ -1218,28 +1219,25 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const slashCommands = useMemo(
-    () => {
-      const managedCommands = buildChatSlashCommands({
-        model: true,
-        permissions: showPermissionExecutionControl,
-        search: showSearchExecutionControl,
-        appGenerationModes: true,
-      });
-      const managedCommandSet = new Set(
-        managedCommands.map((entry) => entry.command),
-      );
-      const customCommands = buildCustomPromptSlashCommandDefinitions(
-        customProjectChatSlashCommands,
-      ).filter((entry) => !managedCommandSet.has(entry.command));
-      return [...managedCommands, ...customCommands];
-    },
-    [
+  const slashCommands = useMemo(() => {
+    const managedCommands = buildChatSlashCommands({
+      model: true,
+      permissions: showPermissionExecutionControl,
+      search: showSearchExecutionControl,
+      appGenerationModes: true,
+    });
+    const managedCommandSet = new Set(
+      managedCommands.map((entry) => entry.command),
+    );
+    const customCommands = buildCustomPromptSlashCommandDefinitions(
       customProjectChatSlashCommands,
-      showPermissionExecutionControl,
-      showSearchExecutionControl,
-    ],
-  );
+    ).filter((entry) => !managedCommandSet.has(entry.command));
+    return [...managedCommands, ...customCommands];
+  }, [
+    customProjectChatSlashCommands,
+    showPermissionExecutionControl,
+    showSearchExecutionControl,
+  ]);
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>
