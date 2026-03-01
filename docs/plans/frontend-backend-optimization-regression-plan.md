@@ -4,7 +4,8 @@
 
 Ensure frontend behavior remains correct while backend performance work continues
 on patch transport, deferred refresh, scoped history/state mutation, and related
-write-path changes.
+write-path changes, and require full backend + frontend suites to pass before
+any additional optimization work proceeds.
 
 ## Context
 
@@ -22,7 +23,8 @@ These shifts can introduce frontend regressions even when backend tests pass.
 1. Catch frontend correctness regressions quickly after backend optimization commits.
 2. Verify websocket patch/revision handling remains deterministic.
 3. Confirm critical user workflows still work end-to-end.
-4. Establish a repeatable gate we can run before each optimization tranche.
+4. Require full backend and full frontend suites to pass before optimization resumes.
+5. Establish a repeatable gate we can run before each optimization tranche.
 
 ## Non-Goals
 
@@ -35,7 +37,9 @@ These shifts can introduce frontend regressions even when backend tests pass.
 1. No regression in project-state synchronization for supported patch types.
 2. No stale UI after deferred stage-B refresh completion.
 3. No regressions in undo/redo, watch-code, format-code, section/param editing, or view-mode flows.
-4. A stable command sequence exists for quick, medium, and full confidence levels.
+4. Full backend suite passes on the current branch before continuing optimization work.
+5. Full frontend suite passes on the current branch before continuing optimization work.
+6. A stable command sequence exists for quick, medium, and full confidence levels.
 
 ## Risk Matrix
 
@@ -48,6 +52,20 @@ These shifts can introduce frontend regressions even when backend tests pass.
 | Structural patch conversion | section tree/layout inconsistency | section move/children/view-mode E2E |
 
 ## Verification Phases
+
+## Phase 0: Full-Suite Unblock Gate (mandatory before more optimization)
+
+Optimization work is paused until both suites pass on the current branch.
+
+```bash
+source activate.sh && ./scripts/run_backend_tests.sh
+./t.sh --f
+```
+
+Exit condition:
+- Backend pytest suite passes.
+- Frontend Vitest + Playwright suite passes.
+- If either fails, fix regressions first, then re-run Phase 0.
 
 ## Phase 1: Fast Protocol Gate (per optimization commit)
 
@@ -119,15 +137,17 @@ When regressions appear:
 
 ## Operating Cadence
 
-1. After each backend optimization commit: run Phase 1.
-2. At least daily while optimization work is active: run Phase 2.
-3. Before merge/release cut: run Phase 3.
-4. During this cycle: land Phase 4 additions to reduce future risk.
+1. Before any new optimization work: run Phase 0 and require green.
+2. After each backend optimization commit: run Phase 1.
+3. At least daily while optimization work is active: run Phase 2.
+4. Before merge/release cut: run Phase 3.
+5. During this cycle: land Phase 4 additions to reduce future risk.
 
 ## Definition Of Done
 
 This plan is considered complete when:
 
-1. Phases 1-3 are integrated into team workflow/CI and passing.
-2. Phase 4 coverage additions are implemented.
-3. Frontend regression rate from backend optimization changes is reduced to near-zero in subsequent tranches.
+1. Phase 0 is integrated as a hard prerequisite for further optimization work.
+2. Phases 1-3 are integrated into team workflow/CI and passing.
+3. Phase 4 coverage additions are implemented.
+4. Frontend regression rate from backend optimization changes is reduced to near-zero in subsequent tranches.
