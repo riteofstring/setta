@@ -161,11 +161,8 @@ const Controls = () => {
       const top = Math.max(minTop, Math.min(buttonRect.top - 24, maxTop));
 
       const buttonCenterY = buttonRect.top + buttonRect.height / 2;
-      const maxCaretTop = Math.max(12, portalHeight - 20);
-      const caretTop = Math.max(
-        12,
-        Math.min(buttonCenterY - top - 8, maxCaretTop),
-      );
+      const maxCaretTop = Math.max(12, portalHeight - 12);
+      const caretTop = Math.max(12, Math.min(buttonCenterY - top, maxCaretTop));
       const roundedCaretTop = Math.round(caretTop * 10) / 10;
 
       setWatchCodePortalPosition((previousPosition) => {
@@ -368,12 +365,18 @@ const Controls = () => {
             >
               <div
                 aria-hidden="true"
-                className="absolute -left-2 top-5 h-4 w-4 rotate-45 border-l border-t border-setta-300/80 bg-setta-100/95 shadow-sm dark:border-setta-700 dark:bg-setta-900/95"
+                className="pointer-events-none absolute left-0 top-5 z-10 h-[22px] w-[11px]"
                 data-testid="rf__watch-code-settings-caret"
                 style={
-                  { top: `${watchCodePortalPosition.caretTop}px` }
+                  {
+                    top: `${watchCodePortalPosition.caretTop}px`,
+                    transform: "translate(-100%, -50%)",
+                  }
                 }
-              />
+              >
+                <div className="absolute left-0 top-0 h-0 w-0 border-y-[11px] border-y-transparent border-r-[11px] border-r-setta-300/75 dark:border-r-setta-700" />
+                <div className="absolute left-[1px] top-[1px] h-0 w-0 border-y-[10px] border-y-transparent border-r-[10px] border-r-setta-50/95 dark:border-r-setta-950/95" />
+              </div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                   Watch Code
