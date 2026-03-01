@@ -37,7 +37,9 @@ def _snapshot_watcher_paths(manager) -> dict[str, set[str]]:
 
 
 @pytest.mark.asyncio
-async def test_set_param_entered_value_preserves_broadcast_shape_and_value_update() -> None:
+async def test_set_param_entered_value_preserves_broadcast_shape_and_value_update() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -100,7 +102,9 @@ async def test_set_param_entered_value_preserves_undo_redo_behavior() -> None:
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
 
-        baseline_first_param = _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+        baseline_first_param = _get_param_value(
+            manager, project_config_id, FIRST_PARAM_ID
+        )
         baseline_second_param = _get_param_value(
             manager, project_config_id, SECOND_PARAM_ID
         )
@@ -122,7 +126,10 @@ async def test_set_param_entered_value_preserves_undo_redo_behavior() -> None:
             )
         )
         await manager.finish_pending_operations(timeout=5.0)
-        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "first-change"
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == "first-change"
+        )
         assert (
             _get_param_value(manager, project_config_id, SECOND_PARAM_ID)
             == "second-change"
@@ -130,7 +137,10 @@ async def test_set_param_entered_value_preserves_undo_redo_behavior() -> None:
 
         await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
         await manager.finish_pending_operations(timeout=5.0)
-        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "first-change"
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == "first-change"
+        )
         assert (
             _get_param_value(manager, project_config_id, SECOND_PARAM_ID)
             == baseline_second_param
@@ -145,7 +155,10 @@ async def test_set_param_entered_value_preserves_undo_redo_behavior() -> None:
 
         await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
         await manager.finish_pending_operations(timeout=5.0)
-        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "first-change"
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == "first-change"
+        )
 
         await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
         await manager.finish_pending_operations(timeout=5.0)
@@ -212,10 +225,10 @@ async def test_set_param_entered_value_skips_file_watcher_refresh_calls() -> Non
             artifact_watch_calls += 1
             original_watch_artifact_files()
 
-        def record_watch_code_files() -> None:
+        def record_watch_code_files(*args, **kwargs) -> None:
             nonlocal code_watch_calls
             code_watch_calls += 1
-            original_watch_code_files()
+            original_watch_code_files(*args, **kwargs)
 
         def record_watch_code_sync(backend) -> None:
             nonlocal watch_code_sync_calls
@@ -263,7 +276,9 @@ async def test_set_param_entered_value_skips_file_watcher_refresh_calls() -> Non
 
 
 @pytest.mark.asyncio
-async def test_set_param_entered_value_incremental_codegen_matches_full_refresh_output() -> None:
+async def test_set_param_entered_value_incremental_codegen_matches_full_refresh_output() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -295,7 +310,9 @@ async def test_set_param_entered_value_incremental_codegen_matches_full_refresh_
 
 
 @pytest.mark.asyncio
-async def test_set_param_entered_value_falls_back_to_full_refresh_without_python_codegen() -> None:
+async def test_set_param_entered_value_falls_back_to_full_refresh_without_python_codegen() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -329,4 +346,7 @@ async def test_set_param_entered_value_falls_back_to_full_refresh_without_python
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
 
         assert refresh_calls - before_refresh > 0
-        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "fallback-refresh"
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == "fallback-refresh"
+        )

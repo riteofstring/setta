@@ -123,6 +123,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
 
         manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
         try:
+
             async def assert_refresh_delta(expected_delta: int, operation_coro) -> None:
                 # Drain queued/background work so the delta only reflects this call.
                 await manager.finish_pending_operations(timeout=5.0)
@@ -139,7 +140,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         projectConfigId=project_config_id,
                         sectionIds=[section_ids.callable_section_id],
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -148,7 +149,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         projectConfigId=project_config_id,
                         sectionId=section_ids.callable_section_id,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -157,7 +158,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         projectConfigId=project_config_id,
                         sectionId=section_ids.group_section_id,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -167,7 +168,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.group_section_id,
                         overflowMode=True,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -177,7 +178,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.callable_section_id,
                         tagColor="#ef4444",
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -187,7 +188,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.callable_section_id,
                         styleColor="#22c55e",
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -198,7 +199,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         columnWidth=280.0,
                         typesColumnWidth=120.0,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -208,7 +209,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.browser_section_id,
                         viewMode=BrowserAreaViewMode.thumbnail,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -218,7 +219,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.browser_section_id,
                         hideColumn=True,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -228,7 +229,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.browser_section_id,
                         savedSearches=[BrowserSavedSearch(name="docs", query="README")],
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -238,7 +239,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.text_block_section_id,
                         format=TextBlockFormat.Markdown,
                     )
-                )
+                ),
             )
             await assert_refresh_delta(
                 0,
@@ -248,7 +249,7 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
                         sectionId=section_ids.social_section_id,
                         url="https://example.com",
                     )
-                )
+                ),
             )
         finally:
             manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
@@ -359,10 +360,10 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
             artifact_watch_calls += 1
             original_watch_artifact_files()
 
-        def record_watch_code_files() -> None:
+        def record_watch_code_files(*args, **kwargs) -> None:
             nonlocal code_watch_calls
             code_watch_calls += 1
-            original_watch_code_files()
+            original_watch_code_files(*args, **kwargs)
 
         manager.watch_json_source_files = record_watch_json_source_files  # type: ignore[method-assign]
         manager.watch_artifact_files = record_watch_artifact_files  # type: ignore[method-assign]
@@ -634,9 +635,7 @@ async def test_ui_only_fast_path_preserves_undo_redo_with_coalescing() -> None:
         )
         assert after_first_undo_callable.styleColor == "#6366f1"
         assert after_first_undo_browser.columnWidth == baseline_column_width
-        assert (
-            after_first_undo_browser.typesColumnWidth == baseline_types_column_width
-        )
+        assert after_first_undo_browser.typesColumnWidth == baseline_types_column_width
 
         # Second undo should remove both style-color edits as one coalesced step.
         await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))

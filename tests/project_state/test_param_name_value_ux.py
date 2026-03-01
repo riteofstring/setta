@@ -63,10 +63,10 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         artifact_watch_calls += 1
         original_watch_artifact_files()
 
-    def record_watch_code_files() -> None:
+    def record_watch_code_files(*args, **kwargs) -> None:
         nonlocal code_watch_calls
         code_watch_calls += 1
-        original_watch_code_files()
+        original_watch_code_files(*args, **kwargs)
 
     def record_watch_code_sync(backend) -> None:
         nonlocal watch_code_sync_calls
@@ -107,7 +107,9 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
 
 
 @pytest.mark.asyncio
-async def test_set_param_name_and_value_preserves_broadcast_shape_and_mutation() -> None:
+async def test_set_param_name_and_value_preserves_broadcast_shape_and_mutation() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -159,7 +161,10 @@ async def test_set_param_name_and_value_preserves_broadcast_shape_and_mutation()
 
         assert project_state_broadcast_calls - before_project_state == 1
         assert name_validation_broadcast_calls - before_name_validation == 1
-        assert _get_code_obj_name(manager, project_config_id, FIRST_PARAM_ID) == "renamed_param"
+        assert (
+            _get_code_obj_name(manager, project_config_id, FIRST_PARAM_ID)
+            == "renamed_param"
+        )
         assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "12345"
 
 

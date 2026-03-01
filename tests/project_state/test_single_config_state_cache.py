@@ -6,6 +6,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     UndoRequest,
 )
+from setta.types.project_config import ProjectConfig
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -199,7 +200,9 @@ async def test_get_latest_project_state_reuses_single_config_cache(
 
 
 @pytest.mark.asyncio
-async def test_get_single_config_state_cache_does_not_return_deleted_project_config() -> None:
+async def test_get_single_config_state_cache_does_not_return_deleted_project_config() -> (
+    None
+):
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         project_state = build_callable_project_state(4)
@@ -218,3 +221,63 @@ async def test_get_single_config_state_cache_does_not_return_deleted_project_con
 
         with pytest.raises(KeyError):
             manager.get_single_config_state(created_id)
+
+
+@pytest.mark.asyncio
+async def test_watch_code_files_forwards_single_config_fast_path_for_disjoint_configs() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+
+        # Add another config with disjoint section ids.
+        await manager.create_project_config(previewImgColor="#ffffff")
+
+        recorded_project_state = None
+        original_watch_code_files = manager.code_files.watch_code_files
+
+        def record_watch_code_files(*_args, **kwargs) -> None:
+            nonlocal recorded_project_state
+            recorded_project_state = kwargs.get("project_state")
+
+        manager.code_files.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+        try:
+            manager.watch_code_files(project_state)
+        finally:
+            manager.code_files.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+
+        assert recorded_project_state is project_state
+
+
+@pytest.mark.asyncio
+async def test_watch_code_files_falls_back_to_full_refresh_when_sections_are_shared() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+
+        # Inject a second config that points at the same section ids.
+        shared_config = ProjectConfig(
+            name="shared-section-config",
+            sectionVariantMap=dict(project_state.projectConfig.sectionVariantMap),
+        )
+        manager.project_state_backend.projectConfigs[shared_config.id] = shared_config
+
+        recorded_project_state = project_state
+        original_watch_code_files = manager.code_files.watch_code_files
+
+        def record_watch_code_files(*_args, **kwargs) -> None:
+            nonlocal recorded_project_state
+            recorded_project_state = kwargs.get("project_state")
+
+        manager.code_files.watch_code_files = record_watch_code_files  # type: ignore[method-assign]
+        try:
+            manager.watch_code_files(project_state)
+        finally:
+            manager.code_files.watch_code_files = original_watch_code_files  # type: ignore[method-assign]
+
+        assert recorded_project_state is None

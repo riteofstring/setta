@@ -60,10 +60,10 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         artifact_watch_calls += 1
         original_watch_artifact_files()
 
-    def record_watch_code_files() -> None:
+    def record_watch_code_files(*args, **kwargs) -> None:
         nonlocal code_watch_calls
         code_watch_calls += 1
-        original_watch_code_files()
+        original_watch_code_files(*args, **kwargs)
 
     def record_watch_code_sync(backend) -> None:
         nonlocal watch_code_sync_calls
@@ -246,7 +246,9 @@ def _assert_route_mutation(
             code_section_id,
             BaseCodeSectionImpl,
         )
-        assert code_impl.code == "def compute(value: int) -> int:\n    return value + 7\n"
+        assert (
+            code_impl.code == "def compute(value: int) -> int:\n    return value + 7\n"
+        )
         return
     if route_name == "set_text_block_text":
         text_impl = get_curr_effective_section_impl_with_type_guard(
@@ -298,9 +300,11 @@ async def test_value_edit_routes_preserve_broadcast_shape_and_mutation(
         project_state = build_callable_project_state(4)
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
-        code_section_id, text_section_id, prompt_section_id = (
-            await _create_value_edit_sections(manager, project_config_id)
-        )
+        (
+            code_section_id,
+            text_section_id,
+            prompt_section_id,
+        ) = await _create_value_edit_sections(manager, project_config_id)
         await _prepare_route_state(
             manager,
             project_config_id,
@@ -378,9 +382,11 @@ async def test_value_edit_routes_preserve_watcher_path_registration(
         project_state = build_callable_project_state(4)
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
-        code_section_id, text_section_id, prompt_section_id = (
-            await _create_value_edit_sections(manager, project_config_id)
-        )
+        (
+            code_section_id,
+            text_section_id,
+            prompt_section_id,
+        ) = await _create_value_edit_sections(manager, project_config_id)
         await _prepare_route_state(
             manager,
             project_config_id,
@@ -415,9 +421,11 @@ async def test_value_edit_routes_skip_file_watcher_refresh_calls(
         project_state = build_callable_project_state(4)
         await manager.update(project_state, updateFileWatcher=True)
         project_config_id = project_state.projectConfig.id
-        code_section_id, text_section_id, prompt_section_id = (
-            await _create_value_edit_sections(manager, project_config_id)
-        )
+        (
+            code_section_id,
+            text_section_id,
+            prompt_section_id,
+        ) = await _create_value_edit_sections(manager, project_config_id)
         await _prepare_route_state(
             manager,
             project_config_id,

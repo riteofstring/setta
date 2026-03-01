@@ -43,6 +43,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
 
+
 class FormatCodeTestManager(BaseProjectManager):
     def __init__(
         self,
@@ -111,10 +112,10 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
         artifact_watch_calls += 1
         original_watch_artifact_files()
 
-    def record_watch_code_files() -> None:
+    def record_watch_code_files(*args, **kwargs) -> None:
         nonlocal code_watch_calls
         code_watch_calls += 1
-        original_watch_code_files()
+        original_watch_code_files(*args, **kwargs)
 
     def record_watch_code_sync(backend) -> None:
         nonlocal watch_code_sync_calls
@@ -154,7 +155,9 @@ async def _assert_skips_file_watcher_refresh_calls(manager, operation_coro) -> N
     assert refresh_calls - before_refresh > 0
 
 
-async def _assert_preserves_broadcast_shape(manager, request: FormatCodeRequest) -> None:
+async def _assert_preserves_broadcast_shape(
+    manager, request: FormatCodeRequest
+) -> None:
     sender = manager.websocket_msg_handler
     project_state_broadcast_calls = 0
     name_validation_broadcast_calls = 0

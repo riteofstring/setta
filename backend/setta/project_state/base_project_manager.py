@@ -2000,7 +2000,7 @@ class BaseProjectManager(ABC):
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
-            self.watch_code_files()
+            self.watch_code_files(projectState)
             self.watch_code_manager.sync_from_backend(self.project_state_backend)
 
     def _bootstrap_watch_code_baselines(self) -> None:
@@ -5493,11 +5493,28 @@ class BaseProjectManager(ABC):
             self.project_state_backend,
         )
 
-    def watch_code_files(self):
+    def watch_code_files(
+        self,
+        project_state: ProjectStateSingleConfig | None = None,
+    ):
+        project_state_for_watch_refresh: ProjectStateSingleConfig | None = None
+        if project_state is not None:
+            project_configs = self.project_state_backend.projectConfigs
+            project_config_id = project_state.projectConfig.id
+            if project_config_id in project_configs:
+                updated_section_ids = set(project_state.projectConfig.sectionVariantMap)
+                has_shared_sections = any(
+                    bool(updated_section_ids.intersection(config.sectionVariantMap))
+                    for other_project_config_id, config in project_configs.items()
+                    if other_project_config_id != project_config_id
+                )
+                if not has_shared_sections:
+                    project_state_for_watch_refresh = project_state
         self.code_files.watch_code_files(
             f"{self._file_watcher_category_prefix}_CodeFiles",
             self.project_state_backend_getter_fn,
             self.reload_code_sections,
+            project_state=project_state_for_watch_refresh,
         )
 
     async def reload_code_sections(
