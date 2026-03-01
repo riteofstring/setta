@@ -123,6 +123,10 @@ export class CanvasEngineSceneAdapter {
 
   private readonly agenticEdgeById: Map<string, CanvasEngineAgenticEdge>;
 
+  private dataEdgeIdsBySectionId: Map<string, Set<string>>;
+
+  private agenticEdgeIdsBySectionId: Map<string, Set<string>>;
+
   private edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>;
 
   private dataHandlePositionsBySectionId: Map<
@@ -157,6 +161,8 @@ export class CanvasEngineSceneAdapter {
     this.rectById = new Map();
     this.dataEdgeById = new Map();
     this.agenticEdgeById = new Map();
+    this.dataEdgeIdsBySectionId = new Map();
+    this.agenticEdgeIdsBySectionId = new Map();
     this.edgeHandlePositionByKey = new Map();
     this.dataHandlePositionsBySectionId = new Map();
     this.sectionEdgePortsBySectionId = {};
@@ -233,14 +239,13 @@ export class CanvasEngineSceneAdapter {
     rects.sort(compareRectRecords);
 
     const dataEdges: CanvasEngineDataEdge[] = [];
-    for (const edge of this.dataEdgeById.values()) {
-      if (
-        !isEdgeVisible(
-          edge.sourceSectionId,
-          edge.targetSectionId,
-          visibleSectionSet,
-        )
-      ) {
+    const visibleDataEdgeIds = collectVisibleEdgeIdsForSections(
+      visibleSectionSet,
+      this.dataEdgeIdsBySectionId,
+    );
+    for (const edgeId of visibleDataEdgeIds) {
+      const edge = this.dataEdgeById.get(edgeId);
+      if (!edge) {
         continue;
       }
       dataEdges.push(edge);
@@ -248,14 +253,13 @@ export class CanvasEngineSceneAdapter {
     dataEdges.sort(compareDataEdgeRecords);
 
     const agenticEdges: CanvasEngineAgenticEdge[] = [];
-    for (const edge of this.agenticEdgeById.values()) {
-      if (
-        !isEdgeVisible(
-          edge.sourceSectionId,
-          edge.targetSectionId,
-          visibleSectionSet,
-        )
-      ) {
+    const visibleAgenticEdgeIds = collectVisibleEdgeIdsForSections(
+      visibleSectionSet,
+      this.agenticEdgeIdsBySectionId,
+    );
+    for (const edgeId of visibleAgenticEdgeIds) {
+      const edge = this.agenticEdgeById.get(edgeId);
+      if (!edge) {
         continue;
       }
       agenticEdges.push(edge);
@@ -902,12 +906,19 @@ export class CanvasEngineSceneAdapter {
     "dataEdgesAdded" | "dataEdgesUpdated" | "dataEdgesRemoved"
   > {
     const nextEdgeIds = new Set<string>();
+    const nextEdgeIdsBySectionId = new Map<string, Set<string>>();
     let dataEdgesAdded = 0;
     let dataEdgesUpdated = 0;
     let dataEdgesRemoved = 0;
 
     for (const edge of edges) {
       nextEdgeIds.add(edge.id);
+      addEdgeToSectionAdjacency(
+        nextEdgeIdsBySectionId,
+        edge.id,
+        edge.sourceSectionId,
+        edge.targetSectionId,
+      );
       const nextEdgeRecord = createDataEdgeRecord(
         edge,
         this.edgeHandlePositionByKey,
@@ -934,6 +945,7 @@ export class CanvasEngineSceneAdapter {
       this.dataEdgeById.delete(edgeId);
       dataEdgesRemoved += 1;
     }
+    this.dataEdgeIdsBySectionId = nextEdgeIdsBySectionId;
 
     return {
       dataEdgesAdded,
@@ -949,12 +961,19 @@ export class CanvasEngineSceneAdapter {
     "agenticEdgesAdded" | "agenticEdgesUpdated" | "agenticEdgesRemoved"
   > {
     const nextEdgeIds = new Set<string>();
+    const nextEdgeIdsBySectionId = new Map<string, Set<string>>();
     let agenticEdgesAdded = 0;
     let agenticEdgesUpdated = 0;
     let agenticEdgesRemoved = 0;
 
     for (const edge of edges) {
       nextEdgeIds.add(edge.id);
+      addEdgeToSectionAdjacency(
+        nextEdgeIdsBySectionId,
+        edge.id,
+        edge.sourceSectionId,
+        edge.targetSectionId,
+      );
       const nextEdgeRecord = createAgenticEdgeRecord(edge);
       const previousEdgeRecord = this.agenticEdgeById.get(edge.id);
       if (!previousEdgeRecord) {
@@ -976,6 +995,7 @@ export class CanvasEngineSceneAdapter {
       this.agenticEdgeById.delete(edgeId);
       agenticEdgesRemoved += 1;
     }
+    this.agenticEdgeIdsBySectionId = nextEdgeIdsBySectionId;
 
     return {
       agenticEdgesAdded,
@@ -1089,15 +1109,44 @@ function createAgenticEdgeRecord(
   };
 }
 
-function isEdgeVisible(
+function collectVisibleEdgeIdsForSections(
+  visibleSectionIds: Set<string>,
+  edgeIdsBySectionId: Map<string, Set<string>>,
+): Set<string> {
+  const visibleEdgeIds = new Set<string>();
+  for (const sectionId of visibleSectionIds) {
+    const edgeIds = edgeIdsBySectionId.get(sectionId);
+    if (!edgeIds) {
+      continue;
+    }
+    for (const edgeId of edgeIds) {
+      visibleEdgeIds.add(edgeId);
+    }
+  }
+  return visibleEdgeIds;
+}
+
+function addEdgeToSectionAdjacency(
+  edgeIdsBySectionId: Map<string, Set<string>>,
+  edgeId: string,
   sourceSectionId: string,
   targetSectionId: string,
-  visibleSectionSet: Set<string>,
-): boolean {
-  return (
-    visibleSectionSet.has(sourceSectionId) ||
-    visibleSectionSet.has(targetSectionId)
-  );
+): void {
+  addEdgeToSection(edgeIdsBySectionId, sourceSectionId, edgeId);
+  addEdgeToSection(edgeIdsBySectionId, targetSectionId, edgeId);
+}
+
+function addEdgeToSection(
+  edgeIdsBySectionId: Map<string, Set<string>>,
+  sectionId: string,
+  edgeId: string,
+): void {
+  let edgeIds = edgeIdsBySectionId.get(sectionId);
+  if (!edgeIds) {
+    edgeIds = new Set();
+    edgeIdsBySectionId.set(sectionId, edgeIds);
+  }
+  edgeIds.add(edgeId);
 }
 
 function buildDataHandleKey(

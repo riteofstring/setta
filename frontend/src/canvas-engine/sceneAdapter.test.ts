@@ -261,6 +261,44 @@ describe("CanvasEngineSceneAdapter", () => {
     ]);
   });
 
+  it("keeps edges connected to active offscreen sections in the snapshot", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          nearA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          nearB: createLayout({ x: 420, y: 40, w: 320, h: 200 }),
+          farA: createLayout({ x: 8000, y: 1200, w: 320, h: 200 }),
+        },
+        activeSectionIds: ["farA"],
+        edges: [
+          createDataEdge("edge-visible", "nearA", "nearB"),
+          createDataEdge("edge-active-offscreen", "nearA", "farA"),
+        ],
+        agenticEdges: [
+          createAgenticEdge("agentic-visible", "nearA", "nearB"),
+          createAgenticEdge("agentic-active-offscreen", "nearA", "farA"),
+        ],
+      }),
+    );
+
+    const snapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1400, height: 900, dpr: 1 },
+    );
+    expect(snapshot.visibleRectCount).toBe(3);
+    expect(snapshot.visibleDataEdgeCount).toBe(2);
+    expect(snapshot.visibleAgenticEdgeCount).toBe(2);
+    expect(snapshot.snapshot.dataEdges.map((edge) => edge.id)).toEqual([
+      "edge-active-offscreen",
+      "edge-visible",
+    ]);
+    expect(snapshot.snapshot.agenticEdges.map((edge) => edge.id)).toEqual([
+      "agentic-active-offscreen",
+      "agentic-visible",
+    ]);
+  });
+
   it("returns the topmost section for a world-space hit test", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
