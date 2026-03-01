@@ -8,6 +8,7 @@ import {
 } from "plugins/runtime";
 import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
+import { IoMdGitBranch } from "react-icons/io";
 import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
 import {
   MdBugReport,
@@ -203,7 +204,7 @@ export function Overview() {
             {...commonProps}
             data-testid="overview-tab-git"
             {...getFloatingBoxHandlers({ content: "Git" })}
-            icon={<RiGitCommitLine size={18} />}
+            icon={<IoMdGitBranch size={18} />}
           />
         )}
         {showWatchCodeTab && (
