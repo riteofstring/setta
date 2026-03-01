@@ -5385,9 +5385,7 @@ class BaseProjectManager(ABC):
     ):
         """Return a lightweight summary for the requested project config."""
         async with self._project_state_lock.read_lock():
-            project_state = convert_backend_to_single_config(
-                self.project_state_backend, x.projectConfigId
-            )
+            project_state = self.get_single_config_state(x.projectConfigId)
             return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)

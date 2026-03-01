@@ -3,9 +3,11 @@ import pytest
 import setta.project_state.base_project_manager as base_project_manager_module
 from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
+    GetLatestProjectStateSummaryRequest,
     RedoRequest,
     UndoRequest,
 )
+from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.project_config import ProjectConfig
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
@@ -197,6 +199,92 @@ async def test_get_latest_project_state_reuses_single_config_cache(
 
         assert convert_calls == 1
         assert first is second
+
+
+@pytest.mark.asyncio
+async def test_get_latest_project_state_summary_reuses_single_config_cache(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        convert_calls = 0
+        original_convert = base_project_manager_module.convert_backend_to_single_config
+
+        def record_convert(*args, **kwargs):
+            nonlocal convert_calls
+            convert_calls += 1
+            return original_convert(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "convert_backend_to_single_config",
+            record_convert,
+        )
+        request = GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+
+        # Repeated summary reads should reuse the same cached single-config slice.
+        first = await manager.get_latest_project_state_summary(request)
+        second = await manager.get_latest_project_state_summary(request)
+
+        assert convert_calls == 1
+        assert first == second
+
+
+@pytest.mark.asyncio
+async def test_get_latest_project_state_summary_matches_direct_summary_build() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+        request = GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+
+        route_summary = await manager.get_latest_project_state_summary(request)
+        direct_summary = build_project_state_summary(
+            base_project_manager_module.convert_backend_to_single_config(
+                manager.project_state_backend,
+                project_config_id,
+            )
+        )
+
+        assert route_summary == direct_summary
+
+
+@pytest.mark.asyncio
+async def test_get_latest_project_state_summary_cache_invalidates_on_history_revision(
+    monkeypatch,
+) -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        convert_calls = 0
+        original_convert = base_project_manager_module.convert_backend_to_single_config
+
+        def record_convert(*args, **kwargs):
+            nonlocal convert_calls
+            convert_calls += 1
+            return original_convert(*args, **kwargs)
+
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "convert_backend_to_single_config",
+            record_convert,
+        )
+        request = GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+
+        await manager.get_latest_project_state_summary(request)
+        manager.add_new_history_entry(trigger_autosave=False)
+        await manager.get_latest_project_state_summary(request)
+        await manager.get_latest_project_state_summary(request)
+
+        assert convert_calls == 2
 
 
 @pytest.mark.asyncio
