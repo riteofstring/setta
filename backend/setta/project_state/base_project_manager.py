@@ -7544,9 +7544,15 @@ class BaseProjectManager(ABC):
     async def move_sections(self, x: MoveSectionsRequest):
         if not x.sectionIds:
             return
+        positions_by_id = x.positionsById
         if x.newParentId is None:
-            if not x.positionsById:
+            if not positions_by_id:
                 raise KeyError("Expected positionsById when moving sections to pane.")
+            for section_id in x.sectionIds:
+                if section_id not in positions_by_id:
+                    raise KeyError(
+                        f"Missing position when moving section {section_id} to pane."
+                    )
         elif x.newIndex is None:
             raise KeyError(
                 "Expected newIndex when moving sections into parent section."
@@ -7563,12 +7569,9 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         if x.newParentId is None:
+            assert positions_by_id is not None
             for section_id in x.sectionIds:
-                position = x.positionsById.get(section_id)
-                if position is None:
-                    raise KeyError(
-                        f"Missing position when moving section {section_id} to pane."
-                    )
+                position = positions_by_id[section_id]
                 move_section_to_pane(project_state, section_id, position)
         else:
             move_sections_to_parent_section(
