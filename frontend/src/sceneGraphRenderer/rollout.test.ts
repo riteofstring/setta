@@ -7,6 +7,8 @@ import {
   type SceneGraphRendererRolloutSurface,
 } from "./rollout";
 
+const NON_DEFAULT_PROJECT_CONFIG_NAME = "project_default_off_target";
+
 function createFlags(
   overrides: Partial<SceneGraphRendererFlags> = {},
 ): SceneGraphRendererFlags {
@@ -24,7 +26,7 @@ function createSurface(
 ): SceneGraphRendererRolloutSurface {
   return {
     projectConfigId: "project-config-id",
-    projectConfigName: "home",
+    projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
     activeViewModeName: "Overview",
     ...overrides,
   };
@@ -79,13 +81,26 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks jumping_moon as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes jumping_moon from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "jumping-moon-config-id",
+          projectConfigName: "jumping_moon",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
       isSceneGraphRendererDefaultOnSurface(
         createSurface({
           projectConfigId: "canary-project-config-id",
-          projectConfigName: "home",
+          projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
           activeViewModeName: "Overview",
         }),
         ["canary-project-config-id"],
@@ -144,12 +159,24 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe("project_config_name_default");
   });
 
+  it("reports jumping_moon rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "jumping-moon-config-id",
+          projectConfigName: "jumping_moon",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
   it("reports canary rollout reasons for project id and project name", () => {
     expect(
       resolveSceneGraphRendererRolloutDefaultOnReason(
         createSurface({
           projectConfigId: "canary-project-config-id",
-          projectConfigName: "home",
+          projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
           activeViewModeName: "Overview",
         }),
         ["canary-project-config-id"],
@@ -173,7 +200,7 @@ describe("scene graph renderer rollout policy", () => {
       resolveSceneGraphRendererRolloutDefaultOnReason(
         createSurface({
           projectConfigId: "non-target-config-id",
-          projectConfigName: "home",
+          projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
           activeViewModeName: "Overview",
         }),
       ),
@@ -186,7 +213,7 @@ describe("scene graph renderer rollout policy", () => {
       persistedFlags: createFlags({ enabled: false }),
       surface: createSurface({
         projectConfigId: "non-target-config-id",
-        projectConfigName: "home",
+        projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
         activeViewModeName: "Overview",
       }),
       hasEnabledStorageOverride: false,
@@ -242,7 +269,7 @@ describe("scene graph renderer rollout policy", () => {
       persistedFlags: createFlags({ enabled: false, backend: "auto" }),
       surface: createSurface({
         projectConfigId: "canary-project-config-id",
-        projectConfigName: "home",
+        projectConfigName: NON_DEFAULT_PROJECT_CONFIG_NAME,
         activeViewModeName: "Overview",
       }),
       hasEnabledStorageOverride: false,
