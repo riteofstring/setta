@@ -198,13 +198,6 @@ except Exception:
     sys.exit(1)
 
 target_id = data.get("id")
-if target_id:
-    try:
-        activate_url = f"http://127.0.0.1:{port}/json/activate/{target_id}"
-        with urllib.request.urlopen(activate_url, timeout=2):
-            pass
-    except Exception:
-        pass
 
 if os.environ.get("DEVTOOLS_CLOSE_BLANK_TABS") == "1" and target_id:
     list_url = f"http://127.0.0.1:{port}/json/list"
@@ -275,6 +268,25 @@ open_url_in_devtools_profile() {
   fi
   if [[ "$DEVTOOLS_OPEN_WITH_CHROME" != "1" ]]; then
     return 0
+  fi
+
+  local app_bundle=""
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    case "$CHROME_BIN" in
+      *.app/Contents/MacOS/*)
+        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
+        ;;
+    esac
+  fi
+  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
+    if open -g -a "$app_bundle" --args \
+      --user-data-dir="$PROFILE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      "${CHROME_ARGS[@]:-}" \
+      "$target_url" >/dev/null 2>&1; then
+      return 0
+    fi
   fi
 
   "$CHROME_BIN" \
@@ -424,14 +436,41 @@ if [[ "$FOREGROUND" == "1" ]]; then
     "${CHROME_ARGS[@]:-}" \
     about:blank
 else
-  "$CHROME_BIN" \
-    --remote-debugging-port="$DEBUG_PORT" \
-    --user-data-dir="$PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]:-}" \
-    about:blank >/dev/null 2>&1 &
-  write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+  app_bundle=""
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    case "$CHROME_BIN" in
+      *.app/Contents/MacOS/*)
+        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
+        ;;
+    esac
+  fi
+  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
+    if ! open -g -a "$app_bundle" --args \
+      --remote-debugging-port="$DEBUG_PORT" \
+      --user-data-dir="$PROFILE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      "${CHROME_ARGS[@]:-}" \
+      about:blank >/dev/null 2>&1; then
+      "$CHROME_BIN" \
+        --remote-debugging-port="$DEBUG_PORT" \
+        --user-data-dir="$PROFILE_DIR" \
+        --no-first-run \
+        --no-default-browser-check \
+        "${CHROME_ARGS[@]:-}" \
+        about:blank >/dev/null 2>&1 &
+      write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+    fi
+  else
+    "$CHROME_BIN" \
+      --remote-debugging-port="$DEBUG_PORT" \
+      --user-data-dir="$PROFILE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      "${CHROME_ARGS[@]:-}" \
+      about:blank >/dev/null 2>&1 &
+    write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+  fi
   open_bootstrap_in_devtools
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
   echo "To stop the debug browser, quit that Chrome window or kill its process."
