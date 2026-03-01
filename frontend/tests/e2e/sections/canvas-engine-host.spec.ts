@@ -73,6 +73,13 @@ type CanvasEngineCameraSnapshot = {
   zoom: number;
 };
 
+type CanvasEngineConnectionPreviewState = {
+  active: boolean;
+  kind: string;
+  valid: boolean;
+  hasTargetHandle: boolean;
+};
+
 type CanvasEngineEdgeHandleSeed = {
   sectionId: string;
   portId: string;
@@ -571,7 +578,9 @@ test("canvas engine host resizes sections and persists top-level size", async ({
   }
 });
 
-test("canvas engine host creates data edges via handle drag", async ({ page }) => {
+test("canvas engine host creates data edges via handle drag", async ({
+  page,
+}) => {
   const projectContext = await openIsolatedProject(page);
 
   try {
@@ -707,13 +716,33 @@ test("canvas engine host creates data edges via handle drag", async ({ page }) =
       .poll(async () => await readEdgeHandleRegistryPositionCount(page))
       .toBeGreaterThanOrEqual(2);
 
-    await dragWorldPoint(page, host, {
-      start: sourceHandle,
-      end: targetHandle,
+    const sourceHandleScreen = await worldPointToScreen(host, sourceHandle);
+    const targetHandleScreen = await worldPointToScreen(host, targetHandle);
+    await page.mouse.move(sourceHandleScreen.x, sourceHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(targetHandleScreen.x, targetHandleScreen.y, {
+      steps: 10,
     });
 
     await expect
-      .poll(async () => await readDataEdgeLinks(page, projectContext.projectConfigId))
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "data-connect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
+
+    await expect
+      .poll(
+        async () =>
+          await readDataEdgeLinks(page, projectContext.projectConfigId),
+      )
       .toContain(
         `${sourceSectionId}:${sourcePortId}->${targetSectionId}:${targetPortId}`,
       );
@@ -946,10 +975,37 @@ test("canvas engine host reconnects data edges via endpoint drag", async ({
       .poll(async () => await readEdgeHandleRegistryPositionCount(page))
       .toBeGreaterThanOrEqual(3);
 
-    await dragWorldPoint(page, host, {
-      start: firstTargetHandle,
-      end: secondTargetHandle,
-    });
+    const firstTargetHandleScreen = await worldPointToScreen(
+      host,
+      firstTargetHandle,
+    );
+    const secondTargetHandleScreen = await worldPointToScreen(
+      host,
+      secondTargetHandle,
+    );
+    await page.mouse.move(firstTargetHandleScreen.x, firstTargetHandleScreen.y);
+    await page.mouse.down();
+    await page.mouse.move(
+      secondTargetHandleScreen.x,
+      secondTargetHandleScreen.y,
+      {
+        steps: 10,
+      },
+    );
+
+    await expect
+      .poll(async () => await readConnectionPreviewState(host))
+      .toEqual({
+        active: true,
+        kind: "data-reconnect",
+        valid: true,
+        hasTargetHandle: true,
+      });
+
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await readConnectionPreviewState(host)).active)
+      .toBe(false);
 
     await expect
       .poll(
@@ -1260,11 +1316,13 @@ async function readSectionParamIds(
     { projectConfigId },
   );
   const variantId =
-    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ?? null;
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ??
+    null;
   if (!variantId) {
     throw new Error(`Missing variant id for section ${sectionId}.`);
   }
-  const implId = response?.projectState?.sectionVariants?.[variantId]?.impl ?? null;
+  const implId =
+    response?.projectState?.sectionVariants?.[variantId]?.impl ?? null;
   if (!implId) {
     throw new Error(`Missing impl id for section variant ${variantId}.`);
   }
@@ -1335,6 +1393,53 @@ async function readDataEdgeCount(host: Locator): Promise<number> {
     throw new Error(`Invalid data edge count attribute: ${String(value)}`);
   }
   return parsed;
+}
+
+async function readConnectionPreviewState(
+  host: Locator,
+): Promise<CanvasEngineConnectionPreviewState> {
+  const activeRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-active",
+  );
+  const kind =
+    (await host.getAttribute("data-canvas-engine-connection-preview-kind")) ??
+    "";
+  const validRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-valid",
+  );
+  const hasTargetHandleRaw = await host.getAttribute(
+    "data-canvas-engine-connection-preview-has-target-handle",
+  );
+  return {
+    active: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-active",
+      activeRaw,
+    ),
+    kind,
+    valid: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-valid",
+      validRaw,
+    ),
+    hasTargetHandle: parseBooleanHostAttribute(
+      "data-canvas-engine-connection-preview-has-target-handle",
+      hasTargetHandleRaw,
+    ),
+  };
+}
+
+function parseBooleanHostAttribute(
+  attributeName: string,
+  value: string | null,
+): boolean {
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  throw new Error(
+    `Invalid boolean host attribute ${attributeName}: ${String(value)}`,
+  );
 }
 
 async function readActiveSectionIds(host: Locator): Promise<string[]> {
@@ -1519,7 +1624,9 @@ async function setCanvasEngineEdgeHandlePositions(
 ): Promise<void> {
   await page.evaluate(async (nextHandles) => {
     const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
-    const { makeEdgeHandleKey } = await import("/src/state/actions/edgeHandles.ts");
+    const { makeEdgeHandleKey } = await import(
+      "/src/state/actions/edgeHandles.ts"
+    );
     useEdgeHandleRegistry.setState((state) => {
       const nextPositions: Record<
         string,
@@ -1533,7 +1640,11 @@ async function setCanvasEngineEdgeHandlePositions(
         }
       > = {};
       for (const handle of nextHandles) {
-        const key = makeEdgeHandleKey(handle.sectionId, handle.portId, handle.type);
+        const key = makeEdgeHandleKey(
+          handle.sectionId,
+          handle.portId,
+          handle.type,
+        );
         nextPositions[key] = {
           sectionId: handle.sectionId,
           portId: handle.portId,
@@ -1548,7 +1659,9 @@ async function setCanvasEngineEdgeHandlePositions(
   }, handles);
 }
 
-async function readEdgeHandleRegistryPositionCount(page: Page): Promise<number> {
+async function readEdgeHandleRegistryPositionCount(
+  page: Page,
+): Promise<number> {
   return await page.evaluate(async () => {
     const { useEdgeHandleRegistry } = await import("/src/state/definitions.ts");
     return Object.keys(useEdgeHandleRegistry.getState().positions).length;
@@ -1566,7 +1679,8 @@ async function readSectionVariantId(
     { projectConfigId },
   );
   const variantId =
-    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ?? null;
+    response?.projectState?.projectConfig?.sectionVariantMap?.[sectionId] ??
+    null;
   if (!variantId) {
     throw new Error(`Missing variant id for section ${sectionId}.`);
   }

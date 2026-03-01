@@ -419,7 +419,9 @@ describe("CanvasEngineSceneAdapter", () => {
     );
 
     expect(
-      adapter.hitTestDataHandleAtWorldPoint(412, 170, 8, { handleType: "source" }),
+      adapter.hitTestDataHandleAtWorldPoint(412, 170, 8, {
+        handleType: "source",
+      }),
     ).toEqual({
       sectionId: "sectionA",
       portId: "out-1",
@@ -428,7 +430,9 @@ describe("CanvasEngineSceneAdapter", () => {
       handleWorldY: 170,
     });
     expect(
-      adapter.hitTestDataHandleAtWorldPoint(518, 206, 8, { handleType: "target" }),
+      adapter.hitTestDataHandleAtWorldPoint(518, 206, 8, {
+        handleType: "target",
+      }),
     ).toEqual({
       sectionId: "sectionB",
       portId: "in-1",
@@ -536,6 +540,52 @@ describe("CanvasEngineSceneAdapter", () => {
       targetX: 420,
       targetY: 164,
     });
+  });
+
+  it("returns resolved data edge anchors by edge id", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 100, y: 120, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 560, y: 180, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-anchor-query", "sectionA", "sectionB", {
+            sourcePortId: "out-1",
+            targetPortId: "in-1",
+          }),
+        ],
+        agenticEdges: [],
+        edgeHandlePositions: {
+          [buildDataHandleKey("sectionA", "out-1", "source")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionA",
+              portId: "out-1",
+              type: "source",
+              x: 420,
+              y: 210,
+            }),
+          [buildDataHandleKey("sectionB", "in-1", "target")]:
+            createEdgeHandlePosition({
+              sectionId: "sectionB",
+              portId: "in-1",
+              type: "target",
+              x: 560,
+              y: 280,
+            }),
+        },
+      }),
+    );
+
+    expect(adapter.getDataEdgeAnchorsById("edge-data-anchor-query")).toEqual({
+      startX: 420,
+      startY: 210,
+      endX: 560,
+      endY: 280,
+    });
+    expect(adapter.getDataEdgeAnchorsById("missing-edge")).toBe(null);
   });
 });
 

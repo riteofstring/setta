@@ -102,10 +102,22 @@ const AGENTIC_EDGE_COLOR: [number, number, number] = [0.96, 0.66, 0.24];
 const AGENTIC_EDGE_SELECTED_COLOR: [number, number, number] = [1.0, 0.83, 0.52];
 const ACTIVE_RECT_OUTLINE_COLOR: [number, number, number] = [0.92, 0.96, 1.0];
 const ACTIVE_HANDLE_COLOR: [number, number, number] = [0.73, 0.84, 0.99];
+const CONNECTION_PREVIEW_COLOR: [number, number, number] = [0.81, 0.91, 1.0];
+const CONNECTION_PREVIEW_INVALID_COLOR: [number, number, number] = [
+  0.58, 0.62, 0.69,
+];
+const CONNECTION_PREVIEW_TARGET_COLOR: [number, number, number] = [
+  0.89, 0.95, 1.0,
+];
+const CONNECTION_PREVIEW_TARGET_INVALID_COLOR: [number, number, number] = [
+  0.68, 0.73, 0.79,
+];
 const EDGE_THICKNESS_PX = 2.4;
 const SELECTED_EDGE_THICKNESS_PX = 3.8;
 const OUTLINE_THICKNESS_PX = 2.0;
 const HANDLE_HALF_SIZE_PX = 4.0;
+const CONNECTION_PREVIEW_THICKNESS_PX = 2.8;
+const CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX = 5.5;
 
 const WEBGPU_SHADER = `
 struct VertexInput {
@@ -659,6 +671,7 @@ function buildSceneVertexData(
       appendActiveRectOverlays(values, viewport, x0, y0, x1, y1);
     }
   }
+  appendConnectionPreviewPrimitives(values, scene, viewport, clampedZoom);
 
   return new Float32Array(values);
 }
@@ -767,6 +780,70 @@ function appendAgenticEdgePrimitives(
         ? SELECTED_EDGE_THICKNESS_PX + 0.8
         : EDGE_THICKNESS_PX + 0.6,
       edge.selected ? AGENTIC_EDGE_SELECTED_COLOR : AGENTIC_EDGE_COLOR,
+    );
+  }
+}
+
+function appendConnectionPreviewPrimitives(
+  destination: number[],
+  scene: CanvasEngineSceneSnapshot,
+  viewport: CanvasEngineViewport,
+  zoom: number,
+): void {
+  const preview = scene.connectionPreview;
+  if (!preview) {
+    return;
+  }
+
+  const start = worldToScreen(
+    preview.startX,
+    preview.startY,
+    scene.camera.x,
+    scene.camera.y,
+    zoom,
+  );
+  const end = worldToScreen(
+    preview.endX,
+    preview.endY,
+    scene.camera.x,
+    scene.camera.y,
+    zoom,
+  );
+
+  appendLineSegmentQuad(
+    destination,
+    viewport,
+    start.x,
+    start.y,
+    end.x,
+    end.y,
+    CONNECTION_PREVIEW_THICKNESS_PX,
+    preview.targetValid
+      ? CONNECTION_PREVIEW_COLOR
+      : CONNECTION_PREVIEW_INVALID_COLOR,
+  );
+
+  if (
+    typeof preview.targetHandleX === "number" &&
+    typeof preview.targetHandleY === "number"
+  ) {
+    const targetHandle = worldToScreen(
+      preview.targetHandleX,
+      preview.targetHandleY,
+      scene.camera.x,
+      scene.camera.y,
+      zoom,
+    );
+    appendRectTriangles(
+      destination,
+      viewport,
+      targetHandle.x - CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
+      targetHandle.y - CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
+      targetHandle.x + CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
+      targetHandle.y + CONNECTION_PREVIEW_TARGET_HALF_SIZE_PX,
+      preview.targetValid
+        ? CONNECTION_PREVIEW_TARGET_COLOR
+        : CONNECTION_PREVIEW_TARGET_INVALID_COLOR,
     );
   }
 }

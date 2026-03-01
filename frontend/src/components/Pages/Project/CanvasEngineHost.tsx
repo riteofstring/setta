@@ -9,6 +9,7 @@ import {
 import type {
   CanvasEngineBackendSelection,
   CanvasEngineCamera,
+  CanvasEngineConnectionPreview,
   CanvasEngineRect,
   CanvasEngineViewport,
 } from "canvas-engine/types";
@@ -42,7 +43,11 @@ import {
   setSelfParentSiblingChildrenWidths,
   type ResizeHandleDirection,
 } from "state/actions/sections/sectionSizes";
-import { useEdgeHandleRegistry, useProjectState, useSettings } from "state/definitions";
+import {
+  useEdgeHandleRegistry,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import {
   getMaxSectionHeight,
   getMaxSectionWidth,
@@ -116,12 +121,16 @@ type PointerSession =
       kind: "data-connect";
       sourceSectionId: string;
       sourcePortId: string;
+      sourceHandleWorldX: number;
+      sourceHandleWorldY: number;
     }
   | {
       pointerId: number;
       kind: "data-reconnect";
       edgeId: string;
       endpointType: "source" | "target";
+      fixedHandleWorldX: number;
+      fixedHandleWorldY: number;
     };
 
 type ResizeCapabilities = {
@@ -222,6 +231,20 @@ export function CanvasEngineHost() {
   });
   const [viewport, setViewport] =
     useState<CanvasEngineViewport>(DEFAULT_VIEWPORT);
+  const [connectionPreview, setConnectionPreview] =
+    useState<CanvasEngineConnectionPreview | null>(null);
+
+  const updateConnectionPreview = useCallback(
+    (nextPreview: CanvasEngineConnectionPreview | null) => {
+      setConnectionPreview((currentPreview) => {
+        if (areConnectionPreviewsEqual(currentPreview, nextPreview)) {
+          return currentPreview;
+        }
+        return nextPreview;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     const patchSummary = sceneAdapter.applyProjectState({
@@ -249,6 +272,13 @@ export function CanvasEngineHost() {
     [camera, projectSceneRevision, sceneAdapter, viewport],
   );
   const sceneSnapshot = snapshotResult.snapshot;
+  const renderSceneSnapshot = useMemo(
+    () => ({
+      ...sceneSnapshot,
+      connectionPreview,
+    }),
+    [connectionPreview, sceneSnapshot],
+  );
 
   useEffect(() => {
     const hostElement = hostRef.current;
@@ -331,8 +361,8 @@ export function CanvasEngineHost() {
     if (!renderer) {
       return;
     }
-    renderer.render(sceneSnapshot, viewport);
-  }, [projectSceneRevision, rendererRevision, sceneSnapshot, viewport]);
+    renderer.render(renderSceneSnapshot, viewport);
+  }, [projectSceneRevision, rendererRevision, renderSceneSnapshot, viewport]);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -343,6 +373,7 @@ export function CanvasEngineHost() {
       if (!worldPoint) {
         return;
       }
+      updateConnectionPreview(null);
       const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
@@ -373,22 +404,73 @@ export function CanvasEngineHost() {
           kind: "data-connect",
           sourceSectionId: dataSourceHandleHit.sectionId,
           sourcePortId: dataSourceHandleHit.portId,
+          sourceHandleWorldX: dataSourceHandleHit.handleWorldX,
+          sourceHandleWorldY: dataSourceHandleHit.handleWorldY,
         };
+        updateConnectionPreview({
+          kind: "data-connect",
+          startX: dataSourceHandleHit.handleWorldX,
+          startY: dataSourceHandleHit.handleWorldY,
+          endX: worldPoint.x,
+          endY: worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
-      const dataEdgeEndpointHit = sceneAdapter.hitTestDataEdgeEndpointAtWorldPoint(
-        worldPoint.x,
-        worldPoint.y,
-        resolveDataEdgeEndpointHitToleranceWorld(camera.zoom),
-      );
+      const dataEdgeEndpointHit =
+        sceneAdapter.hitTestDataEdgeEndpointAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          resolveDataEdgeEndpointHitToleranceWorld(camera.zoom),
+        );
       if (canEditStructure && dataEdgeEndpointHit) {
+        const edgeAnchors = sceneAdapter.getDataEdgeAnchorsById(
+          dataEdgeEndpointHit.edgeId,
+        );
+        if (!edgeAnchors) {
+          return;
+        }
+        const fixedHandleWorldX =
+          dataEdgeEndpointHit.endpointType === "source"
+            ? edgeAnchors.endX
+            : edgeAnchors.startX;
+        const fixedHandleWorldY =
+          dataEdgeEndpointHit.endpointType === "source"
+            ? edgeAnchors.endY
+            : edgeAnchors.startY;
         pointerSessionRef.current = {
           pointerId: event.pointerId,
           kind: "data-reconnect",
           edgeId: dataEdgeEndpointHit.edgeId,
           endpointType: dataEdgeEndpointHit.endpointType,
+          fixedHandleWorldX,
+          fixedHandleWorldY,
         };
+        updateConnectionPreview({
+          kind: "data-reconnect",
+          startX:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? worldPoint.x
+              : fixedHandleWorldX,
+          startY:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? worldPoint.y
+              : fixedHandleWorldY,
+          endX:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? fixedHandleWorldX
+              : worldPoint.x,
+          endY:
+            dataEdgeEndpointHit.endpointType === "source"
+              ? fixedHandleWorldY
+              : worldPoint.y,
+          targetHandleX: null,
+          targetHandleY: null,
+          targetValid: false,
+        });
         event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
@@ -509,6 +591,7 @@ export function CanvasEngineHost() {
       sceneAdapter,
       sectionSizingPolicy,
       topLevelSections,
+      updateConnectionPreview,
     ],
   );
 
@@ -578,6 +661,127 @@ export function CanvasEngineHost() {
         });
         return;
       }
+      if (pointerSession.kind === "data-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          DATA_HANDLE_HIT_TOLERANCE_WORLD,
+          { handleType: "target" },
+        );
+
+        let endX = worldPoint.x;
+        let endY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+
+        if (targetHandleHit) {
+          targetHandleX = targetHandleHit.handleWorldX;
+          targetHandleY = targetHandleHit.handleWorldY;
+          const connection: Connection = {
+            source: pointerSession.sourceSectionId,
+            sourceHandle: pointerSession.sourcePortId,
+            target: targetHandleHit.sectionId,
+            targetHandle: targetHandleHit.portId,
+          };
+          if (isValidDataEdgeConnection(connection)) {
+            targetValid = true;
+            endX = targetHandleHit.handleWorldX;
+            endY = targetHandleHit.handleWorldY;
+          }
+        }
+
+        updateConnectionPreview({
+          kind: "data-connect",
+          startX: pointerSession.sourceHandleWorldX,
+          startY: pointerSession.sourceHandleWorldY,
+          endX,
+          endY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
+        });
+        return;
+      }
+      if (pointerSession.kind === "data-reconnect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const edge = sceneAdapter.getDataEdgeById(pointerSession.edgeId);
+
+        let movingHandleX = worldPoint.x;
+        let movingHandleY = worldPoint.y;
+        let targetHandleX: number | null = null;
+        let targetHandleY: number | null = null;
+        let targetValid = false;
+
+        const hitHandle = sceneAdapter.hitTestDataHandleAtWorldPoint(
+          worldPoint.x,
+          worldPoint.y,
+          DATA_HANDLE_HIT_TOLERANCE_WORLD,
+          { handleType: pointerSession.endpointType },
+        );
+        if (edge && hitHandle) {
+          targetHandleX = hitHandle.handleWorldX;
+          targetHandleY = hitHandle.handleWorldY;
+          let connection: Connection;
+          if (pointerSession.endpointType === "source") {
+            connection = {
+              source: hitHandle.sectionId,
+              sourceHandle: hitHandle.portId,
+              target: edge.targetSectionId,
+              targetHandle: edge.targetPortId,
+            };
+          } else {
+            connection = {
+              source: edge.sourceSectionId,
+              sourceHandle: edge.sourcePortId,
+              target: hitHandle.sectionId,
+              targetHandle: hitHandle.portId,
+            };
+          }
+
+          if (isValidDataEdgeConnection(connection)) {
+            targetValid = true;
+            movingHandleX = hitHandle.handleWorldX;
+            movingHandleY = hitHandle.handleWorldY;
+          }
+        }
+
+        const previewStartX =
+          pointerSession.endpointType === "source"
+            ? movingHandleX
+            : pointerSession.fixedHandleWorldX;
+        const previewStartY =
+          pointerSession.endpointType === "source"
+            ? movingHandleY
+            : pointerSession.fixedHandleWorldY;
+        const previewEndX =
+          pointerSession.endpointType === "source"
+            ? pointerSession.fixedHandleWorldX
+            : movingHandleX;
+        const previewEndY =
+          pointerSession.endpointType === "source"
+            ? pointerSession.fixedHandleWorldY
+            : movingHandleY;
+
+        updateConnectionPreview({
+          kind: "data-reconnect",
+          startX: previewStartX,
+          startY: previewStartY,
+          endX: previewEndX,
+          endY: previewEndY,
+          targetHandleX,
+          targetHandleY,
+          targetValid,
+        });
+        return;
+      }
       if (pointerSession.kind !== "pane") {
         return;
       }
@@ -597,7 +801,7 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [camera],
+    [camera, sceneAdapter, updateConnectionPreview],
   );
 
   const releasePointerCapture = useCallback(
@@ -680,12 +884,13 @@ export function CanvasEngineHost() {
           const edge = sceneAdapter.getDataEdgeById(pointerSession.edgeId);
           if (edge) {
             if (pointerSession.endpointType === "source") {
-              const sourceHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
-                worldPoint.x,
-                worldPoint.y,
-                DATA_HANDLE_HIT_TOLERANCE_WORLD,
-                { handleType: "source" },
-              );
+              const sourceHandleHit =
+                sceneAdapter.hitTestDataHandleAtWorldPoint(
+                  worldPoint.x,
+                  worldPoint.y,
+                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
+                  { handleType: "source" },
+                );
               if (sourceHandleHit) {
                 const connection: Connection = {
                   source: sourceHandleHit.sectionId,
@@ -698,12 +903,13 @@ export function CanvasEngineHost() {
                 }
               }
             } else {
-              const targetHandleHit = sceneAdapter.hitTestDataHandleAtWorldPoint(
-                worldPoint.x,
-                worldPoint.y,
-                DATA_HANDLE_HIT_TOLERANCE_WORLD,
-                { handleType: "target" },
-              );
+              const targetHandleHit =
+                sceneAdapter.hitTestDataHandleAtWorldPoint(
+                  worldPoint.x,
+                  worldPoint.y,
+                  DATA_HANDLE_HIT_TOLERANCE_WORLD,
+                  { handleType: "target" },
+                );
               if (targetHandleHit) {
                 const connection: Connection = {
                   source: edge.sourceSectionId,
@@ -722,12 +928,13 @@ export function CanvasEngineHost() {
       if (pointerSession.kind === "pane" && !pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
+      updateConnectionPreview(null);
       pointerSessionRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [camera, projectConfigId, sceneAdapter],
+    [camera, projectConfigId, sceneAdapter, updateConnectionPreview],
   );
 
   const handleWheel = useCallback(
@@ -791,6 +998,27 @@ export function CanvasEngineHost() {
       data-canvas-engine-agentic-edge-count={
         snapshotResult.totalAgenticEdgeCount
       }
+      data-canvas-engine-connection-preview-active={String(
+        connectionPreview !== null,
+      )}
+      data-canvas-engine-connection-preview-kind={connectionPreview?.kind ?? ""}
+      data-canvas-engine-connection-preview-valid={String(
+        connectionPreview?.targetValid ?? false,
+      )}
+      data-canvas-engine-connection-preview-has-target-handle={String(
+        typeof connectionPreview?.targetHandleX === "number" &&
+          typeof connectionPreview?.targetHandleY === "number",
+      )}
+      data-canvas-engine-connection-preview-target-x={
+        typeof connectionPreview?.targetHandleX === "number"
+          ? connectionPreview.targetHandleX.toFixed(2)
+          : ""
+      }
+      data-canvas-engine-connection-preview-target-y={
+        typeof connectionPreview?.targetHandleY === "number"
+          ? connectionPreview.targetHandleY.toFixed(2)
+          : ""
+      }
       data-canvas-engine-last-sections-added={lastPatchSummary.sectionsAdded}
       data-canvas-engine-last-sections-updated={
         lastPatchSummary.sectionsUpdated
@@ -815,6 +1043,28 @@ export function CanvasEngineHost() {
         style={{ touchAction: "none" }}
       />
     </div>
+  );
+}
+
+function areConnectionPreviewsEqual(
+  left: CanvasEngineConnectionPreview | null,
+  right: CanvasEngineConnectionPreview | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.kind === right.kind &&
+    left.startX === right.startX &&
+    left.startY === right.startY &&
+    left.endX === right.endX &&
+    left.endY === right.endY &&
+    left.targetHandleX === right.targetHandleX &&
+    left.targetHandleY === right.targetHandleY &&
+    left.targetValid === right.targetValid
   );
 }
 

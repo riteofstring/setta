@@ -58,10 +58,22 @@ export type CanvasEngineAgenticEdge = {
   zIndex: number;
 };
 
+export type CanvasEngineConnectionPreview = {
+  kind: "data-connect" | "data-reconnect";
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  targetHandleX: number | null;
+  targetHandleY: number | null;
+  targetValid: boolean;
+};
+
 export type CanvasEngineSceneSnapshot = {
   camera: CanvasEngineCamera;
   clearColor: [number, number, number];
   rects: CanvasEngineRect[];
   dataEdges: CanvasEngineDataEdge[];
   agenticEdges: CanvasEngineAgenticEdge[];
+  connectionPreview: CanvasEngineConnectionPreview | null;
 };

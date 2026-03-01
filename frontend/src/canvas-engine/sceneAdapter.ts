@@ -220,6 +220,7 @@ export class CanvasEngineSceneAdapter {
         rects,
         dataEdges,
         agenticEdges,
+        connectionPreview: null,
       },
       visibleRectCount: rects.length,
       totalRectCount: this.rectById.size,
@@ -262,6 +263,24 @@ export class CanvasEngineSceneAdapter {
 
   public getDataEdgeById(edgeId: string): CanvasEngineDataEdge | null {
     return this.dataEdgeById.get(edgeId) ?? null;
+  }
+
+  public getDataEdgeAnchorsById(edgeId: string): {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null {
+    const edge = this.dataEdgeById.get(edgeId);
+    if (!edge) {
+      return null;
+    }
+    const sourceRect = this.rectById.get(edge.sourceSectionId);
+    const targetRect = this.rectById.get(edge.targetSectionId);
+    if (!sourceRect || !targetRect) {
+      return null;
+    }
+    return resolveDataEdgeAnchors(edge, sourceRect, targetRect);
   }
 
   public hitTestEdgeAtWorldPoint(
@@ -467,7 +486,10 @@ export class CanvasEngineSceneAdapter {
         zIndex: rect.zIndex,
         distance,
       };
-      if (!hitCandidate || isDataHandleHitCandidateAbove(candidate, hitCandidate)) {
+      if (
+        !hitCandidate ||
+        isDataHandleHitCandidateAbove(candidate, hitCandidate)
+      ) {
         hitCandidate = candidate;
       }
     }
@@ -510,7 +532,10 @@ export class CanvasEngineSceneAdapter {
         worldX - anchors.startX,
         worldY - anchors.startY,
       );
-      const targetDistance = Math.hypot(worldX - anchors.endX, worldY - anchors.endY);
+      const targetDistance = Math.hypot(
+        worldX - anchors.endX,
+        worldY - anchors.endY,
+      );
 
       const endpointCandidates: Array<{
         endpointType: "source" | "target";
