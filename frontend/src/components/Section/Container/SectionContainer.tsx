@@ -19,7 +19,7 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
-import { getOutlineColor, useHasTempNested } from "./utils";
+import { getOutlineColor } from "./utils";
 
 function _SectionContainer({
   sectionId,
@@ -85,9 +85,6 @@ function _SectionContainer({
       isJoinedGroupActive,
     };
   }, _.isEqual);
-  const hasNested = useHasTempNested(sectionId);
-  const flattenNonGroupWrapper =
-    !isGroup && !isJoinedAttachedTerminalGroup && !hasNested;
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -110,54 +107,59 @@ function _SectionContainer({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        flattenNonGroupWrapper={flattenNonGroupWrapper}
       >
-        {!isGroup && isJoinedAttachedTerminalGroup ? (
-          <div
-            className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
-              {
-                isActiveSection: isJoinedGroupActive,
-                isGlobalVariables: false,
-                isInOtherProjectConfigs,
-              },
-            )}`}
-            data-joined-code-terminal-group
-          >
-            <AgenticEdgeHandles isUserView={isUserView} />
-            <SectionContainerCore
-              sectionId={sectionId}
-              isUserView={isUserView}
-              forceHideOutline={true}
-              hideAgenticEdgeHandles={true}
-              omitAgenticHandleScopeClass={true}
-              joinedCorners="code-terminal-parent"
-            />
-            <div className="-mt-px">
-              <MaybeManyNestedSections
+        <>
+          {!isGroup && isJoinedAttachedTerminalGroup ? (
+            <div
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+                {
+                  isActiveSection: isJoinedGroupActive,
+                  isGlobalVariables: false,
+                  isInOtherProjectConfigs,
+                },
+              )}`}
+              data-joined-code-terminal-group
+            >
+              <AgenticEdgeHandles isUserView={isUserView} />
+              <SectionContainerCore
                 sectionId={sectionId}
-                isGroup={isGroup}
-                layoutVariant="tight"
+                isUserView={isUserView}
+                forceHideOutline={true}
+                hideAgenticEdgeHandles={true}
+                omitAgenticHandleScopeClass={true}
+                joinedCorners="code-terminal-parent"
               />
+              <div className="-mt-px">
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              </div>
             </div>
-          </div>
-        ) : flattenNonGroupWrapper ? (
-          <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
-        ) : (
-          <>
-            {!isGroup && (
-              <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
-            )}
-            {isCode ? (
-              <MaybeManyNestedSections
-                sectionId={sectionId}
-                isGroup={isGroup}
-                layoutVariant="tight"
-              />
-            ) : (
-              <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
-            )}
-          </>
-        )}
+          ) : (
+            <>
+              {!isGroup && (
+                <SectionContainerCore
+                  sectionId={sectionId}
+                  isUserView={isUserView}
+                />
+              )}
+              {isCode ? (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              ) : (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                />
+              )}
+            </>
+          )}
+        </>
       </ContainerSwitch>
     </NodeIdProvider>
   );
