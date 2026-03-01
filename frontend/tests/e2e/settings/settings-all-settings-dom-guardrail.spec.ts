@@ -104,6 +104,29 @@ test("all settings DOM stays within flattening guardrails", async ({
           classes.includes("overflow-visible")
         );
       }).length,
+      legacyComboboxRightWrapperCount: Array.from(
+        document.querySelectorAll("div"),
+      ).filter((el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("absolute") &&
+          classes.includes("inset-y-0") &&
+          classes.includes("right-0") &&
+          classes.includes("grid") &&
+          classes.includes("select-none") &&
+          classes.includes("place-items-center")
+        );
+      }).length,
+      flattenedComboboxRightButtonCount: Array.from(
+        document.querySelectorAll("button"),
+      ).filter((el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("absolute") &&
+          classes.includes("inset-y-0") &&
+          classes.includes("right-1")
+        );
+      }).length,
       legacySwitchWrapperCount: document.querySelectorAll(
         "div.section-value.flex.justify-self-start.self-center",
       ).length,
@@ -129,6 +152,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.spanValueBorderCount).toBe(0);
   expect(metrics.legacyComboboxContainerDivCount).toBe(0);
   expect(metrics.comboboxSearchContainerCount).toBeGreaterThan(0);
+  expect(metrics.legacyComboboxRightWrapperCount).toBe(0);
+  expect(metrics.flattenedComboboxRightButtonCount).toBeGreaterThan(0);
   expect(metrics.legacySwitchWrapperCount).toBe(0);
   expect(metrics.flattenedSwitchRootCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);

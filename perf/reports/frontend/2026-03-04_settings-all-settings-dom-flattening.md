@@ -293,6 +293,35 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `78` (`18.40%`)
   - Main-thread work: `Layout 30.19 ms`, `UpdateLayoutTree 8.42 ms`, `Paint 43.38 ms`, `PrePaint 8.03 ms`
 
+### Phase 8 (combobox right-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Utils/atoms/search/StandardSearch.tsx`
+  - `frontend/src/components/Utils/Combobox/ComboboxParts.tsx`
+- Change:
+  - Added a wrapperless right-element path in `StandardSearch`.
+  - Moved combobox toggle positioning onto `StandardSearchRightBtn` so the extra right-side wrapper `<div>` is no longer rendered in settings comboboxes.
+  - Cleaned class assembly so missing style props no longer emit `undefined` class tokens.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `5391` (down from `5467`, `-76`, `-1.4%` vs phase 7)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `6487` (down from `6563`, `-76`)
+  - Per-node descendants: `avg 127.19`, `p95 160`, `max 992`
+  - Per-node max depth: `avg 9.71`, `p95 10`, `max 12`
+  - Legacy combobox right wrappers (`div.absolute.inset-y-0.right-0.grid.select-none.place-items-center`): `0` (down from `76`)
+  - Flattened combobox right buttons (`button.absolute.inset-y-0.right-1`): `76`
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8.trace.json`
+- Trace signals from this phase run:
+  - Duration: `12,945.18 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `5`
+  - Renderer main long tasks (`>=50ms`): `3`
+  - `BeginFrame`: `382` (`29.51/s`)
+  - `DrawFrame`: `125` (`9.66/s`)
+  - `DroppedFrame`: `11` (`2.88%`)
+  - Main-thread work: `Layout 31.0 ms`, `UpdateLayoutTree 8.13 ms`, `Paint 51.14 ms`, `PrePaint 6.55 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -302,15 +331,15 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy switch wrappers, `.cm-line` wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 5467` (`-3152`, `-36.6%`)
-  - Per-node descendants avg: `204.05 -> 129` (`-36.8%`)
-  - Per-node descendants max: `1854 -> 1022` (`-44.9%`)
-  - Per-node depth avg/max: `12.74/17 -> 10.40/13`
+  - Viewport descendants: `8619 -> 5391` (`-3228`, `-37.5%`)
+  - Per-node descendants avg: `204.05 -> 127.19` (`-37.7%`)
+  - Per-node descendants max: `1854 -> 992` (`-46.5%`)
+  - Per-node depth avg/max: `12.74/17 -> 9.71/12`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
 
@@ -335,3 +364,6 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase7b_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase8_fitview.png`
