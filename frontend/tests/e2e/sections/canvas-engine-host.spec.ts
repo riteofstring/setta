@@ -528,7 +528,10 @@ test("canvas engine host caps retained dom islands after large offscreen transit
 
     const cameraBeforePan = await readCamera(host);
     const targetCameraX =
-      basePosition.x + DEFAULT_SECTION_WIDTH_FOR_HIT_TEST + columns * xGap + 160;
+      basePosition.x +
+      DEFAULT_SECTION_WIDTH_FOR_HIT_TEST +
+      columns * xGap +
+      160;
     const requiredCameraDeltaX = Math.max(0, targetCameraX - cameraBeforePan.x);
     if (requiredCameraDeltaX > 0) {
       await panCanvasHostByPixelDelta(page, host, {
@@ -550,9 +553,7 @@ test("canvas engine host caps retained dom islands after large offscreen transit
     await expect
       .poll(async () => await readDomIslandRetainedCount(host))
       .toBe(0);
-    await expect
-      .poll(async () => await readDomIslandCount(host))
-      .toBe(0);
+    await expect.poll(async () => await readDomIslandCount(host)).toBe(0);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

@@ -1,4 +1,8 @@
 import {
+  getNextDomIslandRetentionDelayMs,
+  resolveDomIslandMountPolicy,
+} from "canvas-engine/domIslandMountPolicy";
+import {
   createCanvasEngineRenderer,
   type CanvasEngineRenderer,
 } from "canvas-engine/renderer";
@@ -395,58 +399,27 @@ export function CanvasEngineHost() {
     viewport,
   ]);
   const domIslandSectionIds = useMemo(() => {
-    const nowMs = Date.now();
-    const expiryById = domIslandRetentionExpiryByIdRef.current;
-    const keepMountedSet = new Set<string>(domIslandViewportSectionIds);
-    for (const activeSectionId of activeSectionIds) {
-      keepMountedSet.add(activeSectionId);
-    }
-
-    for (const sectionId of keepMountedSet) {
-      expiryById.delete(sectionId);
-    }
-    for (const sectionId of domIslandMountedSectionIdsRef.current) {
-      if (keepMountedSet.has(sectionId)) {
-        continue;
-      }
-      if (!sceneAdapter.getRectById(sectionId)) {
-        expiryById.delete(sectionId);
-        continue;
-      }
-      if (!expiryById.has(sectionId)) {
-        expiryById.set(sectionId, nowMs + DOM_ISLAND_RETENTION_MS);
-      }
-    }
-    for (const [sectionId, expiryMs] of Array.from(expiryById.entries())) {
-      if (!sceneAdapter.getRectById(sectionId) || expiryMs <= nowMs) {
-        expiryById.delete(sectionId);
-      }
-    }
-    if (expiryById.size > DOM_ISLAND_MAX_RETAINED_SECTIONS) {
-      const retainedEntriesByExpiryAscending = Array.from(
-        expiryById.entries(),
-      ).sort((left, right) => left[1] - right[1]);
-      const overflowCount =
-        retainedEntriesByExpiryAscending.length - DOM_ISLAND_MAX_RETAINED_SECTIONS;
-      for (let index = 0; index < overflowCount; index += 1) {
-        const entry = retainedEntriesByExpiryAscending[index];
-        if (entry) {
-          expiryById.delete(entry[0]);
-        }
-      }
-    }
-
-    const mountedSectionIds = new Set<string>(keepMountedSet);
-    for (const sectionId of expiryById.keys()) {
-      mountedSectionIds.add(sectionId);
-    }
-    const nextMountedIds = sortSectionIdsByZIndexThenId(
-      Array.from(mountedSectionIds),
-      sceneAdapter,
-    );
-    domIslandMountedSectionIdsRef.current = nextMountedIds;
-    return nextMountedIds;
-  }, [activeSectionIds, domIslandRetentionRevision, domIslandViewportSectionIds, sceneAdapter]);
+    const mountPolicyResult = resolveDomIslandMountPolicy({
+      activeSectionIds,
+      viewportSectionIds: domIslandViewportSectionIds,
+      previousMountedSectionIds: domIslandMountedSectionIdsRef.current,
+      retentionExpiryBySectionId: domIslandRetentionExpiryByIdRef.current,
+      nowMs: Date.now(),
+      retentionMs: DOM_ISLAND_RETENTION_MS,
+      maxRetainedSections: DOM_ISLAND_MAX_RETAINED_SECTIONS,
+      hasRectForSection: (sectionId: string) =>
+        sceneAdapter.getRectById(sectionId) !== null,
+      sortSectionIds: (sectionIds: string[]) =>
+        sortSectionIdsByZIndexThenId(sectionIds, sceneAdapter),
+    });
+    domIslandMountedSectionIdsRef.current = mountPolicyResult.mountedSectionIds;
+    return mountPolicyResult.mountedSectionIds;
+  }, [
+    activeSectionIds,
+    domIslandRetentionRevision,
+    domIslandViewportSectionIds,
+    sceneAdapter,
+  ]);
   const domIslandRects = useMemo(() => {
     const rects: CanvasEngineRect[] = [];
     for (const sectionId of domIslandSectionIds) {
@@ -463,16 +436,10 @@ export function CanvasEngineHost() {
       window.clearTimeout(domIslandRetentionTimerIdRef.current);
       domIslandRetentionTimerIdRef.current = null;
     }
-    let nextExpiryMs: number | null = null;
-    for (const expiryMs of expiryById.values()) {
-      if (nextExpiryMs === null || expiryMs < nextExpiryMs) {
-        nextExpiryMs = expiryMs;
-      }
-    }
-    if (nextExpiryMs === null) {
+    const delayMs = getNextDomIslandRetentionDelayMs(expiryById, Date.now());
+    if (delayMs === null) {
       return;
     }
-    const delayMs = Math.max(0, nextExpiryMs - Date.now());
     domIslandRetentionTimerIdRef.current = window.setTimeout(() => {
       domIslandRetentionTimerIdRef.current = null;
       setDomIslandRetentionRevision((value) => value + 1);
