@@ -28,6 +28,9 @@ type LatestProjectStateResponse = {
       agenticEdges?: Array<{
         id?: string;
         selected?: boolean;
+        sourceSectionId?: string;
+        targetSectionId?: string;
+        kind?: AgenticEdgeKind;
       }>;
     };
   };
@@ -53,6 +56,7 @@ type CanvasEngineCameraSnapshot = {
 
 const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
 const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
+const AGENTIC_HANDLE_CENTER_OFFSET_WORLD = 19;
 const MULTI_SELECTION_MODIFIER_KEY =
   process.platform === "darwin" ? "Meta" : "Control";
 
@@ -524,6 +528,119 @@ test("canvas engine host resizes sections and persists top-level size", async ({
   }
 });
 
+test("canvas engine host creates agentic edges via handle drag", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sourcePosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.34,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const targetPosition = screenToWorldPoint(
+      {
+        x: hostBounds.x + hostBounds.width * 0.72,
+        y: hostBounds.y + hostBounds.height * 0.42,
+      },
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sourceSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sourcePosition,
+    });
+    const targetSectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Chat",
+      viewportBounds: engineViewportBounds,
+      position: targetPosition,
+    });
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(2);
+
+    const sourceLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sourceSectionId,
+    );
+    const targetLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      targetSectionId,
+    );
+    const sourceWidth =
+      typeof sourceLayout.w === "number"
+        ? sourceLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const sourceHeight =
+      typeof sourceLayout.h === "number"
+        ? sourceLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+    const targetWidth =
+      typeof targetLayout.w === "number"
+        ? targetLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const targetHeight =
+      typeof targetLayout.h === "number"
+        ? targetLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const sourceHandle = resolveAgenticHandleWorldPoint({
+      layout: sourceLayout,
+      width: sourceWidth,
+      height: sourceHeight,
+      side: "source",
+    });
+    const targetHandle = resolveAgenticHandleWorldPoint({
+      layout: targetLayout,
+      width: targetWidth,
+      height: targetHeight,
+      side: "target",
+    });
+
+    await dragWorldPoint(page, host, {
+      start: sourceHandle,
+      end: targetHandle,
+    });
+
+    await expect
+      .poll(async () => await readAgenticEdgeCount(host))
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(
+        async () =>
+          await readAgenticEdgeLinks(page, projectContext.projectConfigId),
+      )
+      .toContain(`${sourceSectionId}->${targetSectionId}:section_chat`);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("canvas engine host supports agentic edge click selection", async ({
   page,
 }) => {
@@ -884,6 +1001,30 @@ async function readTopLevelSectionLayout(
   };
 }
 
+function resolveAgenticHandleWorldPoint({
+  layout,
+  width,
+  height,
+  side,
+}: {
+  layout: { x: number; y: number };
+  width: number;
+  height: number;
+  side: "source" | "target";
+}): WorldPoint {
+  const centerY = layout.y + height / 2;
+  if (side === "source") {
+    return {
+      x: layout.x + width + AGENTIC_HANDLE_CENTER_OFFSET_WORLD,
+      y: centerY,
+    };
+  }
+  return {
+    x: layout.x - AGENTIC_HANDLE_CENTER_OFFSET_WORLD,
+    y: centerY,
+  };
+}
+
 async function createAgenticEdge({
   page,
   projectConfigId,
@@ -910,6 +1051,29 @@ async function createAgenticEdge({
     hidden: false,
     zIndex: 0,
   });
+}
+
+async function readAgenticEdgeLinks(
+  page: Page,
+  projectConfigId: string,
+): Promise<string[]> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
+  return edges
+    .filter(
+      (edge) =>
+        typeof edge.sourceSectionId === "string" &&
+        typeof edge.targetSectionId === "string" &&
+        typeof edge.kind === "string",
+    )
+    .map(
+      (edge) =>
+        `${edge.sourceSectionId as string}->${edge.targetSectionId as string}:${edge.kind as string}`,
+    );
 }
 
 async function readSelectedAgenticEdgeIds(

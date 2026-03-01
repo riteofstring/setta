@@ -344,6 +344,34 @@ describe("CanvasEngineSceneAdapter", () => {
     });
     expect(adapter.hitTestEdgeAtWorldPoint(370, 121, 8)).toBe(null);
   });
+
+  it("hit-tests agentic source and target handles in world space", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 100, y: 40, w: 320, h: 200, zIndex: 1 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestAgenticHandleAtWorldPoint(81, 140, 12)).toEqual({
+      sectionId: "sectionA",
+      handleType: "target",
+      handleWorldX: 81,
+      handleWorldY: 140,
+    });
+    expect(adapter.hitTestAgenticHandleAtWorldPoint(439, 140, 12)).toEqual({
+      sectionId: "sectionA",
+      handleType: "source",
+      handleWorldX: 439,
+      handleWorldY: 140,
+    });
+    expect(adapter.hitTestAgenticHandleAtWorldPoint(100, 140, 12)).toBe(null);
+  });
 });
 
 function createSceneInput(overrides: SceneInput): SceneInput {

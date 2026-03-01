@@ -14,6 +14,7 @@ import type {
 } from "canvas-engine/types";
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import { useReactFlow } from "forks/xyflow/core/store";
+import type { Connection } from "forks/xyflow/core/types";
 import {
   useCallback,
   useEffect,
@@ -24,7 +25,12 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
+import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
+  isValidAgenticEdgeConnection,
+  toggleAgenticEdgeSelection,
+} from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
@@ -38,6 +44,7 @@ import {
   getMinSectionHeight,
   getMinSectionWidth,
 } from "state/hooks/sectionSizes";
+import { useShareCapabilities } from "state/hooks/share";
 import { getIsTwitterSection } from "state/hooks/social";
 import {
   route_set_section_sizes,
@@ -93,6 +100,11 @@ type PointerSession =
   | {
       pointerId: number;
       kind: "edge";
+    }
+  | {
+      pointerId: number;
+      kind: "agentic-connect";
+      sourceSectionId: string;
     };
 
 type ResizeCapabilities = {
@@ -111,6 +123,7 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 const EDGE_HIT_TOLERANCE_PX = 8;
+const AGENTIC_HANDLE_HIT_TOLERANCE_WORLD = 12;
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -161,6 +174,7 @@ export function CanvasEngineHost() {
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
+  const { canEditStructure } = useShareCapabilities();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
@@ -307,6 +321,24 @@ export function CanvasEngineHost() {
       if (!worldPoint) {
         return;
       }
+      const agenticHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+        worldPoint.x,
+        worldPoint.y,
+        AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+      );
+      if (
+        canEditStructure &&
+        agenticHandleHit &&
+        agenticHandleHit.handleType === "source"
+      ) {
+        pointerSessionRef.current = {
+          pointerId: event.pointerId,
+          kind: "agentic-connect",
+          sourceSectionId: agenticHandleHit.sectionId,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
       const sectionId = sceneAdapter.hitTestSectionAtWorldPoint(
         worldPoint.x,
         worldPoint.y,
@@ -418,7 +450,13 @@ export function CanvasEngineHost() {
       }
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [camera, sceneAdapter, sectionSizingPolicy, topLevelSections],
+    [
+      camera,
+      canEditStructure,
+      sceneAdapter,
+      sectionSizingPolicy,
+      topLevelSections,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -541,6 +579,26 @@ export function CanvasEngineHost() {
           topLevelSections: latestLayouts,
         });
       }
+      if (pointerSession.kind === "agentic-connect") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (worldPoint) {
+          const targetHandleHit = sceneAdapter.hitTestAgenticHandleAtWorldPoint(
+            worldPoint.x,
+            worldPoint.y,
+            AGENTIC_HANDLE_HIT_TOLERANCE_WORLD,
+          );
+          if (targetHandleHit) {
+            const connection = createAgenticConnection({
+              sourceSectionId: pointerSession.sourceSectionId,
+              targetSectionId: targetHandleHit.sectionId,
+              targetHandleType: targetHandleHit.handleType,
+            });
+            if (isValidAgenticEdgeConnection(connection)) {
+              createAgenticEdgeFromConnection(connection);
+            }
+          }
+        }
+      }
       if (pointerSession.kind === "pane" && !pointerSession.moved) {
         applyActiveSectionChange({ interaction: "pane-click" });
       }
@@ -549,7 +607,7 @@ export function CanvasEngineHost() {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
     },
-    [projectConfigId],
+    [camera, projectConfigId, sceneAdapter],
   );
 
   const handleWheel = useCallback(
@@ -659,6 +717,26 @@ function resolveWorldPointFromPointerEvent(
 function resolveEdgeHitToleranceWorld(zoom: number): number {
   const clampedZoom = clamp(zoom, MIN_ZOOM, MAX_ZOOM);
   return EDGE_HIT_TOLERANCE_PX / clampedZoom;
+}
+
+function createAgenticConnection({
+  sourceSectionId,
+  targetSectionId,
+  targetHandleType,
+}: {
+  sourceSectionId: string;
+  targetSectionId: string;
+  targetHandleType: "source" | "target";
+}): Connection {
+  return {
+    source: sourceSectionId,
+    sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+    target: targetSectionId,
+    targetHandle:
+      targetHandleType === "target"
+        ? AGENTIC_EDGE_HANDLE_IDS.target
+        : AGENTIC_EDGE_HANDLE_IDS.source,
+  };
 }
 
 function setTopLevelSectionLayoutRect(

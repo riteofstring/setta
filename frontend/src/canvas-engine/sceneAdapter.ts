@@ -62,12 +62,22 @@ export type CanvasEngineEdgeHitResult =
       id: string;
     };
 
+export type CanvasEngineAgenticHandleHitResult = {
+  sectionId: string;
+  handleType: "source" | "target";
+  handleWorldX: number;
+  handleWorldY: number;
+};
+
 const DEFAULT_CONFIG: CanvasEngineSceneAdapterConfig = {
   defaultSectionWidth: 320,
   defaultSectionHeight: 200,
   viewportPaddingPx: 320,
   spatialIndexCellSize: 512,
 };
+
+const AGENTIC_HANDLE_GAP_WORLD = 12;
+const AGENTIC_HANDLE_HALF_SIZE_WORLD = 7;
 
 export class CanvasEngineSceneAdapter {
   private readonly config: CanvasEngineSceneAdapterConfig;
@@ -309,6 +319,79 @@ export class CanvasEngineSceneAdapter {
     return {
       kind: hitCandidate.kind,
       id: hitCandidate.id,
+    };
+  }
+
+  public hitTestAgenticHandleAtWorldPoint(
+    worldX: number,
+    worldY: number,
+    toleranceWorld: number,
+  ): CanvasEngineAgenticHandleHitResult | null {
+    let hitCandidate: {
+      sectionId: string;
+      handleType: "source" | "target";
+      handleWorldX: number;
+      handleWorldY: number;
+      zIndex: number;
+      distance: number;
+    } | null = null;
+
+    for (const rect of this.rectById.values()) {
+      const candidateHandles: Array<{
+        handleType: "source" | "target";
+        handleWorldX: number;
+        handleWorldY: number;
+      }> = [
+        {
+          handleType: "target",
+          handleWorldX:
+            rect.x - AGENTIC_HANDLE_GAP_WORLD - AGENTIC_HANDLE_HALF_SIZE_WORLD,
+          handleWorldY: rect.y + rect.height / 2,
+        },
+        {
+          handleType: "source",
+          handleWorldX:
+            rect.x +
+            rect.width +
+            AGENTIC_HANDLE_GAP_WORLD +
+            AGENTIC_HANDLE_HALF_SIZE_WORLD,
+          handleWorldY: rect.y + rect.height / 2,
+        },
+      ];
+
+      for (const handle of candidateHandles) {
+        const distance = Math.hypot(
+          worldX - handle.handleWorldX,
+          worldY - handle.handleWorldY,
+        );
+        if (distance > toleranceWorld) {
+          continue;
+        }
+        const candidate = {
+          sectionId: rect.id,
+          handleType: handle.handleType,
+          handleWorldX: handle.handleWorldX,
+          handleWorldY: handle.handleWorldY,
+          zIndex: rect.zIndex,
+          distance,
+        };
+        if (
+          !hitCandidate ||
+          isAgenticHandleHitCandidateAbove(candidate, hitCandidate)
+        ) {
+          hitCandidate = candidate;
+        }
+      }
+    }
+
+    if (!hitCandidate) {
+      return null;
+    }
+    return {
+      sectionId: hitCandidate.sectionId,
+      handleType: hitCandidate.handleType,
+      handleWorldX: hitCandidate.handleWorldX,
+      handleWorldY: hitCandidate.handleWorldY,
     };
   }
 
@@ -630,6 +713,32 @@ function isEdgeHitCandidateAbove(
     return candidate.drawOrder > current.drawOrder;
   }
   return candidate.id.localeCompare(current.id) > 0;
+}
+
+function isAgenticHandleHitCandidateAbove(
+  candidate: {
+    sectionId: string;
+    handleType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+  current: {
+    sectionId: string;
+    handleType: "source" | "target";
+    zIndex: number;
+    distance: number;
+  },
+): boolean {
+  if (candidate.zIndex !== current.zIndex) {
+    return candidate.zIndex > current.zIndex;
+  }
+  if (candidate.distance !== current.distance) {
+    return candidate.distance < current.distance;
+  }
+  if (candidate.handleType !== current.handleType) {
+    return candidate.handleType === "source";
+  }
+  return candidate.sectionId.localeCompare(current.sectionId) > 0;
 }
 
 function resolveEdgeAnchors(
