@@ -183,6 +183,18 @@ export class CanvasEngineSceneAdapter {
 
   private activeSectionIdSet: Set<string>;
 
+  private orderedSectionIds: string[];
+
+  private orderedDataEdgeIds: string[];
+
+  private orderedAgenticEdgeIds: string[];
+
+  private sectionOrderingDirty: boolean;
+
+  private dataEdgeOrderingDirty: boolean;
+
+  private agenticEdgeOrderingDirty: boolean;
+
   public constructor(config?: Partial<CanvasEngineSceneAdapterConfig>) {
     this.config = {
       ...DEFAULT_CONFIG,
@@ -210,6 +222,12 @@ export class CanvasEngineSceneAdapter {
     this.dataHandlePositionsBySectionId = new Map();
     this.sectionEdgePortsBySectionId = {};
     this.activeSectionIdSet = new Set();
+    this.orderedSectionIds = [];
+    this.orderedDataEdgeIds = [];
+    this.orderedAgenticEdgeIds = [];
+    this.sectionOrderingDirty = true;
+    this.dataEdgeOrderingDirty = true;
+    this.agenticEdgeOrderingDirty = true;
   }
 
   public applyProjectState(
@@ -273,41 +291,47 @@ export class CanvasEngineSceneAdapter {
     }
 
     const rects: CanvasEngineRect[] = [];
-    for (const sectionId of visibleSectionSet) {
+    for (const sectionId of this.getOrderedSectionIds()) {
+      if (!visibleSectionSet.has(sectionId)) {
+        continue;
+      }
       const rect = this.rectById.get(sectionId);
       if (rect) {
         rects.push(rect);
       }
     }
-    rects.sort(compareRectRecords);
 
     const dataEdges: CanvasEngineDataEdge[] = [];
     const visibleDataEdgeIds = collectVisibleEdgeIdsForSections(
       visibleSectionSet,
       this.dataEdgeIdsBySectionId,
     );
-    for (const edgeId of visibleDataEdgeIds) {
+    for (const edgeId of this.getOrderedDataEdgeIds()) {
+      if (!visibleDataEdgeIds.has(edgeId)) {
+        continue;
+      }
       const edge = this.dataEdgeById.get(edgeId);
       if (!edge) {
         continue;
       }
       dataEdges.push(edge);
     }
-    dataEdges.sort(compareDataEdgeRecords);
 
     const agenticEdges: CanvasEngineAgenticEdge[] = [];
     const visibleAgenticEdgeIds = collectVisibleEdgeIdsForSections(
       visibleSectionSet,
       this.agenticEdgeIdsBySectionId,
     );
-    for (const edgeId of visibleAgenticEdgeIds) {
+    for (const edgeId of this.getOrderedAgenticEdgeIds()) {
+      if (!visibleAgenticEdgeIds.has(edgeId)) {
+        continue;
+      }
       const edge = this.agenticEdgeById.get(edgeId);
       if (!edge) {
         continue;
       }
       agenticEdges.push(edge);
     }
-    agenticEdges.sort(compareAgenticEdgeRecords);
 
     return {
       snapshot: {
@@ -956,6 +980,7 @@ export class CanvasEngineSceneAdapter {
           height: nextRect.height,
         });
         sectionsAdded += 1;
+        this.sectionOrderingDirty = true;
         sectionBoundsChanged = true;
         changedSectionIds.add(sectionId);
         continue;
@@ -966,6 +991,9 @@ export class CanvasEngineSceneAdapter {
       }
 
       this.rectById.set(sectionId, nextRect);
+      if (previousRect.zIndex !== nextRect.zIndex) {
+        this.sectionOrderingDirty = true;
+      }
       if (
         previousRect.x !== nextRect.x ||
         previousRect.y !== nextRect.y ||
@@ -991,6 +1019,7 @@ export class CanvasEngineSceneAdapter {
       this.rectById.delete(sectionId);
       this.spatialIndex.remove(sectionId);
       sectionsRemoved += 1;
+      this.sectionOrderingDirty = true;
       sectionBoundsChanged = true;
       changedSectionIds.add(sectionId);
     }
@@ -1043,6 +1072,36 @@ export class CanvasEngineSceneAdapter {
     return this.spatialIndex.queryRect(worldBounds);
   }
 
+  private getOrderedSectionIds(): string[] {
+    if (this.sectionOrderingDirty) {
+      this.orderedSectionIds = Array.from(this.rectById.values())
+        .sort(compareRectRecords)
+        .map((rect) => rect.id);
+      this.sectionOrderingDirty = false;
+    }
+    return this.orderedSectionIds;
+  }
+
+  private getOrderedDataEdgeIds(): string[] {
+    if (this.dataEdgeOrderingDirty) {
+      this.orderedDataEdgeIds = Array.from(this.dataEdgeById.values())
+        .sort(compareDataEdgeRecords)
+        .map((edge) => edge.id);
+      this.dataEdgeOrderingDirty = false;
+    }
+    return this.orderedDataEdgeIds;
+  }
+
+  private getOrderedAgenticEdgeIds(): string[] {
+    if (this.agenticEdgeOrderingDirty) {
+      this.orderedAgenticEdgeIds = Array.from(this.agenticEdgeById.values())
+        .sort(compareAgenticEdgeRecords)
+        .map((edge) => edge.id);
+      this.agenticEdgeOrderingDirty = false;
+    }
+    return this.orderedAgenticEdgeIds;
+  }
+
   private applyDataEdges(
     edges: ProjectConfig["edges"],
     sectionEdgePortsBySectionId: Record<string, CanvasEngineSectionEdgePorts>,
@@ -1073,6 +1132,7 @@ export class CanvasEngineSceneAdapter {
       if (!previousEdgeRecord) {
         this.dataEdgeById.set(edge.id, nextEdgeRecord);
         dataEdgesAdded += 1;
+        this.dataEdgeOrderingDirty = true;
         changedEdgeIds.add(edge.id);
         continue;
       }
@@ -1081,6 +1141,9 @@ export class CanvasEngineSceneAdapter {
       }
       this.dataEdgeById.set(edge.id, nextEdgeRecord);
       dataEdgesUpdated += 1;
+      if (previousEdgeRecord.zIndex !== nextEdgeRecord.zIndex) {
+        this.dataEdgeOrderingDirty = true;
+      }
       changedEdgeIds.add(edge.id);
     }
 
@@ -1090,6 +1153,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.dataEdgeById.delete(edgeId);
       dataEdgesRemoved += 1;
+      this.dataEdgeOrderingDirty = true;
       removedEdgeIds.add(edgeId);
     }
     this.dataEdgeIdsBySectionId = nextEdgeIdsBySectionId;
@@ -1127,6 +1191,7 @@ export class CanvasEngineSceneAdapter {
       if (!previousEdgeRecord) {
         this.agenticEdgeById.set(edge.id, nextEdgeRecord);
         agenticEdgesAdded += 1;
+        this.agenticEdgeOrderingDirty = true;
         changedEdgeIds.add(edge.id);
         continue;
       }
@@ -1135,6 +1200,9 @@ export class CanvasEngineSceneAdapter {
       }
       this.agenticEdgeById.set(edge.id, nextEdgeRecord);
       agenticEdgesUpdated += 1;
+      if (previousEdgeRecord.zIndex !== nextEdgeRecord.zIndex) {
+        this.agenticEdgeOrderingDirty = true;
+      }
       changedEdgeIds.add(edge.id);
     }
 
@@ -1144,6 +1212,7 @@ export class CanvasEngineSceneAdapter {
       }
       this.agenticEdgeById.delete(edgeId);
       agenticEdgesRemoved += 1;
+      this.agenticEdgeOrderingDirty = true;
       removedEdgeIds.add(edgeId);
     }
     this.agenticEdgeIdsBySectionId = nextEdgeIdsBySectionId;

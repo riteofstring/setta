@@ -175,6 +175,102 @@ describe("CanvasEngineSceneAdapter", () => {
     ]);
   });
 
+  it("reorders snapshot output when section and edge z-indexes change", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200, zIndex: 0 }),
+          sectionB: createLayout({ x: 420, y: 0, w: 320, h: 200, zIndex: 1 }),
+          sectionC: createLayout({ x: 840, y: 0, w: 320, h: 200, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-low", "sectionA", "sectionB", {
+            zIndex: 0,
+          }),
+          createDataEdge("edge-data-high", "sectionB", "sectionC", {
+            zIndex: 2,
+          }),
+        ],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-low", "sectionA", "sectionB", {
+            zIndex: 0,
+          }),
+          createAgenticEdge("edge-agentic-high", "sectionB", "sectionC", {
+            zIndex: 2,
+          }),
+        ],
+      }),
+    );
+
+    const initialSnapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1800, height: 900, dpr: 1 },
+    );
+    expect(initialSnapshot.snapshot.rects.map((record) => record.id)).toEqual([
+      "sectionA",
+      "sectionB",
+      "sectionC",
+    ]);
+    expect(initialSnapshot.snapshot.dataEdges.map((edge) => edge.id)).toEqual([
+      "edge-data-low",
+      "edge-data-high",
+    ]);
+    expect(
+      initialSnapshot.snapshot.agenticEdges.map((edge) => edge.id),
+    ).toEqual(["edge-agentic-low", "edge-agentic-high"]);
+
+    const patchSummary = adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200, zIndex: 3 }),
+          sectionB: createLayout({ x: 420, y: 0, w: 320, h: 200, zIndex: 1 }),
+          sectionC: createLayout({ x: 840, y: 0, w: 320, h: 200, zIndex: 2 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-low", "sectionA", "sectionB", {
+            zIndex: 4,
+          }),
+          createDataEdge("edge-data-high", "sectionB", "sectionC", {
+            zIndex: 2,
+          }),
+        ],
+        agenticEdges: [
+          createAgenticEdge("edge-agentic-low", "sectionA", "sectionB", {
+            zIndex: 4,
+          }),
+          createAgenticEdge("edge-agentic-high", "sectionB", "sectionC", {
+            zIndex: 2,
+          }),
+        ],
+      }),
+    );
+
+    expect(patchSummary.sectionsUpdated).toBe(1);
+    expect(patchSummary.dataEdgesUpdated).toBe(1);
+    expect(patchSummary.agenticEdgesUpdated).toBe(1);
+
+    const nextSnapshot = adapter.createSnapshot(
+      { x: 0, y: 0, zoom: 1 },
+      { width: 1800, height: 900, dpr: 1 },
+    );
+    expect(nextSnapshot.snapshot.rects.map((record) => record.id)).toEqual([
+      "sectionB",
+      "sectionC",
+      "sectionA",
+    ]);
+    expect(nextSnapshot.snapshot.dataEdges.map((edge) => edge.id)).toEqual([
+      "edge-data-high",
+      "edge-data-low",
+    ]);
+    expect(nextSnapshot.snapshot.agenticEdges.map((edge) => edge.id)).toEqual([
+      "edge-agentic-high",
+      "edge-agentic-low",
+    ]);
+  });
+
   it("scales incremental patches on large scenes by touching only changed records", () => {
     const adapter = new CanvasEngineSceneAdapter();
     const totalSections = 2000;
