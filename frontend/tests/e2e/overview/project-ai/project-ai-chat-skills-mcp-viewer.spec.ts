@@ -45,6 +45,13 @@ async function closeSkillsMcpViewer(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Return to chat" }).click();
 }
 
+async function openRawSkillMarkdown(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await page
+    .getByTestId("project-chat-skill-markdown-view-raw")
+    .click();
+}
+
 test("project ai chat can open the skills side view", async ({ page }) => {
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
@@ -144,11 +151,29 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await skillMarkdownToggle.click();
   await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "true");
   await expect(
+    page.getByTestId("project-chat-skill-markdown-view-rendered"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-skill-markdown-view-raw"),
+  ).toBeVisible();
+  await page.getByTestId("project-chat-skill-markdown-view-rendered").click();
+  await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await expect(
     page.getByTestId("project-chat-skills-resize-handle"),
   ).toBeVisible();
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Create dense dashboard layouts.",
   );
+  await expect(
+    page.getByTestId("project-chat-custom-skill-relative-path-input"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-create"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -855,7 +880,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await expect.poll(() => skillsFetchCount).toBe(fetchCountAfterInitialLoad);
   expect(skillContentRequestCount).toBe(0);
 
-  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await openRawSkillMarkdown(page);
   await expect.poll(() => skillContentRequestCount).toBe(1);
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toContainText("workspace_skills::beta-skill");
@@ -935,6 +960,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
   await expect(page.getByLabel("Skill Markdown Content")).toBeVisible();
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
@@ -945,6 +971,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
 
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
@@ -1006,7 +1033,7 @@ test("project ai chat refresh updates selected markdown content without requirin
 
   await ensureAppReady(page);
   await openSkillsViewer(page);
-  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await openRawSkillMarkdown(page);
 
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toContainText("Revision 1");
@@ -1080,7 +1107,7 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
 
   await ensureAppReady(page);
   await openSkillsViewer(page);
-  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await openRawSkillMarkdown(page);
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
@@ -1259,6 +1286,156 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   ).toBeVisible();
 });
 
+test("project ai chat can create and save custom skills from raw markdown mode", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  const skills: Array<{
+    skillId: string;
+    name: string;
+    rootLabel: string;
+    rootPath: string;
+    relativePath: string;
+    description: string;
+  }> = [
+    {
+      skillId: "user_agents_skills::custom-one",
+      name: "custom-one",
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: "custom-one",
+      description: "Custom skill",
+    },
+  ];
+  const contentBySkillId: Record<string, string> = {
+    "user_agents_skills::custom-one": "# custom-one\n\nInitial body",
+  };
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(skills),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "user_agents_skills::custom-one";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content: contentBySkillId[skillId] ?? "# unknown",
+        truncated: false,
+        originalSizeBytes: (contentBySkillId[skillId] ?? "# unknown").length,
+      }),
+    });
+  });
+
+  const upsertPayloads: Array<{
+    skillId: string | null;
+    relativePath: string | null;
+    content: string;
+  }> = [];
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      skillId?: string | null;
+      relativePath?: string | null;
+      content?: string;
+    };
+    const skillId = payload.skillId ?? null;
+    const relativePath = payload.relativePath ?? null;
+    const content = payload.content ?? "";
+    upsertPayloads.push({
+      skillId,
+      relativePath,
+      content,
+    });
+    if (skillId) {
+      contentBySkillId[skillId] = content;
+      const skillDirName = skillId.split("::")[1] ?? "custom-one";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skillId,
+          created: false,
+          rootPath,
+          skillDocPath: `${rootPath}/${skillDirName}/SKILL.md`,
+        }),
+      });
+      return;
+    }
+    const nextRelativePath = relativePath ?? "new-custom-skill";
+    const createdSkillId = `user_agents_skills::${nextRelativePath}`;
+    contentBySkillId[createdSkillId] = content;
+    skills.push({
+      skillId: createdSkillId,
+      name: nextRelativePath,
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: nextRelativePath,
+      description: "",
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: createdSkillId,
+        created: true,
+        rootPath,
+        skillDocPath: `${rootPath}/${nextRelativePath}/SKILL.md`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await page.getByTestId("project-chat-custom-skill-save").click();
+  await expect.poll(() => upsertPayloads.length).toBe(1);
+  expect(upsertPayloads[0]).toMatchObject({
+    skillId: "user_agents_skills::custom-one",
+    relativePath: null,
+  });
+
+  await page
+    .getByTestId("project-chat-custom-skill-relative-path-input")
+    .fill("new-custom-skill");
+  await page.getByTestId("project-chat-custom-skill-create").click();
+  await expect.poll(() => upsertPayloads.length).toBe(2);
+  expect(upsertPayloads[1]).toMatchObject({
+    skillId: null,
+    relativePath: "new-custom-skill",
+  });
+  await expect(
+    page.getByRole("button", { name: /new-custom-skill/i }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+    "# new-custom-skill",
+  );
+});
+
 test("project ai chat mounts markdown viewer lazily and shows truncation metadata", async ({
   page,
 }) => {
@@ -1363,6 +1540,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
 
   await skillMarkdownToggle.click();
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
 
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Preview body",

@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { FiChevronDown, FiRefreshCw } from "react-icons/fi";
+import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { loadAgentRuns } from "state/actions/ai";
@@ -22,6 +22,7 @@ import {
   route_get_app_gen_skills,
   route_get_mcp_server_runtime_status,
   route_reveal_path_in_os_file_explorer,
+  route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
   type AgentRun,
@@ -59,9 +60,13 @@ type ProjectChatSkillsMcpViewerProps = {
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
+const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
 const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
 const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
+const SKILL_MARKDOWN_VIEW_MODE_RENDERED = "rendered";
+const SKILL_MARKDOWN_VIEW_MODE_RAW = "raw";
 const DEFAULT_SKILLS_LIST_HEIGHT_PCT = 66;
 const MIN_SKILLS_LIST_HEIGHT_PCT = 30;
 const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
@@ -79,6 +84,9 @@ type AgentNativeSlashCommandsEntry = {
   status: AgentNativeSlashCommandsStatus;
   statusDetail: string | null;
 };
+type SkillMarkdownViewMode =
+  | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
+  | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
 type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
@@ -89,6 +97,11 @@ const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
     status: "unknown",
     statusDetail: null,
   };
+const CUSTOM_SKILL_ROOT_IDS = new Set([
+  "agents_home_skills",
+  "user_agents_skills",
+  "workspace_agents_skills",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -423,6 +436,24 @@ export function ProjectChatSkillsMcpViewer({
       );
     },
   );
+  const [skillMarkdownViewMode, setSkillMarkdownViewMode] =
+    useState<SkillMarkdownViewMode>(() => {
+      const rawValue = storageAdapter.getItem(
+        SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY,
+      );
+      return rawValue === SKILL_MARKDOWN_VIEW_MODE_RAW
+        ? SKILL_MARKDOWN_VIEW_MODE_RAW
+        : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
+    });
+  const [skillMarkdownRawDraft, setSkillMarkdownRawDraft] = useState("");
+  const [newCustomSkillRelativePath, setNewCustomSkillRelativePath] =
+    useState("");
+  const [customSkillCreateInFlight, setCustomSkillCreateInFlight] =
+    useState(false);
+  const [customSkillSaveInFlight, setCustomSkillSaveInFlight] = useState(false);
+  const [customSkillRootPathHint, setCustomSkillRootPathHint] = useState<
+    string | null
+  >(null);
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
@@ -643,6 +674,17 @@ export function ProjectChatSkillsMcpViewer({
   }, [isSkillMarkdownViewerOpen, storageAdapter]);
 
   useEffect(() => {
+    storageAdapter.setItem(
+      SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY,
+      skillMarkdownViewMode,
+    );
+  }, [skillMarkdownViewMode, storageAdapter]);
+
+  useEffect(() => {
+    setSkillMarkdownRawDraft(selectedSkillContent);
+  }, [selectedSkillContent, selectedSkillId]);
+
+  useEffect(() => {
     if (agentRunsInitialLoadComplete) {
       return;
     }
@@ -800,11 +842,20 @@ export function ProjectChatSkillsMcpViewer({
     };
   }, [selectedSlashEngine]);
 
-  const markdownViewerExtensions = useMemo(() => {
+  const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({
       language: "markdown",
       wrapLines: true,
       isDisabled: true,
+      tabToAutocomplete: false,
+      indentWithTab: false,
+    });
+  }, []);
+  const editableMarkdownViewerExtensions = useMemo(() => {
+    return getExtensions({
+      language: "markdown",
+      wrapLines: true,
+      isDisabled: false,
       tabToAutocomplete: false,
       indentWithTab: false,
     });
@@ -816,6 +867,49 @@ export function ProjectChatSkillsMcpViewer({
   const showMcpSection = viewMode === "mcp";
   const showSlashCommandsSection = viewMode === "slash_commands";
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
+  const selectedSkill = useMemo(() => {
+    if (!selectedSkillId) {
+      return null;
+    }
+    return skills.find((skill) => skill.skillId === selectedSkillId) ?? null;
+  }, [selectedSkillId, skills]);
+  const selectedSkillRootId = useMemo(() => {
+    if (!selectedSkillId) {
+      return null;
+    }
+    const separatorIndex = selectedSkillId.indexOf("::");
+    if (separatorIndex < 0) {
+      return null;
+    }
+    return selectedSkillId.slice(0, separatorIndex);
+  }, [selectedSkillId]);
+  const selectedSkillIsEditable = selectedSkillRootId
+    ? CUSTOM_SKILL_ROOT_IDS.has(selectedSkillRootId)
+    : false;
+  const customSkillRootPath = useMemo(() => {
+    if (
+      selectedSkill &&
+      selectedSkillRootId &&
+      CUSTOM_SKILL_ROOT_IDS.has(selectedSkillRootId)
+    ) {
+      return selectedSkill.rootPath;
+    }
+    const discoveredRoot =
+      skills.find((skill) => {
+        const separatorIndex = skill.skillId.indexOf("::");
+        if (separatorIndex < 0) {
+          return false;
+        }
+        const rootId = skill.skillId.slice(0, separatorIndex);
+        return CUSTOM_SKILL_ROOT_IDS.has(rootId);
+      }) ?? null;
+    return discoveredRoot?.rootPath ?? customSkillRootPathHint;
+  }, [
+    customSkillRootPathHint,
+    selectedSkill,
+    selectedSkillRootId,
+    skills,
+  ]);
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
@@ -824,6 +918,14 @@ export function ProjectChatSkillsMcpViewer({
     selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
       ? `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`
       : null;
+  const isRawMarkdownView =
+    skillMarkdownViewMode === SKILL_MARKDOWN_VIEW_MODE_RAW;
+  const canSaveSelectedSkill =
+    selectedSkillIsEditable &&
+    !!selectedSkillId &&
+    isRawMarkdownView &&
+    !skillContentLoading &&
+    !customSkillSaveInFlight;
 
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
@@ -861,6 +963,89 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
   }, []);
+
+  const createCustomSkill = useCallback(async () => {
+    const relativePath = newCustomSkillRelativePath.trim();
+    if (!relativePath) {
+      addTemporaryNotification("Provide a custom skill name first.");
+      return;
+    }
+    setCustomSkillCreateInFlight(true);
+    const initialContent = `# ${relativePath}\n\nDescribe what this skill helps with.\n`;
+    const res = await route_upsert_app_gen_custom_skill({
+      skillId: null,
+      relativePath,
+      content: initialContent,
+    });
+    setCustomSkillCreateInFlight(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      addTemporaryNotification(
+        detail
+          ? `Failed to create custom skill: ${detail}`
+          : "Failed to create custom skill.",
+      );
+      return;
+    }
+    setCustomSkillRootPathHint(res.data.rootPath);
+    setNewCustomSkillRelativePath("");
+    setIsSkillMarkdownViewerOpen(true);
+    setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
+    setSelectedSkillId(res.data.skillId);
+    setSelectedSkillContent(initialContent);
+    setSkillMarkdownRawDraft(initialContent);
+    setSelectedSkillContentTruncated(false);
+    setSelectedSkillOriginalSizeBytes(initialContent.length);
+    addTemporaryNotification(
+      res.data.created
+        ? `Created custom skill ${relativePath}.`
+        : `Updated existing custom skill ${relativePath}.`,
+    );
+    await refreshSkillsBrowser();
+  }, [newCustomSkillRelativePath, refreshSkillsBrowser]);
+
+  const saveSelectedCustomSkill = useCallback(async () => {
+    if (!selectedSkillId) {
+      return;
+    }
+    if (!selectedSkillIsEditable) {
+      addTemporaryNotification(
+        "Selected skill is read-only. Create or pick a custom skill to edit.",
+      );
+      return;
+    }
+    setCustomSkillSaveInFlight(true);
+    const res = await route_upsert_app_gen_custom_skill({
+      skillId: selectedSkillId,
+      relativePath: null,
+      content: skillMarkdownRawDraft,
+    });
+    setCustomSkillSaveInFlight(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      addTemporaryNotification(
+        detail
+          ? `Failed to save custom skill: ${detail}`
+          : "Failed to save custom skill.",
+      );
+      return;
+    }
+    setCustomSkillRootPathHint(res.data.rootPath);
+    setSelectedSkillContent(skillMarkdownRawDraft);
+    setSelectedSkillContentTruncated(false);
+    setSelectedSkillOriginalSizeBytes(skillMarkdownRawDraft.length);
+    const cacheEntry = {
+      content: skillMarkdownRawDraft,
+      truncated: false,
+      originalSizeBytes: skillMarkdownRawDraft.length,
+    };
+    for (const key of skillContentCache.current.keys()) {
+      if (key.endsWith(`:${selectedSkillId}`)) {
+        skillContentCache.current.set(key, cacheEntry);
+      }
+    }
+    addTemporaryNotification("Saved custom skill.");
+  }, [selectedSkillId, selectedSkillIsEditable, skillMarkdownRawDraft]);
 
   const beginSkillsListResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1036,6 +1221,52 @@ export function ProjectChatSkillsMcpViewer({
                 />
               </button>
             </search>
+            <div className="flex min-w-0 items-center gap-1">
+              <input
+                aria-label="New custom skill name"
+                data-testid="project-chat-custom-skill-relative-path-input"
+                className="min-w-0 flex-1 cursor-text truncate rounded bg-setta-100/70 px-2 py-1 text-xs text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
+                value={newCustomSkillRelativePath}
+                onChange={(event) =>
+                  setNewCustomSkillRelativePath(event.target.value)
+                }
+                placeholder="new-custom-skill"
+              />
+              <button
+                type="button"
+                data-testid="project-chat-custom-skill-create"
+                aria-label="Create custom skill"
+                title="Create custom skill"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                onClick={() => void createCustomSkill()}
+                disabled={
+                  customSkillCreateInFlight ||
+                  newCustomSkillRelativePath.trim() === ""
+                }
+              >
+                <FiPlus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 px-1 text-[10px] text-setta-500 dark:text-setta-400">
+              <span
+                className="truncate"
+                data-testid="project-chat-custom-skill-root-path"
+                title={customSkillRootPath ?? "Custom skill root will be created on first save."}
+              >
+                {customSkillRootPath
+                  ? `Custom skills root: ${customSkillRootPath}`
+                  : "Custom skills root: AGENTS_HOME/skills (fallback: ~/.agents/skills)"}
+              </span>
+              <button
+                type="button"
+                data-testid="project-chat-custom-skill-root-reveal"
+                className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                onClick={() => void revealPathInFileExplorer(customSkillRootPath)}
+                disabled={!isActionablePath(customSkillRootPath)}
+              >
+                Open
+              </button>
+            </div>
           </div>
           <div
             ref={skillsSectionRef}
@@ -1207,36 +1438,107 @@ export function ProjectChatSkillsMcpViewer({
                     }`}
                   >
                     {isSkillMarkdownViewerOpen ? (
-                      <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(140px,42%)]">
+                      <div className="flex h-full min-h-0 flex-col">
                         {skillPreviewTruncationNotice ? (
                           <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                             {skillPreviewTruncationNotice}
                           </div>
                         ) : null}
-                        <div className="min-h-0 overflow-auto border-b border-setta-200/80 px-3 py-2 dark:border-setta-700/80">
-                          <ReactMarkdown
-                            className={SKILL_MARKDOWN_RENDERED_CLASS}
-                            remarkPlugins={[remarkGfm]}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-setta-200/80 px-2 py-1 dark:border-setta-700/80">
+                          <div className="inline-flex items-center gap-1 rounded bg-setta-100/70 p-0.5 dark:bg-setta-900/80">
+                            <button
+                              type="button"
+                              data-testid="project-chat-skill-markdown-view-rendered"
+                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                                !isRawMarkdownView
+                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
+                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                              }`}
+                              onClick={() =>
+                                setSkillMarkdownViewMode(
+                                  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
+                                )
+                              }
+                            >
+                              Rendered
+                            </button>
+                            <button
+                              type="button"
+                              data-testid="project-chat-skill-markdown-view-raw"
+                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                                isRawMarkdownView
+                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
+                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                              }`}
+                              onClick={() =>
+                                setSkillMarkdownViewMode(
+                                  SKILL_MARKDOWN_VIEW_MODE_RAW,
+                                )
+                              }
+                            >
+                              Raw text
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            data-testid="project-chat-custom-skill-save"
+                            className="inline-flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                            onClick={() => void saveSelectedCustomSkill()}
+                            disabled={!canSaveSelectedSkill}
+                            title={
+                              selectedSkillIsEditable
+                                ? "Save selected custom skill"
+                                : "Only custom skills can be edited."
+                            }
                           >
-                            {skillPreviewContent}
-                          </ReactMarkdown>
+                            <FiSave className="h-3 w-3" />
+                            Save
+                          </button>
                         </div>
-                        <div className="h-full min-h-[120px] overflow-hidden">
-                          <CodeMirror
-                            aria-label="Skill Markdown Content"
-                            className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
-                            height="100%"
-                            value={skillPreviewContent}
-                            theme={codeMirrorTheme}
-                            extensions={markdownViewerExtensions}
-                            basicSetup={{
-                              lineNumbers: false,
-                              foldGutter: false,
-                              highlightActiveLine: false,
-                              tabSize: 4,
-                            }}
-                          />
-                        </div>
+                        {isRawMarkdownView ? (
+                          <div className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400">
+                            {selectedSkillIsEditable
+                              ? "Editing mode for custom skills."
+                              : "Read-only preview. Select or create a custom skill to edit."}
+                          </div>
+                        ) : null}
+                        {!isRawMarkdownView ? (
+                          <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+                            <ReactMarkdown
+                              className={SKILL_MARKDOWN_RENDERED_CLASS}
+                              remarkPlugins={[remarkGfm]}
+                            >
+                              {skillPreviewContent}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="min-h-0 flex-1 overflow-hidden">
+                            <CodeMirror
+                              aria-label="Skill Markdown Content"
+                              className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
+                              height="100%"
+                              value={skillMarkdownRawDraft || skillPreviewContent}
+                              onChange={(value) => {
+                                if (!selectedSkillIsEditable) {
+                                  return;
+                                }
+                                setSkillMarkdownRawDraft(value);
+                              }}
+                              theme={codeMirrorTheme}
+                              extensions={
+                                selectedSkillIsEditable
+                                  ? editableMarkdownViewerExtensions
+                                  : readonlyMarkdownViewerExtensions
+                              }
+                              basicSetup={{
+                                lineNumbers: false,
+                                foldGutter: false,
+                                highlightActiveLine: false,
+                                tabSize: 4,
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </Accordion.Content>
