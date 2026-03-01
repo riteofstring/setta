@@ -169,6 +169,7 @@ describe("DictArea layout", () => {
     expect(markup).toContain("section-row-pin-main");
     expect(markup).not.toContain('aria-label="Remove arg"><i');
     expect(markup).not.toContain('aria-label="Add arg"><i');
+    expect(markup).not.toContain('aria-label="Pin selected args"><i');
     expect(markup).not.toContain('aria-label="Convert to edge connectors"><i');
     expect(markup).not.toContain('aria-label="Delete selected args"><i');
   });

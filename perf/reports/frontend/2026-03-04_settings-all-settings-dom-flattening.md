@@ -658,6 +658,47 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `72` (`44.72%`)
   - Main-thread work: `Layout 16.89 ms`, `UpdateLayoutTree 5.17 ms`, `Paint 19.24 ms`, `PrePaint 4.61 ms`
 
+### Phase 18 (kwargs pin icon-wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+  - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-dom-guardrail.spec.ts`
+- Change:
+  - Flattened kwargs pin action from `button > i` to icon-host button class (`gg-pin-alt`) while preserving existing label and disabled behavior.
+  - Extended unit and E2E guardrails to assert zero legacy kwargs pin wrappers and positive flattened pin-host counts.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `4403` (down from `4445`, `-42`, `-0.9%` vs phase 17)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `5499` (down from `5541`, `-42`)
+  - Per-node descendants: `avg 103.67`, `p95 193`, `max 855`
+  - Per-node max depth: `avg 7.5`, `p95 8`, `max 10`
+  - Legacy kwargs pin icon wrappers: `0` (down from `42`)
+  - Flattened kwargs pin icon hosts: `42`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18b.trace.json`
+- Notes on trace reliability:
+  - `phase18` used a longer interaction window while `phase18b` was closer to prior phase durations.
+  - Structural DOM reductions and guardrail counters remain the primary stable signal.
+- Trace signals (`phase18`):
+  - Duration: `21,236.14 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `5`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `194` (`9.14/s`)
+  - `DrawFrame`: `64` (`3.01/s`)
+  - `DroppedFrame`: `69` (`35.57%`)
+  - Main-thread work: `Layout 14.76 ms`, `UpdateLayoutTree 4.59 ms`, `Paint 32 ms`, `PrePaint 4.11 ms`
+- Trace signals (rerun `phase18b`):
+  - Duration: `16,122.67 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `5`
+  - Renderer main long tasks (`>=50ms`): `1`
+  - `BeginFrame`: `162` (`10.05/s`)
+  - `DrawFrame`: `44` (`2.73/s`)
+  - `DroppedFrame`: `74` (`45.68%`)
+  - Main-thread work: `Layout 15.38 ms`, `UpdateLayoutTree 4.72 ms`, `Paint 16.89 ms`, `PrePaint 4.28 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -667,14 +708,14 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, legacy switch-thumb span wrappers, legacy param-group outer wrappers, kwargs add/remove icon child wrappers, kwargs convert/delete icon child wrappers, section-header minimize icon child wrappers, section-header delete/hide icon child wrappers, section-header lock icon child wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
+  - zero count for known removed wrapper patterns (`focus-visible` container wrappers, `group/resize`, value-border spans, legacy combobox wrapper divs, legacy combobox right wrappers, legacy section title wrappers, legacy switch wrappers, legacy switch-thumb span wrappers, legacy param-group outer wrappers, kwargs add/remove icon child wrappers, kwargs pin icon child wrappers, kwargs convert/delete icon child wrappers, section-header minimize icon child wrappers, section-header delete/hide icon child wrappers, section-header lock icon child wrappers, `.cm-line` wrappers, and DummyCodeMirror single-span wrappers in this benchmark view)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 4445` (`-4174`, `-48.4%`)
-  - Per-node descendants avg: `204.05 -> 104.67` (`-48.7%`)
-  - Per-node descendants max: `1854 -> 856` (`-53.8%`)
+  - Viewport descendants: `8619 -> 4403` (`-4216`, `-48.9%`)
+  - Per-node descendants avg: `204.05 -> 103.67` (`-49.2%`)
+  - Per-node descendants max: `1854 -> 855` (`-53.9%`)
   - Per-node depth avg/max: `12.74/17 -> 7.5/10`
 - DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
 - Runtime traces in later phases remained noisy; DOM-shape gains are clear, but per-trace frame-drop rates were variable.
@@ -737,3 +778,7 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase17b.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase17.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase17_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase18_fitview.png`

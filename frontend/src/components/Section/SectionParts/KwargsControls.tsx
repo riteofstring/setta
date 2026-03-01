@@ -406,17 +406,13 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         />
 
         <button
-          className={`${argsIconButtonBaseClassName}`}
+          className={`${argsIconButtonBaseClassName} gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
           onClick={onClickPinParam}
           tabIndex={0}
           disabled={pinParamsDisabled}
           aria-label={pinButtonLabel}
           {...getFloatingBoxHandlers({ content: pinButtonLabel })}
-        >
-          <i
-            className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
-          />
-        </button>
+        />
         <button
           className={`${argsIconButtonBaseClassName} ${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
           onClick={onClickConvertToEdgeInputs}

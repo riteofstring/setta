@@ -107,6 +107,12 @@ test("all settings DOM stays within flattening guardrails", async ({
         label === "Delete selected args"
       );
     });
+    const kwargsPinButtons = Array.from(
+      document.querySelectorAll("button[aria-label]"),
+    ).filter((el) => {
+      const label = el.getAttribute("aria-label");
+      return label === "Pin selected args" || label === "Unpin selected args";
+    });
     const minimizeButtons = Array.from(document.querySelectorAll("button")).filter(
       (el) => {
         const classes = Array.from(el.classList);
@@ -266,6 +272,14 @@ test("all settings DOM stays within flattening guardrails", async ({
             Array.from(el.classList).includes("gg-unlink") ||
             Array.from(el.classList).includes("gg-close")),
       ).length,
+      legacyKwargsPinIconWrapperCount: kwargsPinButtons.filter(
+        (el) => el.children.length === 1 && el.children[0]?.tagName === "I",
+      ).length,
+      flattenedKwargsPinIconHostCount: kwargsPinButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          Array.from(el.classList).includes("gg-pin-alt"),
+      ).length,
       legacyMinimizeIconWrapperCount: minimizeButtons.filter(
         (el) =>
           el.children.length === 1 &&
@@ -344,6 +358,8 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedKwargsAddRemoveIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyKwargsConvertDeleteIconWrapperCount).toBe(0);
   expect(metrics.flattenedKwargsConvertDeleteIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyKwargsPinIconWrapperCount).toBe(0);
+  expect(metrics.flattenedKwargsPinIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyMinimizeIconWrapperCount).toBe(0);
   expect(metrics.flattenedMinimizeIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyDeleteHideIconWrapperCount).toBe(0);
