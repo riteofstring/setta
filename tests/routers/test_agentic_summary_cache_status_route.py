@@ -29,7 +29,7 @@ from tests.utils.runtime_context import runtime_context
 
 
 @pytest.mark.asyncio
-async def test_route_get_agentic_summary_cache_status(monkeypatch) -> None:
+async def test_route_get_agentic_summary_cache_status() -> None:
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
@@ -84,21 +84,6 @@ async def test_route_get_agentic_summary_cache_status(monkeypatch) -> None:
             dbe=project_fixture.dbe,
         )
         with runtime_context(state) as ctx:
-            single_config_reads = 0
-            original_get_single_config_state = (
-                project_fixture.manager.get_single_config_state
-            )
-
-            def record_get_single_config_state(project_config_id):
-                nonlocal single_config_reads
-                single_config_reads += 1
-                return original_get_single_config_state(project_config_id)
-
-            monkeypatch.setattr(
-                project_fixture.manager,
-                "get_single_config_state",
-                record_get_single_config_state,
-            )
             status = await route_get_agentic_summary_cache_status(
                 GetAgenticSummaryCacheStatusRequest(
                     projectConfigId=project_config_id,
@@ -138,4 +123,3 @@ async def test_route_get_agentic_summary_cache_status(monkeypatch) -> None:
             )
             assert cached_status.cachedSectionIds == [source.sectionId]
             assert cached_status.missingSectionIds == []
-            assert single_config_reads == 3

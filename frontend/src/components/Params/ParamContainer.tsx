@@ -5,9 +5,11 @@ import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import { getCurrEffectiveCodeObjImplIfPresent } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveCodeObjImpl,
+  getParamDisplayName,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
@@ -37,33 +39,14 @@ function _ParamContainer({
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
-      const codeObj = x.codeObjs[paramInfoId];
-      if (!codeObj) {
-        return {
-          description: "",
-          name: "",
-        };
-      }
-      const codeObjImpl = getCurrEffectiveCodeObjImplIfPresent(
+      const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
         sectionId,
         paramInfoId,
       );
-      let displayName = codeObj.name;
-      if (
-        x.projectConfig.showParamDisplayNames &&
-        codeObjImpl &&
-        isBaseParamCodeObjImpl(codeObjImpl) &&
-        !codeObjImpl.coreNameEditable
-      ) {
-        const trimmedDisplayName = codeObj.displayName.trim();
-        if (trimmedDisplayName.length > 0) {
-          displayName = codeObj.displayName;
-        }
-      }
       return {
-        description: codeObjImpl?.description ?? "",
-        name: displayName,
+        description: codeObjImpl.description,
+        name: getParamDisplayName(x, sectionId, paramInfoId),
       };
     },
     _.isEqual,
