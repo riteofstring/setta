@@ -258,7 +258,10 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import BaseParentCodeObjImpl
+from setta.types.code_obj_impls import (
+    BaseChildlessCodeObjImpl,
+    BaseParentCodeObjImpl,
+)
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -270,6 +273,7 @@ from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
 )
@@ -2945,6 +2949,68 @@ class BaseProjectManager(ABC):
         if did_update:
             await self.update_and_broadcast_project_state(project_state)
 
+    async def _try_incremental_param_value_codegen_update(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        param_id: ID,
+        value: str,
+    ) -> bool:
+        project_config = project_state.projectConfig
+        if not project_config_has_codegen_language(
+            project_config,
+            ProjectCodegenLanguage.python,
+        ):
+            return False
+        project_config_id = project_config.id
+        gen_code = self.gen_code.get(project_config_id)
+        if gen_code is None:
+            return False
+        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        if dep_key not in gen_code.code_generator.dep_graph.graph:
+            return False
+        gen_code.code_generator.change_value(dep_key, value)
+        if self.lsp_writers.full is not None:
+            await gen_code.sync_lsp(gen_code.code)
+        else:
+            await gen_code.diagnostics_state.reset(
+                clear_gen_code=True,
+                clear_unmapped=True,
+            )
+        maybe_update_gen_python_code_section(project_state, gen_code.generated_code)
+        maybe_update_gen_python_metadata_section(project_state, gen_code.meta_code)
+        self._refresh_plugin_codegen_outputs(project_state)
+        return True
+
+    async def _set_param_entered_value_and_broadcast_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        param_id: ID,
+        value: str,
+    ) -> None:
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            project_state.validate_for_update(
+                validate_code_file_bindings=True,
+                validate_name_rules=False,
+            )
+            updated_incrementally = (
+                await self._try_incremental_param_value_codegen_update(
+                    project_state,
+                    section_id=section_id,
+                    param_id=param_id,
+                    value=value,
+                )
+            )
+            if not updated_incrementally:
+                await self._refresh_codegen_state(project_state)
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        await self._broadcast_project_state_snapshot(project_state)
+
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
@@ -2970,10 +3036,19 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(
+        effective_impl = get_curr_effective_code_obj_impl(
             project_state,
-            broadcast_name_validation_errors=False,
-            validate_name_rules=False,
+            x.sectionId,
+            x.paramInfoId,
+        )
+        effective_value = x.value
+        if isinstance(effective_impl, BaseChildlessCodeObjImpl):
+            effective_value = effective_impl.value
+        await self._set_param_entered_value_and_broadcast_project_state(
+            project_state,
+            section_id=x.sectionId,
+            param_id=x.paramInfoId,
+            value=effective_value,
         )
 
     @enqueue_method
@@ -3189,6 +3264,7 @@ class BaseProjectManager(ABC):
         )
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -3223,6 +3299,7 @@ class BaseProjectManager(ABC):
         project_state.codeObjs[x.codeObjId].name = normalized_name
         await self.update_and_broadcast_project_state(
             project_state,
+            updateFileWatcher=False,
             validate_name_rules=False,
         )
 
@@ -3263,7 +3340,7 @@ class BaseProjectManager(ABC):
         """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_locks(project_state, x.sectionIds)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3276,7 +3353,7 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3289,7 +3366,7 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -3302,7 +3379,7 @@ class BaseProjectManager(ABC):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4582,7 +4659,7 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_tag_color(project_state, x.sectionId, x.tagColor)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4599,7 +4676,7 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_style_color(project_state, x.sectionId, x.styleColor)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4757,39 +4834,31 @@ class BaseProjectManager(ABC):
             x.columnWidth,
             x.typesColumnWidth,
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        # Pure UI state: avoid running full `update()` (which can trigger expensive
-        # codegen/LSP refresh) for a simple view-mode toggle.
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_project_state_snapshot(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_browser_saved_searches(self, x: SetBrowserSavedSearchesRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_saved_searches(project_state, x.sectionId, x.savedSearches)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def set_chat_section_settings(self, x: SetChatSectionSettingsRequest):
@@ -4818,7 +4887,7 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._merge_and_broadcast_ui_only_project_state(project_state)
 
     @enqueue_method
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
@@ -5143,6 +5212,19 @@ class BaseProjectManager(ABC):
             broadcast_name_validation_errors=False,
             validate_name_rules=False,
         )
+
+    async def _merge_and_broadcast_ui_only_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        """Persist UI-only section changes without codegen or watcher refresh."""
+        async with self._project_state_lock.write_lock():
+            project_state._section_slug_cache = None
+            self._merge_project_state_backend(
+                project_state,
+                updateFileWatcher=False,
+            )
+        await self._broadcast_project_state_snapshot(project_state)
 
     async def _broadcast_project_state_snapshot(
         self,
