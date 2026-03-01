@@ -29,11 +29,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
-
-function logCodeMirrorKeymapEvent(event: string, payload: unknown): void {
-  console.log(`[codemirror-keymap-debug] ${event} ${JSON.stringify(payload)}`);
-}
-
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -229,9 +224,6 @@ function getKeyMapArray({
     {
       key: shortcutCodemirrorFormat(settings.shortcuts.undoShortcut),
       run: () => {
-        logCodeMirrorKeymapEvent("undoShortcut.run", {
-          key: settings.shortcuts.undoShortcut,
-        });
         undoProjectState();
         return true;
       },
@@ -239,9 +231,6 @@ function getKeyMapArray({
     {
       key: shortcutCodemirrorFormat(settings.shortcuts.redoShortcut),
       run: () => {
-        logCodeMirrorKeymapEvent("redoShortcut.run", {
-          key: settings.shortcuts.redoShortcut,
-        });
         redoProjectState();
         return true;
       },

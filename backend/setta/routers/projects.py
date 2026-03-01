@@ -136,11 +136,7 @@ async def route_delete_project_configs(
     x: DeleteProjectConfigsRequest, state: AppStateFromRequest
 ):
     project_manager = state.project_manager_switcher.main
-    try:
-        await project_manager.delete_project_configs(x.ids)
-    except KeyError as exc:
-        detail = exc.args[0] if exc.args and isinstance(exc.args[0], str) else str(exc)
-        raise HTTPException(status_code=404, detail=detail) from exc
+    await project_manager.delete_project_configs(x.ids)
     # Project config deletes should also reclaim any lingering PTYs, otherwise
     # repeated config create/delete cycles (like Playwright E2E) leak terminal
     # processes and eventually cause flaky terminal readiness/output behavior.

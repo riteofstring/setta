@@ -4,8 +4,12 @@ import { ensureAppReady, postBackend, setOverviewTab } from "../../helpers";
 test("backend logs pane supports column resize handles and copy feedback", async ({
   page,
 }) => {
-  await setOverviewTab(page, "BackendLogs");
+  await setOverviewTab(page, "Notifications");
   await ensureAppReady(page);
+  await page.getByTestId("notifications-pane-tab-backend-logs").click();
+  await expect(
+    page.getByTestId("notifications-pane-backend-logs-view"),
+  ).toBeVisible();
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";

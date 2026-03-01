@@ -99,7 +99,7 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
     page.getByTestId("run-instructions-scroll-region"),
   );
 
-  await setOverviewTab(page, "ProjectAISettings");
+  await setOverviewTab(page, "ProjectAIChat");
   await page.reload({ waitUntil: "domcontentloaded" });
   await ensureAppReady(page);
 

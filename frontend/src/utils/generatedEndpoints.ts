@@ -535,6 +535,12 @@ export async function route_get_app_gen_skill_content(
   return await post("/getAppGenSkillContent", x);
 }
 
+export async function route_upsert_app_gen_custom_skill(
+  x: gt.UpsertAppGenCustomSkillRequestInput,
+): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+  return await post("/upsertAppGenCustomSkill", x);
+}
+
 export async function route_get_agent_profiles(): Promise<
   ResponseDataAndStatus<Array<gt.AgentProfile>>
 > {
