@@ -612,7 +612,7 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigName for test.");
 }
 
-async function syncProjectStateFromBackend(
+export async function syncProjectStateFromBackend(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {
