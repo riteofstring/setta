@@ -18,9 +18,8 @@ from setta.types.generated.unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_code_obj_impl_for_read,
+    get_curr_effective_code_obj_impl,
     get_curr_effective_section_impl,
-    get_curr_effective_section_impl_for_read,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl2 import (
@@ -277,14 +276,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         )
         for section_id, section in self.sections.items():
             validate_section_name_format(section.name)
-            section_impl = get_curr_effective_section_impl_for_read(self, section_id)
+            section_impl = get_curr_effective_section_impl(self, section_id)
             if isinstance(section_impl, BaseSectionWithParamsImpl):
                 for code_obj_id in section_impl.codeObjVariantMap:
                     if code_obj_id not in self.codeObjs:
                         raise KeyError(
                             f"Missing code obj {code_obj_id} in project state."
                         )
-                    code_obj_impl = get_curr_effective_code_obj_impl_for_read(
+                    code_obj_impl = get_curr_effective_code_obj_impl(
                         self,
                         section_id,
                         code_obj_id,
@@ -304,7 +303,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                         raise KeyError(
                             f"Missing code obj {code_obj_id} in project state."
                         )
-                    code_obj_impl = get_curr_effective_code_obj_impl_for_read(
+                    code_obj_impl = get_curr_effective_code_obj_impl(
                         self,
                         section_id,
                         code_obj_id,
