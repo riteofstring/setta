@@ -253,15 +253,6 @@ export function Overview() {
             </div>
           }
         />
-        {showLLMTabs && (
-          <TabButton<OverviewTabKey>
-            tabName={OverviewTabNameEnum.ProjectAISettings}
-            {...commonProps}
-            data-testid="overview-tab-project-ai-settings"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
-            icon={<MdOutlineSmartToy size={20} />}
-          />
-        )}
         <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
