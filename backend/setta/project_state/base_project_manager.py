@@ -6224,7 +6224,27 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+            param_ids=x.paramIds,
+            new_parent_ids=[x.newParentId],
+        )
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
+        )
+        if history_code_obj_ids:
+            self.add_new_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_only_ids=history_code_obj_ids,
+                section_impl_only_ids=(
+                    codegen_singleton_section_ids
+                    if codegen_singleton_section_ids
+                    else None
+                ),
+            )
+        else:
+            self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         parent_code_obj_ids_before = self._get_parent_code_obj_ids_for_section_params(
             project_state,
@@ -6264,7 +6284,29 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def move_param_groups(self, x: MoveParamGroupsRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        history_param_ids = [param_id for move in x.moves for param_id in move.paramIds]
+        history_new_parent_ids = [move.newParentId for move in x.moves]
+        history_code_obj_ids = self._get_param_move_history_code_obj_ids_for_backend(
+            project_config_id=x.projectConfigId,
+            section_id=x.sectionId,
+            param_ids=history_param_ids,
+            new_parent_ids=history_new_parent_ids,
+        )
+        codegen_singleton_section_ids = (
+            self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
+        )
+        if history_code_obj_ids:
+            self.add_new_history_entry(
+                project_config_id=x.projectConfigId,
+                code_obj_only_ids=history_code_obj_ids,
+                section_impl_only_ids=(
+                    codegen_singleton_section_ids
+                    if codegen_singleton_section_ids
+                    else None
+                ),
+            )
+        else:
+            self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         next_state = copy.deepcopy(project_state)
         code_obj_ids_for_patch: list[ID] = []
@@ -6564,6 +6606,79 @@ class BaseProjectManager(ABC):
             seen_parent_ids.add(parent_id)
             parent_code_obj_ids.append(parent_id)
         return parent_code_obj_ids
+
+    def _get_param_move_history_code_obj_ids_for_backend(
+        self,
+        *,
+        project_config_id: ID,
+        section_id: ID,
+        param_ids: list[ID],
+        new_parent_ids: list[ID],
+    ) -> set[ID]:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = backend.projectConfigs[project_config_id]
+        if section_id not in project_config.sectionVariantMap:
+            raise KeyError(
+                f"Section {section_id} missing from project config {project_config_id}."
+            )
+        if section_id not in backend.sections:
+            raise KeyError(f"Section {section_id} missing from backend state.")
+        section_variant_id = project_config.sectionVariantMap[section_id]
+        if section_variant_id not in backend.sectionVariants:
+            raise KeyError(
+                f"Section variant {section_variant_id} missing from backend state."
+            )
+        section_variant = backend.sectionVariants[section_variant_id]
+        section_impl_id = section_variant.impl
+        if section_impl_id not in backend.sectionImpls:
+            raise KeyError(
+                f"Section impl {section_impl_id} missing from backend state."
+            )
+        section_impl = get_effective_impl(
+            backend.sectionImpls[section_impl_id],
+            backend.sections[section_id],
+            section_variant,
+        )
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            raise TypeError(
+                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
+            )
+        if isinstance(section_impl, CallableSectionImpl):
+            root_id: ID | None = section_impl.callable
+        elif isinstance(section_impl, BaseDictSectionImpl):
+            root_id = section_impl.topLevelParamId
+        else:
+            raise TypeError(
+                f"Section {section_id} has unsupported parent traversal type {section_impl.type}."
+            )
+        if root_id is None:
+            return set()
+        if root_id not in section_impl.codeObjVariantMap:
+            raise KeyError(
+                f"Root param container {root_id} missing for section {section_id}"
+            )
+        traversal = traverse_hierarchy(
+            backend.codeObjs,
+            backend.codeObjImpls,
+            backend.codeObjVariants,
+            section_impl.codeObjVariantMap,
+            top_level_ids=[],
+            root_id=root_id,
+            options=TraversalOptions(build_parent_map=True, collect_all_visited=True),
+        )
+        history_code_obj_ids: set[ID] = set()
+        for param_id in dict.fromkeys(param_ids):
+            parent_id = traversal.parent_map.get(param_id)
+            if parent_id is None:
+                continue
+            history_code_obj_ids.add(parent_id)
+        active_code_obj_ids = set(section_impl.codeObjVariantMap.keys())
+        for new_parent_id in new_parent_ids:
+            if new_parent_id in active_code_obj_ids:
+                history_code_obj_ids.add(new_parent_id)
+        return history_code_obj_ids
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
