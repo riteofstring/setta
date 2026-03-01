@@ -46,6 +46,7 @@ from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
+    CallableSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     MetaControlSectionImpl,
@@ -60,6 +61,7 @@ from setta.utils.errors import (
 )
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
+    collect_param_name_errors_for_sections,
     collect_param_name_format_errors,
     collect_project_name_format_errors,
     collect_section_name_conflicts,
@@ -1335,3 +1337,51 @@ class TestParamNameValidation:
                 second_param,
                 "alpha",
             )
+
+    def test_collect_param_name_errors_tolerates_stale_callable_child_reference(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Callable,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        callable_id = _ensure_callable_root(project_state, section_id)
+        kept_param_id = add_kwarg(settings, project_state, section_id)
+        project_state.codeObjs[kept_param_id].name = "invalid name"
+
+        # Add a global param that is intentionally not included in this section's
+        # codeObjVariantMap, then reference it as a callable child.
+        stale_param_core = Core(name="stale")
+        stale_param_impl = CodeParamCodeObjImpl()
+        add_code_obj(project_state, [], stale_param_core, stale_param_impl)
+        set_curr_effective_code_obj_impl_value(
+            project_state,
+            section_id,
+            callable_id,
+            CodeCallableCodeObjImplArgsWithCallable(
+                children=[kept_param_id, stale_param_core.id]
+            ),
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            CallableSectionImpl,
+        )
+        assert stale_param_core.id not in section_impl.codeObjVariantMap
+
+        conflict_errors, format_errors = collect_param_name_errors_for_sections(
+            project_state,
+            {section_id},
+        )
+        assert kept_param_id in format_errors
+        assert "Param name must be a valid Python identifier." in format_errors[
+            kept_param_id
+        ]
+        assert stale_param_core.id not in format_errors
+        assert stale_param_core.id not in conflict_errors

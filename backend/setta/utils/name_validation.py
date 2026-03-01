@@ -516,7 +516,11 @@ def _collect_param_hierarchy(
         section_impl.codeObjVariantMap,
         top_level_ids=[],
         root_id=root_id,
-        options=TraversalOptions(build_parent_map=True, build_children_map=True),
+        options=TraversalOptions(
+            build_parent_map=True,
+            build_children_map=True,
+            skip_missing_references=True,
+        ),
     )
     return root_id, hierarchy.parent_map, hierarchy.children_map
 

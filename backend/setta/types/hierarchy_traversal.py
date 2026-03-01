@@ -208,28 +208,30 @@ def traverse_hierarchy(
         # Process children
         if isinstance(impl, BaseParentCodeObjImpl):
             children = impl.children
+            valid_children: list[ID] = []
+            traversable_children: list[ID] = []
+            for child_id in children:
+                child_impl = get_impl(child_id)
+                if child_impl is None:
+                    continue
+                valid_children.append(child_id)
+                if options.traverse_filter and not options.traverse_filter(child_impl):
+                    continue
+                traversable_children.append(child_id)
 
             if options.build_children_map:
-                result.children_map[current_id] = children
+                result.children_map[current_id] = list(valid_children)
 
             if options.build_parent_map:
-                for child_id in children:
+                for child_id in valid_children:
                     result.parent_map[child_id] = current_id
 
             # Add children to stack if we should traverse them
             if not options.traverse_filter or options.traverse_filter(impl):
-                for child_id in reversed(children):
-                    child_impl = get_impl(child_id)
-                    if child_impl is None:
-                        continue
-                    if not options.traverse_filter or options.traverse_filter(
-                        child_impl
-                    ):
-                        # Determine paths for child
-                        child_id_path = result.id_to_id_path.get(
-                            current_id, new_id_path
-                        )
-                        stack.append((child_id, child_id_path, new_name_path))
+                for child_id in reversed(traversable_children):
+                    # Determine paths for child
+                    child_id_path = result.id_to_id_path.get(current_id, new_id_path)
+                    stack.append((child_id, child_id_path, new_name_path))
 
         # Check early stop
         if options.early_stop and result.collected_ids:
