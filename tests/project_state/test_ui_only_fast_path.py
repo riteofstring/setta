@@ -10,6 +10,8 @@ from setta.project_state.project_manager_types import (
     SetBrowserSavedSearchesRequest,
     SetChatSectionStateRequest,
     SetGroupOverflowModeRequest,
+    SetSectionColumnWidthRequest,
+    SetSectionSizesRequest,
     SetSectionStyleColorRequest,
     SetSectionTagColorRequest,
     SetSocialUrlRequest,
@@ -33,6 +35,7 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     ChatSectionState,
     GroupSectionImpl,
+    SectionSize,
     SectionType,
     SocialSectionImpl,
     TextBlockFormat,
@@ -192,6 +195,30 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.set_section_sizes(
+                    SetSectionSizesRequest(
+                        projectConfigId=project_config_id,
+                        sectionSizes={
+                            section_ids.callable_section_id: SectionSize(
+                                width=640.0,
+                                height=420.0,
+                            )
+                        },
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_section_column_width(
+                    SetSectionColumnWidthRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        columnWidth=244.0,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.set_browser_column_widths(
                     SetBrowserColumnWidthsRequest(
                         projectConfigId=project_config_id,
@@ -265,6 +292,9 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         assert callable_impl.isMinimized is True
         assert callable_impl.tagColor == "#ef4444"
         assert callable_impl.styleColor == "#22c55e"
+        assert callable_impl.size.width == 640.0
+        assert callable_impl.size.height == 420.0
+        assert callable_impl.columnWidth == 244.0
 
         group_impl = get_curr_effective_section_impl_with_type_guard(
             updated, section_ids.group_section_id, GroupSectionImpl
@@ -442,6 +472,30 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
             )
             await assert_watcher_delta(
                 0,
+                manager.set_section_sizes(
+                    SetSectionSizesRequest(
+                        projectConfigId=project_config_id,
+                        sectionSizes={
+                            section_ids.callable_section_id: SectionSize(
+                                width=610.0,
+                                height=390.0,
+                            )
+                        },
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_section_column_width(
+                    SetSectionColumnWidthRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.callable_section_id,
+                        columnWidth=233.0,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
                 manager.set_browser_column_widths(
                     SetBrowserColumnWidthsRequest(
                         projectConfigId=project_config_id,
@@ -545,11 +599,15 @@ async def test_ui_only_fast_path_broadcasts_project_state_only() -> None:
             await manager.finish_pending_operations(timeout=5.0)
             before_project_state = project_state_broadcast_calls
             before_name_validation = name_validation_broadcast_calls
-            await manager.set_section_style_color(
-                SetSectionStyleColorRequest(
+            await manager.set_section_sizes(
+                SetSectionSizesRequest(
                     projectConfigId=project_config_id,
-                    sectionId=section_ids.callable_section_id,
-                    styleColor="#10b981",
+                    sectionSizes={
+                        section_ids.callable_section_id: SectionSize(
+                            width=630.0,
+                            height=410.0,
+                        )
+                    },
                 )
             )
             await manager.finish_pending_operations(timeout=5.0)
@@ -669,3 +727,126 @@ async def test_ui_only_fast_path_preserves_undo_redo_with_coalescing() -> None:
         )
         assert after_second_redo_browser.columnWidth == 301.0
         assert after_second_redo_browser.typesColumnWidth == 149.0
+
+
+@pytest.mark.asyncio
+async def test_ui_only_section_size_routes_preserve_undo_redo_with_coalescing() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state, section_ids = build_state_for_ui_only_fast_path()
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        baseline = manager.get_single_config_state(project_config_id)
+        baseline_callable = get_curr_effective_section_impl_with_type_guard(
+            baseline,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        baseline_size_width = baseline_callable.size.width
+        baseline_size_height = baseline_callable.size.height
+        baseline_column_width = baseline_callable.columnWidth
+
+        # Section-size writes share a coalesce key and should collapse into one
+        # undo step when resizing the same set of sections.
+        await manager.set_section_sizes(
+            SetSectionSizesRequest(
+                projectConfigId=project_config_id,
+                sectionSizes={
+                    section_ids.callable_section_id: SectionSize(
+                        width=620.0,
+                        height=430.0,
+                    )
+                },
+            )
+        )
+        await manager.set_section_sizes(
+            SetSectionSizesRequest(
+                projectConfigId=project_config_id,
+                sectionSizes={
+                    section_ids.callable_section_id: SectionSize(
+                        width=700.0,
+                        height=500.0,
+                    )
+                },
+            )
+        )
+        # Column-width writes use their own coalesce key and should become the
+        # next undo step after section-size changes.
+        await manager.set_section_column_width(
+            SetSectionColumnWidthRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.callable_section_id,
+                columnWidth=210.0,
+            )
+        )
+        await manager.set_section_column_width(
+            SetSectionColumnWidthRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_ids.callable_section_id,
+                columnWidth=330.0,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        changed = manager.get_single_config_state(project_config_id)
+        changed_callable = get_curr_effective_section_impl_with_type_guard(
+            changed,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert changed_callable.size.width == 700.0
+        assert changed_callable.size.height == 500.0
+        assert changed_callable.columnWidth == 330.0
+
+        # First undo should revert only the latest coalesced column-width step.
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_first_undo = manager.get_single_config_state(project_config_id)
+        after_first_undo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_first_undo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_first_undo_callable.size.width == 700.0
+        assert after_first_undo_callable.size.height == 500.0
+        assert after_first_undo_callable.columnWidth == baseline_column_width
+
+        # Second undo should revert the coalesced section-size step.
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_second_undo = manager.get_single_config_state(project_config_id)
+        after_second_undo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_second_undo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_second_undo_callable.size.width == baseline_size_width
+        assert after_second_undo_callable.size.height == baseline_size_height
+        assert after_second_undo_callable.columnWidth == baseline_column_width
+
+        # Redo should replay section-size then column-width updates in order.
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_first_redo = manager.get_single_config_state(project_config_id)
+        after_first_redo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_first_redo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_first_redo_callable.size.width == 700.0
+        assert after_first_redo_callable.size.height == 500.0
+        assert after_first_redo_callable.columnWidth == baseline_column_width
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        after_second_redo = manager.get_single_config_state(project_config_id)
+        after_second_redo_callable = get_curr_effective_section_impl_with_type_guard(
+            after_second_redo,
+            section_ids.callable_section_id,
+            CallableSectionImpl,
+        )
+        assert after_second_redo_callable.size.width == 700.0
+        assert after_second_redo_callable.size.height == 500.0
+        assert after_second_redo_callable.columnWidth == 330.0
