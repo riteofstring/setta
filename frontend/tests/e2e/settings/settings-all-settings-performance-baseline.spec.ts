@@ -7,6 +7,9 @@ const READY_SELECTOR = ".react-flow__pane";
 const VIEWPORT_LAYER_SPLIT_KEY = "setta.viewportLayerSplit.enabled";
 const VIEWPORT_LAYER_SPLIT_OVERRIDE =
   process.env.PLAYWRIGHT_ENABLE_VIEWPORT_LAYER_SPLIT ?? null;
+const VIEWPORT_SHELL_MODE_KEY = "setta.viewportShellMode.enabled";
+const VIEWPORT_SHELL_MODE_OVERRIDE =
+  process.env.PLAYWRIGHT_ENABLE_VIEWPORT_SHELL_MODE ?? null;
 
 type HitchStats = {
   avgMs: number;
@@ -32,13 +35,14 @@ type DomStats = {
   visibleSectionCount: number;
   iconLikeNodeCount: number;
   viewportLayerSplitEnabled: boolean;
+  viewportShellModeEnabled: boolean;
 };
 
 type BaselineMetrics = {
   throughput: ThroughputStats;
   startHitch: HitchStats;
   stopHitch: HitchStats;
-  typing: TypingStats;
+  typing: TypingStats | null;
   dom: DomStats;
 };
 
@@ -57,6 +61,20 @@ test("settings all-settings perf baseline harness", async ({
     await page.addInitScript((key) => {
       window.localStorage.removeItem(key);
     }, VIEWPORT_LAYER_SPLIT_KEY);
+  }
+
+  if (VIEWPORT_SHELL_MODE_OVERRIDE === "1") {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "1");
+    }, VIEWPORT_SHELL_MODE_KEY);
+  } else if (VIEWPORT_SHELL_MODE_OVERRIDE === "0") {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "0");
+    }, VIEWPORT_SHELL_MODE_KEY);
+  } else {
+    await page.addInitScript((key) => {
+      window.localStorage.removeItem(key);
+    }, VIEWPORT_SHELL_MODE_KEY);
   }
 
   await ensureAppReady(page);
@@ -83,12 +101,12 @@ test("settings all-settings perf baseline harness", async ({
     const sleep = (ms: number): Promise<void> =>
       new Promise((resolve) => setTimeout(resolve, ms));
     const nextFrame = (): Promise<number> =>
-      new Promise((resolve) => requestAnimationFrame(() => resolve(performance.now())));
+      new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(performance.now())),
+      );
 
     const renderer = document.querySelector(".react-flow__renderer");
-    const fitButton = document.querySelector(
-      'button[aria-label="fit view"]',
-    );
+    const fitButton = document.querySelector('button[aria-label="fit view"]');
     if (!(renderer instanceof HTMLElement)) {
       throw new Error("Missing .react-flow__renderer.");
     }
@@ -301,8 +319,8 @@ test("settings all-settings perf baseline harness", async ({
 
       return {
         totalNodes: document.querySelectorAll("*").length,
-        topLevelSectionCount: document.querySelectorAll(".react-flow__node")
-          .length,
+        topLevelSectionCount:
+          document.querySelectorAll(".react-flow__node").length,
         visibleSectionCount,
         iconLikeNodeCount: document.querySelectorAll(
           'svg, i[class^="gg-"], i[class*=" gg-"]',
@@ -310,14 +328,19 @@ test("settings all-settings perf baseline harness", async ({
         viewportLayerSplitEnabled:
           viewportContainer?.getAttribute("data-viewport-layer-split") ===
           "true",
+        viewportShellModeEnabled:
+          viewportContainer?.getAttribute("data-viewport-shell-mode") ===
+          "true",
       };
     };
 
     const throughput = await measureThroughput();
     const startHitch = await measureStartHitch();
     const stopHitch = await measureStopHitch();
-    const typing = await measureTypingLatency();
     const dom = measureDomStats();
+    const typing = dom.viewportShellModeEnabled
+      ? null
+      : await measureTypingLatency();
     return { throughput, startHitch, stopHitch, typing, dom };
   });
 
@@ -325,7 +348,9 @@ test("settings all-settings perf baseline harness", async ({
   expect(metrics.dom.visibleSectionCount).toBeGreaterThan(0);
   expect(metrics.throughput.panFps).toBeGreaterThan(5);
   expect(metrics.throughput.zoomFps).toBeGreaterThan(5);
-  expect(metrics.typing.samples).toBeGreaterThan(0);
+  if (!metrics.dom.viewportShellModeEnabled) {
+    expect(metrics.typing?.samples ?? 0).toBeGreaterThan(0);
+  }
 
   const metricsJson = JSON.stringify(metrics, null, 2);
   await testInfo.attach("settings-all-settings-perf-baseline.json", {

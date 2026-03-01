@@ -290,6 +290,24 @@
   - Reject this `content-visibility` configuration for motion optimization in this view.
   - Prioritize motion strategies with proven throughput uplift under no-hitch constraints.
 
+### Phase 0.5 Status Update (2026-03-03, Viewport Shell-Mode Feasibility Spike)
+- A static shell-mode feasibility spike was implemented and benchmarked:
+  - added a default-off experiment flag (`setta.viewportShellMode.enabled`),
+  - rendered lightweight section shells (without heavy section internals) when enabled,
+  - wired deterministic Playwright A/B control (`PLAYWRIGHT_ENABLE_VIEWPORT_SHELL_MODE=0|1`).
+- Result: **kept as experiment-only diagnostic path** (default off).
+  - Playwright clean sequential A/B showed large throughput gain:
+    - control pan/zoom around `38 / 36`,
+    - shell pan/zoom around `120 / 121` (~`3.1-3.3x`).
+  - Stop hitch stayed in the same band (~`8ms` p95).
+  - DOM size dropped by ~`85%` in this scenario.
+  - CDP supplemental A/B confirmed the same directional uplift.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-shell-mode-feasibility-spike.md`
+- Updated direction:
+  - This validates large motion headroom from shell-level rendering.
+  - Next motion work should target a no-hitch switch lifecycle between full DOM and shell representation, instead of static shell mode as a shipped UX.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.
