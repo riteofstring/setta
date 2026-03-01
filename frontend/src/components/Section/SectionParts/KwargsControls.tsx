@@ -1,7 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
-import { queueTemporaryMiscStateUpdate } from "state/actions/temporaryMiscState";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
@@ -50,7 +49,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     const node = controlsRef.current;
     if (!node) {
       lastMeasuredHeightRef.current = null;
-      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
     const updateHeight = () => {
@@ -64,7 +63,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         return;
       }
       lastMeasuredHeightRef.current = nextHeight;
-      queueTemporaryMiscStateUpdate({
+      useTemporaryMiscState.setState({
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
     };
@@ -76,7 +75,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     return () => {
       observer.disconnect();
       lastMeasuredHeightRef.current = null;
-      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
   }, [heightKey]);
 
