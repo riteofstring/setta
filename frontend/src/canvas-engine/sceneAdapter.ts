@@ -117,6 +117,8 @@ export class CanvasEngineSceneAdapter {
 
   private readonly dataEdgeSpatialIndex: CanvasEngineSpatialIndex;
 
+  private readonly dataEdgeEndpointSpatialIndex: CanvasEngineSpatialIndex;
+
   private readonly agenticEdgeSpatialIndex: CanvasEngineSpatialIndex;
 
   private readonly rectById: Map<string, CanvasEngineRect>;
@@ -128,6 +130,17 @@ export class CanvasEngineSceneAdapter {
   private dataEdgeIdsBySectionId: Map<string, Set<string>>;
 
   private agenticEdgeIdsBySectionId: Map<string, Set<string>>;
+
+  private dataEdgeEndpointByKey: Map<
+    string,
+    {
+      edgeId: string;
+      endpointType: "source" | "target";
+      x: number;
+      y: number;
+      zIndex: number;
+    }
+  >;
 
   private edgeHandlePositionByKey: Map<string, CanvasEngineEdgeHandlePosition>;
 
@@ -157,6 +170,9 @@ export class CanvasEngineSceneAdapter {
     this.dataEdgeSpatialIndex = new CanvasEngineSpatialIndex({
       cellSize: this.config.spatialIndexCellSize,
     });
+    this.dataEdgeEndpointSpatialIndex = new CanvasEngineSpatialIndex({
+      cellSize: this.config.spatialIndexCellSize,
+    });
     this.agenticEdgeSpatialIndex = new CanvasEngineSpatialIndex({
       cellSize: this.config.spatialIndexCellSize,
     });
@@ -165,6 +181,7 @@ export class CanvasEngineSceneAdapter {
     this.agenticEdgeById = new Map();
     this.dataEdgeIdsBySectionId = new Map();
     this.agenticEdgeIdsBySectionId = new Map();
+    this.dataEdgeEndpointByKey = new Map();
     this.edgeHandlePositionByKey = new Map();
     this.dataHandlePositionsBySectionId = new Map();
     this.sectionEdgePortsBySectionId = {};
@@ -665,50 +682,34 @@ export class CanvasEngineSceneAdapter {
       zIndex: number;
       distance: number;
     } | null = null;
-
-    for (const edge of this.dataEdgeById.values()) {
-      if (edge.hidden) {
+    const endpointQueryRect = {
+      x: worldX - toleranceWorld,
+      y: worldY - toleranceWorld,
+      width: toleranceWorld * 2,
+      height: toleranceWorld * 2,
+    };
+    const candidateEndpointKeys =
+      this.dataEdgeEndpointSpatialIndex.queryRect(endpointQueryRect);
+    for (const endpointKey of candidateEndpointKeys) {
+      const endpoint = this.dataEdgeEndpointByKey.get(endpointKey);
+      if (!endpoint) {
         continue;
       }
-      const sourceRect = this.rectById.get(edge.sourceSectionId);
-      const targetRect = this.rectById.get(edge.targetSectionId);
-      if (!sourceRect || !targetRect) {
+      const distance = Math.hypot(worldX - endpoint.x, worldY - endpoint.y);
+      if (distance > toleranceWorld) {
         continue;
       }
-      const anchors = resolveDataEdgeAnchors(edge, sourceRect, targetRect);
-      const sourceDistance = Math.hypot(
-        worldX - anchors.startX,
-        worldY - anchors.startY,
-      );
-      const targetDistance = Math.hypot(
-        worldX - anchors.endX,
-        worldY - anchors.endY,
-      );
-
-      const endpointCandidates: Array<{
-        endpointType: "source" | "target";
-        distance: number;
-      }> = [
-        { endpointType: "source", distance: sourceDistance },
-        { endpointType: "target", distance: targetDistance },
-      ];
-
-      for (const endpoint of endpointCandidates) {
-        if (endpoint.distance > toleranceWorld) {
-          continue;
-        }
-        const candidate = {
-          edgeId: edge.id,
-          endpointType: endpoint.endpointType,
-          zIndex: edge.zIndex,
-          distance: endpoint.distance,
-        };
-        if (
-          !hitCandidate ||
-          isDataEdgeEndpointHitCandidateAbove(candidate, hitCandidate)
-        ) {
-          hitCandidate = candidate;
-        }
+      const candidate = {
+        edgeId: endpoint.edgeId,
+        endpointType: endpoint.endpointType,
+        zIndex: endpoint.zIndex,
+        distance,
+      };
+      if (
+        !hitCandidate ||
+        isDataEdgeEndpointHitCandidateAbove(candidate, hitCandidate)
+      ) {
+        hitCandidate = candidate;
       }
     }
 
@@ -753,6 +754,17 @@ export class CanvasEngineSceneAdapter {
 
   private rebuildEdgeSpatialIndexes(): void {
     this.dataEdgeSpatialIndex.clear();
+    this.dataEdgeEndpointSpatialIndex.clear();
+    const nextDataEdgeEndpointByKey = new Map<
+      string,
+      {
+        edgeId: string;
+        endpointType: "source" | "target";
+        x: number;
+        y: number;
+        zIndex: number;
+      }
+    >();
     for (const edge of this.dataEdgeById.values()) {
       if (edge.hidden) {
         continue;
@@ -772,7 +784,32 @@ export class CanvasEngineSceneAdapter {
           anchors.endY,
         ),
       );
+      const sourceEndpointKey = buildDataEdgeEndpointKey(edge.id, "source");
+      nextDataEdgeEndpointByKey.set(sourceEndpointKey, {
+        edgeId: edge.id,
+        endpointType: "source",
+        x: anchors.startX,
+        y: anchors.startY,
+        zIndex: edge.zIndex,
+      });
+      this.dataEdgeEndpointSpatialIndex.upsert(
+        sourceEndpointKey,
+        resolvePointBounds(anchors.startX, anchors.startY),
+      );
+      const targetEndpointKey = buildDataEdgeEndpointKey(edge.id, "target");
+      nextDataEdgeEndpointByKey.set(targetEndpointKey, {
+        edgeId: edge.id,
+        endpointType: "target",
+        x: anchors.endX,
+        y: anchors.endY,
+        zIndex: edge.zIndex,
+      });
+      this.dataEdgeEndpointSpatialIndex.upsert(
+        targetEndpointKey,
+        resolvePointBounds(anchors.endX, anchors.endY),
+      );
     }
+    this.dataEdgeEndpointByKey = nextDataEdgeEndpointByKey;
 
     this.agenticEdgeSpatialIndex.clear();
     for (const edge of this.agenticEdgeById.values()) {
@@ -1162,6 +1199,13 @@ function addEdgeToSection(
   edgeIds.add(edgeId);
 }
 
+function buildDataEdgeEndpointKey(
+  edgeId: string,
+  endpointType: "source" | "target",
+): string {
+  return `${edgeId}:${endpointType}`;
+}
+
 function buildDataHandleKey(
   sectionId: string,
   portId: string,
@@ -1217,6 +1261,23 @@ function resolveSegmentBounds(
     y,
     width: Math.max(0, Math.abs(endX - startX)),
     height: Math.max(0, Math.abs(endY - startY)),
+  };
+}
+
+function resolvePointBounds(
+  x: number,
+  y: number,
+): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  return {
+    x,
+    y,
+    width: 0,
+    height: 0,
   };
 }
 

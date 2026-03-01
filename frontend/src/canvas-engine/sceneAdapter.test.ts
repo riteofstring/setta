@@ -587,6 +587,49 @@ describe("CanvasEngineSceneAdapter", () => {
     });
   });
 
+  it("reindexes data edge endpoint hit testing when section geometry changes", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 420, y: 0, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-endpoint-moving", "sectionA", "sectionB"),
+        ],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(420, 100, 8)).toEqual({
+      edgeId: "edge-data-endpoint-moving",
+      endpointType: "target",
+    });
+
+    const patchSummary = adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 0, y: 0, w: 320, h: 200 }),
+          sectionB: createLayout({ x: 920, y: 300, w: 320, h: 200 }),
+        },
+        activeSectionIds: [],
+        edges: [
+          createDataEdge("edge-data-endpoint-moving", "sectionA", "sectionB"),
+        ],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(patchSummary.sectionsUpdated).toBe(1);
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(420, 100, 8)).toBe(null);
+    expect(adapter.hitTestDataEdgeEndpointAtWorldPoint(920, 400, 8)).toEqual({
+      edgeId: "edge-data-endpoint-moving",
+      endpointType: "target",
+    });
+  });
+
   it("hit-tests data handles from estimated section-port anchors when handle registry entries are missing", () => {
     const adapter = new CanvasEngineSceneAdapter();
     adapter.applyProjectState(
