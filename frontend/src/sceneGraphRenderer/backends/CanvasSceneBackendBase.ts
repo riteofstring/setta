@@ -93,11 +93,16 @@ function drawEdges(
   camera: SceneGraphCamera,
   frameState: SceneGraphFrameState,
 ): void {
-  context.strokeStyle = frameState.wireColor;
-  context.lineWidth = 1.25;
-  context.globalAlpha = 0.85;
-
   for (const edge of snapshot.edges) {
+    const isActiveEdge = edge.isSelected || edge.isHovered;
+    context.strokeStyle = edge.isSelected
+      ? "rgba(59, 130, 246, 0.95)"
+      : edge.isHovered
+        ? "rgba(37, 99, 235, 0.95)"
+        : frameState.wireColor;
+    context.lineWidth = edge.isSelected ? 2.25 : edge.isHovered ? 1.8 : 1.25;
+    context.globalAlpha = isActiveEdge ? 1 : 0.85;
+
     const sourceX = edge.sourceX * camera.zoom + camera.x;
     const sourceY = edge.sourceY * camera.zoom + camera.y;
     const targetX = edge.targetX * camera.zoom + camera.x;
@@ -117,10 +122,6 @@ function drawSections(
   camera: SceneGraphCamera,
   frameState: SceneGraphFrameState,
 ): void {
-  context.fillStyle = frameState.sectionFillColor;
-  context.strokeStyle = frameState.sectionStrokeColor;
-  context.lineWidth = 1;
-
   for (const section of snapshot.sections) {
     const x = section.x * camera.zoom + camera.x;
     const y = section.y * camera.zoom + camera.y;
@@ -129,8 +130,25 @@ function drawSections(
     if (width <= 0 || height <= 0) {
       continue;
     }
+    context.fillStyle = frameState.sectionFillColor;
+    context.strokeStyle = section.isActive
+      ? "rgba(59, 130, 246, 0.92)"
+      : section.isHovered
+        ? "rgba(37, 99, 235, 0.92)"
+        : frameState.sectionStrokeColor;
+    context.lineWidth = section.isActive ? 2.25 : section.isHovered ? 1.6 : 1;
+
     context.fillRect(x, y, width, height);
     context.strokeRect(x, y, width, height);
+
+    if (section.isActive || section.isHovered) {
+      context.globalAlpha = section.isActive ? 0.2 : 0.14;
+      context.fillStyle = section.isActive
+        ? "rgba(59, 130, 246, 0.8)"
+        : "rgba(37, 99, 235, 0.8)";
+      context.fillRect(x, y, width, height);
+      context.globalAlpha = 1;
+    }
   }
 }
 
@@ -140,9 +158,16 @@ function drawDebugOverlay(
   snapshot: SceneGraphRenderSnapshot,
   frameState: SceneGraphFrameState,
 ): void {
+  const activeSectionCount = snapshot.sections.reduce((count, section) => {
+    return section.isActive ? count + 1 : count;
+  }, 0);
+  const selectedEdgeCount = snapshot.edges.reduce((count, edge) => {
+    return edge.isSelected ? count + 1 : count;
+  }, 0);
+
   context.globalAlpha = 0.88;
   context.fillStyle = "rgba(2, 6, 23, 0.8)";
-  context.fillRect(8, 8, 240, 64);
+  context.fillRect(8, 8, 280, 80);
   context.globalAlpha = 1;
   context.fillStyle = "rgba(241, 245, 249, 0.95)";
   context.font = "12px monospace";
@@ -152,5 +177,10 @@ function drawDebugOverlay(
     14,
     42,
   );
-  context.fillText(`frame: ${frameState.frameNumber}`, 14, 58);
+  context.fillText(
+    `active sections: ${activeSectionCount} selected edges: ${selectedEdgeCount}`,
+    14,
+    58,
+  );
+  context.fillText(`frame: ${frameState.frameNumber}`, 14, 74);
 }

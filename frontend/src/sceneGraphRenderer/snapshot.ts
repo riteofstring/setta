@@ -17,6 +17,7 @@ type SceneGraphEdgeModel = {
   targetVariantId: string;
   hidden: boolean;
   zIndex: number;
+  selected?: boolean;
 };
 
 type EdgeHandlePosition = {
@@ -29,6 +30,9 @@ export type SceneGraphSnapshotBuildInput = {
   edges: SceneGraphEdgeModel[];
   sectionVariantMap: Record<string, string>;
   edgeHandlePositions: Record<string, EdgeHandlePosition>;
+  activeSectionIds: string[];
+  hoveredSectionId: string | null;
+  hoveredEdgeId: string | null;
 };
 
 const EMPTY_SECTION_LIST: SceneGraphSectionShellSnapshot[] = [];
@@ -44,11 +48,16 @@ export function createEmptySceneGraphRenderSnapshot(): SceneGraphRenderSnapshot 
 export function buildSceneGraphRenderSnapshot(
   input: SceneGraphSnapshotBuildInput,
 ): SceneGraphRenderSnapshot {
-  const sections = buildSectionSnapshots(input.nodesById);
+  const sections = buildSectionSnapshots({
+    nodesById: input.nodesById,
+    activeSectionIds: input.activeSectionIds,
+    hoveredSectionId: input.hoveredSectionId,
+  });
   const edges = buildEdgeSnapshots({
     edges: input.edges,
     sectionVariantMap: input.sectionVariantMap,
     edgeHandlePositions: input.edgeHandlePositions,
+    hoveredEdgeId: input.hoveredEdgeId,
   });
 
   return {
@@ -92,11 +101,14 @@ export function buildSceneGraphRenderSnapshotDiff(
   };
 }
 
-function buildSectionSnapshots(
-  nodesById: Map<string, Node>,
-): SceneGraphSectionShellSnapshot[] {
+function buildSectionSnapshots(input: {
+  nodesById: Map<string, Node>;
+  activeSectionIds: string[];
+  hoveredSectionId: string | null;
+}): SceneGraphSectionShellSnapshot[] {
+  const activeSectionIds = new Set(input.activeSectionIds);
   const sections: SceneGraphSectionShellSnapshot[] = [];
-  for (const node of nodesById.values()) {
+  for (const node of input.nodesById.values()) {
     if (
       typeof node.width !== "number" ||
       typeof node.height !== "number" ||
@@ -113,6 +125,8 @@ function buildSectionSnapshots(
       width: node.width,
       height: node.height,
       zIndex: node.tempZIndex ?? node.zIndex ?? 0,
+      isActive: activeSectionIds.has(node.id),
+      isHovered: node.id === input.hoveredSectionId,
     });
   }
 
@@ -130,6 +144,7 @@ function buildEdgeSnapshots(input: {
   edges: SceneGraphEdgeModel[];
   sectionVariantMap: Record<string, string>;
   edgeHandlePositions: Record<string, EdgeHandlePosition>;
+  hoveredEdgeId: string | null;
 }): SceneGraphEdgeSnapshot[] {
   const output: SceneGraphEdgeSnapshot[] = [];
   for (const edge of input.edges) {
@@ -166,6 +181,8 @@ function buildEdgeSnapshots(input: {
       targetX: target.x,
       targetY: target.y,
       zIndex: edge.zIndex ?? 0,
+      isSelected: edge.selected ?? false,
+      isHovered: edge.id === input.hoveredEdgeId,
     });
   }
 
@@ -180,11 +197,11 @@ function buildEdgeSnapshots(input: {
 }
 
 function getSectionSignature(section: SceneGraphSectionShellSnapshot): string {
-  return `${section.x}|${section.y}|${section.width}|${section.height}|${section.zIndex}`;
+  return `${section.x}|${section.y}|${section.width}|${section.height}|${section.zIndex}|${section.isActive ? 1 : 0}|${section.isHovered ? 1 : 0}`;
 }
 
 function getEdgeSignature(edge: SceneGraphEdgeSnapshot): string {
-  return `${edge.sourceX}|${edge.sourceY}|${edge.targetX}|${edge.targetY}|${edge.zIndex}`;
+  return `${edge.sourceX}|${edge.sourceY}|${edge.targetX}|${edge.targetY}|${edge.zIndex}|${edge.isSelected ? 1 : 0}|${edge.isHovered ? 1 : 0}`;
 }
 
 function computeEntityDiff<T extends { id: string }>(

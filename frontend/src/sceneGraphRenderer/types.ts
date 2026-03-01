@@ -5,6 +5,8 @@ export type SceneGraphSectionShellSnapshot = {
   width: number;
   height: number;
   zIndex: number;
+  isActive: boolean;
+  isHovered: boolean;
 };
 
 export type SceneGraphEdgeSnapshot = {
@@ -14,6 +16,8 @@ export type SceneGraphEdgeSnapshot = {
   targetX: number;
   targetY: number;
   zIndex: number;
+  isSelected: boolean;
+  isHovered: boolean;
 };
 
 export type SceneGraphRenderSnapshot = {

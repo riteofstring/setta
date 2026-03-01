@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useEdgeHandleRegistry,
   useNodeInternals,
@@ -21,6 +21,16 @@ type SceneGraphRendererLayerProps = {
   darkMode: boolean;
 };
 
+type SceneGraphHoverState = {
+  sectionId: string | null;
+  edgeId: string | null;
+};
+
+const EMPTY_HOVER_STATE: SceneGraphHoverState = {
+  sectionId: null,
+  edgeId: null,
+};
+
 export function SceneGraphRendererLayer({
   runtime,
   wrapperDimensions,
@@ -33,12 +43,16 @@ export function SceneGraphRendererLayer({
   );
   const previousSnapshotRef = useRef(createEmptySceneGraphRenderSnapshot());
   const frameNumberRef = useRef(0);
+  const hoverStateRef = useRef<SceneGraphHoverState>(EMPTY_HOVER_STATE);
+  const [hoverState, setHoverState] =
+    useState<SceneGraphHoverState>(EMPTY_HOVER_STATE);
   const nodesById = useNodeInternals((state) => state.x);
   const edgeHandlePositions = useEdgeHandleRegistry((state) => state.positions);
-  const { edges, sectionVariantMap } = useProjectState(
+  const { edges, sectionVariantMap, activeIds } = useProjectState(
     (state) => ({
       edges: state.projectConfig.edges,
       sectionVariantMap: state.projectConfig.sectionVariantMap,
+      activeIds: state.projectConfig.activeIds,
     }),
     _.isEqual,
   );
@@ -50,8 +64,71 @@ export function SceneGraphRendererLayer({
       edges,
       sectionVariantMap,
       edgeHandlePositions,
+      activeSectionIds: activeIds,
+      hoveredSectionId: hoverState.sectionId,
+      hoveredEdgeId: hoverState.edgeId,
     });
-  }, [edgeHandlePositions, edges, nodesById, sectionVariantMap]);
+  }, [
+    activeIds,
+    edgeHandlePositions,
+    edges,
+    hoverState.edgeId,
+    hoverState.sectionId,
+    nodesById,
+    sectionVariantMap,
+  ]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const reactFlowRoot = canvas.closest(".react-flow");
+    if (!(reactFlowRoot instanceof HTMLElement)) {
+      return;
+    }
+
+    const updateHoverState = (nextState: SceneGraphHoverState) => {
+      const currentState = hoverStateRef.current;
+      if (
+        currentState.sectionId === nextState.sectionId &&
+        currentState.edgeId === nextState.edgeId
+      ) {
+        return;
+      }
+      hoverStateRef.current = nextState;
+      setHoverState(nextState);
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        updateHoverState(EMPTY_HOVER_STATE);
+        return;
+      }
+      updateHoverState({
+        sectionId: readHoveredSectionId(target),
+        edgeId: readHoveredEdgeId(target),
+      });
+    };
+
+    const clearHoverState = () => {
+      updateHoverState(EMPTY_HOVER_STATE);
+    };
+
+    reactFlowRoot.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
+    reactFlowRoot.addEventListener("pointerleave", clearHoverState, {
+      passive: true,
+    });
+
+    return () => {
+      reactFlowRoot.removeEventListener("pointermove", handlePointerMove);
+      reactFlowRoot.removeEventListener("pointerleave", clearHoverState);
+      hoverStateRef.current = EMPTY_HOVER_STATE;
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -122,6 +199,19 @@ export function SceneGraphRendererLayer({
 
   const showCanvas =
     runtime.flags.enabled && runtime.selection.resolvedBackend !== "dom";
+  const activeSectionCount = useMemo(() => {
+    return snapshot.sections.reduce((count, section) => {
+      return section.isActive ? count + 1 : count;
+    }, 0);
+  }, [snapshot.sections]);
+  const selectedEdgeCount = useMemo(() => {
+    return snapshot.edges.reduce((count, edge) => {
+      return edge.isSelected ? count + 1 : count;
+    }, 0);
+  }, [snapshot.edges]);
+  const hoveredSectionId =
+    snapshot.sections.find((section) => section.isHovered)?.id ?? "";
+  const hoveredEdgeId = snapshot.edges.find((edge) => edge.isHovered)?.id ?? "";
 
   return (
     <canvas
@@ -138,6 +228,34 @@ export function SceneGraphRendererLayer({
       data-scene-graph-layer-backend={runtime.selection.resolvedBackend}
       data-scene-graph-layer-sections={String(snapshot.sections.length)}
       data-scene-graph-layer-edges={String(snapshot.edges.length)}
+      data-scene-graph-layer-active-sections={String(activeSectionCount)}
+      data-scene-graph-layer-selected-edges={String(selectedEdgeCount)}
+      data-scene-graph-layer-hovered-section={hoveredSectionId}
+      data-scene-graph-layer-hovered-edge={hoveredEdgeId}
+      data-scene-graph-layer-camera-x={String(transform[0])}
+      data-scene-graph-layer-camera-y={String(transform[1])}
+      data-scene-graph-layer-camera-zoom={String(transform[2])}
     />
   );
+}
+
+function readHoveredSectionId(target: Element): string | null {
+  const nodeElement = target.closest(".react-flow__node");
+  if (!(nodeElement instanceof HTMLElement)) {
+    return null;
+  }
+  const sectionId = nodeElement.getAttribute("data-id");
+  return sectionId && sectionId.length > 0 ? sectionId : null;
+}
+
+function readHoveredEdgeId(target: Element): string | null {
+  const edgeElement = target.closest(".react-flow__edge");
+  if (!(edgeElement instanceof SVGGElement)) {
+    return null;
+  }
+  const edgePath = edgeElement.querySelector(".react-flow__edge-path");
+  if (!(edgePath instanceof SVGPathElement)) {
+    return null;
+  }
+  return edgePath.id && edgePath.id.length > 0 ? edgePath.id : null;
 }

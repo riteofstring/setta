@@ -73,6 +73,7 @@ describe("buildSceneGraphRenderSnapshot", () => {
           targetVariantId: "vb",
           hidden: false,
           zIndex: 2,
+          selected: true,
         },
         {
           id: "edge-hidden",
@@ -116,6 +117,9 @@ describe("buildSceneGraphRenderSnapshot", () => {
         "section-a:out:source": { x: 160, y: 86 },
         "section-b:in:target": { x: 240, y: 160 },
       },
+      activeSectionIds: ["section-a"],
+      hoveredSectionId: "section-b",
+      hoveredEdgeId: "edge-valid",
     });
 
     expect(snapshot.sections).toEqual([
@@ -126,6 +130,8 @@ describe("buildSceneGraphRenderSnapshot", () => {
         width: 180,
         height: 120,
         zIndex: 4,
+        isActive: false,
+        isHovered: true,
       },
       {
         id: "section-a",
@@ -134,6 +140,8 @@ describe("buildSceneGraphRenderSnapshot", () => {
         width: 140,
         height: 90,
         zIndex: 7,
+        isActive: true,
+        isHovered: false,
       },
     ]);
     expect(snapshot.edges).toEqual([
@@ -144,6 +152,8 @@ describe("buildSceneGraphRenderSnapshot", () => {
         targetX: 240,
         targetY: 160,
         zIndex: 2,
+        isSelected: true,
+        isHovered: true,
       },
     ]);
   });
@@ -154,7 +164,16 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
     // Ensures updateResources receives deterministic add/remove/change metadata.
     const previousSnapshot = {
       sections: [
-        { id: "section-a", x: 0, y: 0, width: 100, height: 80, zIndex: 1 },
+        {
+          id: "section-a",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 80,
+          zIndex: 1,
+          isActive: true,
+          isHovered: false,
+        },
       ],
       edges: [
         {
@@ -164,13 +183,33 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
           targetX: 90,
           targetY: 80,
           zIndex: 0,
+          isSelected: false,
+          isHovered: false,
         },
       ],
     };
     const nextSnapshot = {
       sections: [
-        { id: "section-a", x: 4, y: 0, width: 100, height: 80, zIndex: 1 },
-        { id: "section-b", x: 20, y: 20, width: 120, height: 100, zIndex: 2 },
+        {
+          id: "section-a",
+          x: 4,
+          y: 0,
+          width: 100,
+          height: 80,
+          zIndex: 1,
+          isActive: true,
+          isHovered: false,
+        },
+        {
+          id: "section-b",
+          x: 20,
+          y: 20,
+          width: 120,
+          height: 100,
+          zIndex: 2,
+          isActive: false,
+          isHovered: false,
+        },
       ],
       edges: [
         {
@@ -180,6 +219,8 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
           targetX: 120,
           targetY: 80,
           zIndex: 0,
+          isSelected: false,
+          isHovered: false,
         },
         {
           id: "edge-b",
@@ -188,6 +229,8 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
           targetX: 70,
           targetY: 90,
           zIndex: 1,
+          isSelected: true,
+          isHovered: false,
         },
       ],
     };
@@ -214,7 +257,16 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
     // Avoids unnecessary backend update work when no resources changed.
     const snapshot = {
       sections: [
-        { id: "section-a", x: 1, y: 2, width: 3, height: 4, zIndex: 5 },
+        {
+          id: "section-a",
+          x: 1,
+          y: 2,
+          width: 3,
+          height: 4,
+          zIndex: 5,
+          isActive: false,
+          isHovered: false,
+        },
       ],
       edges: [
         {
@@ -224,6 +276,8 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
           targetX: 3,
           targetY: 4,
           zIndex: 5,
+          isSelected: false,
+          isHovered: false,
         },
       ],
     };
@@ -246,7 +300,16 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
     // First-frame uploads should identify every section/edge as an added resource.
     const nextSnapshot = {
       sections: [
-        { id: "section-a", x: 0, y: 0, width: 100, height: 100, zIndex: 0 },
+        {
+          id: "section-a",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          zIndex: 0,
+          isActive: true,
+          isHovered: false,
+        },
       ],
       edges: [
         {
@@ -256,6 +319,8 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
           targetX: 40,
           targetY: 80,
           zIndex: 0,
+          isSelected: false,
+          isHovered: true,
         },
       ],
     };
@@ -268,5 +333,68 @@ describe("buildSceneGraphRenderSnapshotDiff", () => {
     expect(diff.addedEdgeIds).toEqual(["edge-a"]);
     expect(diff.sectionCountDelta).toBe(1);
     expect(diff.edgeCountDelta).toBe(1);
+  });
+
+  it("marks entities as changed when interaction flags change", () => {
+    // Interaction parity updates (active/hover/selected) must propagate through diffing.
+    const previousSnapshot = {
+      sections: [
+        {
+          id: "section-a",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 80,
+          zIndex: 1,
+          isActive: false,
+          isHovered: false,
+        },
+      ],
+      edges: [
+        {
+          id: "edge-a",
+          sourceX: 10,
+          sourceY: 10,
+          targetX: 90,
+          targetY: 80,
+          zIndex: 0,
+          isSelected: false,
+          isHovered: false,
+        },
+      ],
+    };
+    const nextSnapshot = {
+      sections: [
+        {
+          id: "section-a",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 80,
+          zIndex: 1,
+          isActive: true,
+          isHovered: false,
+        },
+      ],
+      edges: [
+        {
+          id: "edge-a",
+          sourceX: 10,
+          sourceY: 10,
+          targetX: 90,
+          targetY: 80,
+          zIndex: 0,
+          isSelected: true,
+          isHovered: false,
+        },
+      ],
+    };
+
+    const diff = buildSceneGraphRenderSnapshotDiff(
+      previousSnapshot,
+      nextSnapshot,
+    );
+    expect(diff.changedSectionIds).toEqual(["section-a"]);
+    expect(diff.changedEdgeIds).toEqual(["edge-a"]);
   });
 });
