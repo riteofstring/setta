@@ -19,11 +19,14 @@ from setta.project_state.project_manager_types import (
     SetCodeSectionAttachedTerminalRequest,
     SetDefaultSectionVariantRequest,
     SetProjectConfigCodegenTargetsRequest,
+    SetParamEnteredValueRequest,
+    SetTypeErrorIgnoreRequest,
     SetSectionNameRequest,
     SetTextBlockHeadingAsSectionNameRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
+    SetViewportRequest,
     UndoRequest,
     RedoRequest,
     SetWatchCodeEnabledRequest,
@@ -36,6 +39,7 @@ from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectCodegenPythonTarget,
+    Viewport,
     WatchCodeFolder,
 )
 from setta.types.section_impls import (
@@ -2057,6 +2061,116 @@ async def test_codegen_target_routes_defer_codegen_refresh() -> None:
 
 
 @pytest.mark.asyncio
+async def test_undo_redo_project_config_only_history_uses_project_config_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.set_viewport(
+            SetViewportRequest(
+                projectConfigId=project_config_id,
+                viewport=Viewport(x=14.0, y=-8.0, zoom=1.2),
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 1 == undo_capture["project_config_patch_calls"]
+        assert 0 == undo_capture["code_obj_patch_calls"]
+        assert 0 == undo_capture["section_impl_patch_calls"]
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 1 == redo_capture["project_config_patch_calls"]
+        assert 0 == redo_capture["code_obj_patch_calls"]
+        assert 0 == redo_capture["section_impl_patch_calls"]
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
+async def test_undo_redo_code_obj_scoped_history_uses_targeted_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=ID("param-0"),
+                value="undo-redo-targeted-patch",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        undo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.undo(
+                UndoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == undo_capture["project_state_broadcast_calls"]
+        assert 0 == len(undo_capture["structural_patch_calls"])
+        assert 0 == undo_capture["project_config_patch_calls"]
+        assert 1 <= undo_capture["code_obj_patch_calls"]
+        assert 1 <= (
+            undo_capture["code_obj_patch_calls"]
+            + undo_capture["section_impl_patch_calls"]
+        )
+        assert 1 == undo_capture["name_validation_broadcast_calls"]
+
+        redo_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.redo(
+                RedoRequest(
+                    projectConfigId=project_config_id,
+                    steps=1,
+                )
+            ),
+        )
+        assert 0 == redo_capture["project_state_broadcast_calls"]
+        assert 0 == len(redo_capture["structural_patch_calls"])
+        assert 0 == redo_capture["project_config_patch_calls"]
+        assert 1 <= redo_capture["code_obj_patch_calls"]
+        assert 1 <= (
+            redo_capture["code_obj_patch_calls"]
+            + redo_capture["section_impl_patch_calls"]
+        )
+        assert 1 == redo_capture["name_validation_broadcast_calls"]
+
+
+@pytest.mark.asyncio
 async def test_undo_redo_use_full_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
@@ -2066,15 +2180,12 @@ async def test_undo_redo_use_full_patch_transport() -> None:
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        await manager.create_top_level_section(
-            CreateTopLevelSectionRequest(
+        await manager.set_type_error_ignore(
+            SetTypeErrorIgnoreRequest(
                 projectConfigId=project_config_id,
-                implType=SectionType.TextBlock,
-                controlCodeObjType=None,
-                implOverrides=None,
-                position=Position(x=1120.0, y=540.0),
-                topLevelSections=None,
-                viewportBounds=None,
+                sectionId=SECTION_ID,
+                paramInfoId=ID("param-0"),
+                ignoreTypeErrors=True,
             )
         )
         await manager.finish_pending_operations(timeout=5.0)
