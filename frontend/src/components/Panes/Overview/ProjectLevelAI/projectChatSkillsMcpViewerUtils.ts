@@ -859,7 +859,6 @@ export function buildSlashCommandsByEngine({
         model: true,
         permissions: permissionsEnabled,
         search: searchEnabled,
-        appGenerationModes: true,
       }),
     };
   });

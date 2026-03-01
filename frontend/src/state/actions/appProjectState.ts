@@ -1,3 +1,4 @@
+import { setProjectStateRevision } from "state/actions/sectionInfos";
 import { useAppConfigs } from "state/definitions";
 import type { ProjectStateSingleConfigWithCompletedOpIds } from "utils/generatedTypes";
 
@@ -5,6 +6,10 @@ export function processAppProjectStateUpdateFromBackend(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
   const nextState = payload.projectState;
+  setProjectStateRevision(
+    nextState.projectConfig.id,
+    payload.projectStateRevision,
+  );
   useAppConfigs.setState((state) => {
     const existing = state.configs[nextState.projectConfig.id];
     return {

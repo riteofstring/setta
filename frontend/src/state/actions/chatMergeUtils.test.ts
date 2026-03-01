@@ -83,13 +83,13 @@ describe("chatMergeUtils", () => {
           tool_calls: null,
         },
       ],
-      preserveLocalOnlyActivityMessages: false,
+      preserveLocalOnlyMessages: false,
     });
 
     expect(reconciled.map((message) => message.id)).toEqual(["msg-remote"]);
   });
 
-  it("keeps only local activity rows when hydrate preserves local-only activity", () => {
+  it("keeps local-only messages when hydrate preserves in-flight overlays", () => {
     const reconciled = reconcileHydratedChatMessages({
       backendMessages: [
         {
@@ -102,31 +102,19 @@ describe("chatMergeUtils", () => {
       ],
       localMessages: [
         {
-          id: "assistant-local-only",
+          id: "msg-local",
           role: ChatRoleEnum.assistant,
           content: [createMessageTextContent({ text: "Local only" })],
           attachments: [],
           tool_calls: null,
         },
-        {
-          id: "tool-local-activity",
-          role: ChatRoleEnum.tool,
-          tool_call_id: "call-local",
-          tool_name: "setta__tool",
-          arguments: {},
-          result: null,
-          content: [],
-          is_error: false,
-          started_at: "2026-03-01T00:00:00Z",
-          completed_at: null,
-        },
       ],
-      preserveLocalOnlyActivityMessages: true,
+      preserveLocalOnlyMessages: true,
     });
 
     expect(reconciled.map((message) => message.id)).toEqual([
       "msg-remote",
-      "tool-local-activity",
+      "msg-local",
     ]);
   });
 });

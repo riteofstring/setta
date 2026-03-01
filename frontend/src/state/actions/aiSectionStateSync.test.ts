@@ -288,16 +288,10 @@ describe("chat history sync to section state", () => {
       }
       impl.messages = [
         {
-          id: "msg-local-activity",
-          role: ChatRoleEnum.tool,
-          tool_call_id: "call-local",
-          tool_name: "setta__tool",
-          arguments: {},
-          result: null,
-          content: [],
-          is_error: false,
-          started_at: "2026-03-01T00:00:00Z",
-          completed_at: null,
+          id: "msg-local",
+          role: ChatRoleEnum.user,
+          content: [createMessageTextContent({ text: "Local message" })],
+          attachments: [],
         },
       ];
       impl.waitingForResponse = true;
@@ -313,7 +307,7 @@ describe("chat history sync to section state", () => {
       SectionTypeEnum.Chat,
     );
     const messageIds = impl.messages.map((message) => message.id);
-    expect(messageIds).toContain("msg-local-activity");
+    expect(messageIds).toContain("msg-local");
     expect(messageIds).toContain("msg-remote");
     expect(impl.waitingForResponse).toBe(true);
     expect(impl.toolCallArguments).toEqual({ local: "{}", remote: "{}" });
@@ -328,7 +322,7 @@ describe("chat history sync to section state", () => {
     expect(persistedState.messages).toHaveLength(2);
     expect(
       persistedState.messages.some(
-        (message: { id: string }) => message.id === "msg-local-activity",
+        (message: { id: string }) => message.id === "msg-local",
       ),
     ).toBe(true);
     expect(
@@ -343,7 +337,7 @@ describe("chat history sync to section state", () => {
     });
   });
 
-  it("keeps only local-only activity rows after hydrate when stream is inactive", async () => {
+  it("replaces section messages with backend hydrate payload when stream is inactive", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")
     ).route_get_external_agent_chat as unknown as vi.Mock;
@@ -380,22 +374,10 @@ describe("chat history sync to section state", () => {
       }
       impl.messages = [
         {
-          id: "msg-local-non-activity",
+          id: "msg-local-only",
           role: ChatRoleEnum.user,
           content: [createMessageTextContent({ text: "Local speculative" })],
           attachments: [],
-        },
-        {
-          id: "msg-local-activity",
-          role: ChatRoleEnum.tool,
-          tool_call_id: "call-local",
-          tool_name: "setta__tool",
-          arguments: {},
-          result: null,
-          content: [],
-          is_error: false,
-          started_at: "2026-03-01T00:00:00Z",
-          completed_at: null,
         },
       ];
     });
@@ -409,7 +391,6 @@ describe("chat history sync to section state", () => {
     );
     expect(impl.messages.map((message) => message.id)).toEqual([
       "msg-remote-only",
-      "msg-local-activity",
     ]);
   });
 

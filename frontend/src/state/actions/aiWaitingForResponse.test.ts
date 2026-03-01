@@ -207,7 +207,7 @@ describe("chat hydration waitingForResponse", () => {
     }
   });
 
-  it("drops non-activity local-only messages after hydrate when no stream is active", async () => {
+  it("drops local-only messages after hydrate when no stream is active", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
@@ -255,7 +255,7 @@ describe("chat hydration waitingForResponse", () => {
     ]);
   });
 
-  it("keeps local-only activity rows while stream is active during hydrate", async () => {
+  it("keeps local-only messages while stream is active during hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
@@ -269,18 +269,6 @@ describe("chat hydration waitingForResponse", () => {
               ],
               attachments: [],
               tool_calls: null,
-            },
-            {
-              id: "tool-local-activity",
-              role: ChatRoleEnum.tool,
-              tool_call_id: "call-local",
-              tool_name: "setta__tool",
-              arguments: {},
-              result: null,
-              content: [],
-              is_error: false,
-              started_at: "2026-03-01T00:00:00Z",
-              completed_at: null,
             },
           ],
         },
@@ -313,7 +301,7 @@ describe("chat hydration waitingForResponse", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details.messages.map((message) => message.id)).toEqual([
       "assistant-remote",
-      "tool-local-activity",
+      "assistant-local-only",
     ]);
   });
 });

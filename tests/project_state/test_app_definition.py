@@ -11,6 +11,70 @@ from setta.project_state.project_manager_types import (
 from tests.utils.manager_fixture import real_project_manager
 
 
+def _install_app_definition_transport_capture(sender):
+    capture = {
+        "project_state_broadcast_calls": 0,
+        "app_definition_patch_calls": [],
+    }
+    original_project_state_broadcast = sender.broadcast_project_state
+    original_app_definition_patch_broadcast = (
+        sender.broadcast_project_state_app_definition_patch
+    )
+
+    async def record_project_state_broadcast(
+        project_state,
+        completed_op_ids,
+        pending_op_ids,
+        project_state_revision=None,
+    ) -> None:
+        capture["project_state_broadcast_calls"] += 1
+        await original_project_state_broadcast(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
+            project_state_revision,
+        )
+
+    async def record_app_definition_patch(
+        project_config_id,
+        app_definition,
+        app_spec,
+        previous_project_state_revision,
+        project_state_revision,
+        completed_op_ids,
+        pending_op_ids,
+    ) -> None:
+        capture["app_definition_patch_calls"].append(
+            {
+                "projectConfigId": project_config_id,
+                "appDefinition": app_definition,
+                "appSpec": app_spec,
+                "previousProjectStateRevision": previous_project_state_revision,
+                "projectStateRevision": project_state_revision,
+                "completedOpIds": list(completed_op_ids),
+                "pendingOpIds": list(pending_op_ids),
+            }
+        )
+        await original_app_definition_patch_broadcast(
+            project_config_id,
+            app_definition,
+            app_spec,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+
+    sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
+    sender.broadcast_project_state_app_definition_patch = record_app_definition_patch  # type: ignore[method-assign]
+
+    def restore() -> None:
+        sender.broadcast_project_state = original_project_state_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state_app_definition_patch = original_app_definition_patch_broadcast  # type: ignore[method-assign]
+
+    return capture, restore
+
+
 class TestAppDefinitionProjectManager:
     pytestmark = pytest.mark.asyncio
 
@@ -48,6 +112,94 @@ class TestAppDefinitionProjectManager:
             )
 
         assert stored == payload
+
+    async def test_set_app_definition_uses_app_definition_only_history_scope(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            initial_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=initial_payload,
+                    appSpecPath="app_specs/initial.json",
+                    appSpecVersion="v1",
+                    catalogId="setta.app.default",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            history_len_before = len(manager.history._history)
+            backend_before = manager.project_state_backend
+            project_config_id = backend_before.defaultProjectConfigId
+            assert project_config_id is not None
+
+            next_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {
+                    "title": {
+                        "key": "title",
+                        "type": "Text",
+                        "props": {"value": "next"},
+                    }
+                },
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=next_payload,
+                    appSpecPath="app_specs/next.json",
+                    appSpecVersion="v2",
+                    catalogId="setta.app.default",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            backend_after = manager.project_state_backend
+            assert len(manager.history._history) == history_len_before + 1
+            assert backend_after is not backend_before
+            assert (
+                backend_after.projectConfigs[project_config_id]
+                is backend_before.projectConfigs[project_config_id]
+            )
+            assert backend_before.appDefinition is not None
+            assert backend_after.appDefinition is not None
+            assert backend_after.appDefinition is not backend_before.appDefinition
+
+            original_catalog_id = backend_before.appDefinition.catalogId
+            backend_after.appDefinition.catalogId = "setta.app.changed"
+            assert backend_before.appDefinition.catalogId == original_catalog_id
+
+    async def test_set_app_definition_uses_app_definition_patch_transport(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            sender = fixture.manager.websocket_msg_handler
+            capture, restore = _install_app_definition_transport_capture(sender)
+            try:
+                response = await fixture.manager.set_app_definition(
+                    SetAppDefinitionRequest(
+                        appSpec=payload,
+                        appSpecPath="app_specs/custom.json",
+                        appSpecVersion="v2",
+                        catalogId="setta.app.default",
+                    )
+                )
+                await fixture.manager.finish_pending_operations(timeout=5.0)
+            finally:
+                restore()
+
+        assert response.appDefinition is not None
+        assert capture["project_state_broadcast_calls"] == 0
+        assert len(capture["app_definition_patch_calls"]) == 1
+        patch = capture["app_definition_patch_calls"][0]
+        assert patch["appSpec"] == payload
+        assert patch["appDefinition"] == response.appDefinition
+        assert patch["previousProjectStateRevision"] < patch["projectStateRevision"]
 
     async def test_set_app_definition_rejects_unknown_component(self) -> None:
         async with real_project_manager() as fixture:
@@ -88,6 +240,68 @@ class TestAppDefinitionProjectManager:
                     )
                 )
 
+    async def test_app_definition_failures_do_not_write_history(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            baseline_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=baseline_payload,
+                    appSpecPath="app_specs/baseline.json",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            baseline_definition = manager.project_state_backend.appDefinition
+            assert baseline_definition is not None
+            baseline_definition = baseline_definition.model_copy(deep=True)
+            baseline_spec_path = baseline_definition.appSpecPath
+            assert baseline_spec_path is not None
+            baseline_stored_spec = read_app_spec(fixture.dbe, baseline_spec_path)
+            assert baseline_stored_spec == baseline_payload
+
+            async def assert_failure_does_not_write_history(operation) -> None:
+                history_revision_before = manager.history.revision
+                with pytest.raises(ValueError):
+                    await operation
+                assert manager.history.revision == history_revision_before
+                current_definition = manager.project_state_backend.appDefinition
+                assert current_definition == baseline_definition
+                assert (
+                    read_app_spec(fixture.dbe, baseline_spec_path)
+                    == baseline_stored_spec
+                )
+
+            await assert_failure_does_not_write_history(
+                manager.set_app_definition(
+                    SetAppDefinitionRequest(
+                        appSpec={
+                            "root": {"key": "root", "type": "UnknownComponent"},
+                            "elements": {},
+                        }
+                    )
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.update_app_definition(
+                    UpdateAppDefinitionRequest(patch={"root": {"type": "Nope"}})
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.compare_and_set_app_definition_catalog_id(
+                    catalog_id="setta.app.missing"
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.compare_and_set_app_definition_theme_mode(
+                    theme_mode="not-real"
+                )
+            )
+
     async def test_update_app_definition_merges_patch(self) -> None:
         async with real_project_manager() as fixture:
             initial = {
@@ -117,6 +331,51 @@ class TestAppDefinitionProjectManager:
             stored = read_app_spec(fixture.dbe, app_definition.appSpecPath)
 
         assert stored["root"]["props"]["gap"] == 12
+
+    async def test_compare_and_set_app_definition_metadata_uses_app_definition_patch_transport(
+        self,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec={
+                        "root": {"key": "root", "type": "Stack"},
+                        "elements": {},
+                    },
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            # Catalog ID currently has a single valid value, so only these
+            # metadata routes can exercise the mutation+broadcast path.
+            metadata_updates = [
+                lambda: manager.compare_and_set_app_definition_spec_version(
+                    app_spec_version="v2"
+                ),
+                lambda: manager.compare_and_set_app_definition_spec_path(
+                    app_spec_path="app_specs/renamed.json"
+                ),
+                lambda: manager.compare_and_set_app_definition_theme_mode(
+                    theme_mode="dark"
+                ),
+            ]
+
+            for update_fn in metadata_updates:
+                sender = manager.websocket_msg_handler
+                capture, restore = _install_app_definition_transport_capture(sender)
+                try:
+                    await update_fn()
+                    await manager.finish_pending_operations(timeout=5.0)
+                finally:
+                    restore()
+
+                assert capture["project_state_broadcast_calls"] == 0
+                assert len(capture["app_definition_patch_calls"]) == 1
+                patch = capture["app_definition_patch_calls"][0]
+                assert patch["previousProjectStateRevision"] < patch[
+                    "projectStateRevision"
+                ]
 
     async def test_update_app_definition_rejects_unknown_component(self) -> None:
         async with real_project_manager() as fixture:

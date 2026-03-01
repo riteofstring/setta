@@ -6,11 +6,13 @@ import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaC
 import _ from "lodash";
 import React from "react";
 import {
-  dispatchOptimisticProjectStateUpdate,
+  queueDirectParamEnteredValueUpdate,
+  queueOptimisticParamEnteredValueUpdate,
+} from "state/actions/paramValueUpdates";
+import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
   getParamDisplayName,
   getSectionCore,
   setCurrEffectiveCodeObjImplValue,
@@ -23,7 +25,6 @@ import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { post } from "utils/endpointUtils";
-import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
   ButtonParamCodeObjImpl,
@@ -254,9 +255,20 @@ function MetaControlValueArea({
     }
     if (!options?.skipBackendUpdate) {
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
+        queueDirectParamEnteredValueUpdate(
+          useProjectState.getState().projectConfig.id,
+          sectionId,
+          controlParamId,
+          valueStr,
+          "meta-control:onChange:password",
+        );
       } else {
-        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+        queueOptimisticParamEnteredValueUpdate(
+          sectionId,
+          controlParamId,
+          valueStr,
+          "meta-control:onChange",
+        );
       }
     }
   };
@@ -386,44 +398,6 @@ function MetaControlValueArea({
 }
 
 export const MetaControlArea = React.memo(_MetaControlArea);
-
-const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          {
-            value,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_param_entered_value({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          value,
-          frontendOpId,
-        }),
-    });
-  },
-  50,
-);
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
-    });
-  },
-  50,
-);
 
 function isButtonParamCodeObjImpl(
   impl: BaseCodeObjImplUnion,
