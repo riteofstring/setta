@@ -1,5 +1,4 @@
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
-import _ from "lodash";
 import React from "react";
 import {
   getActiveViewModeConfig,
@@ -15,11 +14,14 @@ import {
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 import { getOutlineColor } from "./utils";
+
+type SectionContainerDragListeners = Record<string, unknown> | undefined;
 
 function _SectionContainer({
   sectionId,
@@ -28,7 +30,7 @@ function _SectionContainer({
 }: {
   sectionId: string;
   isTopLevel: boolean;
-  dragListeners?: any;
+  dragListeners?: SectionContainerDragListeners;
 }) {
   const {
     visibility,
@@ -52,39 +54,50 @@ function _SectionContainer({
     );
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+    const isCode = isBaseCodeSectionType(impl.type);
+    const isGenPython = impl.type === SectionTypeEnum.GenPythonCode;
+    const isGenPythonMetadata = impl.type === SectionTypeEnum.GenPythonMetadata;
+    let hasPythonCodegen = true;
+    let hasMetadata = true;
+    if (isGenPython || isGenPythonMetadata) {
+      const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+      hasPythonCodegen = projectConfigHasPythonCodegen(x.projectConfig);
+      hasMetadata = Boolean(pythonTarget?.generateMetadata);
+    }
     const activeIds = x.projectConfig.activeIds;
     const isActive = activeIds.includes(sectionId);
     let isJoinedAttachedTerminalGroup = false;
     let isJoinedGroupActive = isActive;
 
-    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-      x,
-      sectionId,
-    );
-    if (embeddedTerminal) {
-      isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
-      isJoinedGroupActive =
-        isJoinedGroupActive ||
-        activeIds.includes(embeddedTerminal.attachedTerminalId);
+    if (isCode) {
+      const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+        x,
+        sectionId,
+      );
+      if (embeddedTerminal) {
+        isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
+        isJoinedGroupActive =
+          isJoinedGroupActive ||
+          activeIds.includes(embeddedTerminal.attachedTerminalId);
+      }
     }
     return {
       visibility,
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(impl.type),
-      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
-      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
-      hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
-      hasMetadata: Boolean(pythonTarget?.generateMetadata),
+      isCode,
+      isGenPython,
+      isGenPythonMetadata,
+      hasPythonCodegen,
+      hasMetadata,
       sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       isJoinedAttachedTerminalGroup,
       isJoinedGroupActive,
     };
-  }, _.isEqual);
+  }, shallow);
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -164,6 +177,33 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
-);
+export const SectionContainer = React.memo(_SectionContainer, (p, n) => {
+  return (
+    p.sectionId === n.sectionId &&
+    p.isTopLevel === n.isTopLevel &&
+    areDragListenersEqual(p.dragListeners, n.dragListeners)
+  );
+});
+
+function areDragListenersEqual(
+  left: SectionContainerDragListeners,
+  right: SectionContainerDragListeners,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
+}

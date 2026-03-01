@@ -10,15 +10,7 @@ from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
-    ProjectStateActiveViewModePatch,
-    ProjectStateAppDefinitionPatch,
-    ProjectStateCodeObjsPatch,
-    ProjectStateOpStatusPatch,
-    ProjectStateProjectConfigPatch,
-    ProjectStateSectionImplPatch,
-    ProjectStateSectionImplsPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
-    ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
 )
 from setta.types.agentic import (
@@ -29,21 +21,14 @@ from setta.types.agentic import (
     TranscriptionProfile,
     TranscriptionProfileList,
 )
-from setta.types.app_definition import AppDefinition
 from setta.types.artifact_messages import UpdateArtifactMsgContent
-from setta.types.chat_messages import JSONValue
 from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
 )
-from setta.types.core import Core, Variant
 from setta.types.external_agents import ExternalAgentConfig, ExternalAgentConfigList
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.unions import (
-    BaseArtifactUnion,
-    BaseCodeObjImplUnionWithDiscriminator,
-    BaseSectionImplUnionWithDiscriminator,
-)
+from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
@@ -61,7 +46,6 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.prompt import PromptTemplate, PromptTemplateList
-from setta.types.section_impls import BaseSectionImpl
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
@@ -81,14 +65,6 @@ from setta.types.websocket import (
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNameValidationErrors,
     WebsocketMsgNotification,
-    WebsocketMsgPatchFrontendProjectStateActiveViewMode,
-    WebsocketMsgPatchFrontendProjectStateAppDefinition,
-    WebsocketMsgPatchFrontendProjectStateCodeObjs,
-    WebsocketMsgPatchFrontendProjectStateOpStatus,
-    WebsocketMsgPatchFrontendProjectStateProjectConfig,
-    WebsocketMsgPatchFrontendProjectStateSectionImpl,
-    WebsocketMsgPatchFrontendProjectStateSectionImpls,
-    WebsocketMsgPatchFrontendProjectStateStructural,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -394,7 +370,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         projectState: ProjectStateSingleConfig,
         completedOpIds: list[str],
         pendingOpIds: list[str],
-        projectStateRevision: int | None = None,
         *,
         share_session_id: str | None = None,
     ):
@@ -402,231 +377,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgUpdateFrontendProjectState(
                 content=ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                    projectStateRevision=projectStateRevision,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_active_view_mode_patch(
-        self,
-        projectConfigId: ID,
-        activeViewModeId: ID,
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateActiveViewMode(
-                content=ProjectStateActiveViewModePatch(
-                    projectConfigId=projectConfigId,
-                    activeViewModeId=activeViewModeId,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_project_config_patch(
-        self,
-        projectConfigId: ID,
-        projectConfig: ProjectConfig,
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateProjectConfig(
-                content=ProjectStateProjectConfigPatch(
-                    projectConfigId=projectConfigId,
-                    projectConfig=projectConfig,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_section_impl_patch(
-        self,
-        projectConfigId: ID,
-        sectionId: ID,
-        sectionImpl: BaseSectionImpl,
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateSectionImpl(
-                content=ProjectStateSectionImplPatch(
-                    projectConfigId=projectConfigId,
-                    sectionId=sectionId,
-                    sectionImpl=sectionImpl,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_section_impls_patch(
-        self,
-        projectConfigId: ID,
-        sectionImpls: dict[ID, BaseSectionImpl],
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateSectionImpls(
-                content=ProjectStateSectionImplsPatch(
-                    projectConfigId=projectConfigId,
-                    sectionImpls=sectionImpls,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_code_objs_patch(
-        self,
-        projectConfigId: ID,
-        codeObjs: dict[ID, Core],
-        codeObjVariants: dict[ID, Variant],
-        codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator],
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateCodeObjs(
-                content=ProjectStateCodeObjsPatch(
-                    projectConfigId=projectConfigId,
-                    codeObjs=codeObjs,
-                    codeObjVariants=codeObjVariants,
-                    codeObjImpls=codeObjImpls,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_structural_patch(
-        self,
-        projectConfigId: ID,
-        projectConfig: ProjectConfig,
-        sections: dict[ID, Core],
-        sectionVariants: dict[ID, Variant],
-        sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator],
-        parentSectionMap: dict[ID, ID | None],
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        isFullSnapshot: bool | None = None,
-        removedSectionIds: list[ID] | None = None,
-        removedSectionVariantIds: list[ID] | None = None,
-        removedSectionImplIds: list[ID] | None = None,
-        removedParentSectionIds: list[ID] | None = None,
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateStructural(
-                content=ProjectStateStructuralPatch(
-                    projectConfigId=projectConfigId,
-                    projectConfig=projectConfig,
-                    sections=sections,
-                    sectionVariants=sectionVariants,
-                    sectionImpls=sectionImpls,
-                    parentSectionMap=parentSectionMap,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                    isFullSnapshot=isFullSnapshot,
-                    removedSectionIds=removedSectionIds,
-                    removedSectionVariantIds=removedSectionVariantIds,
-                    removedSectionImplIds=removedSectionImplIds,
-                    removedParentSectionIds=removedParentSectionIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_app_definition_patch(
-        self,
-        projectConfigId: ID,
-        appDefinition: AppDefinition | None,
-        appSpec: JSONValue | None,
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateAppDefinition(
-                content=ProjectStateAppDefinitionPatch(
-                    projectConfigId=projectConfigId,
-                    appDefinition=appDefinition,
-                    appSpec=appSpec,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
-                    completedOpIds=completedOpIds,
-                    pendingOpIds=pendingOpIds,
-                )
-            ),
-            share_session_id,
-        )
-
-    async def broadcast_project_state_op_status_patch(
-        self,
-        projectConfigId: ID,
-        previousProjectStateRevision: int,
-        projectStateRevision: int,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgPatchFrontendProjectStateOpStatus(
-                content=ProjectStateOpStatusPatch(
-                    projectConfigId=projectConfigId,
-                    previousProjectStateRevision=previousProjectStateRevision,
-                    projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,
                     pendingOpIds=pendingOpIds,
                 )
