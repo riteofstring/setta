@@ -459,3 +459,52 @@ class TestAutoRefetchHistory:
         updated_impl = get_curr_effective_section_impl(updated_state, self.section_id)
         assert isinstance(updated_impl, CallableSectionImpl)
         assert updated_impl.callable is None
+
+    async def test_auto_refetch_mutation_defers_codegen_refresh(self):
+        project_state = self.project_state.model_copy(deep=True)
+        section_impl = get_curr_effective_section_impl(project_state, self.section_id)
+        assert isinstance(section_impl, CallableSectionImpl)
+        callable_id = section_impl.callable
+        assert callable_id is not None
+        project_state.codeObjs[callable_id].name = ""
+        await self.manager.update(project_state)
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = self.manager._refresh_codegen_state
+        original_schedule_deferred_refresh = (
+            self.manager._schedule_deferred_codegen_refresh
+        )
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        self.manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            record_schedule_deferred_refresh
+        )
+        try:
+            await self.manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await self.manager.auto_refetch_callable_params(
+                self.project_state.projectConfig.id,
+                {self.section_id},
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            self.manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+                original_schedule_deferred_refresh
+            )
+
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert (
+            scheduled_deferred_refreshes[-1] == self.project_state.projectConfig.id
+        )

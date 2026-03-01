@@ -603,6 +603,59 @@ async def test_set_code_obj_display_name_uses_code_obj_patch_transport() -> None
 
 
 @pytest.mark.asyncio
+async def test_set_code_obj_display_name_defers_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state):
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            record_schedule_deferred_refresh
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await manager.set_code_obj_display_name(
+                SetCodeObjDisplayNameRequest(
+                    projectConfigId=project_config_id,
+                    codeObjId=SECOND_PARAM_ID,
+                    displayName="Deferred Display Name",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+                original_schedule_deferred_refresh
+            )
+
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == project_config_id
+        assert (
+            _get_code_obj_display_name(manager, project_config_id, SECOND_PARAM_ID)
+            == "Deferred Display Name"
+        )
+
+
+@pytest.mark.asyncio
 async def test_set_param_name_and_value_preserves_watcher_path_registration() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

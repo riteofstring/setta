@@ -2291,7 +2291,7 @@ class BaseProjectManager(ABC):
                     project_state=project_state,
                 )
             )
-            await self._update_and_broadcast_code_obj_and_section_patches(
+            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
                 project_state,
                 code_obj_ids=code_obj_patch_ids,
                 section_ids=section_patch_scope,
@@ -3363,7 +3363,7 @@ class BaseProjectManager(ABC):
                 section_ids=section_scope,
                 project_state=project_state,
             )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=code_obj_ids,
             section_ids=section_scope,
@@ -3992,7 +3992,7 @@ class BaseProjectManager(ABC):
         """Update the user-facing display name for the requested code object."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].displayName = x.displayName
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=[x.codeObjId],
             section_ids=[],
@@ -4229,7 +4229,7 @@ class BaseProjectManager(ABC):
                     project_state=project_state,
                 )
             )
-            await self._update_and_broadcast_code_obj_and_section_patches(
+            await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
                 project_state,
                 code_obj_ids=[],
                 section_ids=section_patch_scope,
@@ -5289,7 +5289,7 @@ class BaseProjectManager(ABC):
             project_config_id=x.projectConfigId,
             section_ids=section_patch_ids,
         )
-        await self._update_and_broadcast_code_obj_and_section_patches(
+        await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
             project_state,
             code_obj_ids=code_obj_patch_scope,
             section_ids=section_patch_scope,

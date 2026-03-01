@@ -202,3 +202,71 @@ async def test_accept_rename_refactor_uses_code_obj_and_section_patch_transport(
         assert callable_code_obj_after.id == callable_code_obj_before.id
         assert new_callable_name == callable_code_obj_after.name
         assert frontend_op_id not in manager.pending_rename_results
+
+
+@pytest.mark.asyncio
+async def test_accept_rename_refactor_defers_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        state_before = manager.get_single_config_state(project_config_id)
+        callable_code_obj_before = get_curr_section_callable_code_obj(
+            state_before,
+            SECTION_ID,
+        )
+        if callable_code_obj_before is None:
+            raise KeyError(f"Expected callable code object for section {SECTION_ID}.")
+
+        frontend_op_id = "rename-deferred-refresh"
+        manager.pending_rename_results[frontend_op_id] = (
+            project_config_id,
+            [
+                RenameReferenceChangedValue(
+                    depKey=SectionDependencyKey(sectionId=SECTION_ID),
+                    newValue=f"{callable_code_obj_before.name}_deferred",
+                )
+            ],
+        )
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            await manager.accept_rename_refactor(
+                AcceptRenameRefactorRequest(
+                    frontendOpId=frontend_op_id,
+                    projectConfigId=project_config_id,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == project_config_id

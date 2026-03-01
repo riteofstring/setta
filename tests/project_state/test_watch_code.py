@@ -676,6 +676,79 @@ class TestWatchCode:
         state_after_delete = self.manager.get_single_config_state(self.project_config_id)
         assert identity not in state_after_delete.projectConfig.watchCodeRegistry
 
+    async def test_watch_code_signature_update_defers_codegen_refresh(self) -> None:
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
+            )
+        )
+        await self.manager.set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=self.project_config_id,
+                enabled=True,
+            )
+        )
+
+        create_code = (
+            "def existing(a):\n    return a\n\n"
+            "def deferred_signature(value):\n    return value\n"
+        )
+        await self.manager.apply_watch_code_file_update(
+            self.project_config_id,
+            self.watch_file_path,
+            create_code,
+            baseline_only=False,
+            moved_from=None,
+        )
+        await self.manager.finish_pending_operations(timeout=5.0)
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = self.manager._refresh_codegen_state
+        original_schedule_deferred_refresh = (
+            self.manager._schedule_deferred_codegen_refresh
+        )
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        self.manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+            record_schedule_deferred_refresh
+        )
+        try:
+            await self.manager.finish_pending_operations(timeout=5.0)
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            signature_only_code = (
+                "def existing(a):\n    return a\n\n"
+                "def deferred_signature(value, extra):\n    return value + extra\n"
+            )
+            await self.manager.apply_watch_code_file_update(
+                self.project_config_id,
+                self.watch_file_path,
+                signature_only_code,
+                baseline_only=False,
+                moved_from=None,
+            )
+            await self.manager.finish_pending_operations(timeout=5.0)
+        finally:
+            self.manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            self.manager._schedule_deferred_codegen_refresh = (  # type: ignore[method-assign]
+                original_schedule_deferred_refresh
+            )
+
+        assert refresh_calls == before_refresh_calls
+        assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+        assert scheduled_deferred_refreshes[-1] == self.project_config_id
+
     async def test_disable_cancels_pending_watch_code_scans(self) -> None:
         await self.manager.set_watch_code_inputs(
             SetWatchCodeInputsRequest(
