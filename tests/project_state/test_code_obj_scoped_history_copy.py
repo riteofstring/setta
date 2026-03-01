@@ -105,6 +105,75 @@ async def test_code_obj_only_history_entry_copies_only_targeted_code_obj_graph()
 
 
 @pytest.mark.asyncio
+async def test_code_obj_only_history_entry_isolates_section_impl_map_container() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        backend_before = manager.project_state_backend
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            code_obj_only_ids={TARGET_PARAM_ID},
+        )
+        backend_after = manager.project_state_backend
+
+        assert backend_after.sectionImpls is not backend_before.sectionImpls
+        section_variant_id = backend_after.projectConfigs[project_config_id].sectionVariantMap[
+            SECTION_ID
+        ]
+        section_impl_id = backend_after.sectionVariants[section_variant_id].impl
+        replacement_section_impl = backend_after.sectionImpls[section_impl_id].model_copy(
+            deep=True
+        )
+        backend_after.sectionImpls[section_impl_id] = replacement_section_impl
+        assert backend_before.sectionImpls[section_impl_id] is not replacement_section_impl
+
+
+@pytest.mark.asyncio
+async def test_code_obj_only_history_entry_sanitizes_stale_callable_children() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        callable_id = section_impl.callable
+        assert callable_id is not None
+        callable_variant_id = section_impl.codeObjVariantMap[callable_id]
+        callable_impl_id = current_state.codeObjVariants[callable_variant_id].impl
+        stale_child_id = ID("stale-history-copy-child")
+
+        backend_before = manager.project_state_backend
+        callable_impl_before = backend_before.codeObjImpls[callable_impl_id]
+        if not isinstance(callable_impl_before, CodeCallableCodeObjImpl):
+            raise TypeError(f"Expected CodeCallableCodeObjImpl for {callable_impl_id}.")
+        callable_impl_before.children = [*callable_impl_before.children, stale_child_id]
+        manager.project_state_backend = backend_before
+
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            code_obj_only_ids={callable_id},
+        )
+        backend_after = manager.project_state_backend
+        callable_impl_after = backend_after.codeObjImpls[callable_impl_id]
+        if not isinstance(callable_impl_after, CodeCallableCodeObjImpl):
+            raise TypeError(f"Expected CodeCallableCodeObjImpl for {callable_impl_id}.")
+        assert stale_child_id not in callable_impl_after.children
+
+
+@pytest.mark.asyncio
 async def test_project_config_and_code_obj_history_entry_copies_both_scopes() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager

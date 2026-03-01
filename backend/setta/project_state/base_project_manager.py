@@ -10092,6 +10092,14 @@ class BaseProjectManager(ABC):
         sections = dict(backend.sections)
         section_variants = dict(backend.sectionVariants)
         section_impls = dict(backend.sectionImpls)
+        code_objs = dict(backend.codeObjs)
+        code_obj_variants = dict(backend.codeObjVariants)
+        code_obj_impls = dict(backend.codeObjImpls)
+        project_configs = dict(backend.projectConfigs)
+        project_core = prepare_sections_for_copy(
+            backend,
+            set(project_config.sectionVariantMap.keys()),
+        )
 
         copied_variant_ids: set[ID] = set()
         copied_impl_ids: set[ID] = set()
@@ -10122,19 +10130,21 @@ class BaseProjectManager(ABC):
                     f"Missing section impl {section_impl_id} in backend state."
                 )
             if section_impl_id not in copied_impl_ids:
-                section_impls[section_impl_id] = copy.deepcopy(
-                    backend.sectionImpls[section_impl_id]
+                sanitized_section_impl = project_core.sectionImpls.get(
+                    section_impl_id,
+                    backend.sectionImpls[section_impl_id],
                 )
+                section_impls[section_impl_id] = copy.deepcopy(sanitized_section_impl)
                 copied_impl_ids.add(section_impl_id)
 
         return ProjectStateBackend(
             sections=sections,
             sectionImpls=section_impls,
             sectionVariants=section_variants,
-            codeObjs=backend.codeObjs,
-            codeObjImpls=backend.codeObjImpls,
-            codeObjVariants=backend.codeObjVariants,
-            projectConfigs=backend.projectConfigs,
+            codeObjs=code_objs,
+            codeObjImpls=code_obj_impls,
+            codeObjVariants=code_obj_variants,
+            projectConfigs=project_configs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
         )
@@ -10151,6 +10161,15 @@ class BaseProjectManager(ABC):
         code_objs = dict(backend.codeObjs)
         code_obj_variants = dict(backend.codeObjVariants)
         code_obj_impls = dict(backend.codeObjImpls)
+        sections = dict(backend.sections)
+        section_impls = dict(backend.sectionImpls)
+        section_variants = dict(backend.sectionVariants)
+        project_configs = dict(backend.projectConfigs)
+        project_config = backend.projectConfigs[project_config_id]
+        project_core = prepare_sections_for_copy(
+            backend,
+            set(project_config.sectionVariantMap.keys()),
+        )
 
         copied_variant_ids: set[ID] = set()
         copied_impl_ids: set[ID] = set()
@@ -10187,19 +10206,23 @@ class BaseProjectManager(ABC):
                         f"Missing code obj impl {code_obj_impl_id} in backend state."
                     )
                 if code_obj_impl_id not in copied_impl_ids:
+                    sanitized_code_obj_impl = project_core.codeObjImpls.get(
+                        code_obj_impl_id,
+                        backend.codeObjImpls[code_obj_impl_id],
+                    )
                     code_obj_impls[code_obj_impl_id] = copy.deepcopy(
-                        backend.codeObjImpls[code_obj_impl_id]
+                        sanitized_code_obj_impl
                     )
                     copied_impl_ids.add(code_obj_impl_id)
 
         return ProjectStateBackend(
-            sections=backend.sections,
-            sectionImpls=backend.sectionImpls,
-            sectionVariants=backend.sectionVariants,
+            sections=sections,
+            sectionImpls=section_impls,
+            sectionVariants=section_variants,
             codeObjs=code_objs,
             codeObjImpls=code_obj_impls,
             codeObjVariants=code_obj_variants,
-            projectConfigs=backend.projectConfigs,
+            projectConfigs=project_configs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
         )
@@ -10209,13 +10232,13 @@ class BaseProjectManager(ABC):
         backend: ProjectStateBackend,
     ) -> ProjectStateBackend:
         return ProjectStateBackend(
-            sections=backend.sections,
-            sectionImpls=backend.sectionImpls,
-            sectionVariants=backend.sectionVariants,
-            codeObjs=backend.codeObjs,
-            codeObjImpls=backend.codeObjImpls,
-            codeObjVariants=backend.codeObjVariants,
-            projectConfigs=backend.projectConfigs,
+            sections=dict(backend.sections),
+            sectionImpls=dict(backend.sectionImpls),
+            sectionVariants=dict(backend.sectionVariants),
+            codeObjs=dict(backend.codeObjs),
+            codeObjImpls=dict(backend.codeObjImpls),
+            codeObjVariants=dict(backend.codeObjVariants),
+            projectConfigs=dict(backend.projectConfigs),
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=copy.deepcopy(backend.appDefinition),
         )
@@ -10234,12 +10257,12 @@ class BaseProjectManager(ABC):
         )
 
         return ProjectStateBackend(
-            sections=backend.sections,
-            sectionImpls=backend.sectionImpls,
-            sectionVariants=backend.sectionVariants,
-            codeObjs=backend.codeObjs,
-            codeObjImpls=backend.codeObjImpls,
-            codeObjVariants=backend.codeObjVariants,
+            sections=dict(backend.sections),
+            sectionImpls=dict(backend.sectionImpls),
+            sectionVariants=dict(backend.sectionVariants),
+            codeObjs=dict(backend.codeObjs),
+            codeObjImpls=dict(backend.codeObjImpls),
+            codeObjVariants=dict(backend.codeObjVariants),
             projectConfigs=project_configs,
             defaultProjectConfigId=backend.defaultProjectConfigId,
             appDefinition=backend.appDefinition,
@@ -10272,7 +10295,7 @@ class BaseProjectManager(ABC):
                     f"Missing section impl {section_impl_id} in backend state."
                 )
             section_impls[section_impl_id] = copy.deepcopy(
-                backend.sectionImpls[section_impl_id]
+                project_core.sectionImpls[section_impl_id]
             )
 
         section_variants = dict(backend.sectionVariants)
@@ -10298,7 +10321,7 @@ class BaseProjectManager(ABC):
                     f"Missing code obj impl {code_obj_impl_id} in backend state."
                 )
             code_obj_impls[code_obj_impl_id] = copy.deepcopy(
-                backend.codeObjImpls[code_obj_impl_id]
+                project_core.codeObjImpls[code_obj_impl_id]
             )
 
         code_obj_variants = dict(backend.codeObjVariants)
