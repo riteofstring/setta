@@ -177,6 +177,24 @@
   - Primary: harden and rollout the layer-split approach (scope, defaults, guardrails).
   - Secondary: optional Item E scoped param virtualization only in heavy scroll-bounded param regions where full-list visibility is not required.
 
+### Phase 0.5 Status Update (2026-03-03, Layer-Split Rollout Hardening)
+- Hardened rollout landed for viewport layer split:
+  - scoped default-on for `settings` + `All Settings`,
+  - explicit localStorage kill switch (`setta.viewportLayerSplit.enabled` with `0/false/off` override),
+  - Playwright guardrail spec for sustained motion throughput and start-hitch bounds.
+- Verification summary:
+  - Baseline harness `3x` medians:
+    - pan `119.9` vs control `37.9` (~`3.16x`)
+    - zoom `118.2` vs control `36.7` (~`3.22x`)
+    - start hitch p95 `5.0ms` vs control `4.4ms`
+  - Guardrail run: passed (`pan=121.0`, `zoom=112.1`, `start p95=5.2ms`).
+  - CDP supplemental control/on trace pair also showed strong directional pan/zoom uplift.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-viewport-layer-split-rollout-hardening.md`
+- Next Phase 0.5 focus:
+  - Keep hybrid canvas paused.
+  - Expand layer-split scope cautiously (additional heavy view modes/projects) behind deterministic gating and same guardrail process.
+
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
 - Prewarm proxies during idle.

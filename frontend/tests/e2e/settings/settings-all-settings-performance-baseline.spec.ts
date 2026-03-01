@@ -5,8 +5,8 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const VIEWPORT_LAYER_SPLIT_KEY = "setta.viewportLayerSplit.enabled";
-const ENABLE_VIEWPORT_LAYER_SPLIT =
-  process.env.PLAYWRIGHT_ENABLE_VIEWPORT_LAYER_SPLIT === "1";
+const VIEWPORT_LAYER_SPLIT_OVERRIDE =
+  process.env.PLAYWRIGHT_ENABLE_VIEWPORT_LAYER_SPLIT ?? null;
 
 type HitchStats = {
   avgMs: number;
@@ -45,9 +45,13 @@ type BaselineMetrics = {
 test("settings all-settings perf baseline harness", async ({
   page,
 }, testInfo) => {
-  if (ENABLE_VIEWPORT_LAYER_SPLIT) {
+  if (VIEWPORT_LAYER_SPLIT_OVERRIDE === "1") {
     await page.addInitScript((key) => {
       window.localStorage.setItem(key, "1");
+    }, VIEWPORT_LAYER_SPLIT_KEY);
+  } else if (VIEWPORT_LAYER_SPLIT_OVERRIDE === "0") {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, "0");
     }, VIEWPORT_LAYER_SPLIT_KEY);
   } else {
     await page.addInitScript((key) => {

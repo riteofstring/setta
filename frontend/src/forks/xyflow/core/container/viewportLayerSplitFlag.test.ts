@@ -1,17 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { isViewportLayerSplitFlagEnabled } from "./viewportLayerSplitFlag";
+import {
+  isViewportLayerSplitScopeDefaultEnabled,
+  parseViewportLayerSplitFlagOverride,
+} from "./viewportLayerSplitFlag";
 
 describe("viewportLayerSplitFlag", () => {
-  it("accepts explicit truthy values", () => {
-    expect(isViewportLayerSplitFlagEnabled("1")).toBe(true);
-    expect(isViewportLayerSplitFlagEnabled(" true ")).toBe(true);
-    expect(isViewportLayerSplitFlagEnabled("ON")).toBe(true);
+  it("parses explicit enable overrides", () => {
+    expect(parseViewportLayerSplitFlagOverride("1")).toBe("enabled");
+    expect(parseViewportLayerSplitFlagOverride(" true ")).toBe("enabled");
+    expect(parseViewportLayerSplitFlagOverride("ON")).toBe("enabled");
   });
 
-  it("rejects empty and non-truthy values", () => {
-    expect(isViewportLayerSplitFlagEnabled(null)).toBe(false);
-    expect(isViewportLayerSplitFlagEnabled("0")).toBe(false);
-    expect(isViewportLayerSplitFlagEnabled("false")).toBe(false);
-    expect(isViewportLayerSplitFlagEnabled("disabled")).toBe(false);
+  it("parses explicit disable overrides", () => {
+    expect(parseViewportLayerSplitFlagOverride("0")).toBe("disabled");
+    expect(parseViewportLayerSplitFlagOverride("false")).toBe("disabled");
+    expect(parseViewportLayerSplitFlagOverride("OFF")).toBe("disabled");
+  });
+
+  it("parses missing and unknown values as unset", () => {
+    expect(parseViewportLayerSplitFlagOverride(null)).toBe("unset");
+    expect(parseViewportLayerSplitFlagOverride("")).toBe("unset");
+    expect(parseViewportLayerSplitFlagOverride("disabled")).toBe("unset");
+  });
+
+  it("defaults on only for settings/all-settings scope", () => {
+    expect(
+      isViewportLayerSplitScopeDefaultEnabled({
+        projectName: "settings",
+        activeViewModeName: "All Settings",
+      }),
+    ).toBe(true);
+    expect(
+      isViewportLayerSplitScopeDefaultEnabled({
+        projectName: "settings",
+        activeViewModeName: "Core",
+      }),
+    ).toBe(false);
+    expect(
+      isViewportLayerSplitScopeDefaultEnabled({
+        projectName: "other-project",
+        activeViewModeName: "All Settings",
+      }),
+    ).toBe(false);
   });
 });
