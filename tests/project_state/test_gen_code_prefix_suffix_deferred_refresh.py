@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -241,6 +242,82 @@ async def test_set_gen_code_prefix_undo_restores_previous_value() -> None:
             manager.project_state_backend.projectConfigs[project_config_id]
         ).genCodePrefix
         assert updated_prefix == "import math\n"
+
+        await manager.undo(
+            UndoRequest(
+                projectConfigId=project_config_id,
+                steps=1,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        reverted_prefix = get_python_codegen_target_with_type_guard(
+            manager.project_state_backend.projectConfigs[project_config_id]
+        ).genCodePrefix
+        assert reverted_prefix == original_prefix
+
+
+@pytest.mark.asyncio
+async def test_set_gen_code_prefix_noop_repeat_does_not_add_history_entry() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math\n",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        history_len_after_first_edit = len(manager.history._history)
+
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math\n",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        assert len(manager.history._history) == history_len_after_first_edit
+
+
+@pytest.mark.asyncio
+async def test_set_gen_code_prefix_adjacent_edits_coalesce_beyond_time_window() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(40)
+        await manager.update(project_state, updateFileWatcher=False)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        original_prefix = get_python_codegen_target_with_type_guard(
+            manager.project_state_backend.projectConfigs[project_config_id]
+        ).genCodePrefix
+        history_len_before_edits = len(manager.history._history)
+
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        await asyncio.sleep(0.95)
+        await manager.set_gen_code_prefix(
+            SetGenCodePrefixRequest(
+                projectConfigId=project_config_id,
+                genCodePrefix="import math",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        assert len(manager.history._history) == history_len_before_edits + 1
 
         await manager.undo(
             UndoRequest(

@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from setta.project_state.project_manager_types import (
@@ -146,12 +148,8 @@ async def test_set_param_entered_value_preserves_broadcast_shape_and_value_updat
             await original_name_validation_broadcast(content)
 
         sender.broadcast_project_state = record_project_state_broadcast  # type: ignore[method-assign]
-        sender.broadcast_project_state_code_objs_patch = (
-            record_code_obj_patch  # type: ignore[method-assign]
-        )
-        sender.broadcast_project_state_section_impl_patch = (
-            record_section_impl_patch  # type: ignore[method-assign]
-        )
+        sender.broadcast_project_state_code_objs_patch = record_code_obj_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = record_section_impl_patch  # type: ignore[method-assign]
         sender.broadcast_name_validation_errors = record_name_validation_broadcast  # type: ignore[method-assign]
         try:
             await manager.finish_pending_operations(timeout=5.0)
@@ -189,18 +187,20 @@ async def test_set_param_entered_value_preserves_broadcast_shape_and_value_updat
             < code_obj_patch["projectStateRevision"]
         )
 
-        section_impl_patches = section_impl_patch_calls[before_section_impl_patch_count:]
+        section_impl_patches = section_impl_patch_calls[
+            before_section_impl_patch_count:
+        ]
         assert len(section_impl_patches) >= 1
-        assert any(
-            patch["sectionId"] == SECTION_ID for patch in section_impl_patches
-        )
+        assert any(patch["sectionId"] == SECTION_ID for patch in section_impl_patches)
         for patch in section_impl_patches:
             assert patch["projectConfigId"] == project_config_id
             assert (
                 patch["previousProjectStateRevision"]
                 == code_obj_patch["projectStateRevision"]
             )
-            assert patch["projectStateRevision"] == code_obj_patch["projectStateRevision"]
+            assert (
+                patch["projectStateRevision"] == code_obj_patch["projectStateRevision"]
+            )
         assert name_validation_broadcast_calls - before_name_validation == 0
         assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "1234"
 
@@ -277,6 +277,88 @@ async def test_set_param_entered_value_preserves_undo_redo_behavior() -> None:
         assert (
             _get_param_value(manager, project_config_id, SECOND_PARAM_ID)
             == "second-change"
+        )
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_noop_repeat_does_not_add_history_entry() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="same-value",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        history_len_after_first_edit = len(manager.history._history)
+
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="same-value",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+        assert len(manager.history._history) == history_len_after_first_edit
+
+
+@pytest.mark.asyncio
+async def test_set_param_entered_value_adjacent_edits_coalesce_beyond_time_window() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        baseline_value = _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+        history_len_before_edits = len(manager.history._history)
+
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="1",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        # Keep the same field edit adjacent in history, but exceed the old
+        # time-based coalesce window to verify adjacent coalescing behavior.
+        await asyncio.sleep(0.95)
+        await manager.set_param_entered_value(
+            SetParamEnteredValueRequest(
+                projectConfigId=project_config_id,
+                sectionId=SECTION_ID,
+                paramInfoId=FIRST_PARAM_ID,
+                value="12",
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        assert len(manager.history._history) == history_len_before_edits + 1
+        assert _get_param_value(manager, project_config_id, FIRST_PARAM_ID) == "12"
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=5.0)
+        assert (
+            _get_param_value(manager, project_config_id, FIRST_PARAM_ID)
+            == baseline_value
         )
 
 

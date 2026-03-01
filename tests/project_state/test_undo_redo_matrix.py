@@ -29,7 +29,6 @@ from setta.project_state.project_manager_types import (
     SetSectionStyleColorRequest,
     SetSectionTagColorRequest,
     SetTypeErrorIgnoreRequest,
-    SetViewportRequest,
     UpdateAgenticEdgeRequest,
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
@@ -44,7 +43,7 @@ from setta.types.helpers_lvl2 import (
     set_section_edge_inputs,
     set_section_edge_outputs,
 )
-from setta.types.project_config import Position, Viewport
+from setta.types.project_config import Position
 from setta.types.section_impls import CodeFileAccessMode, SectionSize, SectionType
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
@@ -203,14 +202,6 @@ async def test_undo_redo_roundtrips_across_mutation_families() -> None:
             nonlocal created_view_mode_id
             created_view_mode_id = await manager.create_view_mode(
                 CreateViewModeRequest(projectConfigId=project_config_id)
-            )
-
-        async def set_viewport_mutation() -> None:
-            await manager.set_viewport(
-                SetViewportRequest(
-                    projectConfigId=project_config_id,
-                    viewport=Viewport(x=33.0, y=-12.5, zoom=1.35),
-                )
             )
 
         async def set_section_tag_color_mutation() -> None:
@@ -536,7 +527,6 @@ async def test_undo_redo_roundtrips_across_mutation_families() -> None:
 
         operations = [
             ("create_view_mode", create_view_mode_mutation, True, True),
-            ("set_viewport", set_viewport_mutation, True, True),
             ("set_section_tag_color", set_section_tag_color_mutation, True, True),
             ("set_section_style_color", set_section_style_color_mutation, True, True),
             (

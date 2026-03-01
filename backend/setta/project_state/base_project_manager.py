@@ -268,6 +268,7 @@ from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
+    PasswordParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant
 from setta.types.dependency_key import (
@@ -297,6 +298,7 @@ from setta.types.helpers_lvl2 import (
     callable_has_been_selected_before,
     change_param_impl,
     collect_ignore_type_errors_by_section,
+    convert_code_obj_value,
     create_agentic_edge,
     create_child_sections,
     create_child_sections_via_incrementer,
@@ -3251,35 +3253,49 @@ class BaseProjectManager(ABC):
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
         await self._flush_pending_deferred_codegen_refresh(x.projectConfigId)
+        project_state_before_mutation = self.get_single_config_state(x.projectConfigId)
+        gen_code = self._require_python_codegen(x.projectConfigId)
         history_code_obj_ids = self._get_callable_history_code_obj_ids_for_backend(
             project_config_id=x.projectConfigId,
             section_id=x.sectionId,
         )
-        self._add_section_and_code_obj_scoped_history_entry(
-            project_config_id=x.projectConfigId,
-            section_ids=[x.sectionId],
-            code_obj_ids=history_code_obj_ids,
-            include_codegen_singletons=True,
+        prev_callable = get_curr_section_callable_code_obj(
+            project_state_before_mutation, x.sectionId
         )
-        project_state = self.get_single_config_state(x.projectConfigId)
-        gen_code = self._require_python_codegen(x.projectConfigId)
-        prev_callable = get_curr_section_callable_code_obj(project_state, x.sectionId)
         prev_callable_id = prev_callable.id if prev_callable else None
         callable_selected_before = (
             callable_has_been_selected_before(
-                project_state,
+                project_state_before_mutation,
                 x.sectionId,
                 x.callableName,
             )
             is not None
         )
+        did_add_history_entry = False
+
+        def prepare_project_state_for_mutation() -> ProjectStateSingleConfig:
+            nonlocal did_add_history_entry
+            if not did_add_history_entry:
+                self._add_section_and_code_obj_scoped_history_entry(
+                    project_config_id=x.projectConfigId,
+                    section_ids=[x.sectionId],
+                    code_obj_ids=history_code_obj_ids,
+                    include_codegen_singletons=True,
+                )
+                did_add_history_entry = True
+            return self.get_single_config_state(x.projectConfigId)
+
         result = await gen_code.set_callable(
             self.settings_file.settings,
-            project_state,
+            project_state_before_mutation,
             x.sectionId,
             x.callableName,
             x.refetchParams,
+            on_before_mutation=prepare_project_state_for_mutation,
         )
+        if not did_add_history_entry:
+            return result
+        project_state_after_mutation = self.get_single_config_state(x.projectConfigId)
         # Register post-mutation callable code object ids on the same history entry
         # so redo can always rehydrate callable core/children through targeted patch transport.
         history_code_obj_ids_after = set(
@@ -3287,7 +3303,7 @@ class BaseProjectManager(ABC):
         )
         history_code_obj_ids_after.update(
             self._get_callable_history_code_obj_ids_for_project_state(
-                project_state=project_state,
+                project_state=project_state_after_mutation,
                 section_id=x.sectionId,
             )
         )
@@ -3302,7 +3318,7 @@ class BaseProjectManager(ABC):
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
             section_ids=[x.sectionId],
-            project_state=project_state,
+            project_state=project_state_after_mutation,
         )
         code_obj_ids_for_patch: list[ID] = []
         should_broadcast_code_obj_patch = (
@@ -3318,7 +3334,7 @@ class BaseProjectManager(ABC):
                 result
             )
         await self._merge_and_broadcast_code_obj_and_section_patches_with_deferred_codegen_refresh(
-            project_state,
+            project_state_after_mutation,
             code_obj_ids=code_obj_ids_for_patch,
             section_ids=section_patch_scope,
             validate_name_rules=False,
@@ -3601,9 +3617,16 @@ class BaseProjectManager(ABC):
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
         self._validate_python_codegen_target_for_prefix_suffix_edit(x.projectConfigId)
+        project_state_for_check = self.get_single_config_state(x.projectConfigId)
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state_for_check.projectConfig
+        )
+        if python_target.genCodePrefix == x.genCodePrefix:
+            return
         self.add_new_history_entry(
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             project_config_only=True,
         )
@@ -3622,9 +3645,16 @@ class BaseProjectManager(ABC):
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
         self._validate_python_codegen_target_for_prefix_suffix_edit(x.projectConfigId)
+        project_state_for_check = self.get_single_config_state(x.projectConfigId)
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state_for_check.projectConfig
+        )
+        if python_target.genCodeSuffix == x.genCodeSuffix:
+            return
         self.add_new_history_entry(
             coalesce_key=f"genCodePrefixSuffix:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             project_config_only=True,
         )
@@ -4658,6 +4688,22 @@ class BaseProjectManager(ABC):
                 project_state_revision=next_project_state_revision,
             )
 
+    @staticmethod
+    def _is_param_entered_value_noop(
+        effective_impl: BaseChildlessCodeObjImpl,
+        entered_value: str,
+    ) -> bool:
+        if isinstance(effective_impl, PasswordParamCodeObjImpl):
+            return (
+                entered_value == ""
+                and effective_impl.value == ""
+                and not effective_impl.hasSecret
+            )
+        return effective_impl.value == convert_code_obj_value(
+            effective_impl,
+            entered_value,
+        )
+
     @enqueue_method(
         coalesce_key_fn=_set_param_entered_value_enqueue_coalesce_key,
         partition_key_fn=_set_param_entered_value_enqueue_partition_key,
@@ -4675,12 +4721,23 @@ class BaseProjectManager(ABC):
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
+        project_state_for_check = self.get_single_config_state(x.projectConfigId)
+        current_impl = get_curr_effective_code_obj_impl(
+            project_state_for_check,
+            x.sectionId,
+            x.paramInfoId,
+        )
+        if isinstance(current_impl, BaseChildlessCodeObjImpl) and (
+            self._is_param_entered_value_noop(current_impl, x.value)
+        ):
+            return
         codegen_singleton_section_ids = (
             self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
         )
         self.add_new_history_entry(
             coalesce_key=(f"param:{x.projectConfigId}:{x.sectionId}:{x.paramInfoId}"),
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             section_impl_only_ids=(
                 codegen_singleton_section_ids if codegen_singleton_section_ids else None
@@ -5004,12 +5061,30 @@ class BaseProjectManager(ABC):
     )
     async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
         """Set a parameter's name and value in one step."""
+        project_state_for_check = self.get_single_config_state(x.projectConfigId)
+        normalized_name = validate_param_name(
+            project_state_for_check, x.sectionId, x.codeObjId, x.name
+        )
+        current_impl = get_curr_effective_code_obj_impl(
+            project_state_for_check,
+            x.sectionId,
+            x.codeObjId,
+        )
+        name_is_unchanged = (
+            project_state_for_check.codeObjs[x.codeObjId].name == normalized_name
+        )
+        value_is_unchanged = isinstance(current_impl, BaseChildlessCodeObjImpl) and (
+            self._is_param_entered_value_noop(current_impl, x.value)
+        )
+        if name_is_unchanged and value_is_unchanged:
+            return
         codegen_singleton_section_ids = (
             self._get_codegen_singleton_section_ids_for_history_entry(x.projectConfigId)
         )
         self.add_new_history_entry(
             coalesce_key=f"param:{x.projectConfigId}:{x.sectionId}:{x.codeObjId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             section_impl_only_ids=(
                 codegen_singleton_section_ids if codegen_singleton_section_ids else None
@@ -5017,9 +5092,6 @@ class BaseProjectManager(ABC):
             code_obj_only_ids={x.codeObjId},
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        normalized_name = validate_param_name(
-            project_state, x.sectionId, x.codeObjId, x.name
-        )
         project_state.codeObjs[x.codeObjId].name = normalized_name
         set_param_entered_value(
             project_state,
@@ -6905,18 +6977,37 @@ class BaseProjectManager(ABC):
         active_view_mode_id = self._resolve_active_view_mode_id_for_viewport(
             project_config_for_validation
         )
-        self.add_new_history_entry(
-            coalesce_key=f"viewport:{x.projectConfigId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
-            project_config_id=x.projectConfigId,
-            project_config_only=True,
+        viewport_initialized = x.viewport is not None
+        view_mode_for_validation = project_config_for_validation.viewModes[
+            active_view_mode_id
+        ]
+        if (
+            project_config_for_validation.viewport == x.viewport
+            and project_config_for_validation.viewportInitialized
+            == viewport_initialized
+            and view_mode_for_validation.viewport == x.viewport
+            and view_mode_for_validation.viewportInitialized == viewport_initialized
+        ):
+            return
+        # Viewport changes are navigation metadata and should not consume
+        # dedicated undo/redo slots.
+        self._isolate_current_entry_project_config_for_in_place_mutation(
+            x.projectConfigId
         )
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
+        active_view_mode_id = self._resolve_active_view_mode_id_for_viewport(
+            project_config
+        )
         project_config.viewport = x.viewport
-        project_config.viewportInitialized = x.viewport is not None
+        project_config.viewportInitialized = viewport_initialized
         view_mode = project_config.viewModes[active_view_mode_id]
         view_mode.viewport = x.viewport
-        view_mode.viewportInitialized = x.viewport is not None
+        view_mode.viewportInitialized = viewport_initialized
+        self._mark_current_backend_revision_dirty(
+            patch_scope_by_project_config=self._project_config_only_patch_scope(
+                x.projectConfigId
+            )
+        )
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
@@ -7209,6 +7300,7 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             section_impl_only_ids={x.sectionId},
         )
@@ -7231,6 +7323,7 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry(
             coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+            coalesce_adjacent=True,
             project_config_id=x.projectConfigId,
             section_impl_only_ids={x.sectionId},
         )
@@ -10974,6 +11067,7 @@ class BaseProjectManager(ABC):
         trigger_autosave: bool = True,
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
+        coalesce_adjacent: bool = False,
         project_config_id: ID | None = None,
         project_config_only: bool = False,
         include_project_config: bool = False,
@@ -11076,10 +11170,11 @@ class BaseProjectManager(ABC):
         previous_entry_count = len(self.history.get_entry_tokens())
         frontend_op_id = self._current_frontend_op_id.get()
         logger.debug(
-            "history_transaction.start frontend_op_id=%s coalesce_key=%s coalesce_window_s=%s project_config_id=%s project_config_only=%s include_project_config=%s section_impl_only_count=%s code_obj_only_count=%s app_definition_only=%s prev_entry_token=%s prev_revision=%s prev_entry_count=%s",
+            "history_transaction.start frontend_op_id=%s coalesce_key=%s coalesce_window_s=%s coalesce_adjacent=%s project_config_id=%s project_config_only=%s include_project_config=%s section_impl_only_count=%s code_obj_only_count=%s app_definition_only=%s prev_entry_token=%s prev_revision=%s prev_entry_count=%s",
             frontend_op_id,
             coalesce_key,
             coalesce_window_s,
+            coalesce_adjacent,
             project_config_id,
             project_config_only,
             include_project_config,
@@ -11144,6 +11239,7 @@ class BaseProjectManager(ABC):
         self.history.add_current_copy(
             coalesce_key=coalesce_key,
             coalesce_window_s=coalesce_window_s,
+            coalesce_adjacent=coalesce_adjacent,
             copy_func=copy_func,
         )
         next_entry_token = self.history.get_current_entry_token()

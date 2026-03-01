@@ -77,3 +77,35 @@ class TestHistoryCoalescing:
         initial_token = history.get_current_entry_token()
         history.add_current_copy(coalesce_key="k", coalesce_window_s=1.0)
         assert history.get_current_entry_token() == initial_token
+
+    def test_adjacent_coalesce_ignores_window_when_enabled(self):
+        history = History({"value": 0})
+        history.add_current_copy(
+            coalesce_key="param:1",
+            coalesce_window_s=0.05,
+            coalesce_adjacent=True,
+        )
+        assert len(history._history) == 2
+
+        time.sleep(0.1)
+        history.add_current_copy(
+            coalesce_key="param:1",
+            coalesce_window_s=0.05,
+            coalesce_adjacent=True,
+        )
+        assert len(history._history) == 2
+
+        history.add_current_copy(
+            coalesce_key="param:2",
+            coalesce_window_s=0.05,
+            coalesce_adjacent=True,
+        )
+        assert len(history._history) == 3
+
+        time.sleep(0.1)
+        history.add_current_copy(
+            coalesce_key="param:1",
+            coalesce_window_s=0.05,
+            coalesce_adjacent=True,
+        )
+        assert len(history._history) == 4

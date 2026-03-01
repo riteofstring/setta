@@ -7,6 +7,7 @@ from setta.project_state.project_manager_types import (
     CreateEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
+    CreateViewModeRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteSectionsRequest,
@@ -30,7 +31,6 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
     SetTypeErrorIgnoreRequest,
-    SetViewportRequest,
     RedoRequest,
     UndoRequest,
     SetWatchCodeEnabledRequest,
@@ -51,7 +51,6 @@ from setta.types.id import ID
 from setta.types.project_config import (
     Position,
     ProjectCodegenPythonTarget,
-    Viewport,
     WatchCodeFolder,
 )
 from setta.types.section_impls import (
@@ -2137,11 +2136,8 @@ async def test_undo_redo_project_config_only_history_uses_project_config_patch_t
         await manager.finish_pending_operations(timeout=5.0)
         project_config_id = project_state.projectConfig.id
 
-        await manager.set_viewport(
-            SetViewportRequest(
-                projectConfigId=project_config_id,
-                viewport=Viewport(x=14.0, y=-8.0, zoom=1.2),
-            )
+        await manager.create_view_mode(
+            CreateViewModeRequest(projectConfigId=project_config_id)
         )
         await manager.finish_pending_operations(timeout=5.0)
 

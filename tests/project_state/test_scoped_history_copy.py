@@ -1065,7 +1065,9 @@ async def test_set_section_tag_color_undo_redo_remains_correct_across_project_co
 
 
 @pytest.mark.asyncio
-async def test_set_viewport_undo_redo_remains_correct_across_project_configs() -> None:
+async def test_set_viewport_does_not_consume_history_entries_across_project_configs() -> (
+    None
+):
     async with real_project_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
@@ -1078,6 +1080,8 @@ async def test_set_viewport_undo_redo_remains_correct_across_project_configs() -
         first_viewport = Viewport(x=12.5, y=-3.0, zoom=1.4)
         second_viewport = Viewport(x=-20.0, y=8.0, zoom=0.7)
 
+        entry_tokens_before = list(manager.history.get_entry_tokens())
+        current_entry_token_before = manager.history.get_current_entry_token()
         history_len_before = len(manager.history._history)
         await manager.set_viewport(
             SetViewportRequest(
@@ -1091,7 +1095,9 @@ async def test_set_viewport_undo_redo_remains_correct_across_project_configs() -
                 viewport=second_viewport,
             )
         )
-        assert len(manager.history._history) == history_len_before + 2
+        assert len(manager.history._history) == history_len_before
+        assert manager.history.get_current_entry_token() == current_entry_token_before
+        assert list(manager.history.get_entry_tokens()) == entry_tokens_before
         assert _snapshot_viewport_state(
             manager,
             first_config_id,
@@ -1100,32 +1106,5 @@ async def test_set_viewport_undo_redo_remains_correct_across_project_configs() -
             manager,
             second_config_id,
         ) == _expected_viewport_state(second_viewport)
-
-        # Undo should walk history one entry at a time and only roll back the latest edit.
-        await manager.undo(UndoRequest(projectConfigId=second_config_id, steps=1))
-        assert _snapshot_viewport_state(
-            manager,
-            first_config_id,
-        ) == _expected_viewport_state(first_viewport)
-        assert _snapshot_viewport_state(manager, second_config_id) == baseline_second
-
-        await manager.undo(UndoRequest(projectConfigId=first_config_id, steps=1))
-        assert _snapshot_viewport_state(manager, first_config_id) == baseline_first
-        assert _snapshot_viewport_state(manager, second_config_id) == baseline_second
-
-        await manager.redo(RedoRequest(projectConfigId=first_config_id, steps=1))
-        assert _snapshot_viewport_state(
-            manager,
-            first_config_id,
-        ) == _expected_viewport_state(first_viewport)
-        assert _snapshot_viewport_state(manager, second_config_id) == baseline_second
-
-        await manager.redo(RedoRequest(projectConfigId=second_config_id, steps=1))
-        assert _snapshot_viewport_state(
-            manager,
-            first_config_id,
-        ) == _expected_viewport_state(first_viewport)
-        assert _snapshot_viewport_state(
-            manager,
-            second_config_id,
-        ) == _expected_viewport_state(second_viewport)
+        assert baseline_first != _expected_viewport_state(first_viewport)
+        assert baseline_second != _expected_viewport_state(second_viewport)

@@ -12,6 +12,7 @@ from setta.project_state.project_manager_types import (
     SetTopLevelSectionLayoutRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
+    SetViewportRequest,
     SetCallableRequest,
     UndoRequest,
 )
@@ -21,7 +22,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import get_curr_top_level_param_ids
-from setta.types.project_config import Position
+from setta.types.project_config import Position, Viewport
 from setta.types.section_impls import CallableSectionImpl
 from setta.types.section_impls import SectionType
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
@@ -64,18 +65,14 @@ async def test_set_callable_burst_undo_redo_requests_do_not_raise() -> None:
         # waiting for each one to complete.
         await asyncio.gather(
             *[
-                manager.undo(
-                    UndoRequest(projectConfigId=project_config_id, steps=1)
-                )
+                manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
                 for _ in range(40)
             ]
         )
         await manager.finish_pending_operations(timeout=10.0)
         await asyncio.gather(
             *[
-                manager.redo(
-                    RedoRequest(projectConfigId=project_config_id, steps=1)
-                )
+                manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
                 for _ in range(40)
             ]
         )
@@ -95,9 +92,7 @@ async def test_set_callable_undo_redo_with_auto_refetch_keeps_callable_name() ->
     async with real_settings_manager() as fixture:
         manager = fixture.manager
         manager.settings_file.settings.backend.autosave = False
-        manager.settings_file.settings.backend.autoRefetchCallableParamsOnLspMismatch = (
-            True
-        )
+        manager.settings_file.settings.backend.autoRefetchCallableParamsOnLspMismatch = True
         project_state = build_callable_project_state(6)
         await manager.update(project_state, updateFileWatcher=True)
         await manager.finish_pending_operations(timeout=5.0)
@@ -144,6 +139,141 @@ async def test_set_callable_undo_redo_with_auto_refetch_keeps_callable_name() ->
         # Auto-refetch is a background reconciliation step and must not consume a
         # user-visible undo slot.
         assert len(manager.history._history) == history_len_after_set
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_undo = manager.get_single_config_state(project_config_id)
+        section_impl_after_undo = get_curr_effective_section_impl_with_type_guard(
+            state_after_undo,
+            section_id,
+            CallableSectionImpl,
+        )
+        assert section_impl_after_undo.callable is None
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_redo = manager.get_single_config_state(project_config_id)
+        section_impl_after_redo = get_curr_effective_section_impl_with_type_guard(
+            state_after_redo,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_id_after_redo = section_impl_after_redo.callable
+        assert callable_id_after_redo is not None
+        assert state_after_redo.codeObjs[callable_id_after_redo].name == "math.sqrt"
+
+
+@pytest.mark.asyncio
+async def test_set_callable_noop_repeat_does_not_consume_undo_entry() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        project_config_id = project_state.projectConfig.id
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=640.0, y=160.0),
+            )
+        )
+        section_id = create_response.sectionId
+
+        await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=10.0)
+        history_len_after_first_set = len(manager.history._history)
+
+        await manager.set_callable(
+            SetCallableRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                callableName="math.sqrt",
+                refetchParams=False,
+            )
+        )
+        await manager.finish_pending_operations(timeout=10.0)
+        assert len(manager.history._history) == history_len_after_first_set
+
+        await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_undo = manager.get_single_config_state(project_config_id)
+        section_impl_after_undo = get_curr_effective_section_impl_with_type_guard(
+            state_after_undo,
+            section_id,
+            CallableSectionImpl,
+        )
+        assert section_impl_after_undo.callable is None
+
+        await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        state_after_redo = manager.get_single_config_state(project_config_id)
+        section_impl_after_redo = get_curr_effective_section_impl_with_type_guard(
+            state_after_redo,
+            section_id,
+            CallableSectionImpl,
+        )
+        callable_id_after_redo = section_impl_after_redo.callable
+        assert callable_id_after_redo is not None
+        assert state_after_redo.codeObjs[callable_id_after_redo].name == "math.sqrt"
+
+
+@pytest.mark.asyncio
+async def test_set_callable_duplicate_in_flight_requests_use_one_history_entry() -> (
+    None
+):
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(6)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+
+        project_config_id = project_state.projectConfig.id
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Callable,
+                position=Position(x=640.0, y=160.0),
+            )
+        )
+        section_id = create_response.sectionId
+        history_len_before_selection = len(manager.history._history)
+
+        # Queue duplicate requests concurrently to simulate rapid Enter presses
+        # while the first callable request is still in flight.
+        first_response, second_response = await asyncio.gather(
+            manager.set_callable(
+                SetCallableRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_id,
+                    callableName="math.sqrt",
+                    refetchParams=False,
+                )
+            ),
+            manager.set_callable(
+                SetCallableRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_id,
+                    callableName="math.sqrt",
+                    refetchParams=False,
+                )
+            ),
+        )
+        await manager.finish_pending_operations(timeout=10.0)
+
+        assert first_response.callableId is not None
+        assert second_response.callableId is not None
+        assert len(manager.history._history) == history_len_before_selection + 1
 
         await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
         await manager.finish_pending_operations(timeout=10.0)
@@ -254,18 +384,14 @@ async def test_mixed_mutation_bursts_keep_undo_redo_stable() -> None:
         # Simulate prolonged key-repeat bursts for both directions.
         await asyncio.gather(
             *[
-                manager.undo(
-                    UndoRequest(projectConfigId=project_config_id, steps=1)
-                )
+                manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
                 for _ in range(50)
             ]
         )
         await manager.finish_pending_operations(timeout=10.0)
         await asyncio.gather(
             *[
-                manager.redo(
-                    RedoRequest(projectConfigId=project_config_id, steps=1)
-                )
+                manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
                 for _ in range(50)
             ]
         )
@@ -344,9 +470,10 @@ async def test_high_repeat_undo_redo_with_interleaved_layout_updates_stays_stabl
                 continue
             current_state = manager.get_single_config_state(project_config_id)
             updated_layout = {}
-            for top_level_section_id, layout in (
-                current_state.projectConfig.topLevelSections.items()
-            ):
+            for (
+                top_level_section_id,
+                layout,
+            ) in current_state.projectConfig.topLevelSections.items():
                 updated_layout[top_level_section_id] = layout.model_copy(
                     update={
                         "x": layout.x + 0.5,
@@ -413,7 +540,9 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
         await manager.finish_pending_operations(timeout=10.0)
 
         state_after_callable = manager.get_single_config_state(project_config_id)
-        top_level_param_ids = get_curr_top_level_param_ids(state_after_callable, section_id)
+        top_level_param_ids = get_curr_top_level_param_ids(
+            state_after_callable, section_id
+        )
         if not top_level_param_ids:
             # In non-LSP environments callable discovery can return no params.
             # Create one explicitly so undo/redo coverage still exercises param paths.
@@ -428,7 +557,9 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
                 state_after_callable, section_id
             )
         if not top_level_param_ids:
-            raise KeyError("Callable section is missing top-level params for undo test.")
+            raise KeyError(
+                "Callable section is missing top-level params for undo test."
+            )
         param_id = top_level_param_ids[0]
         baseline_param_value = get_curr_effective_code_obj_impl_with_type_guard(
             state_after_callable,
@@ -456,10 +587,14 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
         await manager.finish_pending_operations(timeout=10.0)
 
         # UI-only routes mutate in place and must not create additional undo slots.
-        history_entry_count_before_ui_only_updates = len(manager.history.get_entry_tokens())
+        history_entry_count_before_ui_only_updates = len(
+            manager.history.get_entry_tokens()
+        )
         target_entry_token = manager.history.get_current_entry_token()
         await manager.set_active_ids(
-            SetActiveIdsRequest(projectConfigId=project_config_id, activeIds=[section_id])
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id, activeIds=[section_id]
+            )
         )
         state_for_layout = manager.get_single_config_state(project_config_id)
         shifted_layout = {
@@ -474,6 +609,12 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
             SetTopLevelSectionLayoutRequest(
                 projectConfigId=project_config_id,
                 topLevelSections=shifted_layout,
+            )
+        )
+        await manager.set_viewport(
+            SetViewportRequest(
+                projectConfigId=project_config_id,
+                viewport=Viewport(x=44.0, y=-18.0, zoom=1.25),
             )
         )
         await manager.finish_pending_operations(timeout=10.0)
@@ -502,13 +643,18 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
         )
         first_undo_callable_id = first_undo_impl.callable
         assert first_undo_callable_id is not None
-        assert state_after_first_undo.codeObjs[first_undo_callable_id].name == "math.sqrt"
-        assert get_curr_effective_code_obj_impl_with_type_guard(
-            state_after_first_undo,
-            section_id,
-            param_id,
-            BaseChildlessCodeObjImpl,
-        ).value == baseline_param_value
+        assert (
+            state_after_first_undo.codeObjs[first_undo_callable_id].name == "math.sqrt"
+        )
+        assert (
+            get_curr_effective_code_obj_impl_with_type_guard(
+                state_after_first_undo,
+                section_id,
+                param_id,
+                BaseChildlessCodeObjImpl,
+            ).value
+            == baseline_param_value
+        )
 
         saw_callable_cleared = False
         for _ in range(len(manager.history.get_entry_tokens())):
@@ -544,7 +690,9 @@ async def test_callable_param_undo_redo_keeps_scoped_patch_transport_after_ui_on
                 continue
             if state_after_redo.codeObjs[redo_callable_id].name != "math.sqrt":
                 continue
-            if param_id not in get_curr_top_level_param_ids(state_after_redo, section_id):
+            if param_id not in get_curr_top_level_param_ids(
+                state_after_redo, section_id
+            ):
                 continue
             if (
                 get_curr_effective_code_obj_impl_with_type_guard(

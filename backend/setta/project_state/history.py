@@ -57,17 +57,25 @@ class History(Generic[T]):
         self,
         coalesce_key: str | None = None,
         coalesce_window_s: float | None = None,
+        coalesce_adjacent: bool = False,
         copy_func: Callable[[T], T] | None = None,
     ) -> T:
         current = self.get_current()
         resolved_copy_func = copy_func or self._copy_func
-        if coalesce_key and coalesce_window_s:
+        if coalesce_key:
             now = time.monotonic()
-            if (
-                self._last_entry_key == coalesce_key
+            can_coalesce_by_time = (
+                coalesce_window_s is not None
+                and self._last_entry_key == coalesce_key
                 and self._last_entry_ts is not None
                 and now - self._last_entry_ts <= coalesce_window_s
-            ):
+            )
+            can_coalesce_adjacent = (
+                coalesce_adjacent
+                and self._last_entry_key == coalesce_key
+                and self._last_entry_ts is not None
+            )
+            if can_coalesce_by_time or can_coalesce_adjacent:
                 self._last_entry_ts = now
                 self._bump_revision()
                 return current
