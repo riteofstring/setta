@@ -213,16 +213,30 @@ async def test_get_latest_project_state_summary_reuses_single_config_cache(
 
         convert_calls = 0
         original_convert = base_project_manager_module.convert_backend_to_single_config
+        summary_build_calls = 0
+        original_summary_builder = (
+            base_project_manager_module.build_project_state_summary
+        )
 
         def record_convert(*args, **kwargs):
             nonlocal convert_calls
             convert_calls += 1
             return original_convert(*args, **kwargs)
 
+        def record_build_summary(*args, **kwargs):
+            nonlocal summary_build_calls
+            summary_build_calls += 1
+            return original_summary_builder(*args, **kwargs)
+
         monkeypatch.setattr(
             base_project_manager_module,
             "convert_backend_to_single_config",
             record_convert,
+        )
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "build_project_state_summary",
+            record_build_summary,
         )
         request = GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
 
@@ -231,6 +245,8 @@ async def test_get_latest_project_state_summary_reuses_single_config_cache(
         second = await manager.get_latest_project_state_summary(request)
 
         assert convert_calls == 1
+        assert summary_build_calls == 1
+        assert first is second
         assert first == second
 
 
@@ -266,16 +282,30 @@ async def test_get_latest_project_state_summary_cache_invalidates_on_history_rev
 
         convert_calls = 0
         original_convert = base_project_manager_module.convert_backend_to_single_config
+        summary_build_calls = 0
+        original_summary_builder = (
+            base_project_manager_module.build_project_state_summary
+        )
 
         def record_convert(*args, **kwargs):
             nonlocal convert_calls
             convert_calls += 1
             return original_convert(*args, **kwargs)
 
+        def record_build_summary(*args, **kwargs):
+            nonlocal summary_build_calls
+            summary_build_calls += 1
+            return original_summary_builder(*args, **kwargs)
+
         monkeypatch.setattr(
             base_project_manager_module,
             "convert_backend_to_single_config",
             record_convert,
+        )
+        monkeypatch.setattr(
+            base_project_manager_module,
+            "build_project_state_summary",
+            record_build_summary,
         )
         request = GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
 
@@ -285,6 +315,7 @@ async def test_get_latest_project_state_summary_cache_invalidates_on_history_rev
         await manager.get_latest_project_state_summary(request)
 
         assert convert_calls == 2
+        assert summary_build_calls == 2
 
 
 @pytest.mark.asyncio

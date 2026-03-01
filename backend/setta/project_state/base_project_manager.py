@@ -636,6 +636,7 @@ class BaseProjectManager(ABC):
         self._single_config_state_cache_by_project_config: dict[
             ID, ProjectStateSingleConfig
         ] = {}
+        self._project_state_summary_cache_by_project_config: dict[ID, object] = {}
         self._single_config_state_cache_revision = self.history.revision
         watch_loop = None
         try:
@@ -5179,6 +5180,7 @@ class BaseProjectManager(ABC):
 
     def _invalidate_single_config_state_cache(self) -> None:
         self._single_config_state_cache_by_project_config.clear()
+        self._project_state_summary_cache_by_project_config.clear()
         self._single_config_state_cache_revision = self.history.revision
 
     def _refresh_single_config_state_cache_for_revision(self) -> None:
@@ -5186,6 +5188,7 @@ class BaseProjectManager(ABC):
         if history_revision == self._single_config_state_cache_revision:
             return
         self._single_config_state_cache_by_project_config.clear()
+        self._project_state_summary_cache_by_project_config.clear()
         self._single_config_state_cache_revision = history_revision
 
     def get_single_config_state(self, projectConfigId: ID):
@@ -5199,6 +5202,15 @@ class BaseProjectManager(ABC):
                 convert_backend_to_single_config(backend, projectConfigId)
             )
         return self._single_config_state_cache_by_project_config[projectConfigId]
+
+    def get_project_state_summary(self, projectConfigId: ID):
+        self._refresh_single_config_state_cache_for_revision()
+        if projectConfigId not in self._project_state_summary_cache_by_project_config:
+            project_state = self.get_single_config_state(projectConfigId)
+            self._project_state_summary_cache_by_project_config[projectConfigId] = (
+                build_project_state_summary(project_state)
+            )
+        return self._project_state_summary_cache_by_project_config[projectConfigId]
 
     def _find_section_ids_for_code_obj(
         self,
@@ -5385,8 +5397,7 @@ class BaseProjectManager(ABC):
     ):
         """Return a lightweight summary for the requested project config."""
         async with self._project_state_lock.read_lock():
-            project_state = self.get_single_config_state(x.projectConfigId)
-            return build_project_state_summary(project_state)
+            return self.get_project_state_summary(x.projectConfigId)
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(
