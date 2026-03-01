@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImplIfPresent,
-  getCurrEffectiveSectionImplIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -17,7 +17,6 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
-  ConfigLanguageEnum,
   DateCalendarWeekStart,
   DateCalendarWeekStartEnum,
   DateControlMode,
@@ -172,42 +171,17 @@ export function ParamUI({
     dateCalendarWeekStart,
     dateIncludesTime,
   } = useProjectState((x) => {
-    const fallback = {
-      codeObjType: CodeObjTypeEnum.TextParam,
-      passwordHasSecret: false,
-      configLanguage: ConfigLanguageEnum.python,
-      defaultVal: "",
-      disabledOrFrozen: false,
-      dropzoneMode: null,
-      dropzoneMaxAttachments: null,
-      dropzonePlaceholder: null,
-      timeControlMode: TimeControlModeEnum.display,
-      timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent: false,
-      timeDisplayScale: 1,
-      timeDisplayFont: TimeDisplayFontEnum.monospace,
-      dateDisplayFormat: DateDisplayFormatEnum.iso,
-      dateControlMode: DateControlModeEnum.input,
-      dateSelectionMode: DateSelectionModeEnum.single,
-      dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime: false,
-    };
-    const impl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
-    if (!impl || !isBaseSectionWithParamsImpl(impl)) {
-      return fallback;
-    }
-    const codeObjImpl = getCurrEffectiveCodeObjImplIfPresent(
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
+      isBaseChildlessCodeObjImpl,
     );
-    if (!codeObjImpl || !isBaseChildlessCodeObjImpl(codeObjImpl)) {
-      return {
-        ...fallback,
-        configLanguage: impl.configLanguage,
-        disabledOrFrozen: impl.isFrozen,
-      };
-    }
     const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
     const hasPasswordSecret =
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam

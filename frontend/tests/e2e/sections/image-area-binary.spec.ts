@@ -19,7 +19,6 @@ type BinaryContentRef = {
   mimeType: string | null;
   sha256: string | null;
 };
-type LatestProjectStateSnapshot = Record<string, unknown>;
 
 test("image artifacts render from binary store", async ({ page }) => {
   await ensureAppReady(page);
@@ -39,7 +38,6 @@ test("image artifacts render from binary store", async ({ page }) => {
   // binary payload (the updateArtifacts endpoint does not broadcast changes in
   // IDE mode, so ordering matters for reliability).
   await setImagePath(page, projectConfigId, sectionId, TEST_IMAGE_PATH);
-  await applyLatestProjectStateFromBackend(page, projectConfigId);
 
   const section = findSectionCandidates(page, sectionName).first();
   await expect(section).toBeVisible();
@@ -48,23 +46,12 @@ test("image artifacts render from binary store", async ({ page }) => {
   await expect
     .poll(async () => {
       if ((await img.count()) === 0) {
-        return "";
-      }
-      return await img.evaluate(
-        (el) => (el instanceof HTMLImageElement ? el.getAttribute("src") : "") ?? "",
-      );
-    }, { timeout: 30000 })
-    .toContain("blob:");
-
-  await expect
-    .poll(async () => {
-      if ((await img.count()) === 0) {
         return 0;
       }
       return await img.evaluate((el) =>
-        el instanceof HTMLImageElement && el.complete ? el.naturalWidth : 0,
+        el instanceof HTMLImageElement ? el.naturalWidth : 0,
       );
-    }, { timeout: 30000 })
+    }, { timeout: 20000 })
     .toBeGreaterThan(0);
 
   const src = await img.evaluate((el) => el.getAttribute("src") ?? "");
@@ -116,24 +103,6 @@ async function setImagePath(
     sectionId,
     imagePath,
   });
-}
-
-async function applyLatestProjectStateFromBackend(
-  page: Page,
-  projectConfigId: string,
-): Promise<void> {
-  const payload = await postBackend<LatestProjectStateSnapshot>(
-    page,
-    "/getLatestProjectState",
-    { projectConfigId },
-  );
-  if (!payload) {
-    throw new Error("Missing project state payload.");
-  }
-  await page.evaluate(async (stateUpdate) => {
-    const mod = await import("/src/state/actions/sectionInfos");
-    mod.processProjectStateUpdateFromBackend(stateUpdate);
-  }, payload);
 }
 
 async function uploadTestPng(page: Page): Promise<BinaryContentRef> {

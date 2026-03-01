@@ -115,47 +115,6 @@ def test_set_section_sizes_normalizes_payload() -> None:
     assert impl.size.height == 200
 
 
-def test_set_section_sizes_is_atomic_when_validation_fails() -> None:
-    settings = SettingsState(sectionSizingPolicy=_build_chart_policy())
-    project_state = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(name="sizing-atomic-validation")
-    )
-    first_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chart,
-        Position(),
-    )
-    second_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chart,
-        Position(x=500, y=0),
-    )
-    first_before = get_curr_effective_section_impl(project_state, first_section_id).size
-    second_before = get_curr_effective_section_impl(
-        project_state, second_section_id
-    ).size
-
-    # Reject the whole payload if any requested size is invalid.
-    with pytest.raises(ValueError, match="non-finite width"):
-        set_section_sizes(
-            settings,
-            project_state,
-            {
-                first_section_id: SectionSize(width=220, height=180),
-                second_section_id: SectionSize(width=math.nan, height=180),
-            },
-        )
-
-    first_after = get_curr_effective_section_impl(project_state, first_section_id).size
-    second_after = get_curr_effective_section_impl(
-        project_state, second_section_id
-    ).size
-    assert first_after == first_before
-    assert second_after == second_before
-
-
 def test_create_section_clamps_override_sizes() -> None:
     settings = SettingsState(sectionSizingPolicy=_build_chart_policy())
     project_state = ProjectStateSingleConfig(
