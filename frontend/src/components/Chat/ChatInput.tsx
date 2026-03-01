@@ -72,6 +72,10 @@ const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
   activeBackgroundTerminals: 0,
   activeSubagents: 0,
 };
+const DEFAULT_RUNTIME_ACTIVITY_DETAILS: ChatRuntimeActivityDetails = {
+  activeBackgroundTerminals: [],
+  activeSubagents: [],
+};
 
 function normalizeNonNegativeCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -118,10 +122,22 @@ type ChatRuntimeActivityCounts = {
   activeSubagents: number;
 };
 
+type ChatRuntimeActivityEntry = {
+  id: string;
+  label: string;
+  toolName: string;
+};
+
+export type ChatRuntimeActivityDetails = {
+  activeBackgroundTerminals: ChatRuntimeActivityEntry[];
+  activeSubagents: ChatRuntimeActivityEntry[];
+};
+
 export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];
+  promptTemplate?: string;
 };
 
 export type ChatSlashCommandResult =
@@ -312,6 +328,7 @@ type ChatInputProps = {
   contextUsageUnavailable?: boolean;
   submittedMessageHistory?: string[];
   runtimeActivityCounts?: ChatRuntimeActivityCounts;
+  runtimeActivityDetails?: ChatRuntimeActivityDetails;
 };
 
 type EscClearedComposerDraft = {
@@ -346,6 +363,7 @@ export const ChatInput = memo(function ChatInput({
   contextUsageUnavailable = false,
   submittedMessageHistory = [],
   runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+  runtimeActivityDetails = DEFAULT_RUNTIME_ACTIVITY_DETAILS,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -711,7 +729,7 @@ export const ChatInput = memo(function ChatInput({
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
-      const parsed = parseSlashCommand(message, CHAT_SLASH_COMMANDS);
+      const parsed = parseSlashCommand(message, slashCommands);
       if (!parsed) {
         return false;
       }
@@ -720,6 +738,27 @@ export const ChatInput = memo(function ChatInput({
       );
       if (!commandAvailable) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      if (parsed.action === "custom_prompt") {
+        const promptTemplate = parsed.promptTemplate?.trim() ?? "";
+        if (!promptTemplate) {
+          setSlashFeedback("Custom slash command has no prompt content.");
+          return true;
+        }
+        const promptArgs = parsed.args.join(" ").trim();
+        const promptMessage = promptArgs
+          ? `${promptTemplate}\n\n${promptArgs}`
+          : promptTemplate;
+        const submitted = (await onSubmit(promptMessage, [])) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
         return true;
       }
       if (!onSlashCommand) {
@@ -745,7 +784,7 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
-    [clearAttachments, clearInput, onSlashCommand, slashCommands],
+    [clearAttachments, clearInput, onSlashCommand, onSubmit, slashCommands],
   );
 
   const submitMessage = useCallback(
@@ -1236,7 +1275,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -1369,19 +1408,35 @@ export const ChatInput = memo(function ChatInput({
     : "context";
   const showContextUnavailableBadge =
     contextRemainingValue === null && contextUsageUnavailable;
+  const activeBackgroundTerminalEntries =
+    runtimeActivityDetails.activeBackgroundTerminals;
+  const activeSubagentEntries = runtimeActivityDetails.activeSubagents;
   const activeBackgroundTerminals = useMemo(
     () =>
-      normalizeNonNegativeCount(
-        runtimeActivityCounts.activeBackgroundTerminals,
+      Math.max(
+        normalizeNonNegativeCount(
+          runtimeActivityCounts.activeBackgroundTerminals,
+        ),
+        activeBackgroundTerminalEntries.length,
       ),
-    [runtimeActivityCounts.activeBackgroundTerminals],
+    [
+      activeBackgroundTerminalEntries.length,
+      runtimeActivityCounts.activeBackgroundTerminals,
+    ],
   );
   const activeSubagents = useMemo(
-    () => normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
-    [runtimeActivityCounts.activeSubagents],
+    () =>
+      Math.max(
+        normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
+        activeSubagentEntries.length,
+      ),
+    [activeSubagentEntries.length, runtimeActivityCounts.activeSubagents],
   );
+  const showBackgroundTerminalDropdown =
+    activeBackgroundTerminalEntries.length > 0;
+  const showSubagentDropdown = activeSubagentEntries.length > 0;
   const showRuntimeActivityCounters =
-    canDictate || activeBackgroundTerminals > 0 || activeSubagents > 0;
+    activeBackgroundTerminals > 0 || activeSubagents > 0;
   const showContextBadge =
     contextRemainingValue !== null || showContextUnavailableBadge;
   const shouldShowComposerMetaRow =
@@ -1429,47 +1484,56 @@ export const ChatInput = memo(function ChatInput({
     if (!executionControls || !showPermissionControl) {
       return null;
     }
-    const modeLabel = (
-      executionControls.permissionMode ?? "minimal"
-    ).replaceAll("_", " ");
+    const modeLabel = executionControls.permissionMode.replaceAll("_", " ");
     return getFloatingBoxHandlers({
       title: "Permissions",
       content: `Current mode: ${modeLabel}`,
     });
   }, [executionControls, showPermissionControl]);
+  const dictationAriaLabel = useMemo(() => {
+    if (dictationState === "listening") {
+      return "Stop Mic";
+    }
+    if (dictationState === "transcribing") {
+      return "Transcribing";
+    }
+    return "Mic";
+  }, [dictationState]);
   const dictationTooltipHandlers = useMemo(() => {
     if (!canDictate) {
       return null;
     }
-    const label =
-      dictationState === "listening"
-        ? "Stop Mic"
-        : dictationState === "transcribing"
-          ? "Transcribing"
-          : "Mic";
     return getFloatingBoxHandlers({
       title: "Dictation",
-      content: label,
+      content: dictationAriaLabel,
     });
-  }, [canDictate, dictationState]);
+  }, [canDictate, dictationAriaLabel]);
   const backgroundTerminalTooltipHandlers = useMemo(() => {
     if (!showRuntimeActivityCounters) {
       return null;
     }
     return getFloatingBoxHandlers({
       title: "Background terminals",
-      content: `${activeBackgroundTerminals} active`,
+      content: showBackgroundTerminalDropdown
+        ? `${activeBackgroundTerminals} active. Click to view running terminals.`
+        : `${activeBackgroundTerminals} active`,
     });
-  }, [activeBackgroundTerminals, showRuntimeActivityCounters]);
+  }, [
+    activeBackgroundTerminals,
+    showBackgroundTerminalDropdown,
+    showRuntimeActivityCounters,
+  ]);
   const subagentTooltipHandlers = useMemo(() => {
     if (!showRuntimeActivityCounters) {
       return null;
     }
     return getFloatingBoxHandlers({
       title: "Subagents",
-      content: `${activeSubagents} active`,
+      content: showSubagentDropdown
+        ? `${activeSubagents} active. Click to view running subagents.`
+        : `${activeSubagents} active`,
     });
-  }, [activeSubagents, showRuntimeActivityCounters]);
+  }, [activeSubagents, showRuntimeActivityCounters, showSubagentDropdown]);
   const contextTooltipHandlers = useMemo(() => {
     if (!showContextBadge) {
       return null;
@@ -2127,13 +2191,39 @@ export const ChatInput = memo(function ChatInput({
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+            {canDictate ? (
+              <button
+                type="button"
+                aria-label={dictationAriaLabel}
+                aria-pressed={dictationState === "listening"}
+                disabled={isDisabled || dictationState === "transcribing"}
+                className={`absolute left-7 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/60 ${
+                  dictationState === "listening"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-200"
+                    : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                } ${
+                  dictationState === "transcribing"
+                    ? "cursor-not-allowed opacity-40"
+                    : "cursor-pointer"
+                }`}
+                onClick={handleDictationToggle}
+                {...(dictationTooltipHandlers ?? {})}
+              >
+                <IoMic
+                  size={11}
+                  className={
+                    dictationState === "listening" ? "animate-pulse" : undefined
+                  }
+                />
+              </button>
+            ) : null}
             <textarea
               ref={textareaRef}
               value={inputValue}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder={placeholderText}
-              className={textAreaClassName}
+              className={`${textAreaClassName} ${canDictate ? "pl-14" : "pl-9"}`}
               disabled={isDisabled}
             />
             <button
@@ -2258,60 +2348,134 @@ export const ChatInput = memo(function ChatInput({
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
                 ) : null}
-                {canDictate ? (
-                  <button
-                    type="button"
-                    aria-label={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
-                    aria-pressed={dictationState === "listening"}
-                    disabled={isDisabled || dictationState === "transcribing"}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-colors ${
-                      dictationState === "listening"
-                        ? "bg-blue-600 text-white"
-                        : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={handleDictationToggle}
-                    {...(dictationTooltipHandlers ?? {})}
-                  >
-                    <IoMic
-                      size={11}
-                      className={
-                        dictationState === "listening"
-                          ? "animate-pulse"
-                          : undefined
-                      }
-                    />
-                  </button>
-                ) : null}
                 {showRuntimeActivityCounters ? (
                   <div className="inline-flex items-center gap-1">
-                    <span
-                      data-chat-runtime-active-background-terminals="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
-                      {...(backgroundTerminalTooltipHandlers ?? {})}
-                    >
-                      <FiTerminal size={10} />
-                      <span className="font-mono leading-none">
-                        {activeBackgroundTerminals}
+                    {showBackgroundTerminalDropdown ? (
+                      <DropdownMenu.Root modal={false}>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            data-chat-runtime-active-background-terminals="true"
+                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
+                            {...(backgroundTerminalTooltipHandlers ?? {})}
+                          >
+                            <FiTerminal size={10} />
+                            <span className="font-mono leading-none">
+                              {activeBackgroundTerminals}
+                            </span>
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            align="start"
+                            sideOffset={6}
+                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
+                          >
+                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                              Background terminals
+                            </DropdownMenu.Label>
+                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                            <div className="max-h-52 overflow-y-auto pb-1">
+                              {activeBackgroundTerminalEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
+                                >
+                                  <p
+                                    className="truncate text-[11px] font-medium"
+                                    title={entry.label}
+                                  >
+                                    {entry.label}
+                                  </p>
+                                  <p
+                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
+                                    title={`${entry.toolName} | ${entry.id}`}
+                                  >
+                                    {entry.toolName} | {entry.id}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    ) : (
+                      <span
+                        data-chat-runtime-active-background-terminals="true"
+                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                        aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
+                        {...(backgroundTerminalTooltipHandlers ?? {})}
+                      >
+                        <FiTerminal size={10} />
+                        <span className="font-mono leading-none">
+                          {activeBackgroundTerminals}
+                        </span>
                       </span>
-                    </span>
-                    <span
-                      data-chat-runtime-active-subagents="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
-                      {...(subagentTooltipHandlers ?? {})}
-                    >
-                      <FiCpu size={10} />
-                      <span className="font-mono leading-none">
-                        {activeSubagents}
+                    )}
+                    {showSubagentDropdown ? (
+                      <DropdownMenu.Root modal={false}>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            data-chat-runtime-active-subagents="true"
+                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
+                            {...(subagentTooltipHandlers ?? {})}
+                          >
+                            <FiCpu size={10} />
+                            <span className="font-mono leading-none">
+                              {activeSubagents}
+                            </span>
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            align="start"
+                            sideOffset={6}
+                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
+                          >
+                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                              Subagents
+                            </DropdownMenu.Label>
+                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                            <div className="max-h-52 overflow-y-auto pb-1">
+                              {activeSubagentEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
+                                >
+                                  <p
+                                    className="truncate text-[11px] font-medium"
+                                    title={entry.label}
+                                  >
+                                    {entry.label}
+                                  </p>
+                                  <p
+                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
+                                    title={`${entry.toolName} | ${entry.id}`}
+                                  >
+                                    {entry.toolName} | {entry.id}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    ) : (
+                      <span
+                        data-chat-runtime-active-subagents="true"
+                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                        aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
+                        {...(subagentTooltipHandlers ?? {})}
+                      >
+                        <FiCpu size={10} />
+                        <span className="font-mono leading-none">
+                          {activeSubagents}
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </div>
                 ) : null}
                 {executionControls &&

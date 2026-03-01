@@ -1,6 +1,7 @@
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
@@ -10,6 +11,7 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
+  type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
@@ -53,8 +55,14 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  type ProjectChatCustomSlashCommand,
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   hasPendingToolInteraction,
   normalizeToolName,
@@ -74,6 +82,7 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
+  type ToolCall,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
@@ -342,10 +351,20 @@ type ProjectChatRuntimeActivityCounts = {
   activeSubagents: number;
 };
 
+type ProjectChatRuntimeActivityEntry =
+  ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
+
+type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
+
 const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
   {
     activeBackgroundTerminals: 0,
     activeSubagents: 0,
+  };
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
+  {
+    activeBackgroundTerminals: [],
+    activeSubagents: [],
   };
 const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
   "command_execution",
@@ -386,19 +405,61 @@ function resolveStreamingAssistantMessage(
   return null;
 }
 
-export function resolveProjectChatRuntimeActivityCounts({
+function resolveRuntimeActivityEntryLabel(
+  toolCall: ToolCall,
+  normalizedToolName: string,
+): string {
+  const normalizedName = normalizedToolName.toLowerCase();
+  const argumentsByName = toolCall.function.arguments;
+  if (normalizedName === "command_execution") {
+    const commandValue = argumentsByName?.command;
+    if (typeof commandValue === "string" && commandValue.trim().length > 0) {
+      return commandValue.trim();
+    }
+  }
+  if (ACTIVE_SUBAGENT_TOOL_IDS.has(normalizedName)) {
+    const profileIdValue = argumentsByName?.profileId;
+    if (typeof profileIdValue === "string" && profileIdValue.trim().length > 0) {
+      return profileIdValue.trim();
+    }
+  }
+  return `${normalizedToolName} (${toolCall.id})`;
+}
+
+function resolveProjectChatRuntimeActivityEntry(
+  toolCall: ToolCall,
+): {
+  category: "background_terminal" | "subagent";
+  entry: ProjectChatRuntimeActivityEntry;
+} | null {
+  const normalizedToolName = normalizeToolName(toolCall.function?.name ?? "");
+  const category = resolveToolRuntimeCategory(normalizedToolName);
+  if (!category || !normalizedToolName) {
+    return null;
+  }
+  return {
+    category,
+    entry: {
+      id: toolCall.id,
+      label: resolveRuntimeActivityEntryLabel(toolCall, normalizedToolName),
+      toolName: normalizedToolName,
+    },
+  };
+}
+
+export function resolveProjectChatRuntimeActivityDetails({
   messages,
   waitingForResponse,
 }: {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
-}): ProjectChatRuntimeActivityCounts {
+}): ProjectChatRuntimeActivityDetails {
   if (!waitingForResponse) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
   }
   const streamingAssistantMessage = resolveStreamingAssistantMessage(messages);
   if (!streamingAssistantMessage) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
   }
   const completedToolCallIds = new Set<string>();
   for (const message of messages) {
@@ -411,28 +472,47 @@ export function resolveProjectChatRuntimeActivityCounts({
     }
     completedToolCallIds.add(toolCallId);
   }
-  let activeBackgroundTerminals = 0;
-  let activeSubagents = 0;
+  const activeBackgroundTerminals: Array<ProjectChatRuntimeActivityEntry> = [];
+  const activeSubagents: Array<ProjectChatRuntimeActivityEntry> = [];
   const toolCalls = streamingAssistantMessage.tool_calls ?? [];
   for (const toolCall of toolCalls) {
     if (completedToolCallIds.has(toolCall.id)) {
       continue;
     }
-    const category = resolveToolRuntimeCategory(toolCall.function?.name ?? "");
-    if (!category) {
+    const runtimeActivityEntry =
+      resolveProjectChatRuntimeActivityEntry(toolCall);
+    if (!runtimeActivityEntry) {
       continue;
     }
-    if (category === "background_terminal") {
-      activeBackgroundTerminals += 1;
+    if (runtimeActivityEntry.category === "background_terminal") {
+      activeBackgroundTerminals.push(runtimeActivityEntry.entry);
       continue;
     }
-    if (category === "subagent") {
-      activeSubagents += 1;
+    if (runtimeActivityEntry.category === "subagent") {
+      activeSubagents.push(runtimeActivityEntry.entry);
     }
   }
   return {
     activeBackgroundTerminals,
     activeSubagents,
+  };
+}
+
+export function resolveProjectChatRuntimeActivityCounts({
+  messages,
+  waitingForResponse,
+}: {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+}): ProjectChatRuntimeActivityCounts {
+  const runtimeActivityDetails = resolveProjectChatRuntimeActivityDetails({
+    messages,
+    waitingForResponse,
+  });
+  return {
+    activeBackgroundTerminals:
+      runtimeActivityDetails.activeBackgroundTerminals.length,
+    activeSubagents: runtimeActivityDetails.activeSubagents.length,
   };
 }
 
@@ -1050,6 +1130,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
+  const customProjectChatSlashCommands = useLocalStorage(
+    (state): ProjectChatCustomSlashCommand[] =>
+      state.customProjectChatSlashCommandsByProjectConfigId[projectConfigId] ??
+      [],
+  );
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -1130,13 +1216,26 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
   const slashCommands = useMemo(
-    () =>
-      buildChatSlashCommands({
+    () => {
+      const managedCommands = buildChatSlashCommands({
         model: true,
         permissions: showPermissionExecutionControl,
         search: showSearchExecutionControl,
-      }),
-    [showPermissionExecutionControl, showSearchExecutionControl],
+        appGenerationModes: true,
+      });
+      const managedCommandSet = new Set(
+        managedCommands.map((entry) => entry.command),
+      );
+      const customCommands = buildCustomPromptSlashCommandDefinitions(
+        customProjectChatSlashCommands,
+      ).filter((entry) => !managedCommandSet.has(entry.command));
+      return [...managedCommands, ...customCommands];
+    },
+    [
+      customProjectChatSlashCommands,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+    ],
   );
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
@@ -1385,6 +1484,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => createManagedExecutionControlHandlers(setExecutionSettings),
     [setExecutionSettings],
   );
+  const handleSetAppGenerationMode = useCallback(
+    (nextMode: AppGenerationMode) => {
+      useLocalStorage.setState({
+        appGenerationMode: nextMode,
+      });
+    },
+    [],
+  );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
@@ -1416,12 +1523,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
         onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
+        appGenerationMode,
+        onSetAppGenerationMode: handleSetAppGenerationMode,
       });
     },
     [
+      appGenerationMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
+      handleSetAppGenerationMode,
       handleNewChatStart,
       handleResumeLatestChat,
       slashCommands,
@@ -1648,13 +1759,21 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       (!waitingForResponse && hasPendingToolInteraction(messages)),
     [messages, requiresNewThreadContinuation, waitingForResponse],
   );
-  const runtimeActivityCounts = useMemo(
+  const runtimeActivityDetails = useMemo(
     () =>
-      resolveProjectChatRuntimeActivityCounts({
+      resolveProjectChatRuntimeActivityDetails({
         messages,
         waitingForResponse,
       }),
     [messages, waitingForResponse],
+  );
+  const runtimeActivityCounts = useMemo(
+    () => ({
+      activeBackgroundTerminals:
+        runtimeActivityDetails.activeBackgroundTerminals.length,
+      activeSubagents: runtimeActivityDetails.activeSubagents.length,
+    }),
+    [runtimeActivityDetails],
   );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||
@@ -1767,9 +1886,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={contextUsageUnavailable}
+          contextUsageUnavailable={
+            showEmptyState ? false : contextUsageUnavailable
+          }
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
+          runtimeActivityDetails={runtimeActivityDetails}
           onProviderDictationTranscribe={
             !resolveProjectChatProviderDictationTranscribeEnabled({
               providerDictationAvailable,

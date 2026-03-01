@@ -12,6 +12,7 @@ import setta.routers.app_gen_extensions as app_gen_extensions
 from setta.routers.app_gen_extensions import (
     list_app_gen_skills,
     read_app_gen_skill_content,
+    upsert_app_gen_custom_skill,
     router as app_gen_extensions_router,
 )
 from setta.types.routes import Route
@@ -22,10 +23,19 @@ class TestAppGenExtensionsRoutes:
     def test_route_handlers_are_sync_for_threadpool_fs_isolation(self) -> None:
         # Route handlers do heavy filesystem scans/reads and should remain sync
         # so FastAPI executes them off the event loop.
-        assert inspect.iscoroutinefunction(app_gen_extensions.route_get_app_gen_skills) is False
+        assert (
+            inspect.iscoroutinefunction(app_gen_extensions.route_get_app_gen_skills)
+            is False
+        )
         assert (
             inspect.iscoroutinefunction(
                 app_gen_extensions.route_get_app_gen_skill_content
+            )
+            is False
+        )
+        assert (
+            inspect.iscoroutinefunction(
+                app_gen_extensions.route_upsert_app_gen_custom_skill
             )
             is False
         )
@@ -417,7 +427,9 @@ class TestAppGenExtensionsRoutes:
             workspace_root = Path(tmpdir)
             skill_dir = workspace_root / ".agents" / "skills" / "large-doc"
             skill_dir.mkdir(parents=True, exist_ok=True)
-            oversized_content = "A" * (app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES + 5000)
+            oversized_content = "A" * (
+                app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES + 5000
+            )
             (skill_dir / "SKILL.md").write_text(oversized_content, encoding="utf-8")
 
             fake_home = workspace_root / "home"
@@ -435,7 +447,10 @@ class TestAppGenExtensionsRoutes:
             assert content.skillId == "workspace_agents_skills::large-doc"
             assert content.truncated is True
             assert content.originalSizeBytes == len(oversized_content)
-            assert len(content.content) == app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES
+            assert (
+                len(content.content)
+                == app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES
+            )
 
     def test_read_skill_content_raises_valueerror_when_exists_check_is_denied(
         self,
@@ -473,6 +488,101 @@ class TestAppGenExtensionsRoutes:
                 read_app_gen_skill_content(
                     workspace_root=workspace_root,
                     skill_id="workspace_agents_skills::permission-denied",
+                )
+
+    def test_creates_custom_skill_in_user_agents_root_when_missing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            response = upsert_app_gen_custom_skill(
+                workspace_root=workspace_root,
+                skill_id=None,
+                relative_path="my-custom-skill",
+                content="# my-custom-skill\n\nBody.\n",
+            )
+
+            expected_skill_doc = (
+                fake_home / ".agents" / "skills" / "my-custom-skill" / "SKILL.md"
+            )
+            assert response.skillId == "user_agents_skills::my-custom-skill"
+            assert response.created is True
+            assert response.rootPath == str(
+                (fake_home / ".agents" / "skills").resolve(strict=False)
+            )
+            assert response.skillDocPath == str(
+                expected_skill_doc.resolve(strict=False)
+            )
+            assert (
+                expected_skill_doc.read_text(encoding="utf-8")
+                == "# my-custom-skill\n\nBody.\n"
+            )
+
+    def test_updates_existing_workspace_custom_skill_by_skill_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            response = upsert_app_gen_custom_skill(
+                workspace_root=workspace_root,
+                skill_id="workspace_agents_skills::editable",
+                relative_path=None,
+                content="# editable\n\nUpdated.\n",
+            )
+
+            assert response.skillId == "workspace_agents_skills::editable"
+            assert response.created is False
+            assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
+    def test_rejects_updates_for_non_custom_skill_root(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            codex_home = workspace_root / "codex-home"
+            skill_dir = codex_home / "skills" / "read-only-skill"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text("# read-only\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            with pytest.raises(
+                ValueError,
+                match="Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable.",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="codex_home_skills::read-only-skill",
+                    relative_path=None,
+                    content="# read-only\n\nUpdated.\n",
                 )
 
     def test_skill_content_route_returns_plain_keyerror_detail(
@@ -538,4 +648,87 @@ class TestAppGenExtensionsRoutes:
 
         assert response.status_code == 400
         assert "Permission denied" in response.json()["detail"]
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_creates_skill(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "route-created",
+                    "content": "# route-created\n\nBody.\n",
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["skillId"] == "user_agents_skills::route-created"
+        assert payload["created"] is True
+        expected_skill_doc = (
+            fake_home / ".agents" / "skills" / "route-created" / "SKILL.md"
+        )
+        assert payload["skillDocPath"] == str(expected_skill_doc)
+        assert (
+            expected_skill_doc.read_text(encoding="utf-8")
+            == "# route-created\n\nBody.\n"
+        )
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_rejects_non_custom_roots(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        codex_home = tmp_path / "codex-home"
+        skill_dir = codex_home / "skills" / "read-only"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text("# read-only\n", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.setenv("CODEX_HOME", str(codex_home))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "codex_home_skills::read-only",
+                    "relativePath": None,
+                    "content": "# read-only\n\nUpdated.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "Only skills under AGENTS_HOME/skills" in response.json()["detail"]
         clear_setta_paths_cache()
