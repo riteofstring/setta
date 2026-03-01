@@ -77,6 +77,32 @@ test("all settings DOM stays within flattening guardrails", async ({
       spanValueBorderCount: document.querySelectorAll(
         "span.section-value.grid-row-start-1.border-box",
       ).length,
+      legacyComboboxContainerDivCount: Array.from(
+        document.querySelectorAll("div"),
+      ).filter((el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("relative") &&
+          classes.includes("w-full") &&
+          classes.includes("min-w-0") &&
+          classes.includes("flex-col") &&
+          classes.includes("items-stretch") &&
+          classes.includes("overflow-visible")
+        );
+      }).length,
+      comboboxSearchContainerCount: Array.from(
+        document.querySelectorAll("search"),
+      ).filter((el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("relative") &&
+          classes.includes("w-full") &&
+          classes.includes("min-w-0") &&
+          classes.includes("flex-col") &&
+          classes.includes("items-stretch") &&
+          classes.includes("overflow-visible")
+        );
+      }).length,
     };
   });
 
@@ -93,4 +119,6 @@ test("all settings DOM stays within flattening guardrails", async ({
 
   expect(metrics.groupResizeCount).toBe(0);
   expect(metrics.spanValueBorderCount).toBe(0);
+  expect(metrics.legacyComboboxContainerDivCount).toBe(0);
+  expect(metrics.comboboxSearchContainerCount).toBeGreaterThan(0);
 });

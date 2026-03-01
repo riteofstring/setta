@@ -653,7 +653,7 @@ function DropdownParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+      outerDivClasses="section-value flex justify-self-start self-center my-auto"
       isDisabled={isDisabled}
     />
   );

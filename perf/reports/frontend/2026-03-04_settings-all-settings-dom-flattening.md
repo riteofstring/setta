@@ -198,6 +198,41 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - `DroppedFrame`: `42` (`9.79%`)
   - Main-thread work: `Layout 28.21 ms`, `UpdateLayoutTree 7.47 ms`, `Paint 82.24 ms`, `PrePaint 7.19 ms`
 
+### Phase 5 (combobox wrapper flattening)
+
+- Scope:
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - `frontend/src/components/App/appRegistry.tsx`
+- Change:
+  - Removed `IdNameCombobox`'s dedicated outer wrapper `<div>`.
+  - Merged the wrapper classes into the existing combobox input container (`<search>`), preserving layout/theme classes.
+  - Updated dropdown caller classes to remove descendant-selector styling that depended on the removed wrapper.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `6012` (down from `6088`, `-76`, `-1.2%` vs phase 4)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Total elements: `7108`
+  - Per-node descendants: `avg 141.98`, `p95 235`, `max 1148`
+  - Per-node max depth: `avg 10.69`, `p95 11`, `max 13`
+  - Legacy combobox wrapper divs (removed pattern): `0`
+  - Combobox search containers (new flattened host): `76`
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5c.trace.json`
+- Notes on trace reliability:
+  - Phase 5 traces were run multiple times because interaction-window behavior varied significantly.
+  - Use `phase5c` as the normalized capture (closest duration to phase 4).
+- Trace signals from normalized run (`phase5c`):
+  - Duration: `17,953.04 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `5`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `331` (`18.44/s`)
+  - `DrawFrame`: `88` (`4.90/s`)
+  - `DroppedFrame`: `153` (`46.22%`)
+  - Main-thread work: `Layout 33.66 ms`, `UpdateLayoutTree 7.68 ms`, `Paint 55.64 ms`, `PrePaint 8.32 ms`
+
 ### Guardrail Automation
 
 - Added automated structural benchmark guardrail:
@@ -207,19 +242,27 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
   - total element budget
   - per-node descendant budgets
   - max node depth budget
-  - zero count for known removed wrapper patterns (`group/resize`, value-border spans)
+  - zero count for known removed wrapper patterns (`group/resize`, value-border spans, legacy combobox wrapper divs)
 
 ## Conclusion (latest)
 
 - Baseline to latest DOM deltas (`/settings` -> `All Settings`):
-  - Viewport descendants: `8619 -> 6088` (`-2531`, `-29.4%`)
-  - Per-node descendants avg: `204.05 -> 143.79` (`-29.5%`)
-  - Per-node descendants max: `1854 -> 1178` (`-36.5%`)
-  - Per-node depth avg/max: `12.74/17 -> 11.38/14`
-- DOM flattening now has both manual profiling artifacts and an automated E2E structural guardrail.
+  - Viewport descendants: `8619 -> 6012` (`-2607`, `-30.2%`)
+  - Per-node descendants avg: `204.05 -> 141.98` (`-30.4%`)
+  - Per-node descendants max: `1854 -> 1148` (`-38.1%`)
+  - Per-node depth avg/max: `12.74/17 -> 10.69/13`
+- DOM flattening now has both manual profiling artifacts and automated E2E structural guardrails for both earlier and newly removed wrapper patterns.
+- Runtime traces in this phase were noisy and do not support a strong throughput claim from the combobox-only flattening step by itself.
 
 ## Raw Artifacts (additional local-only)
 
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4.trace.json`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4.png`
 - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase4_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5c.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5_fitview.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase5b_fitview.png`
