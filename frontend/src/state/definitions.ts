@@ -446,6 +446,11 @@ export type CustomRunItem = {
   action: CustomRunAction;
 };
 
+export type ProjectChatCustomSlashCommand = {
+  command: string;
+  prompt: string;
+};
+
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -956,6 +961,10 @@ type ZustandLocalStorage = {
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
+  customProjectChatSlashCommandsByProjectConfigId: Record<
+    string,
+    Array<ProjectChatCustomSlashCommand>
+  >;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
     string,
@@ -1026,6 +1035,7 @@ export const useLocalStorage = createWithEqualityFn(
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
+      customProjectChatSlashCommandsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
@@ -1095,6 +1105,14 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
+        }
+        if (
+          !merged.customProjectChatSlashCommandsByProjectConfigId ||
+          typeof merged.customProjectChatSlashCommandsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.customProjectChatSlashCommandsByProjectConfigId)
+        ) {
+          merged.customProjectChatSlashCommandsByProjectConfigId = {};
         }
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
