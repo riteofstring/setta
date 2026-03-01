@@ -82,6 +82,19 @@ async def test_undo_redo_normalizes_inconsistent_callable_children_from_history(
         )
         assert stale_child_id not in callable_impl_after.children
 
+        # Continue toggling undo/redo to ensure the normalization is persistent
+        # across repeated history navigation.
+        for _ in range(6):
+            await manager.undo(UndoRequest(projectConfigId=project_config_id, steps=1))
+            await manager.redo(RedoRequest(projectConfigId=project_config_id, steps=1))
+        await manager.finish_pending_operations(timeout=10.0)
+        callable_impl_after_repeated_navigation = _get_backend_callable_impl_for_section(
+            project_config_id=project_config_id,
+            section_id=section_id,
+            manager=manager,
+        )
+        assert stale_child_id not in callable_impl_after_repeated_navigation.children
+
         # Accessing single-config state after redo should stay stable.
         single_config_state = manager.get_single_config_state(project_config_id)
         assert section_id in single_config_state.sections
