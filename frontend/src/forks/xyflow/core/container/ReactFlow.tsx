@@ -8,6 +8,8 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
+import { SceneGraphRendererLayer } from "sceneGraphRenderer/SceneGraphRendererLayer";
+import { useSceneGraphRendererRuntime } from "sceneGraphRenderer/useSceneGraphRendererRuntime";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
@@ -33,6 +35,7 @@ const ReactFlow = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const sceneGraphRendererRuntime = useSceneGraphRendererRuntime();
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const wireColor = useSettings((x) => {
     // If the backend is running an older build, these fields can be missing.
@@ -64,6 +67,7 @@ const ReactFlow = () => {
 
   const readyToRender =
     wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
+  const sceneGraphPerfLabels = sceneGraphRendererRuntime.perfLabels;
 
   return (
     <div
@@ -79,6 +83,43 @@ const ReactFlow = () => {
       data-tab-scope="canvas"
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}
+      data-scene-graph-renderer-enabled={
+        sceneGraphPerfLabels.enabled ? "1" : "0"
+      }
+      data-scene-graph-renderer-backend-requested={
+        sceneGraphPerfLabels.requestedBackend
+      }
+      data-scene-graph-renderer-backend-resolved={
+        sceneGraphPerfLabels.resolvedBackend
+      }
+      data-scene-graph-renderer-resolution-reason={
+        sceneGraphPerfLabels.resolutionReason
+      }
+      data-scene-graph-renderer-probe-status={sceneGraphPerfLabels.probeStatus}
+      data-scene-graph-renderer-webgpu-available={
+        sceneGraphPerfLabels.webgpuAvailable ? "1" : "0"
+      }
+      data-scene-graph-renderer-webgpu-reason={
+        sceneGraphPerfLabels.webgpuReason ?? ""
+      }
+      data-scene-graph-renderer-webgl2-available={
+        sceneGraphPerfLabels.webgl2Available ? "1" : "0"
+      }
+      data-scene-graph-renderer-webgl2-reason={
+        sceneGraphPerfLabels.webgl2Reason ?? ""
+      }
+      data-scene-graph-renderer-software-fallback={
+        sceneGraphPerfLabels.softwareFallbackDetected ? "1" : "0"
+      }
+      data-scene-graph-renderer-software-fallback-reasons={sceneGraphPerfLabels.softwareFallbackReasons.join(
+        ",",
+      )}
+      data-scene-graph-renderer-dom-island-radius={String(
+        sceneGraphPerfLabels.domIslandRadius,
+      )}
+      data-scene-graph-renderer-debug-overlay={
+        sceneGraphPerfLabels.debugOverlay ? "1" : "0"
+      }
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
@@ -92,6 +133,12 @@ const ReactFlow = () => {
           left: `${SCROLL_INIT}px`,
         }}
       >
+        <SceneGraphRendererLayer
+          runtime={sceneGraphRendererRuntime}
+          wrapperDimensions={wrapperDimensions}
+          wireColor={wireColor}
+          darkMode={darkMode}
+        />
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
           <ViewportWrapper>
             {readyToRender && (
