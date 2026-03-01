@@ -191,18 +191,28 @@ test("canvas engine host supports section click selection and pane click clear",
     await expect
       .poll(async () => await readRectCount(host))
       .toBeGreaterThanOrEqual(2);
+    const firstSectionPosition = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      firstSectionId,
+    );
+    const secondSectionPosition = await readTopLevelSectionPosition(
+      page,
+      projectContext.projectConfigId,
+      secondSectionId,
+    );
 
     await clickWorldPoint(page, host, {
-      x: firstPosition.x + 40,
-      y: firstPosition.y + 40,
+      x: firstSectionPosition.x + 40,
+      y: firstSectionPosition.y + 40,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))
       .toEqual([firstSectionId]);
 
     await clickWorldPoint(page, host, {
-      x: secondPosition.x + 40,
-      y: secondPosition.y + 40,
+      x: secondSectionPosition.x + 40,
+      y: secondSectionPosition.y + 40,
     });
     await expect
       .poll(async () => await readActiveSectionIds(host))

@@ -324,7 +324,7 @@ export function CanvasEngineHost() {
         zoom: currentCamera.zoom,
       }));
     },
-    [],
+    [camera],
   );
 
   const releasePointerCapture = useCallback(
