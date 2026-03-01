@@ -708,6 +708,7 @@ export const RouteEnum = {
   STREAM_APP_SPEC: "/streamAppSpec",
   GET_APP_GEN_SKILLS: "/getAppGenSkills",
   GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
+  UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -947,15 +948,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  PatchFrontendProjectStateActiveViewMode:
-    "PatchFrontendProjectStateActiveViewMode",
-  PatchFrontendProjectStateProjectConfig:
-    "PatchFrontendProjectStateProjectConfig",
-  PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
-  PatchFrontendProjectStateCodeObjs: "PatchFrontendProjectStateCodeObjs",
-  PatchFrontendProjectStateStructural: "PatchFrontendProjectStateStructural",
-  PatchFrontendProjectStateAppDefinition:
-    "PatchFrontendProjectStateAppDefinition",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5052,7 +5044,6 @@ const ProjectStateSingleConfigWithCompletedOpIdsSchema = z.object({
   projectState: ProjectStateSingleConfigSchema,
   completedOpIds: z.array(z.string()),
   pendingOpIds: z.array(z.string()),
-  projectStateRevision: z.union([z.int(), z.null()]).default(null),
 });
 
 export type ProjectStateSingleConfigWithCompletedOpIds = z.infer<
@@ -5065,303 +5056,6 @@ const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
-});
-
-const ProjectStateActiveViewModePatchSchema = z.object({
-  projectConfigId: IDSchema,
-  activeViewModeId: IDSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateActiveViewModePatch = z.infer<
-  typeof ProjectStateActiveViewModePatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateActiveViewModePatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateActiveViewMode")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode,
-    ),
-});
-
-const ProjectStateProjectConfigPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  projectConfig: ProjectConfigSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateProjectConfigPatch = z.infer<
-  typeof ProjectStateProjectConfigPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateProjectConfigSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateProjectConfigPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateProjectConfig")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateProjectConfig,
-    ),
-});
-
-const BaseSectionImplSchema = z.object({
-  type: z.any(),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-});
-
-type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
-
-const ProjectStateSectionImplPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  sectionImpl: BaseSectionImplSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateSectionImplPatch = z.infer<
-  typeof ProjectStateSectionImplPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateSectionImplSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSectionImplPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateSectionImpl")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpl,
-    ),
-});
-
-const ProjectStateCodeObjsPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  codeObjs: z.record(IDSchema, CoreSchema),
-  codeObjVariants: z.record(IDSchema, VariantSchema),
-  codeObjImpls: z.record(
-    IDSchema,
-    z.discriminatedUnion("type", [
-      CodeCallableCodeObjImplSchema,
-      CodeParamCodeObjImplSchema,
-      TextParamCodeObjImplSchema,
-      DateParamCodeObjImplSchema,
-      TimeParamCodeObjImplSchema,
-      ButtonParamCodeObjImplSchema,
-      SliderParamCodeObjImplSchema,
-      RotaryParamCodeObjImplSchema,
-      SwitchParamCodeObjImplSchema,
-      ColorPickerParamCodeObjImplSchema,
-      DropdownParamCodeObjImplSchema,
-      PasswordParamCodeObjImplSchema,
-      TextAreaParamCodeObjImplSchema,
-      DropzoneParamCodeObjImplSchema,
-      NestedParamCodeObjImplSchema,
-    ]),
-  ),
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateCodeObjsPatch = z.infer<
-  typeof ProjectStateCodeObjsPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateCodeObjsSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateCodeObjsPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateCodeObjs")
-    .default(WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateCodeObjs),
-});
-
-const ProjectStateStructuralPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  projectConfig: ProjectConfigSchema,
-  sections: z.record(IDSchema, CoreSchema),
-  sectionVariants: z.record(IDSchema, VariantSchema),
-  sectionImpls: z.record(
-    IDSchema,
-    z.discriminatedUnion("type", [
-      CallableSectionImplSchema,
-      DictSectionImplSchema,
-      ListRootSectionImplSchema,
-      GroupSectionImplSchema,
-      ImageSectionImplSchema,
-      ChartSectionImplSchema,
-      DrawSectionImplSchema,
-      TextBlockSectionImplSchema,
-      PromptSectionImplSchema,
-      MetaControlSectionImplSchema,
-      SocialSectionImplSchema,
-      GlobalVariablesSectionImplSchema,
-      CodeSectionImplSchema,
-      GenPythonCodeSectionImplSchema,
-      GenPythonMetadataSectionImplSchema,
-      TerminalSectionImplSchema,
-      IFrameSectionImplSchema,
-      ChatSectionImplSchema,
-      BrowserSectionImplSchema,
-      PluginSectionImplSchema,
-      TaskBoardSectionImplSchema,
-      SpreadsheetSectionImplSchema,
-    ]),
-  ),
-  parentSectionMap: z.record(IDSchema, z.union([IDSchema, z.null()])),
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateStructuralPatch = z.infer<
-  typeof ProjectStateStructuralPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateStructuralSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateStructuralPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateStructural")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural,
-    ),
-});
-
-const AppRouteSchema = z.object({
-  path: z.string(),
-  name: z.union([z.string(), z.null()]).default(null),
-  rootKey: z.union([z.string(), z.null()]).default(null),
-});
-
-export type AppRoute = z.infer<typeof AppRouteSchema>;
-
-const AppDefinitionSchema = z.object({
-  appSpecVersion: z.string().default("v1" as const),
-  catalogId: z.string().default("setta.app.default" as const),
-  appSpecPath: z.union([z.string(), z.null()]).default(null),
-  routes: z.array(AppRouteSchema).default(() => []),
-  dataBindings: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  actions: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  theme: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-  assets: z
-    .array(
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default(() => []),
-});
-
-export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
-
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return AppDefinitionSchema.parse(options);
-}
-
-const ProjectStateAppDefinitionPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  appDefinition: z.union([AppDefinitionSchema, z.null()]),
-  appSpec: z.union([
-    z.record(z.string(), z.any()),
-    z.array(z.any()),
-    z.string(),
-    z.int(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-  ]),
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateAppDefinitionPatch = z.infer<
-  typeof ProjectStateAppDefinitionPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateAppDefinitionPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateAppDefinition")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateAppDefinition,
-    ),
 });
 
 const WebsocketMsgTerminalMetadataSchema = z.object({
@@ -7421,12 +7115,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgNameValidationErrorsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema,
-  WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
-  WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
-  WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
-  WebsocketMsgPatchFrontendProjectStateStructuralSchema,
-  WebsocketMsgPatchFrontendProjectStateAppDefinitionSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
@@ -7734,6 +7422,87 @@ export type AgenticSummaryCacheStatus = z.infer<
   typeof AgenticSummaryCacheStatusSchema
 >;
 
+const AppRouteSchema = z.object({
+  path: z.string(),
+  name: z.union([z.string(), z.null()]).default(null),
+  rootKey: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AppRoute = z.infer<typeof AppRouteSchema>;
+
+const AppDefinitionSchema = z.object({
+  appSpecVersion: z.string().default("v1" as const),
+  catalogId: z.string().default("setta.app.default" as const),
+  appSpecPath: z.union([z.string(), z.null()]).default(null),
+  routes: z.array(AppRouteSchema).default(() => []),
+  dataBindings: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+  actions: z
+    .record(
+      z.string(),
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default({}),
+  theme: z
+    .union([
+      z.record(
+        z.string(),
+        z.union([
+          z.record(z.string(), z.any()),
+          z.array(z.any()),
+          z.string(),
+          z.int(),
+          z.number(),
+          z.boolean(),
+          z.null(),
+        ]),
+      ),
+      z.null(),
+    ])
+    .default(null),
+  assets: z
+    .array(
+      z.union([
+        z.record(z.string(), z.any()),
+        z.array(z.any()),
+        z.string(),
+        z.int(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+      ]),
+    )
+    .default(() => []),
+});
+
+export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
+
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return AppDefinitionSchema.parse(options);
+}
+
 const AppDeploymentMetadataSchema = z.object({
   deploymentName: z.string(),
   deploymentVersion: z.string(),
@@ -7999,6 +7768,25 @@ const BaseParentCodeObjImplSchema = z.object({
 });
 
 type BaseParentCodeObjImpl = z.infer<typeof BaseParentCodeObjImplSchema>;
+
+const BaseSectionImplSchema = z.object({
+  type: z.any(),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+});
+
+type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
 
 const ExternalAgentEnvVarStatusSchema = z.object({
   present: z.array(z.string()).default(() => []),
@@ -8994,6 +8782,27 @@ const GetAppGenSkillContentRequestSchema = z.object({
 
 export type GetAppGenSkillContentRequestInput = z.input<
   typeof GetAppGenSkillContentRequestSchema
+>;
+
+const UpsertAppGenCustomSkillRequestSchema = z.object({
+  skillId: z.union([z.string(), z.null()]).default(null),
+  relativePath: z.union([z.string(), z.null()]).default(null),
+  content: z.string(),
+});
+
+export type UpsertAppGenCustomSkillRequestInput = z.input<
+  typeof UpsertAppGenCustomSkillRequestSchema
+>;
+
+const UpsertAppGenCustomSkillResponseSchema = z.object({
+  skillId: z.string(),
+  created: z.boolean(),
+  rootPath: z.string(),
+  skillDocPath: z.string(),
+});
+
+export type UpsertAppGenCustomSkillResponse = z.infer<
+  typeof UpsertAppGenCustomSkillResponseSchema
 >;
 
 const StreamAppSpecRequestSchema = z.object({

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import path from "path";
 import {
   allowExpectedApiError,
@@ -68,7 +68,8 @@ test("header plugin restart banner supports restart action and plugins shortcut"
       });
     });
 
-    await reloadAndWaitForCanvas(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,
@@ -138,7 +139,8 @@ test("header plugin restart banner remains visible for status-only restart tombs
       await route.fulfill({ response, json: payload });
     });
 
-    await reloadAndWaitForCanvas(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(page.getByText("Restart required for 1 plugin")).toBeVisible();
   } finally {
@@ -190,7 +192,8 @@ test("header plugin restart banner is hidden in non-IDE runtime modes", async ({
       await route.fulfill({ response, json: payload });
     });
 
-    await reloadAndWaitForCanvas(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(
       page.getByText(/^Restart required for \d+ plugins?$/),
@@ -242,7 +245,8 @@ test("header plugin restart banner shows manual command when capability is manua
       await route.fulfill({ response, json: payload });
     });
 
-    await reloadAndWaitForCanvas(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,
@@ -331,7 +335,8 @@ test("header plugin restart banner handles rejected and failed restart requests"
       });
     });
 
-    await reloadAndWaitForCanvas(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,
@@ -355,11 +360,11 @@ test("header plugin restart banner handles rejected and failed restart requests"
       method: "POST",
       count: 1,
     });
-    await restartButton.click();
-    await expect.poll(() => restartRequestCount).toBe(2);
-    await expect(
-      page.getByText("Restart request failed: restart failed"),
-    ).toBeVisible();
+  await restartButton.click();
+  await expect.poll(() => restartRequestCount).toBe(2);
+  await expect(
+    page.getByText("Restart request failed: restart failed"),
+  ).toBeVisible();
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",
@@ -369,19 +374,3 @@ test("header plugin restart banner handles rejected and failed restart requests"
     await cleanupIsolatedProject(page, projectContext);
   }
 });
-
-async function reloadAndWaitForCanvas(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.reload({ waitUntil: "domcontentloaded" });
-    try {
-      await expect(page.locator(".react-flow__pane").first()).toBeVisible({
-        timeout: 30000,
-      });
-      return;
-    } catch (error) {
-      if (attempt === 2) {
-        throw error;
-      }
-    }
-  }
-}
