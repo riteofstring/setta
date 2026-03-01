@@ -492,7 +492,7 @@ function SwitchControl({
       <SwitchInput
         value={value}
         onChange={onValueChange}
-        rootClassName={`${NO_DRAG_CLASS_NAME} section-value justify-self-start self-center`}
+        outerDivClassName={`${NO_DRAG_CLASS_NAME} section-value flex justify-self-start self-center`}
       />
     </MetaControlTitleStack>
   );
