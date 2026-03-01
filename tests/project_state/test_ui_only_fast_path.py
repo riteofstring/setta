@@ -3,7 +3,9 @@ from dataclasses import dataclass
 import pytest
 
 from setta.project_state.project_manager_types import (
+    CreateViewModeRequest,
     RedoRequest,
+    SetActiveViewModeRequest,
     SetCallableHideParamsRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
@@ -11,6 +13,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserSavedSearchesRequest,
     SetChatSectionStateRequest,
     SetGroupOverflowModeRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionParamFilterRequest,
@@ -19,10 +22,18 @@ from setta.project_state.project_manager_types import (
     SetSectionStyleColorRequest,
     SetSectionTagColorRequest,
     SetSocialUrlRequest,
+    SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockMasterFontSizeRequest,
+    SetTextBlockMetaControlStyleRequest,
+    SetViewModeNameRequest,
+    SetViewModeSortOrderRequest,
+    ToggleSectionVisibilityRequest,
     ToggleGroupOrientationRequest,
     ToggleMinimizedRequest,
     TogglePositionLocksRequest,
+    ToggleViewModeTabRequest,
+    ToggleViewModeUserFacingRequest,
     UndoRequest,
 )
 from setta.types.generated.settings_state import SettingsState
@@ -39,9 +50,11 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     ChatSectionState,
     GroupSectionImpl,
+    MetaControlSectionImpl,
     SectionSize,
     SectionType,
     SocialSectionImpl,
+    TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
 )
@@ -54,6 +67,7 @@ class SectionIds:
     callable_section_id: ID
     group_section_id: ID
     browser_section_id: ID
+    meta_control_section_id: ID
     text_block_section_id: ID
     social_section_id: ID
     chat_section_id: ID
@@ -78,6 +92,13 @@ def build_state_for_ui_only_fast_path() -> tuple[ProjectStateSingleConfig, Secti
         SectionType.Browser,
         Position(x=1000, y=120),
         core_overrides={"name": "fast_path_browser"},
+    )
+    meta_control_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.MetaControl,
+        Position(x=1050, y=180),
+        core_overrides={"name": "fast_path_meta_control"},
     )
     text_block_section_id = create_top_level_section(
         settings,
@@ -105,10 +126,26 @@ def build_state_for_ui_only_fast_path() -> tuple[ProjectStateSingleConfig, Secti
         callable_section_id=callable_section_id,
         group_section_id=group_section_id,
         browser_section_id=browser_section_id,
+        meta_control_section_id=meta_control_section_id,
         text_block_section_id=text_block_section_id,
         social_section_id=social_section_id,
         chat_section_id=chat_section_id,
     )
+
+
+async def create_secondary_view_mode(
+    manager,
+    project_config_id: ID,
+) -> tuple[ID, ID]:
+    initial_state = manager.get_single_config_state(project_config_id)
+    initial_active_view_mode_id = initial_state.projectConfig.activeViewModeId
+    if initial_active_view_mode_id is None:
+        raise KeyError("Active view mode is not set")
+    secondary_view_mode_id = await manager.create_view_mode(
+        CreateViewModeRequest(projectConfigId=project_config_id)
+    )
+    await manager.finish_pending_operations(timeout=5.0)
+    return initial_active_view_mode_id, secondary_view_mode_id
 
 
 @pytest.mark.asyncio
@@ -125,6 +162,9 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         )
         assert top_level_param_ids
         pinned_param_id = top_level_param_ids[0]
+        default_view_mode_id, secondary_view_mode_id = await create_secondary_view_mode(
+            manager, project_config_id
+        )
 
         refresh_calls = 0
         original_refresh = manager._refresh_codegen_state
@@ -269,6 +309,16 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.set_meta_control_show_section_title(
+                    SetMetaControlShowSectionTitleRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.meta_control_section_id,
+                        showSectionTitle=True,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.set_browser_column_widths(
                     SetBrowserColumnWidthsRequest(
                         projectConfigId=project_config_id,
@@ -320,11 +370,102 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
             )
             await assert_refresh_delta(
                 0,
+                manager.set_text_block_display_mode(
+                    SetTextBlockDisplayModeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        textDisplayMode=TextBlockDisplayMode.Edit,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_text_block_master_font_size(
+                    SetTextBlockMasterFontSizeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        masterFontSizePx=23.0,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_text_block_meta_control_style(
+                    SetTextBlockMetaControlStyleRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        metaControlStyle=True,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
                 manager.set_social_url(
                     SetSocialUrlRequest(
                         projectConfigId=project_config_id,
                         sectionId=section_ids.social_section_id,
                         url="https://example.com",
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_active_view_mode(
+                    SetActiveViewModeRequest(
+                        projectConfigId=project_config_id,
+                        activeViewModeId=default_view_mode_id,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.toggle_section_visibility(
+                    ToggleSectionVisibilityRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[
+                            section_ids.callable_section_id,
+                            section_ids.meta_control_section_id,
+                        ],
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.toggle_view_mode_user_facing(
+                    ToggleViewModeUserFacingRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.toggle_view_mode_tab(
+                    ToggleViewModeTabRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_view_mode_name(
+                    SetViewModeNameRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                        name="secondary-fast-path",
+                    )
+                ),
+            )
+            await assert_refresh_delta(
+                0,
+                manager.set_view_mode_sort_order(
+                    SetViewModeSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        orderedViewModeIds=[
+                            secondary_view_mode_id,
+                            default_view_mode_id,
+                        ],
                     )
                 ),
             )
@@ -374,12 +515,37 @@ async def test_ui_only_routes_skip_full_codegen_refresh() -> None:
         text_block_impl = get_curr_effective_section_impl_with_type_guard(
             updated, section_ids.text_block_section_id, TextBlockSectionImpl
         )
+        assert text_block_impl.textDisplayMode == TextBlockDisplayMode.Edit
+        assert text_block_impl.masterFontSizePx == 23.0
+        assert text_block_impl.metaControlStyle is True
         assert text_block_impl.format == TextBlockFormat.Markdown
+
+        meta_control_impl = get_curr_effective_section_impl_with_type_guard(
+            updated, section_ids.meta_control_section_id, MetaControlSectionImpl
+        )
+        assert meta_control_impl.showSectionTitle is True
 
         social_impl = get_curr_effective_section_impl_with_type_guard(
             updated, section_ids.social_section_id, SocialSectionImpl
         )
         assert social_impl.url == "https://example.com"
+
+        assert updated.projectConfig.activeViewModeId == default_view_mode_id
+        default_view_mode = updated.projectConfig.viewModes[default_view_mode_id]
+        secondary_view_mode = updated.projectConfig.viewModes[secondary_view_mode_id]
+        assert (
+            default_view_mode.visibilityBySectionId[section_ids.callable_section_id]
+            is False
+        )
+        assert (
+            default_view_mode.visibilityBySectionId[section_ids.meta_control_section_id]
+            is False
+        )
+        assert secondary_view_mode.isUserFacing is True
+        assert secondary_view_mode.isTab is True
+        assert secondary_view_mode.name == "secondary-fast-path"
+        assert secondary_view_mode.sortIndex == 0
+        assert default_view_mode.sortIndex == 1
 
 
 @pytest.mark.asyncio
@@ -437,6 +603,9 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
         )
         assert top_level_param_ids
         pinned_param_id = top_level_param_ids[0]
+        default_view_mode_id, secondary_view_mode_id = await create_secondary_view_mode(
+            manager, project_config_id
+        )
 
         json_source_watch_calls = 0
         artifact_watch_calls = 0
@@ -601,6 +770,16 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
             )
             await assert_watcher_delta(
                 0,
+                manager.set_meta_control_show_section_title(
+                    SetMetaControlShowSectionTitleRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.meta_control_section_id,
+                        showSectionTitle=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
                 manager.set_browser_column_widths(
                     SetBrowserColumnWidthsRequest(
                         projectConfigId=project_config_id,
@@ -652,11 +831,102 @@ async def test_ui_only_routes_skip_file_watcher_refresh() -> None:
             )
             await assert_watcher_delta(
                 0,
+                manager.set_text_block_display_mode(
+                    SetTextBlockDisplayModeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        textDisplayMode=TextBlockDisplayMode.Edit,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_text_block_master_font_size(
+                    SetTextBlockMasterFontSizeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        masterFontSizePx=23.0,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_text_block_meta_control_style(
+                    SetTextBlockMetaControlStyleRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_ids.text_block_section_id,
+                        metaControlStyle=True,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
                 manager.set_social_url(
                     SetSocialUrlRequest(
                         projectConfigId=project_config_id,
                         sectionId=section_ids.social_section_id,
                         url="https://example.com",
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_active_view_mode(
+                    SetActiveViewModeRequest(
+                        projectConfigId=project_config_id,
+                        activeViewModeId=default_view_mode_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_section_visibility(
+                    ToggleSectionVisibilityRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[
+                            section_ids.callable_section_id,
+                            section_ids.meta_control_section_id,
+                        ],
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_view_mode_user_facing(
+                    ToggleViewModeUserFacingRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.toggle_view_mode_tab(
+                    ToggleViewModeTabRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_view_mode_name(
+                    SetViewModeNameRequest(
+                        projectConfigId=project_config_id,
+                        viewModeId=secondary_view_mode_id,
+                        name="secondary-fast-path",
+                    )
+                ),
+            )
+            await assert_watcher_delta(
+                0,
+                manager.set_view_mode_sort_order(
+                    SetViewModeSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        orderedViewModeIds=[
+                            secondary_view_mode_id,
+                            default_view_mode_id,
+                        ],
                     )
                 ),
             )
