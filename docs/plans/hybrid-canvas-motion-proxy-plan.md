@@ -147,9 +147,13 @@
 - Result: **not kept**. Repeated runs showed only small/noisy typing change relative to baseline.
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-02_settings-all-settings-param-filter-match-cache.md`
+- Item B trialed (first pass): params-path state subscription partitioning.
+- Result: **not kept**. In this pass, Playwright typing median and CDP scripted interaction both regressed.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-02_settings-all-settings-state-subscription-partitioning.md`
 - Next Phase 0.5 focus:
-  - Item B: state subscription partitioning.
   - Item C: lazy overlay mounting.
+  - Revisit Item B with different boundaries after Item C data is collected.
 
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
