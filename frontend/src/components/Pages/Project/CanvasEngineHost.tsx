@@ -9,8 +9,10 @@ import {
 import type {
   CanvasEngineBackendSelection,
   CanvasEngineCamera,
+  CanvasEngineRect,
   CanvasEngineViewport,
 } from "canvas-engine/types";
+import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import {
   useCallback,
   useEffect,
@@ -21,8 +23,28 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import { useProjectState } from "state/definitions";
-import { route_set_top_level_section_layout } from "utils/generatedEndpoints";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
+import {
+  setSelfParentSiblingChildrenWidths,
+  type ResizeHandleDirection,
+} from "state/actions/sections/sectionSizes";
+import { useProjectState, useSettings } from "state/definitions";
+import {
+  getMaxSectionHeight,
+  getMaxSectionWidth,
+  getMinSectionHeight,
+  getMinSectionWidth,
+} from "state/hooks/sectionSizes";
+import { getIsTwitterSection } from "state/hooks/social";
+import {
+  route_set_section_sizes,
+  route_set_top_level_section_layout,
+} from "utils/generatedEndpoints";
+import {
+  SectionTypeEnum,
+  type SectionSize,
+  type SectionSizingPolicy,
+} from "utils/generatedTypes";
 
 type PointerSession =
   | {
@@ -41,10 +63,46 @@ type PointerSession =
       sectionStartX: number;
       sectionStartY: number;
       moved: boolean;
+    }
+  | {
+      pointerId: number;
+      kind: "resize";
+      sectionId: string;
+      direction: ResizeHandleDirection;
+      anchorWorldX: number;
+      anchorWorldY: number;
+      sectionStartX: number;
+      sectionStartY: number;
+      sectionStartWidth: number;
+      sectionStartHeight: number;
+      minWidth: number;
+      maxWidth: number;
+      minHeight: number;
+      maxHeight: number;
+      widthResizable: boolean;
+      heightResizable: boolean;
+      aspectRatio: number | null;
+      aspectRatioExtraWidth: number;
+      aspectRatioExtraHeight: number;
+      moved: boolean;
+      lastAppliedSize: Partial<SectionSize> | null;
     };
+
+type ResizeCapabilities = {
+  widthResizable: boolean;
+  heightResizable: boolean;
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+  aspectRatio: number | null;
+  aspectRatioExtraWidth: number;
+  aspectRatioExtraHeight: number;
+};
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
+const RESIZE_HANDLE_HIT_RADIUS_PX = 10;
 
 const INITIAL_BACKEND_SELECTION: CanvasEngineBackendSelection = {
   preferredBackend: "webgpu",
@@ -94,6 +152,7 @@ export function CanvasEngineHost() {
     (state) => state.projectConfig.viewport,
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const sectionSizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasEngineRenderer | null>(null);
@@ -245,6 +304,58 @@ export function CanvasEngineHost() {
         worldPoint.y,
       );
       if (sectionId) {
+        const sectionRect = sceneAdapter.getRectById(sectionId);
+        const resizeCapabilities = resolveResizeCapabilities(
+          sectionId,
+          sectionSizingPolicy,
+        );
+        const resizeDirection =
+          sectionRect && resizeCapabilities
+            ? resolveResizeHandleDirection({
+                sectionRect,
+                worldPoint,
+                camera,
+              })
+            : null;
+        if (
+          resizeDirection &&
+          resizeCapabilities &&
+          isResizeDirectionEnabled(resizeDirection, resizeCapabilities)
+        ) {
+          const sessionAspectRatio = resolveSessionAspectRatio({
+            resizeCapabilities,
+            sectionRect,
+          });
+          applyActiveSectionChange({
+            interaction: "section-click",
+            sectionId,
+          });
+          pointerSessionRef.current = {
+            pointerId: event.pointerId,
+            kind: "resize",
+            sectionId,
+            direction: resizeDirection,
+            anchorWorldX: worldPoint.x,
+            anchorWorldY: worldPoint.y,
+            sectionStartX: sectionRect.x,
+            sectionStartY: sectionRect.y,
+            sectionStartWidth: sectionRect.width,
+            sectionStartHeight: sectionRect.height,
+            minWidth: resizeCapabilities.minWidth,
+            maxWidth: resizeCapabilities.maxWidth,
+            minHeight: resizeCapabilities.minHeight,
+            maxHeight: resizeCapabilities.maxHeight,
+            widthResizable: resizeCapabilities.widthResizable,
+            heightResizable: resizeCapabilities.heightResizable,
+            aspectRatio: sessionAspectRatio,
+            aspectRatioExtraWidth: resizeCapabilities.aspectRatioExtraWidth,
+            aspectRatioExtraHeight: resizeCapabilities.aspectRatioExtraHeight,
+            moved: false,
+            lastAppliedSize: null,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          return;
+        }
         const sectionLayout = topLevelSections[sectionId];
         const sectionStartX =
           sectionLayout && typeof sectionLayout.x === "number"
@@ -279,13 +390,50 @@ export function CanvasEngineHost() {
       }
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [camera, sceneAdapter, topLevelSections],
+    [camera, sceneAdapter, sectionSizingPolicy, topLevelSections],
   );
 
   const handlePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+      if (pointerSession.kind === "resize") {
+        const worldPoint = resolveWorldPointFromPointerEvent(event, camera);
+        if (!worldPoint) {
+          return;
+        }
+        const nextResize = resolveResizeUpdate({
+          direction: pointerSession.direction,
+          sectionStartWidth: pointerSession.sectionStartWidth,
+          sectionStartHeight: pointerSession.sectionStartHeight,
+          deltaWorldX: worldPoint.x - pointerSession.anchorWorldX,
+          deltaWorldY: worldPoint.y - pointerSession.anchorWorldY,
+          minWidth: pointerSession.minWidth,
+          maxWidth: pointerSession.maxWidth,
+          minHeight: pointerSession.minHeight,
+          maxHeight: pointerSession.maxHeight,
+          widthResizable: pointerSession.widthResizable,
+          heightResizable: pointerSession.heightResizable,
+          aspectRatio: pointerSession.aspectRatio,
+          aspectRatioExtraWidth: pointerSession.aspectRatioExtraWidth,
+          aspectRatioExtraHeight: pointerSession.aspectRatioExtraHeight,
+        });
+        const hasSizeChangeFromStart =
+          nextResize.width !== pointerSession.sectionStartWidth ||
+          nextResize.height !== pointerSession.sectionStartHeight;
+        if (!hasSizeChangeFromStart && !pointerSession.moved) {
+          return;
+        }
+        pointerSession.moved = pointerSession.moved || hasSizeChangeFromStart;
+        pointerSession.lastAppliedSize = nextResize.sizeChange;
+        setTopLevelSectionLayoutRect(pointerSession.sectionId, {
+          x: pointerSession.sectionStartX,
+          y: pointerSession.sectionStartY,
+          w: nextResize.width,
+          h: nextResize.height,
+        });
         return;
       }
       if (pointerSession.kind === "section") {
@@ -295,13 +443,19 @@ export function CanvasEngineHost() {
         }
         const deltaX = worldPoint.x - pointerSession.anchorWorldX;
         const deltaY = worldPoint.y - pointerSession.anchorWorldY;
-        if (deltaX === 0 && deltaY === 0) {
+        const nextX = pointerSession.sectionStartX + deltaX;
+        const nextY = pointerSession.sectionStartY + deltaY;
+        const hasPositionChangeFromStart =
+          nextX !== pointerSession.sectionStartX ||
+          nextY !== pointerSession.sectionStartY;
+        if (!hasPositionChangeFromStart && !pointerSession.moved) {
           return;
         }
-        pointerSession.moved = true;
-        setTopLevelSectionLayoutPosition(pointerSession.sectionId, {
-          x: pointerSession.sectionStartX + deltaX,
-          y: pointerSession.sectionStartY + deltaY,
+        pointerSession.moved =
+          pointerSession.moved || hasPositionChangeFromStart;
+        setTopLevelSectionLayoutRect(pointerSession.sectionId, {
+          x: nextX,
+          y: nextY,
         });
         return;
       }
@@ -332,6 +486,24 @@ export function CanvasEngineHost() {
       const pointerSession = pointerSessionRef.current;
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
+      }
+      if (pointerSession.kind === "resize" && pointerSession.moved) {
+        const latestLayouts =
+          useProjectState.getState().projectConfig.topLevelSections;
+        if (pointerSession.lastAppliedSize) {
+          const sectionSizes = applySectionSizeInProjectState(
+            pointerSession.sectionId,
+            pointerSession.lastAppliedSize,
+          );
+          void route_set_section_sizes({
+            projectConfigId,
+            sectionSizes,
+          });
+        }
+        void route_set_top_level_section_layout({
+          projectConfigId,
+          topLevelSections: latestLayouts,
+        });
       }
       if (pointerSession.kind === "section" && pointerSession.moved) {
         const latestLayouts =
@@ -456,9 +628,9 @@ function resolveWorldPointFromPointerEvent(
   };
 }
 
-function setTopLevelSectionLayoutPosition(
+function setTopLevelSectionLayoutRect(
   sectionId: string,
-  position: { x: number; y: number },
+  nextLayoutPatch: { x?: number; y?: number; w?: number; h?: number },
 ): void {
   useProjectState.setState((state) => {
     const existingLayout = state.projectConfig.topLevelSections[sectionId];
@@ -467,8 +639,7 @@ function setTopLevelSectionLayoutPosition(
     }
     const nextLayout = {
       ...existingLayout,
-      x: position.x,
-      y: position.y,
+      ...nextLayoutPatch,
     };
     state.projectConfig.topLevelSections[sectionId] = nextLayout;
     const { activeViewModeId, viewModes } = state.projectConfig;
@@ -476,6 +647,468 @@ function setTopLevelSectionLayoutPosition(
       viewModes[activeViewModeId].topLevelSections[sectionId] = nextLayout;
     }
   });
+}
+
+function applySectionSizeInProjectState(
+  sectionId: string,
+  sizeChange: Partial<SectionSize>,
+): Record<string, SectionSize> {
+  let updatedSectionSizes: Record<string, SectionSize> = {};
+  useProjectState.setState((state) => {
+    updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+      sectionId,
+      sizeChange,
+      state,
+    );
+  });
+  return updatedSectionSizes;
+}
+
+function resolveResizeCapabilities(
+  sectionId: string,
+  sizingPolicy: SectionSizingPolicy | undefined,
+): ResizeCapabilities | null {
+  if (!sizingPolicy) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  if (!(sectionId in state.sections)) {
+    return null;
+  }
+  const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
+  if (!impl) {
+    return null;
+  }
+  if (impl.positionAndSizeLocked) {
+    return null;
+  }
+  const hideSearch =
+    "hideSearch" in impl && typeof impl.hideSearch === "boolean"
+      ? impl.hideSearch
+      : undefined;
+  const hideParams =
+    "hideParams" in impl && typeof impl.hideParams === "boolean"
+      ? impl.hideParams
+      : undefined;
+  const isMinimized =
+    "isMinimized" in impl && typeof impl.isMinimized === "boolean"
+      ? impl.isMinimized
+      : false;
+
+  let minHeight = getMinSectionHeight({
+    sectionType: impl.type,
+    hideSearch,
+    hideParams,
+    isMinimized,
+    sizingPolicy,
+  });
+  const maxHeight = getMaxSectionHeight({
+    sectionType: impl.type,
+    isMinimized,
+    sizingPolicy,
+  });
+  let minWidth = getMinSectionWidth({
+    sectionType: impl.type,
+    sizingPolicy,
+  });
+  const maxWidth = getMaxSectionWidth({
+    sectionType: impl.type,
+    sizingPolicy,
+  });
+
+  const metaControlResizeMode = resolveMetaControlResizeMode({
+    state,
+    sectionId,
+    impl,
+    sizingPolicy,
+  });
+  if (metaControlResizeMode) {
+    minHeight = Math.max(minHeight, metaControlResizeMode.minHeight);
+    minWidth = Math.max(minWidth, metaControlResizeMode.minWidth);
+  }
+
+  const sizeMode = resolveSectionSizeMode({
+    sectionId,
+    sectionType: impl.type,
+    hideParams,
+    metaControlResizeMode,
+  });
+
+  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
+  const heightResizable =
+    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
+
+  const aspectRatioExtraHeight =
+    "aspectRatioExtraHeight" in impl &&
+    typeof impl.aspectRatioExtraHeight === "number"
+      ? impl.aspectRatioExtraHeight
+      : 0;
+  const aspectRatioExtraWidth =
+    "aspectRatioExtraWidth" in impl &&
+    typeof impl.aspectRatioExtraWidth === "number"
+      ? impl.aspectRatioExtraWidth
+      : 0;
+  const aspectRatioValue =
+    "aspectRatio" in impl ? resolveAspectRatioValue(impl.aspectRatio) : null;
+
+  return {
+    widthResizable,
+    heightResizable,
+    minWidth,
+    maxWidth,
+    minHeight,
+    maxHeight,
+    aspectRatio: aspectRatioValue,
+    aspectRatioExtraWidth,
+    aspectRatioExtraHeight,
+  };
+}
+
+function resolveMetaControlResizeMode({
+  state,
+  sectionId,
+  impl,
+  sizingPolicy,
+}: {
+  state: ReturnType<typeof useProjectState.getState>;
+  sectionId: string;
+  impl: NonNullable<ReturnType<typeof getCurrEffectiveSectionImplIfPresent>>;
+  sizingPolicy: SectionSizingPolicy;
+}): {
+  minHeight: number;
+  minWidth: number;
+  sizeModeHeight: string;
+  sizeModeWidth: string;
+} | null {
+  if (impl.type !== SectionTypeEnum.MetaControl) {
+    return null;
+  }
+  const controlParamId =
+    "metaControlParamId" in impl ? impl.metaControlParamId : null;
+  if (!controlParamId) {
+    return null;
+  }
+  const controlVariantId = impl.codeObjVariantMap[controlParamId];
+  if (controlVariantId === undefined) {
+    return null;
+  }
+  const controlVariant = state.codeObjVariants[controlVariantId];
+  if (!controlVariant) {
+    return null;
+  }
+  const controlImpl = state.codeObjImpls[controlVariant.impl];
+  const controlCore = state.codeObjs[controlParamId];
+  if (!controlImpl || !controlCore) {
+    return null;
+  }
+  const sharedType =
+    "type" in controlCore.sharedModifier &&
+    typeof controlCore.sharedModifier.type === "string"
+      ? controlCore.sharedModifier.type
+      : null;
+  const variantType =
+    "type" in controlVariant.modifier &&
+    typeof controlVariant.modifier.type === "string"
+      ? controlVariant.modifier.type
+      : null;
+  const controlType = variantType ?? sharedType ?? controlImpl.type;
+  const entry =
+    sizingPolicy.metaControlByType[
+      controlType as keyof typeof sizingPolicy.metaControlByType
+    ];
+  if (!entry) {
+    return null;
+  }
+  return {
+    minHeight: entry.minHeight,
+    minWidth: entry.minWidth,
+    sizeModeHeight: entry.sizeModeHeight,
+    sizeModeWidth: entry.sizeModeWidth,
+  };
+}
+
+function resolveSectionSizeMode({
+  sectionId,
+  sectionType,
+  hideParams,
+  metaControlResizeMode,
+}: {
+  sectionId: string;
+  sectionType: SectionTypeEnum;
+  hideParams: boolean | undefined;
+  metaControlResizeMode: {
+    sizeModeHeight: string;
+    sizeModeWidth: string;
+  } | null;
+}): { height: string; width: string } {
+  if (sectionType === SectionTypeEnum.MetaControl && metaControlResizeMode) {
+    return {
+      height: metaControlResizeMode.sizeModeHeight,
+      width: metaControlResizeMode.sizeModeWidth,
+    };
+  }
+  if (sectionType === SectionTypeEnum.Callable && hideParams) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  }
+  if (sectionType === SectionTypeEnum.Terminal) {
+    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
+  }
+  if (sectionType === SectionTypeEnum.Chart) {
+    return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
+  }
+  if (getIsTwitterSection(sectionId, useProjectState.getState())) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  }
+  return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+}
+
+function resolveAspectRatioValue(
+  value: boolean | number | null | undefined,
+): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (value === true) {
+    return -1;
+  }
+  return null;
+}
+
+function resolveSessionAspectRatio({
+  resizeCapabilities,
+  sectionRect,
+}: {
+  resizeCapabilities: ResizeCapabilities;
+  sectionRect: CanvasEngineRect;
+}): number | null {
+  const rawRatio = resizeCapabilities.aspectRatio;
+  if (rawRatio === null) {
+    return null;
+  }
+  if (rawRatio > 0) {
+    return rawRatio;
+  }
+  const contentWidth = Math.max(
+    1,
+    sectionRect.width - resizeCapabilities.aspectRatioExtraWidth,
+  );
+  const contentHeight = Math.max(
+    1,
+    sectionRect.height - resizeCapabilities.aspectRatioExtraHeight,
+  );
+  return contentWidth / contentHeight;
+}
+
+function resolveResizeHandleDirection({
+  sectionRect,
+  worldPoint,
+  camera,
+}: {
+  sectionRect: CanvasEngineRect;
+  worldPoint: { x: number; y: number };
+  camera: CanvasEngineCamera;
+}): ResizeHandleDirection | null {
+  const zoom = clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM);
+  const pointX = (worldPoint.x - camera.x) * zoom;
+  const pointY = (worldPoint.y - camera.y) * zoom;
+  const x0 = (sectionRect.x - camera.x) * zoom;
+  const y0 = (sectionRect.y - camera.y) * zoom;
+  const x1 = x0 + sectionRect.width * zoom;
+  const y1 = y0 + sectionRect.height * zoom;
+  const midX = (x0 + x1) / 2;
+  const midY = (y0 + y1) / 2;
+  const hitRadius = RESIZE_HANDLE_HIT_RADIUS_PX;
+
+  if (
+    Math.abs(pointX - x1) <= hitRadius &&
+    Math.abs(pointY - y1) <= hitRadius
+  ) {
+    return "bottomRight";
+  }
+  if (
+    Math.abs(pointX - x1) <= hitRadius &&
+    Math.abs(pointY - midY) <= hitRadius
+  ) {
+    return "right";
+  }
+  if (
+    Math.abs(pointX - midX) <= hitRadius &&
+    Math.abs(pointY - y1) <= hitRadius
+  ) {
+    return "bottom";
+  }
+  return null;
+}
+
+function isResizeDirectionEnabled(
+  direction: ResizeHandleDirection,
+  capabilities: ResizeCapabilities,
+): boolean {
+  if (direction === "right") {
+    return capabilities.widthResizable;
+  }
+  if (direction === "bottom") {
+    return capabilities.heightResizable;
+  }
+  return capabilities.widthResizable && capabilities.heightResizable;
+}
+
+function resolveResizeUpdate({
+  direction,
+  sectionStartWidth,
+  sectionStartHeight,
+  deltaWorldX,
+  deltaWorldY,
+  minWidth,
+  maxWidth,
+  minHeight,
+  maxHeight,
+  widthResizable,
+  heightResizable,
+  aspectRatio,
+  aspectRatioExtraWidth,
+  aspectRatioExtraHeight,
+}: {
+  direction: ResizeHandleDirection;
+  sectionStartWidth: number;
+  sectionStartHeight: number;
+  deltaWorldX: number;
+  deltaWorldY: number;
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+  widthResizable: boolean;
+  heightResizable: boolean;
+  aspectRatio: number | null;
+  aspectRatioExtraWidth: number;
+  aspectRatioExtraHeight: number;
+}): {
+  width: number;
+  height: number;
+  sizeChange: Partial<SectionSize>;
+} {
+  let width = sectionStartWidth;
+  let height = sectionStartHeight;
+
+  if (direction === "right" && widthResizable) {
+    width = clamp(sectionStartWidth + deltaWorldX, minWidth, maxWidth);
+  }
+  if (direction === "bottom" && heightResizable) {
+    height = clamp(sectionStartHeight + deltaWorldY, minHeight, maxHeight);
+  }
+  if (direction === "bottomRight") {
+    if (widthResizable) {
+      width = clamp(sectionStartWidth + deltaWorldX, minWidth, maxWidth);
+    }
+    if (heightResizable) {
+      height = clamp(sectionStartHeight + deltaWorldY, minHeight, maxHeight);
+    }
+  }
+
+  if (aspectRatio) {
+    const aspectResize = applyAspectRatioBounds({
+      direction,
+      width,
+      height,
+      minWidth,
+      maxWidth,
+      minHeight,
+      maxHeight,
+      aspectRatio,
+      aspectRatioExtraWidth,
+      aspectRatioExtraHeight,
+    });
+    width = aspectResize.width;
+    height = aspectResize.height;
+  }
+
+  const sizeChange: Partial<SectionSize> = {};
+  if (direction === "right") {
+    sizeChange.width = width;
+    if (aspectRatio) {
+      sizeChange.height = height;
+    }
+  } else if (direction === "bottom") {
+    sizeChange.height = height;
+    if (aspectRatio) {
+      sizeChange.width = width;
+    }
+  } else {
+    sizeChange.width = width;
+    sizeChange.height = height;
+  }
+
+  return {
+    width,
+    height,
+    sizeChange,
+  };
+}
+
+function applyAspectRatioBounds({
+  direction,
+  width,
+  height,
+  minWidth,
+  maxWidth,
+  minHeight,
+  maxHeight,
+  aspectRatio,
+  aspectRatioExtraWidth,
+  aspectRatioExtraHeight,
+}: {
+  direction: ResizeHandleDirection;
+  width: number;
+  height: number;
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+  aspectRatio: number;
+  aspectRatioExtraWidth: number;
+  aspectRatioExtraHeight: number;
+}): { width: number; height: number } {
+  const resolveHeightFromWidth = (nextWidth: number) => {
+    const contentWidth = Math.max(1, nextWidth - aspectRatioExtraWidth);
+    return contentWidth / aspectRatio + aspectRatioExtraHeight;
+  };
+  const resolveWidthFromHeight = (nextHeight: number) => {
+    const contentHeight = Math.max(1, nextHeight - aspectRatioExtraHeight);
+    return contentHeight * aspectRatio + aspectRatioExtraWidth;
+  };
+
+  let nextWidth = width;
+  let nextHeight = height;
+
+  if (direction === "right") {
+    nextHeight = resolveHeightFromWidth(nextWidth);
+  } else if (direction === "bottom") {
+    nextWidth = resolveWidthFromHeight(nextHeight);
+  } else {
+    const heightFromWidth = resolveHeightFromWidth(nextWidth);
+    const widthFromHeight = resolveWidthFromHeight(nextHeight);
+    const widthDrivenScore = Math.abs(heightFromWidth - nextHeight);
+    const heightDrivenScore = Math.abs(widthFromHeight - nextWidth);
+    if (widthDrivenScore <= heightDrivenScore) {
+      nextHeight = heightFromWidth;
+    } else {
+      nextWidth = widthFromHeight;
+    }
+  }
+
+  nextWidth = clamp(nextWidth, minWidth, maxWidth);
+  nextHeight = clamp(nextHeight, minHeight, maxHeight);
+
+  if (direction === "right" || direction === "bottomRight") {
+    nextHeight = clamp(resolveHeightFromWidth(nextWidth), minHeight, maxHeight);
+    nextWidth = clamp(resolveWidthFromHeight(nextHeight), minWidth, maxWidth);
+  } else {
+    nextWidth = clamp(resolveWidthFromHeight(nextHeight), minWidth, maxWidth);
+    nextHeight = clamp(resolveHeightFromWidth(nextWidth), minHeight, maxHeight);
+  }
+
+  return { width: nextWidth, height: nextHeight };
 }
 
 function clamp(value: number, min: number, max: number): number {

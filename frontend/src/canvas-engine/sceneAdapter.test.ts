@@ -288,6 +288,30 @@ describe("CanvasEngineSceneAdapter", () => {
     expect(adapter.hitTestSectionAtWorldPoint(160, 110)).toBe("sectionB");
     expect(adapter.hitTestSectionAtWorldPoint(-10, -10)).toBe(null);
   });
+
+  it("returns section rectangles by id for host interactions", () => {
+    const adapter = new CanvasEngineSceneAdapter();
+    adapter.applyProjectState(
+      createSceneInput({
+        topLevelSections: {
+          sectionA: createLayout({ x: 24, y: 48, w: 360, h: 260, zIndex: 1 }),
+        },
+        activeSectionIds: [],
+        edges: [],
+        agenticEdges: [],
+      }),
+    );
+
+    expect(adapter.getRectById("sectionA")).toMatchObject({
+      id: "sectionA",
+      x: 24,
+      y: 48,
+      width: 360,
+      height: 260,
+      zIndex: 1,
+    });
+    expect(adapter.getRectById("missing-section")).toBe(null);
+  });
 });
 
 function createSceneInput(overrides: SceneInput): SceneInput {

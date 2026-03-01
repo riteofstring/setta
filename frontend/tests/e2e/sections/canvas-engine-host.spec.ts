@@ -16,6 +16,9 @@ type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
 type TopLevelSectionLayoutSnapshot = {
   x?: number;
   y?: number;
+  w?: number | null;
+  h?: number | null;
+  zIndex?: number;
 };
 
 type LatestProjectStateResponse = {
@@ -43,6 +46,9 @@ type CanvasEngineCameraSnapshot = {
   y: number;
   zoom: number;
 };
+
+const DEFAULT_SECTION_WIDTH_FOR_HIT_TEST = 320;
+const DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST = 200;
 
 test("canvas engine host path mounts and tracks top-level section geometry", async ({
   page,
@@ -159,7 +165,7 @@ test("canvas engine host supports section click selection and pane click clear",
       y: hostBounds.y + hostBounds.height * 0.42,
     };
     const secondScreenPoint = {
-      x: hostBounds.x + hostBounds.width * 0.56,
+      x: hostBounds.x + hostBounds.width * 0.74,
       y: hostBounds.y + hostBounds.height * 0.42,
     };
     const firstPosition = screenToWorldPoint(
@@ -299,6 +305,116 @@ test("canvas engine host drags sections and persists top-level layout", async ({
         x: initialPosition.x + dragDelta.x,
         y: initialPosition.y + dragDelta.y,
       });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("canvas engine host resizes sections and persists top-level size", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedLocalStorage(page, { useCanvasEngineV1: true });
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const host = page.locator('[data-canvas-engine-host="v1"]');
+    await expect(host).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const hostBounds = await host.boundingBox();
+    if (!hostBounds) {
+      throw new Error("Unable to resolve canvas host bounds.");
+    }
+    const camera = await readCamera(host);
+    const sectionScreenPoint = {
+      x: hostBounds.x + hostBounds.width * 0.44,
+      y: hostBounds.y + hostBounds.height * 0.52,
+    };
+    const sectionPosition = screenToWorldPoint(
+      sectionScreenPoint,
+      hostBounds,
+      camera,
+    );
+    const engineViewportBounds = await getEngineViewportBounds(page);
+
+    const sectionId = await createTopLevelSection({
+      page,
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Callable",
+      viewportBounds: engineViewportBounds,
+      position: sectionPosition,
+    });
+
+    await expect
+      .poll(async () => await readRectCount(host))
+      .toBeGreaterThanOrEqual(1);
+
+    const initialLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    const initialWidth =
+      typeof initialLayout.w === "number"
+        ? initialLayout.w
+        : DEFAULT_SECTION_WIDTH_FOR_HIT_TEST;
+    const initialHeight =
+      typeof initialLayout.h === "number"
+        ? initialLayout.h
+        : DEFAULT_SECTION_HEIGHT_FOR_HIT_TEST;
+
+    const resizeStart = {
+      x: initialLayout.x + initialWidth - 2,
+      y: initialLayout.y + initialHeight - 2,
+    };
+    const resizeDelta = { x: 120, y: 90 };
+    await dragWorldPoint(page, host, {
+      start: resizeStart,
+      end: {
+        x: resizeStart.x + resizeDelta.x,
+        y: resizeStart.y + resizeDelta.y,
+      },
+    });
+
+    await expect
+      .poll(async () => await readActiveSectionIds(host))
+      .toEqual([sectionId]);
+    await expect
+      .poll(
+        async () =>
+          (
+            await readTopLevelSectionLayout(
+              page,
+              projectContext.projectConfigId,
+              sectionId,
+            )
+          ).w ?? 0,
+      )
+      .toBeGreaterThan(initialWidth);
+    await expect
+      .poll(
+        async () =>
+          (
+            await readTopLevelSectionLayout(
+              page,
+              projectContext.projectConfigId,
+              sectionId,
+            )
+          ).h ?? 0,
+      )
+      .toBeGreaterThan(initialHeight);
+
+    const finalLayout = await readTopLevelSectionLayout(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    expect(finalLayout.x).toBe(initialLayout.x);
+    expect(finalLayout.y).toBe(initialLayout.y);
+    expect(finalLayout.w).toBeGreaterThan(initialWidth);
+    expect(finalLayout.h).toBeGreaterThan(initialHeight);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -498,6 +614,24 @@ async function readTopLevelSectionPosition(
   projectConfigId: string,
   sectionId: string,
 ): Promise<{ x: number; y: number }> {
+  const layout = await readTopLevelSectionLayout(
+    page,
+    projectConfigId,
+    sectionId,
+  );
+  return { x: layout.x, y: layout.y };
+}
+
+async function readTopLevelSectionLayout(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<{
+  x: number;
+  y: number;
+  w: number | null;
+  h: number | null;
+}> {
   const response = await postBackend<LatestProjectStateResponse>(
     page,
     "/getLatestProjectState",
@@ -514,7 +648,12 @@ async function readTopLevelSectionPosition(
       `Invalid top-level layout position for section ${sectionId}: ${JSON.stringify(layout)}`,
     );
   }
-  return { x: layout.x, y: layout.y };
+  return {
+    x: layout.x,
+    y: layout.y,
+    w: typeof layout.w === "number" ? layout.w : null,
+    h: typeof layout.h === "number" ? layout.h : null,
+  };
 }
 
 async function createAgenticEdge({

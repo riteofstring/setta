@@ -210,6 +210,10 @@ export class CanvasEngineSceneAdapter {
     return topmostRect?.id ?? null;
   }
 
+  public getRectById(sectionId: string): CanvasEngineRect | null {
+    return this.rectById.get(sectionId) ?? null;
+  }
+
   private applySections(
     topLevelSections: Record<string, TopLevelSectionLayout>,
     activeSectionIdSet: Set<string>,

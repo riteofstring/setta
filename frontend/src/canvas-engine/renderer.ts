@@ -845,10 +845,9 @@ function appendActiveRectOverlays(
 
   const centerX = (x0 + x1) / 2;
   const centerY = (y0 + y1) / 2;
-  appendHandleSquare(destination, viewport, x0, centerY);
   appendHandleSquare(destination, viewport, x1, centerY);
-  appendHandleSquare(destination, viewport, centerX, y0);
   appendHandleSquare(destination, viewport, centerX, y1);
+  appendHandleSquare(destination, viewport, x1, y1);
 }
 
 function appendHandleSquare(
