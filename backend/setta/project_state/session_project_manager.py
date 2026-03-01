@@ -1,6 +1,3 @@
-import asyncio
-import threading
-from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -31,12 +28,7 @@ from setta.types.helpers_lvl3 import (
     merge_single_config_into_backend,
 )
 from setta.types.id import ID
-from setta.types.notifications import (
-    SettaBackendLogEventSeverity,
-    SettaNotification,
-    SettaNotificationType,
-)
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateBackend
 from setta.utils.name_validation import validate_project_name
 
 if TYPE_CHECKING:
@@ -50,6 +42,7 @@ if TYPE_CHECKING:
     from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.listener import ListenerFrontendEmitKeyAndValue
+    from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
     from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -58,17 +51,6 @@ class SessionPersistenceMode(str, Enum):
     share = "share"
     ide_main = "ide_main"
     ide_settings = "ide_settings"
-
-
-@dataclass(slots=True)
-class _SaveWorkItem:
-    revision: int
-    payload: ProjectStateBackend | ProjectStateSingleConfig
-    autobackup: bool
-    autobackup_freq: int
-    autobackup_keep_last_n: int
-    export_readable: bool
-    export_with_variants: bool
 
 
 class SessionProjectManager(BaseProjectManager):
@@ -110,12 +92,6 @@ class SessionProjectManager(BaseProjectManager):
             code_files=code_files,
             plugin_manager=plugin_manager,
         )
-        self._save_condition = threading.Condition()
-        self._save_worker_thread: threading.Thread | None = None
-        self._save_worker_shutdown = False
-        self._pending_save_work_item: _SaveWorkItem | None = None
-        self._save_inflight_revision: int | None = None
-        self._last_save_error: tuple[int, Exception] | None = None
 
     def load_initial_state(self) -> ProjectStateBackend:
         if self.share_runtime_state is not None:
@@ -169,246 +145,11 @@ class SessionProjectManager(BaseProjectManager):
         )
 
     def save(self) -> None:
-        revision = self._queue_save_for_current_revision()
-        if revision is None:
-            return
-        self._wait_for_persisted_revision(revision)
-
-    async def autosave(self):
-        try:
-            revision = self._queue_save_for_current_revision()
-            if revision is not None:
-                await asyncio.to_thread(self._wait_for_persisted_revision, revision)
-            await self._flush_deferred_json_source_loads()
-            notification = SettaNotification(
-                message="Autosaved!", type=SettaNotificationType.save
-            )
-            await self.websocket_msg_handler.broadcast_notification(notification)
-        except Exception as exc:
-            await (
-                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="autosave",
-                    message="Failed to autosave",
-                    severity=SettaBackendLogEventSeverity.error,
-                )
-            )
-
-    def _queue_save_for_current_revision(self) -> int | None:
-        if self.share_runtime_state is not None:
-            return None
-        revision = self.history.revision
-        with self._save_condition:
-            if (
-                self._last_persisted_history_revision is not None
-                and self._last_persisted_history_revision >= revision
-            ):
-                return None
-            pending_revision = (
-                self._pending_save_work_item.revision
-                if self._pending_save_work_item is not None
-                else None
-            )
-            inflight_revision = self._save_inflight_revision
-            if pending_revision is not None and pending_revision >= revision:
-                return revision
-            if inflight_revision is not None and inflight_revision >= revision:
-                return revision
-
-        work_item = self._build_save_work_item(revision)
-        with self._save_condition:
-            if (
-                self._last_persisted_history_revision is not None
-                and self._last_persisted_history_revision >= revision
-            ):
-                return None
-            pending_revision = (
-                self._pending_save_work_item.revision
-                if self._pending_save_work_item is not None
-                else None
-            )
-            inflight_revision = self._save_inflight_revision
-            if pending_revision is not None and pending_revision >= revision:
-                return revision
-            if (
-                pending_revision is None
-                and inflight_revision is not None
-                and inflight_revision >= revision
-            ):
-                return revision
-            self._pending_save_work_item = work_item
-            if (
-                self._last_save_error is not None
-                and self._last_save_error[0] <= revision
-            ):
-                self._last_save_error = None
-            self._ensure_save_worker_locked()
-            self._save_condition.notify_all()
-        return revision
-
-    def _wait_for_persisted_revision(self, revision: int) -> None:
-        with self._save_condition:
-            while True:
-                if (
-                    self._last_persisted_history_revision is not None
-                    and self._last_persisted_history_revision >= revision
-                ):
-                    return
-                pending_revision = (
-                    self._pending_save_work_item.revision
-                    if self._pending_save_work_item is not None
-                    else None
-                )
-                inflight_revision = self._save_inflight_revision
-                has_path_to_target = (
-                    pending_revision is not None and pending_revision >= revision
-                ) or (inflight_revision is not None and inflight_revision >= revision)
-                if self._save_worker_shutdown:
-                    raise RuntimeError("Save worker has been shut down.")
-                if self._last_save_error is not None:
-                    failed_revision, failed_error = self._last_save_error
-                    if failed_revision >= revision and not has_path_to_target:
-                        raise failed_error
-                if not has_path_to_target:
-                    raise RuntimeError(
-                        f"Missing queued save work item for revision {revision}."
-                    )
-                self._save_condition.wait()
-
-    def _ensure_save_worker_locked(self) -> None:
-        if self._save_worker_thread is not None and self._save_worker_thread.is_alive():
-            return
-        self._save_worker_thread = threading.Thread(
-            target=self._save_worker_loop,
-            name=f"{type(self).__name__}-save-worker",
-            daemon=True,
-        )
-        self._save_worker_thread.start()
-
-    def _save_worker_loop(self) -> None:
-        while True:
-            with self._save_condition:
-                while (
-                    self._pending_save_work_item is None
-                    and not self._save_worker_shutdown
-                ):
-                    self._save_condition.wait()
-                if self._save_worker_shutdown:
-                    return
-                work_item = self._pending_save_work_item
-                if work_item is None:
-                    continue
-                self._pending_save_work_item = None
-                self._save_inflight_revision = work_item.revision
-
-            try:
-                self._persist_save_work_item(work_item)
-            except Exception as exc:
-                with self._save_condition:
-                    self._last_save_error = (work_item.revision, exc)
-                    self._save_inflight_revision = None
-                    self._save_condition.notify_all()
-                continue
-
-            with self._save_condition:
-                if (
-                    self._last_persisted_history_revision is None
-                    or work_item.revision > self._last_persisted_history_revision
-                ):
-                    self._last_persisted_history_revision = work_item.revision
-                self._save_inflight_revision = None
-                if (
-                    self._last_save_error is not None
-                    and self._last_persisted_history_revision is not None
-                    and self._last_save_error[0]
-                    <= self._last_persisted_history_revision
-                ):
-                    self._last_save_error = None
-                self._save_condition.notify_all()
-
-    def _build_save_work_item(self, revision: int) -> _SaveWorkItem:
-        self.flush_code_files_for_all_configs()
-        if self.persistence_mode == SessionPersistenceMode.ide_settings:
-            default_id = self.project_state_backend.defaultProjectConfigId
-            if not default_id:
-                raise ValueError("Missing default project config id")
-            project_state = convert_backend_to_single_config(
-                self.project_state_backend,
-                default_id,
-            )
-            return _SaveWorkItem(
-                revision=revision,
-                payload=project_state.model_copy(deep=True),
-                autobackup=False,
-                autobackup_freq=0,
-                autobackup_keep_last_n=0,
-                export_readable=False,
-                export_with_variants=False,
-            )
-        if self.persistence_mode == SessionPersistenceMode.ide_main:
-            backend_settings = self.settings_file.settings.backend
-            return _SaveWorkItem(
-                revision=revision,
-                payload=self.project_state_backend.model_copy(deep=True),
-                autobackup=backend_settings.autobackup,
-                autobackup_freq=backend_settings.autobackupFreq,
-                autobackup_keep_last_n=backend_settings.autobackupKeepLastN,
-                export_readable=backend_settings.exportDbReadableOnSave,
-                export_with_variants=backend_settings.exportDbReadableWithVariantsOnSave,
-            )
-        raise ValueError(f"Unsupported persistence mode: {self.persistence_mode}")
-
-    def _persist_save_work_item(self, work_item: _SaveWorkItem) -> None:
-        if self.persistence_mode == SessionPersistenceMode.ide_settings:
-            if not isinstance(work_item.payload, ProjectStateSingleConfig):
-                raise TypeError(
-                    "Settings save expects ProjectStateSingleConfig payload."
-                )
-            payload = work_item.payload
-            save_json_source_data(self.dbe, payload)
-            remove_json_source_values(payload)
-            strip_password_values(payload)
-            self.dbe.write_settings_project(payload)
-            self.artifacts.save()
-            return
-        if self.persistence_mode == SessionPersistenceMode.ide_main:
-            if not isinstance(work_item.payload, ProjectStateBackend):
-                raise TypeError("Project save expects ProjectStateBackend payload.")
-            payload = work_item.payload
-            save_json_source_data(self.dbe, payload)
-            strip_password_values(payload)
-            readable_yaml_payload: str | None = None
-            if work_item.export_readable or work_item.export_with_variants:
-                readable_payload = build_readable_project_export(
-                    payload,
-                    include_variants=work_item.export_with_variants,
-                )
-                readable_yaml_payload = yaml.safe_dump(
-                    readable_payload,
-                    sort_keys=False,
-                )
-            remove_json_source_values(payload)
-            maybe_create_backup(
-                self.dbe.project,
-                work_item.autobackup,
-                work_item.autobackup_freq,
-                work_item.autobackup_keep_last_n,
-            )
-            self.dbe.write_project(payload)
-            self.artifacts.save()
-            if readable_yaml_payload is not None:
-                output_path = self.dbe.path / "project.readable.yaml"
-                self.dbe.write(output_path, readable_yaml_payload)
-            return
-        raise ValueError(f"Unsupported persistence mode: {self.persistence_mode}")
-
-    def shutdown(self) -> None:
-        super().shutdown()
-        with self._save_condition:
-            self._save_worker_shutdown = True
-            self._save_condition.notify_all()
-        if self._save_worker_thread is not None:
-            self._save_worker_thread.join(timeout=5)
+        if self.share_runtime_state is None:
+            if self.persistence_mode == SessionPersistenceMode.ide_settings:
+                self._save_settings_project()
+            elif self.persistence_mode == SessionPersistenceMode.ide_main:
+                self._save_project_state()
 
     async def save_as_new_project_config(
         self, x: SaveAsNewProjectConfigRequest
@@ -432,7 +173,6 @@ class SessionProjectManager(BaseProjectManager):
             self.project_state_backend.projectConfigs[new_project_config.id] = (
                 new_project_config
             )
-            self._mark_current_backend_revision_dirty()
         else:
             new_project_config = copy_project(
                 project_state, normalized_name, do_create_new_id=True
@@ -482,10 +222,9 @@ class SessionProjectManager(BaseProjectManager):
         if self.share_runtime_state is None:
             await super()._broadcast_project_state_snapshot(project_state)
             return
-        completed_op_ids, pending_op_ids = (
-            self._consume_frontend_op_status_for_broadcast()
-        )
-        project_state_revision = self.history.revision
+        self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         redacted = self.share_runtime_state.format_project_state_for_client(
             project_state
         )
@@ -493,7 +232,6 @@ class SessionProjectManager(BaseProjectManager):
             redacted,
             completed_op_ids,
             pending_op_ids,
-            project_state_revision,
         )
         self.completed_op_ids_since_last_broadcast = []
 
@@ -589,3 +327,51 @@ class SessionProjectManager(BaseProjectManager):
                 updateFileWatcher=False,
             )
         await self.settings_file.load_and_broadcast_settings()
+
+    def _save_project_state(self) -> None:
+        self.flush_code_files_for_all_configs()
+        payload = self.project_state_backend.model_copy(deep=True)
+        save_json_source_data(self.dbe, payload)
+        remove_json_source_values(payload)
+        strip_password_values(payload)
+        maybe_create_backup(
+            self.dbe.project,
+            self.settings_file.settings.backend.autobackup,
+            self.settings_file.settings.backend.autobackupFreq,
+            self.settings_file.settings.backend.autobackupKeepLastN,
+        )
+        self.dbe.write_project(payload)
+        self.artifacts.save()
+        self._maybe_export_readable_project()
+
+    def _maybe_export_readable_project(self) -> None:
+        backend_settings = self.settings_file.settings.backend
+        export_readable = backend_settings.exportDbReadableOnSave
+        export_with_variants = backend_settings.exportDbReadableWithVariantsOnSave
+        if not export_readable and not export_with_variants:
+            return
+        sanitized = self.project_state_backend.model_copy(deep=True)
+        strip_password_values(sanitized)
+        payload = build_readable_project_export(
+            sanitized,
+            include_variants=export_with_variants,
+        )
+        output_path = self.dbe.path / "project.readable.yaml"
+        yaml_payload = yaml.safe_dump(payload, sort_keys=False)
+        self.dbe.write(output_path, yaml_payload)
+
+    def _save_settings_project(self) -> None:
+        self.flush_code_files_for_all_configs()
+        default_id = self.project_state_backend.defaultProjectConfigId
+        if not default_id:
+            raise ValueError("Missing default project config id")
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend,
+            default_id,
+        )
+        project_state = project_state.model_copy(deep=True)
+        save_json_source_data(self.dbe, project_state)
+        remove_json_source_values(project_state)
+        strip_password_values(project_state)
+        self.dbe.write_settings_project(project_state)
+        self.artifacts.save()

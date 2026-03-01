@@ -31,19 +31,3 @@ class TestHistoryCoalescing:
 
         history.add_current_copy(coalesce_key="param:1", coalesce_window_s=1.0)
         assert not history.can_redo()
-
-    def test_add_current_copy_supports_custom_copy_function(self):
-        history = History({"value": 1})
-        copy_calls = 0
-
-        def custom_copy(state: dict[str, int]) -> dict[str, int]:
-            nonlocal copy_calls
-            copy_calls += 1
-            return {
-                "value": state["value"],
-                "copied": 1,
-            }
-
-        history.add_current_copy(copy_func=custom_copy)
-        assert copy_calls == 1
-        assert history.get_current() == {"value": 1, "copied": 1}

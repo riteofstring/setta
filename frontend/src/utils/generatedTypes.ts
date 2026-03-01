@@ -947,11 +947,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  PatchFrontendProjectStateActiveViewMode:
-    "PatchFrontendProjectStateActiveViewMode",
-  PatchFrontendProjectStateProjectConfig:
-    "PatchFrontendProjectStateProjectConfig",
-  PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5048,7 +5043,6 @@ const ProjectStateSingleConfigWithCompletedOpIdsSchema = z.object({
   projectState: ProjectStateSingleConfigSchema,
   completedOpIds: z.array(z.string()),
   pendingOpIds: z.array(z.string()),
-  projectStateRevision: z.union([z.int(), z.null()]).default(null),
 });
 
 export type ProjectStateSingleConfigWithCompletedOpIds = z.infer<
@@ -5061,95 +5055,6 @@ const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
-});
-
-const ProjectStateActiveViewModePatchSchema = z.object({
-  projectConfigId: IDSchema,
-  activeViewModeId: IDSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateActiveViewModePatch = z.infer<
-  typeof ProjectStateActiveViewModePatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateActiveViewModePatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateActiveViewMode")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateActiveViewMode,
-    ),
-});
-
-const ProjectStateProjectConfigPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  projectConfig: ProjectConfigSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateProjectConfigPatch = z.infer<
-  typeof ProjectStateProjectConfigPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateProjectConfigSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateProjectConfigPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateProjectConfig")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateProjectConfig,
-    ),
-});
-
-const BaseSectionImplSchema = z.object({
-  type: z.any(),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-});
-
-type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
-
-const ProjectStateSectionImplPatchSchema = z.object({
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  sectionImpl: BaseSectionImplSchema,
-  previousProjectStateRevision: z.int(),
-  projectStateRevision: z.int(),
-  completedOpIds: z.array(z.string()),
-  pendingOpIds: z.array(z.string()),
-});
-
-export type ProjectStateSectionImplPatch = z.infer<
-  typeof ProjectStateSectionImplPatchSchema
->;
-
-const WebsocketMsgPatchFrontendProjectStateSectionImplSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSectionImplPatchSchema,
-  messageType: z
-    .literal("PatchFrontendProjectStateSectionImpl")
-    .default(
-      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateSectionImpl,
-    ),
 });
 
 const WebsocketMsgTerminalMetadataSchema = z.object({
@@ -7209,9 +7114,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgNameValidationErrorsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgPatchFrontendProjectStateActiveViewModeSchema,
-  WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
-  WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
@@ -7865,6 +7767,25 @@ const BaseParentCodeObjImplSchema = z.object({
 });
 
 type BaseParentCodeObjImpl = z.infer<typeof BaseParentCodeObjImplSchema>;
+
+const BaseSectionImplSchema = z.object({
+  type: z.any(),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+});
+
+type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
 
 const ExternalAgentEnvVarStatusSchema = z.object({
   present: z.array(z.string()).default(() => []),
