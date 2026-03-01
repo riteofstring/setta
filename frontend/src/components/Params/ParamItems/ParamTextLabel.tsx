@@ -20,8 +20,7 @@ export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
 
   return (
     <p
-      className={`${bg} section-key cursor-pointer overflow-hidden truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
-      style={{ width: "var(--param-column-width, 200px)" }}
+      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
       onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
     >

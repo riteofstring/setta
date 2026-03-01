@@ -7,7 +7,6 @@ type SwitchInputProps = {
   onEscape?: () => void;
   isDisabled?: boolean;
   outerDivClassName?: string;
-  rootClassName?: string;
   rootThemeClassName?: string;
   thumbThemeClassName?: string;
 };
@@ -18,7 +17,6 @@ export function SwitchInput({
   onEscape,
   isDisabled,
   outerDivClassName,
-  rootClassName,
   rootThemeClassName,
   thumbThemeClassName,
 }: SwitchInputProps) {
@@ -31,30 +29,25 @@ export function SwitchInput({
     "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4";
   const thumbResolvedThemeClassName =
     thumbThemeClassName ?? "bg-white dark:bg-setta-800";
-
-  const switchRoot = (
-    <Switch.Root
-      className={`${rootBaseClassName} ${rootResolvedThemeClassName} ${rootClassName ?? ""}`}
-      checked={value === true || value === "true"}
-      disabled={isDisabled}
-      onCheckedChange={onChange}
-      onKeyDown={(e) => {
-        if (e.code === "Escape") {
-          // have to stop propagation to prevent section from becoming unselected
-          e.stopPropagation();
-          onEscape?.();
-        }
-      }}
-    >
-      <Switch.Thumb
-        className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
-      />
-    </Switch.Root>
+  return (
+    <div className={outerDivClassName}>
+      <Switch.Root
+        className={`${rootBaseClassName} ${rootResolvedThemeClassName}`}
+        checked={value === true || value === "true"}
+        disabled={isDisabled}
+        onCheckedChange={onChange}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            // have to stop propagation to prevent section from becoming unselected
+            e.stopPropagation();
+            onEscape?.();
+          }
+        }}
+      >
+        <Switch.Thumb
+          className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
+        />
+      </Switch.Root>
+    </div>
   );
-
-  if (!outerDivClassName) {
-    return switchRoot;
-  }
-
-  return <div className={outerDivClassName}>{switchRoot}</div>;
 }

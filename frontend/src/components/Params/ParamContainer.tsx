@@ -5,11 +5,9 @@ import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import {
-  getCurrEffectiveCodeObjImpl,
-  getParamDisplayName,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveCodeObjImplIfPresent } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
@@ -20,6 +18,7 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   children,
   onResizeStart,
+  isKwarg,
   isNestedParam,
   hasSectionStyleTheme,
   isTopLevelWithPad,
@@ -38,14 +37,33 @@ function _ParamContainer({
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
-      const codeObjImpl = getCurrEffectiveCodeObjImpl(
+      const codeObj = x.codeObjs[paramInfoId];
+      if (!codeObj) {
+        return {
+          description: "",
+          name: "",
+        };
+      }
+      const codeObjImpl = getCurrEffectiveCodeObjImplIfPresent(
         x,
         sectionId,
         paramInfoId,
       );
+      let displayName = codeObj.name;
+      if (
+        x.projectConfig.showParamDisplayNames &&
+        codeObjImpl &&
+        isBaseParamCodeObjImpl(codeObjImpl) &&
+        !codeObjImpl.coreNameEditable
+      ) {
+        const trimmedDisplayName = codeObj.displayName.trim();
+        if (trimmedDisplayName.length > 0) {
+          displayName = codeObj.displayName;
+        }
+      }
       return {
-        description: codeObjImpl.description,
-        name: getParamDisplayName(x, sectionId, paramInfoId),
+        description: codeObjImpl?.description ?? "",
+        name: displayName,
       };
     },
     _.isEqual,
@@ -80,54 +98,64 @@ function _ParamContainer({
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
-  const nestedChildrenClassName =
-    "section-args-nested section-key-value relative grid gap-y-1 before:absolute before:bottom-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
   return !isNestedParam ? (
-    <article
-      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
-      style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
-      }}
-      data-param-row="true"
-      {...getFloatingBoxHandlers(...tooltipContentArray)}
-      onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-      onClick={onClick}
-      ref={dndRef}
-      {...(dndAttributes ?? {})}
-      {...(dndListeners ?? {})}
-      tabIndex={-1}
-      role={undefined}
-    >
-      {children}
-      <ParamInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        maybeErrorMessage={errorMessage}
-      />
-      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-      {hasError && (
-        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-      )}
-      {hasTempChild && (
-        <div className={nestedChildrenClassName}>
-          <GetParamSwitch
-            sectionId={sectionId}
-            paramIds={renderChildren}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={onResizeStart}
-            listKey={listKey}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
-      )}
-    </article>
+    <>
+      <article
+        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
+        style={{
+          gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+          ...(dndStyle ?? {}),
+        }}
+        data-param-row="true"
+        {...getFloatingBoxHandlers(...tooltipContentArray)}
+        onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
+        onClick={onClick}
+        ref={dndRef}
+        {...(dndAttributes ?? {})}
+        {...(dndListeners ?? {})}
+        tabIndex={-1}
+        role={undefined}
+      >
+        {!isKwarg ? (
+          <div
+            className="section-key overflow-hidden"
+            style={{ width: columnWidth }}
+          >
+            {children}
+          </div>
+        ) : (
+          <>{children}</>
+        )}
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          maybeErrorMessage={errorMessage}
+        />
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        {hasError && (
+          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+        )}
+        {hasTempChild && (
+          <div className="section-args-nested section-key-value relative grid gap-y-1">
+            <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+            <GetParamSwitch
+              sectionId={sectionId}
+              paramIds={renderChildren}
+              requiredParamIdsToPaths={requiredParamIdsToPaths}
+              onResizeStart={onResizeStart}
+              listKey={listKey}
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+          </div>
+        )}
+      </article>
+    </>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm before:absolute before:bottom-0 before:left-[0.75rem] before:top-[1.1rem] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20 ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
+      className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       style={{
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
@@ -143,14 +171,17 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <GetParamSwitch
-        sectionId={sectionId}
-        paramIds={renderChildren}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
-        onResizeStart={onResizeStart}
-        listKey={listKey}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
+      <div className="section-args-nested section-key-value relative grid gap-y-1">
+        <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={renderChildren}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      </div>
     </article>
   );
 }

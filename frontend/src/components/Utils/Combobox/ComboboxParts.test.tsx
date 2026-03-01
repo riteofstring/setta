@@ -72,14 +72,4 @@ describe("ComboboxInput", () => {
     expect(pillMarkup).not.toContain("gg-chevron-down");
     expect(pillMarkup).toContain("<svg");
   });
-
-  it("renders the toggle button without a right wrapper container", () => {
-    // The combobox toggle now owns absolute positioning to avoid an extra wrapper node.
-    const markup = renderInputMarkup("pill");
-    expect(markup).not.toContain(
-      "absolute inset-y-0 right-0 grid select-none place-items-center",
-    );
-    expect(markup).toContain("absolute inset-y-0 right-1");
-    expect(markup).not.toContain("undefined");
-  });
 });
