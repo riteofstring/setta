@@ -2,7 +2,6 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
-  getCurrentProjectConfigId,
   openIsolatedProject,
   postBackend,
   readSceneGraphRendererPerfLabels,
@@ -32,9 +31,12 @@ const SCENE_GRAPH_RENDERER_STORAGE_KEYS = {
     SCENE_GRAPH_RENDERER_ROLLOUT_PROJECT_CONFIG_NAMES_KEY,
 };
 
-const VIEWPORT_PAN_SWEEP_STEPS = 6;
-const VIEWPORT_ZOOM_SWEEP_STEPS = 6;
 const SYNTHETIC_SECTION_COUNT = 64;
+const SETTINGS_STRESS_MIN_SECTION_COUNT = 30;
+const PAN_EVENT_COUNT = 60;
+const ZOOM_EVENT_COUNT = 60;
+const EVENT_INTERVAL_MS = 8;
+const FRAME_SETTLE_MS = 250;
 
 const SYNTHETIC_IMPL_TYPES: Array<
   | "Chart"
@@ -86,13 +88,27 @@ type SceneGraphLayerSnapshot = {
   forcedDomSectionCount: number;
 };
 
-type ViewportSweepMetrics = {
-  panStepLatenciesMs: number[];
-  zoomStepLatenciesMs: number[];
-  panP50Ms: number;
-  panP95Ms: number;
-  zoomP50Ms: number;
-  zoomP95Ms: number;
+type InteractionFrameMetrics = {
+  eventCount: number;
+  frameCount: number;
+  sampleWindowMs: number;
+  frameTimeP50Ms: number;
+  frameTimeP95Ms: number;
+  fpsP50: number;
+  fpsP95: number;
+  droppedFrameCount: number;
+  longFrameCount: number;
+  startHitchMs: number;
+  stopHitchMs: number;
+  transformDelta: ViewportTransform;
+};
+
+type InteractionBenchmarkMetrics = {
+  pan: InteractionFrameMetrics;
+  zoom: InteractionFrameMetrics;
+  zoomMethod:
+    | "wheel_with_zoom_activation_key"
+    | "zoom_in_controls_fallback";
 };
 
 type BackendBenchmarkResult = {
@@ -100,7 +116,7 @@ type BackendBenchmarkResult = {
   mode: "dom" | "auto";
   labels: Awaited<ReturnType<typeof readSceneGraphRendererPerfLabels>>;
   snapshot: SceneGraphLayerSnapshot;
-  viewportSweep: ViewportSweepMetrics;
+  interactionMetrics: InteractionBenchmarkMetrics;
 };
 
 test.describe("scene graph benchmark suite", () => {
@@ -111,7 +127,6 @@ test.describe("scene graph benchmark suite", () => {
 
     await ensureAppReady(page);
 
-    // Run the same surface with both renderer modes so the benchmark output is comparable.
     const results: BackendBenchmarkResult[] = [];
     for (const mode of ["dom", "auto"] as const) {
       await setRendererMode(page, mode);
@@ -119,20 +134,26 @@ test.describe("scene graph benchmark suite", () => {
       await page.waitForSelector(READY_SELECTOR);
       await openAllSettingsTab(page);
       await waitForSceneGraphProbeReady(page);
+      await waitForSectionPopulation(page, SETTINGS_STRESS_MIN_SECTION_COUNT);
 
       const labels = await readSceneGraphRendererPerfLabels(page);
-      const projectConfigId = await getCurrentProjectConfigId(page);
-      const viewportSweep = await runViewportSweepBenchmark(page, projectConfigId);
+      await waitForSceneLayerSnapshotReady(page, labels.resolvedBackend);
       const snapshot = await readSceneGraphLayerSnapshot(page);
+      const interactionMetrics = await runWheelInteractionBenchmark(page);
 
-      assertSnapshotMatchesResolvedBackend(snapshot, labels.resolvedBackend, 12);
+      assertSnapshotMatchesResolvedBackend(
+        snapshot,
+        labels.resolvedBackend,
+        SETTINGS_STRESS_MIN_SECTION_COUNT,
+      );
+      assertInteractionMetrics(interactionMetrics);
 
       results.push({
         scenario: "settings-all-settings",
         mode,
         labels,
         snapshot,
-        viewportSweep,
+        interactionMetrics,
       });
     }
 
@@ -157,7 +178,6 @@ test.describe("scene graph benchmark suite", () => {
       await page.waitForSelector(READY_SELECTOR);
       await waitForSceneGraphProbeReady(page);
 
-      // Build a large mixed project so benchmark coverage is not tied to settings-only content.
       await createSyntheticMixedSections(
         page,
         isolatedProjectContext.projectConfigId,
@@ -169,17 +189,19 @@ test.describe("scene graph benchmark suite", () => {
       for (const mode of ["dom", "auto"] as const) {
         await setRendererMode(page, mode);
         await waitForSceneGraphProbeReady(page);
+        await waitForSectionPopulation(page, SYNTHETIC_SECTION_COUNT);
 
         const labels = await readSceneGraphRendererPerfLabels(page);
-        const projectConfigId = isolatedProjectContext.projectConfigId;
-        const viewportSweep = await runViewportSweepBenchmark(page, projectConfigId);
+        await waitForSceneLayerSnapshotReady(page, labels.resolvedBackend);
         const snapshot = await readSceneGraphLayerSnapshot(page);
+        const interactionMetrics = await runWheelInteractionBenchmark(page);
 
         assertSnapshotMatchesResolvedBackend(
           snapshot,
           labels.resolvedBackend,
           SYNTHETIC_SECTION_COUNT,
         );
+        assertInteractionMetrics(interactionMetrics);
         await assertSceneGraphPromotionParityWhenAvailable(page, labels.resolvedBackend);
 
         results.push({
@@ -187,7 +209,7 @@ test.describe("scene graph benchmark suite", () => {
           mode,
           labels,
           snapshot,
-          viewportSweep,
+          interactionMetrics,
         });
       }
 
@@ -240,21 +262,24 @@ async function setRendererModeWithoutReload(
   page: Page,
   mode: "dom" | "auto",
 ): Promise<void> {
-  await page.evaluate(({ nextMode, storageKeys }) => {
-    localStorage.removeItem(storageKeys.rolloutProjectConfigIds);
-    localStorage.removeItem(storageKeys.rolloutProjectConfigNames);
-    if (nextMode === "dom") {
-      localStorage.setItem(storageKeys.enabled, "0");
-      localStorage.removeItem(storageKeys.backend);
-      localStorage.removeItem(storageKeys.domIslandRadius);
-      localStorage.removeItem(storageKeys.debugOverlay);
-      return;
-    }
-    localStorage.setItem(storageKeys.enabled, "1");
-    localStorage.setItem(storageKeys.backend, "auto");
-    localStorage.setItem(storageKeys.domIslandRadius, "2");
-    localStorage.setItem(storageKeys.debugOverlay, "0");
-  }, { nextMode: mode, storageKeys: SCENE_GRAPH_RENDERER_STORAGE_KEYS });
+  await page.evaluate(
+    ({ nextMode, storageKeys }) => {
+      localStorage.removeItem(storageKeys.rolloutProjectConfigIds);
+      localStorage.removeItem(storageKeys.rolloutProjectConfigNames);
+      if (nextMode === "dom") {
+        localStorage.setItem(storageKeys.enabled, "0");
+        localStorage.removeItem(storageKeys.backend);
+        localStorage.removeItem(storageKeys.domIslandRadius);
+        localStorage.removeItem(storageKeys.debugOverlay);
+        return;
+      }
+      localStorage.setItem(storageKeys.enabled, "1");
+      localStorage.setItem(storageKeys.backend, "auto");
+      localStorage.setItem(storageKeys.domIslandRadius, "2");
+      localStorage.setItem(storageKeys.debugOverlay, "0");
+    },
+    { nextMode: mode, storageKeys: SCENE_GRAPH_RENDERER_STORAGE_KEYS },
+  );
 }
 
 async function clearRendererStorage(page: Page): Promise<void> {
@@ -275,6 +300,25 @@ async function waitForSceneGraphProbeReady(page: Page): Promise<void> {
       return false;
     }
     return root.getAttribute("data-scene-graph-renderer-probe-status") === "ready";
+  });
+}
+
+async function waitForSceneLayerSnapshotReady(
+  page: Page,
+  resolvedBackend: "webgpu" | "webgl" | "dom",
+): Promise<void> {
+  if (resolvedBackend === "dom") {
+    return;
+  }
+  await page.waitForFunction(() => {
+    const layer = document.querySelector(".setta-scene-graph-renderer-layer");
+    if (!(layer instanceof HTMLCanvasElement)) {
+      return false;
+    }
+    const sectionCount = Number(
+      layer.getAttribute("data-scene-graph-layer-sections") ?? "0",
+    );
+    return sectionCount > 0;
   });
 }
 
@@ -342,111 +386,270 @@ async function waitForSectionPopulation(
   }, expectedCount);
 }
 
-async function runViewportSweepBenchmark(
+async function runWheelInteractionBenchmark(
   page: Page,
-  projectConfigId: string,
-): Promise<ViewportSweepMetrics> {
-  const baselineViewport = await readViewportTransform(page);
-  const panTargets = buildPanTargets(baselineViewport, VIEWPORT_PAN_SWEEP_STEPS);
-  const zoomTargets = buildZoomTargets(
-    baselineViewport,
-    VIEWPORT_ZOOM_SWEEP_STEPS,
+): Promise<InteractionBenchmarkMetrics> {
+  return await page.evaluate(
+    async ({ panEventCount, zoomEventCount, eventIntervalMs, settleMs }) => {
+      const pane = document.querySelector(".react-flow__pane");
+      const viewport = document.querySelector(".react-flow__viewport");
+      if (!(pane instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+        throw new Error("Missing react-flow pane or viewport.");
+      }
+
+      const readTransform = () => {
+        const transform = window.getComputedStyle(viewport).transform;
+        if (!transform || transform === "none") {
+          return { x: 0, y: 0, zoom: 1 };
+        }
+        const matrix = new DOMMatrixReadOnly(transform);
+        return {
+          x: Number(matrix.e.toFixed(3)),
+          y: Number(matrix.f.toFixed(3)),
+          zoom: Number(matrix.a.toFixed(3)),
+        };
+      };
+
+      const percentile = (values: number[], quantile: number): number => {
+        if (values.length === 0) {
+          return 0;
+        }
+        const sorted = [...values].sort((left, right) => left - right);
+        const clampedQuantile = Math.max(0, Math.min(1, quantile));
+        const index = Math.min(
+          sorted.length - 1,
+          Math.floor(clampedQuantile * (sorted.length - 1)),
+        );
+        return Number((sorted[index] ?? 0).toFixed(3));
+      };
+
+      const sleep = (ms: number) => {
+        return new Promise<void>((resolve) => {
+          setTimeout(resolve, ms);
+        });
+      };
+
+      const paneRect = pane.getBoundingClientRect();
+      const centerX = paneRect.left + paneRect.width / 2;
+      const centerY = paneRect.top + paneRect.height / 2;
+
+      const dispatchWheel = (params: {
+        deltaX: number;
+        deltaY: number;
+        ctrlKey?: boolean;
+      }) => {
+        pane.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            clientX: centerX,
+            clientY: centerY,
+            deltaX: params.deltaX,
+            deltaY: params.deltaY,
+            deltaMode: 0,
+            ctrlKey: params.ctrlKey ?? false,
+          }),
+        );
+      };
+
+      const ensureZoomHeadroom = async () => {
+        const currentTransform = readTransform();
+        if (currentTransform.zoom < 9.5) {
+          return;
+        }
+        const resetZoomButton = Array.from(
+          document.querySelectorAll("button"),
+        ).find((button) => {
+          const ariaLabel = (button.getAttribute("aria-label") ?? "").trim();
+          const text = (button.textContent ?? "").trim();
+          return (
+            ariaLabel.toLowerCase() === "reset zoom" ||
+            text.toLowerCase() === "reset zoom"
+          );
+        });
+        if (!(resetZoomButton instanceof HTMLButtonElement)) {
+          return;
+        }
+        resetZoomButton.click();
+        await sleep(120);
+      };
+
+      const measureInteraction = async (
+        runWheelSequence: () => Promise<number>,
+      ): Promise<InteractionFrameMetrics> => {
+        const frameTimestamps: number[] = [];
+        let sampleActive = true;
+
+        const sampleFrame = (timestamp: number) => {
+          frameTimestamps.push(timestamp);
+          if (sampleActive) {
+            requestAnimationFrame(sampleFrame);
+          }
+        };
+
+        requestAnimationFrame(sampleFrame);
+        await sleep(32);
+
+        const transformBefore = readTransform();
+        const interactionStart = performance.now();
+        const eventCount = await runWheelSequence();
+        const interactionEnd = performance.now();
+
+        await sleep(settleMs);
+        sampleActive = false;
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+
+        const transformAfter = readTransform();
+        const sampledIntervals: number[] = [];
+
+        for (let index = 1; index < frameTimestamps.length; index += 1) {
+          const interval = frameTimestamps[index] - frameTimestamps[index - 1];
+          const intervalEndTimestamp = frameTimestamps[index];
+          if (intervalEndTimestamp < interactionStart) {
+            continue;
+          }
+          if (intervalEndTimestamp > interactionEnd + settleMs) {
+            continue;
+          }
+          if (!Number.isFinite(interval) || interval <= 0) {
+            continue;
+          }
+          sampledIntervals.push(interval);
+        }
+
+        const fpsSamples = sampledIntervals.map((interval) => 1000 / interval);
+        const firstFrameAfterStart =
+          frameTimestamps.find((timestamp) => timestamp >= interactionStart) ?? null;
+        const firstFrameAfterEnd =
+          frameTimestamps.find((timestamp) => timestamp >= interactionEnd) ?? null;
+
+        return {
+          eventCount,
+          frameCount: sampledIntervals.length,
+          sampleWindowMs: Number((interactionEnd - interactionStart).toFixed(3)),
+          frameTimeP50Ms: percentile(sampledIntervals, 0.5),
+          frameTimeP95Ms: percentile(sampledIntervals, 0.95),
+          fpsP50: percentile(fpsSamples, 0.5),
+          fpsP95: percentile(fpsSamples, 0.95),
+          droppedFrameCount: sampledIntervals.filter((interval) => interval > 20).length,
+          longFrameCount: sampledIntervals.filter((interval) => interval > 50).length,
+          startHitchMs:
+            firstFrameAfterStart === null
+              ? 0
+              : Number((firstFrameAfterStart - interactionStart).toFixed(3)),
+          stopHitchMs:
+            firstFrameAfterEnd === null
+              ? 0
+              : Number((firstFrameAfterEnd - interactionEnd).toFixed(3)),
+          transformDelta: {
+            x: Number((transformAfter.x - transformBefore.x).toFixed(3)),
+            y: Number((transformAfter.y - transformBefore.y).toFixed(3)),
+            zoom: Number((transformAfter.zoom - transformBefore.zoom).toFixed(3)),
+          },
+        };
+      };
+
+      const pan = await measureInteraction(async () => {
+        for (let index = 0; index < panEventCount; index += 1) {
+          dispatchWheel({ deltaX: 24, deltaY: 18 });
+          await sleep(eventIntervalMs);
+        }
+        return panEventCount;
+      });
+
+      await ensureZoomHeadroom();
+      const flowStoreModule = await import("/src/forks/xyflow/core/store");
+      const reactFlowStore = (flowStoreModule as {
+        useReactFlow?: {
+          setState: (nextState: { zoomActivationKeyPressed: boolean }) => void;
+        };
+      }).useReactFlow;
+      if (!reactFlowStore || typeof reactFlowStore.setState !== "function") {
+        throw new Error("Missing react-flow store for zoom activation measurements.");
+      }
+
+      reactFlowStore.setState({ zoomActivationKeyPressed: true });
+      await sleep(60);
+      const zoom = await measureInteraction(async () => {
+        for (let index = 0; index < zoomEventCount; index += 1) {
+          dispatchWheel({ deltaX: 0, deltaY: -55 });
+          await sleep(eventIntervalMs);
+        }
+        return zoomEventCount;
+      });
+      reactFlowStore.setState({ zoomActivationKeyPressed: false });
+      await sleep(40);
+
+      let zoomMethod: InteractionBenchmarkMetrics["zoomMethod"] =
+        "wheel_with_zoom_activation_key";
+      let zoomMetrics = zoom;
+      if (Math.abs(zoomMetrics.transformDelta.zoom) <= 0.01) {
+        const zoomInButton = Array.from(
+          document.querySelectorAll("button"),
+        ).find((button) => {
+          const ariaLabel = (button.getAttribute("aria-label") ?? "").trim();
+          const text = (button.textContent ?? "").trim();
+          return (
+            ariaLabel.toLowerCase() === "zoom in" ||
+            text.toLowerCase() === "zoom in"
+          );
+        });
+        if (!(zoomInButton instanceof HTMLButtonElement)) {
+          throw new Error(
+            "Unable to locate zoom-in button for fallback interaction metrics.",
+          );
+        }
+        const fallbackEventCount = Math.max(16, Math.floor(zoomEventCount / 2));
+        zoomMetrics = await measureInteraction(async () => {
+          for (let index = 0; index < fallbackEventCount; index += 1) {
+            zoomInButton.click();
+            await sleep(eventIntervalMs);
+          }
+          return fallbackEventCount;
+        });
+        zoomMethod = "zoom_in_controls_fallback";
+      }
+
+      return { pan, zoom: zoomMetrics, zoomMethod };
+    },
+    {
+      panEventCount: PAN_EVENT_COUNT,
+      zoomEventCount: ZOOM_EVENT_COUNT,
+      eventIntervalMs: EVENT_INTERVAL_MS,
+      settleMs: FRAME_SETTLE_MS,
+    },
   );
-
-  const panStepLatenciesMs: number[] = [];
-  for (const target of panTargets) {
-    const startMs = Date.now();
-    await postBackend(page, "/setViewport", {
-      projectConfigId,
-      viewport: target,
-    });
-    await page.waitForTimeout(25);
-    panStepLatenciesMs.push(Date.now() - startMs);
-  }
-
-  const zoomStepLatenciesMs: number[] = [];
-  for (const target of zoomTargets) {
-    const startMs = Date.now();
-    await postBackend(page, "/setViewport", {
-      projectConfigId,
-      viewport: target,
-    });
-    await page.waitForTimeout(25);
-    zoomStepLatenciesMs.push(Date.now() - startMs);
-  }
-
-  await postBackend(page, "/setViewport", {
-    projectConfigId,
-    viewport: baselineViewport,
-  });
-  await page.waitForTimeout(25);
-
-  return {
-    panStepLatenciesMs,
-    zoomStepLatenciesMs,
-    panP50Ms: percentile(panStepLatenciesMs, 0.5),
-    panP95Ms: percentile(panStepLatenciesMs, 0.95),
-    zoomP50Ms: percentile(zoomStepLatenciesMs, 0.5),
-    zoomP95Ms: percentile(zoomStepLatenciesMs, 0.95),
-  };
 }
 
-function buildPanTargets(
-  baseline: ViewportTransform,
-  steps: number,
-): ViewportTransform[] {
-  const targets: ViewportTransform[] = [];
-  for (let index = 0; index < steps; index += 1) {
-    const direction = index % 2 === 0 ? 1 : -1;
-    const magnitude = Math.floor(index / 2) + 1;
-    targets.push({
-      x: baseline.x + direction * magnitude * 160,
-      y: baseline.y + direction * magnitude * 120,
-      zoom: baseline.zoom,
-    });
+function assertInteractionMetrics(metrics: InteractionBenchmarkMetrics): void {
+  expect(metrics.pan.eventCount).toBe(PAN_EVENT_COUNT);
+  expect(metrics.pan.frameCount).toBeGreaterThan(10);
+  expect(metrics.pan.frameTimeP50Ms).toBeGreaterThan(0);
+  expect(metrics.pan.frameTimeP95Ms).toBeGreaterThan(0);
+  expect(metrics.pan.fpsP50).toBeGreaterThan(0);
+  expect(metrics.pan.fpsP95).toBeGreaterThan(0);
+  expect(metrics.pan.startHitchMs).toBeGreaterThanOrEqual(0);
+  expect(metrics.pan.stopHitchMs).toBeGreaterThanOrEqual(0);
+  expect(
+    Math.abs(metrics.pan.transformDelta.x) + Math.abs(metrics.pan.transformDelta.y),
+  ).toBeGreaterThan(10);
+
+  if (metrics.zoomMethod === "wheel_with_zoom_activation_key") {
+    expect(metrics.zoom.eventCount).toBe(ZOOM_EVENT_COUNT);
+  } else {
+    expect(metrics.zoom.eventCount).toBeGreaterThanOrEqual(16);
+    expect(metrics.zoom.eventCount).toBeLessThan(ZOOM_EVENT_COUNT);
   }
-  return targets;
-}
-
-function buildZoomTargets(
-  baseline: ViewportTransform,
-  steps: number,
-): ViewportTransform[] {
-  const targets: ViewportTransform[] = [];
-  for (let index = 0; index < steps; index += 1) {
-    const direction = index % 2 === 0 ? 1 : -1;
-    const magnitude = Math.floor(index / 2) + 1;
-    const nextZoom = clampZoom(baseline.zoom + direction * magnitude * 0.07);
-    targets.push({
-      x: baseline.x,
-      y: baseline.y,
-      zoom: nextZoom,
-    });
-  }
-  return targets;
-}
-
-function clampZoom(zoom: number): number {
-  return Math.max(0.2, Math.min(2.5, Number(zoom.toFixed(3))));
-}
-
-async function readViewportTransform(page: Page): Promise<ViewportTransform> {
-  return await page.evaluate(() => {
-    const viewport = document.querySelector(".react-flow__viewport");
-    if (!(viewport instanceof HTMLElement)) {
-      throw new Error("Missing react-flow viewport.");
-    }
-    const transform = window.getComputedStyle(viewport).transform;
-    if (!transform || transform === "none") {
-      return { x: 0, y: 0, zoom: 1 };
-    }
-    const matrix = new DOMMatrixReadOnly(transform);
-    return {
-      x: Number(matrix.e.toFixed(3)),
-      y: Number(matrix.f.toFixed(3)),
-      zoom: Number(matrix.a.toFixed(3)),
-    };
-  });
+  expect(metrics.zoom.frameCount).toBeGreaterThan(10);
+  expect(metrics.zoom.frameTimeP50Ms).toBeGreaterThan(0);
+  expect(metrics.zoom.frameTimeP95Ms).toBeGreaterThan(0);
+  expect(metrics.zoom.fpsP50).toBeGreaterThan(0);
+  expect(metrics.zoom.fpsP95).toBeGreaterThan(0);
+  expect(metrics.zoom.startHitchMs).toBeGreaterThanOrEqual(0);
+  expect(metrics.zoom.stopHitchMs).toBeGreaterThanOrEqual(0);
+  expect(Math.abs(metrics.zoom.transformDelta.zoom)).toBeGreaterThan(0.01);
 }
 
 async function readSceneGraphLayerSnapshot(
@@ -604,17 +807,4 @@ async function assertSceneGraphPromotionParityWhenAvailable(
     `.react-flow__node[data-id="${clickTarget.sectionId}"]`,
   );
   await expect(promotedNode).toBeVisible();
-}
-
-function percentile(values: number[], quantile: number): number {
-  if (values.length === 0) {
-    return 0;
-  }
-  const sorted = [...values].sort((left, right) => left - right);
-  const clampedQuantile = Math.max(0, Math.min(1, quantile));
-  const index = Math.min(
-    sorted.length - 1,
-    Math.floor(clampedQuantile * (sorted.length - 1)),
-  );
-  return sorted[index] ?? 0;
 }

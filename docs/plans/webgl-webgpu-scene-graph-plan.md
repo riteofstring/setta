@@ -201,7 +201,8 @@
   - parity cannot be preserved without UX regression.
 
 ## Immediate Next Step
-- Rebaseline Phase 0 using benchmark suite:
-  - keep `Settings -> All Settings` as stress benchmark,
-  - add synthetic + non-settings large-project scenarios,
-  - publish suite-wide perf/parity report under `perf/reports/frontend/`.
+- Phase 0 benchmark hardening and threshold gating:
+  - keep `Settings -> All Settings` plus non-settings large-project scenarios as the required suite,
+  - use interaction-time frame metrics (not request latency) as the perf source of truth,
+  - remove zoom-control fallback dependence by making wheel-zoom measurement deterministic in automation,
+  - promote the suite to explicit go/no-go threshold checks for default-on readiness.
