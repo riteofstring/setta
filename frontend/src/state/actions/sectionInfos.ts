@@ -1163,9 +1163,22 @@ export function applySectionImplProjectStatePatch(
     if (patch.sectionImpl.id !== sectionImplId) {
       return;
     }
+    let nextPinnedParams: string[] | null = null;
+    if (
+      isBaseSectionWithParamsImpl(sectionImpl) &&
+      isBaseSectionWithParamsImpl(patch.sectionImpl) &&
+      !_.isEqual(sectionImpl.pinnedParams, patch.sectionImpl.pinnedParams)
+    ) {
+      nextPinnedParams = patch.sectionImpl.pinnedParams;
+    }
     state.sectionImpls[sectionImplId] = patch.sectionImpl;
-    if (patch.shownParamIds !== undefined && patch.shownParamIds !== null) {
-      state.shownParamIds[sectionVariantId] = patch.shownParamIds;
+    if (nextPinnedParams !== null) {
+      updateShownParamIdsForPinnedParams(
+        state,
+        patch.sectionId,
+        nextPinnedParams,
+        false,
+      );
     }
     applied = true;
   });

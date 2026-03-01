@@ -55,7 +55,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
-from setta.types.shown_params import ShownParamIds
 from setta.utils.constants import C
 
 
@@ -1242,7 +1241,6 @@ class ProjectStateSectionImplPatch:
     projectStateRevision: int
     completedOpIds: list[str]
     pendingOpIds: list[str]
-    shownParamIds: ShownParamIds | None = None
 
 
 class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithProjectConfig):

@@ -1,13 +1,14 @@
-# set_section_pinned_params section-impl patch with shown param ids
+# set_section_pinned_params section-impl patch without shown-param payload
 
 Date: 2026-03-02  
 Area: backend  
-Branch/Commit: backend-performance @ 822b8047 (baseline emulation) -> working tree
+Branch/Commit: backend-performance @ 67fbbe8b (baseline emulation) -> working tree
 
 ## Goal
 
 Eliminate full project-state snapshot transport for `set_section_pinned_params`
-while preserving `shownParamIds` synchronization across clients.
+while preserving `shownParamIds` synchronization across clients, without adding
+large shown-param payloads to section-impl patches.
 
 Targeted route:
 - `set_section_pinned_params`
@@ -18,24 +19,21 @@ Backend changes:
 - Switched `set_section_pinned_params` from
   `_merge_and_broadcast_ui_only_project_state(...)` to
   `_merge_and_broadcast_ui_only_section_impl_patch(...)`.
-- Extended `ProjectStateSectionImplPatch` with optional `shownParamIds`.
-- Extended section-impl patch broadcast plumbing to include optional
-  `shownParamIds` payload.
-- Route now refreshes section `shownParamIds` and includes the refreshed value in
-  its section-impl patch.
+- Kept existing section-impl patch payload shape (no new shown-param field).
+- Route still refreshes section `shownParamIds` on backend for canonical state.
 
 Frontend changes:
-- `applySectionImplProjectStatePatch(...)` now applies `patch.shownParamIds` to
-  the section variant when present.
+- `applySectionImplProjectStatePatch(...)` now detects pinned-param changes on
+  BaseSectionWithParams impl patches and recomputes shown-param partition using
+  `updateShownParamIdsForPinnedParams(...)`.
 
 Tests:
 - Updated backend route transport assertions in
   `tests/project_state/test_ui_only_fast_path.py` to verify
-  `set_section_pinned_params` emits section-impl patches and includes
-  `shownParamIds`.
+  `set_section_pinned_params` emits section-impl patches (no snapshot fallback).
 - Added frontend state test coverage in
   `frontend/src/state/actions/sectionInfos.test.ts` for applying
-  `shownParamIds` from section-impl patches.
+  shown-param recomputation when pinned params change via section-impl patches.
 
 ## Benchmark scenario
 
@@ -54,19 +52,20 @@ Baseline emulation:
   `_merge_and_broadcast_ui_only_project_state(...)` (snapshot behavior).
 
 After:
-- Native section-impl patch transport with `shownParamIds`.
+- Native section-impl patch transport with frontend derivation of shown-param
+  partition from patched pinned params.
 
 ## Results (local)
 
 - `set_section_pinned_params`
-  - latency median: `4.5370 ms` -> `4.5716 ms` (`~0.76%` slower, `0.99x`)
-  - payload median: `45,294.5 B` -> `2,103.5 B` (`~95.36%`, `21.53x` smaller)
+  - latency median: `4.9456 ms` -> `4.3464 ms` (`~12.12%`, `1.14x`)
+  - payload median: `45,273.5 B` -> `597 B` (`~98.68%`, `75.84x` smaller)
 
 Notes:
 - Payload measurements come from serialized websocket messages in-process and do
   not include network transport variability.
-- Local latency did not improve in this run, but payload reduction is large and
-  materially lowers websocket transfer/parse overhead.
+- This replaces an intermediate variant that attached full `shownParamIds`
+  payloads to section-impl patches.
 
 ## Coverage
 

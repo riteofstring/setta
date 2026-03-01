@@ -28,6 +28,7 @@ import {
 } from "state/definitions";
 import {
   ChatRoleEnum,
+  createCallableSectionImpl,
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
@@ -36,6 +37,7 @@ import {
   createProjectConfig,
   createSingletonSections,
   createTerminalSectionImpl,
+  createUserDefaultCallableSectionImpl,
   createUserDefaultChatSectionImpl,
   createUserDefaultListRootSectionImpl,
   createVariant,
@@ -1723,10 +1725,10 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(getProjectStateRevision("project-1")).toBe(32);
   });
 
-  it("applies shown param ids from section-impl patches when provided", () => {
+  it("recomputes shown param ids when pinned params change in a section-impl patch", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";
-    const implId = "chat-impl-1";
+    const implId = "callable-impl-1";
     const initialShown: ShownParamIds = {
       pinned: {
         requiredParamIdsToPaths: {},
@@ -1759,11 +1761,13 @@ describe("processProjectStateUpdateFromBackend", () => {
         [sectionId]: createCore({ id: sectionId }),
       },
       sectionImpls: {
-        [implId]: createChatSectionImpl({
-          id: implId,
-          type: SectionTypeEnum.Chat,
-          inputText: "before",
-        }),
+        [implId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: implId,
+            pinnedParams: [],
+          },
+        ),
       },
       sectionVariants: {
         [variantId]: createVariant({
@@ -1787,16 +1791,17 @@ describe("processProjectStateUpdateFromBackend", () => {
     const applied = applySectionImplProjectStatePatch({
       projectConfigId: "project-1",
       sectionId,
-      sectionImpl: createChatSectionImpl({
-        id: implId,
-        type: SectionTypeEnum.Chat,
-        inputText: "after",
-      }),
+      sectionImpl: createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: implId,
+          pinnedParams: ["param-a"],
+        },
+      ),
       previousProjectStateRevision: 40,
       projectStateRevision: 41,
       completedOpIds: [],
       pendingOpIds: [],
-      shownParamIds: nextShown,
     });
 
     expect(applied).toBe(true);
