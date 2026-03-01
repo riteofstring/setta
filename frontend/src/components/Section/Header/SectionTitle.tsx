@@ -33,7 +33,6 @@ type SectionTitleClassNames = {
 type SectionTitleProps = {
   sectionId: string;
   titleProps: SectionTitleClassNames;
-  wrapperless?: boolean;
 };
 
 type SectionSlugIndex = {
@@ -50,11 +49,7 @@ let cachedSectionSlugIndex: {
   index: SectionSlugIndex;
 } | null = null;
 
-export function SectionTitle({
-  sectionId,
-  titleProps,
-  wrapperless = false,
-}: SectionTitleProps) {
+export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
   const backendErrors = useNameValidationErrors(
     (state) => state.sectionErrors[sectionId],
@@ -96,7 +91,6 @@ export function SectionTitle({
         sectionId={sectionId}
         sectionName={sectionName}
         titleProps={mergedTitleProps}
-        wrapperless={wrapperless}
         {...getFloatingBoxHandlers(...tooltipContentArray)}
       />
     );
@@ -138,20 +132,14 @@ type EditableTitleProps = {
   sectionId: string;
   sectionName: string;
   titleProps: SectionTitleClassNames;
-  wrapperless: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 };
-
-function appendClassName(value: string | undefined, extraClassName: string) {
-  return value ? `${value} ${extraClassName}` : extraClassName;
-}
 
 function EditableTitle({
   sectionId,
   sectionName,
   titleProps,
-  wrapperless,
   onMouseEnter,
   onMouseLeave,
 }: EditableTitleProps) {
@@ -213,32 +201,6 @@ function EditableTitle({
       ? `${titleProps.notEditing} ${localErrorClassName}`
       : titleProps.notEditing,
   };
-  const wrapperlessTitleProps = wrapperless
-    ? {
-        ...mergedTitleProps,
-        editing: appendClassName(mergedTitleProps.editing, "min-w-0 flex-1"),
-        notEditing: appendClassName(
-          mergedTitleProps.notEditing,
-          "min-w-0 flex-1",
-        ),
-      }
-    : mergedTitleProps;
-
-  if (wrapperless && !validationError) {
-    return (
-      <Editable
-        value={inputValue}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        titleProps={wrapperlessTitleProps}
-        doubleClickToEdit={true}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
-      />
-    );
-  }
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
@@ -247,7 +209,7 @@ function EditableTitle({
         onChange={onChange}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        titleProps={wrapperlessTitleProps}
+        titleProps={mergedTitleProps}
         doubleClickToEdit={true}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
