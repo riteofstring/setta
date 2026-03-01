@@ -10333,11 +10333,69 @@ class BaseProjectManager(ABC):
         self.history.set_current(self.project_state_backend)
         self._invalidate_single_config_state_cache()
 
+    def _normalize_backend_after_history_navigation(self) -> None:
+        backend = self.project_state_backend
+        section_impl_updates: dict[ID, object] = {}
+        code_obj_impl_updates: dict[ID, object] = {}
+
+        for project_config in backend.projectConfigs.values():
+            project_core = prepare_sections_for_copy(
+                backend,
+                set(project_config.sectionVariantMap.keys()),
+            )
+            for (
+                section_impl_id,
+                sanitized_section_impl,
+            ) in project_core.sectionImpls.items():
+                if section_impl_id not in backend.sectionImpls:
+                    continue
+                if backend.sectionImpls[section_impl_id] == sanitized_section_impl:
+                    continue
+                section_impl_updates[section_impl_id] = sanitized_section_impl
+            for (
+                code_obj_impl_id,
+                sanitized_code_obj_impl,
+            ) in project_core.codeObjImpls.items():
+                if code_obj_impl_id not in backend.codeObjImpls:
+                    continue
+                if backend.codeObjImpls[code_obj_impl_id] == sanitized_code_obj_impl:
+                    continue
+                code_obj_impl_updates[code_obj_impl_id] = sanitized_code_obj_impl
+
+        if not section_impl_updates and not code_obj_impl_updates:
+            return
+
+        next_section_impls = dict(backend.sectionImpls)
+        for section_impl_id, section_impl in section_impl_updates.items():
+            next_section_impls[section_impl_id] = section_impl
+        next_code_obj_impls = dict(backend.codeObjImpls)
+        for code_obj_impl_id, code_obj_impl in code_obj_impl_updates.items():
+            next_code_obj_impls[code_obj_impl_id] = code_obj_impl
+
+        logger.debug(
+            "normalized_backend_after_history_navigation section_impl_updates=%s code_obj_impl_updates=%s",
+            len(section_impl_updates),
+            len(code_obj_impl_updates),
+        )
+
+        self.project_state_backend = ProjectStateBackend(
+            sections=backend.sections,
+            sectionImpls=next_section_impls,
+            sectionVariants=backend.sectionVariants,
+            codeObjs=backend.codeObjs,
+            codeObjImpls=next_code_obj_impls,
+            codeObjVariants=backend.codeObjVariants,
+            projectConfigs=backend.projectConfigs,
+            defaultProjectConfigId=backend.defaultProjectConfigId,
+            appDefinition=backend.appDefinition,
+        )
+
     @enqueue_method
     async def undo(self, x: UndoRequest):
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.undo(x.steps)
+        self._normalize_backend_after_history_navigation()
         self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state(
             previous_project_state_revision=previous_project_state_revision
@@ -10348,6 +10406,7 @@ class BaseProjectManager(ABC):
         self._cancel_all_pending_codegen_refreshes()
         previous_project_state_revision = self.history.revision
         self.history.redo(x.steps)
+        self._normalize_backend_after_history_navigation()
         self._invalidate_single_config_state_cache()
         await self.update_and_broadcast_all_project_state(
             previous_project_state_revision=previous_project_state_revision
