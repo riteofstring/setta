@@ -30,7 +30,7 @@ import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 
 const WATCH_CODE_PORTAL_MIN_WIDTH_PX = 280;
-const WATCH_CODE_PORTAL_MAX_WIDTH_PX = 480;
+const WATCH_CODE_PORTAL_MAX_WIDTH_PX = 352;
 const WATCH_CODE_PORTAL_MARGIN_PX = 12;
 const WATCH_CODE_PORTAL_BUTTON_GAP_PX = 12;
 const WATCH_CODE_PORTAL_ESTIMATED_HEIGHT_PX = 360;
@@ -352,7 +352,7 @@ const Controls = () => {
         ? createPortal(
             <aside
               ref={watchCodePortalRef}
-              className="fixed z-[70] rounded-xl bg-setta-50/95 p-3 shadow-[0_16px_40px_rgba(15,23,42,0.25)] backdrop-blur dark:bg-setta-950/95"
+              className="nodrag nopan nowheel fixed z-[70] flex max-h-[min(70vh,34rem)] flex-col overflow-visible rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-setta-700/70 dark:bg-setta-900/95"
               data-testid="rf__watch-code-settings-portal"
               aria-label="Watch code settings"
               style={
@@ -374,8 +374,8 @@ const Controls = () => {
                   }
                 }
               >
-                <div className="absolute left-0 top-0 h-0 w-0 border-y-[11px] border-y-transparent border-r-[11px] border-r-setta-300/75 dark:border-r-setta-700" />
-                <div className="absolute left-[1px] top-[1px] h-0 w-0 border-y-[10px] border-y-transparent border-r-[10px] border-r-setta-50/95 dark:border-r-setta-950/95" />
+                <div className="absolute left-0 top-0 h-0 w-0 border-y-[11px] border-y-transparent border-r-[11px] border-r-setta-200/80 dark:border-r-setta-700/70" />
+                <div className="absolute left-[1px] top-[1px] h-0 w-0 border-y-[10px] border-y-transparent border-r-[10px] border-r-white/95 dark:border-r-setta-900/95" />
               </div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
@@ -390,8 +390,8 @@ const Controls = () => {
                   <i className="gg-close" />
                 </button>
               </div>
-              <div className="max-h-[min(70vh,34rem)] overflow-y-auto pr-1">
-                <WatchCodePane />
+              <div className="setta-pane-scroll min-h-0 flex-1">
+                <WatchCodePane inPopover />
               </div>
             </aside>,
             document.body,

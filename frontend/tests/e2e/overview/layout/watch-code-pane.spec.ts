@@ -34,6 +34,15 @@ test("watch code settings open from controls portal with all options", async ({
     name: /Enable Watch Code|Disable Watch Code/,
   });
   await expect(toggleButton).toBeVisible();
+  const initialPressed = await toggleButton.getAttribute("aria-pressed");
+  expect(initialPressed === "true" || initialPressed === "false").toBeTruthy();
+  await toggleButton.click();
+  if (initialPressed) {
+    await expect(toggleButton).toHaveAttribute(
+      "aria-pressed",
+      initialPressed === "true" ? "false" : "true",
+    );
+  }
   await expect(
     portal.locator('[data-setting-anchor="core.watch_code.enabled"]'),
   ).toBeVisible();
