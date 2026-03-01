@@ -2518,12 +2518,30 @@ def test_backend_fixture_state_read_and_listener_emit_roundtrip(
     backend_state.validate_default_project_id()
 
     class _StateManager:
-        def __init__(self, state: ProjectStateBackend) -> None:
+        def __init__(
+            self,
+            state: ProjectStateBackend,
+            single_state: ProjectStateSingleConfig,
+        ) -> None:
             self.project_state_backend = state
+            self._single_state = single_state
+            self.single_config_read_count = 0
+
+        def get_single_config_state(
+            self,
+            project_config_id: str,
+        ) -> ProjectStateSingleConfig:
+            assert project_config_id == "fixture-project"
+            self.single_config_read_count += 1
+            return self._single_state
 
     class _Switcher:
-        def __init__(self, state: ProjectStateBackend) -> None:
-            self._manager = _StateManager(state)
+        def __init__(
+            self,
+            state: ProjectStateBackend,
+            single_state: ProjectStateSingleConfig,
+        ) -> None:
+            self._manager = _StateManager(state, single_state)
 
         def get(self, project_identifier: str, *, share_session_id: str | None = None):
             assert share_session_id is None
@@ -2548,7 +2566,7 @@ def test_backend_fixture_state_read_and_listener_emit_roundtrip(
     class _FakeSettaState:
         def __init__(self, state: ProjectStateBackend, hub: _RealtimeHub) -> None:
             self.deployment_mode = False
-            self.project_manager_switcher = _Switcher(state)
+            self.project_manager_switcher = _Switcher(state, project_state)
             self.realtime_event_hub = hub
 
     realtime_hub = _RealtimeHub()
@@ -2588,6 +2606,10 @@ def test_backend_fixture_state_read_and_listener_emit_roundtrip(
         summary_tool = tools_by_name["setta_fixture_backend_project_summary"]
         summary_payload = summary_tool(project_config_id="fixture-project")
         assert summary_payload["projectConfig"]["id"] == "fixture-project"
+        assert (
+            app.state.setta.project_manager_switcher._manager.single_config_read_count
+            >= 2
+        )
     finally:
         manager.shutdown_backend_plugins()
         SETTA_MCP_TOOLS[:] = baseline_tools
@@ -7564,12 +7586,30 @@ def test_dispatch_backend_worker_host_request_reads_project_state_summary(
     backend_state.validate_default_project_id()
 
     class _Manager:
-        def __init__(self, state: ProjectStateBackend) -> None:
+        def __init__(
+            self,
+            state: ProjectStateBackend,
+            single_state: ProjectStateSingleConfig,
+        ) -> None:
             self.project_state_backend = state
+            self._single_state = single_state
+            self.single_config_read_count = 0
+
+        def get_single_config_state(
+            self,
+            project_config_id: str,
+        ) -> ProjectStateSingleConfig:
+            assert project_config_id == "fixture-project"
+            self.single_config_read_count += 1
+            return self._single_state
 
     class _Switcher:
-        def __init__(self, state: ProjectStateBackend) -> None:
-            self._manager = _Manager(state)
+        def __init__(
+            self,
+            state: ProjectStateBackend,
+            single_state: ProjectStateSingleConfig,
+        ) -> None:
+            self._manager = _Manager(state, single_state)
 
         def get(self, project_identifier: str, *, share_session_id: str | None = None):
             assert project_identifier == "fixture-project"
@@ -7579,7 +7619,7 @@ def test_dispatch_backend_worker_host_request_reads_project_state_summary(
     class _FakeSettaState:
         def __init__(self) -> None:
             self.deployment_mode = False
-            self.project_manager_switcher = _Switcher(backend_state)
+            self.project_manager_switcher = _Switcher(backend_state, project_state)
 
     app = FastAPI()
     app.state.setta = _FakeSettaState()
@@ -7595,6 +7635,9 @@ def test_dispatch_backend_worker_host_request_reads_project_state_summary(
     )
     assert result["view"] == "summary"
     assert result["projectState"]["projectConfig"]["id"] == "fixture-project"
+    assert (
+        app.state.setta.project_manager_switcher._manager.single_config_read_count == 1
+    )
 
 
 def test_dispatch_backend_worker_host_request_rejects_unknown_share_session(

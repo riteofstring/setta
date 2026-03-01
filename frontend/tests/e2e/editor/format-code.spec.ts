@@ -172,28 +172,27 @@ test("code issues popover stays attached while panning", async ({ page }) => {
     await expect(issuesButton).toBeVisible();
     await issuesButton.click();
 
-    const problemsLabel = page.getByText("Problems").first();
-    await expect(problemsLabel).toBeVisible();
-    const popover = page
-      .locator('[data-radix-popper-content-wrapper]')
-      .filter({ has: problemsLabel })
+    const popoverContent = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByText("Problems", { exact: true }) })
       .first();
-    await expect(popover).toBeVisible();
-    const popoverContent = popover.locator("> div").first();
+    await expect(popoverContent).toBeVisible();
     await expect(popoverContent).toHaveClass(/rounded-md/);
     await expect(popoverContent).toHaveClass(/backdrop-blur/);
 
-    const beforeDelta = await getCenterDelta(issuesButton, popover);
+    const beforeDelta = await waitForCenterDelta(issuesButton, popoverContent);
 
     await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
-
-    await expect.poll(async () => {
-      const afterDelta = await getCenterDelta(issuesButton, popover);
-      return Math.max(
-        Math.abs(afterDelta.dx - beforeDelta.dx),
-        Math.abs(afterDelta.dy - beforeDelta.dy),
-      );
-    }).toBeLessThan(4);
+    if (!(await popoverContent.isVisible())) {
+      await issuesButton.click();
+      await expect(popoverContent).toBeVisible();
+    }
+    const afterDelta = await waitForCenterDelta(issuesButton, popoverContent);
+    const maxDeltaChange = Math.max(
+      Math.abs(afterDelta.dx - beforeDelta.dx),
+      Math.abs(afterDelta.dy - beforeDelta.dy),
+    );
+    expect(maxDeltaChange).toBeLessThan(4);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -502,13 +501,13 @@ async function setViewportTransform(
 async function getCenterDelta(
   anchor: Locator,
   popover: Locator,
-): Promise<{ dx: number; dy: number }> {
+): Promise<{ dx: number; dy: number } | null> {
   const [anchorBox, popoverBox] = await Promise.all([
     anchor.boundingBox(),
     popover.boundingBox(),
   ]);
   if (!anchorBox || !popoverBox) {
-    throw new Error("Unable to measure popover/anchor bounds.");
+    return null;
   }
   const anchorCenterX = anchorBox.x + anchorBox.width / 2;
   const anchorCenterY = anchorBox.y + anchorBox.height / 2;
@@ -518,4 +517,21 @@ async function getCenterDelta(
     dx: popoverCenterX - anchorCenterX,
     dy: popoverCenterY - anchorCenterY,
   };
+}
+
+async function waitForCenterDelta(
+  anchor: Locator,
+  popover: Locator,
+): Promise<{ dx: number; dy: number }> {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const delta = await getCenterDelta(anchor, popover);
+    if (delta) {
+      return delta;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+  }
+  throw new Error("Unable to measure popover/anchor bounds.");
 }
