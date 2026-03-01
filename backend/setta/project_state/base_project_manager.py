@@ -3508,7 +3508,10 @@ class BaseProjectManager(ABC):
         """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_locks(project_state, x.sectionIds)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patches(
+            project_state,
+            section_ids=x.sectionIds,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -3521,7 +3524,10 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -3534,7 +3540,10 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -3547,7 +3556,10 @@ class BaseProjectManager(ABC):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
-        await self._merge_and_broadcast_ui_only_project_state(project_state)
+        await self._merge_and_broadcast_ui_only_section_impl_patch(
+            project_state,
+            section_id=x.sectionId,
+        )
 
     @enqueue_method
     @project_state_tool(
