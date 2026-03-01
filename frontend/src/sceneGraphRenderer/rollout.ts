@@ -25,6 +25,7 @@ const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_NAMES: ReadonlySet<string> 
     "sweet_bear",
     "feeling_tide",
     "standing_sending",
+    "glacier_sleet",
   ]);
 const SCENE_GRAPH_RENDERER_DEFAULT_ON_PROJECT_CONFIG_IDS: ReadonlySet<string> =
   new Set();

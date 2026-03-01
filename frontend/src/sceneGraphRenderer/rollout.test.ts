@@ -159,6 +159,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks glacier_sleet as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes glacier_sleet from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "glacier-sleet-config-id",
+          projectConfigName: "glacier_sleet",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -290,6 +303,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "standing-sending-config-id",
           projectConfigName: "standing_sending",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports glacier_sleet rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "glacier-sleet-config-id",
+          projectConfigName: "glacier_sleet",
           activeViewModeName: "Overview",
         }),
       ),
