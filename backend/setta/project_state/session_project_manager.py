@@ -542,13 +542,16 @@ class SessionProjectManager(BaseProjectManager):
         redacted = self.share_runtime_state.format_project_state_for_client(
             project_state
         )
-        await self.websocket_msg_handler.broadcast_project_state(
-            redacted,
-            completed_op_ids,
-            pending_op_ids,
-            project_state_revision,
-        )
-        self.completed_op_ids_since_last_broadcast = []
+        try:
+            await self.websocket_msg_handler.broadcast_project_state(
+                redacted,
+                completed_op_ids,
+                pending_op_ids,
+                project_state_revision,
+            )
+        except Exception:
+            self._restore_frontend_op_status_after_broadcast_failure(completed_op_ids)
+            raise
 
     @BaseProjectManager.enqueue_method
     async def apply_listener_emit_updates(
