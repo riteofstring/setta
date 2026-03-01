@@ -99,3 +99,74 @@ Improve zoom/pan responsiveness in the React Flow canvas for `/settings` -> `All
 
 - Planned:
   - Add a Playwright settings pan/zoom DOM-structure guardrail under `frontend/tests/e2e/settings/`.
+
+## After (continued)
+
+### Phase 2 (resize-handle flattening)
+
+- Scope:
+  - `frontend/src/components/Params/ResizeHandle.tsx`
+- Change:
+  - Flattened each resize handle from nested wrapper structure to a single interactive element with pseudo-elements.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `6584` (down from `7838`, `-1254`, `-16.0%` vs phase 1)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Per-node descendants: `avg 155.6`, `p95 198`, `max 1344`
+  - Per-node max depth: `avg 11.74`, `max 16` (unchanged vs phase 1)
+- Trace artifact:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2.trace.json`
+- Trace signals from this phase run:
+  - Duration: `15,017.26 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `3`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `223` (`14.85/s`)
+  - `DrawFrame`: `96` (`6.39/s`)
+  - `DroppedFrame`: `17` (`7.62%`)
+  - Main-thread work: `Layout 33.56 ms`, `UpdateLayoutTree 8.06 ms`, `Paint 55.48 ms`, `PrePaint 7.72 ms`
+
+### Phase 3 (text/password border-span flattening)
+
+- Scope:
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+- Change:
+  - Removed dedicated border `<span>` nodes for text/password params.
+  - Moved equivalent border/focus styles onto existing input wrapper elements.
+- DOM metrics (same `/settings` -> `All Settings` sample):
+  - React Flow nodes: `42` (unchanged)
+  - Viewport descendants: `6158` (down from `6584`, `-426`, `-6.5%` vs phase 2)
+  - Param rows (`[data-param-row="true"]`): `697` (unchanged)
+  - Per-node descendants: `avg 145.45`, `p95 186`, `max 1218`
+  - Per-node max depth: `avg 11.74`, `max 16` (unchanged)
+- Trace artifacts:
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase3.trace.json`
+  - `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase3b.trace.json`
+- Notes on trace reliability:
+  - Initial phase 3 run (`phase3`) started from a fit-view state where zoom controls differed; use `phase3b` for normalized comparison.
+- Trace signals from normalized run (`phase3b`):
+  - Duration: `15,575.42 ms`
+  - Renderer main tasks over frame budget (`>=16.67ms`): `8`
+  - Renderer main long tasks (`>=50ms`): `2`
+  - `BeginFrame`: `350` (`22.47/s`)
+  - `DrawFrame`: `98` (`6.29/s`)
+  - `DroppedFrame`: `72` (`20.57%`)
+  - Main-thread work: `Layout 27.8 ms`, `UpdateLayoutTree 7.11 ms`, `Paint 35.73 ms`, `PrePaint 7.42 ms`
+
+## Conclusion (update)
+
+- DOM flattening delivered a large structural reduction in the benchmark view.
+- Baseline to latest DOM deltas (`/settings` -> `All Settings`):
+  - Viewport descendants: `8619 -> 6158` (`-2461`, `-28.6%`)
+  - Per-node descendants avg: `204.05 -> 145.45` (`-28.7%`)
+  - Per-node descendants max: `1854 -> 1218` (`-34.3%`)
+  - Per-node depth avg/max: `12.74/17 -> 11.74/16`
+- Runtime traces remain somewhat variable run-to-run, but main-thread layout/paint totals dropped materially vs baseline.
+
+## Raw Artifacts (additional local-only)
+
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase1.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase3.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase3b.trace.json`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2.png`
+- `perf/artifacts/frontend/2026-03-04_settings-all-settings_dom-flattening_phase2_fitview.png`
