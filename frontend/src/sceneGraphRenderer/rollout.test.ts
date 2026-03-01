@@ -146,6 +146,19 @@ describe("scene graph renderer rollout policy", () => {
     ).toBe(true);
   });
 
+  it("marks standing_sending as a default-on non-settings project", () => {
+    // Phase 6 expansion promotes standing_sending from canary to default-on rollout.
+    expect(
+      isSceneGraphRendererDefaultOnSurface(
+        createSurface({
+          projectConfigId: "standing-sending-config-id",
+          projectConfigName: "standing_sending",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("enables allowlisted non-settings project config ids", () => {
     // Canary expansion must rely on explicit projectConfigId allowlist entries.
     expect(
@@ -265,6 +278,18 @@ describe("scene graph renderer rollout policy", () => {
         createSurface({
           projectConfigId: "feeling-tide-config-id",
           projectConfigName: "feeling_tide",
+          activeViewModeName: "Overview",
+        }),
+      ),
+    ).toBe("project_config_name_default");
+  });
+
+  it("reports standing_sending rollout reason as project-name default", () => {
+    expect(
+      resolveSceneGraphRendererRolloutDefaultOnReason(
+        createSurface({
+          projectConfigId: "standing-sending-config-id",
+          projectConfigName: "standing_sending",
           activeViewModeName: "Overview",
         }),
       ),
