@@ -140,7 +140,7 @@
 - Re-measure both motion and non-pan baselines after this tranche.
 - Reconfirm if pan/zoom remains far below target; then proceed with proxy phases.
 
-### Phase 0.5 Status Update (2026-03-02)
+### Phase 0.5 Status Update (2026-03-03)
 - Baseline harness is landed and recorded:
   - `perf/reports/frontend/2026-03-02_settings-all-settings-performance-baseline.md`
 - Item A trialed: per-keystroke param-filter match cache (`GetParamSwitch` path).
@@ -151,9 +151,13 @@
 - Result: **not kept**. In this pass, Playwright typing median and CDP scripted interaction both regressed.
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-02_settings-all-settings-state-subscription-partitioning.md`
+- Item C trialed: lazy overlay mounting in `FloatingBox` hover handlers.
+- Result: **not kept**. Controlled CDP A/B runs showed effectively unchanged frame-toggle behavior and only a small synthetic hover-loop gain.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-lazy-overlay-mounting.md`
 - Next Phase 0.5 focus:
-  - Item C: lazy overlay mounting.
-  - Revisit Item B with different boundaries after Item C data is collected.
+  - Revisit Item B with different boundaries.
+  - Trial Item D listener/observer budget reductions that preserve existing UX behavior.
 
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
