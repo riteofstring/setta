@@ -314,3 +314,70 @@ class TestShareSessionProjectManager:
                 )
                 assert 1 == len(results)
                 assert isinstance(results[0], asyncio.CancelledError)
+
+    async def test_snapshot_broadcast_failure_restores_completed_op_ids(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = _build_share_deployment_root(tmpdir, "Share Project")
+            project_state = _build_project_state(
+                ID("share-project"),
+                ID("gen-section"),
+                ID("code-section"),
+            )
+            dbe = _write_project_with_state(root, project_state, deployment_version="v1")
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
+            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            share_manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_runtime_state=share_manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
+            session_manager = switcher.get_for_session("session-a")
+
+            try:
+                await session_manager._process_queue_task_started.wait()
+                project_config_id = share_manager.default_project_config_id
+                state = session_manager.get_single_config_state(project_config_id)
+                sender = session_manager.websocket_msg_handler
+                original_broadcast = sender.broadcast_project_state
+
+                async def fail_snapshot_broadcast(
+                    _project_state: ProjectStateSingleConfig,
+                    _completed_op_ids: list[str],
+                    _pending_op_ids: list[str],
+                    _project_state_revision: int,
+                ) -> None:
+                    raise RuntimeError("share snapshot broadcast failed")
+
+                sender.broadcast_project_state = fail_snapshot_broadcast  # type: ignore[method-assign]
+                try:
+                    session_manager.completed_op_ids_since_last_broadcast = [
+                        "share-op-1"
+                    ]
+                    with pytest.raises(
+                        RuntimeError, match="share snapshot broadcast failed"
+                    ):
+                        await session_manager._broadcast_project_state_snapshot(state)
+                finally:
+                    sender.broadcast_project_state = original_broadcast  # type: ignore[method-assign]
+
+                assert session_manager.completed_op_ids_since_last_broadcast == [
+                    "share-op-1"
+                ]
+            finally:
+                session_manager.shutdown()
+                results = await asyncio.gather(
+                    session_manager.queue_task,
+                    return_exceptions=True,
+                )
+                assert 1 == len(results)
+                assert isinstance(results[0], asyncio.CancelledError)

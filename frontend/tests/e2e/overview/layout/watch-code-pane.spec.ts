@@ -1,55 +1,47 @@
 import { expect, test } from "@playwright/test";
 import { ensureAppReady, seedLocalStorage } from "../../helpers";
 
-test("watch code settings open from controls portal with all options", async ({
+const MIN_EXPECTED_PADDING = 6;
+
+test("watch code pane has right padding and visible toggle button", async ({
   page,
 }) => {
-  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await seedLocalStorage(page, { overviewTab: "WatchCode", overviewVis: true });
   await ensureAppReady(page);
 
-  await expect(page.getByTestId("overview-tab-watch-code")).toHaveCount(0);
+  const heading = page.getByRole("heading", { name: "Watch Code" });
+  await expect(heading).toBeVisible();
 
-  const watchCodeSettingsButton = page.getByTestId("rf__watch-code-settings");
-  await expect(watchCodeSettingsButton).toBeVisible();
-  await watchCodeSettingsButton.click();
+  const paneRoot = heading.locator("xpath=following-sibling::*[1]");
+  await expect(paneRoot).toBeVisible();
 
-  const portal = page.getByTestId("rf__watch-code-settings-portal");
-  await expect(portal).toBeVisible();
-  await expect(portal.getByRole("heading", { name: "Watch Code" })).toBeVisible();
-  const caret = page.getByTestId("rf__watch-code-settings-caret");
-  await expect(caret).toBeVisible();
+  const paddingRight = await paneRoot.evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).paddingRight),
+  );
+  expect(paddingRight).toBeGreaterThanOrEqual(MIN_EXPECTED_PADDING);
 
-  const [buttonRect, portalRect] = await Promise.all([
-    watchCodeSettingsButton.boundingBox(),
-    portal.boundingBox(),
-  ]);
-  expect(buttonRect).not.toBeNull();
-  expect(portalRect).not.toBeNull();
-  if (buttonRect && portalRect) {
-    // The portal should open close to the watch-code trigger button.
-    expect(portalRect.y).toBeLessThan(buttonRect.y + 400);
-  }
-
-  const toggleButton = portal.getByRole("button", {
+  const toggleButton = page.getByRole("button", {
     name: /Enable Watch Code|Disable Watch Code/,
   });
   await expect(toggleButton).toBeVisible();
-  const initialPressed = await toggleButton.getAttribute("aria-pressed");
-  expect(initialPressed === "true" || initialPressed === "false").toBeTruthy();
-  await toggleButton.click();
-  if (initialPressed) {
-    await expect(toggleButton).toHaveAttribute(
-      "aria-pressed",
-      initialPressed === "true" ? "false" : "true",
-    );
+  await expect(
+    page.locator('[data-setting-anchor="core.watch_code.enabled"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-setting-anchor="core.watch_code.folders"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-setting-anchor="core.watch_code.files"]'),
+  ).toBeVisible();
+
+  const [paneBox, buttonBox] = await Promise.all([
+    paneRoot.boundingBox(),
+    toggleButton.boundingBox(),
+  ]);
+  if (!paneBox || !buttonBox) {
+    throw new Error("Expected watch code pane and toggle button to be visible.");
   }
-  await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.enabled"]'),
-  ).toBeVisible();
-  await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.folders"]'),
-  ).toBeVisible();
-  await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.files"]'),
-  ).toBeVisible();
+  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(
+    paneBox.x + paneBox.width,
+  );
 });

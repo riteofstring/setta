@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import secrets
+from dataclasses import dataclass, field
+from enum import Enum
 
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
@@ -21,6 +23,98 @@ logger = logging.getLogger(__name__)
 _WEBSOCKET_SEND_TIMEOUT_ENV = "SETTA_WEBSOCKET_SEND_TIMEOUT_S"
 _DEFAULT_WEBSOCKET_SEND_TIMEOUT_S = 5.0
 _FRONTEND_AFFINITY_ADDRESS_MARKER = "#setta-ws-affinity="
+
+
+@dataclass(slots=True)
+class _PayloadSizeMetrics:
+    count: int = 0
+    total_bytes: int = 0
+    min_bytes: int | None = None
+    max_bytes: int | None = None
+
+    def record(self, payload_bytes: int) -> None:
+        self.count += 1
+        self.total_bytes += payload_bytes
+        if self.min_bytes is None or payload_bytes < self.min_bytes:
+            self.min_bytes = payload_bytes
+        if self.max_bytes is None or payload_bytes > self.max_bytes:
+            self.max_bytes = payload_bytes
+
+    def snapshot(self) -> dict[str, int | float | None]:
+        avg_bytes: float | None = None
+        if self.count > 0:
+            avg_bytes = self.total_bytes / self.count
+        return {
+            "count": self.count,
+            "totalBytes": self.total_bytes,
+            "minBytes": self.min_bytes,
+            "maxBytes": self.max_bytes,
+            "avgBytes": avg_bytes,
+        }
+
+
+@dataclass(slots=True)
+class _WebsocketPayloadMetricsBucket:
+    messages: int = 0
+    fanout_targets: int = 0
+    payload_bytes: _PayloadSizeMetrics = field(default_factory=_PayloadSizeMetrics)
+    transport_bytes: _PayloadSizeMetrics = field(default_factory=_PayloadSizeMetrics)
+
+    def record(self, *, payload_bytes: int, target_count: int) -> None:
+        self.messages += 1
+        self.fanout_targets += target_count
+        self.payload_bytes.record(payload_bytes)
+        self.transport_bytes.record(payload_bytes * target_count)
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "messages": self.messages,
+            "fanoutTargets": self.fanout_targets,
+            "payloadBytes": self.payload_bytes.snapshot(),
+            "transportBytes": self.transport_bytes.snapshot(),
+        }
+
+
+@dataclass(slots=True)
+class _WebsocketPayloadMetricsState:
+    total: _WebsocketPayloadMetricsBucket = field(
+        default_factory=_WebsocketPayloadMetricsBucket
+    )
+    by_message_type: dict[str, _WebsocketPayloadMetricsBucket] = field(
+        default_factory=dict
+    )
+
+    def reset(self) -> None:
+        self.total = _WebsocketPayloadMetricsBucket()
+        self.by_message_type.clear()
+
+    def record(
+        self, *, message_type: str, payload_bytes: int, target_count: int
+    ) -> None:
+        self.total.record(payload_bytes=payload_bytes, target_count=target_count)
+        if message_type not in self.by_message_type:
+            self.by_message_type[message_type] = _WebsocketPayloadMetricsBucket()
+        self.by_message_type[message_type].record(
+            payload_bytes=payload_bytes,
+            target_count=target_count,
+        )
+
+    def snapshot(self) -> dict[str, object]:
+        by_message_type_snapshot: dict[str, object] = {}
+        for message_type in sorted(self.by_message_type.keys()):
+            by_message_type_snapshot[message_type] = self.by_message_type[
+                message_type
+            ].snapshot()
+        snapshot = self.total.snapshot()
+        snapshot["byMessageType"] = by_message_type_snapshot
+        return snapshot
+
+
+def _resolve_message_type_name(message: WebsocketMsg) -> str:
+    message_type = message.messageType
+    if isinstance(message_type, Enum):
+        return str(message_type.value)
+    return str(message_type)
 
 
 def _resolve_websocket_send_timeout_s() -> float | None:
@@ -44,6 +138,7 @@ class WebsocketManager:
         self._send_timeout_s = _resolve_websocket_send_timeout_s()
         self._frontend_affinity_token_by_websocket_id: dict[str, str] = {}
         self._frontend_websocket_id_by_affinity_token: dict[str, str] = {}
+        self._payload_metrics = _WebsocketPayloadMetricsState()
 
     async def on_connect(
         self,
@@ -181,7 +276,7 @@ class WebsocketManager:
         self._remove_frontend_affinity_token_for_websocket_id(websocket_id)
         return removed
 
-    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
+    async def _send_text_payload(self, payload: str, toWebsocketId: str) -> bool:
         socket_info = self.sockets.get(toWebsocketId)
         if not socket_info:
             return False
@@ -190,7 +285,6 @@ class WebsocketManager:
             self._remove_socket(toWebsocketId)
             return False
         try:
-            payload = message.model_dump_json()
             if self._send_timeout_s is None:
                 await websocket.send_text(payload)
                 return True
@@ -223,6 +317,15 @@ class WebsocketManager:
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self._remove_socket(toWebsocketId)
             return False
+
+    async def send_message(self, message: WebsocketMsg, toWebsocketId: str) -> bool:
+        payload = message.model_dump_json()
+        self._record_payload_metrics(
+            message=message,
+            payload_bytes=len(payload.encode("utf-8")),
+            target_count=1,
+        )
+        return await self._send_text_payload(payload, toWebsocketId)
 
     async def send_bytes(self, payload: bytes, toWebsocketId: str) -> None:
         socket_info = self.sockets.get(toWebsocketId)
@@ -279,8 +382,20 @@ class WebsocketManager:
                 target_ids.append(websocket_id)
         if not target_ids:
             return
+        payload = message.model_dump_json()
+        self._record_payload_metrics(
+            message=message,
+            payload_bytes=len(payload.encode("utf-8")),
+            target_count=len(target_ids),
+        )
+        await self._broadcast_payload(payload, target_ids)
+
+    async def _broadcast_payload(self, payload: str, target_ids: list[str]) -> None:
         await asyncio.gather(
-            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
+            *(
+                self._send_text_payload(payload, websocket_id)
+                for websocket_id in target_ids
+            )
         )
 
     async def broadcast_to_session(
@@ -304,9 +419,34 @@ class WebsocketManager:
                 target_ids.append(websocket_id)
         if not target_ids:
             return
-        await asyncio.gather(
-            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
+        payload = message.model_dump_json()
+        self._record_payload_metrics(
+            message=message,
+            payload_bytes=len(payload.encode("utf-8")),
+            target_count=len(target_ids),
         )
+        await self._broadcast_payload(payload, target_ids)
+
+    def _record_payload_metrics(
+        self,
+        *,
+        message: WebsocketMsg,
+        payload_bytes: int,
+        target_count: int,
+    ) -> None:
+        if target_count <= 0:
+            return
+        self._payload_metrics.record(
+            message_type=_resolve_message_type_name(message),
+            payload_bytes=payload_bytes,
+            target_count=target_count,
+        )
+
+    def get_payload_metrics_snapshot(self) -> dict[str, object]:
+        return self._payload_metrics.snapshot()
+
+    def reset_payload_metrics(self) -> None:
+        self._payload_metrics.reset()
 
     async def broadcast_connections(self):
         connections: list[WebsocketConnectionInfo] = []
