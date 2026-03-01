@@ -25,6 +25,7 @@ from setta.types.generated.chart_settings_unions import (
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplArgsUnionWithDiscriminator,
+    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.id import ID
 from setta.types.project_config import (
@@ -1251,6 +1252,20 @@ class ProjectStateCodeObjsPatch:
     codeObjs: dict[ID, Core]
     codeObjVariants: dict[ID, Variant]
     codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator]
+    previousProjectStateRevision: int
+    projectStateRevision: int
+    completedOpIds: list[str]
+    pendingOpIds: list[str]
+
+
+@dataclass
+class ProjectStateStructuralPatch:
+    projectConfigId: ID
+    projectConfig: ProjectConfig
+    sections: dict[ID, Core]
+    sectionVariants: dict[ID, Variant]
+    sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator]
+    parentSectionMap: dict[ID, ID | None]
     previousProjectStateRevision: int
     projectStateRevision: int
     completedOpIds: list[str]

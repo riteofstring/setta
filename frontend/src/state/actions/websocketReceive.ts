@@ -46,6 +46,7 @@ import {
   ProjectStateCodeObjsPatch,
   ProjectStateProjectConfigPatch,
   ProjectStateSectionImplPatch,
+  ProjectStateStructuralPatch,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
@@ -95,6 +96,7 @@ import {
   applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
   applySectionImplProjectStatePatch,
+  applyStructuralProjectStatePatch,
   getCurrProjectConfigId,
   getProjectStateRevision,
   processProjectStateUpdateFromBackend,
@@ -555,6 +557,9 @@ function receiveMessage(message: string, socketGeneration: number) {
     case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateCodeObjs:
       void handleCodeObjsProjectStatePatch(m.content);
       return;
+    case WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural:
+      void handleStructuralProjectStatePatch(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
@@ -672,6 +677,27 @@ async function handleCodeObjsProjectStatePatch(
     return;
   }
   const applied = applyCodeObjsProjectStatePatch(patch);
+  if (applied) {
+    return;
+  }
+  await resyncProjectStateFromBackend(patch.projectConfigId);
+}
+
+async function handleStructuralProjectStatePatch(
+  patch: ProjectStateStructuralPatch,
+): Promise<void> {
+  if (useServerMode.getState().mode === "app") {
+    return;
+  }
+  if (patch.projectConfigId !== getCurrProjectConfigId()) {
+    return;
+  }
+  const currentRevision = getProjectStateRevision(patch.projectConfigId);
+  if (currentRevision !== patch.previousProjectStateRevision) {
+    await resyncProjectStateFromBackend(patch.projectConfigId);
+    return;
+  }
+  const applied = applyStructuralProjectStatePatch(patch);
   if (applied) {
     return;
   }

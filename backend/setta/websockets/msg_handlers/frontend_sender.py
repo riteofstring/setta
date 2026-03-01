@@ -15,6 +15,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
+    ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
 )
 from setta.types.agentic import (
@@ -36,6 +37,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseCodeObjImplUnionWithDiscriminator,
+    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
@@ -78,6 +80,7 @@ from setta.types.websocket import (
     WebsocketMsgPatchFrontendProjectStateCodeObjs,
     WebsocketMsgPatchFrontendProjectStateProjectConfig,
     WebsocketMsgPatchFrontendProjectStateSectionImpl,
+    WebsocketMsgPatchFrontendProjectStateStructural,
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
@@ -496,6 +499,39 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     codeObjs=codeObjs,
                     codeObjVariants=codeObjVariants,
                     codeObjImpls=codeObjImpls,
+                    previousProjectStateRevision=previousProjectStateRevision,
+                    projectStateRevision=projectStateRevision,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
+                )
+            ),
+            share_session_id,
+        )
+
+    async def broadcast_project_state_structural_patch(
+        self,
+        projectConfigId: ID,
+        projectConfig: ProjectConfig,
+        sections: dict[ID, Core],
+        sectionVariants: dict[ID, Variant],
+        sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator],
+        parentSectionMap: dict[ID, ID | None],
+        previousProjectStateRevision: int,
+        projectStateRevision: int,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgPatchFrontendProjectStateStructural(
+                content=ProjectStateStructuralPatch(
+                    projectConfigId=projectConfigId,
+                    projectConfig=projectConfig,
+                    sections=sections,
+                    sectionVariants=sectionVariants,
+                    sectionImpls=sectionImpls,
+                    parentSectionMap=parentSectionMap,
                     previousProjectStateRevision=previousProjectStateRevision,
                     projectStateRevision=projectStateRevision,
                     completedOpIds=completedOpIds,

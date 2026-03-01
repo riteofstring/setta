@@ -57,6 +57,7 @@ import {
   ProjectStateSectionImplPatch,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
+  ProjectStateStructuralPatch,
   SectionType,
   SectionTypeEnum,
   Variant,
@@ -1237,6 +1238,52 @@ export function applyCodeObjsProjectStatePatch(
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
   });
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
+  setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);
+  return true;
+}
+
+export function applyStructuralProjectStatePatch(
+  patch: ProjectStateStructuralPatch,
+): boolean {
+  let applied = false;
+  useProjectState.setState((state) => {
+    if (state.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    if (patch.projectConfig.id !== patch.projectConfigId) {
+      return;
+    }
+    state.projectConfig = patch.projectConfig;
+    state.sections = patch.sections;
+    state.sectionVariants = patch.sectionVariants;
+    state.sectionImpls = patch.sectionImpls;
+    state.parentSectionMap = patch.parentSectionMap;
+    applied = true;
+  });
+  if (!applied) {
+    return false;
+  }
+  const nextPending = reconcilePendingOperationsFromBackend(
+    patch.completedOpIds,
+    patch.pendingOpIds,
+  );
+  reconcilePendingTopLevelLayout(nextPending);
+  const completedIds = new Set(patch.completedOpIds);
+  const nextProjectState = useProjectState.getState();
+  const shouldRequestFitView = applyViewportFromProjectState(nextProjectState);
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    nextProjectState,
+    useNodeInternals.getState().x,
+  );
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+    useNodeInternals.setState({ x: nextNodesMap });
+  });
+  if (shouldRequestFitView) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
   setProjectStateRevision(patch.projectConfigId, patch.projectStateRevision);

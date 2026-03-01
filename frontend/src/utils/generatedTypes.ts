@@ -953,6 +953,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
     "PatchFrontendProjectStateProjectConfig",
   PatchFrontendProjectStateSectionImpl: "PatchFrontendProjectStateSectionImpl",
   PatchFrontendProjectStateCodeObjs: "PatchFrontendProjectStateCodeObjs",
+  PatchFrontendProjectStateStructural: "PatchFrontendProjectStateStructural",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
@@ -5195,6 +5196,59 @@ const WebsocketMsgPatchFrontendProjectStateCodeObjsSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateCodeObjs),
 });
 
+const ProjectStateStructuralPatchSchema = z.object({
+  projectConfigId: IDSchema,
+  projectConfig: ProjectConfigSchema,
+  sections: z.record(IDSchema, CoreSchema),
+  sectionVariants: z.record(IDSchema, VariantSchema),
+  sectionImpls: z.record(
+    IDSchema,
+    z.discriminatedUnion("type", [
+      CallableSectionImplSchema,
+      DictSectionImplSchema,
+      ListRootSectionImplSchema,
+      GroupSectionImplSchema,
+      ImageSectionImplSchema,
+      ChartSectionImplSchema,
+      DrawSectionImplSchema,
+      TextBlockSectionImplSchema,
+      PromptSectionImplSchema,
+      MetaControlSectionImplSchema,
+      SocialSectionImplSchema,
+      GlobalVariablesSectionImplSchema,
+      CodeSectionImplSchema,
+      GenPythonCodeSectionImplSchema,
+      GenPythonMetadataSectionImplSchema,
+      TerminalSectionImplSchema,
+      IFrameSectionImplSchema,
+      ChatSectionImplSchema,
+      BrowserSectionImplSchema,
+      PluginSectionImplSchema,
+      TaskBoardSectionImplSchema,
+      SpreadsheetSectionImplSchema,
+    ]),
+  ),
+  parentSectionMap: z.record(IDSchema, z.union([IDSchema, z.null()])),
+  previousProjectStateRevision: z.int(),
+  projectStateRevision: z.int(),
+  completedOpIds: z.array(z.string()),
+  pendingOpIds: z.array(z.string()),
+});
+
+export type ProjectStateStructuralPatch = z.infer<
+  typeof ProjectStateStructuralPatchSchema
+>;
+
+const WebsocketMsgPatchFrontendProjectStateStructuralSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateStructuralPatchSchema,
+  messageType: z
+    .literal("PatchFrontendProjectStateStructural")
+    .default(
+      WebsocketMsgTypeForFrontendEnum.PatchFrontendProjectStateStructural,
+    ),
+});
+
 const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -7256,6 +7310,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPatchFrontendProjectStateProjectConfigSchema,
   WebsocketMsgPatchFrontendProjectStateSectionImplSchema,
   WebsocketMsgPatchFrontendProjectStateCodeObjsSchema,
+  WebsocketMsgPatchFrontendProjectStateStructuralSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,

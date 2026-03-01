@@ -5,6 +5,7 @@ import {
   applyCodeObjsProjectStatePatch,
   applyProjectConfigProjectStatePatch,
   applySectionImplProjectStatePatch,
+  applyStructuralProjectStatePatch,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
@@ -1816,6 +1817,99 @@ describe("processProjectStateUpdateFromBackend", () => {
     }
     expect(patchedImpl.value).toBe("after-value");
     expect(getProjectStateRevision("project-1")).toBe(51);
+  });
+
+  it("applies structural patches and updates revision tracking", () => {
+    const oldSectionId = "section-old";
+    const oldVariantId = "variant-old";
+    const oldImplId = "impl-old";
+    const nextSectionId = "section-next";
+    const nextVariantId = "variant-next";
+    const nextImplId = "impl-next";
+    const initialProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [oldSectionId]: oldVariantId },
+      topLevelSections: {
+        [oldSectionId]: { x: 0, y: 0, zIndex: 0, w: 200, h: 160 },
+      },
+      activeIds: [],
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+      sections: {
+        [oldSectionId]: createCore({ id: oldSectionId }),
+      },
+      sectionImpls: {
+        [oldImplId]: createTerminalSectionImpl({
+          id: oldImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [oldVariantId]: createVariant({
+          id: oldVariantId,
+          impl: oldImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [oldSectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+
+    const nextProjectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [nextSectionId]: nextVariantId },
+      topLevelSections: {
+        [nextSectionId]: { x: 10, y: 15, zIndex: 0, w: 220, h: 180 },
+      },
+      activeIds: [],
+    });
+    const applied = applyStructuralProjectStatePatch({
+      projectConfigId: "project-1",
+      projectConfig: nextProjectConfig,
+      sections: {
+        [nextSectionId]: createCore({ id: nextSectionId }),
+      },
+      sectionVariants: {
+        [nextVariantId]: createVariant({
+          id: nextVariantId,
+          impl: nextImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      sectionImpls: {
+        [nextImplId]: createTerminalSectionImpl({
+          id: nextImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      parentSectionMap: { [nextSectionId]: null },
+      previousProjectStateRevision: 60,
+      projectStateRevision: 61,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(applied).toBe(true);
+    expect(useProjectState.getState().sections[oldSectionId]).toBeUndefined();
+    expect(useProjectState.getState().sections[nextSectionId]).toBeDefined();
+    expect(
+      useProjectState.getState().projectConfig.sectionVariantMap[nextSectionId],
+    ).toBe(nextVariantId);
+    expect(
+      useProjectState.getState().parentSectionMap[nextSectionId],
+    ).toBeNull();
+    expect(useNodeInternals.getState().x.has(nextSectionId)).toBe(true);
+    expect(getProjectStateRevision("project-1")).toBe(61);
   });
 
   it("recomputes shown param ids when pinned params change in a section-impl patch", () => {

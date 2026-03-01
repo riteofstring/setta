@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateProjectConfigPatch,
     ProjectStateSectionImplPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
+    ProjectStateStructuralPatch,
     RenameRefactorBroadcastContent,
 )
 from setta.types.agentic import (
@@ -62,6 +63,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
     PatchFrontendProjectStateSectionImpl = "PatchFrontendProjectStateSectionImpl"
     PatchFrontendProjectStateCodeObjs = "PatchFrontendProjectStateCodeObjs"
+    PatchFrontendProjectStateStructural = "PatchFrontendProjectStateStructural"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -235,6 +237,13 @@ class WebsocketMsgPatchFrontendProjectStateCodeObjs(FrontendWebsocketMsg):
     messageType: Literal[
         WebsocketMsgTypeForFrontend.PatchFrontendProjectStateCodeObjs
     ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateCodeObjs
+
+
+class WebsocketMsgPatchFrontendProjectStateStructural(FrontendWebsocketMsg):
+    content: ProjectStateStructuralPatch
+    messageType: Literal[
+        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateStructural
+    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateStructural
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):

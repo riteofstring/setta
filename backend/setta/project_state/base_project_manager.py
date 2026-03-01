@@ -4131,7 +4131,7 @@ class BaseProjectManager(ABC):
         """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4144,7 +4144,7 @@ class BaseProjectManager(ABC):
         """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -4178,7 +4178,7 @@ class BaseProjectManager(ABC):
                 )
             seen.add(variant_id)
         section.variants = ordered_ids
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -5704,7 +5704,7 @@ class BaseProjectManager(ABC):
                         x.newParentId,
                         terminal_id,
                     )
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def move_params(self, x: MoveParamsRequest):
@@ -5767,13 +5767,13 @@ class BaseProjectManager(ABC):
                 project_config_id=x.projectConfigId,
             )
         else:
-            await self.update_and_broadcast_project_state(project_state)
+            await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def ungroup_groups(self, x: UngroupGroupsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         ungroup_groups(project_state, x.groupIds)
-        await self.update_and_broadcast_project_state(project_state)
+        await self._update_and_broadcast_structural_patch(project_state)
 
     @enqueue_method
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
@@ -5987,6 +5987,34 @@ class BaseProjectManager(ABC):
             broadcast_name_validation_errors=False,
             validate_name_rules=False,
         )
+
+    async def _update_and_broadcast_structural_patch(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        updateFileWatcher: bool = True,
+        validate_name_rules: bool = True,
+        broadcast_name_validation_errors: bool = True,
+    ) -> None:
+        previous_project_state_revision = self.history.revision
+        await self.update(
+            project_state,
+            updateFileWatcher=updateFileWatcher,
+            validate_name_rules=validate_name_rules,
+        )
+        next_project_state_revision = self.history.revision
+        if next_project_state_revision <= previous_project_state_revision:
+            await self._broadcast_project_state_snapshot(project_state)
+            if broadcast_name_validation_errors:
+                await self._broadcast_name_validation_errors(project_state)
+            return
+        await self._broadcast_structural_patch(
+            project_state=project_state,
+            previous_project_state_revision=previous_project_state_revision,
+            project_state_revision=next_project_state_revision,
+        )
+        if broadcast_name_validation_errors:
+            await self._broadcast_name_validation_errors(project_state)
 
     def _collect_section_impl_updates_for_patch(
         self,
@@ -6448,6 +6476,41 @@ class BaseProjectManager(ABC):
         await self.websocket_msg_handler.broadcast_project_state_project_config_patch(
             project_config.id,
             project_config,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        )
+        self.completed_op_ids_since_last_broadcast = []
+
+    async def _broadcast_structural_patch(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        previous_project_state_revision: int,
+        project_state_revision: int,
+    ) -> None:
+        completed_op_ids, pending_op_ids = (
+            self._consume_frontend_op_status_for_broadcast()
+        )
+        logger.debug(
+            "broadcast_structural_patch project_config_id=%s previous_revision=%s revision=%s sections=%s section_variants=%s section_impls=%s completed_ops=%s pending_ops=%s",
+            project_state.projectConfig.id,
+            previous_project_state_revision,
+            project_state_revision,
+            len(project_state.sections),
+            len(project_state.sectionVariants),
+            len(project_state.sectionImpls),
+            len(completed_op_ids),
+            len(pending_op_ids),
+        )
+        await self.websocket_msg_handler.broadcast_project_state_structural_patch(
+            project_state.projectConfig.id,
+            project_state.projectConfig,
+            project_state.sections,
+            project_state.sectionVariants,
+            project_state.sectionImpls,
+            project_state.parentSectionMap,
             previous_project_state_revision,
             project_state_revision,
             completed_op_ids,
