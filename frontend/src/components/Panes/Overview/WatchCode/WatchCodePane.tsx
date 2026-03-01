@@ -138,7 +138,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
   );
 
   const inputClasses =
-    "nodrag nopan nowheel w-full box-border truncate rounded-full bg-white pl-4 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
+    "nodrag nopan nowheel w-full box-border truncate rounded-full bg-white py-1.5 pl-4 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
   const addInputButtonClasses =
     "nodrag nopan nowheel relative inline-flex h-6 shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500";
   const rootClasses = inPopover
@@ -184,7 +184,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
               <div className="w-full" key={index}>
                 <div className="relative min-w-[10rem]">
                   <input
-                    className={`${inputClasses} pr-14`}
+                    className={`${inputClasses} pr-16`}
                     disabled={inputsDisabled}
                     onBlur={(event) =>
                       updateFolder(index, { path: event.target.value }, true)
@@ -200,11 +200,11 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                     placeholder="relative/path/to/folder"
                     value={folder.path}
                   />
-                  <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                  <div className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
                     <button
                       aria-label="Toggle recursive watch"
                       aria-pressed={folder.recursive}
-                      className={`nodrag nopan nowheel inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                         folder.recursive
                           ? "text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
                           : "text-setta-500 hover:text-setta-900 dark:text-setta-400 dark:hover:text-setta-100"
@@ -219,11 +219,11 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                       }
                       type="button"
                     >
-                      <RiRepeatLine size={11} />
+                      <RiRepeatLine size={12} />
                     </button>
                     <button
                       aria-label="Remove folder watch path"
-                      className="nodrag nopan nowheel inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                      className="nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[11px] leading-none text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                       disabled={inputsDisabled}
                       onClick={() => removeFolder(index)}
                       type="button"
@@ -266,7 +266,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
               <div className="w-full" key={index}>
                 <div className="relative min-w-[10rem]">
                   <input
-                    className={`${inputClasses} pr-9`}
+                    className={`${inputClasses} pr-11`}
                     disabled={inputsDisabled}
                     onBlur={(event) =>
                       updateFile(index, event.target.value, true)
@@ -282,7 +282,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
                   />
                   <button
                     aria-label="Remove file watch path"
-                    className="nodrag nopan nowheel absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                    className="nodrag nopan nowheel absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-[11px] leading-none text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFile(index)}
                     type="button"
