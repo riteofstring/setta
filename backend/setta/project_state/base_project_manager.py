@@ -2576,7 +2576,7 @@ class BaseProjectManager(ABC):
             project_state=project_state,
             codegen_targets=x.codegenTargets,
         )
-        await self.update_and_broadcast_project_state(
+        await self._update_and_broadcast_structural_patch(
             project_state,
             validate_name_rules=False,
         )
@@ -2710,7 +2710,7 @@ class BaseProjectManager(ABC):
             project_state=project_state,
             codegen_targets=next_targets,
         )
-        await self.update_and_broadcast_project_state(
+        await self._update_and_broadcast_structural_patch(
             project_state,
             validate_name_rules=False,
         )

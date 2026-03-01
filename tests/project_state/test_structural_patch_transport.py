@@ -15,6 +15,7 @@ from setta.project_state.project_manager_types import (
     PrepareSectionsForCopyRequest,
     SetCodeSectionAttachedTerminalRequest,
     SetDefaultSectionVariantRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetSectionNameRequest,
     SetTextBlockHeadingAsSectionNameRequest,
     SetSectionVariantNameRequest,
@@ -27,7 +28,7 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, WatchCodeFolder
+from setta.types.project_config import Position, ProjectCodegenPythonTarget, WatchCodeFolder
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     SectionType,
@@ -1130,3 +1131,67 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         files_old, files_new = cas_files_result
         assert ["backend/setta/project_state/watch_code.py"] == files_old
         assert ["backend/setta/project_state/base_project_manager.py"] == files_new
+
+
+@pytest.mark.asyncio
+async def test_codegen_target_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        disable_capture, _ = await _run_with_transport_capture(
+            manager,
+            manager.set_project_config_codegen_targets(
+                SetProjectConfigCodegenTargetsRequest(
+                    projectConfigId=project_config_id,
+                    codegenTargets=[],
+                )
+            ),
+        )
+        _assert_single_structural_patch(
+            disable_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        assert (
+            []
+            == manager.get_single_config_state(project_config_id)
+            .projectConfig.codegenTargets
+        )
+        assert (
+            manager.get_single_config_state(project_config_id)
+            .singletonSections.GenPythonCode
+            is None
+        )
+
+        enable_capture, enable_result = await _run_with_transport_capture(
+            manager,
+            manager.compare_and_set_python_codegen_enabled(
+                project_config_id,
+                True,
+            ),
+        )
+        _assert_single_structural_patch(
+            enable_capture,
+            project_config_id,
+            expected_name_validation_calls=1,
+        )
+        enabled_old, enabled_new = enable_result
+        assert enabled_old is False
+        assert enabled_new is True
+        targets_after_enable = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.codegenTargets
+        assert any(
+            isinstance(target, ProjectCodegenPythonTarget)
+            for target in targets_after_enable
+        )
+        assert (
+            manager.get_single_config_state(project_config_id)
+            .singletonSections.GenPythonCode
+            is not None
+        )

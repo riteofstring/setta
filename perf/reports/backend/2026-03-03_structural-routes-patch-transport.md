@@ -192,3 +192,75 @@ Method:
   roughly `93-95%` smaller websocket project-state transport payloads.
 - Local ACK latency remains mixed, consistent with compute/validation/codegen
   still dominating end-to-end route time after transport-size reduction.
+
+---
+
+## Addendum: Codegen target route structural patches (2026-03-03)
+
+### Goal
+
+Convert remaining codegen-target routes off full snapshot transport while keeping
+existing behavior.
+
+### Change
+
+Converted these routes from `update_and_broadcast_project_state(...)` to
+`_update_and_broadcast_structural_patch(...)` (with `validate_name_rules=False`):
+
+- `set_project_config_codegen_targets`
+- `compare_and_set_python_codegen_enabled`
+
+Test coverage addition:
+
+- `test_codegen_target_routes_use_structural_patch_transport`
+  in `tests/project_state/test_structural_patch_transport.py`.
+
+### Validation
+
+- `source activate.sh && ruff check backend/setta/project_state/base_project_manager.py tests/project_state/test_structural_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_structural_patch_transport.py`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_ui_setting_reveal_leases.py`
+
+### Benchmark scenario
+
+Synthetic callable state (`1000` params), autosave disabled.
+
+Routes benchmarked:
+
+- `set_project_config_codegen_targets`
+- `compare_and_set_python_codegen_enabled`
+
+Method:
+
+1. Two modes:
+- `legacy_snapshot`: monkeypatch `_update_and_broadcast_structural_patch(...)`
+  to call `update_and_broadcast_project_state(...)`.
+- `patched`: native behavior.
+2. `3` warmup + `12` measured iterations per route/mode.
+3. Metrics:
+- ACK latency (`route(...)` + `finish_pending_operations(...)`)
+- websocket payload bytes from project-state transport message types:
+  - `UpdateFrontendProjectState`
+  - `PatchFrontendProjectStateProjectConfig`
+  - `PatchFrontendProjectStateSectionImpl`
+  - `PatchFrontendProjectStateCodeObjs`
+  - `PatchFrontendProjectStateStructural`
+
+### Results (local)
+
+| Route | Metric | Legacy Snapshot | Patched | Delta |
+| --- | --- | ---: | ---: | ---: |
+| `set_project_config_codegen_targets` | latency median | 240.3709 ms | 234.0047 ms | +2.65% faster |
+| `set_project_config_codegen_targets` | latency p95 | 410.5599 ms | 537.5206 ms | -30.92% |
+| `set_project_config_codegen_targets` | payload median | 799,985.0 B | 77,667.5 B | -90.29% |
+| `set_project_config_codegen_targets` | payload p95 | 843,523.0 B | 121,100.0 B | -85.64% |
+| `compare_and_set_python_codegen_enabled` | latency median | 235.5269 ms | 236.9538 ms | -0.61% |
+| `compare_and_set_python_codegen_enabled` | latency p95 | 513.0572 ms | 410.3542 ms | +20.02% faster |
+| `compare_and_set_python_codegen_enabled` | payload median | 800,014.5 B | 77,668.5 B | -90.29% |
+| `compare_and_set_python_codegen_enabled` | payload p95 | 843,557.0 B | 121,101.0 B | -85.64% |
+
+### Notes
+
+- Payload transport shrank by roughly `86-90%` for both converted routes.
+- Local latency remains mixed; these flows include structural mutations (section
+  create/delete of codegen singleton sections) that can dominate wall time.
