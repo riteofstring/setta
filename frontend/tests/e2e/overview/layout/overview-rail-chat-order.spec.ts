@@ -22,4 +22,5 @@ test("overview rail shows project ai chat as the top icon", async ({
   expect(orderedTabIds[0]).toBe("overview-tab-project-ai-chat");
   expect(orderedTabIds[1]).toBe("overview-tab-overview");
   expect(orderedTabIds).not.toContain("overview-tab-project-ai-settings");
+  expect(orderedTabIds).not.toContain("overview-tab-backend-logs");
 });

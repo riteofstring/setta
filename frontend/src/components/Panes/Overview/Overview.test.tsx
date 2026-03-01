@@ -279,6 +279,7 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain(
       'data-testid="overview-tab-project-ai-settings"',
     );
+    expect(markup).not.toContain('data-testid="overview-tab-backend-logs"');
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {
