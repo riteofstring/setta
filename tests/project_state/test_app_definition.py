@@ -240,6 +240,68 @@ class TestAppDefinitionProjectManager:
                     )
                 )
 
+    async def test_app_definition_failures_do_not_write_history(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            manager.settings_file.settings.backend.autosave = False
+            baseline_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await manager.set_app_definition(
+                SetAppDefinitionRequest(
+                    appSpec=baseline_payload,
+                    appSpecPath="app_specs/baseline.json",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            baseline_definition = manager.project_state_backend.appDefinition
+            assert baseline_definition is not None
+            baseline_definition = baseline_definition.model_copy(deep=True)
+            baseline_spec_path = baseline_definition.appSpecPath
+            assert baseline_spec_path is not None
+            baseline_stored_spec = read_app_spec(fixture.dbe, baseline_spec_path)
+            assert baseline_stored_spec == baseline_payload
+
+            async def assert_failure_does_not_write_history(operation) -> None:
+                history_revision_before = manager.history.revision
+                with pytest.raises(ValueError):
+                    await operation
+                assert manager.history.revision == history_revision_before
+                current_definition = manager.project_state_backend.appDefinition
+                assert current_definition == baseline_definition
+                assert (
+                    read_app_spec(fixture.dbe, baseline_spec_path)
+                    == baseline_stored_spec
+                )
+
+            await assert_failure_does_not_write_history(
+                manager.set_app_definition(
+                    SetAppDefinitionRequest(
+                        appSpec={
+                            "root": {"key": "root", "type": "UnknownComponent"},
+                            "elements": {},
+                        }
+                    )
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.update_app_definition(
+                    UpdateAppDefinitionRequest(patch={"root": {"type": "Nope"}})
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.compare_and_set_app_definition_catalog_id(
+                    catalog_id="setta.app.missing"
+                )
+            )
+            await assert_failure_does_not_write_history(
+                manager.compare_and_set_app_definition_theme_mode(
+                    theme_mode="not-real"
+                )
+            )
+
     async def test_update_app_definition_merges_patch(self) -> None:
         async with real_project_manager() as fixture:
             initial = {

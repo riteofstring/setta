@@ -2,6 +2,8 @@ import pytest
 
 from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
+    SetParamEnteredValueRequest,
+    SetParamNameAndValueRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.types.code_obj_impls import (
@@ -349,6 +351,64 @@ async def test_param_impl_failures_do_not_write_history() -> None:
                     sectionId=SECTION_ID,
                     paramInfoId=PARAM_ID,
                     selectedId=ID("missing-impl-type"),
+                )
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_param_value_mutation_failures_do_not_write_history() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        baseline_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            manager.get_single_config_state(project_config_id),
+            SECTION_ID,
+            PARAM_ID,
+            BaseParamCodeObjImpl,
+        ).model_copy(deep=True)
+        baseline_name = manager.get_single_config_state(project_config_id).codeObjs[
+            PARAM_ID
+        ].name
+
+        async def assert_failure_does_not_write_history(operation) -> None:
+            history_revision_before = manager.history.revision
+            with pytest.raises(KeyError):
+                await operation
+            assert manager.history.revision == history_revision_before
+            current_state = manager.get_single_config_state(project_config_id)
+            current_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                current_state,
+                SECTION_ID,
+                PARAM_ID,
+                BaseParamCodeObjImpl,
+            )
+            assert current_impl == baseline_impl
+            assert current_state.codeObjs[PARAM_ID].name == baseline_name
+
+        await assert_failure_does_not_write_history(
+            manager.set_param_entered_value(
+                SetParamEnteredValueRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    paramInfoId=ID("missing-param-id"),
+                    value="ignored",
+                )
+            )
+        )
+        await assert_failure_does_not_write_history(
+            manager.set_param_name_and_value(
+                SetParamNameAndValueRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=SECTION_ID,
+                    codeObjId=ID("missing-param-id"),
+                    name="renamed_missing_param",
+                    value="ignored",
                 )
             )
         )

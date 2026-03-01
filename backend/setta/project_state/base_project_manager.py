@@ -3790,8 +3790,6 @@ class BaseProjectManager(ABC):
         self, x: SetAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Replace the stored app UI spec and update app definition metadata."""
-        previous_project_state_revision = self.history.revision
-        self.add_new_history_entry(app_definition_only=True)
         app_definition = self.project_state_backend.appDefinition or AppDefinition()
         target_path = (
             x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
@@ -3813,11 +3811,18 @@ class BaseProjectManager(ABC):
         if x.assets is not None:
             updates["assets"] = x.assets
         updated_definition = app_definition.model_copy(update=updates)
+        self._validate_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=x.appSpec,
+        )
+        previous_project_state_revision = self.history.revision
+        self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
             updated_definition=updated_definition,
             app_spec=x.appSpec,
             app_spec_path=normalized_path,
             previous_project_state_revision=previous_project_state_revision,
+            assume_validated=True,
         )
         return AppDefinitionResponse(
             appSpec=x.appSpec,
@@ -3830,7 +3835,6 @@ class BaseProjectManager(ABC):
         self, x: UpdateAppDefinitionRequest
     ) -> AppDefinitionResponse:
         """Apply a JSON merge patch to the stored app UI spec."""
-        self.add_new_history_entry(app_definition_only=True)
         self._get_default_project_state()
         app_definition = self.project_state_backend.appDefinition
         if app_definition is None or not app_definition.appSpecPath:
@@ -3846,6 +3850,7 @@ class BaseProjectManager(ABC):
             action_definitions=app_definition.actions,
             data_bindings=app_definition.dataBindings,
         )
+        self.add_new_history_entry(app_definition_only=True)
         write_app_spec(self.dbe, app_definition.appSpecPath, merged)
         return AppDefinitionResponse(
             appSpec=merged,
@@ -3882,15 +3887,12 @@ class BaseProjectManager(ABC):
             current_app_spec = copy.deepcopy(_DEFAULT_MINIMAL_APP_SPEC)
         return normalized_path, current_app_spec
 
-    async def _commit_app_definition_metadata_update(
+    def _validate_app_definition_metadata_update(
         self,
         *,
         updated_definition: AppDefinition,
         app_spec: JSONValue,
-        app_spec_path: str,
-        previous_project_state_revision: int,
     ) -> None:
-        project_state = self._get_default_project_state()
         validate_app_theme_or_raise(updated_definition.theme)
         validate_app_action_definitions(updated_definition.actions)
         validate_app_spec(
@@ -3899,6 +3901,22 @@ class BaseProjectManager(ABC):
             action_definitions=updated_definition.actions,
             data_bindings=updated_definition.dataBindings,
         )
+
+    async def _commit_app_definition_metadata_update(
+        self,
+        *,
+        updated_definition: AppDefinition,
+        app_spec: JSONValue,
+        app_spec_path: str,
+        previous_project_state_revision: int,
+        assume_validated: bool = False,
+    ) -> None:
+        project_state = self._get_default_project_state()
+        if not assume_validated:
+            self._validate_app_definition_metadata_update(
+                updated_definition=updated_definition,
+                app_spec=app_spec,
+            )
         self.project_state_backend = self.project_state_backend.model_copy(
             update={"appDefinition": updated_definition}
         )
@@ -3939,6 +3957,10 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "catalogId": catalog_id}
         )
+        self._validate_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+        )
         previous_project_state_revision = self.history.revision
         self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
@@ -3946,6 +3968,7 @@ class BaseProjectManager(ABC):
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
             previous_project_state_revision=previous_project_state_revision,
+            assume_validated=True,
         )
         return old_value, updated_definition.catalogId
 
@@ -3973,6 +3996,10 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
         )
+        self._validate_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+        )
         previous_project_state_revision = self.history.revision
         self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
@@ -3980,6 +4007,7 @@ class BaseProjectManager(ABC):
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
             previous_project_state_revision=previous_project_state_revision,
+            assume_validated=True,
         )
         return old_value, updated_definition.appSpecVersion
 
@@ -4006,6 +4034,10 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path}
         )
+        self._validate_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+        )
         previous_project_state_revision = self.history.revision
         self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
@@ -4013,6 +4045,7 @@ class BaseProjectManager(ABC):
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
             previous_project_state_revision=previous_project_state_revision,
+            assume_validated=True,
         )
         return old_value, normalized_path
 
@@ -4046,6 +4079,10 @@ class BaseProjectManager(ABC):
         updated_definition = app_definition.model_copy(
             update={"appSpecPath": normalized_path, "theme": theme_payload}
         )
+        self._validate_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+        )
         previous_project_state_revision = self.history.revision
         self.add_new_history_entry(app_definition_only=True)
         await self._commit_app_definition_metadata_update(
@@ -4053,6 +4090,7 @@ class BaseProjectManager(ABC):
             app_spec=current_app_spec,
             app_spec_path=normalized_path,
             previous_project_state_revision=previous_project_state_revision,
+            assume_validated=True,
         )
         return old_value, self._resolve_app_theme_mode(updated_definition)
 
