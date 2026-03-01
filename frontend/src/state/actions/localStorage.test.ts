@@ -1,6 +1,9 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { OverviewTabNameEnum } from "utils/constants";
+import {
+  OverviewNotificationsPaneTabEnum,
+  OverviewTabNameEnum,
+} from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   setColorModePreference,
@@ -66,6 +69,41 @@ describe("local storage merge", () => {
     ) as typeof current;
 
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+  });
+
+  it("migrates persisted BackendLogs overview tab to Notifications pane logs tab", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewTab: OverviewTabNameEnum.BackendLogs } as Record<
+        string,
+        unknown
+      >,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Notifications);
+    expect(merged.overviewNotificationsPaneTab).toBe(
+      OverviewNotificationsPaneTabEnum.BackendLogs,
+    );
+  });
+
+  it("sanitizes invalid notifications pane tab values", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewNotificationsPaneTab: "invalid-tab" } as Record<
+        string,
+        unknown
+      >,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewNotificationsPaneTab).toBe(
+      OverviewNotificationsPaneTabEnum.Notifications,
+    );
   });
 
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {
