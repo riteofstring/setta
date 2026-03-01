@@ -45,6 +45,8 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  forceShellMode?: boolean;
+  enableMotionShell?: boolean;
 };
 
 export function SectionContainerCoreResizable({
@@ -56,6 +58,8 @@ export function SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  forceShellMode = false,
+  enableMotionShell = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -153,13 +157,35 @@ export function SectionContainerCoreResizable({
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {forceShellMode ? (
+        <div className="h-8 w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
+      ) : enableMotionShell ? (
+        <div className="setta-motion-shell-content-wrap relative">
+          <div
+            className="setta-motion-shell-layer pointer-events-none absolute inset-0"
+            aria-hidden="true"
+          >
+            <div className="h-full w-full border-t border-solid border-setta-150/60 bg-setta-50/40 dark:border-setta-800/70 dark:bg-setta-900/40" />
+          </div>
+          <div className="setta-motion-shell-full-layer">
+            <AreaSwitch
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              bgColor={bgColor}
+              isMinimized={isMinimized}
+              isUserView={isUserView}
+            />
+          </div>
+        </div>
+      ) : (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      )}
     </CustomResizable>
   );
 }
