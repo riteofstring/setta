@@ -3530,7 +3530,11 @@ class BaseProjectManager(ABC):
                 x.sectionId,
                 x.terminalSectionId,
             )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
         logger.info(
             "set_code_section_attached_terminal done project=%s section=%s terminal=%s",
             x.projectConfigId,
@@ -3578,7 +3582,11 @@ class BaseProjectManager(ABC):
             project_state,
             sectionId,
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
         logger.info(
             "ensure_code_section_attached_terminal done project=%s section=%s terminal=%s",
             projectConfigId,
@@ -3875,9 +3883,18 @@ class BaseProjectManager(ABC):
             await self.watch_code_manager.handle_code_section_update(
                 project_state, x.sectionId, formatted_code
             )
-            await self._update_and_broadcast_project_state_no_name_validation(
+            section_patch_scope = (
+                self._build_section_patch_scope_with_codegen_singletons(
+                    project_config_id=x.projectConfigId,
+                    section_ids=[x.sectionId],
+                )
+            )
+            await self._update_and_broadcast_section_impl_patches(
                 project_state,
+                section_ids=section_patch_scope,
                 updateFileWatcher=False,
+                validate_name_rules=False,
+                broadcast_name_validation_errors=False,
             )
             return
         if isinstance(section_impl, GenPythonCodeSectionImpl):
@@ -3904,9 +3921,20 @@ class BaseProjectManager(ABC):
                 )
             python_target.genCodePrefix = formatted_prefix
             python_target.genCodeSuffix = formatted_suffix
-            await self._update_and_broadcast_project_state_no_name_validation(
+            section_patch_scope = (
+                self._build_section_patch_scope_with_codegen_singletons(
+                    project_config_id=x.projectConfigId,
+                    section_ids=[x.sectionId],
+                )
+            )
+            await self._update_and_broadcast_code_obj_and_section_patches(
                 project_state,
+                code_obj_ids=[],
+                section_ids=section_patch_scope,
+                broadcast_project_config_patch=True,
                 updateFileWatcher=False,
+                validate_name_rules=False,
+                broadcast_name_validation_errors=False,
             )
             return
         raise HTTPException(
@@ -4918,7 +4946,11 @@ class BaseProjectManager(ABC):
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_variant_json_source_keys(self, x: SetVariantJsonSourceKeysRequest):
@@ -4979,7 +5011,11 @@ class BaseProjectManager(ABC):
     async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_frozen(project_state, x.variantId)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def delete_json_source_file_and_variant(
@@ -5078,7 +5114,11 @@ class BaseProjectManager(ABC):
     async def set_section_variant_name(self, x: SetSectionVariantNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant_name(project_state, x.variantId, x.name)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._update_and_broadcast_structural_patch(
+            project_state,
+            validate_name_rules=False,
+            broadcast_name_validation_errors=False,
+        )
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
@@ -5733,6 +5773,35 @@ class BaseProjectManager(ABC):
             )
         )
 
+    def _collect_listener_emit_patch_scope(
+        self,
+        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
+    ) -> tuple[list[ID], list[ID]]:
+        code_obj_ids: list[ID] = []
+        section_ids: list[ID] = []
+        seen_code_obj_ids: set[ID] = set()
+        seen_section_ids: set[ID] = set()
+        for dependency_update in dependency_updates:
+            dependency_key = dependency_update.dependencyKey
+            if isinstance(dependency_key, SectionParamDependencyKey):
+                if dependency_key.codeObjId not in seen_code_obj_ids:
+                    seen_code_obj_ids.add(dependency_key.codeObjId)
+                    code_obj_ids.append(dependency_key.codeObjId)
+                if dependency_key.sectionId not in seen_section_ids:
+                    seen_section_ids.add(dependency_key.sectionId)
+                    section_ids.append(dependency_key.sectionId)
+                continue
+            if isinstance(dependency_key, SectionDependencyKey):
+                if dependency_key.sectionId in seen_section_ids:
+                    continue
+                seen_section_ids.add(dependency_key.sectionId)
+                section_ids.append(dependency_key.sectionId)
+                continue
+            raise TypeError(
+                f"Unsupported listener dependency key type: {dependency_key.type}"
+            )
+        return code_obj_ids, section_ids
+
     async def _apply_listener_emit_updates_to_state(
         self,
         project_state: ProjectStateSingleConfig,
@@ -5754,8 +5823,21 @@ class BaseProjectManager(ABC):
             )
 
         if dependency_updates:
-            await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
+            code_obj_patch_ids, section_patch_ids = (
+                self._collect_listener_emit_patch_scope(dependency_updates)
+            )
+            section_patch_scope = (
+                self._build_section_patch_scope_with_codegen_singletons(
+                    project_config_id=project_state.projectConfig.id,
+                    section_ids=section_patch_ids,
+                )
+            )
+            await self._update_and_broadcast_code_obj_and_section_patches(
+                project_state,
+                code_obj_ids=code_obj_patch_ids,
+                section_ids=section_patch_scope,
+                validate_name_rules=False,
+                broadcast_name_validation_errors=False,
             )
 
         if artifact_payloads:

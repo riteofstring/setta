@@ -1,5 +1,4 @@
 import asyncio
-import types
 from contextlib import ExitStack, suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -83,7 +82,7 @@ class ListenerEmitTestManager(BaseProjectManager):
     def save(self):
         return None
 
-    async def save_as_new_project_config(self, x):
+    async def save_as_new_project_config(self, _x):
         return None
 
 
@@ -220,27 +219,133 @@ class TestApplyListenerEmitUpdates:
             )
         ]
 
-        captured_broadcasts: list[ProjectStateSingleConfigWithCompletedOpIds] = []
+        snapshot_broadcast_calls = 0
+        section_patch_calls: list[tuple[ID, ID]] = []
+        project_config_patch_calls = 0
+        code_obj_patch_calls = 0
+        structural_patch_calls = 0
 
-        async def capture_broadcast(
-            self,
-            projectState,
-            completedOpIds,
-            pendingOpIds,
-            projectStateRevision=None,
+        async def capture_snapshot(
+            projectState, completedOpIds, pendingOpIds, projectStateRevision=None
         ):
-            captured_broadcasts.append(
-                ProjectStateSingleConfigWithCompletedOpIds(
-                    projectState=projectState,
-                    completedOpIds=list(completedOpIds),
-                    pendingOpIds=list(pendingOpIds),
-                    projectStateRevision=projectStateRevision,
-                )
+            nonlocal snapshot_broadcast_calls
+            snapshot_broadcast_calls += 1
+            await original_snapshot_broadcast(
+                projectState,
+                completedOpIds,
+                pendingOpIds,
+                projectStateRevision,
             )
 
         sender = self.manager.websocket_msg_handler
-        original_broadcast = sender.broadcast_project_state
-        sender.broadcast_project_state = types.MethodType(capture_broadcast, sender)
+        original_snapshot_broadcast = sender.broadcast_project_state
+        original_section_patch_broadcast = sender.broadcast_project_state_section_impl_patch
+        original_project_config_patch_broadcast = (
+            sender.broadcast_project_state_project_config_patch
+        )
+        original_code_obj_patch_broadcast = sender.broadcast_project_state_code_objs_patch
+        original_structural_patch_broadcast = (
+            sender.broadcast_project_state_structural_patch
+        )
+
+        async def capture_section_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            section_patch_calls.append((project_config_id_for_patch, section_id_for_patch))
+            await original_section_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def capture_project_config_patch(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal project_config_patch_calls
+            project_config_patch_calls += 1
+            await original_project_config_patch_broadcast(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def capture_code_obj_patch(
+            project_config_id_for_patch,
+            code_objs_for_patch,
+            code_obj_variants_for_patch,
+            code_obj_impls_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal code_obj_patch_calls
+            code_obj_patch_calls += 1
+            await original_code_obj_patch_broadcast(
+                project_config_id_for_patch,
+                code_objs_for_patch,
+                code_obj_variants_for_patch,
+                code_obj_impls_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        async def capture_structural_patch(
+            project_config_id_for_patch,
+            project_config_for_patch,
+            sections_for_patch,
+            section_variants_for_patch,
+            section_impls_for_patch,
+            parent_section_map_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal structural_patch_calls
+            structural_patch_calls += 1
+            await original_structural_patch_broadcast(
+                project_config_id_for_patch,
+                project_config_for_patch,
+                sections_for_patch,
+                section_variants_for_patch,
+                section_impls_for_patch,
+                parent_section_map_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
+            )
+
+        sender.broadcast_project_state = capture_snapshot  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
+            capture_section_patch
+        )
+        sender.broadcast_project_state_project_config_patch = (  # type: ignore[method-assign]
+            capture_project_config_patch
+        )
+        sender.broadcast_project_state_code_objs_patch = capture_code_obj_patch  # type: ignore[method-assign]
+        sender.broadcast_project_state_structural_patch = capture_structural_patch  # type: ignore[method-assign]
         try:
             await self.manager.apply_listener_emit_updates(
                 projectConfigId=self.project_config_id,
@@ -248,7 +353,19 @@ class TestApplyListenerEmitUpdates:
                 artifact_updates=[],
             )
         finally:
-            sender.broadcast_project_state = original_broadcast
+            sender.broadcast_project_state = original_snapshot_broadcast
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_patch_broadcast
+            )
+            sender.broadcast_project_state_project_config_patch = (
+                original_project_config_patch_broadcast
+            )
+            sender.broadcast_project_state_code_objs_patch = (
+                original_code_obj_patch_broadcast
+            )
+            sender.broadcast_project_state_structural_patch = (
+                original_structural_patch_broadcast
+            )
 
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         updated_impl = get_curr_effective_section_impl_with_type_guard(
@@ -257,11 +374,11 @@ class TestApplyListenerEmitUpdates:
             TextBlockSectionImpl,
         )
         assert new_text == updated_impl.text
-        assert 1 == len(captured_broadcasts)
-        assert (
-            self.project_config_id
-            == captured_broadcasts[0].projectState.projectConfig.id
-        )
+        assert 0 == snapshot_broadcast_calls
+        assert [(self.project_config_id, self.text_section_id)] == section_patch_calls
+        assert 0 == project_config_patch_calls
+        assert 0 == code_obj_patch_calls
+        assert 0 == structural_patch_calls
 
     async def test_missing_section_raises_listener_error(self):
         dependency_updates = [
@@ -277,7 +394,6 @@ class TestApplyListenerEmitUpdates:
         captured_broadcasts: list[ProjectStateSingleConfigWithCompletedOpIds] = []
 
         async def capture_broadcast(
-            self,
             projectState,
             completedOpIds,
             pendingOpIds,
@@ -291,9 +407,15 @@ class TestApplyListenerEmitUpdates:
                     projectStateRevision=projectStateRevision,
                 )
             )
+            await original_broadcast(
+                projectState,
+                completedOpIds,
+                pendingOpIds,
+                projectStateRevision,
+            )
 
         original_broadcast = sender.broadcast_project_state
-        sender.broadcast_project_state = types.MethodType(capture_broadcast, sender)
+        sender.broadcast_project_state = capture_broadcast  # type: ignore[method-assign]
         try:
             with pytest.raises(ListenerDependencyUpdateError):
                 await self.manager.apply_listener_emit_updates(
@@ -318,35 +440,57 @@ class TestApplyListenerEmitUpdates:
             )
         ]
         captured_artifact_calls: list[tuple[list, str]] = []
-        captured_project_calls: list[ProjectStateSingleConfigWithCompletedOpIds] = []
+        snapshot_broadcast_calls = 0
+        section_patch_calls = 0
 
-        async def capture_artifact_broadcast(self, artifacts, updateType):
+        async def capture_artifact_broadcast(artifacts, updateType):
             captured_artifact_calls.append((artifacts, updateType))
+            await original_artifact_broadcast(artifacts, updateType)
 
-        async def capture_project_broadcast(
-            self,
+        async def capture_snapshot(
             projectState,
             completedOpIds,
             pendingOpIds,
             projectStateRevision=None,
-        ):
-            captured_project_calls.append(
-                ProjectStateSingleConfigWithCompletedOpIds(
-                    projectState=projectState,
-                    completedOpIds=list(completedOpIds),
-                    pendingOpIds=list(pendingOpIds),
-                    projectStateRevision=projectStateRevision,
-                )
+        ) -> None:
+            nonlocal snapshot_broadcast_calls
+            snapshot_broadcast_calls += 1
+            await original_snapshot_broadcast(
+                projectState,
+                completedOpIds,
+                pendingOpIds,
+                projectStateRevision,
+            )
+
+        async def capture_section_patch(
+            project_config_id_for_patch,
+            section_id_for_patch,
+            section_impl_for_patch,
+            previous_project_state_revision,
+            project_state_revision,
+            completed_op_ids,
+            pending_op_ids,
+        ) -> None:
+            nonlocal section_patch_calls
+            section_patch_calls += 1
+            await original_section_patch_broadcast(
+                project_config_id_for_patch,
+                section_id_for_patch,
+                section_impl_for_patch,
+                previous_project_state_revision,
+                project_state_revision,
+                completed_op_ids,
+                pending_op_ids,
             )
 
         sender = self.manager.websocket_msg_handler
         original_artifact_broadcast = sender.broadcast_artifacts_update
-        original_project_broadcast = sender.broadcast_project_state
-        sender.broadcast_artifacts_update = types.MethodType(
-            capture_artifact_broadcast, sender
-        )
-        sender.broadcast_project_state = types.MethodType(
-            capture_project_broadcast, sender
+        original_snapshot_broadcast = sender.broadcast_project_state
+        original_section_patch_broadcast = sender.broadcast_project_state_section_impl_patch
+        sender.broadcast_artifacts_update = capture_artifact_broadcast  # type: ignore[method-assign]
+        sender.broadcast_project_state = capture_snapshot  # type: ignore[method-assign]
+        sender.broadcast_project_state_section_impl_patch = (  # type: ignore[method-assign]
+            capture_section_patch
         )
         try:
             await self.manager.apply_listener_emit_updates(
@@ -356,9 +500,13 @@ class TestApplyListenerEmitUpdates:
             )
         finally:
             sender.broadcast_artifacts_update = original_artifact_broadcast
-            sender.broadcast_project_state = original_project_broadcast
+            sender.broadcast_project_state = original_snapshot_broadcast
+            sender.broadcast_project_state_section_impl_patch = (
+                original_section_patch_broadcast
+            )
 
-        assert [] == captured_project_calls
+        assert 0 == snapshot_broadcast_calls
+        assert 0 == section_patch_calls
         assert 1 == len(captured_artifact_calls)
         artifacts_payload, update_type = captured_artifact_calls[0]
         assert "update" == update_type

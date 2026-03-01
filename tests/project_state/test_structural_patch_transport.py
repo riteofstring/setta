@@ -1,16 +1,22 @@
 import pytest
 
 from setta.project_state.project_manager_types import (
+    CreateTopLevelSectionRequest,
     CreateNewSectionVariantRequest,
     GroupSectionsRequest,
     MoveSectionsRequest,
+    SetCodeSectionAttachedTerminalRequest,
     SetDefaultSectionVariantRequest,
+    SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionVariantSortOrderRequest,
+    ToggleVariantFrozenRequest,
+    ToggleVariantJSONSourceRequest,
     UngroupGroupsRequest,
 )
 from setta.types.id import ID
 from setta.types.project_config import Position
+from setta.types.section_impls import SectionType
 from tests.code_gen.test_code_generator_formatting import build_callable_project_state
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -366,6 +372,196 @@ async def test_set_section_variant_sort_order_uses_structural_patch_transport() 
             .variants
             == reversed_variant_order
         )
+
+
+@pytest.mark.asyncio
+async def test_variant_metadata_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        dict_section_id = create_response.sectionId
+        variant_id = manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.sectionVariantMap[dict_section_id]
+
+        sender = manager.websocket_msg_handler
+        capture_toggle_json, restore_toggle_json = _install_transport_capture(sender)
+        try:
+            await manager.toggle_variant_json_source(
+                ToggleVariantJSONSourceRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=dict_section_id,
+                    variantId=variant_id,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_toggle_json()
+
+        assert 0 == capture_toggle_json["project_state_broadcast_calls"]
+        assert 1 == len(capture_toggle_json["structural_patch_calls"])
+        assert 0 == capture_toggle_json["project_config_patch_calls"]
+        assert 0 == capture_toggle_json["code_obj_patch_calls"]
+        assert 0 == capture_toggle_json["section_impl_patch_calls"]
+        assert 0 == capture_toggle_json["name_validation_broadcast_calls"]
+
+        before_is_frozen = manager.get_single_config_state(project_config_id).sectionVariants[
+            variant_id
+        ].isFrozen
+        capture_toggle_frozen, restore_toggle_frozen = _install_transport_capture(sender)
+        try:
+            await manager.toggle_variant_frozen(
+                ToggleVariantFrozenRequest(
+                    projectConfigId=project_config_id,
+                    variantId=variant_id,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_toggle_frozen()
+
+        assert 0 == capture_toggle_frozen["project_state_broadcast_calls"]
+        assert 1 == len(capture_toggle_frozen["structural_patch_calls"])
+        assert 0 == capture_toggle_frozen["project_config_patch_calls"]
+        assert 0 == capture_toggle_frozen["code_obj_patch_calls"]
+        assert 0 == capture_toggle_frozen["section_impl_patch_calls"]
+        assert 0 == capture_toggle_frozen["name_validation_broadcast_calls"]
+        assert (
+            manager.get_single_config_state(project_config_id).sectionVariants[
+                variant_id
+            ].isFrozen
+            != before_is_frozen
+        )
+
+        capture_set_name, restore_set_name = _install_transport_capture(sender)
+        try:
+            await manager.set_section_variant_name(
+                SetSectionVariantNameRequest(
+                    projectConfigId=project_config_id,
+                    variantId=variant_id,
+                    name="Updated Variant Name",
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_set_name()
+
+        assert 0 == capture_set_name["project_state_broadcast_calls"]
+        assert 1 == len(capture_set_name["structural_patch_calls"])
+        assert 0 == capture_set_name["project_config_patch_calls"]
+        assert 0 == capture_set_name["code_obj_patch_calls"]
+        assert 0 == capture_set_name["section_impl_patch_calls"]
+        assert 0 == capture_set_name["name_validation_broadcast_calls"]
+        assert (
+            manager.get_single_config_state(project_config_id).sectionVariants[
+                variant_id
+            ].name
+            == "Updated Variant Name"
+        )
+
+
+@pytest.mark.asyncio
+async def test_code_section_terminal_routes_use_structural_patch_transport() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(4)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        create_code_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Code,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        create_terminal_response = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Terminal,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        code_section_id = create_code_response.sectionId
+        terminal_section_id = create_terminal_response.sectionId
+
+        sender = manager.websocket_msg_handler
+        capture_attach, restore_attach = _install_transport_capture(sender)
+        try:
+            await manager.set_code_section_attached_terminal(
+                SetCodeSectionAttachedTerminalRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=code_section_id,
+                    terminalSectionId=terminal_section_id,
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_attach()
+
+        assert 0 == capture_attach["project_state_broadcast_calls"]
+        assert 1 == len(capture_attach["structural_patch_calls"])
+        assert 0 == capture_attach["project_config_patch_calls"]
+        assert 0 == capture_attach["code_obj_patch_calls"]
+        assert 0 == capture_attach["section_impl_patch_calls"]
+        assert 0 == capture_attach["name_validation_broadcast_calls"]
+
+        await manager.set_code_section_attached_terminal(
+            SetCodeSectionAttachedTerminalRequest(
+                projectConfigId=project_config_id,
+                sectionId=code_section_id,
+                terminalSectionId=None,
+            )
+        )
+        await manager.finish_pending_operations(timeout=5.0)
+
+        capture_ensure, restore_ensure = _install_transport_capture(sender)
+        try:
+            terminal_id = await manager.ensure_code_section_attached_terminal_for_run(
+                project_config_id,
+                code_section_id,
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+        finally:
+            restore_ensure()
+
+        assert terminal_id is not None
+        assert 0 == capture_ensure["project_state_broadcast_calls"]
+        assert 1 == len(capture_ensure["structural_patch_calls"])
+        assert 0 == capture_ensure["project_config_patch_calls"]
+        assert 0 == capture_ensure["code_obj_patch_calls"]
+        assert 0 == capture_ensure["section_impl_patch_calls"]
+        assert 0 == capture_ensure["name_validation_broadcast_calls"]
 
 
 @pytest.mark.asyncio
