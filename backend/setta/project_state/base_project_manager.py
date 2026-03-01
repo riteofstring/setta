@@ -4303,7 +4303,11 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_edge(self, x: CreateEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=[x.targetPortId],
+            include_codegen_singletons=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         edge = Edge(
             sourceSectionId=x.sourceSectionId,
@@ -4337,7 +4341,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_edge(self, x: UpdateEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         update_edge(project_state, x.edge)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -4355,7 +4362,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_edges(self, x: DeleteEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         edge_ids = set(x.edgeIds)
         target_param_ids_for_patch = [
@@ -4363,6 +4369,11 @@ class BaseProjectManager(ABC):
             for edge in project_state.projectConfig.edges
             if edge.id in edge_ids
         ]
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=target_param_ids_for_patch,
+            include_codegen_singletons=True,
+        )
         delete_edges(project_state, x.edgeIds)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
@@ -4379,7 +4390,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def reconnect_edge(self, x: ReconnectEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         original_edge = next(
             (edge for edge in project_state.projectConfig.edges if edge.id == x.edgeId),
@@ -4387,6 +4397,19 @@ class BaseProjectManager(ABC):
         )
         if original_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
+        target_param_ids_for_patch = [x.targetPortId]
+        target_changed = (
+            original_edge.targetSectionId != x.targetSectionId
+            or original_edge.targetVariantId != x.targetVariantId
+            or original_edge.targetPortId != x.targetPortId
+        )
+        if target_changed:
+            target_param_ids_for_patch.append(original_edge.targetPortId)
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=target_param_ids_for_patch,
+            include_codegen_singletons=True,
+        )
         reconnect_edge(
             project_state,
             x.edgeId,
@@ -4404,11 +4427,6 @@ class BaseProjectManager(ABC):
         if updated_edge is None:
             raise KeyError(f"Edge {x.edgeId} not found.")
         target_param_ids_for_patch = [updated_edge.targetPortId]
-        target_changed = (
-            original_edge.targetSectionId != updated_edge.targetSectionId
-            or original_edge.targetVariantId != updated_edge.targetVariantId
-            or original_edge.targetPortId != updated_edge.targetPortId
-        )
         if target_changed:
             target_param_ids_for_patch.append(original_edge.targetPortId)
         self._apply_edge_value(project_state, updated_edge)
@@ -4427,7 +4445,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_edges(self, x: SetEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
         project_state = self.get_single_config_state(x.projectConfigId)
         incoming_edge_ids = {edge.id for edge in x.edges}
         target_param_ids_for_patch = [
@@ -4435,6 +4452,11 @@ class BaseProjectManager(ABC):
             for edge in project_state.projectConfig.edges
             if edge.id not in incoming_edge_ids
         ]
+        self._add_project_config_and_scoped_history_entry(
+            project_config_id=x.projectConfigId,
+            code_obj_ids=target_param_ids_for_patch,
+            include_codegen_singletons=True,
+        )
         set_edges(project_state, x.edges)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
             project_config_id=x.projectConfigId,
@@ -4451,7 +4473,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         edge_kwargs = {
             "sourceSectionId": x.sourceSectionId,
@@ -4481,7 +4506,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         update_agentic_edge(project_state, x.edge)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -4499,7 +4527,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_agentic_edges(project_state, x.edgeIds)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -4517,7 +4548,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
-        self.add_new_history_entry(project_config_id=x.projectConfigId)
+        self.add_new_history_entry(
+            project_config_id=x.projectConfigId,
+            project_config_only=True,
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_agentic_edges(project_state, x.edges)
         section_patch_scope = self._build_section_patch_scope_with_codegen_singletons(
@@ -6831,6 +6865,55 @@ class BaseProjectManager(ABC):
             return
         self.add_new_history_entry(project_config_id=project_config_id)
 
+    def _add_project_config_and_scoped_history_entry(
+        self,
+        *,
+        project_config_id: ID,
+        code_obj_ids: list[ID] | set[ID] | None = None,
+        section_ids: list[ID] | set[ID] | None = None,
+        include_codegen_singletons: bool = False,
+    ) -> None:
+        backend = self.project_state_backend
+        if project_config_id not in backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+
+        scoped_section_ids: set[ID] = set(section_ids) if section_ids else set()
+        if include_codegen_singletons:
+            scoped_section_ids.update(
+                self._get_codegen_singleton_section_ids_for_history_entry(
+                    project_config_id
+                )
+            )
+
+        scoped_code_obj_ids: set[ID] = set()
+        if code_obj_ids:
+            for code_obj_id in code_obj_ids:
+                if code_obj_id not in backend.codeObjs:
+                    continue
+                active_variant_ids = (
+                    self._get_active_code_obj_variant_ids_for_project_config(
+                        backend,
+                        project_config_id,
+                        code_obj_id,
+                    )
+                )
+                if active_variant_ids:
+                    scoped_code_obj_ids.add(code_obj_id)
+
+        if not scoped_section_ids and not scoped_code_obj_ids:
+            self.add_new_history_entry(
+                project_config_id=project_config_id,
+                project_config_only=True,
+            )
+            return
+
+        self.add_new_history_entry(
+            project_config_id=project_config_id,
+            include_project_config=True,
+            section_impl_only_ids=(scoped_section_ids if scoped_section_ids else None),
+            code_obj_only_ids=scoped_code_obj_ids if scoped_code_obj_ids else None,
+        )
+
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
@@ -7641,12 +7724,17 @@ class BaseProjectManager(ABC):
         coalesce_window_s: float | None = None,
         project_config_id: ID | None = None,
         project_config_only: bool = False,
+        include_project_config: bool = False,
         section_impl_only_ids: set[ID] | None = None,
         code_obj_only_ids: set[ID] | None = None,
     ):
         if project_config_only and project_config_id is None:
             raise ValueError(
                 "project_config_only history entries require project_config_id."
+            )
+        if include_project_config and project_config_id is None:
+            raise ValueError(
+                "include_project_config history entries require project_config_id."
             )
         if section_impl_only_ids is not None and project_config_id is None:
             raise ValueError(
@@ -7655,6 +7743,10 @@ class BaseProjectManager(ABC):
         if code_obj_only_ids is not None and project_config_id is None:
             raise ValueError(
                 "code_obj_only_ids history entries require project_config_id."
+            )
+        if project_config_only and include_project_config:
+            raise ValueError(
+                "project_config_only cannot be combined with include_project_config."
             )
         if project_config_only and (
             section_impl_only_ids is not None or code_obj_only_ids is not None
@@ -7676,33 +7768,35 @@ class BaseProjectManager(ABC):
             def copy_project_config_backend(
                 backend: ProjectStateBackend,
             ) -> ProjectStateBackend:
+                scoped_backend = backend
+                if project_config_only or include_project_config:
+                    scoped_backend = (
+                        self._copy_backend_for_project_config_only_history_entry(
+                            scoped_backend,
+                            project_config_id,
+                        )
+                    )
+                if frozen_section_impl_only_ids is not None:
+                    scoped_backend = (
+                        self._copy_backend_for_section_impl_only_history_entry(
+                            scoped_backend,
+                            project_config_id,
+                            frozen_section_impl_only_ids,
+                        )
+                    )
+                if frozen_code_obj_only_ids is not None:
+                    scoped_backend = self._copy_backend_for_code_obj_only_history_entry(
+                        scoped_backend,
+                        project_config_id,
+                        frozen_code_obj_only_ids,
+                    )
                 if (
-                    frozen_section_impl_only_ids is not None
+                    project_config_only
+                    or include_project_config
+                    or frozen_section_impl_only_ids is not None
                     or frozen_code_obj_only_ids is not None
                 ):
-                    scoped_backend = backend
-                    if frozen_section_impl_only_ids is not None:
-                        scoped_backend = (
-                            self._copy_backend_for_section_impl_only_history_entry(
-                                scoped_backend,
-                                project_config_id,
-                                frozen_section_impl_only_ids,
-                            )
-                        )
-                    if frozen_code_obj_only_ids is not None:
-                        scoped_backend = (
-                            self._copy_backend_for_code_obj_only_history_entry(
-                                scoped_backend,
-                                project_config_id,
-                                frozen_code_obj_only_ids,
-                            )
-                        )
                     return scoped_backend
-                if project_config_only:
-                    return self._copy_backend_for_project_config_only_history_entry(
-                        backend,
-                        project_config_id,
-                    )
                 return self._copy_backend_for_project_config_history_entry(
                     backend,
                     project_config_id,

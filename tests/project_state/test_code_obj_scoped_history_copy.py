@@ -100,6 +100,82 @@ async def test_code_obj_only_history_entry_copies_only_targeted_code_obj_graph()
 
 
 @pytest.mark.asyncio
+async def test_project_config_and_code_obj_history_entry_copies_both_scopes() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        project_config_id = project_state.projectConfig.id
+
+        current_state = manager.get_single_config_state(project_config_id)
+        callable_impl = get_curr_effective_section_impl_with_type_guard(
+            current_state,
+            SECTION_ID,
+            CallableSectionImpl,
+        )
+        target_variant_id = callable_impl.codeObjVariantMap[TARGET_PARAM_ID]
+        sibling_variant_id = callable_impl.codeObjVariantMap[SIBLING_PARAM_ID]
+        target_impl_id = current_state.codeObjVariants[target_variant_id].impl
+        sibling_impl_id = current_state.codeObjVariants[sibling_variant_id].impl
+
+        history_len_before = len(manager.history._history)
+        backend_before = manager.project_state_backend
+        manager.add_new_history_entry(
+            trigger_autosave=False,
+            project_config_id=project_config_id,
+            include_project_config=True,
+            code_obj_only_ids={TARGET_PARAM_ID},
+        )
+        backend_after = manager.project_state_backend
+
+        assert len(manager.history._history) == history_len_before + 1
+        assert backend_after is not backend_before
+        assert (
+            backend_after.projectConfigs[project_config_id]
+            is not backend_before.projectConfigs[project_config_id]
+        )
+        assert (
+            backend_after.codeObjs[TARGET_PARAM_ID]
+            is not backend_before.codeObjs[TARGET_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjs[SIBLING_PARAM_ID]
+            is backend_before.codeObjs[SIBLING_PARAM_ID]
+        )
+        assert (
+            backend_after.codeObjVariants[target_variant_id]
+            is not backend_before.codeObjVariants[target_variant_id]
+        )
+        assert (
+            backend_after.codeObjVariants[sibling_variant_id]
+            is backend_before.codeObjVariants[sibling_variant_id]
+        )
+        assert (
+            backend_after.codeObjImpls[target_impl_id]
+            is not backend_before.codeObjImpls[target_impl_id]
+        )
+        assert (
+            backend_after.codeObjImpls[sibling_impl_id]
+            is backend_before.codeObjImpls[sibling_impl_id]
+        )
+        assert backend_after.sections[SECTION_ID] is backend_before.sections[SECTION_ID]
+
+        original_project_name = backend_before.projectConfigs[project_config_id].name
+        backend_after.projectConfigs[project_config_id].name = (
+            "scoped-history-project-config"
+        )
+        assert (
+            backend_before.projectConfigs[project_config_id].name
+            == original_project_name
+        )
+
+        original_code_obj_name = backend_before.codeObjs[TARGET_PARAM_ID].name
+        backend_after.codeObjs[TARGET_PARAM_ID].name = "scoped-history-project-target"
+        assert backend_before.codeObjs[TARGET_PARAM_ID].name == original_code_obj_name
+
+
+@pytest.mark.asyncio
 async def test_set_param_entered_value_history_copy_isolates_codegen_singletons() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
