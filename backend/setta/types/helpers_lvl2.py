@@ -1784,7 +1784,6 @@ def change_param_impl(
     paramInfoId: ID,
     selectedId: ID,
 ):
-    validate_change_param_impl(settings, p, sectionId, paramInfoId, selectedId)
     section_impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(section_impl, MetaControlSectionImpl):
         allowed_types = ControlCodeObjTypeSet
@@ -1842,49 +1841,12 @@ def change_param_impl(
     maybe_convert_code_obj_value(old_impl, impl, core, variant)
 
 
-def validate_change_param_impl(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoId: ID,
-    selectedId: ID,
-):
-    section_impl = get_curr_effective_section_impl(p, sectionId)
-    if isinstance(section_impl, MetaControlSectionImpl):
-        allowed_types = ControlCodeObjTypeSet
-    elif isinstance(section_impl, BaseSectionWithParamsImpl):
-        allowed_types = SectionParamCodeObjTypeSet
-    else:
-        raise TypeError(f"Section {sectionId} does not support params.")
-
-    get_curr_code_obj_variant(
-        p,
-        sectionId,
-        paramInfoId,
-    )
-    impl = p.codeObjImpls.get(selectedId)
-    if impl is not None:
-        impl_type = impl.type
-    else:
-        impl_type = CodeObjType[selectedId]
-        # Build a candidate impl to validate that defaults can be materialized.
-        create_code_obj_impl(
-            type=impl_type,  # type: ignore
-            defaults=get_user_default_code_obj_from_settings(settings, impl_type),  # type: ignore
-        )
-    if impl_type not in allowed_types:
-        raise ValueError(
-            f"Section {sectionId} does not allow code obj type {impl_type}."
-        )
-
-
 def update_param_impl_config(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
     paramInfoId: ID,
     newConfig: dict,
 ):
-    validate_update_param_impl_config(p, sectionId, paramInfoId, newConfig)
     variant = get_curr_code_obj_variant(
         p,
         sectionId,
@@ -1894,31 +1856,6 @@ def update_param_impl_config(
     for k, v in newConfig.items():
         setattr(impl, k, v)
     maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
-
-
-def validate_update_param_impl_config(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoId: ID,
-    newConfig: dict,
-):
-    variant = get_curr_code_obj_variant(
-        p,
-        sectionId,
-        paramInfoId,
-    )
-    impl = p.codeObjImpls[variant.impl]
-    impl_for_validation = impl.model_copy(deep=True)
-    core_for_validation = p.codeObjs[paramInfoId].model_copy(deep=True)
-    variant_for_validation = variant.model_copy(deep=True)
-    for k, v in newConfig.items():
-        setattr(impl_for_validation, k, v)
-    maybe_convert_code_obj_value(
-        impl_for_validation,
-        impl_for_validation,
-        core_for_validation,
-        variant_for_validation,
-    )
 
 
 def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
@@ -2866,46 +2803,28 @@ def set_section_edge_outputs(
 
 
 def create_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    validate_create_edge(p, edge)
-    p.projectConfig.edges.append(edge)
-
-
-def validate_create_edge(p: "ProjectStateSingleConfig", edge: Edge):
     if any(existing.id == edge.id for existing in p.projectConfig.edges):
         raise KeyError(f"Edge {edge.id} already exists.")
     _ensure_edge_endpoints_valid(p, edge)
-
-
-def validate_update_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    for existing in p.projectConfig.edges:
-        if existing.id != edge.id:
-            continue
-        _ensure_edge_endpoints_valid(p, edge)
-        return
-    raise KeyError(f"Edge {edge.id} not found.")
+    p.projectConfig.edges.append(edge)
 
 
 def update_edge(p: "ProjectStateSingleConfig", edge: Edge):
-    validate_update_edge(p, edge)
     for idx, existing in enumerate(p.projectConfig.edges):
         if existing.id != edge.id:
             continue
+        _ensure_edge_endpoints_valid(p, edge)
         p.projectConfig.edges[idx] = edge
         return
     raise KeyError(f"Edge {edge.id} not found.")
 
 
-def validate_delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     edge_ids = set(edgeIds)
     existing_ids = {edge.id for edge in p.projectConfig.edges}
     missing = edge_ids - existing_ids
     if missing:
         raise KeyError(f"Edges not found: {sorted(missing)}")
-
-
-def delete_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    validate_delete_edges(p, edgeIds)
-    edge_ids = set(edgeIds)
     remaining_edges: list[Edge] = []
     removed_edges: list[Edge] = []
     for edge in p.projectConfig.edges:
@@ -2928,16 +2847,6 @@ def reconnect_edge(
     targetVariantId: ID,
     targetPortId: ID,
 ):
-    validate_reconnect_edge(
-        p,
-        edgeId,
-        sourceSectionId,
-        sourceVariantId,
-        sourcePortId,
-        targetSectionId,
-        targetVariantId,
-        targetPortId,
-    )
     for idx, existing in enumerate(p.projectConfig.edges):
         if existing.id != edgeId:
             continue
@@ -2951,6 +2860,7 @@ def reconnect_edge(
                 "targetPortId": targetPortId,
             }
         )
+        _ensure_edge_endpoints_valid(p, updated)
         target_changed = (
             existing.targetSectionId != targetSectionId
             or existing.targetVariantId != targetVariantId
@@ -2963,46 +2873,13 @@ def reconnect_edge(
     raise KeyError(f"Edge {edgeId} not found.")
 
 
-def validate_reconnect_edge(
-    p: "ProjectStateSingleConfig",
-    edgeId: ID,
-    sourceSectionId: ID,
-    sourceVariantId: ID,
-    sourcePortId: ID,
-    targetSectionId: ID,
-    targetVariantId: ID,
-    targetPortId: ID,
-):
-    for existing in p.projectConfig.edges:
-        if existing.id != edgeId:
-            continue
-        updated = existing.model_copy(
-            update={
-                "sourceSectionId": sourceSectionId,
-                "sourceVariantId": sourceVariantId,
-                "sourcePortId": sourcePortId,
-                "targetSectionId": targetSectionId,
-                "targetVariantId": targetVariantId,
-                "targetPortId": targetPortId,
-            }
-        )
-        _ensure_edge_endpoints_valid(p, updated)
-        return
-    raise KeyError(f"Edge {edgeId} not found.")
-
-
-def validate_set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
+def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate edge id {edge.id} in update.")
         edge_ids.add(edge.id)
         _ensure_edge_endpoints_valid(p, edge)
-
-
-def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
-    validate_set_edges(p, edges)
-    edge_ids = {edge.id for edge in edges}
     removed_edges = [edge for edge in p.projectConfig.edges if edge.id not in edge_ids]
     p.projectConfig.edges = edges
     for edge in removed_edges:
@@ -3010,46 +2887,28 @@ def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
 
 
 def create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    validate_create_agentic_edge(p, edge)
-    p.projectConfig.agenticEdges.append(edge)
-
-
-def validate_create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
     if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
         raise KeyError(f"Agentic edge {edge.id} already exists.")
     _ensure_agentic_edge_endpoints_valid(p, edge)
-
-
-def validate_update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    for existing in p.projectConfig.agenticEdges:
-        if existing.id != edge.id:
-            continue
-        _ensure_agentic_edge_endpoints_valid(p, edge)
-        return
-    raise KeyError(f"Agentic edge {edge.id} not found.")
+    p.projectConfig.agenticEdges.append(edge)
 
 
 def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    validate_update_agentic_edge(p, edge)
     for idx, existing in enumerate(p.projectConfig.agenticEdges):
         if existing.id != edge.id:
             continue
+        _ensure_agentic_edge_endpoints_valid(p, edge)
         p.projectConfig.agenticEdges[idx] = edge
         return
     raise KeyError(f"Agentic edge {edge.id} not found.")
 
 
-def validate_delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     edge_ids = set(edgeIds)
     existing_ids = {edge.id for edge in p.projectConfig.agenticEdges}
     missing = edge_ids - existing_ids
     if missing:
         raise KeyError(f"Agentic edges not found: {sorted(missing)}")
-
-
-def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    validate_delete_agentic_edges(p, edgeIds)
-    edge_ids = set(edgeIds)
     remaining_edges: list[AgenticEdge] = []
     for edge in p.projectConfig.agenticEdges:
         if edge.id in edge_ids:
@@ -3058,17 +2917,13 @@ def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
     p.projectConfig.agenticEdges = remaining_edges
 
 
-def validate_set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
+def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
     edge_ids: set[ID] = set()
     for edge in edges:
         if edge.id in edge_ids:
             raise KeyError(f"Duplicate agentic edge id {edge.id} in update.")
         edge_ids.add(edge.id)
         _ensure_agentic_edge_endpoints_valid(p, edge)
-
-
-def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
-    validate_set_agentic_edges(p, edges)
     p.projectConfig.agenticEdges = edges
 
 
@@ -3099,29 +2954,9 @@ def set_section_sizes(
     p: "ProjectStateSingleConfig",
     sectionSizes: dict[ID, SectionSize],
 ):
-    normalized_section_sizes = normalize_section_sizes(settings, p, sectionSizes)
-    apply_section_sizes(p, normalized_section_sizes)
-
-
-def normalize_section_sizes(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionSizes: dict[ID, SectionSize],
-) -> dict[ID, SectionSize]:
-    normalized_section_sizes: dict[ID, SectionSize] = {}
     for s, size in sectionSizes.items():
         impl = get_curr_effective_section_impl(p, s)
-        normalized_section_sizes[s] = normalize_section_size(
-            settings, impl.type, s, size
-        )
-    return normalized_section_sizes
-
-
-def apply_section_sizes(
-    p: "ProjectStateSingleConfig",
-    sectionSizes: dict[ID, SectionSize],
-) -> None:
-    for s, normalized_size in sectionSizes.items():
+        normalized_size = normalize_section_size(settings, impl.type, s, size)
         set_curr_effective_section_impl_value(
             p, s, BaseSectionImplArgsWithCallable(size=normalized_size)
         )

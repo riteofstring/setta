@@ -22,7 +22,13 @@ export function SocialAreaSettings({ sectionId }) {
     return impl.url;
   });
 
-  const [value, setPendingValue] = useLocalPendingValue(url);
+  const [value, setPendingValue] = useLocalPendingValue(url, (x) =>
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+        url: x,
+      });
+    }),
+  );
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!canEditStructure) {

@@ -278,7 +278,7 @@ class ProjectGenPythonCode(PythonCode):
         callableName: str,
         refetchParams: bool,
         *,
-        on_before_mutation: Callable[[], ProjectStateSingleConfig] | None = None,
+        on_before_mutation: Callable[[], None] | None = None,
     ) -> SetCallableResponse:
         current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
         current_callable_id = current_callable.id if current_callable else None
@@ -288,14 +288,14 @@ class ProjectGenPythonCode(PythonCode):
             callableName,
             refetchParams,
         )
-        did_prepare_mutation_state = False
+        did_invoke_before_mutation = False
 
-        def maybe_prepare_mutation_state() -> None:
-            nonlocal did_prepare_mutation_state, project_state
-            if did_prepare_mutation_state or on_before_mutation is None:
+        def maybe_invoke_before_mutation() -> None:
+            nonlocal did_invoke_before_mutation
+            if did_invoke_before_mutation or on_before_mutation is None:
                 return
-            did_prepare_mutation_state = True
-            project_state = on_before_mutation()
+            did_invoke_before_mutation = True
+            on_before_mutation()
 
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
@@ -316,7 +316,7 @@ class ProjectGenPythonCode(PythonCode):
             logger.debug(
                 "project_code.set_callable clear callable section_id=%s", sectionId
             )
-            maybe_prepare_mutation_state()
+            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -343,7 +343,7 @@ class ProjectGenPythonCode(PythonCode):
                 callableName,
                 prev_selected,
             )
-            maybe_prepare_mutation_state()
+            maybe_invoke_before_mutation()
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
@@ -433,7 +433,7 @@ class ProjectGenPythonCode(PythonCode):
             lsp_status,
             [obj.name for obj in codeObjs],
         )
-        maybe_prepare_mutation_state()
+        maybe_invoke_before_mutation()
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
                 CodeObjType.CodeCallable,

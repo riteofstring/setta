@@ -6,15 +6,14 @@ import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaC
 import _ from "lodash";
 import React from "react";
 import {
-  queueDirectParamEnteredValueUpdate,
-  queueOptimisticParamEnteredValueUpdate,
-} from "state/actions/paramValueUpdates";
-import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   getParamDisplayName,
   getSectionCore,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -24,6 +23,7 @@ import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { post } from "utils/endpointUtils";
+import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
   ButtonParamCodeObjImpl,
@@ -209,7 +209,27 @@ function MetaControlValueArea({
     };
   }, _.isEqual);
 
-  const [value, setPendingValue] = useLocalPendingValue(baseValue);
+  const [value, setPendingValue] = useLocalPendingValue(
+    baseValue,
+    (pendingValue) => {
+      if (codeObjType === CodeObjTypeEnum.ButtonParam) {
+        return;
+      }
+      if (codeObjType === CodeObjTypeEnum.PasswordParam) {
+        return;
+      }
+      useProjectState.setState((state) => {
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+          state,
+          sectionId,
+          controlParamId,
+          {
+            value: pendingValue,
+          },
+        );
+      });
+    },
+  );
 
   const handleValueChange: ParamValueChange = (
     nextValue,
@@ -234,20 +254,9 @@ function MetaControlValueArea({
     }
     if (!options?.skipBackendUpdate) {
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        queueDirectParamEnteredValueUpdate(
-          useProjectState.getState().projectConfig.id,
-          sectionId,
-          controlParamId,
-          valueStr,
-          "meta-control:onChange:password",
-        );
+        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
       } else {
-        queueOptimisticParamEnteredValueUpdate(
-          sectionId,
-          controlParamId,
-          valueStr,
-          "meta-control:onChange",
-        );
+        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
       }
     }
   };
@@ -377,6 +386,44 @@ function MetaControlValueArea({
 }
 
 export const MetaControlArea = React.memo(_MetaControlArea);
+
+const debouncedSetParamEnteredValue = _.debounce(
+  (sectionId: string, paramInfoId: string, value: string) => {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          {
+            value,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_param_entered_value({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          value,
+          frontendOpId,
+        }),
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value,
+    });
+  },
+  50,
+);
 
 function isButtonParamCodeObjImpl(
   impl: BaseCodeObjImplUnion,

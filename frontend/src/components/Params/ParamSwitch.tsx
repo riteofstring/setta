@@ -13,7 +13,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
-  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
@@ -152,19 +152,12 @@ function RealParamSwitch(props: ParamSwitchProps) {
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const codeObjImpl = getCurrEffectiveCodeObjImplIfPresent(
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
         x,
         sectionId,
         paramInfoId,
+        isBaseParamCodeObjImpl,
       );
-      if (!codeObjImpl || !isBaseParamCodeObjImpl(codeObjImpl)) {
-        return {
-          paramIsSelected: impl.selectedParams.includes(paramInfoId),
-          isKwarg: false,
-          paramChildren: [],
-          isNestedParam: false,
-        };
-      }
       const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
       return {
         paramIsSelected: impl.selectedParams.includes(paramInfoId),

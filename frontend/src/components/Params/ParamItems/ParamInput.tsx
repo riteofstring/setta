@@ -1,12 +1,10 @@
 import _ from "lodash";
 import React from "react";
 import {
-  queueDirectParamEnteredValueUpdate,
-  queueOptimisticParamEnteredValueUpdate,
-} from "state/actions/paramValueUpdates";
-import {
-  getCurrEffectiveCodeObjImplIfPresent,
+  dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -16,7 +14,10 @@ import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
-import { route_get_password_param_value } from "utils/generatedEndpoints";
+import {
+  route_get_password_param_value,
+  route_set_param_entered_value,
+} from "utils/generatedEndpoints";
 import {
   BinaryDependencyValue,
   CodeObjTypeEnum,
@@ -32,18 +33,13 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const { baseValue, codeObjType } = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImplIfPresent(
+    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
+      isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    if (!impl || !isBaseChildlessCodeObjImpl(impl)) {
-      return {
-        baseValue: "",
-        codeObjType: CodeObjTypeEnum.TextParam,
-      };
-    }
     return { baseValue: impl.value, codeObjType: impl.type };
   });
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
@@ -62,7 +58,24 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   });
   const globalValue = previewValue ?? baseValue;
 
-  const [value, setPendingValue] = useLocalPendingValue(globalValue);
+  const [value, setPendingValue] = useLocalPendingValue(
+    globalValue,
+    (pendingValue) => {
+      if (isPasswordParam) {
+        return;
+      }
+      useProjectState.setState((state) => {
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          {
+            value: pendingValue,
+          },
+        );
+      });
+    },
+  );
   const [isRevealing, setIsRevealing] = React.useState(false);
 
   // value and enteredValue should always be string
@@ -80,20 +93,9 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     }
     if (!options?.skipBackendUpdate) {
       if (isPasswordParam) {
-        queueDirectParamEnteredValueUpdate(
-          getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          vStr,
-          "param-input:onChange:password",
-        );
+        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
       } else {
-        queueOptimisticParamEnteredValueUpdate(
-          sectionId,
-          paramInfoId,
-          vStr,
-          "param-input:onChange",
-        );
+        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
       }
     }
   }
@@ -185,5 +187,43 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     />
   );
 }
+
+const debouncedSetParamEnteredValue = _.debounce(
+  (sectionId, paramInfoId, value) => {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          {
+            value,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_param_entered_value({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          value,
+          frontendOpId,
+        }),
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId, paramInfoId, value) => {
+    route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value,
+    });
+  },
+  50,
+);
 
 export const ParamInput = React.memo(_ParamInput);

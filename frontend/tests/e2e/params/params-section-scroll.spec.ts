@@ -77,7 +77,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
       .locator(`[id^="ParamContainer-${sectionId}-"]`)
       .first();
     await expect(firstParam).toBeVisible({ timeout: 20000 });
-    const pinnedParamsArea = sectionNode.locator('[data-params-fixed="true"]');
+    const pinnedHeader = sectionNode.locator("text=Pinned Params");
 
     const getUnpinnedParamIds = async () => {
       const idPrefix = `ParamContainer-${sectionId}-`;
@@ -95,7 +95,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
         );
     };
 
-    if ((await pinnedParamsArea.count()) === 0) {
+    if ((await pinnedHeader.count()) === 0) {
       const unpinnedParamIds = await getUnpinnedParamIds();
       if (unpinnedParamIds.length === 0) {
         throw new Error("Missing unpinned params to pin.");
@@ -105,14 +105,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
         sectionId,
         pinnedParams: unpinnedParamIds,
       });
-      try {
-        await expect(pinnedParamsArea).toHaveCount(1);
-      } catch {
-        await page.reload();
-        await ensureAppReady(page);
-        await expect(sectionNode).toBeVisible();
-        await expect(pinnedParamsArea).toHaveCount(1);
-      }
+      await expect(pinnedHeader).toBeVisible();
     }
 
     await sectionNode.hover();

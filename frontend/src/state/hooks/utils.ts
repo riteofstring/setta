@@ -91,24 +91,18 @@ export function useLocalValue<T>(globalValue: T) {
   return [localValue, setLocalValue] as const;
 }
 
-export function resolvePendingValueOnGlobalUpdate<T>(
-  pendingValue: T | null,
-): T | null {
-  if (pendingValue === null) {
-    return pendingValue;
-  }
-  return null;
-}
-
-export function useLocalPendingValue<T>(globalValue: T) {
+export function useLocalPendingValue<T>(
+  globalValue: T,
+  callbackOnGlobalUpdate?: (x: T) => void,
+) {
   const [pendingValue, setPendingValue] = useState<T | null>(null);
 
   useEffect(() => {
-    // Treat backend/project-state updates as authoritative: clear any local
-    // pending draft so undo/redo and remote patches cannot be masked.
-    setPendingValue((currPendingValue) =>
-      resolvePendingValueOnGlobalUpdate(currPendingValue),
-    );
+    if (!pendingValue || pendingValue === globalValue) {
+      setPendingValue(null);
+      return;
+    }
+    callbackOnGlobalUpdate?.(pendingValue);
   }, [globalValue]);
 
   return [pendingValue ?? globalValue, setPendingValue] as const;

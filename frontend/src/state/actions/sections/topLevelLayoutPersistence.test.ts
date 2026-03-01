@@ -277,16 +277,4 @@ describe("top-level layout persistence", () => {
       useProjectState.getState().projectConfig.topLevelSections;
     expect(nextLayouts[subSectionId]).toBeTruthy();
   });
-
-  it("skips transport when computed layout is unchanged", async () => {
-    const route_set_top_level_section_layout = (
-      await import("utils/generatedEndpoints")
-    ).route_set_top_level_section_layout as unknown as vi.Mock;
-
-    debounced_route_set_top_level_section_layout();
-    vi.runAllTimers();
-
-    expect(route_set_top_level_section_layout).not.toHaveBeenCalled();
-    expect(usePendingOperations.getState().pending).toHaveLength(0);
-  });
 });

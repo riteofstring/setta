@@ -1,5 +1,7 @@
 import { WatchCodeToggleButton } from "components/AppHeader/WatchCodeToggleButton";
 import { useCallback, useEffect, useRef } from "react";
+import { FiTrash2 } from "react-icons/fi";
+import { MdAdd } from "react-icons/md";
 import { RiRepeatLine } from "react-icons/ri";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -132,10 +134,12 @@ export function WatchCodePane() {
   );
 
   const inputClasses =
-    "w-full box-border truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
+    "nodrag nopan nowheel w-full box-border truncate rounded-full bg-white py-1.5 pl-4 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
+  const addInputButtonClasses =
+    "nodrag nopan nowheel relative inline-flex h-6 shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500";
 
   return (
-    <div className="setta-pane-scroll flex h-full min-w-0 flex-col gap-4">
+    <div className="setta-pane-scroll flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto">
       <header className="flex flex-col gap-2">
         <WatchCodeToggleButton />
         <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">
@@ -154,12 +158,12 @@ export function WatchCodePane() {
             Watch Folders
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className={`${addInputButtonClasses} w-full justify-center @[14rem]:ml-auto @[14rem]:w-auto`}
             disabled={inputsDisabled}
             onClick={addFolder}
             type="button"
           >
-            <i className="gg-add" />
+            <MdAdd size={15} aria-hidden />
             Add Folder
           </button>
         </div>
@@ -170,52 +174,56 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFolders.map((folder, index) => (
-              <div
-                className="flex w-full flex-wrap items-center gap-2 @container"
-                key={index}
-              >
-                <input
-                  className={`${inputClasses} ml-[2px] min-w-[10rem] flex-1`}
-                  disabled={inputsDisabled}
-                  onBlur={(event) =>
-                    updateFolder(index, { path: event.target.value }, true)
-                  }
-                  onChange={(event) =>
-                    updateFolder(index, { path: event.target.value })
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  placeholder="relative/path/to/folder"
-                  value={folder.path}
-                />
-                <div className="flex w-full flex-wrap items-center justify-center gap-2">
-                  <button
-                    aria-pressed={folder.recursive}
-                    className={`nodrag inline-flex h-6 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-[11px] font-semibold transition-colors focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-transparent active:dark:!bg-transparent ${folder.recursive ? "text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200" : "text-setta-500 hover:text-setta-900 dark:text-setta-400 dark:hover:text-setta-100"}`}
+              <div className="w-full" key={index}>
+                <div className="relative min-w-[10rem]">
+                  <input
+                    className={`${inputClasses} pr-16`}
                     disabled={inputsDisabled}
-                    onClick={() =>
-                      updateFolder(
-                        index,
-                        { recursive: !folder.recursive },
-                        true,
-                      )
+                    onBlur={(event) =>
+                      updateFolder(index, { path: event.target.value }, true)
                     }
-                    type="button"
-                  >
-                    <RiRepeatLine size={12} />
-                    Recursive
-                  </button>
-                  <button
-                    className="inline-flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
-                    disabled={inputsDisabled}
-                    onClick={() => removeFolder(index)}
-                    type="button"
-                  >
-                    <i className="gg-trash" />
-                  </button>
+                    onChange={(event) =>
+                      updateFolder(index, { path: event.target.value })
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="relative/path/to/folder"
+                    value={folder.path}
+                  />
+                  <div className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+                    <button
+                      aria-label="Toggle recursive watch"
+                      aria-pressed={folder.recursive}
+                      className={`nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        folder.recursive
+                          ? "text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
+                          : "text-setta-500 hover:text-setta-900 dark:text-setta-400 dark:hover:text-setta-100"
+                      }`}
+                      disabled={inputsDisabled}
+                      onClick={() =>
+                        updateFolder(
+                          index,
+                          { recursive: !folder.recursive },
+                          true,
+                        )
+                      }
+                      type="button"
+                    >
+                      <RiRepeatLine size={12} />
+                    </button>
+                    <button
+                      aria-label="Remove folder watch path"
+                      className="nodrag nopan nowheel inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                      disabled={inputsDisabled}
+                      onClick={() => removeFolder(index)}
+                      type="button"
+                    >
+                      <FiTrash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -232,12 +240,12 @@ export function WatchCodePane() {
             Watch Files
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className={`${addInputButtonClasses} w-full justify-center @[14rem]:ml-auto @[14rem]:w-auto`}
             disabled={inputsDisabled}
             onClick={addFile}
             type="button"
           >
-            <i className="gg-add" />
+            <MdAdd size={15} aria-hidden />
             Add File
           </button>
         </div>
@@ -248,33 +256,31 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFiles.map((file, index) => (
-              <div
-                className="flex w-full flex-wrap items-center gap-2 @container"
-                key={index}
-              >
-                <input
-                  className={`${inputClasses} min-w-[10rem] flex-1`}
-                  disabled={inputsDisabled}
-                  onBlur={(event) =>
-                    updateFile(index, event.target.value, true)
-                  }
-                  onChange={(event) => updateFile(index, event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
+              <div className="w-full" key={index}>
+                <div className="relative min-w-[10rem]">
+                  <input
+                    className={`${inputClasses} pr-11`}
+                    disabled={inputsDisabled}
+                    onBlur={(event) =>
+                      updateFile(index, event.target.value, true)
                     }
-                  }}
-                  placeholder="relative/path/to/file.py"
-                  value={file}
-                />
-                <div className="flex w-full items-center justify-center">
+                    onChange={(event) => updateFile(index, event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="relative/path/to/file.py"
+                    value={file}
+                  />
                   <button
-                    className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                    aria-label="Remove file watch path"
+                    className="nodrag nopan nowheel absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-setta-400 transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFile(index)}
                     type="button"
                   >
-                    <i className="gg-trash" />
+                    <FiTrash2 size={12} />
                   </button>
                 </div>
               </div>

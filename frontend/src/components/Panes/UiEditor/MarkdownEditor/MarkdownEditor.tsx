@@ -12,6 +12,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -57,7 +58,16 @@ function _MarkdownEditorCore({
   const { canEditParams } = useShareCapabilities();
   const isReadOnly = isFrozen || !canEditParams;
 
-  const [value, setPendingValue] = useLocalPendingValue(text);
+  const [value, setPendingValue] = useLocalPendingValue(
+    text,
+    (pendingValue) => {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          text: pendingValue,
+        });
+      });
+    },
+  );
 
   const debouncedSetText = useCallback(
     _.debounce((sectionId, v) => {

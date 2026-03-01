@@ -18,7 +18,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { queueDirectParamEnteredValueUpdate } from "state/actions/paramValueUpdates";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImpl,
@@ -48,6 +47,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
   route_load_cached_image_artifacts,
+  route_set_param_entered_value,
 } from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
@@ -807,41 +807,19 @@ function AppParamInput({
       return;
     }
     if (isPasswordParam) {
-      queueDirectParamEnteredValueUpdate(
+      debouncedSetPasswordParamValue(
         configId,
         sectionId,
         paramInfoId,
         nextValueStr,
-        "app-registry:onChange:password",
-        (response) => {
-          if (res200(response)) {
-            return;
-          }
-          notifyParamUpdateError(
-            response.status === 403
-              ? "This parameter cannot be edited in app deployments."
-              : "Failed to update parameter.",
-          );
-        },
       );
       return;
     }
-    queueDirectParamEnteredValueUpdate(
+    debouncedSetParamEnteredValue(
       configId,
       sectionId,
       paramInfoId,
       nextValueStr,
-      "app-registry:onChange",
-      (response) => {
-        if (res200(response)) {
-          return;
-        }
-        notifyParamUpdateError(
-          response.status === 403
-            ? "This parameter cannot be edited in app deployments."
-            : "Failed to update parameter.",
-        );
-      },
     );
   }
 
@@ -1313,6 +1291,48 @@ const notifyParamUpdateError = _.throttle(
   },
   2500,
   { trailing: false },
+);
+
+const debouncedSetParamEnteredValue = _.debounce(
+  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: configId,
+      sectionId,
+      paramInfoId,
+      value,
+    }).then((response) => {
+      if (res200(response)) {
+        return;
+      }
+      notifyParamUpdateError(
+        response.status === 403
+          ? "This parameter cannot be edited in app deployments."
+          : "Failed to update parameter.",
+      );
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: configId,
+      sectionId,
+      paramInfoId,
+      value,
+    }).then((response) => {
+      if (res200(response)) {
+        return;
+      }
+      notifyParamUpdateError(
+        response.status === 403
+          ? "This parameter cannot be edited in app deployments."
+          : "Failed to update parameter.",
+      );
+    });
+  },
+  50,
 );
 
 function ActionButton({ element, onAction }: AppComponentProps) {

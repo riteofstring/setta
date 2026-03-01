@@ -130,8 +130,18 @@ function _UIElement({
   const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
   const canEditDescription =
     canEditStructure && canEditParams && (!isDeploymentMode || !isCodeParam);
-  const [localDisplayName, setLocalDisplayName] =
-    useLocalPendingValue(displayName);
+  const [localDisplayName, setLocalDisplayName] = useLocalPendingValue(
+    displayName,
+    (pendingValue: string) => {
+      useProjectState.setState((state) => {
+        const codeObj = state.codeObjs[id];
+        if (!codeObj) {
+          return;
+        }
+        codeObj.displayName = pendingValue;
+      });
+    },
+  );
   const [localDescription, setLocalDescription] = useLocalValue(description);
   const debouncedSetParamDisplayName = React.useMemo(
     () =>
