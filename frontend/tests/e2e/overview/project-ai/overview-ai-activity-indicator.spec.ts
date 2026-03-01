@@ -1,24 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createChatSection,
   ensureAppReady,
-  getCurrentProjectConfigId,
   openIsolatedProject,
   setChatSectionState,
   setOverviewTab,
 } from "../../helpers";
-
-async function reloadCurrentProject(
-  page: Page,
-  expectedProjectConfigId: string,
-): Promise<void> {
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
-  await expect
-    .poll(() => getCurrentProjectConfigId(page), { timeout: 20000 })
-    .toBe(expectedProjectConfigId);
-}
 
 test.describe.serial("overview AI activity indicator", () => {
   test("shows and clears section activity badges as chat work starts and stops", async ({
@@ -61,7 +49,6 @@ test.describe.serial("overview AI activity indicator", () => {
           branches: {},
         },
       });
-      await reloadCurrentProject(page, projectContext.projectConfigId);
 
       await expect(
         page.getByTestId(`overview-ai-working-${sectionId}`),
@@ -86,7 +73,6 @@ test.describe.serial("overview AI activity indicator", () => {
           branches: {},
         },
       });
-      await reloadCurrentProject(page, projectContext.projectConfigId);
 
       await expect(
         page.getByTestId(`overview-ai-working-${sectionId}`),
