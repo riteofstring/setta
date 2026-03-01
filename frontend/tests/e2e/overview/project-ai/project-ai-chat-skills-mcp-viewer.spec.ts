@@ -117,6 +117,18 @@ test("project ai chat can open the skills side view", async ({ page }) => {
 
   await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
   await expect(page.getByTestId("project-chat-skills-content")).toBeVisible();
+  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(page.getByTestId("project-chat-aux-tab-skills")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByTestId("project-chat-aux-tab-mcp")).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-aux-tab-slash-commands"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-aux-tab-ai-settings"),
+  ).toBeVisible();
   await expect(page.getByTestId("project-chat-skills-refresh")).toBeVisible();
   await expect(page.getByText("/workspace/skills")).toBeVisible();
   await expect(page.getByText("/home/.codex/skills")).toBeVisible();
@@ -160,6 +172,14 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(page.getByTestId("skills-mcp-slash-tab")).toHaveCount(0);
   await expect(page.getByTestId("skills-mcp-slash-command")).toHaveCount(0);
   await expect(page.getByTestId("skills-mcp-slash-list-pane")).toHaveCount(0);
+  await page.getByTestId("project-chat-aux-tab-mcp").click();
+  await expect(page.getByTestId("project-chat-mcp-content")).toBeVisible();
+  await expect(page.getByTestId("project-chat-aux-tab-mcp")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await page.getByTestId("project-chat-aux-tab-skills").click();
+  await expect(page.getByTestId("project-chat-skills-content")).toBeVisible();
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
@@ -203,9 +223,10 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   ).toBeVisible();
   await expect(page.getByTestId("project-chat-mcp-content")).toHaveCount(0);
   await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(0);
+  await expect(page.getByTestId("project-chat-aux-tabs")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /^Slash Commands$/ }),
-  ).toHaveCount(0);
+    page.getByTestId("project-chat-aux-tab-slash-commands"),
+  ).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
   const slashCommandRows = page.getByTestId("skills-mcp-slash-command");
   await expect(slashCommandRows.first()).toBeVisible();

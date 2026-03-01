@@ -922,7 +922,7 @@ export function ProjectChatSkillsMcpViewer({
           className="flex min-h-0 min-w-0 flex-1 flex-col"
           data-testid="project-chat-mcp-content"
         >
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40">
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-md p-2 text-[11px]">
             {mcpServersLoading ? (
               <div className="text-setta-500 dark:text-setta-400">
                 Loading MCP servers...
@@ -1038,7 +1038,7 @@ export function ProjectChatSkillsMcpViewer({
             className="flex min-h-0 min-w-0 flex-1 flex-col"
           >
             <div
-              className="min-h-0 min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-xs dark:bg-setta-950/40"
+              className="min-h-0 min-w-0 overflow-auto rounded-md p-2 text-xs"
               data-testid="project-chat-skills-list-pane"
               style={
                 isSkillMarkdownViewerOpen
