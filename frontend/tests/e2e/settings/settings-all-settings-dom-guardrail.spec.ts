@@ -107,6 +107,32 @@ test("all settings DOM stays within flattening guardrails", async ({
         label === "Delete selected args"
       );
     });
+    const minimizeButtons = Array.from(document.querySelectorAll("button")).filter(
+      (el) => {
+        const classes = Array.from(el.classList);
+        return (
+          classes.includes("focus-visible:ring-2") &&
+          classes.includes("nodrag") &&
+          classes.includes("justify-content-center") &&
+          classes.includes("mr-1") &&
+          classes.includes("h-4") &&
+          classes.includes("w-4")
+        );
+      },
+    );
+    const deleteHideButtons = Array.from(
+      document.querySelectorAll("button"),
+    ).filter((el) => {
+      const classes = Array.from(el.classList);
+      return (
+        classes.includes("focus-visible:ring-2") &&
+        classes.includes("nodrag") &&
+        classes.includes("min-w-4") &&
+        classes.includes("h-4") &&
+        classes.includes("rounded-full") &&
+        classes.includes("justify-center")
+      );
+    });
 
     return {
       nodeCount: nodes.length,
@@ -227,6 +253,30 @@ test("all settings DOM stays within flattening guardrails", async ({
             Array.from(el.classList).includes("gg-unlink") ||
             Array.from(el.classList).includes("gg-close")),
       ).length,
+      legacyMinimizeIconWrapperCount: minimizeButtons.filter(
+        (el) =>
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          (Array.from(el.children[0].classList).includes("gg-math-minus") ||
+            Array.from(el.children[0].classList).includes("gg-maximize")),
+      ).length,
+      flattenedMinimizeIconHostCount: minimizeButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          (Array.from(el.classList).includes("gg-math-minus") ||
+            Array.from(el.classList).includes("gg-maximize")),
+      ).length,
+      legacyDeleteHideIconWrapperCount: deleteHideButtons.filter(
+        (el) =>
+          el.children.length === 1 &&
+          el.children[0]?.tagName === "I" &&
+          Array.from(el.children[0].classList).includes("gg-close"),
+      ).length,
+      flattenedDeleteHideIconHostCount: deleteHideButtons.filter(
+        (el) =>
+          el.children.length === 0 &&
+          Array.from(el.classList).includes("gg-close"),
+      ).length,
       cmLineCount: document.querySelectorAll(".cm-line").length,
       legacyDummySingleSpanWrapperCount: dummyCodeHosts.filter(
         (el) => el.children.length === 1 && el.children[0]?.tagName === "SPAN",
@@ -268,6 +318,10 @@ test("all settings DOM stays within flattening guardrails", async ({
   expect(metrics.flattenedKwargsAddRemoveIconHostCount).toBeGreaterThan(0);
   expect(metrics.legacyKwargsConvertDeleteIconWrapperCount).toBe(0);
   expect(metrics.flattenedKwargsConvertDeleteIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyMinimizeIconWrapperCount).toBe(0);
+  expect(metrics.flattenedMinimizeIconHostCount).toBeGreaterThan(0);
+  expect(metrics.legacyDeleteHideIconWrapperCount).toBe(0);
+  expect(metrics.flattenedDeleteHideIconHostCount).toBeGreaterThan(0);
   expect(metrics.cmLineCount).toBeLessThanOrEqual(MAX_CM_LINE_WRAPPERS);
   expect(metrics.legacyDummySingleSpanWrapperCount).toBeLessThanOrEqual(
     MAX_DUMMY_SINGLE_SPAN_WRAPPERS,
