@@ -2695,6 +2695,7 @@ class BaseProjectManager(ABC):
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
+            broadcast_name_validation_errors=False,
         )
 
     def _apply_project_config_codegen_targets(
@@ -2842,6 +2843,7 @@ class BaseProjectManager(ABC):
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
             project_state,
             validate_name_rules=False,
+            broadcast_name_validation_errors=False,
         )
         new_value = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -3212,7 +3214,8 @@ class BaseProjectManager(ABC):
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -3236,7 +3239,8 @@ class BaseProjectManager(ABC):
         if x.enabled and not old_value:
             self.watch_code_manager.baseline_on_enable(project_state)
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            broadcast_name_validation_errors=False,
         )
         return old_value, project_state.projectConfig.watchCodeEnabled
 
@@ -3257,7 +3261,8 @@ class BaseProjectManager(ABC):
                 project_state, previous_snapshot
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            broadcast_name_validation_errors=False,
         )
 
     @enqueue_method
@@ -3298,7 +3303,8 @@ class BaseProjectManager(ABC):
                 project_state, previous_snapshot
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            broadcast_name_validation_errors=False,
         )
         updated_folders = [
             {
@@ -3334,7 +3340,8 @@ class BaseProjectManager(ABC):
                 project_state, previous_snapshot
             )
         await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
-            project_state
+            project_state,
+            broadcast_name_validation_errors=False,
         )
         return old_files, list(project_state.projectConfig.watchCodeFiles)
 

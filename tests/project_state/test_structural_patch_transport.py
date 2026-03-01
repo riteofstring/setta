@@ -1636,7 +1636,7 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             set_enabled_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         assert (
             manager.get_single_config_state(project_config_id)
@@ -1656,7 +1656,7 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             cas_enabled_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         enabled_old, enabled_new = cas_enabled_result
         assert enabled_old is True
@@ -1680,7 +1680,7 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             set_inputs_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
 
         cas_folders_capture, cas_folders_result = await _run_with_transport_capture(
@@ -1701,7 +1701,7 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             cas_folders_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         folders_old, folders_new = cas_folders_result
         assert 1 == len(folders_old)
@@ -1729,7 +1729,7 @@ async def test_watch_code_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             cas_files_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         files_old, files_new = cas_files_result
         assert ["backend/setta/project_state/watch_code.py"] == files_old
@@ -1877,7 +1877,7 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             disable_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         assert (
             []
@@ -1900,7 +1900,7 @@ async def test_codegen_target_routes_use_structural_patch_transport() -> None:
         _assert_single_structural_patch(
             enable_capture,
             project_config_id,
-            expected_name_validation_calls=1,
+            expected_name_validation_calls=0,
         )
         enabled_old, enabled_new = enable_result
         assert enabled_old is False
