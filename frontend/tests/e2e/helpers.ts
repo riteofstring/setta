@@ -308,7 +308,7 @@ export async function setOverviewTab(
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
 }
 
-export type SceneGraphRendererPerfLabels = {
+type SceneGraphRendererPerfLabels = {
   enabled: boolean;
   requestedBackend: "auto" | "webgpu" | "webgl" | "dom";
   resolvedBackend: "webgpu" | "webgl" | "dom";

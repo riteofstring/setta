@@ -1,6 +1,6 @@
-export const DEFAULT_REQUIRED_WEBGPU_FEATURES: readonly string[] = [];
+const DEFAULT_REQUIRED_WEBGPU_FEATURES: readonly string[] = [];
 
-export type SceneGraphRendererCapabilityProbeStatus = "pending" | "ready";
+type SceneGraphRendererCapabilityProbeStatus = "pending" | "ready";
 
 export type SceneGraphRendererWebGpuUnavailableReason =
   | "navigator_gpu_missing"
@@ -12,18 +12,18 @@ export type SceneGraphRendererWebGl2UnavailableReason =
   | "document_unavailable"
   | "canvas_context_unavailable";
 
-export type SceneGraphRendererSoftwareFallbackReason =
+type SceneGraphRendererSoftwareFallbackReason =
   | "webgpu_adapter_is_fallback"
   | "webgl2_major_performance_caveat";
 
-export type SceneGraphRendererWebGpuCapabilities = {
+type SceneGraphRendererWebGpuCapabilities = {
   available: boolean;
   reason: SceneGraphRendererWebGpuUnavailableReason | null;
   missingRequiredFeatures: string[];
   adapterIsFallback: boolean;
 };
 
-export type SceneGraphRendererWebGl2Capabilities = {
+type SceneGraphRendererWebGl2Capabilities = {
   available: boolean;
   reason: SceneGraphRendererWebGl2UnavailableReason | null;
   renderer: string | null;
@@ -40,7 +40,7 @@ export type SceneGraphRendererCapabilities = {
   softwareFallbackReasons: SceneGraphRendererSoftwareFallbackReason[];
 };
 
-export type SceneGraphRendererGpuFeatureSetLike =
+type SceneGraphRendererGpuFeatureSetLike =
   | Set<string>
   | ReadonlySet<string>
   | {
@@ -52,7 +52,7 @@ export type SceneGraphRendererGpuAdapterLike = {
   isFallbackAdapter?: boolean;
 };
 
-export type SceneGraphRendererGpuLike = {
+type SceneGraphRendererGpuLike = {
   requestAdapter: () => Promise<SceneGraphRendererGpuAdapterLike | null>;
 };
 

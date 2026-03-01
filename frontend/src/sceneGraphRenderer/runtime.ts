@@ -10,7 +10,7 @@ import type {
 
 export type SceneGraphRendererResolvedBackend = "webgpu" | "webgl" | "dom";
 
-export type SceneGraphRendererBackendResolutionReason =
+type SceneGraphRendererBackendResolutionReason =
   | "renderer_disabled"
   | "capability_probe_pending"
   | "forced_dom"

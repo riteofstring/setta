@@ -1,6 +1,6 @@
 import type { Node } from "forks/xyflow/core/types";
 
-export type SceneGraphDomIslandEdge = {
+type SceneGraphDomIslandEdge = {
   sourceSectionId: string;
   targetSectionId: string;
   sourceVariantId?: string;

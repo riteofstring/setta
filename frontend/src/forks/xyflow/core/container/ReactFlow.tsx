@@ -14,6 +14,10 @@ import {
   computeSceneGraphDomIslandSectionIds,
   findTopmostSceneOnlySectionAtFlowPosition,
 } from "sceneGraphRenderer/domIslands";
+import {
+  computeSceneGraphSectionCompatibilitySnapshot,
+  EMPTY_SCENE_GRAPH_SECTION_COMPATIBILITY_SNAPSHOT,
+} from "sceneGraphRenderer/sectionCompatibility";
 import { useSceneGraphRendererRuntime } from "sceneGraphRenderer/useSceneGraphRendererRuntime";
 import {
   useLocalStorage,
@@ -55,14 +59,13 @@ const ReactFlow = () => {
   const darkMode = useLocalStorage((x) => x.darkMode);
   const sceneGraphRendererRuntime = useSceneGraphRendererRuntime();
   const nodesById = useNodeInternals((state) => state.x);
-  const { edges, sectionVariantMap, activeIds } = useProjectState(
-    (state) => ({
-      edges: state.projectConfig.edges,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      activeIds: state.projectConfig.activeIds,
-    }),
-    _.isEqual,
+  const edges = useProjectState((state) => state.projectConfig.edges);
+  const sectionVariantMap = useProjectState(
+    (state) => state.projectConfig.sectionVariantMap,
   );
+  const activeIds = useProjectState((state) => state.projectConfig.activeIds);
+  const sectionVariants = useProjectState((state) => state.sectionVariants);
+  const sectionImpls = useProjectState((state) => state.sectionImpls);
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
   const wireColor = useSettings((x) => {
     // If the backend is running an older build, these fields can be missing.
@@ -101,11 +104,28 @@ const ReactFlow = () => {
     sceneGraphRendererRuntime.selection.resolvedBackend !== "dom";
   const focusedSectionId =
     activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
+  const sectionCompatibilitySnapshot = useMemo(() => {
+    if (!renderSceneOnlySections) {
+      return EMPTY_SCENE_GRAPH_SECTION_COMPATIBILITY_SNAPSHOT;
+    }
+    return computeSceneGraphSectionCompatibilitySnapshot({
+      nodesById,
+      sectionVariantMap,
+      sectionVariants,
+      sectionImpls,
+    });
+  }, [
+    nodesById,
+    renderSceneOnlySections,
+    sectionImpls,
+    sectionVariantMap,
+    sectionVariants,
+  ]);
   const domIslandSectionIds = useMemo(() => {
     if (!renderSceneOnlySections) {
       return EMPTY_DOM_ISLAND_SECTION_IDS;
     }
-    return computeSceneGraphDomIslandSectionIds({
+    const domIslandSectionIds = computeSceneGraphDomIslandSectionIds({
       nodesById,
       edges,
       sectionVariantMap,
@@ -113,6 +133,14 @@ const ReactFlow = () => {
       focusedSectionId,
       domIslandRadius: sceneGraphRendererRuntime.flags.domIslandRadius,
     });
+    if (sectionCompatibilitySnapshot.forcedDomSectionIds.size === 0) {
+      return domIslandSectionIds;
+    }
+    const mergedSectionIds = new Set<string>(domIslandSectionIds);
+    for (const sectionId of sectionCompatibilitySnapshot.forcedDomSectionIds) {
+      mergedSectionIds.add(sectionId);
+    }
+    return mergedSectionIds;
   }, [
     activeIds,
     edges,
@@ -120,6 +148,7 @@ const ReactFlow = () => {
     nodesById,
     renderSceneOnlySections,
     sceneGraphRendererRuntime.flags.domIslandRadius,
+    sectionCompatibilitySnapshot.forcedDomSectionIds,
     sectionVariantMap,
   ]);
   const sceneOnlyClickTarget = useMemo(() => {
@@ -196,6 +225,18 @@ const ReactFlow = () => {
       }
       data-scene-graph-renderer-dom-island-count={String(
         domIslandSectionIds.size,
+      )}
+      data-scene-graph-renderer-scene-compatible-section-count={String(
+        sectionCompatibilitySnapshot.sceneCompatibleSectionCount,
+      )}
+      data-scene-graph-renderer-dom-only-section-count={String(
+        sectionCompatibilitySnapshot.domOnlySectionCount,
+      )}
+      data-scene-graph-renderer-unresolved-section-count={String(
+        sectionCompatibilitySnapshot.unresolvedSectionCount,
+      )}
+      data-scene-graph-renderer-forced-dom-section-count={String(
+        sectionCompatibilitySnapshot.forcedDomSectionIds.size,
       )}
       data-scene-graph-renderer-scene-only-click-target-section-id={
         sceneOnlyClickTarget?.sectionId ?? ""

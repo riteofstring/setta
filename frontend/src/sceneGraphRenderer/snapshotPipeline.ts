@@ -32,7 +32,7 @@ type SceneGraphSerializedEdge = {
   selected: boolean;
 };
 
-export type SceneGraphSerializedSnapshotBuildInput = {
+type SceneGraphSerializedSnapshotBuildInput = {
   nodes: SceneGraphSerializedNode[];
   edges: SceneGraphSerializedEdge[];
   sectionVariantMap: Record<string, string>;
@@ -74,14 +74,14 @@ type SceneGraphSnapshotTaskComputationResult = {
 };
 
 type SceneGraphSnapshotPipelineModeSetting = "auto" | "worker" | "main-thread";
-export type SceneGraphSnapshotPipelineResolvedMode = "worker" | "main-thread";
+type SceneGraphSnapshotPipelineResolvedMode = "worker" | "main-thread";
 
 type SceneGraphSnapshotPipelinePendingRequest = {
   resolve: (result: SceneGraphSnapshotPipelineBuildResult) => void;
   reject: (error: Error) => void;
 };
 
-export type SceneGraphSnapshotPipelineBuildResult = {
+type SceneGraphSnapshotPipelineBuildResult = {
   snapshot: SceneGraphRenderSnapshot;
   diff: SceneGraphRenderSnapshotDiff;
   metrics: {

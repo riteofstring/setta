@@ -38,7 +38,7 @@ export const DEFAULT_SCENE_GRAPH_RENDERER_FLAGS: SceneGraphRendererFlags = {
   debugOverlay: false,
 };
 
-export type SceneGraphRendererFlagStorageKey =
+type SceneGraphRendererFlagStorageKey =
   (typeof SCENE_GRAPH_RENDERER_FLAG_KEYS)[keyof typeof SCENE_GRAPH_RENDERER_FLAG_KEYS];
 
 export function isSceneGraphRendererFlagStorageKey(

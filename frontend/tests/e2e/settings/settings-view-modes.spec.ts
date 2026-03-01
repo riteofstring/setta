@@ -222,6 +222,36 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
       ),
     };
   });
+  const compatibilityState = await page.evaluate(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      throw new Error("Missing .react-flow root.");
+    }
+    return {
+      domIslandCount: Number(
+        root.getAttribute("data-scene-graph-renderer-dom-island-count") ?? "0",
+      ),
+      sceneCompatibleSectionCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-scene-compatible-section-count",
+        ) ?? "0",
+      ),
+      domOnlySectionCount: Number(
+        root.getAttribute("data-scene-graph-renderer-dom-only-section-count") ??
+          "0",
+      ),
+      unresolvedSectionCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-unresolved-section-count",
+        ) ?? "0",
+      ),
+      forcedDomSectionCount: Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-forced-dom-section-count",
+        ) ?? "0",
+      ),
+    };
+  });
 
   if (labels.resolvedBackend === "webgl") {
     expect(layerState.visible).toBe("1");
@@ -249,6 +279,16 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
     expect(layerState.totalCacheEvictions).toBeGreaterThanOrEqual(0);
     expect(layerState.bufferPressure).toBeGreaterThanOrEqual(0);
     expect(layerState.bufferPressure).toBeLessThanOrEqual(1);
+    expect(compatibilityState.sceneCompatibleSectionCount).toBeGreaterThan(0);
+    expect(compatibilityState.domOnlySectionCount).toBeGreaterThanOrEqual(0);
+    expect(compatibilityState.unresolvedSectionCount).toBeGreaterThanOrEqual(0);
+    expect(compatibilityState.forcedDomSectionCount).toBe(
+      compatibilityState.domOnlySectionCount +
+        compatibilityState.unresolvedSectionCount,
+    );
+    expect(compatibilityState.domIslandCount).toBeGreaterThanOrEqual(
+      compatibilityState.forcedDomSectionCount,
+    );
 
     let zoomBefore = layerState.cameraZoom;
     let firstNode = page.locator(".react-flow__node").first();
@@ -335,6 +375,10 @@ test("settings all-settings flow exposes scene-graph layer snapshot metadata whe
   } else {
     expect(layerState.visible).toBe("0");
     expect(layerState.backend).toBe("dom");
+    expect(compatibilityState.sceneCompatibleSectionCount).toBe(0);
+    expect(compatibilityState.domOnlySectionCount).toBe(0);
+    expect(compatibilityState.unresolvedSectionCount).toBe(0);
+    expect(compatibilityState.forcedDomSectionCount).toBe(0);
   }
 });
 
@@ -464,6 +508,139 @@ test("settings view modes keep visible sections when layout payload is partial",
   await paramTab.click();
   await waitForNodeCount(page, 13);
   await waitForOverviewCount(page, 13);
+});
+
+test("settings all-settings forces unsupported section types to DOM islands", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("setta.sceneGraphRenderer.enabled", "1");
+    localStorage.setItem("setta.sceneGraphRenderer.backend", "webgl");
+    localStorage.setItem("setta.sceneGraphRenderer.domIslandRadius", "0");
+    localStorage.setItem("setta.sceneGraphRenderer.debugOverlay", "0");
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector(".react-flow");
+    if (!(root instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      root.getAttribute("data-scene-graph-renderer-probe-status") === "ready"
+    );
+  });
+
+  const labels = await readSceneGraphRendererPerfLabels(page);
+  test.skip(
+    labels.resolvedBackend !== "webgl",
+    "Compatibility forced-DOM assertions require the WebGL backend.",
+  );
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const createResponse = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Chat",
+      controlCodeObjType: null,
+      implOverrides: null,
+      position: { x: 2400, y: 1200 },
+      topLevelSections: null,
+      viewportBounds: null,
+    },
+  );
+  if (!createResponse?.sectionId) {
+    throw new Error("Failed to create unsupported top-level section.");
+  }
+
+  const unsupportedSectionId = createResponse.sectionId;
+  try {
+    const latestState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, latestState);
+
+    await page.waitForFunction((sectionId) => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        return false;
+      }
+      const forcedDomCount = Number(
+        root.getAttribute(
+          "data-scene-graph-renderer-forced-dom-section-count",
+        ) ?? "0",
+      );
+      const domOnlyCount = Number(
+        root.getAttribute("data-scene-graph-renderer-dom-only-section-count") ??
+          "0",
+      );
+      const sectionNode = document.querySelector(
+        `.react-flow__node[data-id="${sectionId}"]`,
+      );
+      return (
+        forcedDomCount > 0 &&
+        domOnlyCount > 0 &&
+        sectionNode instanceof HTMLElement
+      );
+    }, unsupportedSectionId);
+
+    const compatibilityState = await page.evaluate((sectionId) => {
+      const root = document.querySelector(".react-flow");
+      if (!(root instanceof HTMLElement)) {
+        throw new Error("Missing .react-flow root.");
+      }
+      return {
+        forcedDomCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-forced-dom-section-count",
+          ) ?? "0",
+        ),
+        domOnlyCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-dom-only-section-count",
+          ) ?? "0",
+        ),
+        unresolvedCount: Number(
+          root.getAttribute(
+            "data-scene-graph-renderer-unresolved-section-count",
+          ) ?? "0",
+        ),
+        domIslandCount: Number(
+          root.getAttribute("data-scene-graph-renderer-dom-island-count") ??
+            "0",
+        ),
+        sectionIsDomMounted:
+          document.querySelector(
+            `.react-flow__node[data-id="${sectionId}"]`,
+          ) !== null,
+      };
+    }, unsupportedSectionId);
+
+    expect(compatibilityState.domOnlyCount).toBeGreaterThan(0);
+    expect(compatibilityState.forcedDomCount).toBeGreaterThan(0);
+    expect(compatibilityState.forcedDomCount).toBe(
+      compatibilityState.domOnlyCount + compatibilityState.unresolvedCount,
+    );
+    expect(compatibilityState.domIslandCount).toBeGreaterThanOrEqual(
+      compatibilityState.forcedDomCount,
+    );
+    expect(compatibilityState.sectionIsDomMounted).toBe(true);
+  } finally {
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [unsupportedSectionId],
+    });
+    const latestState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, latestState);
+  }
 });
 
 type SceneOnlyPromotionClickTarget = {
@@ -665,6 +842,10 @@ async function setOverviewTab(page: Page, tabName: string): Promise<void> {
 
 type ProjectConfigIdResponse = {
   projectConfig: { id: string };
+};
+
+type CreateTopLevelSectionResponse = {
+  sectionId: string;
 };
 
 async function getProjectConfigIdFromBackend(page: Page): Promise<string> {
