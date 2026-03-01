@@ -147,6 +147,10 @@
 - Result: **not kept**. Repeated runs showed only small/noisy typing change relative to baseline.
 - Decision history retained in:
   - `perf/reports/frontend/2026-03-02_settings-all-settings-param-filter-match-cache.md`
+- Item A trialed (second pass): shared param-filter visibility context (compute once per list, reuse across nested rows).
+- Result: **not kept**. End-to-end Playwright/CDP measurements did not show a reliable improvement.
+- Decision history retained in:
+  - `perf/reports/frontend/2026-03-03_settings-all-settings-shared-param-filter-visibility-context.md`
 - Item B trialed (first pass): params-path state subscription partitioning.
 - Result: **not kept**. In this pass, Playwright typing median and CDP scripted interaction both regressed.
 - Decision history retained in:
@@ -161,7 +165,7 @@
   - `perf/reports/frontend/2026-03-03_settings-all-settings-observer-listener-budget.md`
 - Next Phase 0.5 focus:
   - Optional: trial Item E scoped param virtualization only in heavy scroll-bounded param regions where full-list visibility is not required.
-  - Primary: proceed to Phase 1 minimal production-grade hybrid motion-proxy spike, since Items A-D did not yield a keepable win.
+  - Primary: proceed to Phase 1 minimal production-grade hybrid motion-proxy spike, since completed Item A-D passes did not yield a keepable win.
 
 ## Phase 1: Minimal Production-Grade Spike
 - Implement proxy manager and state machine with shell proxies.
