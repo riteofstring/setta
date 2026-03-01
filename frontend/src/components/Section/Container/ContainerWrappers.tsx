@@ -1,6 +1,5 @@
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import { useHighlightDroppable } from "forks/dnd-kit/useDndUtils";
-import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -17,7 +16,6 @@ function _DndSlotAndDndWatcher({
   visibility,
   isEditingViewMode,
   isUserView,
-  flattenNonGroupWrapper,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -37,7 +35,6 @@ function _DndSlotAndDndWatcher({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        flattenNonGroupWrapper={flattenNonGroupWrapper}
         style={style}
       >
         {children}
@@ -50,12 +47,15 @@ export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
   (p, n) =>
     p.isGroup === n.isGroup &&
+    p.sectionId === n.sectionId &&
+    p.isTopLevel === n.isTopLevel &&
+    p.droppableRef === n.droppableRef &&
+    p.draggableRef === n.draggableRef &&
     p.children === n.children &&
     p.visibility === n.visibility &&
     p.isEditingViewMode === n.isEditingViewMode &&
     p.isUserView === n.isUserView &&
-    p.flattenNonGroupWrapper === n.flattenNonGroupWrapper &&
-    _.isEqual(p.dragListeners, n.dragListeners),
+    areShallowObjectValuesEqual(p.dragListeners, n.dragListeners),
 );
 
 function _DndWatcherAndContainer({
@@ -68,16 +68,11 @@ function _DndWatcherAndContainer({
   visibility,
   isEditingViewMode,
   isUserView,
-  flattenNonGroupWrapper,
   style,
   children,
 }) {
-  const { isDraggingSelection } = useDndState(
-    (state) => ({
-      isDraggingSelection:
-        state.activeId !== null && state.draggingIds.includes(sectionId),
-    }),
-    _.isEqual,
+  const isDraggingSelection = useDndState(
+    (state) => state.activeId !== null && state.draggingIds.includes(sectionId),
   );
   const { isSorting, isMovingFree } = useDndMode();
   const ancestorHasSameVisibility = useProjectState((x) =>
@@ -128,7 +123,6 @@ function _DndWatcherAndContainer({
       trueDragListeners={wrappedDragListeners}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
-      flattenNonGroupWrapper={flattenNonGroupWrapper}
       className={className}
       style={fullStyle}
     >
@@ -153,4 +147,41 @@ function maybeGetOpacityStyle(
   return {};
 }
 
-const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);
+const DndWatcherAndContainer = React.memo(
+  _DndWatcherAndContainer,
+  (p, n) =>
+    p.isGroup === n.isGroup &&
+    p.sectionId === n.sectionId &&
+    p.isTopLevel === n.isTopLevel &&
+    p.droppableRef === n.droppableRef &&
+    p.draggableRef === n.draggableRef &&
+    p.visibility === n.visibility &&
+    p.isEditingViewMode === n.isEditingViewMode &&
+    p.isUserView === n.isUserView &&
+    p.children === n.children &&
+    areShallowObjectValuesEqual(p.dragListeners, n.dragListeners) &&
+    areShallowObjectValuesEqual(p.style, n.style),
+);
+
+function areShallowObjectValuesEqual(
+  left: Record<string, unknown> | undefined,
+  right: Record<string, unknown> | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
