@@ -13,6 +13,7 @@ import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
+import { queueTemporaryMiscStateUpdate } from "state/actions/temporaryMiscState";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -90,7 +91,7 @@ function _ParamGroupContainer({
     if (!outer) {
       lastFixedHeightRef.current = null;
       pendingFixedHeightRef.current = null;
-      useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
+      queueTemporaryMiscStateUpdate({ [paramsFixedHeightKey]: 0 });
       return;
     }
     let frameId = 0;
@@ -147,7 +148,7 @@ function _ParamGroupContainer({
         return;
       }
       lastFixedHeightRef.current = nextFixedHeight;
-      useTemporaryMiscState.setState({
+      queueTemporaryMiscStateUpdate({
         [paramsFixedHeightKey]: nextFixedHeight,
       });
     };
@@ -171,7 +172,7 @@ function _ParamGroupContainer({
       observed.clear();
       lastFixedHeightRef.current = null;
       pendingFixedHeightRef.current = null;
-      useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
+      queueTemporaryMiscStateUpdate({ [paramsFixedHeightKey]: 0 });
     };
   }, [paramsFixedHeightKey]);
 
@@ -188,7 +189,7 @@ function _ParamGroupContainer({
       return;
     }
     lastFixedHeightRef.current = pendingHeight;
-    useTemporaryMiscState.setState({
+    queueTemporaryMiscStateUpdate({
       [paramsFixedHeightKey]: pendingHeight,
     });
   }, [paramsFixedHeightKey, waitingForResult]);
@@ -382,7 +383,7 @@ function EdgesStrip({
     if (!hasEdges) {
       if (lastHeightRef.current !== 0) {
         lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
+        queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
       }
       return;
     }
@@ -395,7 +396,7 @@ function EdgesStrip({
       return;
     }
     lastHeightRef.current = nextHeight;
-    useTemporaryMiscState.setState({ [heightKey]: nextHeight });
+    queueTemporaryMiscStateUpdate({ [heightKey]: nextHeight });
   }, [
     hasEdges,
     heightKey,
@@ -408,7 +409,7 @@ function EdgesStrip({
     return () => {
       if (lastHeightRef.current !== 0) {
         lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
+        queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
       }
     };
   }, [heightKey]);

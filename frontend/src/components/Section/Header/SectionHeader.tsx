@@ -7,6 +7,7 @@ import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "state/actions/lspDiagnostics";
+import { queueTemporaryMiscStateUpdate } from "state/actions/temporaryMiscState";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -17,7 +18,6 @@ import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
-  useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
@@ -65,7 +65,7 @@ function _SectionHeader({
   useLayoutEffect(() => {
     const node = headerRef.current;
     if (!node) {
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
       return;
     }
     let lastMeasuredHeight: number | null = null;
@@ -80,7 +80,7 @@ function _SectionHeader({
         return;
       }
       lastMeasuredHeight = nextHeight;
-      useTemporaryMiscState.setState({
+      queueTemporaryMiscStateUpdate({
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
     };
@@ -89,7 +89,7 @@ function _SectionHeader({
     observer.observe(node);
     return () => {
       observer.disconnect();
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      queueTemporaryMiscStateUpdate({ [heightKey]: 0 });
     };
   }, [heightKey]);
 

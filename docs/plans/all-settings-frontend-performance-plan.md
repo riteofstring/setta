@@ -8,6 +8,10 @@ The request text says "backend performance", but the benchmark and measured bott
 
 ## Status
 - Implemented:
+  - Current plan Priority 1: removed dead pinned/unpinned param-area height measurements in `GroupContainer`.
+  - Current plan Priority 2: batched temporary height updates for `GroupContainer`, `SectionHeader`, and `KwargsControls`.
+    - Measured transition write churn dropped from `407` `useTemporaryMiscState.setState` calls to `3` batched calls (with `222` merged height-key writes).
+    - Interaction timing stayed in the same range; no clear long-task reduction from this item alone.
   - Priority 1 from the prior plan (edge-handle no-op guards + redundant update removal).
 - Investigated and de-prioritized:
   - `re-resizable` mount gating (prior Priority 2): negligible startup gain with clear lock/unlock regressions in our benchmark.
