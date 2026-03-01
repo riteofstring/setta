@@ -7,6 +7,7 @@ Reduce DOM size and frontend render/style/layout cost in `Settings -> All Settin
 - Completed:
   - Step 1 (`Add UX-preservation tests first`)
   - Step 2 (`Flatten non-kwarg key wrappers`)
+  - Step 3 (`Collapse resize-handle markup to one interactive element`)
 - Current measured impact for Step 2:
   - Total DOM elements: `9715` -> `9088` (`-6.5%`)
   - `.section-key` wrappers in non-nested rows: `627` -> `0`
@@ -14,6 +15,13 @@ Reduce DOM size and frontend render/style/layout cost in `Settings -> All Settin
   - Tab switch medians (9-run harness, warmup 2):
     - `All -> Core`: elapsed `446.4 ms` -> `421.6 ms` (`-5.6%`)
     - `Core -> All`: elapsed `1044.1 ms` -> `1039.4 ms` (`-0.5%`)
+- Current measured impact for Step 3 (timestamp-window harness, 9 runs, warmup 2, vs post-Step-2 baseline):
+  - Total DOM elements: `9088` -> `7666` (`-15.6%`)
+  - Avg param-row subtree size: `13.93` -> `11.09` (`-20.4%`)
+  - Interactive resize handles: `627` (unchanged behavior count), nested handle child nodes: `0`
+  - Tab switch medians:
+    - `All -> Core`: elapsed `509.2 ms` -> `411.2 ms` (`-19.2%`), longtask total `202 ms` -> `124 ms` (`-38.6%`)
+    - `Core -> All`: elapsed `986.7 ms` -> `944.5 ms` (`-4.3%`), longtask total `768 ms` -> `725 ms` (`-5.6%`)
 
 ## Guardrails
 - No intentional UX changes.
