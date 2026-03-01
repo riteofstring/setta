@@ -268,6 +268,7 @@ from setta.types.dependency_key import (
     create_dep_key,
 )
 from setta.types.edges import Edge
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseArtifactUnion,
     BaseArtifactUnionWithDiscriminator,
@@ -415,6 +416,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
@@ -1764,6 +1766,56 @@ class BaseProjectManager(ABC):
     def _clone_viewport(self, viewport: Viewport | None) -> Viewport | None:
         return copy.deepcopy(viewport)
 
+    def _get_active_section_impl_from_backend(
+        self,
+        project_config: ProjectConfig,
+        *,
+        section_id: ID,
+    ) -> BaseSectionImpl:
+        if section_id not in self.project_state_backend.sections:
+            raise KeyError(f"Missing section {section_id}.")
+        section_variant_map = project_config.sectionVariantMap
+        if section_id not in section_variant_map:
+            raise KeyError(
+                f"Missing section variant map entry for section {section_id}."
+            )
+        section_variant_id = section_variant_map[section_id]
+        if section_variant_id not in self.project_state_backend.sectionVariants:
+            raise KeyError(f"Missing section variant {section_variant_id}.")
+        section_variant = self.project_state_backend.sectionVariants[section_variant_id]
+        section_impl_id = section_variant.impl
+        if section_impl_id not in self.project_state_backend.sectionImpls:
+            raise KeyError(f"Missing section impl {section_impl_id}.")
+        section_impl = self.project_state_backend.sectionImpls[section_impl_id]
+        section_core = self.project_state_backend.sections[section_id]
+        if len(section_core.sharedModifier) == 0 and len(section_variant.modifier) == 0:
+            return section_impl
+        return get_effective_impl(section_impl, section_core, section_variant)
+
+    def _collect_valid_top_level_section_ids(
+        self,
+        project_config: ProjectConfig,
+    ) -> set[ID]:
+        existing_section_ids = {
+            section_id
+            for section_id in project_config.sectionVariantMap.keys()
+            if section_id in self.project_state_backend.sections
+        }
+        section_ids_with_parent: set[ID] = set()
+        for section_id in existing_section_ids:
+            section_impl = self._get_active_section_impl_from_backend(
+                project_config,
+                section_id=section_id,
+            )
+            if not isinstance(section_impl, BaseParentSectionImpl):
+                continue
+            section_ids_with_parent.update(section_impl.children)
+        return {
+            section_id
+            for section_id in existing_section_ids
+            if section_id not in section_ids_with_parent
+        }
+
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
@@ -1797,21 +1849,9 @@ class BaseProjectManager(ABC):
         if view_mode is None:
             raise KeyError(f"View mode {active_view_mode_id} not found")
         existing_layouts = view_mode.topLevelSections
-        section_variant_ids = set(project_config.sectionVariantMap.keys())
-        existing_section_ids = {
-            section_id
-            for section_id in section_variant_ids
-            if section_id in self.project_state_backend.sections
-        }
-        parent_section_map = convert_backend_to_single_config(
-            self.project_state_backend, x.projectConfigId
-        ).parentSectionMap
-        valid_top_level_section_ids = {
-            section_id
-            for section_id in existing_section_ids
-            if section_id in parent_section_map
-            and parent_section_map[section_id] is None
-        }
+        valid_top_level_section_ids = self._collect_valid_top_level_section_ids(
+            project_config
+        )
         merged_layouts = {
             section_id: layout
             for section_id, layout in existing_layouts.items()

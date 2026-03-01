@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+import setta.project_state.base_project_manager as base_project_manager
 from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
@@ -584,6 +585,53 @@ class TestProjectConfigViewModes:
                 updated_state.projectConfig.topLevelSections[section_id].y
                 == recovered_layout.y
             )
+
+    async def test_set_top_level_section_layout_avoids_single_config_conversion(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            section_id = await create_top_level_section(
+                manager, project_config_id, SectionType.Code
+            )
+            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            original_layout = project_config.topLevelSections[section_id].model_copy(
+                deep=True
+            )
+            updated_layout = original_layout.model_copy(deep=True)
+            updated_layout.x += 140
+            updated_layout.y += 60
+
+            # Route should resolve parentage directly from backend state and never
+            # rebuild full single-config state.
+            def fail_convert_backend_to_single_config(*args, **kwargs):
+                raise AssertionError(
+                    "set_top_level_section_layout must not call convert_backend_to_single_config"
+                )
+
+            monkeypatch.setattr(
+                base_project_manager,
+                "convert_backend_to_single_config",
+                fail_convert_backend_to_single_config,
+            )
+            await manager.set_top_level_section_layout(
+                SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections={section_id: updated_layout},
+                )
+            )
+
+            active_view_mode_id = project_config.activeViewModeId
+            assert active_view_mode_id is not None
+            active_view_mode = project_config.viewModes[active_view_mode_id]
+            assert project_config.topLevelSections[section_id].x == updated_layout.x
+            assert project_config.topLevelSections[section_id].y == updated_layout.y
+            assert active_view_mode.topLevelSections[section_id].x == updated_layout.x
+            assert active_view_mode.topLevelSections[section_id].y == updated_layout.y
 
     async def test_set_view_mode_sort_order_rejects_duplicate_ids(self) -> None:
         async with real_project_manager() as fixture:
