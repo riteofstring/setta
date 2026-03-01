@@ -6,8 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
-    ProjectStateActiveViewModePatch,
-    ProjectStateProjectConfigPatch,
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
@@ -56,8 +54,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMStreamingResponse = "LLMStreamingResponse"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
-    PatchFrontendProjectStateActiveViewMode = "PatchFrontendProjectStateActiveViewMode"
-    PatchFrontendProjectStateProjectConfig = "PatchFrontendProjectStateProjectConfig"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
@@ -203,20 +199,6 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )
-
-
-class WebsocketMsgPatchFrontendProjectStateActiveViewMode(FrontendWebsocketMsg):
-    content: ProjectStateActiveViewModePatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateActiveViewMode
-
-
-class WebsocketMsgPatchFrontendProjectStateProjectConfig(FrontendWebsocketMsg):
-    content: ProjectStateProjectConfigPatch
-    messageType: Literal[
-        WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
-    ] = WebsocketMsgTypeForFrontend.PatchFrontendProjectStateProjectConfig
 
 
 class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):

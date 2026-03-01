@@ -78,6 +78,7 @@ from setta.mcp.utils import (
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
+    convert_backend_to_single_config,
     filter_lsp_diagnostics_payload,
 )
 from setta.types.id import ID
@@ -1032,6 +1033,7 @@ class SettaFastMCP(FastMCP):
                     agentic_context.project_config_id,
                     share_session_id=share_session_id,
                 )
+                project_state_backend = manager.project_state_backend
                 project_state_revision = manager.history.revision
                 if session is not None:
                     state_cache = self._agentic_project_state_cache_by_session.get(
@@ -1060,8 +1062,9 @@ class SettaFastMCP(FastMCP):
                         state_cache.pop(state_cache_key, None)
                         state_cache[state_cache_key] = cached_state
                     else:
-                        project_state = manager.get_single_config_state(
-                            agentic_context.project_config_id
+                        project_state = convert_backend_to_single_config(
+                            project_state_backend,
+                            agentic_context.project_config_id,
                         )
                         cached_state = _CachedProjectStateSingle(
                             project_state_revision=project_state_revision,
@@ -1115,8 +1118,9 @@ class SettaFastMCP(FastMCP):
                         ):
                             scope_cache.pop(next(iter(scope_cache)))
                 else:
-                    project_state = manager.get_single_config_state(
-                        agentic_context.project_config_id
+                    project_state = convert_backend_to_single_config(
+                        project_state_backend,
+                        agentic_context.project_config_id,
                     )
                     scope = resolve_agentic_scope(
                         project_state,
