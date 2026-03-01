@@ -4836,7 +4836,9 @@ class BaseProjectManager(ABC):
             if x.implType == SectionType.MetaControl
             else None
         )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
         return CreateTopLevelSectionResponse(
             sectionId=sectionId,
             metaControlParamId=meta_control_param_id,
@@ -4866,7 +4868,9 @@ class BaseProjectManager(ABC):
             x.numChildren,
             x.startIdx,
         )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4898,7 +4902,9 @@ class BaseProjectManager(ABC):
             x.implType,
             x.numChildren,
         )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
@@ -4914,7 +4920,9 @@ class BaseProjectManager(ABC):
             Position(),
             core_overrides={"id": terminalId},
         )
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4939,7 +4947,9 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -4971,7 +4981,9 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -5022,7 +5034,9 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     @enqueue_method
     @project_state_tool(
@@ -6747,7 +6761,9 @@ class BaseProjectManager(ABC):
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         paste_sections(project_state, x.data, x.position, x.asRef)
-        await self._update_and_broadcast_structural_patch(project_state)
+        await self._merge_and_broadcast_structural_patch_with_deferred_codegen_refresh(
+            project_state
+        )
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

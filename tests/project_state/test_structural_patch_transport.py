@@ -1092,6 +1092,159 @@ async def test_remaining_section_routes_use_structural_patch_transport() -> None
 
 
 @pytest.mark.asyncio
+async def test_remaining_section_lifecycle_routes_defer_codegen_refresh() -> None:
+    async with real_settings_manager() as fixture:
+        manager = fixture.manager
+        manager.settings_file.settings.backend.autosave = False
+        project_state = build_callable_project_state(8)
+        await manager.update(project_state, updateFileWatcher=True)
+        await manager.finish_pending_operations(timeout=5.0)
+        project_config_id = project_state.projectConfig.id
+
+        refresh_calls = 0
+        scheduled_deferred_refreshes: list[ID] = []
+        original_refresh = manager._refresh_codegen_state
+        original_schedule_deferred_refresh = manager._schedule_deferred_codegen_refresh
+
+        async def record_refresh(next_state) -> None:
+            nonlocal refresh_calls
+            refresh_calls += 1
+            await original_refresh(next_state)
+
+        def record_schedule_deferred_refresh(project_config_id_for_refresh: ID) -> None:
+            scheduled_deferred_refreshes.append(project_config_id_for_refresh)
+
+        async def assert_deferred_refresh(operation_coro):
+            before_refresh_calls = refresh_calls
+            before_scheduled_count = len(scheduled_deferred_refreshes)
+            result = await operation_coro
+            await manager.finish_pending_operations(timeout=5.0)
+            assert refresh_calls == before_refresh_calls
+            assert len(scheduled_deferred_refreshes) == before_scheduled_count + 1
+            assert scheduled_deferred_refreshes[-1] == project_config_id
+            return result
+
+        manager._refresh_codegen_state = record_refresh  # type: ignore[method-assign]
+        manager._schedule_deferred_codegen_refresh = (
+            record_schedule_deferred_refresh  # type: ignore[method-assign]
+        )
+        try:
+            await manager.finish_pending_operations(timeout=5.0)
+
+            create_group_result = await assert_deferred_refresh(
+                manager.create_top_level_section(
+                    CreateTopLevelSectionRequest(
+                        projectConfigId=project_config_id,
+                        implType=SectionType.Group,
+                        controlCodeObjType=None,
+                        implOverrides=None,
+                        position=Position(x=701.0, y=121.0),
+                        topLevelSections=None,
+                        viewportBounds=None,
+                    )
+                )
+            )
+            group_id = create_group_result.sectionId
+
+            await assert_deferred_refresh(
+                manager.create_child_sections(
+                    CreateChildSectionsRequest(
+                        projectConfigId=project_config_id,
+                        parentId=group_id,
+                        implType=SectionType.TextBlock,
+                        numChildren=1,
+                        startIdx=0,
+                    )
+                )
+            )
+
+            await assert_deferred_refresh(
+                manager.create_child_sections_via_incrementer(
+                    CreateChildSectionsViaIncrementerRequest(
+                        projectConfigId=project_config_id,
+                        calledBy=group_id,
+                        numChildren=1,
+                        implType=SectionType.TextBlock,
+                    )
+                )
+            )
+
+            temp_terminal_id = ID("deferred-refresh-temp-terminal")
+            await assert_deferred_refresh(
+                manager.create_temporary_terminal(project_config_id, temp_terminal_id)
+            )
+
+            await assert_deferred_refresh(
+                manager.delete_child_sections_via_decrementer(
+                    DeleteChildSectionsViaDecrementerRequest(
+                        projectConfigId=project_config_id,
+                        calledBy=group_id,
+                        numChildren=1,
+                    )
+                )
+            )
+
+            group_impl_after_delete_child = (
+                get_curr_effective_section_impl_with_type_guard(
+                    manager.get_single_config_state(project_config_id),
+                    group_id,
+                    BaseParentSectionImpl,
+                )
+            )
+            assert 1 == len(group_impl_after_delete_child.children)
+            remaining_child_id = group_impl_after_delete_child.children[0]
+
+            await assert_deferred_refresh(
+                manager.delete_sections(
+                    DeleteSectionsRequest(
+                        projectConfigId=project_config_id,
+                        sectionIds=[remaining_child_id],
+                    )
+                )
+            )
+
+            await assert_deferred_refresh(
+                manager.create_new_section_variant(
+                    CreateNewSectionVariantRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=SECTION_ID,
+                    )
+                )
+            )
+
+            copy_payload = await manager.prepare_sections_for_copy(
+                PrepareSectionsForCopyRequest(
+                    projectConfigId=project_config_id,
+                    sectionIds=[SECTION_ID],
+                )
+            )
+            await manager.finish_pending_operations(timeout=5.0)
+
+            section_count_before_paste = len(
+                manager.get_single_config_state(project_config_id).sections
+            )
+            await assert_deferred_refresh(
+                manager.paste_sections(
+                    PasteSectionsRequest(
+                        projectConfigId=project_config_id,
+                        data=copy_payload.data,
+                        position=Position(x=1410.0, y=520.0),
+                        asRef=False,
+                    )
+                )
+            )
+            section_count_after_paste = len(
+                manager.get_single_config_state(project_config_id).sections
+            )
+            assert section_count_after_paste > section_count_before_paste
+        finally:
+            manager._refresh_codegen_state = original_refresh  # type: ignore[method-assign]
+            manager._schedule_deferred_codegen_refresh = (
+                original_schedule_deferred_refresh  # type: ignore[method-assign]
+            )
+
+
+@pytest.mark.asyncio
 async def test_variant_name_and_paste_routes_use_structural_patch_transport() -> None:
     async with real_settings_manager() as fixture:
         manager = fixture.manager
