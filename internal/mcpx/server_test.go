@@ -136,13 +136,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 14 {
-		t.Fatalf("expected 14 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 15 {
+		t.Fatalf("expected 15 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var createChildSectionsTool *sdkmcp.Tool
 	var createChildSectionsViaIncrementerTool *sdkmcp.Tool
+	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
@@ -159,6 +160,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "create_child_sections_via_incrementer" {
 			createChildSectionsViaIncrementerTool = tool
+		}
+		if tool.Name == "delete_sections" {
+			deleteSectionsTool = tool
 		}
 		if tool.Name == "create_top_level_section" {
 			createTopLevelSectionTool = tool
@@ -193,6 +197,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
 		"create_top_level_section",
+		"delete_sections",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
@@ -216,6 +221,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if createChildSectionsViaIncrementerTool == nil {
 		t.Fatal("expected create_child_sections_via_incrementer tool")
+	}
+	if deleteSectionsTool == nil {
+		t.Fatal("expected delete_sections tool")
 	}
 	if createTopLevelSectionTool == nil {
 		t.Fatal("expected create_top_level_section tool")
@@ -243,6 +251,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	createChildViaIncrementerResultPaths := mustStructuredMap(t, createChildViaIncrementerMeta["resultIdPathsByType"])
 	if got := mustStringList(t, createChildViaIncrementerResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected create_child_sections_via_incrementer sectionIds result path, got %#v", got)
+	}
+	deleteMeta := mustStructuredMap(t, deleteSectionsTool.Meta[toolMetaNamespace])
+	if deleteMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for delete_sections, got %#v", deleteMeta["accessType"])
+	}
+	deletePaths := mustStructuredMap(t, deleteMeta["idPathsByType"])
+	if got := mustStringList(t, deletePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
+		t.Fatalf("expected delete_sections sectionIds target path, got %#v", got)
+	}
+	deleteResultPaths := mustStructuredMap(t, deleteMeta["resultIdPathsByType"])
+	if got := mustStringList(t, deleteResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
+		t.Fatalf("expected delete_sections sectionIds result path, got %#v", got)
 	}
 	if summaryTool == nil {
 		t.Fatal("expected get_latest_project_state_summary tool")
@@ -327,8 +347,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 14 {
-		t.Fatalf("expected 14 registered tool names, got %#v", listNames)
+	if len(listNames) != 15 {
+		t.Fatalf("expected 15 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -772,6 +792,37 @@ func TestServerCreateTopLevelSectionRequiresStructuralScope(t *testing.T) {
 	}
 }
 
+func TestServerDeleteSectionsRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_sections",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionIds":      []string{"blocked-section"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_sections blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked delete_sections call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected targetSectionIds [blocked-section], got %#v", ids)
+	}
+}
+
 func TestServerCreateTopLevelSectionAllowsUnscopedStructuralCallsAndTranslatesResultIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1036,6 +1087,60 @@ func TestServerCreateChildSectionsViaIncrementerAllowsUnscopedStructuralCallsAnd
 	children := mustStringList(t, parentPayload["children"])
 	if len(children) != 1 || children[0] != canonicalSectionID {
 		t.Fatalf("expected allowed-section children [%q], got %#v", canonicalSectionID, children)
+	}
+}
+
+func TestServerDeleteSectionsAllowsUnscopedStructuralCallsAndTranslatesIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"allowed-params-section": "20",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "delete_sections",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionIds":      []string{"20"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_sections allowed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected delete_sections success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	sectionIDs := mustStringList(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || sectionIDs[0] != "20" {
+		t.Fatalf("expected translated deleted section ids [20], got %#v", sectionIDs)
+	}
+
+	afterProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after delete_sections: %v", err)
+	}
+	if _, ok := afterProject.Sections["allowed-params-section"]; ok {
+		t.Fatalf("expected allowed-params-section to be removed, got %#v", afterProject.Sections)
+	}
+	if _, ok := afterProject.CodeObjs["allowed-param"]; ok {
+		t.Fatalf("expected allowed-param to be pruned, got %#v", afterProject.CodeObjs)
 	}
 }
 

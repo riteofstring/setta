@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 14 {
-		t.Fatalf("expected 14 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 15 {
+		t.Fatalf("expected 15 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 14 {
-		t.Fatalf("expected 14 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 15 {
+		t.Fatalf("expected 15 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -717,6 +717,85 @@ func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticate
 	}
 }
 
+func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_sections",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionIds":      []string{"allowed-params-section"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_sections: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected delete_sections success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	sectionIDs := mustStructuredStringListValue(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one translated deleted section id, got %#v", sectionIDs)
+	}
+	if sectionIDs[0] == "allowed-params-section" {
+		t.Fatalf("expected translated deleted section id to differ from canonical allowed-params-section")
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after structural delete: %v", err)
+	}
+	if _, ok := project.Sections["allowed-params-section"]; ok {
+		t.Fatalf("expected allowed-params-section to be removed, got %#v", project.Sections)
+	}
+	if _, ok := project.CodeObjs["allowed-param"]; ok {
+		t.Fatalf("expected allowed-param to be pruned, got %#v", project.CodeObjs)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1109,8 +1188,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 14 {
-		t.Fatalf("expected tool count 14, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 15 {
+		t.Fatalf("expected tool count 15, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))

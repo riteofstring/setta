@@ -192,7 +192,8 @@ The high-leverage move is therefore:
 
 - `create_child_sections_via_incrementer` has now landed as the next completed
   structural follow-on
-- the next bounded structural slice should move to section deletion, anchored
-  on a Go-owned `delete_sections` owner
-- keep move/reparent semantics deferred until deletion and the later
-  decrementer follow-on prove the cleanup boundary
+- `delete_sections` has now landed as the recursive cleanup follow-on
+- the next bounded structural slice should move to
+  `delete_child_sections_via_decrementer`
+- keep move/reparent semantics deferred until deletion plus decrementer prove
+  the cleanup boundary

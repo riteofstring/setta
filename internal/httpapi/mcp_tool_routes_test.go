@@ -608,6 +608,72 @@ func TestMCPToolCallRouteSupportsIncrementerStructuralChildCreateWithUnscopedCon
 	}
 }
 
+func TestMCPToolCallRouteSupportsStructuralDeleteWithUnscopedContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"delete_sections",
+		"arguments":{"projectConfigId":"project-alpha","sectionIds":["allowed-params-section"]},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected structural delete success, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	sectionIDs := mustStringListForRoute(t, structured["sectionIds"])
+	if len(sectionIDs) != 1 || sectionIDs[0] != "allowed-params-section" {
+		t.Fatalf("expected deleted section ids [allowed-params-section], got %#v", sectionIDs)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route delete: %v", err)
+	}
+	if _, ok := project.Sections["allowed-params-section"]; ok {
+		t.Fatalf("expected allowed-params-section to be removed, got %#v", project.Sections)
+	}
+	if _, ok := project.CodeObjs["allowed-param"]; ok {
+		t.Fatalf("expected allowed-param to be pruned, got %#v", project.CodeObjs)
+	}
+}
+
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 

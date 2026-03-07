@@ -160,16 +160,16 @@ The high-leverage move is therefore:
 
 ## Next Recommended Step
 
-- the next bounded structural slice should move to section deletion, anchored
-  on a Go-owned `delete_sections` owner
-- `delete_child_sections_via_decrementer` depends on that deletion boundary and
-  should follow once recursive deletion, edge cleanup, and code-obj pruning are
-  owned in Go
-- keep move/reparent semantics deferred until deletion proves the structural
-  cleanup boundary
+- `delete_sections` has now landed as the next completed structural slice
+- the next bounded structural slice should move to
+  `delete_child_sections_via_decrementer`
+- keep move/reparent semantics deferred until decrementer deletion proves the
+  remaining structural cleanup boundary
 
 ## Progress Notes
 
 - 2026-03-07: doc created to scope the slice before implementation.
 - 2026-03-07: slice completed with Go-owned incrementer caller resolution,
   MCP registration, temp-id translation, and authenticated route/SSE coverage.
+- 2026-03-07: follow-on `delete_sections` slice completed; next recommended
+  step moved to `delete_child_sections_via_decrementer`.

@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 12 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 13 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -45,6 +45,7 @@ Current repo status as of 2026-03-07:
     - `create_child_sections` as the bounded child-construction structural tool
     - `create_child_sections_via_incrementer` as the incrementer-placement
       structural follow-on
+    - `delete_sections` as the recursive section-deletion structural tool
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
@@ -638,16 +639,43 @@ Reference:
 
 - `phase-6-create-child-sections-via-incrementer-structural-tool.md`
 
+### Slice 13: Delete Sections Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for recursive section deletion
+- cleanup for surviving section references, edges, and attached terminals
+- post-delete code-object pruning
+- a Go MCP `delete_sections` structural tool
+- argument/result temp-id translation for `sectionIds`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `delete_sections`
+- structural scope remains explicit and fail-closed
+- deleted result ids are temp-id translated through metadata instead of a
+  tool-name branch
+- recursive deletion cleans top-level/view state plus orphaned code objects
+- the IDE HTTP `deleteSections` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-delete-sections-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 12 is now complete.
-- The next recommended step is a bounded section-deletion slice anchored on a
-  Go-owned `delete_sections` owner.
-- `delete_child_sections_via_decrementer` should follow on top of that deletion
-  boundary instead of being split out first, because its Python behavior is
-  just caller-target resolution plus `delete_sections`.
-- Keep move/reparent semantics deferred until deletion and the later
-  decrementer slice prove the structural cleanup boundary.
+- Slice 13 is now complete.
+- The next recommended step is a bounded
+  `delete_child_sections_via_decrementer` slice over the completed
+  `delete_sections` owner.
+- Keep move/reparent semantics deferred until deletion plus decrementer prove
+  the structural cleanup boundary.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
