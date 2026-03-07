@@ -1885,8 +1885,6 @@ function mergeChatSectionState(
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],
-    // Preserve local-only activity rows so thought/tool sequencing is not
-    // flattened by a hydration refresh while the local stream is still active.
     preserveLocalOnlyMessages: preserveWaitingForResponse,
   });
   const nextWaitingForResponse = preserveWaitingForResponse
