@@ -50,9 +50,7 @@ async function closeSkillsMcpViewer(page: Page): Promise<void> {
 
 async function openRawSkillMarkdown(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
-  await page
-    .getByTestId("project-chat-skill-markdown-view-raw")
-    .click();
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
 }
 
 test("project ai chat can open the skills side view", async ({ page }) => {
@@ -1353,6 +1351,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
     rootLabel: string;
     rootPath: string;
     relativePath: string;
+    isEditable: boolean;
+    editabilityReason: string | null;
     description: string;
   }> = [
     {
@@ -1361,6 +1361,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
       rootLabel: "User ~/.agents/skills",
       rootPath,
       relativePath: "custom-one",
+      isEditable: true,
+      editabilityReason: null,
       description: "Custom skill",
     },
   ];
@@ -1446,6 +1448,8 @@ test("project ai chat can create and save custom skills from raw markdown mode",
       rootLabel: "User ~/.agents/skills",
       rootPath,
       relativePath: nextRelativePath,
+      isEditable: true,
+      editabilityReason: null,
       description: "",
     });
     await route.fulfill({
@@ -1507,6 +1511,8 @@ test("project ai chat blocks saving truncated editable skill previews", async ({
           rootLabel: "User ~/.agents/skills",
           rootPath: "/home/.agents/skills",
           relativePath: "large-custom",
+          isEditable: true,
+          editabilityReason: null,
           description: "Large editable custom skill.",
         },
       ]),
@@ -1557,9 +1563,170 @@ test("project ai chat blocks saving truncated editable skill previews", async ({
   await openSkillsViewer(page);
   await openRawSkillMarkdown(page);
 
-  await expect(page.getByTestId("project-chat-custom-skill-save")).toBeDisabled();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
   await expect(
     page.getByText("Preview is truncated. Full content loading is required"),
+  ).toBeVisible();
+  expect(upsertRequestCount).toBe(0);
+});
+
+test("project ai chat disables save when skill content fetch fails", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "user_agents_skills::broken-custom",
+          name: "broken-custom",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "broken-custom",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Custom skill with failed fetch.",
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "Missing SKILL.md for user_agents_skills::broken-custom",
+      }),
+    });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkillContent",
+    statuses: [404],
+  });
+
+  let upsertRequestCount = 0;
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    upsertRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::broken-custom",
+        created: false,
+        rootPath: "/home/.agents/skills",
+        skillDocPath: "/home/.agents/skills/broken-custom/SKILL.md",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId("project-chat-skill-content-error"),
+  ).toContainText("Missing SKILL.md for user_agents_skills::broken-custom");
+  expect(upsertRequestCount).toBe(0);
+});
+
+test("project ai chat keeps root-level custom skills read-only from backend editability flags", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "user_agents_skills::.",
+          name: "skills",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: ".",
+          isEditable: false,
+          editabilityReason: "Editing root-level SKILL.md is not supported.",
+          description: "Root-level skill doc.",
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::.",
+        content: "# Root skill\n\nRead-only content",
+        truncated: false,
+        originalSizeBytes: 30,
+      }),
+    });
+  });
+
+  let upsertRequestCount = 0;
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    upsertRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::.",
+        created: false,
+        rootPath: "/home/.agents/skills",
+        skillDocPath: "/home/.agents/skills/SKILL.md",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Editing root-level SKILL.md is not supported."),
   ).toBeVisible();
   expect(upsertRequestCount).toBe(0);
 });
@@ -1584,6 +1751,8 @@ test("project ai chat can save intentionally empty custom skill content", async 
           rootLabel: "User ~/.agents/skills",
           rootPath,
           relativePath: "emptyable",
+          isEditable: true,
+          editabilityReason: null,
           description: "Custom skill that can be emptied.",
         },
       ]),
@@ -1644,12 +1813,14 @@ test("project ai chat can save intentionally empty custom skill content", async 
 
   await expect.poll(() => upsertPayloads.length).toBe(1);
   expect(upsertPayloads[0]?.content).toBe("");
-  await expect.poll(async () => {
-    return editorContent.evaluate((node) => {
-      const element = node as HTMLElement;
-      return element.innerText.trim();
-    });
-  }).toBe("");
+  await expect
+    .poll(async () => {
+      return editorContent.evaluate((node) => {
+        const element = node as HTMLElement;
+        return element.innerText.trim();
+      });
+    })
+    .toBe("");
 });
 
 test("project ai chat mounts markdown viewer lazily and shows truncation metadata", async ({

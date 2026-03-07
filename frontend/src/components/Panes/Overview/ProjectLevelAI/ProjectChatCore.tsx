@@ -95,6 +95,7 @@ import {
   collectAgentNativeSlashCommandTokensFromRuns,
   reconcileCustomSlashCommands,
 } from "./projectChatSkillsMcpViewerUtils";
+import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
@@ -361,11 +362,6 @@ type ProjectChatRuntimeActivityEntry =
 
 type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
 
-const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
-  {
-    activeBackgroundTerminals: 0,
-    activeSubagents: 0,
-  };
 const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
   {
     activeBackgroundTerminals: [],
@@ -1142,8 +1138,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
-      state.customProjectChatSlashCommandsByProjectConfigId[projectConfigId] ??
-      [],
+      selectCustomProjectChatSlashCommands(
+        state.customProjectChatSlashCommandsByProjectConfigId,
+        projectConfigId,
+      ),
   );
   const submittedMessageHistory = useMemo(
     () =>

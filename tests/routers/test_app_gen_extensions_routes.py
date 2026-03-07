@@ -64,8 +64,40 @@ class TestAppGenExtensionsRoutes:
             row = row_by_id["workspace_agents_skills::ui-layout"]
             assert row.skillId == "workspace_agents_skills::ui-layout"
             assert row.name == "ui-layout"
+            assert row.isEditable is True
+            assert row.editabilityReason is None
             assert row.description == "Create dense dashboard layouts."
             assert not hasattr(row, "skillPath")
+
+    def test_marks_root_level_custom_skill_as_non_editable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            root_skills_dir = workspace_root / ".agents" / "skills"
+            root_skills_dir.mkdir(parents=True, exist_ok=True)
+            (root_skills_dir / "SKILL.md").write_text(
+                "# Root Skill\n\nTop-level instructions.\n",
+                encoding="utf-8",
+            )
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            rows = list_app_gen_skills(workspace_root)
+
+            row_by_id = {row.skillId: row for row in rows}
+            row = row_by_id["workspace_agents_skills::."]
+            assert row.relativePath == "."
+            assert row.isEditable is False
+            assert (
+                row.editabilityReason == "Editing root-level SKILL.md is not supported."
+            )
 
     def test_lists_workspace_claude_and_opencode_skills(
         self,
@@ -273,6 +305,11 @@ class TestAppGenExtensionsRoutes:
             assert codex_row.rootLabel == "CODEX_HOME skills"
             assert codex_row.rootPath == str(
                 (codex_home / "skills").resolve(strict=False)
+            )
+            assert codex_row.isEditable is False
+            assert (
+                codex_row.editabilityReason
+                == "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable."
             )
 
     def test_skips_unreadable_skill_root_during_listing(
@@ -630,7 +667,9 @@ class TestAppGenExtensionsRoutes:
             expected_skill_doc = user_skills_root / "writable-fallback" / "SKILL.md"
             assert response.skillId == "user_agents_skills::writable-fallback"
             assert response.created is True
-            assert response.skillDocPath == str(expected_skill_doc.resolve(strict=False))
+            assert response.skillDocPath == str(
+                expected_skill_doc.resolve(strict=False)
+            )
             assert (
                 expected_skill_doc.read_text(encoding="utf-8")
                 == "# writable-fallback\n\nBody.\n"
@@ -817,6 +856,58 @@ class TestAppGenExtensionsRoutes:
             == "# route-created\n\nBody.\n"
         )
         clear_setta_paths_cache()
+
+    def test_get_app_gen_skills_route_exposes_editability_flags(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_skills = workspace_root / ".agents" / "skills"
+        editable_dir = workspace_skills / "editable"
+        editable_dir.mkdir(parents=True, exist_ok=True)
+        workspace_skills.mkdir(parents=True, exist_ok=True)
+        (workspace_skills / "SKILL.md").write_text(
+            "# Root Skill\n\nRoot instructions.\n",
+            encoding="utf-8",
+        )
+        (editable_dir / "SKILL.md").write_text(
+            "# Editable\n\nNested skill.\n",
+            encoding="utf-8",
+        )
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                response = client.get(
+                    f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}"
+                )
+        finally:
+            clear_setta_paths_cache()
+
+        assert response.status_code == 200
+        payload = response.json()
+        row_by_id = {row["skillId"]: row for row in payload}
+        root_row = row_by_id["workspace_agents_skills::."]
+        assert root_row["isEditable"] is False
+        assert (
+            root_row["editabilityReason"]
+            == "Editing root-level SKILL.md is not supported."
+        )
+        editable_row = row_by_id["workspace_agents_skills::editable"]
+        assert editable_row["isEditable"] is True
+        assert editable_row["editabilityReason"] is None
 
     def test_upsert_custom_skill_route_rejects_non_custom_roots(
         self,

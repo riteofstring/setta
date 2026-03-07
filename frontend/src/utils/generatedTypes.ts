@@ -8771,6 +8771,8 @@ const AppGenSkillEntrySchema = z.object({
   rootLabel: z.string(),
   rootPath: z.string(),
   relativePath: z.string(),
+  isEditable: z.boolean(),
+  editabilityReason: z.union([z.string(), z.null()]).default(null),
   description: z.string().default("" as const),
 });
 

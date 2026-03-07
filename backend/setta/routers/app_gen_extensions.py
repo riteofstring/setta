@@ -31,6 +31,8 @@ class AppGenSkillEntry(BaseModel):
     rootLabel: str
     rootPath: str
     relativePath: str
+    isEditable: bool
+    editabilityReason: str | None = None
     description: str = Field(default="")
 
 
@@ -190,6 +192,22 @@ def _normalize_custom_skill_relative_path(relative_path: str) -> str:
     return normalized
 
 
+def _resolve_skill_editability(
+    *,
+    root_id: str,
+    relative_path: str,
+) -> tuple[bool, str | None]:
+    if root_id not in _CUSTOM_SKILL_EDITABLE_ROOT_IDS:
+        return (
+            False,
+            "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills are editable.",
+        )
+    normalized_relative_path = relative_path.strip()
+    if normalized_relative_path in ("", "."):
+        return False, "Editing root-level SKILL.md is not supported."
+    return True, None
+
+
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
     rows: list[AppGenSkillEntry] = []
     for root_id, label, root_path in iter_skill_roots(workspace_root):
@@ -210,6 +228,10 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                 except ValueError:
                     continue
                 relative_path = relative if relative else "."
+                is_editable, editability_reason = _resolve_skill_editability(
+                    root_id=root_id,
+                    relative_path=relative_path,
+                )
                 rows.append(
                     AppGenSkillEntry(
                         skillId=f"{root_id}::{relative_path}",
@@ -217,6 +239,8 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                         rootLabel=label,
                         rootPath=str(root_path),
                         relativePath=relative_path,
+                        isEditable=is_editable,
+                        editabilityReason=editability_reason,
                         description=_extract_skill_description(skill_doc),
                     )
                 )
@@ -296,15 +320,16 @@ def upsert_app_gen_custom_skill(
             workspace_root=workspace_root,
             skill_id=selected_skill_id,
         )
-        if existing_root_id not in _CUSTOM_SKILL_EDITABLE_ROOT_IDS:
-            raise ValueError(
-                "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or "
-                "workspace .agents/skills are editable."
-            )
+        is_editable, editability_reason = _resolve_skill_editability(
+            root_id=existing_root_id,
+            relative_path=existing_relative_path,
+        )
+        if not is_editable:
+            if editability_reason is None:
+                raise ValueError("Selected skill is not editable.")
+            raise ValueError(editability_reason)
         target_root_id = existing_root_id
         target_root_path = existing_root_path
-        if existing_relative_path in ("", "."):
-            raise ValueError("Editing root-level SKILL.md is not supported.")
         target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
     else:

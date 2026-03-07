@@ -24,3 +24,15 @@
   After: Collisions are reconciled continuously and conflicted custom commands are disabled/excluded.
 - Before: Malformed persisted slash-command data could destabilize command handling.  
   After: Invalid persisted entries are dropped deterministically.
+
+## 2026-03-05 10:46:03 PST
+
+### Maintenance updates
+- Ran `pnpm -C frontend gcf` to regenerate/clean generated frontend/backend artifacts.
+- Removed top-level `review*.md` files and kept `cumulative_review.md` as the canonical review record.
+
+### UX/DX impact
+- UX before: No user-facing impact from scattered review docs and stale generated artifacts.
+- UX after: No behavior change; generated assets are refreshed and aligned with current code.
+- DX before: Review context was split across multiple root-level review files.
+- DX after: Single-source review history lives in `cumulative_review.md`, reducing context drift and cleanup overhead.

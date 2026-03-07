@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   IoAlertCircleSharp,
   IoClose,
@@ -48,7 +48,8 @@ export function NotificationsArea({ initialTab }: NotificationsAreaProps = {}) {
   const persistedPaneTab = useLocalStorage(
     (state) => state.overviewNotificationsPaneTab,
   );
-  const activePaneTab = initialTab ?? persistedPaneTab;
+  const activePaneTab = persistedPaneTab;
+  const hasAppliedInitialTabRef = useRef(false);
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
 
@@ -65,6 +66,10 @@ export function NotificationsArea({ initialTab }: NotificationsAreaProps = {}) {
   );
 
   useEffect(() => {
+    if (hasAppliedInitialTabRef.current) {
+      return;
+    }
+    hasAppliedInitialTabRef.current = true;
     if (!initialTab || persistedPaneTab === initialTab) {
       return;
     }

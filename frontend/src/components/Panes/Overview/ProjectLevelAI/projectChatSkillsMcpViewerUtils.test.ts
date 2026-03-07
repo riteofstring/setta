@@ -29,6 +29,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "ui-layout",
+        isEditable: false,
+        editabilityReason: null,
         description: "Create dense dashboard layouts.",
       },
       {
@@ -37,6 +39,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.agents/skills",
         rootPath: "/home/.agents/skills",
         relativePath: "build-tools",
+        isEditable: true,
+        editabilityReason: null,
         description: "Automate builds and releases.",
       },
     ];
@@ -56,6 +60,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: "frontend-design",
+        isEditable: false,
+        editabilityReason: null,
         description: "Create polished frontend interfaces.",
       },
       {
@@ -64,6 +70,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "setta-cli",
+        isEditable: false,
+        editabilityReason: null,
         description: "Project-local CLI helpers.",
       },
       {
@@ -72,6 +80,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: ".system/skill-installer",
+        isEditable: false,
+        editabilityReason: null,
         description: "Install curated skills.",
       },
     ];
@@ -95,6 +105,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
+          isEditable: true,
+          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
@@ -132,6 +144,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
+          isEditable: true,
+          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
