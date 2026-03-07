@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -78,6 +79,7 @@ type projectStateProvider interface {
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
 	SetTopLevelSectionLayout(ctx context.Context, projectID string, topLevelSections map[string]projectstate.TopLevelSectionLayout) (projectstate.Snapshot, error)
+	SetSectionSizes(ctx context.Context, projectID string, sectionSizes map[string]projectstate.SectionSize, settingsDocument projectstate.Document) (projectstate.Snapshot, error)
 	UpdateParamImplConfig(ctx context.Context, projectID string, sectionID string, paramInfoID string, newConfig map[string]any) (projectstate.Snapshot, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
@@ -1006,6 +1008,45 @@ func newSetTopLevelSectionLayoutHandler(projectState projectStateProvider) tools
 		}
 
 		if _, err := projectState.SetTopLevelSectionLayout(ctx, projectConfigID, topLevelSections); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetSectionSizesHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionSizes, err := readRequiredSectionSizesArgument(arguments, "sectionSizes")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural section-size invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		if _, err := projectState.SetSectionSizes(ctx, projectConfigID, sectionSizes, settingsDocument); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2599,6 +2640,60 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "topLevelSections"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_section_sizes",
+				Description: "Persist normalized width and height settings for one or more sections.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionSizes"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "resize", "size", "section", "structural"},
+				},
+				Handler: newSetSectionSizesHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section sizes should be updated.",
+					},
+					"sectionSizes": map[string]any{
+						"type":        "object",
+						"description": "Section-id keyed size map to normalize and persist.",
+						"additionalProperties": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"width": map[string]any{
+									"type":        []string{"number", "string"},
+									"description": "Numeric width in pixels or the literal string 'auto'.",
+								},
+								"height": map[string]any{
+									"type":        []string{"number", "string"},
+									"description": "Numeric height in pixels or the literal string 'auto'.",
+								},
+							},
+							"required": []string{"width", "height"},
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "sectionSizes"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -4443,6 +4538,92 @@ func readRequiredTopLevelSectionLayoutsArgument(arguments map[string]any, key st
 	}
 
 	return layouts, nil
+}
+
+func readRequiredSectionSizesArgument(arguments map[string]any, key string) (map[string]projectstate.SectionSize, error) {
+	rawSectionSizes, err := readRequiredObjectArgument(arguments, key)
+	if err != nil {
+		return nil, err
+	}
+
+	sectionSizes := make(map[string]projectstate.SectionSize, len(rawSectionSizes))
+	for rawSectionID, rawSize := range rawSectionSizes {
+		sectionID := strings.TrimSpace(rawSectionID)
+		if sectionID == "" {
+			return nil, newToolError("invalid_arguments", "%s contains an empty section id key", key)
+		}
+
+		sizeObject, ok := rawSize.(map[string]any)
+		if !ok {
+			return nil, newToolError("invalid_arguments", "%s.%s must be an object", key, rawSectionID)
+		}
+		width, err := readRequiredSectionSizeValueField(sizeObject, fmt.Sprintf("%s.%s", key, rawSectionID), "width")
+		if err != nil {
+			return nil, err
+		}
+		height, err := readRequiredSectionSizeValueField(sizeObject, fmt.Sprintf("%s.%s", key, rawSectionID), "height")
+		if err != nil {
+			return nil, err
+		}
+		sectionSizes[sectionID] = projectstate.SectionSize{
+			Width:  width,
+			Height: height,
+		}
+	}
+	return sectionSizes, nil
+}
+
+func readRequiredSectionSizeValueField(
+	object map[string]any,
+	parentKey string,
+	field string,
+) (projectstate.SectionSizeValue, error) {
+	rawValue, ok := object[field]
+	if !ok || rawValue == nil {
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s is required", parentKey, field)
+	}
+
+	switch typed := rawValue.(type) {
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
+		}
+		if strings.EqualFold(trimmed, "auto") {
+			return projectstate.AutoSectionSizeValue(), nil
+		}
+		value, err := strconv.ParseFloat(trimmed, 64)
+		if err != nil {
+			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
+		}
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
+		}
+		return projectstate.FixedSectionSizeValue(value), nil
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
+		}
+		return projectstate.FixedSectionSizeValue(typed), nil
+	case float32:
+		value := float64(typed)
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
+		}
+		return projectstate.FixedSectionSizeValue(value), nil
+	case int:
+		return projectstate.FixedSectionSizeValue(float64(typed)), nil
+	case int8:
+		return projectstate.FixedSectionSizeValue(float64(typed)), nil
+	case int16:
+		return projectstate.FixedSectionSizeValue(float64(typed)), nil
+	case int32:
+		return projectstate.FixedSectionSizeValue(float64(typed)), nil
+	case int64:
+		return projectstate.FixedSectionSizeValue(float64(typed)), nil
+	default:
+		return projectstate.SectionSizeValue{}, newToolError("invalid_arguments", "%s.%s must be a number or 'auto'", parentKey, field)
+	}
 }
 
 func readRequiredFiniteNumberField(object map[string]any, parentKey string, field string) (float64, error) {

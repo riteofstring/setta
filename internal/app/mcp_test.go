@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 43 {
-		t.Fatalf("expected 43 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 44 {
+		t.Fatalf("expected 44 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 43 {
-		t.Fatalf("expected 43 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 44 {
+		t.Fatalf("expected 44 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "format_code") {
 		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
@@ -3608,6 +3608,143 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOve
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetSectionSizesOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_sizes",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionSizes": map[string]any{
+				"allowed-section": map[string]any{"width": 480.0, "height": 220.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_sizes: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_sizes success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_section_sizes: %v", err)
+	}
+	payload := mustDecodedProjectPayloadValue(t, project.SectionImpls["allowed-impl"].Payload)
+	size := mustStructuredMapValue(t, payload["size"])
+	if size["width"] != 480.0 || size["height"] != 220.0 {
+		t.Fatalf("expected allowed-section size {480 220} after app mutation, got %#v", size)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_sizes",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionSizes": map[string]any{
+				"14": map[string]any{"width": 510.0, "height": 240.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_sizes: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_sizes success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_section_sizes: %v", err)
+	}
+	payload := mustDecodedProjectPayloadValue(t, project.SectionImpls["allowed-impl"].Payload)
+	size := mustStructuredMapValue(t, payload["size"])
+	if size["width"] != 510.0 || size["height"] != 240.0 {
+		t.Fatalf("expected allowed-section size {510 240} after temp-id app mutation, got %#v", size)
+	}
+}
+
 func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6539,6 +6676,71 @@ func TestAppIDEMCPToolCallRouteSupportsSetCodeSectionAttachedTerminal(t *testing
 	}
 	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
 		t.Fatalf("expected attached terminal %q after route mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetSectionSizes(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_sizes",
+			"arguments":{"projectConfigId":"project-alpha","sectionSizes":{"allowed-section":{"width":480,"height":220}}},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_sizes tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_sizes tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_sizes success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_sizes: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.SectionImpls["allowed-impl"].Payload)
+	size := mustStructuredMapValue(t, allowedPayload["size"])
+	if size["width"] != 480.0 || size["height"] != 220.0 {
+		t.Fatalf("expected allowed-section size {480 220} after route mutation, got %#v", size)
 	}
 }
 

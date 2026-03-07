@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 44 {
-		t.Fatalf("expected 44 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 45 {
+		t.Fatalf("expected 45 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +152,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCodeSectionAttachedTerminalTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
 	var formatCodeTool *sdkmcp.Tool
+	var setSectionSizesTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
@@ -214,6 +215,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "format_code" {
 			formatCodeTool = tool
+		}
+		if tool.Name == "set_section_sizes" {
+			setSectionSizesTool = tool
 		}
 		if tool.Name == "auto_layout_top_level_sections" {
 			autoLayoutTopLevelSectionsTool = tool
@@ -345,6 +349,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_param_name_and_value",
 		"set_project_config_codegen_targets",
 		"set_section_name",
+		"set_section_sizes",
 		"set_section_style_color",
 		"set_section_tag_color",
 		"set_show_param_display_names",
@@ -391,6 +396,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if formatCodeTool == nil {
 		t.Fatal("expected format_code tool")
+	}
+	if setSectionSizesTool == nil {
+		t.Fatal("expected set_section_sizes tool")
 	}
 	if autoLayoutTopLevelSectionsTool == nil {
 		t.Fatal("expected auto_layout_top_level_sections tool")
@@ -565,6 +573,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	formatCodePaths := mustStructuredMap(t, formatCodeMeta["idPathsByType"])
 	if got := mustStringList(t, formatCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected format_code sectionId target path, got %#v", got)
+	}
+	setSectionSizesMeta := mustStructuredMap(t, setSectionSizesTool.Meta[toolMetaNamespace])
+	if setSectionSizesMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_section_sizes, got %#v", setSectionSizesMeta["accessType"])
+	}
+	setSectionSizesPaths := mustStructuredMap(t, setSectionSizesMeta["idPathsByType"])
+	if got := mustStringList(t, setSectionSizesPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionSizes" {
+		t.Fatalf("expected set_section_sizes section target path, got %#v", got)
 	}
 	setSectionTagColorMeta := mustStructuredMap(t, setSectionTagColorTool.Meta[toolMetaNamespace])
 	if setSectionTagColorMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -804,8 +820,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 44 {
-		t.Fatalf("expected 44 registered tool names, got %#v", listNames)
+	if len(listNames) != 45 {
+		t.Fatalf("expected 45 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -4475,6 +4491,85 @@ func TestServerSetCodeSectionAttachedTerminalAllowsUnscopedStructuralCallsAndTra
 	children := mustStringList(t, parentPayload["children"])
 	if len(children) != 1 || children[0] != terminalSectionID {
 		t.Fatalf("expected allowed-section children [%q], got %#v", terminalSectionID, children)
+	}
+}
+
+func TestServerSetSectionSizesRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_sizes",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionSizes": map[string]any{
+				"allowed-section": map[string]any{"width": 480.0, "height": 220.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_sizes blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_section_sizes call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetSectionSizesAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "set_section_sizes",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionSizes": map[string]any{
+				"14": map[string]any{"width": 480.0, "height": 220.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_sizes: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_sizes success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_sizes: %v", err)
+	}
+	payload := mustDecodedProjectPayload(t, project.SectionImpls["allowed-impl"].Payload)
+	size := mustStructuredMap(t, payload["size"])
+	if size["width"] != 480.0 || size["height"] != 220.0 {
+		t.Fatalf("expected normalized size {480 220}, got %#v", size)
 	}
 }
 
