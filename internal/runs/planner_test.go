@@ -51,6 +51,107 @@ func TestPlannerPlanUsesDirectEntryPathForNeverMode(t *testing.T) {
 	}
 }
 
+func TestPlannerPlanUsesGeneratedEntryForPythonCodegenProjects(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		RunSnapshotMode: RunSnapshotModeNever,
+	})
+	if err != nil {
+		t.Fatalf("plan generated entry run: %v", err)
+	}
+
+	if plan.TargetKind != projectstate.RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target kind, got %q", plan.TargetKind)
+	}
+	if plan.SectionID != "" {
+		t.Fatalf("did not expect attached section id for generated entry, got %q", plan.SectionID)
+	}
+	if plan.EntryPath != fixture.generatedPath {
+		t.Fatalf("expected generated entry path %q, got %q", fixture.generatedPath, plan.EntryPath)
+	}
+}
+
+func TestPlannerPlanSnapshotsGeneratedEntryAndMetadataFiles(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		RunSnapshotMode: RunSnapshotModeEphemeral,
+	})
+	if err != nil {
+		t.Fatalf("plan generated snapshot run: %v", err)
+	}
+
+	if plan.TargetKind != projectstate.RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target kind, got %q", plan.TargetKind)
+	}
+	snapshotGeneratedPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedPath))
+	snapshotMetadataPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedMetaPath))
+	if plan.EntryPath != snapshotGeneratedPath {
+		t.Fatalf("expected snapshot generated entry path %q, got %q", snapshotGeneratedPath, plan.EntryPath)
+	}
+	if got, err := os.ReadFile(snapshotGeneratedPath); err != nil {
+		t.Fatalf("read snapshot generated entry file: %v", err)
+	} else if strings.TrimSpace(string(got)) != "print('generated')" {
+		t.Fatalf("unexpected snapshot generated entry content %q", string(got))
+	}
+	if got, err := os.ReadFile(snapshotMetadataPath); err != nil {
+		t.Fatalf("read snapshot generated metadata file: %v", err)
+	} else if strings.TrimSpace(string(got)) != "META = True" {
+		t.Fatalf("unexpected snapshot generated metadata content %q", string(got))
+	}
+}
+
+func TestPlannerPlanCollapsesExplicitGeneratedSectionSelectionToEntry(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "gen-python-section",
+		RunSnapshotMode: RunSnapshotModeNever,
+	})
+	if err != nil {
+		t.Fatalf("plan explicit generated section run: %v", err)
+	}
+
+	if plan.TargetKind != projectstate.RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target kind, got %q", plan.TargetKind)
+	}
+	if plan.EntryPath != fixture.generatedPath {
+		t.Fatalf("expected generated entry path %q, got %q", fixture.generatedPath, plan.EntryPath)
+	}
+}
+
+func TestPlannerPlanRejectsPluginGeneratedSections(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	_, err := planner.Plan(PlanRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "gen-plugin-section",
+		RunSnapshotMode: RunSnapshotModeNever,
+	})
+	if err == nil {
+		t.Fatal("expected plugin generated run to fail")
+	}
+	if err != ErrPluginCodegenRunUnsupported {
+		t.Fatalf("expected ErrPluginCodegenRunUnsupported, got %v", err)
+	}
+}
+
 func TestPlannerPlanSnapshotsAllManualCodeSections(t *testing.T) {
 	t.Parallel()
 
@@ -231,12 +332,14 @@ func TestPlannerPlanRejectsMissingEntryTarget(t *testing.T) {
 }
 
 type plannerTestFixture struct {
-	runtime        *projectstate.Runtime
-	settaFilesRoot string
-	runtimeRoot    string
-	pythonPath     string
-	bashPath       string
-	helperPath     string
+	runtime           *projectstate.Runtime
+	settaFilesRoot    string
+	runtimeRoot       string
+	pythonPath        string
+	bashPath          string
+	helperPath        string
+	generatedPath     string
+	generatedMetaPath string
 }
 
 func newPlannerForTest(t *testing.T, fixture plannerTestFixture) *Planner {
@@ -381,5 +484,172 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 		pythonPath:     pythonPath,
 		bashPath:       bashPath,
 		helperPath:     helperPath,
+	}
+}
+
+func newGeneratedEntryPlannerTestFixture(t *testing.T) plannerTestFixture {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	codeRoot := filepath.Join(settaFilesRoot, "code")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+
+	pythonPath := filepath.Join(codeRoot, "run.py")
+	helperPath := filepath.Join(codeRoot, "helper.py")
+	generatedPath := filepath.Join(codeRoot, "generated.py")
+	generatedMetaPath := filepath.Join(codeRoot, "setta_gen_meta.py")
+	if err := os.WriteFile(pythonPath, []byte("print('python')\n"), 0o644); err != nil {
+		t.Fatalf("write python file: %v", err)
+	}
+	if err := os.WriteFile(helperPath, []byte("print('helper')\n"), 0o644); err != nil {
+		t.Fatalf("write helper file: %v", err)
+	}
+	if err := os.WriteFile(generatedPath, []byte("print('generated')\n"), 0o644); err != nil {
+		t.Fatalf("write generated file: %v", err)
+	}
+	if err := os.WriteFile(generatedMetaPath, []byte("META = True\n"), 0o644); err != nil {
+		t.Fatalf("write generated metadata file: %v", err)
+	}
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{Language: string(projectstate.CodeLanguagePython)},
+				},
+				GeneratedCodeBinding: &projectstate.CodeFileBinding{
+					Path:       "code/generated.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				GeneratedMetadataBinding: &projectstate.CodeFileBinding{
+					Path:       "code/setta_gen_meta.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+					"helper-section",
+					"gen-python-section",
+					"gen-plugin-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section":       "code-python-variant",
+					"helper-section":     "helper-variant",
+					"gen-python-section": "gen-python-variant",
+					"gen-plugin-section": "gen-plugin-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Runner",
+						VariantIDs:       []string{"code-python-variant"},
+						DefaultVariantID: "code-python-variant",
+					},
+					"helper-section": {
+						ID:               "helper-section",
+						Name:             "Helper",
+						VariantIDs:       []string{"helper-variant"},
+						DefaultVariantID: "helper-variant",
+					},
+					"gen-python-section": {
+						ID:               "gen-python-section",
+						Name:             "Generated Python",
+						VariantIDs:       []string{"gen-python-variant"},
+						DefaultVariantID: "gen-python-variant",
+					},
+					"gen-plugin-section": {
+						ID:               "gen-plugin-section",
+						Name:             "Generated Plugin",
+						VariantIDs:       []string{"gen-plugin-variant"},
+						DefaultVariantID: "gen-plugin-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"code-python-variant": {
+						ID:     "code-python-variant",
+						ImplID: "code-python-impl",
+					},
+					"helper-variant": {
+						ID:     "helper-variant",
+						ImplID: "helper-impl",
+					},
+					"gen-python-variant": {
+						ID:     "gen-python-variant",
+						ImplID: "gen-python-impl",
+					},
+					"gen-plugin-variant": {
+						ID:     "gen-plugin-variant",
+						ImplID: "gen-plugin-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"code-python-impl": {
+						ID:   "code-python-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"helper-impl": {
+						ID:   "helper-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/helper.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"gen-python-impl": {
+						ID:   "gen-python-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPythonCode,
+						},
+					},
+					"gen-plugin-impl": {
+						ID:   "gen-plugin-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPlugin,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = runtime.Close()
+	})
+
+	return plannerTestFixture{
+		runtime:           runtime,
+		settaFilesRoot:    settaFilesRoot,
+		runtimeRoot:       runtimeRoot,
+		pythonPath:        pythonPath,
+		helperPath:        helperPath,
+		generatedPath:     generatedPath,
+		generatedMetaPath: generatedMetaPath,
 	}
 }

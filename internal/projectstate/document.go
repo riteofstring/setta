@@ -25,14 +25,17 @@ type Document struct {
 }
 
 type Project struct {
-	ID                 string                    `json:"id"`
-	Name               string                    `json:"name"`
-	EntryCodeBlockID   string                    `json:"entryCodeBlockId,omitempty"`
-	TopLevelSectionIDs []string                  `json:"topLevelSectionIds,omitempty"`
-	SectionVariantMap  map[string]string         `json:"sectionVariantMap,omitempty"`
-	Sections           map[string]Section        `json:"sections,omitempty"`
-	SectionVariants    map[string]SectionVariant `json:"sectionVariants,omitempty"`
-	SectionImpls       map[string]SectionImpl    `json:"sectionImpls,omitempty"`
+	ID                       string                    `json:"id"`
+	Name                     string                    `json:"name"`
+	CodegenTargets           []ProjectCodegenTarget    `json:"codegenTargets,omitempty"`
+	GeneratedCodeBinding     *CodeFileBinding          `json:"generatedCodeBinding,omitempty"`
+	GeneratedMetadataBinding *CodeFileBinding          `json:"generatedMetadataBinding,omitempty"`
+	EntryCodeBlockID         string                    `json:"entryCodeBlockId,omitempty"`
+	TopLevelSectionIDs       []string                  `json:"topLevelSectionIds,omitempty"`
+	SectionVariantMap        map[string]string         `json:"sectionVariantMap,omitempty"`
+	Sections                 map[string]Section        `json:"sections,omitempty"`
+	SectionVariants          map[string]SectionVariant `json:"sectionVariants,omitempty"`
+	SectionImpls             map[string]SectionImpl    `json:"sectionImpls,omitempty"`
 }
 
 func NewDocument() Document {

@@ -17,19 +17,23 @@ const (
 	runSnapshotsCodeDirName = "code"
 	snapshotDirPrefix       = "_"
 	snapshotDirLayout       = "20060102_150405_000000"
+	generatedEntryCodeKey   = "__generated_entry_code__"
+	generatedEntryMetaKey   = "__generated_entry_meta__"
 )
 
 var (
-	ErrProjectRuntimeRequired    = fmt.Errorf("runs: project runtime is required")
-	ErrSettaFilesRootRequired    = fmt.Errorf("runs: setta files root is required")
-	ErrRuntimeRootRequired       = fmt.Errorf("runs: runtime root is required")
-	ErrRunTargetRequired         = fmt.Errorf("runs: select a manual code section to run")
-	ErrRunTargetNotRunnable      = fmt.Errorf("runs: run is only available for Python and Bash")
-	ErrRunSnapshotModeInvalid    = fmt.Errorf("runs: unsupported run snapshot mode")
-	ErrCodeBindingRequired       = fmt.Errorf("runs: code section is missing a code file binding")
-	ErrInvalidParamOverrideKey   = fmt.Errorf("runs: invalid param override key")
-	ErrParamOverridesUnsupported = fmt.Errorf("runs: param overrides are not supported until Go owns parameter state")
-	ErrDuplicateSnapshotFileName = fmt.Errorf("runs: duplicate snapshot file name")
+	ErrProjectRuntimeRequired        = fmt.Errorf("runs: project runtime is required")
+	ErrSettaFilesRootRequired        = fmt.Errorf("runs: setta files root is required")
+	ErrRuntimeRootRequired           = fmt.Errorf("runs: runtime root is required")
+	ErrRunTargetRequired             = fmt.Errorf("runs: select a manual code section to run")
+	ErrRunTargetNotRunnable          = fmt.Errorf("runs: run is only available for Python and Bash")
+	ErrRunSnapshotModeInvalid        = fmt.Errorf("runs: unsupported run snapshot mode")
+	ErrCodeBindingRequired           = fmt.Errorf("runs: code section is missing a code file binding")
+	ErrGeneratedEntryBindingRequired = fmt.Errorf("runs: generated-entry run is missing a generated code binding")
+	ErrPluginCodegenRunUnsupported   = fmt.Errorf("runs: plugin-codegen entry runs are not supported in Go yet")
+	ErrInvalidParamOverrideKey       = fmt.Errorf("runs: invalid param override key")
+	ErrParamOverridesUnsupported     = fmt.Errorf("runs: param overrides are not supported until Go owns parameter state")
+	ErrDuplicateSnapshotFileName     = fmt.Errorf("runs: duplicate snapshot file name")
 )
 
 type RunSnapshotMode string
@@ -58,6 +62,7 @@ type PlanRequest struct {
 
 type Plan struct {
 	ProjectID         string
+	TargetKind        projectstate.RunTargetKind
 	SectionID         string
 	VariantID         string
 	Language          projectstate.CodeLanguage
@@ -141,6 +146,13 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
+	resolvedMode, err := p.resolveRunSnapshotMode(request)
+	if err != nil {
+		return Plan{}, err
+	}
+	if target.Kind == projectstate.RunTargetKindGeneratedEntry {
+		return p.planGeneratedEntry(target, resolvedMode, snapshot.Revision)
+	}
 	if target.Section.ID == "" {
 		return Plan{}, ErrRunTargetRequired
 	}
@@ -149,11 +161,6 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	}
 	if target.Impl.Code == nil || target.Impl.Code.Binding == nil {
 		return Plan{}, fmt.Errorf("%w: section %q", ErrCodeBindingRequired, target.Section.ID)
-	}
-
-	resolvedMode, err := p.resolveRunSnapshotMode(request)
-	if err != nil {
-		return Plan{}, err
 	}
 
 	if resolvedMode == RunSnapshotModeNever {
@@ -171,6 +178,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		}
 		return Plan{
 			ProjectID:       target.Project.ID,
+			TargetKind:      projectstate.RunTargetKindManualCode,
 			SectionID:       target.Section.ID,
 			VariantID:       target.Variant.ID,
 			Language:        target.Impl.Code.Language,
@@ -203,6 +211,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 
 	return Plan{
 		ProjectID:         target.Project.ID,
+		TargetKind:        projectstate.RunTargetKindManualCode,
 		SectionID:         target.Section.ID,
 		VariantID:         target.Variant.ID,
 		Language:          target.Impl.Code.Language,
@@ -211,6 +220,85 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		RunSnapshotMode:   resolvedMode,
 		SnapshotDirectory: snapshotDir,
 		Revision:          snapshot.Revision,
+	}, nil
+}
+
+func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64) (Plan, error) {
+	if target.Generated == nil {
+		return Plan{}, ErrRunTargetRequired
+	}
+	if target.Generated.UsesPluginCodegen {
+		return Plan{}, ErrPluginCodegenRunUnsupported
+	}
+	if target.Generated.CodeBinding == nil {
+		return Plan{}, ErrGeneratedEntryBindingRequired
+	}
+
+	entryPath, err := p.resolveBindingPath(target.Generated.CodeBinding.Path)
+	if err != nil {
+		return Plan{}, fmt.Errorf("resolve generated entry binding: %w", err)
+	}
+	if _, err := os.Stat(entryPath); err != nil {
+		return Plan{}, fmt.Errorf("stat generated entry file: %w", err)
+	}
+
+	if target.Generated.MetadataBinding != nil {
+		metadataPath, err := p.resolveBindingPath(target.Generated.MetadataBinding.Path)
+		if err != nil {
+			return Plan{}, fmt.Errorf("resolve generated metadata binding: %w", err)
+		}
+		if _, err := os.Stat(metadataPath); err != nil {
+			return Plan{}, fmt.Errorf("stat generated metadata file: %w", err)
+		}
+	}
+
+	if mode == RunSnapshotModeNever {
+		command, err := p.buildCommand(projectstate.CodeLanguagePython, entryPath)
+		if err != nil {
+			return Plan{}, err
+		}
+		return Plan{
+			ProjectID:       target.Project.ID,
+			TargetKind:      projectstate.RunTargetKindGeneratedEntry,
+			Language:        projectstate.CodeLanguagePython,
+			Command:         command,
+			EntryPath:       entryPath,
+			RunSnapshotMode: mode,
+			Revision:        revision,
+		}, nil
+	}
+
+	codeSections, err := p.collectCodeSections(target.Project)
+	if err != nil {
+		return Plan{}, err
+	}
+	generatedInputs, err := p.collectGeneratedEntryInputs(*target.Generated)
+	if err != nil {
+		return Plan{}, err
+	}
+
+	snapshotDir, copiedPaths, err := p.writeSnapshot(append(codeSections, generatedInputs...), mode)
+	if err != nil {
+		return Plan{}, err
+	}
+	snapshotEntryPath, ok := copiedPaths[generatedEntryCodeKey]
+	if !ok {
+		return Plan{}, fmt.Errorf("snapshot entry path missing for generated entry")
+	}
+
+	command, err := p.buildCommand(projectstate.CodeLanguagePython, snapshotEntryPath)
+	if err != nil {
+		return Plan{}, err
+	}
+	return Plan{
+		ProjectID:         target.Project.ID,
+		TargetKind:        projectstate.RunTargetKindGeneratedEntry,
+		Language:          projectstate.CodeLanguagePython,
+		Command:           command,
+		EntryPath:         snapshotEntryPath,
+		RunSnapshotMode:   mode,
+		SnapshotDirectory: snapshotDir,
+		Revision:          revision,
 	}, nil
 }
 
@@ -264,6 +352,47 @@ func (p *Planner) collectCodeSections(project projectstate.Project) ([]codeSecti
 			content:   content,
 		})
 	}
+	return inputs, nil
+}
+
+func (p *Planner) collectGeneratedEntryInputs(target projectstate.ResolvedGeneratedEntry) ([]codeSectionInput, error) {
+	if target.CodeBinding == nil {
+		return nil, ErrGeneratedEntryBindingRequired
+	}
+
+	entryPath, err := p.resolveBindingPath(target.CodeBinding.Path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve generated entry binding: %w", err)
+	}
+	entryContent, err := os.ReadFile(entryPath)
+	if err != nil {
+		return nil, fmt.Errorf("read generated entry file: %w", err)
+	}
+
+	inputs := []codeSectionInput{{
+		sectionID: generatedEntryCodeKey,
+		language:  projectstate.CodeLanguagePython,
+		fileName:  filepath.Base(entryPath),
+		content:   entryContent,
+	}}
+	if target.MetadataBinding == nil {
+		return inputs, nil
+	}
+
+	metadataPath, err := p.resolveBindingPath(target.MetadataBinding.Path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve generated metadata binding: %w", err)
+	}
+	metadataContent, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, fmt.Errorf("read generated metadata file: %w", err)
+	}
+	inputs = append(inputs, codeSectionInput{
+		sectionID: generatedEntryMetaKey,
+		language:  projectstate.CodeLanguagePython,
+		fileName:  filepath.Base(metadataPath),
+		content:   metadataContent,
+	})
 	return inputs, nil
 }
 

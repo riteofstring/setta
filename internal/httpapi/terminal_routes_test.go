@@ -649,6 +649,54 @@ func TestRegisterTerminalRoutesAppliesDrawSnapshotsBeforeRunningCode(t *testing.
 	}
 }
 
+func TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, _, _, err := project.ResolveSection("terminal-seed-1"); err != nil {
+		t.Fatalf("expected generated-entry run to create a temporary terminal, got %v", err)
+	}
+	if !project.HasTopLevelSection("terminal-seed-1") {
+		t.Fatal("expected generated-entry run terminal to be top-level")
+	}
+
+	terminalID := terminals.BuildTerminalID("terminal-seed-1", "")
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_GENERATED_OK")
+	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
+		t.Fatalf("expected generated entry output in temporary terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	t.Parallel()
 
@@ -780,24 +828,45 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	if err := os.WriteFile(filepath.Join(codeRoot, "helper.py"), []byte("print('helper')\n"), 0o644); err != nil {
 		t.Fatalf("write helper.py: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "generated.py"), []byte("print('ROUTE_GENERATED_OK')\n"), 0o644); err != nil {
+		t.Fatalf("write generated.py: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "setta_gen_meta.py"), []byte("META = True\n"), 0o644); err != nil {
+		t.Fatalf("write setta_gen_meta.py: %v", err)
+	}
 
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{Language: string(projectstate.CodeLanguagePython)},
+				},
+				GeneratedCodeBinding: &projectstate.CodeFileBinding{
+					Path:       "code/generated.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				GeneratedMetadataBinding: &projectstate.CodeFileBinding{
+					Path:       "code/setta_gen_meta.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
 				EntryCodeBlockID: "code-section",
 				TopLevelSectionIDs: []string{
 					"code-section",
 					"helper-section",
 					"draw-section",
+					"gen-python-section",
+					"gen-plugin-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section":   "code-python-variant",
-					"helper-section": "helper-variant",
-					"draw-section":   "draw-variant",
+					"code-section":       "code-python-variant",
+					"helper-section":     "helper-variant",
+					"draw-section":       "draw-variant",
+					"gen-python-section": "gen-python-variant",
+					"gen-plugin-section": "gen-plugin-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -818,6 +887,18 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						VariantIDs:       []string{"draw-variant"},
 						DefaultVariantID: "draw-variant",
 					},
+					"gen-python-section": {
+						ID:               "gen-python-section",
+						Name:             "Generated Python",
+						VariantIDs:       []string{"gen-python-variant"},
+						DefaultVariantID: "gen-python-variant",
+					},
+					"gen-plugin-section": {
+						ID:               "gen-plugin-section",
+						Name:             "Generated Plugin",
+						VariantIDs:       []string{"gen-plugin-variant"},
+						DefaultVariantID: "gen-plugin-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
 					"code-python-variant": {
@@ -835,6 +916,14 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					"draw-variant": {
 						ID:     "draw-variant",
 						ImplID: "draw-impl",
+					},
+					"gen-python-variant": {
+						ID:     "gen-python-variant",
+						ImplID: "gen-python-impl",
+					},
+					"gen-plugin-variant": {
+						ID:     "gen-plugin-variant",
+						ImplID: "gen-plugin-impl",
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
@@ -875,6 +964,20 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						ID:   "draw-impl",
 						Kind: projectstate.SectionKindDraw,
 						Draw: &projectstate.DrawSectionImpl{},
+					},
+					"gen-python-impl": {
+						ID:   "gen-python-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPythonCode,
+						},
+					},
+					"gen-plugin-impl": {
+						ID:   "gen-plugin-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPlugin,
+						},
 					},
 				},
 			},

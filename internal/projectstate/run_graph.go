@@ -6,10 +6,12 @@ import (
 )
 
 type ResolvedRunTarget struct {
-	Project Project
-	Section Section
-	Variant SectionVariant
-	Impl    SectionImpl
+	Kind      RunTargetKind
+	Project   Project
+	Section   Section
+	Variant   SectionVariant
+	Impl      SectionImpl
+	Generated *ResolvedGeneratedEntry
 }
 
 type TerminalSectionSeed struct {
@@ -17,6 +19,19 @@ type TerminalSectionSeed struct {
 	VariantID string
 	ImplID    string
 	Name      string
+}
+
+type RunTargetKind string
+
+const (
+	RunTargetKindManualCode     RunTargetKind = "manual_code"
+	RunTargetKindGeneratedEntry RunTargetKind = "generated_entry"
+)
+
+type ResolvedGeneratedEntry struct {
+	CodeBinding       *CodeFileBinding
+	MetadataBinding   *CodeFileBinding
+	UsesPluginCodegen bool
 }
 
 func (d Document) ProjectByID(projectID string) (Project, error) {
@@ -40,6 +55,9 @@ func (d Document) ResolveRunTarget(projectID string, sectionID string) (Resolved
 
 	resolvedSectionID := strings.TrimSpace(sectionID)
 	if resolvedSectionID == "" {
+		if project.HasPythonCodegenTarget() {
+			return project.resolveGeneratedEntryRunTarget(false), nil
+		}
 		resolvedSectionID = project.EntryCodeBlockID
 	}
 	if resolvedSectionID == "" {
@@ -50,12 +68,28 @@ func (d Document) ResolveRunTarget(projectID string, sectionID string) (Resolved
 	if err != nil {
 		return ResolvedRunTarget{}, err
 	}
+	if impl.IsGeneratedEntrySection() {
+		return project.resolveGeneratedEntryRunTarget(impl.UsesPluginCodegen()), nil
+	}
 	return ResolvedRunTarget{
+		Kind:    RunTargetKindManualCode,
 		Project: project,
 		Section: section,
 		Variant: variant,
 		Impl:    impl,
 	}, nil
+}
+
+func (p Project) resolveGeneratedEntryRunTarget(usesPluginCodegen bool) ResolvedRunTarget {
+	return ResolvedRunTarget{
+		Kind:    RunTargetKindGeneratedEntry,
+		Project: p,
+		Generated: &ResolvedGeneratedEntry{
+			CodeBinding:       cloneCodeFileBinding(p.GeneratedCodeBinding),
+			MetadataBinding:   cloneCodeFileBinding(p.GeneratedMetadataBinding),
+			UsesPluginCodegen: usesPluginCodegen,
+		},
+	}
 }
 
 func (p Project) ResolveSectionWithVariant(sectionID string, variantID string) (Section, SectionVariant, SectionImpl, error) {

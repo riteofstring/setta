@@ -11,8 +11,9 @@ is not independently reachable yet. In the Python product, free-terminal reuse
 and temporary-terminal creation matter mainly when the run target is generated
 project-entry code rather than a manual runnable code section.
 
-This plan captures the minimum Go-owned work needed to make that path real
-before implementing terminal reuse and temporary-terminal creation.
+This plan captures the minimum Go-owned work needed to make that path real and
+to record the remaining terminal-reuse follow-up after generated-entry runs are
+reachable in Go.
 
 ## Status
 
@@ -24,27 +25,31 @@ Current repo status as of 2026-03-06:
   - PTY session open/reuse and command dispatch
   - draw snapshot upload/application
   - `Started command` backend-log broadcast
-- the current Go planner only resolves runnable manual code sections under:
+- Go project state now includes the generated-entry minimum under:
+  - `internal/projectstate`
+  - project codegen target metadata
+  - generated code and generated metadata bindings
+  - generated section kinds for first-party Python and explicit plugin-owned
+    generated surfaces
+- the Go planner now supports generated-entry runs under:
   - `internal/runs/planner.go`
-- the current Go project-state model only includes:
-  - code sections
-  - terminal sections
-  - draw sections
-- the current Go project-state model does not yet include:
-  - project codegen targets
-  - generated code bindings
-  - generated Python section kinds
-  - plugin codegen target metadata
-- the current Go `runCode` route therefore cannot yet represent or plan the
-  frontend cases where:
-  - IDE run uses generated Python entry behavior
-  - app/deployment run relies on `sectionId: null` plus project entry
-  - terminal selection must fall back to a free or temporary terminal because
-    there is no attached code-section terminal to reuse
-- the temporary-terminal branch described in
-  `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md` is
-  therefore still missing, but adding it first would be dead code until Go can
-  plan generated-entry runs
+  - `sectionId: null` resolves to generated entry when first-party Python
+    codegen is enabled
+  - explicit generated Python section selection collapses to project-entry
+    behavior
+  - explicit plugin-generated selection fails with a domain error instead of a
+    generic non-runnable failure
+- the Go IDE `runCode` route now executes generated-entry runs end-to-end under:
+  - `internal/runs/service.go`
+  - `internal/httpapi/terminal_routes.go`
+  - non-attached generated-entry runs create a top-level temporary terminal in
+    project state, open the matching PTY session, and dispatch the planned
+    command there
+- free-terminal reuse remains deferred
+  - the previous Python pathway depends on child-process and elapsed-time
+    heuristics (`get_free_terminal`)
+  - the rewrite should not reintroduce that behavior without an explicit
+    reusable-session source of truth in Go
 
 ## Scope
 
@@ -53,8 +58,8 @@ This focused plan covers:
 - identifying the minimum project-state additions needed for generated-entry run
   planning
 - defining the first Go-owned planner boundary for generated Python entry runs
-- sequencing terminal reuse and temporary-terminal creation only after that run
-  target becomes reachable
+- recording the remaining reusable-terminal follow-up now that temporary
+  terminal creation is reachable through the generated-entry path
 
 ## Non-Goals
 
@@ -93,6 +98,10 @@ This focused plan covers:
 - keep temporary terminals as explicit project-state mutations
   - no hidden service-only PTY sessions
   - user-visible temporary terminals must be created in `internal/projectstate`
+- do not port Python's free-terminal reuse heuristic as-is
+  - current reuse depends on PTY child-process inspection plus elapsed time
+  - add an explicit reusable-session signal before Go reintroduces terminal
+    reuse for non-attached runs
 
 ## Dependency Finding
 
@@ -109,9 +118,8 @@ dependency that is now clear from the code:
 - the current Go planner cannot reproduce that because it only understands
   runnable manual code sections
 
-That means the highest-leverage next step is not terminal fallback in
-isolation. It is the minimum generated-entry run support that makes terminal
-fallback reachable.
+That dependency is now cleared. Generated-entry runs are reachable in Go, and
+the remaining follow-up is a better reusable-terminal source of truth.
 
 ## Current Product Semantics Inventory
 
@@ -154,23 +162,18 @@ following:
 3. otherwise tries to reuse a free project/share-scoped terminal
 4. otherwise creates a temporary top-level terminal in project state
 
-The third and fourth steps are what remain for Go, but they matter only once
-Go can produce step 3 inputs from generated-entry planning.
+Go now covers step 4 for generated-entry runs through explicit temporary
+terminal creation. Step 3 still remains as a follow-up because Go does not yet
+have a robust reusable-terminal signal.
 
 ## Current Go Gaps
 
-The missing Go pieces are now clearer:
+The remaining Go gaps are now narrower:
 
-- `internal/projectstate` does not model project codegen targets
-- `internal/projectstate` does not model generated Python bindings or generated
-  section kinds
-- `internal/runs.Planner` cannot distinguish:
-  - a genuinely unsupported non-runnable section
-  - a generated-entry run that should plan through codegen
-- `internal/runs.Service` has no reachable branch for:
-  - project/share-scoped free terminal reuse
-  - temporary-terminal creation through project-state mutation
-- plugin codegen has no Go runtime boundary yet
+- free-terminal reuse for non-attached runs is still deferred
+- plugin codegen still has no Go execution/runtime boundary
+- deployment/share run policy and session-run semantics still live outside this
+  slice
 
 ## Proposed Go Boundaries
 
@@ -223,6 +226,28 @@ Acceptance:
   - first-party generated-entry runs
   - unsupported plugin-codegen runs
 
+Status:
+
+- complete
+
+Completed:
+
+- extended `internal/projectstate` with:
+  - project codegen target metadata
+  - generated code and metadata bindings
+  - generated section kinds
+- updated run-target resolution so Go can distinguish:
+  - manual code-section runs
+  - first-party generated-entry runs
+  - explicit plugin-generated selections that must fail
+
+Tests:
+
+- `internal/projectstate/run_graph_test.go`
+  - generated-entry resolution from `sectionId: null`
+  - explicit generated Python section collapse to entry behavior
+  - plugin-generated selection classification
+
 ### Slice 2: Generated-Entry Planner Support
 
 Deliver:
@@ -242,13 +267,34 @@ Acceptance:
 - unsupported plugin-codegen runs fail explicitly with a domain error instead of
   generic non-runnable failures
 
+Status:
+
+- complete
+
+Completed:
+
+- extended `internal/runs.Planner` to:
+  - plan generated-entry runs from explicit generated-Python selection or
+    `sectionId: null`
+  - use generated code and metadata bindings as the source of truth
+  - keep snapshot behavior explicit for generated code plus manual code-file
+    inputs
+  - reject plugin-generated entry runs explicitly
+
+Tests:
+
+- `internal/runs/planner_test.go`
+  - generated-entry `never` runs
+  - generated-entry snapshot runs including metadata files
+  - explicit generated Python section collapse
+  - explicit plugin-generated rejection
+
 ### Slice 3: Temporary-Terminal Fallback
 
 Deliver:
 
 - run-service fallback for non-attached generated-entry runs:
-  - reuse a free terminal in the same `(project id, share session id)` scope
-  - otherwise create a temporary terminal section in project state
+  - create a temporary terminal section in project state
   - open/reuse the matching PTY session and dispatch the planned command
 - focused HTTP/app tests proving temporary terminals become visible and usable
 
@@ -258,37 +304,50 @@ Acceptance:
 - temporary terminals are created in project state, not only in terminal runtime
 - share-session scoping stays explicit
 
+Status:
+
+- partial
+
+Completed:
+
+- `internal/runs.Service` now creates a top-level temporary terminal for
+  generated-entry runs instead of trying to force an attached-terminal path
+- generated-entry run dispatch now reaches a real PTY-backed terminal session
+- focused HTTP coverage proves the temporary terminal becomes visible in project
+  state and receives command output
+
+Deferred:
+
+- project/share-scoped free-terminal reuse remains deferred until Go has an
+  explicit reusable-session signal instead of Python's heuristic child-process
+  and elapsed-time checks
+
+Tests:
+
+- `internal/httpapi/terminal_routes_test.go`
+  - generated-entry `POST /api/runCode` creates a top-level temporary terminal
+    and runs the generated entry there
+
+## Decisions Made
+
+- Use project-state generated bindings as the source of truth for generated-entry
+  planning instead of inferring paths from filenames or section ids.
+- Treat explicit plugin-generated section selection as an unsupported domain case
+  now, rather than pretending it is a generic non-runnable section.
+- Create temporary terminals directly for generated-entry runs until Go owns a
+  real reusable-terminal signal.
+
 ## Open Questions
 
-- what is the smallest Go representation that can distinguish generated Python
-  sections without importing the whole Python project-state shape?
-- should free-terminal reuse keep Python's current child-process detection
-  semantics, or should Go define a more explicit reusable-session contract at
-  the terminal service boundary?
-- do we want plugin-codegen runs to fail with a dedicated unsupported error code
-  as soon as the planner recognizes them?
-
-## Recommended Option
-
-Implement first-party Python generated-entry support before temporary-terminal
-fallback.
-
-Rationale:
-
-- it is the actual dependency making the missing terminal-selection branch
-  reachable
-- it keeps the next code slice focused on source-of-truth modeling instead of
-  adding dead fallback logic
-- it lets plugin codegen stay explicitly unsupported until Go has a real plugin
-  runtime boundary
+- What should the Go-owned reusable-terminal source of truth be:
+  terminal-runtime lease state, explicit session idleness, or a project-state
+  ownership marker?
+- Should generated-entry temporary terminals be reusable across repeated IDE
+  runs once that source of truth exists, or should they remain one-run-per-call
+  by design?
 
 ## Next Recommended Step
 
-Start Slice 1 by extending `internal/projectstate` with the minimum generated
-entry metadata for first-party Python codegen:
-
-- model whether Python codegen is enabled for a project
-- model the generated-entry binding metadata the planner needs
-- add section-kind/source data that lets the planner recognize generated Python
-  sections explicitly
-- keep plugin codegen metadata recognized only enough to fail explicitly later
+- Add an explicit reusable-terminal signal in Go and then layer non-attached
+  terminal reuse on top of the generated-entry path without reintroducing the
+  Python heuristic.

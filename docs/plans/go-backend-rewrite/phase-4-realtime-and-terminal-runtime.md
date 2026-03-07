@@ -68,6 +68,8 @@ Current repo status as of 2026-03-06:
 - the Go rewrite now includes the first IDE manual-run planner under:
   - `internal/runs/planner.go`
   - manual Python/Bash code-section command planning
+  - first-party generated-entry planning from `sectionId: null`
+  - explicit generated Python section selection collapsing to project-entry behavior
   - direct-file run commands plus snapshot planning for `never`, `ephemeral`, and `always`
   - section-variant overrides applied against cloned project-state documents
   - explicit rejection of `paramOverrides` until Go owns parameter state
@@ -76,12 +78,13 @@ Current repo status as of 2026-03-06:
   - `internal/runs/service.go`
   - `internal/app/app.go`
 - current Go `runCode` transport behavior is intentionally narrow:
-  - manual Python/Bash code-section runs only
+  - manual Python/Bash code-section runs
+  - first-party generated-entry runs that allocate top-level temporary terminals in project state
   - section-variant overrides are planned against cloned project-state documents without mutating the active section map
   - attached-terminal reuse and ensure flow through Go project-state + terminal services
   - IDE draw snapshot uploads and project-state artifact updates now flow through Go-owned binary + run services
   - successful run dispatch now emits a Go-owned `Started command` backend-log event to frontend websockets
-  - generated-entry runs and temporary-terminal fallback are still deferred behind the focused dependency plan
+  - free-terminal reuse for non-attached runs remains deferred until Go has an explicit reusable-session signal
   - `cliId` and `paramOverrides` still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:

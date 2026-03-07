@@ -159,6 +159,17 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 }
 
 func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, plan Plan, explicitTerminalSectionID string) (string, error) {
+	if plan.TargetKind == projectstate.RunTargetKindGeneratedEntry {
+		_, terminalSectionID, err := s.projectState.CreateTemporaryTerminal(projectID, s.newTerminalSeed())
+		if err != nil {
+			return "", err
+		}
+		if _, err := s.projectState.Save(ctx); err != nil {
+			return "", err
+		}
+		return terminalSectionID, nil
+	}
+
 	document := s.projectState.Snapshot().Document
 	validExplicitTerminal, err := document.ValidateAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, explicitTerminalSectionID)
 	if err != nil {

@@ -23,6 +23,60 @@ func TestDocumentResolveRunTargetUsesEntryCodeBlock(t *testing.T) {
 	}
 }
 
+func TestDocumentResolveRunTargetUsesGeneratedEntryWhenPythonCodegenEnabled(t *testing.T) {
+	t.Parallel()
+
+	document := newGeneratedRunGraphTestDocument()
+
+	target, err := document.ResolveRunTarget("project-alpha", "")
+	if err != nil {
+		t.Fatalf("resolve generated run target: %v", err)
+	}
+	if target.Kind != RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target, got %q", target.Kind)
+	}
+	if target.Generated == nil || target.Generated.CodeBinding == nil {
+		t.Fatal("expected generated entry binding to be available")
+	}
+	if target.Generated.CodeBinding.Path != "code/generated.py" {
+		t.Fatalf("expected generated entry binding path code/generated.py, got %q", target.Generated.CodeBinding.Path)
+	}
+}
+
+func TestDocumentResolveRunTargetCollapsesGeneratedSectionSelectionToEntry(t *testing.T) {
+	t.Parallel()
+
+	document := newGeneratedRunGraphTestDocument()
+
+	target, err := document.ResolveRunTarget("project-alpha", "gen-python-section")
+	if err != nil {
+		t.Fatalf("resolve generated python section: %v", err)
+	}
+	if target.Kind != RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target, got %q", target.Kind)
+	}
+	if target.Generated == nil || target.Generated.UsesPluginCodegen {
+		t.Fatal("expected first-party generated entry target")
+	}
+}
+
+func TestDocumentResolveRunTargetMarksPluginGeneratedSelectionUnsupported(t *testing.T) {
+	t.Parallel()
+
+	document := newGeneratedRunGraphTestDocument()
+
+	target, err := document.ResolveRunTarget("project-alpha", "gen-plugin-section")
+	if err != nil {
+		t.Fatalf("resolve plugin generated section: %v", err)
+	}
+	if target.Kind != RunTargetKindGeneratedEntry {
+		t.Fatalf("expected generated entry target, got %q", target.Kind)
+	}
+	if target.Generated == nil || !target.Generated.UsesPluginCodegen {
+		t.Fatal("expected plugin-generated target to be marked unsupported")
+	}
+}
+
 func TestSectionImplIsRunnableCode(t *testing.T) {
 	t.Parallel()
 
@@ -376,6 +430,102 @@ func newRunGraphVariantTestDocument() Document {
 								Path:       "code/run.sh",
 								AccessMode: CodeFileAccessModeReadWrite,
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newGeneratedRunGraphTestDocument() Document {
+	return Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []ProjectCodegenTarget{
+					{Language: string(CodeLanguagePython)},
+				},
+				GeneratedCodeBinding: &CodeFileBinding{
+					Path:       "code/generated.py",
+					AccessMode: CodeFileAccessModeReadOnly,
+				},
+				GeneratedMetadataBinding: &CodeFileBinding{
+					Path:       "code/setta_gen_meta.py",
+					AccessMode: CodeFileAccessModeReadOnly,
+				},
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+					"gen-python-section",
+					"gen-plugin-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section":       "code-variant",
+					"gen-python-section": "gen-python-variant",
+					"gen-plugin-section": "gen-plugin-variant",
+				},
+				Sections: map[string]Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Code Section",
+						VariantIDs:       []string{"code-variant"},
+						DefaultVariantID: "code-variant",
+					},
+					"gen-python-section": {
+						ID:               "gen-python-section",
+						Name:             "Generated Python",
+						VariantIDs:       []string{"gen-python-variant"},
+						DefaultVariantID: "gen-python-variant",
+					},
+					"gen-plugin-section": {
+						ID:               "gen-plugin-section",
+						Name:             "Generated Plugin",
+						VariantIDs:       []string{"gen-plugin-variant"},
+						DefaultVariantID: "gen-plugin-variant",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"code-variant": {
+						ID:     "code-variant",
+						ImplID: "code-impl",
+					},
+					"gen-python-variant": {
+						ID:     "gen-python-variant",
+						ImplID: "gen-python-impl",
+					},
+					"gen-plugin-variant": {
+						ID:     "gen-plugin-variant",
+						ImplID: "gen-plugin-impl",
+					},
+				},
+				SectionImpls: map[string]SectionImpl{
+					"code-impl": {
+						ID:   "code-impl",
+						Kind: SectionKindCode,
+						Code: &CodeSectionImpl{
+							Language: CodeLanguagePython,
+							Binding: &CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"gen-python-impl": {
+						ID:   "gen-python-impl",
+						Kind: SectionKindGenerated,
+						Generated: &GeneratedSectionImpl{
+							Kind: GeneratedSectionKindPythonCode,
+						},
+					},
+					"gen-plugin-impl": {
+						ID:   "gen-plugin-impl",
+						Kind: SectionKindGenerated,
+						Generated: &GeneratedSectionImpl{
+							Kind: GeneratedSectionKindPlugin,
 						},
 					},
 				},

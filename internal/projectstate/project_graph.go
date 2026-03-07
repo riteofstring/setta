@@ -7,47 +7,52 @@ import (
 )
 
 var (
-	ErrSectionIDRequired             = errors.New("section id is required")
-	ErrSectionNameRequired           = errors.New("section name is required")
-	ErrSectionIDKeyMismatch          = errors.New("section id must match its map key")
-	ErrProjectNotFound               = errors.New("project was not found in document")
-	ErrSectionVariantIDRequired      = errors.New("section variant id is required")
-	ErrSectionVariantIDKeyMismatch   = errors.New("section variant id must match its map key")
-	ErrSectionImplIDRequired         = errors.New("section impl id is required")
-	ErrSectionImplIDKeyMismatch      = errors.New("section impl id must match its map key")
-	ErrEntrySectionNotFound          = errors.New("entry code block id was not found in sections")
-	ErrSectionNotFound               = errors.New("section was not found in project")
-	ErrSectionVariantNotFound        = errors.New("section variant was not found in project")
-	ErrSectionImplNotFound           = errors.New("section impl was not found in project")
-	ErrSectionActiveVariantNotFound  = errors.New("section active variant was not found")
-	ErrSectionDefaultVariantMissing  = errors.New("section default variant id is required when variants exist")
-	ErrSectionVariantMembership      = errors.New("section variant must belong to the section")
-	ErrSectionImplKindRequired       = errors.New("section impl kind is required")
-	ErrUnsupportedSectionImplKind    = errors.New("unsupported section impl kind")
-	ErrCodeSectionConfigRequired     = errors.New("code section config is required")
-	ErrTerminalSectionConfigRequired = errors.New("terminal section config is required")
-	ErrDrawSectionConfigRequired     = errors.New("draw section config is required")
-	ErrCodeLanguageRequired          = errors.New("code language is required")
-	ErrCodeFileBindingPathRequired   = errors.New("code file binding path is required")
-	ErrDrawRenderedImagePathRequired = errors.New("draw rendered image path is required")
-	ErrTopLevelSectionNotFound       = errors.New("top-level section was not found in project")
-	ErrDuplicateTopLevelSection      = errors.New("duplicate top-level section id")
-	ErrParentSectionNotFound         = errors.New("parent section was not found in project")
-	ErrSectionConflict               = errors.New("section already exists")
-	ErrSectionVariantConflict        = errors.New("section variant already exists")
-	ErrSectionImplConflict           = errors.New("section impl already exists")
-	ErrTerminalSeedRequired          = errors.New("terminal section seed is required")
-	ErrCodeSectionRequired           = errors.New("section must resolve to a code section")
-	ErrTerminalSectionRequired       = errors.New("section must resolve to a terminal section")
-	ErrDrawSectionRequired           = errors.New("section must resolve to a draw section")
+	ErrSectionIDRequired               = errors.New("section id is required")
+	ErrSectionNameRequired             = errors.New("section name is required")
+	ErrSectionIDKeyMismatch            = errors.New("section id must match its map key")
+	ErrProjectNotFound                 = errors.New("project was not found in document")
+	ErrProjectCodegenTargetLanguage    = errors.New("project codegen target language is required")
+	ErrSectionVariantIDRequired        = errors.New("section variant id is required")
+	ErrSectionVariantIDKeyMismatch     = errors.New("section variant id must match its map key")
+	ErrSectionImplIDRequired           = errors.New("section impl id is required")
+	ErrSectionImplIDKeyMismatch        = errors.New("section impl id must match its map key")
+	ErrEntrySectionNotFound            = errors.New("entry code block id was not found in sections")
+	ErrSectionNotFound                 = errors.New("section was not found in project")
+	ErrSectionVariantNotFound          = errors.New("section variant was not found in project")
+	ErrSectionImplNotFound             = errors.New("section impl was not found in project")
+	ErrSectionActiveVariantNotFound    = errors.New("section active variant was not found")
+	ErrSectionDefaultVariantMissing    = errors.New("section default variant id is required when variants exist")
+	ErrSectionVariantMembership        = errors.New("section variant must belong to the section")
+	ErrSectionImplKindRequired         = errors.New("section impl kind is required")
+	ErrUnsupportedSectionImplKind      = errors.New("unsupported section impl kind")
+	ErrCodeSectionConfigRequired       = errors.New("code section config is required")
+	ErrTerminalSectionConfigRequired   = errors.New("terminal section config is required")
+	ErrDrawSectionConfigRequired       = errors.New("draw section config is required")
+	ErrGeneratedSectionConfigRequired  = errors.New("generated section config is required")
+	ErrGeneratedSectionKindRequired    = errors.New("generated section kind is required")
+	ErrUnsupportedGeneratedSectionKind = errors.New("unsupported generated section kind")
+	ErrCodeLanguageRequired            = errors.New("code language is required")
+	ErrCodeFileBindingPathRequired     = errors.New("code file binding path is required")
+	ErrDrawRenderedImagePathRequired   = errors.New("draw rendered image path is required")
+	ErrTopLevelSectionNotFound         = errors.New("top-level section was not found in project")
+	ErrDuplicateTopLevelSection        = errors.New("duplicate top-level section id")
+	ErrParentSectionNotFound           = errors.New("parent section was not found in project")
+	ErrSectionConflict                 = errors.New("section already exists")
+	ErrSectionVariantConflict          = errors.New("section variant already exists")
+	ErrSectionImplConflict             = errors.New("section impl already exists")
+	ErrTerminalSeedRequired            = errors.New("terminal section seed is required")
+	ErrCodeSectionRequired             = errors.New("section must resolve to a code section")
+	ErrTerminalSectionRequired         = errors.New("section must resolve to a terminal section")
+	ErrDrawSectionRequired             = errors.New("section must resolve to a draw section")
 )
 
 type SectionKind string
 
 const (
-	SectionKindCode     SectionKind = "code"
-	SectionKindTerminal SectionKind = "terminal"
-	SectionKindDraw     SectionKind = "draw"
+	SectionKindCode      SectionKind = "code"
+	SectionKindTerminal  SectionKind = "terminal"
+	SectionKindDraw      SectionKind = "draw"
+	SectionKindGenerated SectionKind = "generated"
 )
 
 type CodeLanguage string
@@ -72,17 +77,22 @@ type Section struct {
 	ParentSectionID  string   `json:"parentSectionId,omitempty"`
 }
 
+type ProjectCodegenTarget struct {
+	Language string `json:"language"`
+}
+
 type SectionVariant struct {
 	ID     string `json:"id"`
 	ImplID string `json:"implId"`
 }
 
 type SectionImpl struct {
-	ID       string               `json:"id"`
-	Kind     SectionKind          `json:"kind"`
-	Code     *CodeSectionImpl     `json:"code,omitempty"`
-	Terminal *TerminalSectionImpl `json:"terminal,omitempty"`
-	Draw     *DrawSectionImpl     `json:"draw,omitempty"`
+	ID        string                `json:"id"`
+	Kind      SectionKind           `json:"kind"`
+	Code      *CodeSectionImpl      `json:"code,omitempty"`
+	Terminal  *TerminalSectionImpl  `json:"terminal,omitempty"`
+	Draw      *DrawSectionImpl      `json:"draw,omitempty"`
+	Generated *GeneratedSectionImpl `json:"generated,omitempty"`
 }
 
 type CodeSectionImpl struct {
@@ -103,9 +113,24 @@ type DrawSectionImpl struct {
 	RenderedImagePath string `json:"renderedImagePath,omitempty"`
 }
 
+type GeneratedSectionKind string
+
+const (
+	GeneratedSectionKindPythonCode     GeneratedSectionKind = "python_code"
+	GeneratedSectionKindPythonMetadata GeneratedSectionKind = "python_metadata"
+	GeneratedSectionKindPlugin         GeneratedSectionKind = "plugin"
+)
+
+type GeneratedSectionImpl struct {
+	Kind GeneratedSectionKind `json:"kind"`
+}
+
 func (p Project) Clone() Project {
 	cloned := p
 	cloned.TopLevelSectionIDs = append([]string(nil), p.TopLevelSectionIDs...)
+	cloned.CodegenTargets = append([]ProjectCodegenTarget(nil), p.CodegenTargets...)
+	cloned.GeneratedCodeBinding = cloneCodeFileBinding(p.GeneratedCodeBinding)
+	cloned.GeneratedMetadataBinding = cloneCodeFileBinding(p.GeneratedMetadataBinding)
 
 	if p.SectionVariantMap != nil {
 		cloned.SectionVariantMap = make(map[string]string, len(p.SectionVariantMap))
@@ -160,6 +185,10 @@ func (i SectionImpl) Clone() SectionImpl {
 		draw := *i.Draw
 		cloned.Draw = &draw
 	}
+	if i.Generated != nil {
+		generated := *i.Generated
+		cloned.Generated = &generated
+	}
 	return cloned
 }
 
@@ -176,6 +205,22 @@ func (p Project) Normalized() (Project, error) {
 	}
 	if normalized.SectionImpls == nil {
 		normalized.SectionImpls = map[string]SectionImpl{}
+	}
+	for index, target := range normalized.CodegenTargets {
+		normalizedTarget, err := target.Normalized()
+		if err != nil {
+			return Project{}, fmt.Errorf("normalize codegen target %d: %w", index, err)
+		}
+		normalized.CodegenTargets[index] = normalizedTarget
+	}
+	var err error
+	normalized.GeneratedCodeBinding, err = normalizeCodeFileBinding(normalized.GeneratedCodeBinding)
+	if err != nil {
+		return Project{}, fmt.Errorf("normalize generated code binding: %w", err)
+	}
+	normalized.GeneratedMetadataBinding, err = normalizeCodeFileBinding(normalized.GeneratedMetadataBinding)
+	if err != nil {
+		return Project{}, fmt.Errorf("normalize generated metadata binding: %w", err)
 	}
 
 	for sectionKey, section := range normalized.Sections {
@@ -253,6 +298,18 @@ func (p Project) Normalized() (Project, error) {
 		case SectionKindDraw:
 			if impl.Draw == nil {
 				return Project{}, fmt.Errorf("%w: %q", ErrDrawSectionConfigRequired, impl.ID)
+			}
+		case SectionKindGenerated:
+			if impl.Generated == nil {
+				return Project{}, fmt.Errorf("%w: %q", ErrGeneratedSectionConfigRequired, impl.ID)
+			}
+			if strings.TrimSpace(string(impl.Generated.Kind)) == "" {
+				return Project{}, fmt.Errorf("%w: %q", ErrGeneratedSectionKindRequired, impl.ID)
+			}
+			switch impl.Generated.Kind {
+			case GeneratedSectionKindPythonCode, GeneratedSectionKindPythonMetadata, GeneratedSectionKindPlugin:
+			default:
+				return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedGeneratedSectionKind, impl.Generated.Kind)
 			}
 		default:
 			return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedSectionImplKind, impl.Kind)
@@ -346,11 +403,67 @@ func (i SectionImpl) IsDraw() bool {
 	return i.Kind == SectionKindDraw && i.Draw != nil
 }
 
+func (i SectionImpl) IsGenerated() bool {
+	return i.Kind == SectionKindGenerated && i.Generated != nil
+}
+
+func (i SectionImpl) IsGeneratedEntrySection() bool {
+	if !i.IsGenerated() {
+		return false
+	}
+	return i.Generated.Kind == GeneratedSectionKindPythonCode ||
+		i.Generated.Kind == GeneratedSectionKindPythonMetadata ||
+		i.Generated.Kind == GeneratedSectionKindPlugin
+}
+
+func (i SectionImpl) UsesPluginCodegen() bool {
+	return i.IsGenerated() && i.Generated.Kind == GeneratedSectionKindPlugin
+}
+
 func (i SectionImpl) IsRunnableCode() bool {
 	if !i.IsCode() {
 		return false
 	}
 	return i.Code.Language == CodeLanguagePython || i.Code.Language == CodeLanguageBash
+}
+
+func (p Project) HasPythonCodegenTarget() bool {
+	for _, target := range p.CodegenTargets {
+		if target.Language == string(CodeLanguagePython) {
+			return true
+		}
+	}
+	return false
+}
+
+func (t ProjectCodegenTarget) Normalized() (ProjectCodegenTarget, error) {
+	normalized := ProjectCodegenTarget{
+		Language: strings.TrimSpace(t.Language),
+	}
+	if normalized.Language == "" {
+		return ProjectCodegenTarget{}, ErrProjectCodegenTargetLanguage
+	}
+	return normalized, nil
+}
+
+func cloneCodeFileBinding(binding *CodeFileBinding) *CodeFileBinding {
+	if binding == nil {
+		return nil
+	}
+	cloned := *binding
+	return &cloned
+}
+
+func normalizeCodeFileBinding(binding *CodeFileBinding) (*CodeFileBinding, error) {
+	if binding == nil {
+		return nil, nil
+	}
+	normalized := *binding
+	normalized.Path = strings.TrimSpace(normalized.Path)
+	if normalized.Path == "" {
+		return nil, ErrCodeFileBindingPathRequired
+	}
+	return &normalized, nil
 }
 
 func containsString(values []string, expected string) bool {

@@ -172,6 +172,8 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, runs.ErrRunTargetNotRunnable),
 				errors.Is(err, runs.ErrRunSnapshotModeInvalid),
 				errors.Is(err, runs.ErrCodeBindingRequired),
+				errors.Is(err, runs.ErrGeneratedEntryBindingRequired),
+				errors.Is(err, runs.ErrPluginCodegenRunUnsupported),
 				errors.Is(err, runs.ErrInvalidParamOverrideKey),
 				errors.Is(err, runs.ErrParamOverridesUnsupported),
 				errors.Is(err, binarypayload.ErrContentIDRequired),

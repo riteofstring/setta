@@ -22,10 +22,16 @@ Current repo status as of 2026-03-06:
   - `internal/runs`
 - the Go IDE planner currently supports:
   - manual Python/Bash code-section command planning
+  - first-party generated-entry planning from `sectionId: null`
+  - explicit generated Python section selection collapsing to project-entry
+    behavior
   - `never`, `ephemeral`, and `always` snapshot modes
   - section-variant overrides applied against a cloned document
   - snapshot creation from code-file bindings on disk
 - the Go IDE planner currently rejects:
+  - explicit plugin-generated entry runs
+    - Go classifies them explicitly instead of treating them as generic
+      non-runnable sections
   - `paramOverrides`
     - Go project state does not yet model params, so the planner fails explicitly instead of guessing
 - the Go rewrite now includes the first IDE `runCode` HTTP transport under:
@@ -33,9 +39,11 @@ Current repo status as of 2026-03-06:
   - `internal/runs/service.go`
 - the current Go IDE `runCode` route supports:
   - manual Python/Bash code-section runs
+  - first-party generated-entry runs
   - `sectionVariantOverrides` applied against a cloned document without mutating the active section map
   - explicit valid attached-terminal reuse
   - attached-terminal validation and creation against the planner-resolved variant when needed
+  - top-level temporary-terminal creation for non-attached generated-entry runs
   - `drawSnapshotsBySectionId` application through Go-owned binary upload, artifact writes, and draw-section state updates
   - terminal-session open/reuse plus shell-command dispatch through `internal/terminals`
   - `Started command` backend-log notifications through a Go-owned broadcaster under `internal/backendlogs`
@@ -54,7 +62,10 @@ Current repo status as of 2026-03-06:
   - entry code block ids
   - active section variants
   - code and terminal section impl kinds
+  - generated section kinds
   - code language metadata and file binding metadata
+  - generated code and metadata bindings
+  - project codegen target metadata
   - attached-terminal validation
   - attached-terminal and temporary-terminal mutation helpers
 - Go now has the first run snapshot creation and run-command builders for IDE manual code-section runs
@@ -62,9 +73,11 @@ Current repo status as of 2026-03-06:
   - `internal/binary`
   - `internal/httpapi/binary_routes.go`
   - `internal/projectstate/draw_snapshots.go`
-- Go now has the first IDE `runCode` route for manual code-section runs, but it is still narrower than the Python route
-- temporary-terminal fallback is still blocked on generated-entry planning and is
-  now tracked in:
+- Go now has the first IDE `runCode` route for:
+  - manual code-section runs
+  - generated-entry runs with top-level temporary-terminal creation
+- free-terminal reuse for non-attached runs is still deferred and remains
+  tracked in:
   - `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
@@ -127,6 +140,8 @@ This focused plan covers:
   - a terminal id is valid for a run only if the code section still points at it and the parent/child/type relationship is correct
 - do not create temporary terminals as service-only PTY sessions
   - temporary terminals are user-visible product state and must flow through a project-state mutation path
+- do not port Python's free-terminal reuse heuristic directly
+  - Go needs an explicit reusable-terminal source of truth instead of child-process and elapsed-time checks
 - defer the `cliId` branch until there is a real Go consumer for CLI streaming
 - stage IDE manual-run support before deployment/share run support
   - deployment remains blocked on Go-owned policy and overlay session state
@@ -226,7 +241,7 @@ What they do need is the set of side effects:
 The remaining gaps are no longer basic transport or project-graph modeling.
 The open work is now concentrated in the higher-level run semantics:
 
-- Go does not yet have temporary-terminal fallback for non-attached/manual-non-code targets
+- Go does not yet have a robust reusable-terminal pathway for non-attached runs
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have deployment/share run policy ownership for:
   - `allowRun`
