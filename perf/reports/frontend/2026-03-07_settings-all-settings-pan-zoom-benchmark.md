@@ -1208,3 +1208,98 @@ New benchmark stages:
 - The visual contract held in the live app after the production change.
   - benchmark geometry checks passed
   - a live full-stage width sample stayed well above the collapse threshold (`minWidth ~= 514px`, `0` narrow rows)
+
+## Addendum: Remaining Widget Cost Is Mostly CodeParam
+
+- Date: `2026-03-07`
+- Goal: decompose the remaining `param-container-shell -> full` gap after the leaf-row refactor by isolating the live widget layer on the `All Settings` benchmark.
+- Important discovery:
+  - the current `All Settings` benchmark contains `426` `CodeParam` rows
+  - it contains `0` `TextParam` rows
+  - it contains `0` `TextAreaParam` rows
+  - so the remaining text-family cost in this benchmark is effectively the CodeMirror-backed `CodeParam` path
+- Measurement note:
+  - compare these numbers only within this addendum
+  - `code-widgets` uses the same row shell and non-text live widget mix as `non-text-widgets`, but restores the real `CodeParam` widgets for those `426` rows
+
+### `param-container-shell` anchor rerun
+
+- DOM nodes in `.react-flow`: `6332`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `0`
+- Code widget shells: `0`
+- Average frame time: `16.44ms`
+- Approx FPS: `60.82`
+- Max frame time: `59.20ms`
+- Slow frames:
+  - `>16.7ms`: `33`
+  - `>33.3ms`: `19`
+  - `>50ms`: `2`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-code-widget-breakdown-trace.json`
+
+### `non-text-widgets`
+
+- DOM nodes in `.react-flow`: `7038`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `0`
+- Code widget shells: `426`
+- Average frame time: `19.51ms`
+- Approx FPS: `51.26`
+- Max frame time: `49.90ms`
+- Slow frames:
+  - `>16.7ms`: `57`
+  - `>33.3ms`: `10`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/non-text-widgets-code-widget-breakdown-trace.json`
+
+### `code-widgets`
+
+- DOM nodes in `.react-flow`: `8385`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- Code widget shells: `0`
+- Average frame time: `24.61ms`
+- Approx FPS: `40.64`
+- Max frame time: `33.30ms`
+- Slow frames:
+  - `>16.7ms`: `107`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-code-widget-breakdown-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-visible.png`
+
+### `full` rerun
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- Code widget shells: `0`
+- Average frame time: `22.86ms`
+- Approx FPS: `43.74`
+- Max frame time: `32.90ms`
+- Slow frames:
+  - `>16.7ms`: `93`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-code-widget-breakdown-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/code-widget-breakdown-full-visible.png`
+
+### Addendum conclusion
+
+- The remaining benchmark text-family bucket is not a mixed text/code problem in `All Settings`.
+  - it is overwhelmingly the `CodeParam` path
+  - there are no `TextParam` or `TextAreaParam` rows in this benchmark view
+- The code widget layer is the main remaining hotspot after the row-shell refactor.
+  - `non-text-widgets` -> `code-widgets`: `51.26 FPS` -> `40.64 FPS`, a `-10.62 FPS` drop
+  - that drop comes from restoring the real `426` CodeMirror-backed code rows
+- `code-widgets` already lands in the same performance band as `full`.
+  - `code-widgets`: `40.64 FPS`
+  - `full`: `43.74 FPS`
+  - the practical interpretation is that the real `CodeParam` widget path explains most of the remaining widget cost, while live labels and section handles are secondary in this benchmark
+- Updated next step:
+  - stop splitting `TextParam` vs `TextAreaParam` for this benchmark, because they are absent here
+  - focus the next optimization pass on the `CodeParam` / `TextInputCodeMirror` path

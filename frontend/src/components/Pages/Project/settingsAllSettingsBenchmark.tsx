@@ -29,11 +29,19 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
+  "code-widgets",
   "full",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkStage =
   (typeof SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES)[number];
+
+export type SettingsAllSettingsBenchmarkTextFamilyWidgetScope =
+  | "all"
+  | "none"
+  | "code-only"
+  | "text-only"
+  | "text-area-only";
 
 type SettingsAllSettingsBenchmarkValue = {
   active: boolean;
@@ -52,7 +60,7 @@ type SettingsAllSettingsBenchmarkValue = {
   paramStructureScope: "all" | "parent-only";
   renderParamInput: boolean;
   renderParamWidgets: boolean;
-  renderTextFamilyWidgets: boolean;
+  textFamilyWidgetScope: SettingsAllSettingsBenchmarkTextFamilyWidgetScope;
   renderParamChrome: boolean;
   renderParamSortable: boolean;
 };
@@ -76,7 +84,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   paramStructureScope: "all",
   renderParamInput: true,
   renderParamWidgets: true,
-  renderTextFamilyWidgets: true,
+  textFamilyWidgetScope: "all",
   renderParamChrome: true,
   renderParamSortable: true,
 };
@@ -127,7 +135,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -149,7 +157,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -171,7 +179,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -193,7 +201,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -215,7 +223,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -237,7 +245,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -259,7 +267,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -281,7 +289,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -303,7 +311,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -325,7 +333,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -347,7 +355,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "parent-only",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -369,7 +377,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
       };
@@ -391,7 +399,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: false,
       };
@@ -413,7 +421,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: false,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: true,
       };
@@ -435,7 +443,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: true,
         renderParamWidgets: false,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: true,
       };
@@ -457,7 +465,29 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: true,
         renderParamWidgets: true,
-        renderTextFamilyWidgets: false,
+        textFamilyWidgetScope: "none",
+        renderParamChrome: true,
+        renderParamSortable: true,
+      };
+    case "code-widgets":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "code-only",
         renderParamChrome: true,
         renderParamSortable: true,
       };
@@ -479,7 +509,7 @@ function resolveBenchmarkValue(
         paramStructureScope: "all",
         renderParamInput: true,
         renderParamWidgets: true,
-        renderTextFamilyWidgets: true,
+        textFamilyWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
       };

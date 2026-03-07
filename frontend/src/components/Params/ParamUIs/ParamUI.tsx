@@ -1,4 +1,7 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  type SettingsAllSettingsBenchmarkTextFamilyWidgetScope,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
@@ -69,6 +72,8 @@ type ParamUIProps = {
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
 };
+
+type TextFamilyBenchmarkKind = "code" | "text" | "text-area";
 
 export function ParamUIConfig({
   sectionId,
@@ -258,17 +263,42 @@ export function ParamUI({
     return <BenchmarkParamWidgetShell kind="param-ui-shell" />;
   }
 
+  const textFamilyBenchmarkKind = getTextFamilyBenchmarkKind(codeObjType);
   if (
-    !benchmark.renderTextFamilyWidgets &&
-    isTextFamilyBenchmarkWidget(codeObjType)
+    textFamilyBenchmarkKind !== null &&
+    !shouldRenderTextFamilyBenchmarkWidget(
+      benchmark.textFamilyWidgetScope,
+      textFamilyBenchmarkKind,
+    )
   ) {
-    return <BenchmarkParamWidgetShell kind="text-family" />;
+    return (
+      <BenchmarkParamWidgetShell
+        kind="text-family"
+        textFamilyKind={textFamilyBenchmarkKind}
+      />
+    );
   }
 
   // need to put the group/textinput in a higher div
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+          benchmarkTextWidgetKind="code"
+        />
+      );
     case CodeObjTypeEnum.TextParam:
       return (
         <TextParamConfigured
@@ -283,6 +313,7 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          benchmarkTextWidgetKind="text"
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -406,6 +437,7 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          benchmarkTextWidgetKind="text-area"
         />
       );
     case CodeObjTypeEnum.DropzoneParam:
@@ -427,26 +459,60 @@ export function ParamUI({
   }
 }
 
-function isTextFamilyBenchmarkWidget(codeObjType: CodeObjTypeEnum) {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
-  );
+function getTextFamilyBenchmarkKind(
+  codeObjType: CodeObjTypeEnum,
+): TextFamilyBenchmarkKind | null {
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+      return "code";
+    case CodeObjTypeEnum.TextParam:
+      return "text";
+    case CodeObjTypeEnum.TextAreaParam:
+      return "text-area";
+    default:
+      return null;
+  }
+}
+
+function shouldRenderTextFamilyBenchmarkWidget(
+  scope: SettingsAllSettingsBenchmarkTextFamilyWidgetScope,
+  kind: TextFamilyBenchmarkKind,
+) {
+  switch (scope) {
+    case "all":
+      return true;
+    case "none":
+      return false;
+    case "code-only":
+      return kind === "code";
+    case "text-only":
+      return kind === "text";
+    case "text-area-only":
+      return kind === "text-area";
+    default:
+      return scope satisfies never;
+  }
 }
 
 function BenchmarkParamWidgetShell({
   kind,
+  textFamilyKind,
 }: {
   kind: "param-ui-shell" | "text-family";
+  textFamilyKind?: TextFamilyBenchmarkKind;
 }) {
   const label =
-    kind === "param-ui-shell" ? "Input shell" : "Text widget disabled";
+    kind === "param-ui-shell"
+      ? "Input shell"
+      : `${textFamilyKind ?? "text"} widget disabled`;
 
   return (
     <div
       className="section-key-value flex min-w-0 items-center rounded-sm border border-dashed border-setta-200/80 px-2 py-[0.2rem] text-[0.58rem] uppercase tracking-[0.14em] text-setta-400 dark:border-setta-700 dark:text-setta-500"
       data-settings-benchmark-widget-shell={kind}
+      data-settings-benchmark-text-widget-shell-kind={
+        kind === "text-family" ? textFamilyKind : undefined
+      }
     >
       {label}
     </div>
@@ -465,6 +531,20 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  benchmarkTextWidgetKind,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  defaultVal: string;
+  onChange: ParamValueChange;
+  onEscape: () => void;
+  maybeErrorMessage: string | undefined;
+  isDisabled: boolean;
+  configLanguage: string;
+  waitingForResult: boolean;
+  isSelectingParams: boolean;
+  benchmarkTextWidgetKind: TextFamilyBenchmarkKind;
 }) {
   return (
     <>
@@ -485,6 +565,7 @@ function TextParamConfigured({
         language={configLanguage}
         isDisabled={isDisabled}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        benchmarkTextWidgetKind={benchmarkTextWidgetKind}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

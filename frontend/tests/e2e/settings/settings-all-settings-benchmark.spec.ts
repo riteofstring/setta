@@ -23,6 +23,7 @@ const STAGES = [
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
+  "code-widgets",
   "full",
 ] as const;
 
@@ -43,6 +44,12 @@ type StageMetrics = {
   paramUiShellCount: number;
   textWidgetShellCount: number;
   textInputDummyCount: number;
+  codeTextWidgetCount: number;
+  textTextWidgetCount: number;
+  textAreaTextWidgetCount: number;
+  codeTextWidgetShellCount: number;
+  textTextWidgetShellCount: number;
+  textAreaTextWidgetShellCount: number;
   resizeHandleCount: number;
   parentRowCount: number;
   leafRowCount: number;
@@ -464,6 +471,33 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("non-text-widgets")?.textWidgetShellCount,
   ).toBeGreaterThan(0);
+  expect(metricsByStage.get("non-text-widgets")?.codeTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("non-text-widgets")?.textTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("non-text-widgets")?.textAreaTextWidgetCount).toBe(0);
+  expect(
+    metricsByStage.get("non-text-widgets")?.codeTextWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("non-text-widgets")?.textTextWidgetShellCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("non-text-widgets")?.textAreaTextWidgetShellCount,
+  ).toBe(0);
+
+  expect(metricsByStage.get("code-widgets")?.paramContainerCount).toBeGreaterThan(
+    0,
+  );
+  expect(metricsByStage.get("code-widgets")?.codeTextWidgetCount).toBeGreaterThan(
+    0,
+  );
+  expect(metricsByStage.get("code-widgets")?.textTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("code-widgets")?.textAreaTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("code-widgets")?.codeTextWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("code-widgets")?.textTextWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("code-widgets")?.textAreaTextWidgetShellCount).toBe(
+    0,
+  );
+  expect(metricsByStage.get("code-widgets")?.sampleParamRowNarrowCount).toBe(0);
 
   expect(metricsByStage.get("full")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("full")?.paramContainerCount).toBeGreaterThan(0);
@@ -472,6 +506,12 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full")?.paramUiShellCount).toBe(0);
   expect(metricsByStage.get("full")?.textWidgetShellCount).toBe(0);
   expect(metricsByStage.get("full")?.textInputDummyCount).toBeGreaterThan(0);
+  expect(metricsByStage.get("full")?.codeTextWidgetCount).toBeGreaterThan(0);
+  expect(metricsByStage.get("full")?.textTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("full")?.textAreaTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("full")?.codeTextWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("full")?.textTextWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("full")?.textAreaTextWidgetShellCount).toBe(0);
   expect(metricsByStage.get("full")?.sampleParamRowCount).toBeGreaterThan(0);
   expect(metricsByStage.get("full")?.sampleParamRowMinWidth).toBeGreaterThan(
     250,
@@ -521,6 +561,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeLessThanOrEqual(metricsByStage.get("param-input-shell")?.domCount ?? 0);
   expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
     metricsByStage.get("non-text-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("code-widgets")?.domCount ?? 0,
   );
   expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
@@ -629,6 +672,24 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       ).length,
       textInputDummyCount: flowRoot.querySelectorAll('[id$="-ParamInput"]')
         .length,
+      codeTextWidgetCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-kind="code"]',
+      ).length,
+      textTextWidgetCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-kind="text"]',
+      ).length,
+      textAreaTextWidgetCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-kind="text-area"]',
+      ).length,
+      codeTextWidgetShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-shell-kind="code"]',
+      ).length,
+      textTextWidgetShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-shell-kind="text"]',
+      ).length,
+      textAreaTextWidgetShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-text-widget-shell-kind="text-area"]',
+      ).length,
       resizeHandleCount: flowRoot.querySelectorAll("[data-param-resize-handle]")
         .length,
       parentRowCount: flowRoot.querySelectorAll(
