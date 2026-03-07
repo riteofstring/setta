@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 47 {
-		t.Fatalf("expected 47 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 50 {
+		t.Fatalf("expected 50 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +152,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCodeSectionAttachedTerminalTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
 	var formatCodeTool *sdkmcp.Tool
+	var setDefaultSectionVariantTool *sdkmcp.Tool
 	var setGroupOverflowModeTool *sdkmcp.Tool
 	var setSectionSizesTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
@@ -180,6 +181,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setSectionNameTool *sdkmcp.Tool
 	var setSectionTagColorTool *sdkmcp.Tool
 	var setSectionStyleColorTool *sdkmcp.Tool
+	var setSectionVariantTool *sdkmcp.Tool
+	var setSectionVariantSortOrderTool *sdkmcp.Tool
 	var setParamTool *sdkmcp.Tool
 	var setParamNameAndValueTool *sdkmcp.Tool
 	var setTypeErrorIgnoreTool *sdkmcp.Tool
@@ -217,6 +220,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "format_code" {
 			formatCodeTool = tool
+		}
+		if tool.Name == "set_default_section_variant" {
+			setDefaultSectionVariantTool = tool
 		}
 		if tool.Name == "set_group_overflow_mode" {
 			setGroupOverflowModeTool = tool
@@ -302,6 +308,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_section_style_color" {
 			setSectionStyleColorTool = tool
 		}
+		if tool.Name == "set_section_variant" {
+			setSectionVariantTool = tool
+		}
+		if tool.Name == "set_section_variant_sort_order" {
+			setSectionVariantSortOrderTool = tool
+		}
 		if tool.Name == "set_param_entered_value" {
 			setParamTool = tool
 		}
@@ -351,6 +363,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code_section_attached_terminal",
 		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
+		"set_default_section_variant",
 		"set_gen_code_prefix",
 		"set_gen_code_suffix",
 		"set_group_overflow_mode",
@@ -361,6 +374,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_section_sizes",
 		"set_section_style_color",
 		"set_section_tag_color",
+		"set_section_variant",
+		"set_section_variant_sort_order",
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
@@ -406,6 +421,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if formatCodeTool == nil {
 		t.Fatal("expected format_code tool")
+	}
+	if setDefaultSectionVariantTool == nil {
+		t.Fatal("expected set_default_section_variant tool")
 	}
 	if setGroupOverflowModeTool == nil {
 		t.Fatal("expected set_group_overflow_mode tool")
@@ -508,6 +526,39 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	createNewVariantResultPaths := mustStructuredMap(t, createNewVariantMeta["resultIdPathsByType"])
 	if got := mustStringList(t, createNewVariantResultPaths[string(tools.IDTypeSectionVariant)]); len(got) != 1 || got[0] != "variantId" {
 		t.Fatalf("expected create_new_section_variant variantId result path, got %#v", got)
+	}
+	setSectionVariantMeta := mustStructuredMap(t, setSectionVariantTool.Meta[toolMetaNamespace])
+	if setSectionVariantMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_section_variant, got %#v", setSectionVariantMeta["accessType"])
+	}
+	setSectionVariantPaths := mustStructuredMap(t, setSectionVariantMeta["idPathsByType"])
+	if got := mustStringList(t, setSectionVariantPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_section_variant sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, setSectionVariantPaths[string(tools.IDTypeSectionVariant)]); len(got) != 1 || got[0] != "variantId" {
+		t.Fatalf("expected set_section_variant variantId target path, got %#v", got)
+	}
+	setDefaultSectionVariantMeta := mustStructuredMap(t, setDefaultSectionVariantTool.Meta[toolMetaNamespace])
+	if setDefaultSectionVariantMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_default_section_variant, got %#v", setDefaultSectionVariantMeta["accessType"])
+	}
+	setDefaultSectionVariantPaths := mustStructuredMap(t, setDefaultSectionVariantMeta["idPathsByType"])
+	if got := mustStringList(t, setDefaultSectionVariantPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_default_section_variant sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, setDefaultSectionVariantPaths[string(tools.IDTypeSectionVariant)]); len(got) != 1 || got[0] != "variantId" {
+		t.Fatalf("expected set_default_section_variant variantId target path, got %#v", got)
+	}
+	setSectionVariantSortOrderMeta := mustStructuredMap(t, setSectionVariantSortOrderTool.Meta[toolMetaNamespace])
+	if setSectionVariantSortOrderMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_section_variant_sort_order, got %#v", setSectionVariantSortOrderMeta["accessType"])
+	}
+	setSectionVariantSortOrderPaths := mustStructuredMap(t, setSectionVariantSortOrderMeta["idPathsByType"])
+	if got := mustStringList(t, setSectionVariantSortOrderPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_section_variant_sort_order sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, setSectionVariantSortOrderPaths[string(tools.IDTypeSectionVariant)]); len(got) != 1 || got[0] != "orderedVariantIds" {
+		t.Fatalf("expected set_section_variant_sort_order orderedVariantIds target path, got %#v", got)
 	}
 	deleteChildViaDecrementerMeta := mustStructuredMap(t, deleteChildSectionsViaDecrementerTool.Meta[toolMetaNamespace])
 	if deleteChildViaDecrementerMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -788,6 +839,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setSectionStyleColorTool == nil {
 		t.Fatal("expected set_section_style_color tool")
 	}
+	if setSectionVariantTool == nil {
+		t.Fatal("expected set_section_variant tool")
+	}
+	if setSectionVariantSortOrderTool == nil {
+		t.Fatal("expected set_section_variant_sort_order tool")
+	}
 	if setParamTool == nil {
 		t.Fatal("expected set_param_entered_value tool")
 	}
@@ -852,8 +909,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 47 {
-		t.Fatalf("expected 47 registered tool names, got %#v", listNames)
+	if len(listNames) != 50 {
+		t.Fatalf("expected 50 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -5081,6 +5138,389 @@ func TestServerCreateNewSectionVariantAllowsUnscopedStructuralCallsAndTranslates
 	}
 }
 
+func TestServerSetSectionVariantRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"variantId":       "allowed-variant-alt",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_section_variant success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section active variant to be updated, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"variantId":       "blocked-variant",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_section_variant call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetSectionVariantAllowsUnscopedCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant-alt": "30",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"variantId":       "30",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected translated section variant update, got %q", got)
+	}
+}
+
+func TestServerSetSectionVariantRejectsVariantOutsideSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"variantId":       "peer-chat-variant",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_section_variant: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_section_variant call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "section variant must belong to the section") {
+		t.Fatalf("expected section variant membership message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetDefaultSectionVariantRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_default_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"variantId":       "allowed-variant-alt",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_default_section_variant allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_default_section_variant success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section default variant to be updated, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_default_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"variantId":       "blocked-variant",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_default_section_variant blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_default_section_variant call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetDefaultSectionVariantAllowsUnscopedCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant-alt": "30",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_default_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"variantId":       "30",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_default_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_default_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected translated default section variant update, got %q", got)
+	}
+}
+
+func TestServerSetSectionVariantSortOrderRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "allowed-section",
+			"orderedVariantIds": []string{"allowed-variant-alt", "allowed-variant"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant_sort_order allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_section_variant_sort_order success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected reordered variants, got %#v", project.Sections["allowed-section"].VariantIDs)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "blocked-section",
+			"orderedVariantIds": []string{"blocked-variant"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant_sort_order blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_section_variant_sort_order call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetSectionVariantSortOrderAllowsUnscopedCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant":     "16",
+		"allowed-variant-alt": "30",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":   "11",
+			"sectionId":         "14",
+			"orderedVariantIds": []string{"30", "16"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_variant_sort_order: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_variant_sort_order success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected translated reordered variants, got %#v", project.Sections["allowed-section"].VariantIDs)
+	}
+}
+
+func TestServerSetSectionVariantSortOrderRejectsDuplicateVariantIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestAlternateSectionVariant(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "allowed-section",
+			"orderedVariantIds": []string{"allowed-variant", "allowed-variant"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_section_variant_sort_order: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_section_variant_sort_order call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "orderedVariantIds must not contain duplicate variant IDs.") {
+		t.Fatalf("expected duplicate orderedVariantIds message, got %#v", payload["message"])
+	}
+}
+
 func TestServerSetTypeErrorIgnoreRespectsScopedWriteTargets(t *testing.T) {
 	t.Parallel()
 
@@ -6900,6 +7340,54 @@ func mustSeedScopedTestTopLevelTerminal(t *testing.T, runtime *projectstate.Runt
 		t.Fatalf("seed top-level terminal: %v", err)
 	}
 	return sectionID
+}
+
+func mustAddScopedTestAlternateSectionVariant(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		section, ok := project.Sections["allowed-section"]
+		if !ok {
+			return document, fmt.Errorf("%w: %q", projectstate.ErrSectionNotFound, "allowed-section")
+		}
+		if containsString(section.VariantIDs, "allowed-variant-alt") {
+			return document, nil
+		}
+
+		section.VariantIDs = append(section.VariantIDs, "allowed-variant-alt")
+		project.Sections[section.ID] = section
+		project.SectionVariants["allowed-variant-alt"] = projectstate.SectionVariant{
+			ID:     "allowed-variant-alt",
+			ImplID: "allowed-impl-alt",
+		}
+		project.SectionImpls["allowed-impl-alt"] = projectstate.SectionImpl{
+			ID:   "allowed-impl-alt",
+			Kind: projectstate.SectionKindCode,
+			Code: &projectstate.CodeSectionImpl{
+				Language: projectstate.CodeLanguagePython,
+			},
+			Payload: mustRawJSON(t, map[string]any{
+				"id":           "allowed-impl-alt",
+				"type":         "Code",
+				"codeLanguage": "python",
+				"code":         "print('allowed alt')\n",
+				"children":     []any{},
+			}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add scoped test alternate section variant: %v", err)
+	}
 }
 
 func mustAddScopedTestGroupSection(t *testing.T, runtime *projectstate.Runtime) {

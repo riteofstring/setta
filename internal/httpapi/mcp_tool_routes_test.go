@@ -3138,6 +3138,277 @@ func TestMCPToolCallRouteSetGroupOverflowModeAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetSectionVariant(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteAlternateSectionVariant(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_section_variant",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionId":"allowed-section",
+			"variantId":"allowed-variant-alt"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_section_variant success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section active variant to be updated, got %q", got)
+	}
+}
+
+func TestMCPToolCallRouteSetSectionVariantAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteAlternateSectionVariant(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant-alt": "30",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_section_variant",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionId":"14",
+			"variantId":"30"
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_section_variant success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected translated set_section_variant update, got %q", got)
+	}
+}
+
+func TestMCPToolCallRouteSupportsSetDefaultSectionVariant(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteAlternateSectionVariant(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_default_section_variant",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionId":"allowed-section",
+			"variantId":"allowed-variant-alt"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_default_section_variant success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section default variant to be updated, got %q", got)
+	}
+}
+
+func TestMCPToolCallRouteSetSectionVariantSortOrderAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteAlternateSectionVariant(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant":     "16",
+		"allowed-variant-alt": "30",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_section_variant_sort_order",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionId":"14",
+			"orderedVariantIds":["30","16"]
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_section_variant_sort_order success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected reordered route variants, got %#v", project.Sections["allowed-section"].VariantIDs)
+	}
+}
+
 func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	t.Parallel()
 
@@ -4667,6 +4938,54 @@ func containsRouteString(values []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func mustAddRouteAlternateSectionVariant(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		section, ok := project.Sections["allowed-section"]
+		if !ok {
+			return document, fmt.Errorf("%w: %q", projectstate.ErrSectionNotFound, "allowed-section")
+		}
+		if containsRouteString(section.VariantIDs, "allowed-variant-alt") {
+			return document, nil
+		}
+
+		section.VariantIDs = append(section.VariantIDs, "allowed-variant-alt")
+		project.Sections[section.ID] = section
+		project.SectionVariants["allowed-variant-alt"] = projectstate.SectionVariant{
+			ID:     "allowed-variant-alt",
+			ImplID: "allowed-impl-alt",
+		}
+		project.SectionImpls["allowed-impl-alt"] = projectstate.SectionImpl{
+			ID:   "allowed-impl-alt",
+			Kind: projectstate.SectionKindCode,
+			Code: &projectstate.CodeSectionImpl{
+				Language: projectstate.CodeLanguagePython,
+			},
+			Payload: mustRouteRawJSON(t, map[string]any{
+				"id":           "allowed-impl-alt",
+				"type":         "Code",
+				"codeLanguage": "python",
+				"code":         "print('allowed alt')\n",
+				"children":     []any{},
+			}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add route alternate section variant: %v", err)
+	}
 }
 
 func mustAddRouteGroupSection(t *testing.T, runtime *projectstate.Runtime) {

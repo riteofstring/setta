@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 46 {
-		t.Fatalf("expected 46 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 49 {
+		t.Fatalf("expected 49 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 46 {
-		t.Fatalf("expected 46 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 49 {
+		t.Fatalf("expected 49 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "format_code") {
 		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
@@ -129,6 +129,15 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
 		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_default_section_variant") {
+		t.Fatalf("expected set_default_section_variant in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_section_variant") {
+		t.Fatalf("expected set_section_variant in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_section_variant_sort_order") {
+		t.Fatalf("expected set_section_variant_sort_order in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
 		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
@@ -3527,6 +3536,376 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthentic
 	groupPayload := mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
 	if overflow, _ := groupPayload["overflowMode"].(bool); !overflow {
 		t.Fatal("expected group-section overflowMode=true after temp-id app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetSectionVariantOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"variantId":       "allowed-variant-alt",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section active variant to be updated, got %q", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant-alt": "30",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"variantId":       "30",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected translated set_section_variant update, got %q", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetDefaultSectionVariantOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_default_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"variantId":       "allowed-variant-alt",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_default_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_default_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section default variant to be updated, got %q", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetDefaultSectionVariantOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant-alt": "30",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_default_section_variant",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"variantId":       "30",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_default_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_default_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected translated set_default_section_variant update, got %q", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetSectionVariantSortOrderOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "allowed-section",
+			"orderedVariantIds": []string{"allowed-variant-alt", "allowed-variant"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_variant_sort_order: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_variant_sort_order success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected reordered variants, got %#v", project.Sections["allowed-section"].VariantIDs)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantSortOrderOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":       "11",
+		"allowed-section":     "14",
+		"allowed-variant":     "16",
+		"allowed-variant-alt": "30",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_variant_sort_order",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":   "11",
+			"sectionId":         "14",
+			"orderedVariantIds": []string{"30", "16"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_variant_sort_order: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_variant_sort_order success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected translated reordered variants, got %#v", project.Sections["allowed-section"].VariantIDs)
 	}
 }
 
@@ -7147,6 +7526,210 @@ func TestAppIDEMCPToolCallRouteSupportsSetGroupOverflowMode(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetSectionVariant(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_variant",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-section",
+				"variantId":"allowed-variant-alt"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_variant tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_variant tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_variant success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_variant: %v", err)
+	}
+	if got := project.SectionVariantMap["allowed-section"]; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section active variant to be updated, got %q", got)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetDefaultSectionVariant(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_default_section_variant",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-section",
+				"variantId":"allowed-variant-alt"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_default_section_variant tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_default_section_variant tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_default_section_variant success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_default_section_variant: %v", err)
+	}
+	if got := project.Sections["allowed-section"].DefaultVariantID; got != "allowed-variant-alt" {
+		t.Fatalf("expected allowed-section default variant to be updated, got %q", got)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetSectionVariantSortOrder(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPAlternateSectionVariant(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_variant_sort_order",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-section",
+				"orderedVariantIds":["allowed-variant-alt","allowed-variant"]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_variant_sort_order tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_variant_sort_order tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_variant_sort_order success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_variant_sort_order: %v", err)
+	}
+	if !reflect.DeepEqual(project.Sections["allowed-section"].VariantIDs, []string{"allowed-variant-alt", "allowed-variant"}) {
+		t.Fatalf("expected reordered variants, got %#v", project.Sections["allowed-section"].VariantIDs)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsIncrementerStructuralChildCreate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -7540,6 +8123,15 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 	}
 }
 
+func containsAppString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
 func mustAddAppScopedMCPGroupSection(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -7593,6 +8185,64 @@ func mustAddAppScopedMCPGroupSection(t *testing.T, cfg config.Config) {
 	document.Projects[normalizedProject.ID] = normalizedProject
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("save app project document with group section: %v", err)
+	}
+}
+
+func mustAddAppScopedMCPAlternateSectionVariant(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve app project paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open app project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load app project document: %v", err)
+	}
+	project, err := document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before adding alternate section variant: %v", err)
+	}
+	section, ok := project.Sections["allowed-section"]
+	if !ok {
+		t.Fatalf("allowed-section missing from app project")
+	}
+	if containsAppString(section.VariantIDs, "allowed-variant-alt") {
+		return
+	}
+
+	section.VariantIDs = append(section.VariantIDs, "allowed-variant-alt")
+	project.Sections[section.ID] = section
+	project.SectionVariants["allowed-variant-alt"] = projectstate.SectionVariant{
+		ID:     "allowed-variant-alt",
+		ImplID: "allowed-impl-alt",
+	}
+	project.SectionImpls["allowed-impl-alt"] = projectstate.SectionImpl{
+		ID:   "allowed-impl-alt",
+		Kind: projectstate.SectionKindCode,
+		Code: &projectstate.CodeSectionImpl{
+			Language: projectstate.CodeLanguagePython,
+		},
+		Payload: mustRawJSONValue(t, map[string]any{
+			"id":           "allowed-impl-alt",
+			"type":         "Code",
+			"codeLanguage": "python",
+			"code":         "print('allowed alt')\n",
+			"children":     []any{},
+		}),
+	}
+
+	normalizedProject, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize app alternate section variant project: %v", err)
+	}
+	document.Projects[normalizedProject.ID] = normalizedProject
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("save app project document with alternate section variant: %v", err)
 	}
 }
 
@@ -7847,15 +8497,6 @@ func mustReadAppGeneratedPythonCode(t *testing.T, cfg config.Config) string {
 		t.Fatalf("read generated python code: %v", err)
 	}
 	return string(content)
-}
-
-func containsAppString(values []string, needle string) bool {
-	for _, value := range values {
-		if value == needle {
-			return true
-		}
-	}
-	return false
 }
 
 func containsStructuredStringValue(values []any, needle string) bool {

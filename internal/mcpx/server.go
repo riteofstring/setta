@@ -88,12 +88,15 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+	SetDefaultSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (projectstate.Snapshot, error)
 	SetGenCodePrefix(ctx context.Context, projectID string, genCodePrefix string) (projectstate.Snapshot, error)
 	SetGenCodeSuffix(ctx context.Context, projectID string, genCodeSuffix string) (projectstate.Snapshot, error)
 	SetProjectCodegenTargets(ctx context.Context, projectID string, targets []projectstate.ProjectCodegenTarget, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, error)
 	SetGroupOverflowMode(ctx context.Context, projectID string, sectionID string, overflowMode bool) (projectstate.Snapshot, error)
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
+	SetSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (projectstate.Snapshot, error)
+	SetSectionVariantSortOrder(ctx context.Context, projectID string, sectionID string, orderedVariantIDs []string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
 	SetWatchCodeInputs(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
@@ -787,6 +790,120 @@ func newCreateNewSectionVariantHandler(projectState projectStateProvider) tools.
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return result, nil
+	}
+}
+
+func newSetSectionVariantHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		variantID, err := readRequiredStringArgument(arguments, "variantId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped section-variant selection invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetSectionVariant(ctx, projectConfigID, sectionID, variantID); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetDefaultSectionVariantHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		variantID, err := readRequiredStringArgument(arguments, "variantId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped default section-variant invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetDefaultSectionVariant(ctx, projectConfigID, sectionID, variantID); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetSectionVariantSortOrderHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		orderedVariantIDs, err := readRequiredStringArrayArgument(arguments, "orderedVariantIds")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped section-variant reorder invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetSectionVariantSortOrder(ctx, projectConfigID, sectionID, orderedVariantIDs); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
 	}
 }
 
@@ -2662,6 +2779,144 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"variantId"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_section_variant",
+				Description: "Switch a section to a specific existing variant.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:        {"sectionId"},
+						tools.IDTypeSectionVariant: {"variantId"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"section", "variant", "active", "select", "write"},
+				},
+				Handler: newSetSectionVariantHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section variant should be switched.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose active variant should be updated.",
+					},
+					"variantId": map[string]any{
+						"type":        "string",
+						"description": "Existing variant id that should become active for the section.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "variantId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_default_section_variant",
+				Description: "Change which existing variant is treated as the default for a section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:        {"sectionId"},
+						tools.IDTypeSectionVariant: {"variantId"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"section", "variant", "default", "select", "write"},
+				},
+				Handler: newSetDefaultSectionVariantHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section default variant should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose default variant should be updated.",
+					},
+					"variantId": map[string]any{
+						"type":        "string",
+						"description": "Existing variant id that should become the default for the section.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "variantId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_section_variant_sort_order",
+				Description: "Persist the complete ordered list of variants for a section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:        {"sectionId"},
+						tools.IDTypeSectionVariant: {"orderedVariantIds"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"section", "variant", "sort", "order", "write"},
+				},
+				Handler: newSetSectionVariantSortOrderHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section variant order should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose complete variant ordering should be updated.",
+					},
+					"orderedVariantIds": map[string]any{
+						"type":        "array",
+						"description": "Complete list of existing variant ids in the desired order.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "orderedVariantIds"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
 			},
 		})
 
@@ -5259,6 +5514,8 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
 	case projectstate.IsInvalidSectionNameError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
+	case projectstate.IsInvalidSectionVariantSortOrderError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsFormatCodeError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsInvalidCodeObjectNameError(err):
@@ -5290,6 +5547,8 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverCodegenCapability):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantMembership),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCallableSectionRequired),
 		errors.Is(err, projectstate.ErrGroupSectionRequired),
