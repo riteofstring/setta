@@ -347,27 +347,27 @@ func pythonCodegenTargetsEqual(left ProjectCodegenTarget, right ProjectCodegenTa
 		return false, nil
 	}
 
-	leftSectionPolicy, err := compactRawJSON(leftConfig.SectionPolicy)
+	leftSectionPolicy, err := leftConfig.DecodedSectionPolicy()
 	if err != nil {
-		return false, fmt.Errorf("compact project codegen target %q sectionPolicy: %w", left.Language, err)
+		return false, fmt.Errorf("decode project codegen target %q sectionPolicy: %w", left.Language, err)
 	}
-	rightSectionPolicy, err := compactRawJSON(rightConfig.SectionPolicy)
+	rightSectionPolicy, err := rightConfig.DecodedSectionPolicy()
 	if err != nil {
-		return false, fmt.Errorf("compact project codegen target %q sectionPolicy: %w", right.Language, err)
+		return false, fmt.Errorf("decode project codegen target %q sectionPolicy: %w", right.Language, err)
 	}
-	if !bytes.Equal(leftSectionPolicy, rightSectionPolicy) {
+	if !pythonSectionCodegenPoliciesEqual(leftSectionPolicy, rightSectionPolicy) {
 		return false, nil
 	}
 
-	leftCodeObjValuePolicy, err := compactRawJSON(leftConfig.CodeObjValuePolicy)
+	leftCodeObjValuePolicy, err := leftConfig.DecodedCodeObjValuePolicy()
 	if err != nil {
-		return false, fmt.Errorf("compact project codegen target %q codeObjValuePolicy: %w", left.Language, err)
+		return false, fmt.Errorf("decode project codegen target %q codeObjValuePolicy: %w", left.Language, err)
 	}
-	rightCodeObjValuePolicy, err := compactRawJSON(rightConfig.CodeObjValuePolicy)
+	rightCodeObjValuePolicy, err := rightConfig.DecodedCodeObjValuePolicy()
 	if err != nil {
-		return false, fmt.Errorf("compact project codegen target %q codeObjValuePolicy: %w", right.Language, err)
+		return false, fmt.Errorf("decode project codegen target %q codeObjValuePolicy: %w", right.Language, err)
 	}
-	return bytes.Equal(leftCodeObjValuePolicy, rightCodeObjValuePolicy), nil
+	return pythonCodeObjValuePoliciesEqual(leftCodeObjValuePolicy, rightCodeObjValuePolicy), nil
 }
 
 func compactRawJSON(raw RawJSON) (RawJSON, error) {

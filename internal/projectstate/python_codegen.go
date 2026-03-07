@@ -86,10 +86,16 @@ func DecodePythonCodegenTarget(target ProjectCodegenTarget) (PythonCodegenTarget
 			if err != nil {
 				return PythonCodegenTarget{}, err
 			}
+			if _, err := DecodePythonSectionCodegenPolicy(normalized); err != nil {
+				return PythonCodegenTarget{}, err
+			}
 			config.SectionPolicy = normalized
 		case "codeObjValuePolicy":
 			normalized, err := normalizePythonCodegenTargetObjectField(raw, key)
 			if err != nil {
+				return PythonCodegenTarget{}, err
+			}
+			if _, err := DecodePythonCodeObjValuePolicy(normalized); err != nil {
 				return PythonCodegenTarget{}, err
 			}
 			config.CodeObjValuePolicy = normalized

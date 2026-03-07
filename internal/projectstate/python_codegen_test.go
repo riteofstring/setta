@@ -71,6 +71,21 @@ func TestDecodePythonCodegenTargetRejectsUnknownField(t *testing.T) {
 	}
 }
 
+func TestDecodePythonCodegenTargetRejectsInvalidNestedSectionPolicy(t *testing.T) {
+	t.Parallel()
+
+	_, err := DecodePythonCodegenTarget(ProjectCodegenTarget{
+		Language: string(CodeLanguagePython),
+		Payload: RawJSON(`{
+			"language":"python",
+			"sectionPolicy":{"unknownField":true}
+		}`),
+	})
+	if !errors.Is(err, ErrPythonSectionCodegenPolicyFieldUnknown) {
+		t.Fatalf("expected nested section policy error, got %v", err)
+	}
+}
+
 func TestProjectReconcilePythonGeneratedBindingsUsesCanonicalPaths(t *testing.T) {
 	t.Parallel()
 

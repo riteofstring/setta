@@ -35,6 +35,9 @@ Current repo status as of 2026-03-06:
     `internal/projectstate`
   - canonical first-party generated path and binding policy shared across
     Python and plugin codegen roots
+  - typed section/code-obj policy decoding and resolution for Python codegen
+  - a Go-owned export surface for effective Python-codegen section/code-object
+    inputs under `internal/projectstate`
 - Python still owns the first-party Python codegen source-of-truth under:
   - `backend/setta/code_gen/dependency_graph.py`
   - `backend/setta/code_gen/python/code_generator.py`
@@ -42,7 +45,6 @@ Current repo status as of 2026-03-06:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/base_project_manager.py`
 - Go still lacks:
-  - a Go dependency-export surface for Python codegen inputs
   - a Go Python code/meta renderer
   - a Go materializer for `setta_gen.py` / `setta_gen_meta.py`
   - authoritative generated-section creation/update on Python target enablement
@@ -193,6 +195,24 @@ Acceptance:
 
 - later renderers do not need to inspect raw frontend DTOs directly
 
+Status:
+
+- complete
+
+Completed 2026-03-06:
+
+- added typed Go decoding for Python section policy and code-object value policy
+  with Python-matching defaults and representation validation
+- added projectstate-owned resolution helpers for section inclusion/
+  representation and code-object value representation
+- added a dedicated Python-codegen export surface that exposes effective section
+  and code-object inputs through typed Go accessors instead of raw JSON parsing
+- tightened unchanged-Python-target equality so explicit default policy objects
+  compare equal to omitted defaults
+- added focused Go coverage for policy defaults, policy resolution, effective
+  section/code-object export, nested policy validation, and default-policy
+  equality through the mutation route
+
 ### Slice 3: Python Code + Metadata Materializer
 
 Deliver:
@@ -220,9 +240,9 @@ Acceptance:
 
 ## Open Questions
 
-- whether the dependency/codegen input export surface should live entirely under
-  `internal/projectstate` or split into a dedicated package before rendering
-  starts
+- whether the future renderer should stay in `internal/codegen` while consuming
+  the `internal/projectstate` export surface directly, or whether a narrower
+  shared data package is still warranted once rendering logic starts
 
 ## Decisions Made In Slice 1
 
@@ -233,13 +253,21 @@ Acceptance:
 - plugin and first-party Python codegen now share the same project slug/root
   helper so later materializers do not drift on filesystem layout
 
+## Decisions Made In Slice 2
+
+- keep the dependency/codegen input boundary in `internal/projectstate`
+  for now because it already owns effective project-state semantics and target
+  config decoding
+- expose effective section/code-object state through typed Go accessors instead
+  of handing later renderers raw payload JSON blobs
+- normalize Python policy defaults in Go so semantic equality and later
+  rendering logic use one source of truth for omission vs explicit-default cases
+
 ## Next Recommended Step
 
-- Start Slice 2 from this doc:
-  - define the Go-owned export surface for Python codegen/materialization inputs
-  - map the minimum project-state fields needed from the current Python
-    dependency/codegen pipeline
-  - keep the export layer deterministic and transport-free so later renderers
-    can consume typed data instead of raw project DTOs
+- Start Slice 3 from this doc:
+  - build the Go-native renderer/materializer for `setta_gen.py`
+  - build the Go-native renderer/materializer for `setta_gen_meta.py`
+  - integrate that materializer into the authoritative save hook
 - Keep Python target enablement/edit support blocked until at least Slice 3
   exists.

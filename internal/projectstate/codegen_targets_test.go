@@ -298,7 +298,11 @@ func TestRuntimeSetProjectCodegenTargetsTreatsDefaultedPythonPayloadAsUnchanged(
 	_, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
-			Payload:  RawJSON(`{"language":"python"}`),
+			Payload: RawJSON(`{
+				"language":"python",
+				"sectionPolicy":{},
+				"codeObjValuePolicy":{}
+			}`),
 		},
 		{
 			Language: "setta-fixture-backend-codegen:typescript",
