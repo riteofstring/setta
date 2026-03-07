@@ -23,6 +23,7 @@ Current repo status as of 2026-03-07:
 - the focused Watch Code docs are complete
 - the focused `runCode` `paramOverrides` doc is complete
 - the focused project layout/presentation transport doc is complete
+- this focused doc is complete
 - Go already owns the read-side project-state transport boundary used by IDE
   and deployment loads:
   - `internal/projectstate`
@@ -39,7 +40,7 @@ Current repo status as of 2026-03-07:
   - `setCallableHideParams`
   - `setSectionHideUnpinnedParams`
   - `setSectionPinnedParams`
-- the next missing adjacent route cluster is:
+- Go now owns the adjacent route cluster for:
   - `setTopLevelSectionLayout`
   - `createViewMode`
   - `setActiveViewMode`
@@ -228,7 +229,33 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
+
+Completed 2026-03-07:
+
+- added thin IDE handlers in `internal/httpapi/project_routes.go` for:
+  - `setTopLevelSectionLayout`
+  - `createViewMode`
+  - `setActiveViewMode`
+  - `toggleIsEditingViewMode`
+  - `toggleSectionVisibility`
+  - `toggleViewModeUserFacing`
+  - `toggleViewModeTab`
+  - `setViewModeName`
+  - `setViewModeSortOrder`
+  - `deleteViewMode`
+- kept handler behavior thin:
+  - decode payload
+  - validate required ids
+  - call `internal/projectstate`
+  - map explicit project/view-mode validation errors
+- added focused HTTP coverage in `internal/httpapi/project_routes_test.go` for:
+  - end-to-end happy-path mutation persistence across the full route cluster
+  - missing view-mode and section failures
+  - invalid view-mode name `422`
+  - view-mode sort-order `404` / `422` mapping
+- verified the completed slice with:
+  - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/httpapi -count=1 -timeout 180s`
 
 ## Open Questions
 
@@ -240,8 +267,7 @@ Status:
 
 ## Next Recommended Step
 
-- Implement Slice 2 by adding thin IDE handlers and focused HTTP tests for the
-  same route cluster.
-- Once Slice 2 is complete, return for the explicitly deferred
-  `autoLayoutTopLevelSections` or the next project mutation cluster, rather
-  than broadening this doc.
+- Add a new focused doc for the explicitly deferred
+  `autoLayoutTopLevelSections` slice before implementing it.
+- Keep `setSectionName` deferred until there is a separate focused doc for name
+  validation plus rename side effects.

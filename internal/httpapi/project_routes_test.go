@@ -954,6 +954,348 @@ func TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSectio
 	}
 }
 
+func TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	// Persist an initial layout on the focus mode, then create a new mode that clones it.
+	response := post(
+		RouteSetTopLevelSectionLayout,
+		`{"projectConfigId":"project-alpha","topLevelSections":{"parent-section":{"x":0,"y":0,"zIndex":0},"standalone-section":{"x":180,"y":90,"zIndex":4},"moving-section":{"x":220,"y":120,"zIndex":2}}}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 from setTopLevelSectionLayout, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	createResponse := post(RouteCreateViewMode, `{"projectConfigId":"project-alpha"}`)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from createViewMode, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	var createdViewModeID string
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createdViewModeID); err != nil {
+		t.Fatalf("decode created view mode id: %v", err)
+	}
+	if strings.TrimSpace(createdViewModeID) == "" {
+		t.Fatal("expected createViewMode to return a view mode id")
+	}
+
+	requests := []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetTopLevelSectionLayout,
+			body:  `{"projectConfigId":"project-alpha","topLevelSections":{"parent-section":{"x":0,"y":0,"zIndex":0},"standalone-section":{"x":460,"y":310,"zIndex":9},"moving-section":{"x":220,"y":120,"zIndex":2}}}`,
+		},
+		{
+			route: RouteSetViewModeName,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","viewModeId":"%s","name":"  Details  "}`, createdViewModeID),
+		},
+		{
+			route: RouteToggleViewModeUserFacing,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","viewModeId":"%s"}`, createdViewModeID),
+		},
+		{
+			route: RouteToggleViewModeTab,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","viewModeId":"%s"}`, createdViewModeID),
+		},
+		{
+			route: RouteToggleSectionVisibility,
+			body:  `{"projectConfigId":"project-alpha","sectionIds":["moving-section"]}`,
+		},
+		{
+			route: RouteSetViewModeSortOrder,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","orderedViewModeIds":["%s","focus"]}`, createdViewModeID),
+		},
+		{
+			route: RouteToggleIsEditingViewMode,
+			body:  `{"projectConfigId":"project-alpha"}`,
+		},
+		{
+			route: RouteSetActiveViewMode,
+			body:  `{"projectConfigId":"project-alpha","activeViewModeId":"focus"}`,
+		},
+		{
+			route: RouteSetActiveViewMode,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","activeViewModeId":"%s"}`, createdViewModeID),
+		},
+		{
+			route: RouteDeleteViewMode,
+			body:  `{"projectConfigId":"project-alpha","viewModeId":"focus"}`,
+		},
+	}
+
+	for _, requestSpec := range requests {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	// The created mode should own the final active layout after switching and deletion.
+	if got := derefString(payload.ProjectState.ProjectConfig.ActiveViewModeID); got != createdViewModeID {
+		t.Fatalf("expected active view mode %q, got %q", createdViewModeID, got)
+	}
+	if payload.ProjectState.ProjectConfig.IsEditingViewMode {
+		t.Fatal("expected toggleIsEditingViewMode to leave editing mode disabled")
+	}
+	if len(payload.ProjectState.ProjectConfig.ViewModes) != 1 {
+		t.Fatalf("expected one remaining view mode after delete, got %d", len(payload.ProjectState.ProjectConfig.ViewModes))
+	}
+
+	viewMode := payload.ProjectState.ProjectConfig.ViewModes[createdViewModeID]
+	if viewMode.Name != "Details" {
+		t.Fatalf("expected view mode name Details, got %q", viewMode.Name)
+	}
+	if !viewMode.IsUserFacing {
+		t.Fatal("expected created view mode to be user-facing")
+	}
+	if !viewMode.IsTab {
+		t.Fatal("expected created view mode to be a tab")
+	}
+	if viewMode.SortIndex != 0 {
+		t.Fatalf("expected created view mode sort index 0, got %d", viewMode.SortIndex)
+	}
+	if visible := viewMode.VisibilityBySectionID["moving-section"]; visible {
+		t.Fatal("expected moving-section visibility to be toggled off in created view mode")
+	}
+	if got := viewMode.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
+		t.Fatalf("unexpected created view mode layout %#v", got)
+	}
+	if got := payload.ProjectState.ProjectConfig.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
+		t.Fatalf("unexpected active project layout %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSetActiveViewModeReturnsNotFoundForUnknownViewMode(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetActiveViewMode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","activeViewModeId":"missing-view-mode"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"view_mode_not_found"`) {
+		t.Fatalf("expected view_mode_not_found body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesToggleSectionVisibilityReturnsNotFoundForUnknownSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteToggleSectionVisibility,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["missing-section"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"section_not_found"`) {
+		t.Fatalf("expected section_not_found body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesSetViewModeNameReturns422ForInvalidName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetViewModeName,
+		strings.NewReader(`{"projectConfigId":"project-alpha","viewModeId":"focus","name":"settings"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_view_mode_name"`) {
+		t.Fatalf("expected invalid_view_mode_name body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesSetViewModeSortOrderReturns422ForDuplicateIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed second view mode: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetViewModeSortOrder,
+		strings.NewReader(`{"projectConfigId":"project-alpha","orderedViewModeIds":["focus","focus"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_view_mode_sort_order"`) {
+		t.Fatalf("expected invalid_view_mode_sort_order body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesSetViewModeSortOrderReturns404ForUnknownViewMode(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed second view mode: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetViewModeSortOrder,
+		strings.NewReader(`{"projectConfigId":"project-alpha","orderedViewModeIds":["focus","missing-view-mode"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"view_mode_not_found"`) {
+		t.Fatalf("expected view_mode_not_found body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
@@ -1342,6 +1684,103 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize layout presentation route project: %v", err)
+	}
+	return project
+}
+
+func viewModesRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:                  "project-alpha",
+		Name:                "Alpha",
+		ActiveViewModeID:    "focus",
+		IsEditingViewMode:   false,
+		Viewport:            &projectstate.Viewport{X: 5, Y: 10, Zoom: 0.8},
+		ViewportInitialized: true,
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"parent-section":     {X: 0, Y: 0, ZIndex: 0},
+			"standalone-section": {X: 100, Y: 50, ZIndex: 1},
+			"moving-section":     {X: 220, Y: 120, ZIndex: 2},
+		},
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:        "focus",
+				Name:      "Focus",
+				SortIndex: 0,
+				Viewport:  &projectstate.Viewport{X: 5, Y: 10, Zoom: 0.8},
+				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+					"parent-section":     {X: 0, Y: 0, ZIndex: 0},
+					"standalone-section": {X: 100, Y: 50, ZIndex: 1},
+					"moving-section":     {X: 220, Y: 120, ZIndex: 2},
+				},
+				ViewportInitialized: true,
+				VisibilityBySectionID: map[string]bool{
+					"parent-section":     true,
+					"standalone-section": true,
+					"moving-section":     true,
+				},
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"parent-section":     "parent-variant",
+			"standalone-section": "standalone-variant",
+			"moving-section":     "moving-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"parent-section": {
+				ID:               "parent-section",
+				Name:             "Parent Section",
+				VariantIDs:       []string{"parent-variant"},
+				DefaultVariantID: "parent-variant",
+			},
+			"standalone-section": {
+				ID:               "standalone-section",
+				Name:             "Standalone Section",
+				VariantIDs:       []string{"standalone-variant"},
+				DefaultVariantID: "standalone-variant",
+			},
+			"moving-section": {
+				ID:               "moving-section",
+				Name:             "Moving Section",
+				VariantIDs:       []string{"moving-variant"},
+				DefaultVariantID: "moving-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"parent-variant": {
+				ID:     "parent-variant",
+				ImplID: "parent-impl",
+			},
+			"standalone-variant": {
+				ID:     "standalone-variant",
+				ImplID: "standalone-impl",
+			},
+			"moving-variant": {
+				ID:     "moving-variant",
+				ImplID: "moving-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"parent-impl": {
+				ID:      "parent-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "parent-impl", "type": "Group"}),
+			},
+			"standalone-impl": {
+				ID:      "standalone-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "standalone-impl", "type": "TextBlock"}),
+			},
+			"moving-impl": {
+				ID:      "moving-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "moving-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize view modes route project: %v", err)
 	}
 	return project
 }

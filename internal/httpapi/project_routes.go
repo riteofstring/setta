@@ -17,6 +17,16 @@ import (
 
 const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
+	RouteCreateViewMode                 = "/createViewMode"
+	RouteSetActiveViewMode              = "/setActiveViewMode"
+	RouteToggleIsEditingViewMode        = "/toggleIsEditingViewMode"
+	RouteToggleSectionVisibility        = "/toggleSectionVisibility"
+	RouteToggleViewModeUserFacing       = "/toggleViewModeUserFacing"
+	RouteToggleViewModeTab              = "/toggleViewModeTab"
+	RouteSetViewModeName                = "/setViewModeName"
+	RouteSetViewModeSortOrder           = "/setViewModeSortOrder"
+	RouteDeleteViewMode                 = "/deleteViewMode"
+	RouteSetTopLevelSectionLayout       = "/setTopLevelSectionLayout"
 	RouteSetShowParamDisplayNames       = "/setShowParamDisplayNames"
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
@@ -68,6 +78,65 @@ type SetProjectConfigCodegenTargetsRequest struct {
 type GetLatestProjectStateRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
+}
+
+type CreateViewModeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+}
+
+type SetActiveViewModeRequest struct {
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	ActiveViewModeID string  `json:"activeViewModeId"`
+}
+
+type ToggleIsEditingViewModeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+}
+
+type ToggleSectionVisibilityRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionIDs   []string `json:"sectionIds"`
+}
+
+type ToggleViewModeUserFacingRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	ViewModeID   string  `json:"viewModeId"`
+}
+
+type ToggleViewModeTabRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	ViewModeID   string  `json:"viewModeId"`
+}
+
+type SetViewModeNameRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	ViewModeID   string  `json:"viewModeId"`
+	Name         string  `json:"name"`
+}
+
+type SetViewModeSortOrderRequest struct {
+	FrontendOpID       *string  `json:"frontendOpId"`
+	ProjectID          string   `json:"projectConfigId"`
+	OrderedViewModeIDs []string `json:"orderedViewModeIds"`
+}
+
+type DeleteViewModeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	ViewModeID   string  `json:"viewModeId"`
+}
+
+type SetTopLevelSectionLayoutRequest struct {
+	FrontendOpID     *string                                       `json:"frontendOpId"`
+	ProjectID        string                                        `json:"projectConfigId"`
+	TopLevelSections map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections"`
 }
 
 type SetShowParamDisplayNamesRequest struct {
@@ -186,6 +255,16 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleIsEditingViewMode, toggleIsEditingViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleSectionVisibility, toggleSectionVisibilityHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleViewModeUserFacing, toggleViewModeUserFacingHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleViewModeTab, toggleViewModeTabHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewModeName, setViewModeNameHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewModeSortOrder, setViewModeSortOrderHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteViewMode, deleteViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
@@ -254,6 +333,292 @@ func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.Handler
 		}
 
 		if _, err := deps.ProjectState.SetShowParamDisplayNames(r.Context(), projectID, payload.ShowParamDisplayNames); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func createViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		_, viewModeID, err := deps.ProjectState.CreateViewMode(r.Context(), projectID)
+		if err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, viewModeID)
+	}
+}
+
+func setActiveViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetActiveViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		activeViewModeID := strings.TrimSpace(payload.ActiveViewModeID)
+		if activeViewModeID == "" {
+			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetActiveViewMode(r.Context(), projectID, activeViewModeID); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleIsEditingViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleIsEditingViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleIsEditingViewMode(r.Context(), projectID); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleSectionVisibilityHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleSectionVisibilityRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleSectionVisibility(r.Context(), projectID, payload.SectionIDs); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleViewModeUserFacingHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleViewModeUserFacingRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		viewModeID := strings.TrimSpace(payload.ViewModeID)
+		if viewModeID == "" {
+			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleViewModeUserFacing(r.Context(), projectID, viewModeID); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleViewModeTabHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleViewModeTabRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		viewModeID := strings.TrimSpace(payload.ViewModeID)
+		if viewModeID == "" {
+			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleViewModeTab(r.Context(), projectID, viewModeID); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setViewModeNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetViewModeNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		viewModeID := strings.TrimSpace(payload.ViewModeID)
+		if viewModeID == "" {
+			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetViewModeName(r.Context(), projectID, viewModeID, payload.Name); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setViewModeSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetViewModeSortOrderRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetViewModeSortOrder(r.Context(), projectID, payload.OrderedViewModeIDs); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		viewModeID := strings.TrimSpace(payload.ViewModeID)
+		if viewModeID == "" {
+			writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.DeleteViewMode(r.Context(), projectID, viewModeID); err != nil {
+			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setTopLevelSectionLayoutHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetTopLevelSectionLayoutRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetTopLevelSectionLayout(r.Context(), projectID, payload.TopLevelSections); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -772,6 +1137,30 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeViewModeMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrViewModeIDRequired):
+		writeError(w, r, http.StatusBadRequest, "view_mode_id_required", "View mode id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrViewModeNotFound):
+		writeError(w, r, http.StatusNotFound, "view_mode_not_found", "View mode not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case projectstate.IsInvalidViewModeNameError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_view_mode_name", err.Error())
+	case projectstate.IsInvalidViewModeSortOrderError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_view_mode_sort_order", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
