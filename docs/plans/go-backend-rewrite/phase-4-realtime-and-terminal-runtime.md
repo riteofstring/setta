@@ -6,6 +6,9 @@ Phase 4 establishes the first Go-owned realtime and terminal runtime layers:
 connection ownership, subscription scoping, snapshot/delta broadcast semantics,
 and PTY-backed terminal session management.
 
+Focused transport follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-terminal-transport-migration.md`.
+
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.
 Transport libraries should stay thin around explicit Go-owned service
