@@ -1,0 +1,303 @@
+package lsp
+
+import (
+	"context"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"setta/internal/statefs"
+)
+
+// The fixture server exercises the full stdio flow we need for Slice 1:
+// initialize, didOpen/didChange diagnostics, completion, and shutdown.
+func TestSessionFixtureServerDiagnosticsAndCompletion(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	session := newFixtureSession(t, pythonBinary, workspaceRoot)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close session: %v", err)
+		}
+	}()
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 4)
+	documentPath := filepath.Join(workspaceRoot, "fixture.ts")
+	if err := statefs.AtomicWriteFile(documentPath, []byte("const value = __fixture_error__;\n"), 0o644); err != nil {
+		t.Fatalf("seed fixture document: %v", err)
+	}
+
+	if err := session.OpenDocument(ctx, documentPath, "fixturedsl", "const value = __fixture_error__;\n", func(params PublishDiagnosticsParams) {
+		diagnosticsCh <- params
+	}); err != nil {
+		t.Fatalf("open document: %v", err)
+	}
+
+	firstDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if len(firstDiagnostics.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %#v", firstDiagnostics.Diagnostics)
+	}
+	if firstDiagnostics.Diagnostics[0].Code != "fixture-ts" {
+		t.Fatalf("expected diagnostic code fixture-ts, got %#v", firstDiagnostics.Diagnostics[0].Code)
+	}
+	if firstDiagnostics.Diagnostics[0].Message != "Fixture TypeScript diagnostic" {
+		t.Fatalf("unexpected diagnostic message %q", firstDiagnostics.Diagnostics[0].Message)
+	}
+
+	completion, err := session.Completion(ctx, documentPath, 0, 2)
+	if err != nil {
+		t.Fatalf("completion: %v", err)
+	}
+	if len(completion.Items) != 1 {
+		t.Fatalf("expected one completion item, got %#v", completion.Items)
+	}
+	if completion.Items[0].Label != "fixtureCompletion" {
+		t.Fatalf("unexpected completion label %q", completion.Items[0].Label)
+	}
+
+	if err := session.UpdateDocument(ctx, documentPath, "const value = 1;\n"); err != nil {
+		t.Fatalf("update document: %v", err)
+	}
+
+	secondDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if len(secondDiagnostics.Diagnostics) != 0 {
+		t.Fatalf("expected diagnostics to clear after update, got %#v", secondDiagnostics.Diagnostics)
+	}
+
+	if err := session.CloseDocument(documentPath); err != nil {
+		t.Fatalf("close document: %v", err)
+	}
+}
+
+// Request timeouts must fail cleanly so a hung language server does not wedge
+// later slices that depend on completion and diagnostics calls.
+func TestSessionCompletionTimeout(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	serverScript := writeTestScript(t, `
+import json
+import sys
+import time
+
+def send(payload):
+    data = json.dumps(payload).encode("utf-8")
+    sys.stdout.buffer.write(f"Content-Length: {len(data)}\r\n\r\n".encode("utf-8"))
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+
+def read_message():
+    headers = {}
+    while True:
+        line = sys.stdin.buffer.readline()
+        if line == b"":
+            return None
+        if line in {b"\n", b"\r\n"}:
+            break
+        key, _, value = line.decode("utf-8").partition(":")
+        if _ == ":":
+            headers[key.lower().strip()] = value.strip()
+    length = int(headers.get("content-length", "0"))
+    if length <= 0:
+        return None
+    body = sys.stdin.buffer.read(length)
+    if len(body) < length:
+        return None
+    return json.loads(body.decode("utf-8"))
+
+while True:
+    message = read_message()
+    if message is None:
+        raise SystemExit(0)
+    method = message.get("method")
+    message_id = message.get("id")
+    if method == "initialize" and message_id is not None:
+        send({"jsonrpc": "2.0", "id": message_id, "result": {"capabilities": {"textDocumentSync": 2, "completionProvider": {"triggerCharacters": ["."]}}}})
+        continue
+    if method == "shutdown" and message_id is not None:
+        send({"jsonrpc": "2.0", "id": message_id, "result": None})
+        continue
+    if method == "exit":
+        raise SystemExit(0)
+    if method == "textDocument/completion":
+        time.sleep(5)
+`)
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot:  workspaceRoot,
+		Command:        pythonBinary,
+		Args:           []string{serverScript},
+		RequestTimeout: 200 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	defer func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close session: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "fixture.ts")
+	if err := statefs.AtomicWriteFile(documentPath, []byte("const value = 1;\n"), 0o644); err != nil {
+		t.Fatalf("seed fixture document: %v", err)
+	}
+	if err := session.OpenDocument(ctx, documentPath, "fixturedsl", "const value = 1;\n", nil); err != nil {
+		t.Fatalf("open document: %v", err)
+	}
+
+	_, err = session.Completion(ctx, documentPath, 0, 1)
+	if err == nil {
+		t.Fatal("expected completion timeout")
+	}
+	if !errors.Is(err, ErrRequestTimedOut) {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+// The sync service is the app-facing layer for later save-hook wiring, so it
+// should deterministically open, update, and close the tracked document set.
+func TestServiceSyncDocuments(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	session := newFixtureSession(t, pythonBinary, workspaceRoot)
+	service := NewService(session)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := service.Close(context.Background()); err != nil {
+			t.Fatalf("close service: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "service.ts")
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 4)
+	firstContent := "const value = __fixture_error__;\n"
+	if err := statefs.AtomicWriteFile(documentPath, []byte(firstContent), 0o644); err != nil {
+		t.Fatalf("seed service document: %v", err)
+	}
+
+	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{
+		documentPath: {
+			Path:       documentPath,
+			LanguageID: "fixturedsl",
+			Content:    firstContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	}); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+
+	firstDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if len(firstDiagnostics.Diagnostics) != 1 {
+		t.Fatalf("expected first sync diagnostic, got %#v", firstDiagnostics.Diagnostics)
+	}
+
+	secondContent := "const value = 1;\n"
+	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{
+		documentPath: {
+			Path:       documentPath,
+			LanguageID: "fixturedsl",
+			Content:    secondContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	}); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+
+	secondDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if len(secondDiagnostics.Diagnostics) != 0 {
+		t.Fatalf("expected cleared diagnostics after update, got %#v", secondDiagnostics.Diagnostics)
+	}
+
+	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{}); err != nil {
+		t.Fatalf("clear sync: %v", err)
+	}
+}
+
+func newFixtureSession(t *testing.T, pythonBinary string, workspaceRoot string) *Session {
+	t.Helper()
+
+	fixtureServerPath := filepath.Join(
+		repoRoot(t),
+		"tests",
+		"fixtures",
+		"plugins",
+		"backend-language-server-e2e",
+		"backend",
+		"mini_language_server.py",
+	)
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       pythonBinary,
+		Args:          []string{fixtureServerPath},
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	return session
+}
+
+func waitForDiagnostics(t *testing.T, diagnosticsCh <-chan PublishDiagnosticsParams) PublishDiagnosticsParams {
+	t.Helper()
+
+	select {
+	case params := <-diagnosticsCh:
+		return params
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for diagnostics")
+		return PublishDiagnosticsParams{}
+	}
+}
+
+func resolveTestPythonBinary(t *testing.T) string {
+	t.Helper()
+
+	for _, candidate := range []string{"python3", "python"} {
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved
+		}
+	}
+	t.Fatal("python binary not found in PATH")
+	return ""
+}
+
+func writeTestScript(t *testing.T, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "server.py")
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(content)+"\n"), 0o644); err != nil {
+		t.Fatalf("write test script: %v", err)
+	}
+	return path
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	return root
+}
