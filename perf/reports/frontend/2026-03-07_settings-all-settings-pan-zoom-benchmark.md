@@ -2627,3 +2627,88 @@ New benchmark stages:
 - If the next goal is reducing section activation lag, the best target is:
   - the combobox mount / passive-effect path first
   - then the remaining non-dropdown widget layer if needed
+
+## Addendum: `ParamInput` selector churn was forcing broad dropdown rerenders on activation
+
+- Date: `2026-03-07`
+- Goal: test whether the dropdown activation cliff was really a combobox-only problem, or whether broad `ParamInput` rerenders were forcing the combobox layer to do heavy work on every `activeIds` update.
+- Production change:
+  - in `frontend/src/components/Params/ParamItems/ParamInput.tsx`, replace the single `useProjectState` selector that returned `{ baseValue, codeObjType }` with two primitive selectors
+  - the old selector returned a fresh object on every store update, so unrelated project-state changes like section activation invalidated every `ParamInput`
+  - that broad rerender then fanned into the `DropdownInput` / `IdNameCombobox` / `downshift` passive-effect path
+
+### Visual validation
+
+- `dropdown-widgets` after the fix:
+  - `perf/artifacts/frontend/settings-all-settings/dropdown-fix-2026-03-07/dropdown-widgets-after-fix-visible.png`
+- `full` after the fix:
+  - `perf/artifacts/frontend/settings-all-settings/dropdown-fix-2026-03-07/full-after-fix-visible.png`
+
+### Activation rerun after the selector fix
+
+- Method:
+  - same alternating click loop as the previous activation addenda
+  - same `click -> active outline class flips` timing
+  - `6` runs per stage
+  - compare these results directly against the earlier activation split addendum above
+
+- `param-container-shell`
+  - average `79.93ms`
+  - min `27.20ms`
+  - max `145.10ms`
+  - runs `77.90`, `99.00`, `145.10`, `87.30`, `43.10`, `27.20`
+- `dropdown-widgets`
+  - average `80.65ms`
+  - min `30.90ms`
+  - max `104.50ms`
+  - runs `101.40`, `104.50`, `97.10`, `95.60`, `54.40`, `30.90`
+- `non-text-widgets`
+  - average `77.03ms`
+  - min `33.30ms`
+  - max `93.20ms`
+  - runs `91.50`, `93.20`, `89.90`, `90.30`, `64.00`, `33.30`
+  - live counts: `76` combobox inputs, `119` switches
+- `code-widgets`
+  - average `78.98ms`
+  - min `30.30ms`
+  - max `139.90ms`
+  - runs `81.40`, `91.40`, `139.90`, `85.80`, `45.10`, `30.30`
+- `full`
+  - average `82.08ms`
+  - min `33.50ms`
+  - max `104.10ms`
+  - runs `101.00`, `104.10`, `98.00`, `101.60`, `54.30`, `33.50`
+  - live counts: `76` combobox inputs, `119` switches
+
+### Before / after summary
+
+- `dropdown-widgets`: `175.70ms` -> `80.65ms`
+  - delta: `-95.05ms`
+- `non-text-widgets`: `228.05ms` -> `77.03ms`
+  - delta: `-151.02ms`
+- `full`: `254.27ms` -> `82.08ms`
+  - delta: `-172.19ms`
+- After the fix, dropdown activation is no longer materially worse than the stripped shell baseline.
+  - `param-container-shell`: `79.93ms`
+  - `dropdown-widgets`: `80.65ms`
+  - `full`: `82.08ms`
+
+### Trace comparison
+
+- Representative post-fix full activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/dropdown-fix-2026-03-07/full-activation-trace-after-fix.json`
+
+- The old dropdown-specific trace signature is gone from the post-fix full-stage trace.
+  - previous dropdown-only trace: `downshift 1569`, `MinorGC 16`, `MajorGC 2`
+  - post-fix full trace: `downshift 0`, `MinorGC 9`, `MajorGC 1`
+- That lines up with the selector diagnosis:
+  - the expensive part was not just "dropdowns exist"
+  - the expensive part was that section activation invalidated nearly every `ParamInput`, which then forced the dropdown subtree through extra passive-effect work
+
+### Corrected activation conclusion
+
+- The dropdown slowdown is now much more concrete:
+  - `DropdownInput` / `IdNameCombobox` were slow mainly because section activation was needlessly rerendering their parent `ParamInput` wrappers
+  - the fresh-object `useProjectState` selector in `ParamInput` was the trigger
+- Splitting that subscription into primitive selectors collapses the activation cliff across the whole benchmark.
+- There may still be smaller activation costs left in the live widget layer, but the previous dropdown bottleneck is no longer the dominant issue.
