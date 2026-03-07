@@ -138,6 +138,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			Service:        lsp.NewService(pythonSession),
 			Diagnostics:    lspDiagnostics,
 		})

@@ -86,6 +86,122 @@ func TestLSPDiagnosticsRegistryPrunesMissingPythonCodeSections(t *testing.T) {
 	}
 }
 
+// Duplicate generated-document payloads should not rebroadcast.
+func TestLSPDiagnosticsRegistrySkipsDuplicateGeneratedDocumentBroadcast(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 2)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors: map[string]SectionTypeErrors{
+				"section-1": {Params: map[string][]string{"param-1": {"bad type"}}},
+			},
+			IsGenCode: true,
+		},
+		[]LSPDiagnostic{testLSPDiagnostic("unmapped")},
+	)
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors: map[string]SectionTypeErrors{
+				"section-1": {Params: map[string][]string{"param-1": {"bad type"}}},
+			},
+			IsGenCode: true,
+		},
+		[]LSPDiagnostic{testLSPDiagnostic("unmapped")},
+	)
+
+	if len(payloads) != 1 {
+		t.Fatalf("expected one generated-doc broadcast, got %d", len(payloads))
+	}
+}
+
+// Generated diagnostics should merge deterministically across code and metadata
+// documents and clear when the Python target disappears.
+func TestLSPDiagnosticsRegistryMergesAndPrunesGeneratedDocumentDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 4)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors: map[string]SectionTypeErrors{
+				"section-1": {
+					Callable: []string{"callable missing"},
+					Params:   map[string][]string{"param-1": {"bad type"}},
+				},
+			},
+			IsGenCode: true,
+		},
+		nil,
+	)
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentMetadata,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors:    map[string]SectionTypeErrors{},
+			IsGenCode: true,
+		},
+		[]LSPDiagnostic{testLSPDiagnostic("meta-diag")},
+	)
+
+	merged := registry.Snapshot("project-alpha")
+	if merged.GenCode.Errors["section-1"].Callable[0] != "callable missing" {
+		t.Fatalf("unexpected merged callable errors %#v", merged.GenCode.Errors)
+	}
+	if merged.GenCode.Errors["section-1"].Params["param-1"][0] != "bad type" {
+		t.Fatalf("unexpected merged param errors %#v", merged.GenCode.Errors)
+	}
+	if len(merged.UnmappedGenCode) != 1 {
+		t.Fatalf("expected one merged unmapped diagnostic, got %#v", merged.UnmappedGenCode)
+	}
+
+	document, err := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize generated prune document: %v", err)
+	}
+	if err := registry.PruneDocument(document); err != nil {
+		t.Fatalf("prune generated diagnostics: %v", err)
+	}
+
+	pruned := registry.Snapshot("project-alpha")
+	if len(pruned.GenCode.Errors) != 0 {
+		t.Fatalf("expected generated errors to clear, got %#v", pruned.GenCode.Errors)
+	}
+	if len(pruned.UnmappedGenCode) != 0 {
+		t.Fatalf("expected unmapped generated diagnostics to clear, got %#v", pruned.UnmappedGenCode)
+	}
+}
+
 func testLSPDiagnostic(code string) LSPDiagnostic {
 	severity := 1
 	source := "fixture-ts-lsp"

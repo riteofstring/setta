@@ -52,8 +52,8 @@ type Range struct {
 }
 
 type Diagnostic struct {
-	Range    Range `json:"range"`
-	Severity int   `json:"severity,omitempty"`
+	Range    Range  `json:"range"`
+	Severity int    `json:"severity,omitempty"`
 	Source   string `json:"source,omitempty"`
 	Message  string `json:"message"`
 	Code     any    `json:"code,omitempty"`
@@ -92,11 +92,11 @@ type Session struct {
 	writeMu sync.Mutex
 	mu      sync.Mutex
 
-	started   bool
-	closed    bool
-	cmd       *exec.Cmd
-	stdin     io.WriteCloser
-	readerErr error
+	started    bool
+	closed     bool
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	readerErr  error
 	readerDone chan struct{}
 
 	pending             map[string]chan rpcEnvelope
@@ -341,6 +341,28 @@ func (s *Session) CloseDocument(path string) error {
 	})
 }
 
+func (s *Session) SetDiagnosticsCallback(path string, callback DiagnosticsCallback) error {
+	if s == nil {
+		return ErrSessionClosed
+	}
+	uri, err := pathToURI(path)
+	if err != nil {
+		return fmt.Errorf("lsp: callback document uri: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrSessionClosed
+	}
+	if callback != nil {
+		s.diagnosticsCallback[uri] = callback
+	} else {
+		delete(s.diagnosticsCallback, uri)
+	}
+	return nil
+}
+
 func (s *Session) Completion(ctx context.Context, path string, line int, character int) (CompletionResult, error) {
 	var result CompletionResult
 	if err := s.Start(ctx); err != nil {
@@ -546,9 +568,14 @@ func (s *Service) SyncDocuments(ctx context.Context, desired map[string]SyncedDo
 			if err := s.session.OpenDocument(ctx, path, doc.LanguageID, doc.Content, doc.Callback); err != nil {
 				return err
 			}
-		case existing.Content != doc.Content:
-			if err := s.session.UpdateDocument(ctx, path, doc.Content); err != nil {
+		default:
+			if err := s.session.SetDiagnosticsCallback(path, doc.Callback); err != nil {
 				return err
+			}
+			if existing.Content != doc.Content {
+				if err := s.session.UpdateDocument(ctx, path, doc.Content); err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -8,18 +8,21 @@ import (
 	"path/filepath"
 	"sort"
 
+	"setta/internal/codegen"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
 
 type ProjectSynchronizerOptions struct {
 	SettaFilesRoot string
+	RuntimeRoot    string
 	Service        *Service
 	Diagnostics    *projectstate.LSPDiagnosticsRegistry
 }
 
 type ProjectSynchronizer struct {
 	settaFilesRoot string
+	runtimeRoot    string
 	service        *Service
 	diagnostics    *projectstate.LSPDiagnosticsRegistry
 }
@@ -34,6 +37,7 @@ func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchro
 	}
 	return &ProjectSynchronizer{
 		settaFilesRoot: settaFilesRoot,
+		runtimeRoot:    options.RuntimeRoot,
 		service:        options.Service,
 		diagnostics:    options.Diagnostics,
 	}, nil
@@ -48,7 +52,10 @@ func (s *ProjectSynchronizer) MaterializeDocument(ctx context.Context, document 
 	if err != nil {
 		return err
 	}
-	return s.service.SyncDocuments(ctx, documents)
+	if err := s.service.SyncDocuments(ctx, documents); err != nil {
+		return err
+	}
+	return s.reconcileGeneratedDiagnosticsState(document)
 }
 
 func (s *ProjectSynchronizer) Close(ctx context.Context) error {
@@ -142,6 +149,10 @@ func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Proj
 	if err != nil {
 		return nil, err
 	}
+	mapper, err := s.generatedDiagnosticsMapper(project)
+	if err != nil {
+		return nil, err
+	}
 
 	documents := map[string]SyncedDocument{}
 	generatedCodePath, err := s.resolveGeneratedPath(project.GeneratedCodeBinding, projectstate.GeneratedPythonCodeRelativePath(project.Name))
@@ -156,6 +167,7 @@ func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Proj
 		Path:       generatedCodePath,
 		LanguageID: "python",
 		Content:    string(generatedCode),
+		Callback:   s.generatedCodeDiagnosticsCallback(project.ID, mapper),
 	}
 
 	if config.GenerateMetadata {
@@ -171,6 +183,7 @@ func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Proj
 			Path:       generatedMetadataPath,
 			LanguageID: "python",
 			Content:    string(generatedMetadata),
+			Callback:   s.generatedMetadataDiagnosticsCallback(project.ID, mapper),
 		}
 	}
 
@@ -235,4 +248,110 @@ func normalizeDiagnosticCode(value any) any {
 	default:
 		return typed
 	}
+}
+
+func (s *ProjectSynchronizer) generatedDiagnosticsMapper(project projectstate.Project) (*codegen.PythonGeneratedDiagnosticsMapper, error) {
+	if s == nil || s.diagnostics == nil {
+		return nil, nil
+	}
+	passwordSecrets, err := codegen.ReadPythonPasswordSecrets(s.runtimeRoot)
+	if err != nil {
+		return nil, err
+	}
+	mapper, ok, err := codegen.NewPythonGeneratedDiagnosticsMapper(project, codegen.PythonGeneratedDiagnosticsMapperOptions{
+		PasswordSecrets: passwordSecrets,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	return mapper, nil
+}
+
+func (s *ProjectSynchronizer) generatedCodeDiagnosticsCallback(
+	projectID string,
+	mapper *codegen.PythonGeneratedDiagnosticsMapper,
+) DiagnosticsCallback {
+	if s == nil || s.diagnostics == nil || mapper == nil {
+		return nil
+	}
+
+	return func(params PublishDiagnosticsParams) {
+		genCode, unmapped := mapper.MapCodeDiagnostics(toPythonGeneratedDiagnostics(params.Diagnostics), params.URI)
+		s.diagnostics.UpdateGeneratedDocument(
+			projectID,
+			projectstate.GeneratedDiagnosticsDocumentCode,
+			genCode,
+			unmapped,
+		)
+	}
+}
+
+func (s *ProjectSynchronizer) generatedMetadataDiagnosticsCallback(
+	projectID string,
+	mapper *codegen.PythonGeneratedDiagnosticsMapper,
+) DiagnosticsCallback {
+	if s == nil || s.diagnostics == nil || mapper == nil {
+		return nil
+	}
+
+	return func(params PublishDiagnosticsParams) {
+		s.diagnostics.UpdateGeneratedDocument(
+			projectID,
+			projectstate.GeneratedDiagnosticsDocumentMetadata,
+			projectstate.ProjectConfigDiagnostics{
+				ProjectID: projectID,
+				Errors:    map[string]projectstate.SectionTypeErrors{},
+				IsGenCode: true,
+			},
+			mapper.MapMetadataDiagnostics(toPythonGeneratedDiagnostics(params.Diagnostics), params.URI),
+		)
+	}
+}
+
+func toPythonGeneratedDiagnostics(diagnostics []Diagnostic) []codegen.PythonGeneratedDiagnostic {
+	output := make([]codegen.PythonGeneratedDiagnostic, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		output = append(output, codegen.PythonGeneratedDiagnostic{
+			Message:  diagnostic.Message,
+			Severity: diagnostic.Severity,
+			Code:     normalizeDiagnosticCode(diagnostic.Code),
+			Source:   diagnostic.Source,
+			Range: projectstate.LSPDiagnosticRange{
+				Start: projectstate.LSPDiagnosticPosition{
+					Line:      diagnostic.Range.Start.Line,
+					Character: diagnostic.Range.Start.Character,
+				},
+				End: projectstate.LSPDiagnosticPosition{
+					Line:      diagnostic.Range.End.Line,
+					Character: diagnostic.Range.End.Character,
+				},
+			},
+		})
+	}
+	return output
+}
+
+func (s *ProjectSynchronizer) reconcileGeneratedDiagnosticsState(document projectstate.Document) error {
+	if s == nil || s.diagnostics == nil {
+		return nil
+	}
+
+	for projectID, project := range document.Projects {
+		if !project.HasPythonCodegenTarget() {
+			s.diagnostics.ClearGeneratedDocument(projectID, projectstate.GeneratedDiagnosticsDocumentCode)
+			s.diagnostics.ClearGeneratedDocument(projectID, projectstate.GeneratedDiagnosticsDocumentMetadata)
+			continue
+		}
+		target, ok, err := project.PythonCodegenTarget()
+		if err != nil {
+			return err
+		}
+		if !ok || !target.GenerateMetadata {
+			s.diagnostics.ClearGeneratedDocument(projectID, projectstate.GeneratedDiagnosticsDocumentMetadata)
+		}
+	}
+	return nil
 }

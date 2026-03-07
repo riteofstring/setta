@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -231,6 +232,101 @@ func TestServiceSyncDocuments(t *testing.T) {
 
 	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{}); err != nil {
 		t.Fatalf("clear sync: %v", err)
+	}
+}
+
+// Re-syncing an unchanged document should still refresh the diagnostics
+// callback so generated-code mapping can follow policy changes without forcing
+// a synthetic content edit.
+func TestServiceSyncDocumentsRefreshesDiagnosticsCallbackWithoutContentChanges(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	session := newFixtureSession(t, pythonBinary, workspaceRoot)
+	service := NewService(session)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := service.Close(context.Background()); err != nil {
+			t.Fatalf("close service: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "service.ts")
+	documentContent := "const value = 1;\n"
+	if err := statefs.AtomicWriteFile(documentPath, []byte(documentContent), 0o644); err != nil {
+		t.Fatalf("seed service document: %v", err)
+	}
+
+	firstCh := make(chan PublishDiagnosticsParams, 1)
+	secondCh := make(chan PublishDiagnosticsParams, 1)
+	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{
+		documentPath: {
+			Path:       documentPath,
+			LanguageID: "fixturedsl",
+			Content:    documentContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				firstCh <- params
+			},
+		},
+	}); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	initialDiagnostics := waitForDiagnostics(t, firstCh)
+	if len(initialDiagnostics.Diagnostics) != 0 {
+		t.Fatalf("expected clean initial diagnostics, got %#v", initialDiagnostics.Diagnostics)
+	}
+
+	if err := service.SyncDocuments(ctx, map[string]SyncedDocument{
+		documentPath: {
+			Path:       documentPath,
+			LanguageID: "fixturedsl",
+			Content:    documentContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				secondCh <- params
+			},
+		},
+	}); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+
+	uri, err := pathToURI(documentPath)
+	if err != nil {
+		t.Fatalf("path to uri: %v", err)
+	}
+	params, err := json.Marshal(PublishDiagnosticsParams{
+		URI: uri,
+		Diagnostics: []Diagnostic{
+			{
+				Message: "Fixture TypeScript diagnostic",
+				Code:    "fixture-ts",
+				Range: Range{
+					Start: Position{Line: 0, Character: 0},
+					End:   Position{Line: 0, Character: 1},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal publish diagnostics params: %v", err)
+	}
+
+	session.dispatchEnvelope(rpcEnvelope{
+		Method: "textDocument/publishDiagnostics",
+		Params: params,
+	})
+
+	select {
+	case <-firstCh:
+		t.Fatal("expected stale callback to be replaced")
+	case delivered := <-secondCh:
+		if len(delivered.Diagnostics) != 1 {
+			t.Fatalf("expected refreshed callback diagnostics, got %#v", delivered.Diagnostics)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for refreshed diagnostics callback")
 	}
 }
 

@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -57,11 +58,20 @@ type LSPDiagnosticsRegistry struct {
 
 type projectLSPDiagnosticsState struct {
 	projectID       string
-	genCode         ProjectConfigDiagnostics
 	rawCodeSections map[string][]LSPDiagnostic
 	codeSections    map[string][]LSPDiagnostic
-	unmappedGenCode []LSPDiagnostic
+	generatedDocs   map[string]generatedDocumentDiagnostics
 }
+
+type generatedDocumentDiagnostics struct {
+	Errors   map[string]SectionTypeErrors
+	Unmapped []LSPDiagnostic
+}
+
+const (
+	GeneratedDiagnosticsDocumentCode     = "generated_code"
+	GeneratedDiagnosticsDocumentMetadata = "generated_metadata"
+)
 
 func NewLSPDiagnosticsRegistry(options LSPDiagnosticsRegistryOptions) *LSPDiagnosticsRegistry {
 	return &LSPDiagnosticsRegistry{
@@ -156,13 +166,21 @@ func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {
 	onChange := r.onChange
 
 	for projectID, state := range r.projects {
-		validSectionIDs, ok := validProjectSectionIDs[projectID]
+		project, ok := document.Projects[projectID]
 		if !ok {
 			delete(r.projects, projectID)
 			continue
 		}
-
+		validSectionIDs := validProjectSectionIDs[projectID]
+		if validSectionIDs == nil {
+			validSectionIDs = map[string]struct{}{}
+		}
 		changed := false
+		if !project.HasPythonCodegenTarget() && len(state.generatedDocs) > 0 {
+			state.generatedDocs = map[string]generatedDocumentDiagnostics{}
+			changed = true
+		}
+
 		for sectionID := range state.rawCodeSections {
 			if _, ok := validSectionIDs[sectionID]; ok {
 				continue
@@ -200,24 +218,20 @@ func (r *LSPDiagnosticsRegistry) projectStateLocked(projectID string) projectLSP
 		return state
 	}
 	return projectLSPDiagnosticsState{
-		projectID: projectID,
-		genCode: ProjectConfigDiagnostics{
-			ProjectID: projectID,
-			Errors:    map[string]SectionTypeErrors{},
-			IsGenCode: true,
-		},
+		projectID:       projectID,
 		rawCodeSections: map[string][]LSPDiagnostic{},
 		codeSections:    map[string][]LSPDiagnostic{},
-		unmappedGenCode: []LSPDiagnostic{},
+		generatedDocs:   map[string]generatedDocumentDiagnostics{},
 	}
 }
 
 func (s projectLSPDiagnosticsState) snapshot() LSPDiagnosticsPayload {
+	genCode, unmappedGenCode := mergeGeneratedDocumentDiagnostics(s.projectID, s.generatedDocs)
 	return LSPDiagnosticsPayload{
 		ProjectID:       s.projectID,
-		GenCode:         cloneProjectConfigDiagnostics(s.genCode),
+		GenCode:         genCode,
 		CodeSections:    cloneCodeSectionDiagnosticsMap(s.codeSections),
-		UnmappedGenCode: cloneLSPDiagnostics(s.unmappedGenCode),
+		UnmappedGenCode: unmappedGenCode,
 	}
 }
 
@@ -282,4 +296,126 @@ func diagnosticsEqual(left []LSPDiagnostic, right []LSPDiagnostic) bool {
 		return true
 	}
 	return reflect.DeepEqual(left, right)
+}
+
+func (r *LSPDiagnosticsRegistry) UpdateGeneratedDocument(
+	projectID string,
+	documentKey string,
+	diagnostics ProjectConfigDiagnostics,
+	unmapped []LSPDiagnostic,
+) {
+	trimmedProjectID := strings.TrimSpace(projectID)
+	trimmedDocumentKey := strings.TrimSpace(documentKey)
+	if r == nil || trimmedProjectID == "" || trimmedDocumentKey == "" {
+		return
+	}
+
+	next := generatedDocumentDiagnostics{
+		Errors:   cloneSectionTypeErrorsMap(diagnostics.Errors),
+		Unmapped: cloneLSPDiagnostics(unmapped),
+	}
+
+	r.mu.Lock()
+	state := r.projectStateLocked(trimmedProjectID)
+	existing, ok := state.generatedDocs[trimmedDocumentKey]
+	if ok && reflect.DeepEqual(existing, next) {
+		r.projects[trimmedProjectID] = state
+		r.mu.Unlock()
+		return
+	}
+	state.generatedDocs[trimmedDocumentKey] = next
+	payload := state.snapshot()
+	onChange := r.onChange
+	r.projects[trimmedProjectID] = state
+	r.mu.Unlock()
+
+	if onChange != nil {
+		onChange(payload)
+	}
+}
+
+func (r *LSPDiagnosticsRegistry) ClearGeneratedDocument(projectID string, documentKey string) {
+	trimmedProjectID := strings.TrimSpace(projectID)
+	trimmedDocumentKey := strings.TrimSpace(documentKey)
+	if r == nil || trimmedProjectID == "" || trimmedDocumentKey == "" {
+		return
+	}
+
+	r.mu.Lock()
+	state, ok := r.projects[trimmedProjectID]
+	if !ok {
+		r.mu.Unlock()
+		return
+	}
+	if _, exists := state.generatedDocs[trimmedDocumentKey]; !exists {
+		r.mu.Unlock()
+		return
+	}
+	delete(state.generatedDocs, trimmedDocumentKey)
+	payload := state.snapshot()
+	onChange := r.onChange
+	r.projects[trimmedProjectID] = state
+	r.mu.Unlock()
+
+	if onChange != nil {
+		onChange(payload)
+	}
+}
+
+func cloneSectionTypeErrorsMap(input map[string]SectionTypeErrors) map[string]SectionTypeErrors {
+	if len(input) == 0 {
+		return map[string]SectionTypeErrors{}
+	}
+	cloned := make(map[string]SectionTypeErrors, len(input))
+	for sectionID, errors := range input {
+		cloned[sectionID] = cloneSectionTypeErrors(errors)
+	}
+	return cloned
+}
+
+func cloneSectionTypeErrors(input SectionTypeErrors) SectionTypeErrors {
+	cloned := SectionTypeErrors{
+		Callable: append([]string(nil), input.Callable...),
+		Params:   map[string][]string{},
+	}
+	for paramID, messages := range input.Params {
+		cloned.Params[paramID] = append(cloned.Params[paramID], messages...)
+	}
+	return cloned
+}
+
+func mergeGeneratedDocumentDiagnostics(
+	projectID string,
+	generatedDocs map[string]generatedDocumentDiagnostics,
+) (ProjectConfigDiagnostics, []LSPDiagnostic) {
+	mergedErrors := map[string]SectionTypeErrors{}
+	mergedUnmapped := make([]LSPDiagnostic, 0)
+	documentKeys := make([]string, 0, len(generatedDocs))
+	for documentKey := range generatedDocs {
+		documentKeys = append(documentKeys, documentKey)
+	}
+	sort.Strings(documentKeys)
+
+	for _, documentKey := range documentKeys {
+		document := generatedDocs[documentKey]
+		for sectionID, errors := range document.Errors {
+			existing := mergedErrors[sectionID]
+			existing.Callable = append(existing.Callable, errors.Callable...)
+			if existing.Params == nil {
+				existing.Params = map[string][]string{}
+			}
+			for paramID, messages := range errors.Params {
+				existing.Params[paramID] = append(existing.Params[paramID], messages...)
+			}
+			mergedErrors[sectionID] = existing
+		}
+		mergedUnmapped = append(mergedUnmapped, document.Unmapped...)
+	}
+
+	return ProjectConfigDiagnostics{
+			ProjectID: projectID,
+			Errors:    mergedErrors,
+			IsGenCode: true,
+		},
+		cloneLSPDiagnostics(mergedUnmapped)
 }

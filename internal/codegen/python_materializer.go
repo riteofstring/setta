@@ -408,6 +408,13 @@ func readPasswordSecrets(path string) (map[string]string, error) {
 	return secrets, nil
 }
 
+func ReadPythonPasswordSecrets(runtimeRoot string) (map[string]string, error) {
+	if strings.TrimSpace(runtimeRoot) == "" {
+		return map[string]string{}, nil
+	}
+	return readPasswordSecrets(filepath.Join(runtimeRoot, "secrets", pythonPasswordStoreFileName))
+}
+
 func pruneStalePythonGeneratedOutputs(
 	settaFilesRoot string,
 	expectedCodePaths map[string]struct{},
