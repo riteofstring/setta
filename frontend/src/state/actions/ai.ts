@@ -1,4 +1,8 @@
 import {
+  replaceAgentNativeSlashCommandsCache,
+  resolveAgentNativeSlashCommandsByProjectConfigId,
+} from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
+import {
   receiveAgenticScopeViolationEdges,
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
@@ -940,6 +944,16 @@ function scheduleAgentRunsRetry(transientFailureCount: number): void {
   }, delayMs);
 }
 
+function hydrateAgentNativeSlashCommandsStorageFromRuns(
+  runs: AgentRun[],
+): void {
+  replaceAgentNativeSlashCommandsCache(
+    resolveAgentNativeSlashCommandsByProjectConfigId({
+      runs,
+    }),
+  );
+}
+
 export async function loadAgentRuns() {
   if (agentRunsLoadPromise) {
     await agentRunsLoadPromise;
@@ -998,6 +1012,7 @@ export async function loadAgentRuns() {
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
+  hydrateAgentNativeSlashCommandsStorageFromRuns(payload);
   useAIStore.setState({
     agentRuns: payload,
     agentRunsAuthorityState: "ready",
@@ -1885,7 +1900,9 @@ function mergeChatSectionState(
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],
-    preserveLocalOnlyMessages: preserveWaitingForResponse,
+    // Preserve local-only activity rows so thought/tool sequencing is not
+    // flattened by a hydration refresh.
+    preserveLocalOnlyMessages: true,
   });
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
@@ -2044,7 +2061,7 @@ function applyLLMChatHydrationSuccess({
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
+      preserveLocalOnlyMessages: true,
     });
     return {
       chatDetails: {
@@ -2103,7 +2120,7 @@ function applyExternalChatHydrationSuccess({
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
+      preserveLocalOnlyMessages: true,
     });
     return {
       chatDetails: {

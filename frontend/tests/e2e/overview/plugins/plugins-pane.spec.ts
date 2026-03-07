@@ -7,6 +7,7 @@ import {
   cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
+  openOverviewMoreDestination,
   postBackend,
   setOverviewTab,
 } from "../../helpers";
@@ -183,7 +184,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   expect(commandRunCount).toBeGreaterThan(1);
 
-  await page.locator("#overview-tab-plugins").click();
+  await openOverviewMoreDestination(page, "Plugins");
   const fixtureCommandButton = page.getByRole("button", {
     name: "Fixture Command",
     exact: true,
@@ -1486,10 +1487,12 @@ test("plugins pane shows restart rejection and request-failure messaging", async
   await restartButton.click();
   await expect.poll(() => restartRequestCount).toBe(1);
   await expect(
-    page.getByText(
-      "Manual restart required: setta restart. Programmatic restart request was rejected.",
-      { exact: true },
-    ).first(),
+    page
+      .getByText(
+        "Manual restart required: setta restart. Programmatic restart request was rejected.",
+        { exact: true },
+      )
+      .first(),
   ).toBeVisible();
 
   allowExpectedApiError(page, {
@@ -1667,7 +1670,7 @@ test("opening plugins tab does not trigger redundant plugin runtime refresh", as
 
     const runtimeCountBeforePluginsTab = pluginRuntimeRequestCount;
 
-    await page.locator("#overview-tab-plugins").click();
+    await openOverviewMoreDestination(page, "Plugins");
     await expect(
       page.getByText("Plugin Runtime", { exact: true }),
     ).toBeVisible();
