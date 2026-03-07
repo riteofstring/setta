@@ -13,9 +13,10 @@ those helpers:
 - rename/remove behavior over existing Callable sections
 - Python `genCodePrefix` import bookkeeping for Watch Code-owned callables
 - signature-change reuse of the shared Go callable refetch path
+- warning-notification emission for unresolved signature help
 
-The only remaining work after Step 2 is warning-notification emission for
-unresolved signature help.
+The remaining work after this doc is the later inline-edit / bound code-file
+reuse boundary.
 
 ## Status
 
@@ -43,8 +44,11 @@ Current repo status as of 2026-03-07:
       callable target for each linked section
     - unavailable signature context now preserves existing params while still
       updating registry signature/body metadata
-  - the remaining gap is now Step 3 only:
-    - unresolved signature-help warning notifications still are not emitted
+  - Step 3 is now complete:
+    - unresolved signature-help warning notifications now emit from Go as
+      deduped frontend `Notification` websocket messages
+  - the remaining Watch Code gap is now outside this doc:
+    - inline code-section and bound code-file reuse still remain Python-owned
 
 ## Scope
 
@@ -56,6 +60,7 @@ This focused doc covers:
   scan/delete plans
 - alias-safe Python `genCodePrefix` import add/remove updates
 - Go-owned signature-change reuse of the shared callable refetch path
+- deduped warning-notification emission for unresolved signature help
 - registry reconciliation for:
   - `callableName`
   - `sectionIds`
@@ -63,7 +68,6 @@ This focused doc covers:
 
 ## Non-Goals
 
-- warning-notification websocket emission
 - broad section-creation APIs for unrelated section kinds
 - inline code-section / bound code-file Watch Code reuse
 - widening frontend transport
@@ -175,6 +179,8 @@ Completed in this chunk:
 
 ### Step 3: Warning Notifications And Final Verification
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - deduped warning notification emission for unresolved signature help
@@ -184,6 +190,15 @@ Acceptance:
 
 - the remaining Watch Code gap is narrowed to later inline-edit / bound-code
   file reuse only
+
+Completed in this chunk:
+
+- `internal/realtime/messages.go`
+- `internal/app/watch_code_notifications.go`
+- `internal/app/watch_code_notifications_test.go`
+- `internal/app/websocket_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestWatchCodeWarningTrackerDedupesUntilCallableStateChanges|TestAppBroadcastsDedupedWatchCodeSignatureWarnings|TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks' -count=1 -timeout 180s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/realtime ./internal/app -count=1 -timeout 180s`
 
 ## Verification Expectations
 
@@ -197,10 +212,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 3 next:
+Execute Step 1 in
+`phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md` next:
 
-- emit deduped warning notifications when Watch Code signature help returns
-  `no_match`
-- keep the completed section-mutation and refetch helpers as the only Watch
-  Code section owner
-- finish the bounded runtime/app verification around that warning path
+- port the authoritative bound-code-section Watch Code hook into Go
+- preserve LSP-before-Watch-Code ordering for inline edits
+- reuse the completed watcher/apply/refetch/warning helpers instead of adding a
+  second diff path

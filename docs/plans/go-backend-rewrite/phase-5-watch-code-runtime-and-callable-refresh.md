@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc narrows the next bounded Phase 5 follow-up after the completed Go LSP
+This doc captured the bounded Phase 5 follow-up after the completed Go LSP
 runtime, snapshot completion, manual `setCallable`, and generated-diagnostics
 auto-refetch slices.
 
@@ -14,8 +14,9 @@ Go now owns the callable refresh primitives that Watch Code should reuse:
 - generated-diagnostics callable auto-refetch
 - mismatch-refetch policy lookup from the Go settings runtime
 
-What Go still does not own is the Watch Code runtime that should drive those
-primitives.
+That Watch Code runtime ownership is now complete. The remaining Watch Code
+backend gap is the code-section / bound code-file reuse tracked in
+`phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`.
 
 ## Status
 
@@ -41,7 +42,8 @@ Current repo status as of 2026-03-07:
   - `internal/projectstate/callable.go`
   - `internal/projectstate/callable_refetch.go`
   - `internal/lsp/project_synchronizer.go`
-- Python still owns the full Watch Code subsystem in:
+- Python still owns only the remaining inline-edit / bound code-file reuse
+  boundary in:
   - `backend/setta/project_state/watch_code.py`
   - `backend/setta/project_state/code_files.py`
   - `backend/setta/project_state/base_project_manager.py`
@@ -58,21 +60,21 @@ Current repo status as of 2026-03-07:
   - saved main project-state snapshots now sync normalized Watch Code configs
     into the runtime owner through the main runtime `AfterSave` hook
 
-That means the active gap has narrowed past runtime ownership and into
-project-state mutation application.
+That means the original runtime and project-state mutation gaps are now closed
+in Go.
 
-The active Slice 2 execution work is now narrowed in:
+The completed migration work is now captured in:
 
 - `docs/plans/go-backend-rewrite/phase-5-watch-code-scan-diff-and-manager-foundation.md`
 - Slice 2 Step 1 in that focused doc is now complete:
   - `internal/watchcode` owns parser-backed callable discovery and
     deterministic scan/delete/move planning
   - Slice 1 baseline parsing now reuses that shared parser owner
-- Slice 2 Step 2 is now in progress:
+- Slice 2 Step 2 is now complete:
   - `internal/watchcode` owns config snapshot normalization, desired watch-dir
     derivation, path matching, missing-dir ancestor fallback, file-event
     routing, file-identity snapshots, and the polling runtime owner
-- the next focused apply/mutation doc is now in progress:
+- the focused apply/mutation doc is now complete:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
   - Step 1 there is now complete:
     - Go-owned file update/delete apply helpers now own move-aware
@@ -81,7 +83,7 @@ The active Slice 2 execution work is now narrowed in:
       helpers
     - additions now materialize placeholder registry entries with empty section
       lists until section mutation lands
-- the remaining Slice 2/3 gap is now the section-mutation boundary:
+- the section-mutation boundary is now complete:
   - Step 1 there is now complete:
     - Go owns Callable section backfill/create/remove/rename
     - Python import-prefix updates for Watch Code now run in Go
@@ -92,9 +94,17 @@ The active Slice 2 execution work is now narrowed in:
       for linked sections
     - unavailable signature context preserves existing params instead of
       guessing
-  - warning notifications still sit above that boundary
-  - the active section-mutation work is now narrowed in:
+  - Step 3 there is now complete:
+    - unresolved signature-help `no_match` warnings now emit as deduped
+      frontend `Notification` websocket messages from Go
+  - the completed section-mutation work remains captured in:
     - `docs/plans/go-backend-rewrite/phase-5-watch-code-callable-section-mutation.md`
+  - the remaining Watch Code backend gap is now narrowed to code-section and
+    bound code-file reuse:
+    - inline code-section updates and bound code-file reloads still reuse the
+      Python-owned `handle_code_section_update` path
+  - the active remaining Watch Code work is now narrowed in:
+    - `docs/plans/go-backend-rewrite/phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
 - the completed runtime-owner work remains captured in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
   - file-identity snapshots remain the chosen move-detection owner
@@ -153,7 +163,7 @@ The current Python Watch Code path is larger than a route pair:
 4. file scans parse top-level Python definitions/classes, diff against the
    registry/baseline, and create/remove/rename/update callable sections
 5. signature changes reuse `gen_code.set_callable(..., refetch=True)`
-6. unresolved signature help broadcasts a warning notification
+6. unresolved signature help broadcasts a deduped warning notification
 7. inline code edits and bound code-file reloads both feed the same
    `handle_code_section_update` pathway
 
@@ -162,18 +172,14 @@ It is not just "call `RefetchCallableParams` when a file changes."
 
 ## Dependency Finding
 
-Four source-of-truth layers are still missing in Go:
+The original broad Watch Code gaps are now closed in Go except for one
+remaining source-of-truth layer:
 
-1. Watch Code fields on `projectstate.Project` and `projectview.ProjectConfig`
-2. Watch Code route transport for the existing frontend controls
-3. a Go watch manager that owns parsing, diffing, registry/baseline updates,
-   and watcher lifecycle
-4. a Go code-file / inline-edit integration path that reuses the new callable
-   refresh helper
+1. a Go code-section / bound-code-file integration path that reuses the
+   completed Watch Code apply, section-mutation, refetch, and warning helpers
 
-Without those layers, implementing only the callable-refresh portion would
-recreate Python-shaped hidden state and leave the active UI pointed at missing
-transport.
+Without that layer, Watch Code behavior still differs depending on whether a
+Python edit arrives through the watcher runtime or through a bound code section.
 
 ## Working Decisions
 

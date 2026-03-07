@@ -2,15 +2,14 @@
 
 ## Purpose
 
-This doc narrows the next Watch Code boundary after the completed runtime-owner
-handoff in `phase-5-watch-code-file-identity-runtime-owner.md`.
+This doc captured the next Watch Code boundary after the completed
+runtime-owner handoff in `phase-5-watch-code-file-identity-runtime-owner.md`.
 
 Go now owns Watch Code state, route transport, parser/diff planning, manager
-state, file-identity snapshots, the polling runtime owner, and IDE app
-lifecycle wiring. What is still missing is the persisted project-state mutation
-path above that runtime: file update/delete apply helpers, callable section
-create/remove/rename behavior, and reuse of the completed callable-refresh
-runtime.
+state, file-identity snapshots, the polling runtime owner, IDE app lifecycle
+wiring, and the persisted project-state mutation path above that runtime. The
+remaining Watch Code backend gap now sits past this doc and in the later inline
+code-section / bound code-file reuse path.
 
 ## Status
 
@@ -27,17 +26,21 @@ Current repo status as of 2026-03-07:
   - file-identity snapshots and polling runtime owner
   - IDE app startup/shutdown wiring
   - save-time sync from main project-state snapshots into the runtime owner
-- Python still owns the apply/mutation layer in:
+- Python still owns only the later inline-edit / bound code-file reuse layer
+  in:
   - `backend/setta/project_state/watch_code.py`
+  - `backend/setta/project_state/code_files.py`
   - `backend/setta/project_state/base_project_manager.py`
-- the current active Go gap is now:
-  - Go now owns file update/delete apply helpers and runtime callback wiring
-    into persisted project state
-  - Watch Code section create/remove/rename behavior is now Go-owned
-  - watcher-triggered callable refetch is now routed through the Go Watch Code
+- this focused apply/mutation slice is now complete:
+  - Go owns file update/delete apply helpers and runtime callback wiring into
+    persisted project state
+  - Watch Code section create/remove/rename behavior is Go-owned
+  - watcher-triggered callable refetch is routed through the Go Watch Code
     apply path
-  - warning notifications for unresolved signature help still are not emitted
-    from Go Watch Code
+  - warning notifications for unresolved signature help emit from Go Watch
+    Code as deduped frontend `Notification` websocket messages
+  - the remaining Watch Code gap now sits past this doc in inline code-section
+    / bound code-file reuse
 
 ## Scope
 
@@ -193,10 +196,12 @@ Current split:
 - Step 2 there is now complete
   - Watch Code signature changes now reuse the shared Go callable refetch path
   - unavailable signature context preserves existing params instead of guessing
-- Step 3 there remains active
+- Step 3 there is now complete
   - warning notifications
 
 ### Step 3: App Callback Wiring, Warning Notifications, And Verification
+
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -215,6 +220,14 @@ Acceptance:
   state changes
 - the remaining gap is narrowed to later inline-edit/bound-code-file reuse
 
+Completed in this chunk:
+
+- `internal/realtime/messages.go`
+- `internal/app/watch_code_notifications.go`
+- `internal/app/watch_code_notifications_test.go`
+- `internal/app/websocket_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/realtime ./internal/app -count=1 -timeout 180s`
+
 ## Verification Expectations
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/app -count=1 -timeout 180s`
@@ -224,11 +237,13 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 3 in
-`phase-5-watch-code-callable-section-mutation.md` next:
+This focused apply/mutation doc is complete.
 
-- emit deduped warning notifications from Go when Watch Code signature help
-  returns `no_match`
-- preserve the completed section-mutation/import/refetch helpers as the
-  source-of-truth Watch Code owner
-- use that step to close this focused apply/mutation doc
+Execute Step 1 in
+`phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md` next:
+
+- port inline bound-code-section Watch Code reuse into Go
+- preserve the `sync LSP -> Watch Code update` ordering from the Python
+  reference tests
+- keep the completed runtime/apply/refetch/warning helpers as the only
+  source-of-truth mutation path

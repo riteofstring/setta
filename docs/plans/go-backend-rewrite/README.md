@@ -64,11 +64,13 @@ Use the docs in this order:
    - focused current-work plan for Go-owned Watch Code file apply helpers, section mutation, and callable refresh reuse above the completed runtime owner
 30. `phase-5-watch-code-callable-section-mutation.md`
    - focused current-work plan for Go-owned Watch Code Callable section backfill, rename/remove handling, and Python import-prefix sync
-31. `spike-mcp.md`
+31. `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
+   - focused current-work plan for Go-owned inline `setCode` and bound code-file reload reuse over the completed Watch Code apply/runtime path
+32. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-32. `spike-pty.md`
+33. `spike-pty.md`
    - PTY uncertainty-reduction plan
-33. `spike-lsp.md`
+34. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
