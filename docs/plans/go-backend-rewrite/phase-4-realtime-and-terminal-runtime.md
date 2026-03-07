@@ -32,7 +32,10 @@ Current repo status as of 2026-03-06:
 - websocket route lifecycle wiring now exists in Go under:
   - `internal/wsapi/routes.go`
   - `internal/app/app.go`
-- listener registration/action-event fan-out and terminal runtime still live only in Python across:
+- listener registration and listener-side dependency/action fan-out now exist in Go under:
+  - `internal/realtime/listener_broadcaster.go`
+  - `internal/wsapi/routes.go`
+- producer-side realtime event sources and terminal runtime still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/websocket.py`
@@ -310,8 +313,6 @@ Tests:
 
 Deferred:
 
-- listener dependency/action event fan-out
-- listener registration message parsing/ack behavior
 - terminal session lifecycle and PTY attachment
 
 ### Slice 4: Websocket Route Lifecycle Wiring
@@ -378,12 +379,69 @@ Tests:
 
 Deferred:
 
-- listener registration message parsing and ack behavior
-- dependency/action event routing from live listener websocket connections
 - app-level share-session store wiring for deployment-mode websocket routes
 - terminal session lifecycle and PTY attachment
 
-### Slice 5: Terminal Runtime
+### Slice 5: Listener Registration And Action Event Transport
+
+Deliver:
+
+- listener register/ack protocol on `/ws/listeners/{listenerID}`
+- server-side listener callback registration updates from live websocket messages
+- listener dependency-event delivery using the existing broadcaster/sequencer
+- live route coverage proving registered listener sockets receive realtime and action events
+
+Acceptance:
+
+- listener websocket routes accept register messages and persist callback filters
+- successful registrations return an explicit ack over the websocket
+- dependency events share the same per-project/per-session sequence scope as realtime deltas
+- registered live listener sockets receive both realtime deltas and dependency events
+
+Status:
+
+- complete
+
+Completed:
+
+- extended `internal/realtime/listener_messages.go` with:
+  - `ListenerRegister`
+  - `ListenerRegisterAck`
+  - `ListenerDependencyEvent`
+- extended `internal/realtime/listener_broadcaster.go` with dependency-event delivery on the existing sequencer
+- kept the message and routing boundary explicit:
+  - listener register payloads only carry callback dependency filters and dependency mode
+  - project/share-session scope remains server-owned from the listener route bootstrap
+- taught `/ws/listeners/{listenerID}` to:
+  - parse `ListenerRegister` messages
+  - validate and persist callback registrations through the existing listener registry
+  - send `ListenerRegisterAck` on success
+  - close with `4400` on invalid listener registration payloads
+- kept sequence ownership unified:
+  - realtime deltas and dependency events share the same `(project id, share session id)` counters
+  - force refresh continues to reset the same scope for both event classes
+
+Tests:
+
+- focused coverage in:
+  - `internal/realtime/listener_broadcaster_test.go`
+  - `internal/wsapi/routes_test.go`
+- verified behaviors include:
+  - dependency-event filtering by dependency mode and share session
+  - shared sequencing between realtime deltas and dependency events
+  - listener register ack delivery from the live websocket route
+  - realtime and dependency-event delivery to listener sockets that registered through the route
+  - invalid listener registrations closing with `4400`
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- initial force-refresh snapshot send after listener registration
+- producer-side frontend/project-state routing into realtime delta and dependency-event emitters
+- app-level share-session store wiring for deployment-mode websocket routes
+- terminal session lifecycle and PTY attachment
+
+### Slice 6: Terminal Runtime
 
 Deliver:
 
@@ -406,7 +464,7 @@ Status:
 ## Test Plan
 
 - package-level tests in `internal/realtime` for sequence, targeting, affinity, and address sanitation
-- websocket integration tests in `internal/wsapi` and `internal/app` for live route wiring
+- websocket integration tests in `internal/wsapi` and `internal/app` for live route wiring and listener registration
 - PTY integration tests in `internal/terminals` using disposable temp dirs and real subprocesses
 - keep the Python websocket and terminal tests as the minimum behavior map for equivalent Go coverage
 
@@ -427,8 +485,8 @@ Phase 4 is complete when:
 
 ## Next Recommended Step
 
-Implement live listener registration and event transport on top of the new route wiring:
+Start the terminal-runtime slice:
 
-- parse listener registration messages from `/ws/listeners/{listenerID}`
-- store dependency/action subscriptions in the existing listener registry
-- fan out listener dependency/action events from live websocket routes before starting terminal runtime
+- add `internal/terminals` with PTY session create/attach/write/resize/close on macOS/Linux
+- keep session ownership explicit by runtime/share-session scope from the start
+- cover buffered history and reconnect semantics with real subprocess integration tests
