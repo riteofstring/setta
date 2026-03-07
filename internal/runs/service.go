@@ -7,28 +7,35 @@ import (
 	"fmt"
 	"strings"
 
+	binarypayload "setta/internal/binary"
 	"setta/internal/projectstate"
+	"setta/internal/statefs"
 	"setta/internal/terminals"
 )
 
 var (
 	ErrPlannerRequired         = fmt.Errorf("runs: planner is required")
 	ErrTerminalServiceRequired = fmt.Errorf("runs: terminal service is required")
+	ErrBinaryStoreRequired     = fmt.Errorf("runs: binary store is required")
+	ErrArtifactsRootRequired   = fmt.Errorf("runs: artifacts root is required")
 )
 
 type ServiceOptions struct {
-	Planner      *Planner
-	ProjectState *projectstate.Runtime
-	Terminals    *terminals.Service
-	IDGenerator  func() string
+	Planner       *Planner
+	ProjectState  *projectstate.Runtime
+	Terminals     *terminals.Service
+	BinaryStore   *binarypayload.Store
+	ArtifactsRoot string
+	IDGenerator   func() string
 }
 
 type RunCodeRequest struct {
-	ProjectID         string
-	SectionID         string
-	TerminalSectionID string
-	RunSnapshotMode   RunSnapshotMode
-	ShareSessionID    string
+	ProjectID                string
+	SectionID                string
+	TerminalSectionID        string
+	RunSnapshotMode          RunSnapshotMode
+	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef
+	ShareSessionID           string
 }
 
 type RunCodeResult struct {
@@ -39,10 +46,12 @@ type RunCodeResult struct {
 }
 
 type Service struct {
-	planner      *Planner
-	projectState *projectstate.Runtime
-	terminals    *terminals.Service
-	idGenerator  func() string
+	planner       *Planner
+	projectState  *projectstate.Runtime
+	terminals     *terminals.Service
+	binaryStore   *binarypayload.Store
+	artifactsRoot string
+	idGenerator   func() string
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -55,6 +64,13 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if options.Terminals == nil {
 		return nil, ErrTerminalServiceRequired
 	}
+	if options.BinaryStore == nil {
+		return nil, ErrBinaryStoreRequired
+	}
+	resolvedArtifactsRoot, err := statefs.NormalizePath(options.ArtifactsRoot, "")
+	if err != nil {
+		return nil, ErrArtifactsRootRequired
+	}
 
 	idGenerator := options.IDGenerator
 	if idGenerator == nil {
@@ -62,16 +78,21 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}
 
 	return &Service{
-		planner:      options.Planner,
-		projectState: options.ProjectState,
-		terminals:    options.Terminals,
-		idGenerator:  idGenerator,
+		planner:       options.Planner,
+		projectState:  options.ProjectState,
+		terminals:     options.Terminals,
+		binaryStore:   options.BinaryStore,
+		artifactsRoot: resolvedArtifactsRoot,
+		idGenerator:   idGenerator,
 	}, nil
 }
 
 func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeResult, error) {
 	if s == nil {
 		return RunCodeResult{}, ErrPlannerRequired
+	}
+	if err := s.applyDrawSnapshots(ctx, request.ProjectID, request.DrawSnapshotsBySectionID); err != nil {
+		return RunCodeResult{}, err
 	}
 
 	plan, err := s.planner.Plan(PlanRequest{
@@ -147,6 +168,74 @@ func (s *Service) newTerminalSeed() projectstate.TerminalSectionSeed {
 		ImplID:    "terminal-impl-" + id,
 		Name:      "Terminal",
 	}
+}
+
+func (s *Service) applyDrawSnapshots(ctx context.Context, projectID string, refsBySectionID map[string]binarypayload.ContentRef) error {
+	if len(refsBySectionID) == 0 {
+		return nil
+	}
+
+	document := s.projectState.Snapshot().Document
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+
+	type drawSnapshotUpdate struct {
+		sectionID string
+		path      string
+		contentID string
+		payload   []byte
+	}
+
+	updates := make([]drawSnapshotUpdate, 0, len(refsBySectionID))
+	renderedPathsBySectionID := make(map[string]string, len(refsBySectionID))
+	for sectionID, ref := range refsBySectionID {
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			return err
+		}
+		if !impl.IsDraw() {
+			return fmt.Errorf("%w: %q", projectstate.ErrDrawSectionRequired, sectionID)
+		}
+
+		targetPath := strings.TrimSpace(impl.Draw.RenderedImagePath)
+		if targetPath == "" {
+			targetPath, err = projectstate.BuildDrawSnapshotPath(sectionID, s.artifactsRoot)
+			if err != nil {
+				return err
+			}
+		}
+
+		payload, err := s.binaryStore.ReadBytes(ref.ContentID)
+		if err != nil {
+			return err
+		}
+		updates = append(updates, drawSnapshotUpdate{
+			sectionID: sectionID,
+			path:      targetPath,
+			contentID: ref.ContentID,
+			payload:   payload,
+		})
+		renderedPathsBySectionID[sectionID] = targetPath
+	}
+
+	for _, update := range updates {
+		if err := statefs.AtomicWriteFile(update.path, update.payload, 0o644); err != nil {
+			return fmt.Errorf("write draw snapshot %q: %w", update.sectionID, err)
+		}
+	}
+
+	if _, err := s.projectState.SetDrawSectionRenderedImagePaths(projectID, renderedPathsBySectionID); err != nil {
+		return err
+	}
+	if _, err := s.projectState.Save(ctx); err != nil {
+		return err
+	}
+	for _, update := range updates {
+		_ = s.binaryStore.Delete(update.contentID)
+	}
+	return nil
 }
 
 func newRandomID() string {

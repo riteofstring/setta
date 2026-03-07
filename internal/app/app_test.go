@@ -1,9 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +18,7 @@ import (
 	"time"
 
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
@@ -387,6 +391,138 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	authCookie := &http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	}
+
+	uploadBody, uploadContentType := buildAppBinaryUploadBody(t, []byte("snapshot-bytes"), "false")
+	uploadRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
+	if err != nil {
+		t.Fatalf("new binary upload request: %v", err)
+	}
+	uploadRequest.Header.Set("Content-Type", uploadContentType)
+	uploadRequest.AddCookie(authCookie)
+
+	uploadResponse, err := http.DefaultClient.Do(uploadRequest)
+	if err != nil {
+		t.Fatalf("post binary upload: %v", err)
+	}
+	defer uploadResponse.Body.Close()
+	if uploadResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", uploadResponse.StatusCode, string(body))
+	}
+
+	var ref binarypayload.ContentRef
+	if err := json.NewDecoder(uploadResponse.Body).Decode(&ref); err != nil {
+		t.Fatalf("decode binary upload response: %v", err)
+	}
+
+	runRequestBody, err := json.Marshal(httpapi.RunCodeRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "code-section",
+		RunSnapshotMode: "never",
+		DrawSnapshotsBySectionID: map[string]binarypayload.ContentRef{
+			"draw-section": ref,
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal run code request: %v", err)
+	}
+
+	runRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, bytes.NewReader(runRequestBody))
+	if err != nil {
+		t.Fatalf("new run code request: %v", err)
+	}
+	runRequest.Header.Set("Content-Type", "application/json")
+	runRequest.AddCookie(authCookie)
+
+	runResponse, err := http.DefaultClient.Do(runRequest)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer runResponse.Body.Close()
+	if runResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", runResponse.StatusCode, string(body))
+	}
+
+	drawSnapshotPath, err := projectstate.BuildDrawSnapshotPath("draw-section", filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts"))
+	if err != nil {
+		t.Fatalf("build draw snapshot path: %v", err)
+	}
+	written, err := os.ReadFile(drawSnapshotPath)
+	if err != nil {
+		t.Fatalf("read draw snapshot path: %v", err)
+	}
+	if string(written) != "snapshot-bytes" {
+		t.Fatalf("expected draw snapshot bytes, got %q", string(written))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, drawImpl, err := project.ResolveSection("draw-section")
+	if err != nil {
+		t.Fatalf("resolve draw section: %v", err)
+	}
+	if drawImpl.Draw == nil {
+		t.Fatal("expected draw impl")
+	}
+	if drawImpl.Draw.RenderedImagePath != drawSnapshotPath {
+		t.Fatalf("expected rendered image path %q, got %q", drawSnapshotPath, drawImpl.Draw.RenderedImagePath)
+	}
+
+	if _, err := app.BinaryStore().ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+		t.Fatalf("expected binary payload to be deleted, got %v", err)
+	}
+
+	_, _, codeImpl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if codeImpl.Code == nil || codeImpl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected run route to ensure an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(codeImpl.Code.AttachedTerminalSectionID, "")
+	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
+	output := waitForAppTestOutputContains(t, attachment, "APP_RUN_OK")
+	if !strings.Contains(output, "APP_RUN_OK") {
+		t.Fatalf("expected run output in attached terminal, got %q", output)
+	}
+}
+
 func TestAppRunCodeRouteRejectsUnsupportedCLIID(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -494,10 +630,12 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 			TopLevelSectionIDs: []string{
 				"code-section",
 				"helper-section",
+				"draw-section",
 			},
 			SectionVariantMap: map[string]string{
 				"code-section":   "code-variant",
 				"helper-section": "helper-variant",
+				"draw-section":   "draw-variant",
 			},
 			Sections: map[string]projectstate.Section{
 				"code-section": {
@@ -512,6 +650,12 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 					VariantIDs:       []string{"helper-variant"},
 					DefaultVariantID: "helper-variant",
 				},
+				"draw-section": {
+					ID:               "draw-section",
+					Name:             "Canvas",
+					VariantIDs:       []string{"draw-variant"},
+					DefaultVariantID: "draw-variant",
+				},
 			},
 			SectionVariants: map[string]projectstate.SectionVariant{
 				"code-variant": {
@@ -521,6 +665,10 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 				"helper-variant": {
 					ID:     "helper-variant",
 					ImplID: "helper-impl",
+				},
+				"draw-variant": {
+					ID:     "draw-variant",
+					ImplID: "draw-impl",
 				},
 			},
 			SectionImpls: map[string]projectstate.SectionImpl{
@@ -545,6 +693,11 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 							AccessMode: projectstate.CodeFileAccessModeReadWrite,
 						},
 					},
+				},
+				"draw-impl": {
+					ID:   "draw-impl",
+					Kind: projectstate.SectionKindDraw,
+					Draw: &projectstate.DrawSectionImpl{},
 				},
 			},
 		}
@@ -594,6 +747,29 @@ func prepareAppCurrentSession(t *testing.T, cfg config.Config) {
 	if err := os.WriteFile(filepath.Join(sessionDir, "session.json"), metadataBytes, 0o644); err != nil {
 		t.Fatalf("write session metadata: %v", err)
 	}
+}
+
+func buildAppBinaryUploadBody(t *testing.T, payload []byte, durable string) (*bytes.Buffer, string) {
+	t.Helper()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	fileWriter, err := writer.CreateFormFile("file", "snapshot.png")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := fileWriter.Write(payload); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := writer.WriteField("durable", durable); err != nil {
+		t.Fatalf("write durable field: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	return body, writer.FormDataContentType()
 }
 
 func quietAppTestCatCommand(t *testing.T) []string {

@@ -1,13 +1,13 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	binarypayload "setta/internal/binary"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/runs"
@@ -37,14 +37,14 @@ type InterruptTerminalProcessesResponse struct {
 }
 
 type RunCodeRequest struct {
-	ProjectID                string                     `json:"projectConfigId"`
-	SectionID                string                     `json:"sectionId"`
-	TerminalSectionID        string                     `json:"terminalSectionId"`
-	CLIID                    string                     `json:"cliId"`
-	RunSnapshotMode          runs.RunSnapshotMode       `json:"runSnapshotMode"`
-	DrawSnapshotsBySectionID map[string]json.RawMessage `json:"drawSnapshotsBySectionId"`
-	SectionVariantOverrides  map[string]string          `json:"sectionVariantOverrides"`
-	ParamOverrides           map[string]string          `json:"paramOverrides"`
+	ProjectID                string                              `json:"projectConfigId"`
+	SectionID                string                              `json:"sectionId"`
+	TerminalSectionID        string                              `json:"terminalSectionId"`
+	CLIID                    string                              `json:"cliId"`
+	RunSnapshotMode          runs.RunSnapshotMode                `json:"runSnapshotMode"`
+	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef `json:"drawSnapshotsBySectionId"`
+	SectionVariantOverrides  map[string]string                   `json:"sectionVariantOverrides"`
+	ParamOverrides           map[string]string                   `json:"paramOverrides"`
 }
 
 func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) error {
@@ -153,10 +153,6 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_cli", "Run code CLI output is not supported in Go yet.")
 			return
 		}
-		if len(payload.DrawSnapshotsBySectionID) > 0 {
-			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_draw_snapshots", "Run code draw snapshots are not supported in Go yet.")
-			return
-		}
 		if len(payload.SectionVariantOverrides) > 0 {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code section variant overrides are not supported on the Go HTTP route yet.")
 			return
@@ -167,11 +163,12 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 		}
 
 		if _, err := runCodeService.RunCode(r.Context(), runs.RunCodeRequest{
-			ProjectID:         payload.ProjectID,
-			SectionID:         payload.SectionID,
-			TerminalSectionID: payload.TerminalSectionID,
-			RunSnapshotMode:   payload.RunSnapshotMode,
-			ShareSessionID:    requestInfo.ShareSessionID,
+			ProjectID:                payload.ProjectID,
+			SectionID:                payload.SectionID,
+			TerminalSectionID:        payload.TerminalSectionID,
+			RunSnapshotMode:          payload.RunSnapshotMode,
+			DrawSnapshotsBySectionID: payload.DrawSnapshotsBySectionID,
+			ShareSessionID:           requestInfo.ShareSessionID,
 		}); err != nil {
 			switch {
 			case errors.Is(err, runs.ErrRunTargetRequired),
@@ -180,10 +177,14 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, runs.ErrCodeBindingRequired),
 				errors.Is(err, runs.ErrInvalidParamOverrideKey),
 				errors.Is(err, runs.ErrParamOverridesUnsupported),
+				errors.Is(err, binarypayload.ErrContentIDRequired),
+				errors.Is(err, binarypayload.ErrInvalidContentID),
+				errors.Is(err, binarypayload.ErrPayloadNotFound),
 				errors.Is(err, projectstate.ErrProjectNotFound),
 				errors.Is(err, projectstate.ErrSectionNotFound),
 				errors.Is(err, projectstate.ErrSectionActiveVariantNotFound),
-				errors.Is(err, projectstate.ErrCodeSectionRequired):
+				errors.Is(err, projectstate.ErrCodeSectionRequired),
+				errors.Is(err, projectstate.ErrDrawSectionRequired):
 				writeError(w, r, http.StatusBadRequest, "invalid_run_code_request", err.Error())
 			default:
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

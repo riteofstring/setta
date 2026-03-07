@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
@@ -28,6 +30,7 @@ type App struct {
 	runtime       *runtime.Manager
 	projectStates *projectstate.Registry
 	terminals     *terminals.Service
+	binaryStore   *binarypayload.Store
 	runCode       *runs.Service
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
@@ -60,6 +63,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = projectStates.Close()
 		return nil, err
 	}
+	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(cfg.Paths.RuntimeRoot)
+	if err != nil {
+		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
 		ProjectState:   projectStates.Main(),
 		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
@@ -70,9 +78,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
-		Planner:      runPlanner,
-		ProjectState: projectStates.Main(),
-		Terminals:    terminalService,
+		Planner:       runPlanner,
+		ProjectState:  projectStates.Main(),
+		Terminals:     terminalService,
+		BinaryStore:   binaryStore,
+		ArtifactsRoot: filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts"),
 	})
 	if err != nil {
 		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
@@ -104,6 +114,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 		},
 		Register: func(r chi.Router) {
+			if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(cfg.Server.Mode),
+				Store:      binaryStore,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
 				ModePolicy: modes.NewPolicy(cfg.Server.Mode),
 				Terminals:  terminalService,
@@ -125,6 +141,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		runtime:       manager,
 		projectStates: projectStates,
 		terminals:     terminalService,
+		binaryStore:   binaryStore,
 		runCode:       runCodeService,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
@@ -154,6 +171,10 @@ func (a *App) ProjectStates() *projectstate.Registry {
 
 func (a *App) Terminals() *terminals.Service {
 	return a.terminals
+}
+
+func (a *App) BinaryStore() *binarypayload.Store {
+	return a.binaryStore
 }
 
 func (a *App) RunCode() *runs.Service {

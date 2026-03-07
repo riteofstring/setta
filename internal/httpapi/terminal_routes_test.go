@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/observability"
@@ -422,6 +424,99 @@ func TestRegisterTerminalRoutesReusesExplicitAttachedTerminal(t *testing.T) {
 	}
 }
 
+func TestRegisterTerminalRoutesAppliesDrawSnapshotsBeforeRunningCode(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	ref, err := runFixture.binaryStore.StoreBytes([]byte("snapshot-bytes"), "image/png", false)
+	if err != nil {
+		t.Fatalf("store binary payload: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	requestBody, err := json.Marshal(RunCodeRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "code-section",
+		RunSnapshotMode: runs.RunSnapshotModeNever,
+		DrawSnapshotsBySectionID: map[string]binarypayload.ContentRef{
+			"draw-section": ref,
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal run code request: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(string(requestBody)))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	drawSnapshotPath, err := projectstate.BuildDrawSnapshotPath("draw-section", runFixture.artifactsRoot)
+	if err != nil {
+		t.Fatalf("build draw snapshot path: %v", err)
+	}
+	written, err := os.ReadFile(drawSnapshotPath)
+	if err != nil {
+		t.Fatalf("read draw snapshot path: %v", err)
+	}
+	if string(written) != "snapshot-bytes" {
+		t.Fatalf("expected draw snapshot bytes, got %q", string(written))
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, drawImpl, err := project.ResolveSection("draw-section")
+	if err != nil {
+		t.Fatalf("resolve draw section: %v", err)
+	}
+	if drawImpl.Draw == nil {
+		t.Fatal("expected draw impl")
+	}
+	if drawImpl.Draw.RenderedImagePath != drawSnapshotPath {
+		t.Fatalf("expected rendered image path %q, got %q", drawSnapshotPath, drawImpl.Draw.RenderedImagePath)
+	}
+
+	if _, err := runFixture.binaryStore.ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+		t.Fatalf("expected binary payload to be deleted, got %v", err)
+	}
+
+	_, _, codeImpl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if codeImpl.Code == nil || codeImpl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected run route to ensure an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(codeImpl.Code.AttachedTerminalSectionID, "")
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_RUN_OK")
+	if !strings.Contains(output, "ROUTE_RUN_OK") {
+		t.Fatalf("expected run output in attached terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	t.Parallel()
 
@@ -453,13 +548,13 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 			expectedCode: `"code":"unsupported_run_code_cli"`,
 		},
 		{
-			name:         "draw snapshots",
-			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","drawSnapshotsBySectionId":{"draw-1":{"kind":"png"}}}`,
-			expectedCode: `"code":"unsupported_run_code_draw_snapshots"`,
-		},
-		{
 			name:         "section overrides",
 			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"code-section":"other"}}`,
+			expectedCode: `"code":"unsupported_run_code_overrides"`,
+		},
+		{
+			name:         "param overrides",
+			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"param-a":"value"}}`,
 			expectedCode: `"code":"unsupported_run_code_overrides"`,
 		},
 	}
@@ -517,8 +612,10 @@ func registerHTTPTestTerminalRoutes(t *testing.T, router chi.Router, modePolicy 
 }
 
 type httpTestRunCodeFixture struct {
-	runtime *projectstate.Runtime
-	service *runs.Service
+	runtime       *projectstate.Runtime
+	service       *runs.Service
+	binaryStore   *binarypayload.Store
+	artifactsRoot string
 }
 
 func newHTTPTestRunCodeService(t *testing.T, terminalService *terminals.Service) *runs.Service {
@@ -533,6 +630,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	root := t.TempDir()
 	settaFilesRoot := filepath.Join(root, "setta_files")
 	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	artifactsRoot := filepath.Join(settaFilesRoot, "artifacts")
 	codeRoot := filepath.Join(settaFilesRoot, "code")
 	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
 		t.Fatalf("mkdir runtime root: %v", err)
@@ -559,10 +657,12 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 				TopLevelSectionIDs: []string{
 					"code-section",
 					"helper-section",
+					"draw-section",
 				},
 				SectionVariantMap: map[string]string{
 					"code-section":   "code-variant",
 					"helper-section": "helper-variant",
+					"draw-section":   "draw-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -577,6 +677,12 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						VariantIDs:       []string{"helper-variant"},
 						DefaultVariantID: "helper-variant",
 					},
+					"draw-section": {
+						ID:               "draw-section",
+						Name:             "Canvas",
+						VariantIDs:       []string{"draw-variant"},
+						DefaultVariantID: "draw-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
 					"code-variant": {
@@ -586,6 +692,10 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					"helper-variant": {
 						ID:     "helper-variant",
 						ImplID: "helper-impl",
+					},
+					"draw-variant": {
+						ID:     "draw-variant",
+						ImplID: "draw-impl",
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
@@ -611,6 +721,11 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 							},
 						},
 					},
+					"draw-impl": {
+						ID:   "draw-impl",
+						Kind: projectstate.SectionKindDraw,
+						Draw: &projectstate.DrawSectionImpl{},
+					},
 				},
 			},
 		},
@@ -633,10 +748,17 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 		t.Fatalf("new planner: %v", err)
 	}
 
+	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(runtimeRoot)
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+
 	runService, err := runs.NewService(runs.ServiceOptions{
-		Planner:      runPlanner,
-		ProjectState: projectRuntime,
-		Terminals:    terminalService,
+		Planner:       runPlanner,
+		ProjectState:  projectRuntime,
+		Terminals:     terminalService,
+		BinaryStore:   binaryStore,
+		ArtifactsRoot: artifactsRoot,
 		IDGenerator: func() string {
 			return "seed-1"
 		},
@@ -646,8 +768,10 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	}
 
 	return httpTestRunCodeFixture{
-		runtime: projectRuntime,
-		service: runService,
+		runtime:       projectRuntime,
+		service:       runService,
+		binaryStore:   binaryStore,
+		artifactsRoot: artifactsRoot,
 	}
 }
 

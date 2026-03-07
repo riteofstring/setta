@@ -26,8 +26,10 @@ var (
 	ErrUnsupportedSectionImplKind    = errors.New("unsupported section impl kind")
 	ErrCodeSectionConfigRequired     = errors.New("code section config is required")
 	ErrTerminalSectionConfigRequired = errors.New("terminal section config is required")
+	ErrDrawSectionConfigRequired     = errors.New("draw section config is required")
 	ErrCodeLanguageRequired          = errors.New("code language is required")
 	ErrCodeFileBindingPathRequired   = errors.New("code file binding path is required")
+	ErrDrawRenderedImagePathRequired = errors.New("draw rendered image path is required")
 	ErrTopLevelSectionNotFound       = errors.New("top-level section was not found in project")
 	ErrDuplicateTopLevelSection      = errors.New("duplicate top-level section id")
 	ErrParentSectionNotFound         = errors.New("parent section was not found in project")
@@ -37,6 +39,7 @@ var (
 	ErrTerminalSeedRequired          = errors.New("terminal section seed is required")
 	ErrCodeSectionRequired           = errors.New("section must resolve to a code section")
 	ErrTerminalSectionRequired       = errors.New("section must resolve to a terminal section")
+	ErrDrawSectionRequired           = errors.New("section must resolve to a draw section")
 )
 
 type SectionKind string
@@ -44,6 +47,7 @@ type SectionKind string
 const (
 	SectionKindCode     SectionKind = "code"
 	SectionKindTerminal SectionKind = "terminal"
+	SectionKindDraw     SectionKind = "draw"
 )
 
 type CodeLanguage string
@@ -78,6 +82,7 @@ type SectionImpl struct {
 	Kind     SectionKind          `json:"kind"`
 	Code     *CodeSectionImpl     `json:"code,omitempty"`
 	Terminal *TerminalSectionImpl `json:"terminal,omitempty"`
+	Draw     *DrawSectionImpl     `json:"draw,omitempty"`
 }
 
 type CodeSectionImpl struct {
@@ -93,6 +98,10 @@ type CodeFileBinding struct {
 }
 
 type TerminalSectionImpl struct{}
+
+type DrawSectionImpl struct {
+	RenderedImagePath string `json:"renderedImagePath,omitempty"`
+}
 
 func (p Project) Clone() Project {
 	cloned := p
@@ -146,6 +155,10 @@ func (i SectionImpl) Clone() SectionImpl {
 	if i.Terminal != nil {
 		terminal := *i.Terminal
 		cloned.Terminal = &terminal
+	}
+	if i.Draw != nil {
+		draw := *i.Draw
+		cloned.Draw = &draw
 	}
 	return cloned
 }
@@ -237,6 +250,10 @@ func (p Project) Normalized() (Project, error) {
 			if impl.Terminal == nil {
 				return Project{}, fmt.Errorf("%w: %q", ErrTerminalSectionConfigRequired, impl.ID)
 			}
+		case SectionKindDraw:
+			if impl.Draw == nil {
+				return Project{}, fmt.Errorf("%w: %q", ErrDrawSectionConfigRequired, impl.ID)
+			}
 		default:
 			return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedSectionImplKind, impl.Kind)
 		}
@@ -323,6 +340,10 @@ func (i SectionImpl) IsCode() bool {
 
 func (i SectionImpl) IsTerminal() bool {
 	return i.Kind == SectionKindTerminal && i.Terminal != nil
+}
+
+func (i SectionImpl) IsDraw() bool {
+	return i.Kind == SectionKindDraw && i.Draw != nil
 }
 
 func (i SectionImpl) IsRunnableCode() bool {
