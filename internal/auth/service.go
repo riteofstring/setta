@@ -52,7 +52,7 @@ func NewService(opts Options) (*Service, error) {
 
 	var currentSession *CurrentSession
 	var err error
-	if opts.Mode == config.ModeIDE {
+	if modeSupportsSessionAuth(opts.Mode) {
 		currentSession, err = LoadCurrentSession(LoadCurrentSessionOptions{
 			RuntimeRoot: opts.RuntimeRoot,
 			EnvLookup:   opts.EnvLookup,
@@ -73,6 +73,13 @@ func NewService(opts Options) (*Service, error) {
 
 func (s *Service) Enabled() bool {
 	return s != nil && s.mode == config.ModeIDE
+}
+
+func (s *Service) SupportsSessionAuth() bool {
+	if s == nil {
+		return false
+	}
+	return modeSupportsSessionAuth(s.mode)
 }
 
 func (s *Service) AuthCookieBaseName() string {
@@ -329,4 +336,13 @@ func (s *Service) requireCurrentSession() (*CurrentSession, error) {
 		return nil, ErrMissingCurrentSession
 	}
 	return s.currentSession, nil
+}
+
+func modeSupportsSessionAuth(mode config.Mode) bool {
+	switch mode {
+	case config.ModeShare, config.ModeApp:
+		return false
+	default:
+		return true
+	}
 }
