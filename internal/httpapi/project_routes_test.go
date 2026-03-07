@@ -84,6 +84,149 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 	}
 }
 
+func TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  projectstate.RawJSON(`{"language":"python","generateMetadata":true}`),
+					},
+				},
+				GeneratedCodeBinding: &projectstate.CodeFileBinding{
+					Path:       "code/sections/alpha/setta_gen.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				GeneratedMetadataBinding: &projectstate.CodeFileBinding{
+					Path:       "code/sections/alpha/setta_gen_meta.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				EntryCodeBlockID:   "gen-python-section",
+				TopLevelSectionIDs: []string{"manual-section", "gen-python-section", "gen-python-metadata-section"},
+				SectionVariantMap: map[string]string{
+					"manual-section":              "manual-variant",
+					"gen-python-section":          "gen-python-variant",
+					"gen-python-metadata-section": "gen-python-metadata-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"manual-section": {
+						ID:               "manual-section",
+						Name:             "Manual",
+						VariantIDs:       []string{"manual-variant"},
+						DefaultVariantID: "manual-variant",
+					},
+					"gen-python-section": {
+						ID:               "gen-python-section",
+						Name:             "Generated Python",
+						VariantIDs:       []string{"gen-python-variant"},
+						DefaultVariantID: "gen-python-variant",
+					},
+					"gen-python-metadata-section": {
+						ID:               "gen-python-metadata-section",
+						Name:             "Generated Python Metadata",
+						VariantIDs:       []string{"gen-python-metadata-variant"},
+						DefaultVariantID: "gen-python-metadata-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"manual-variant": {
+						ID:     "manual-variant",
+						ImplID: "manual-impl",
+					},
+					"gen-python-variant": {
+						ID:     "gen-python-variant",
+						ImplID: "gen-python-impl",
+					},
+					"gen-python-metadata-variant": {
+						ID:     "gen-python-metadata-variant",
+						ImplID: "gen-python-metadata-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"manual-impl": {
+						ID:   "manual-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+					},
+					"gen-python-impl": {
+						ID:   "gen-python-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPythonCode,
+						},
+					},
+					"gen-python-metadata-impl": {
+						ID:   "gen-python-metadata-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPythonMetadata,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+		return nil
+	}))
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectConfigCodegenTargets,
+		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectview.SingleConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode project state payload: %v", err)
+	}
+	if len(payload.ProjectConfig.CodegenTargets) != 0 {
+		t.Fatalf("expected codegen targets to be cleared, got %#v", payload.ProjectConfig.CodegenTargets)
+	}
+	if payload.ProjectConfig.EntryCodeBlockID != nil {
+		t.Fatalf("expected entry code block id to be cleared, got %q", *payload.ProjectConfig.EntryCodeBlockID)
+	}
+	if payload.SingletonSections.GenPythonCode != nil {
+		t.Fatalf("expected generated python singleton to be cleared, got %q", *payload.SingletonSections.GenPythonCode)
+	}
+	if payload.SingletonSections.GenPythonMetadata != nil {
+		t.Fatalf("expected generated python metadata singleton to be cleared, got %q", *payload.SingletonSections.GenPythonMetadata)
+	}
+	if payload.GenCodeBinding != nil {
+		t.Fatalf("expected generated code binding to be cleared, got %#v", payload.GenCodeBinding)
+	}
+
+	snapshot := projectRuntime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, ok := project.Sections["gen-python-section"]; ok {
+		t.Fatal("expected generated python section to be removed from runtime state")
+	}
+}
+
 func TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload(t *testing.T) {
 	t.Parallel()
 

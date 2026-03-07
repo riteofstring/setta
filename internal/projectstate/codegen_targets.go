@@ -12,7 +12,7 @@ import (
 var (
 	ErrProjectCodegenTargetDuplicateLanguage   = errors.New("project codegen target language must be unique")
 	ErrProjectCodegenTargetValidatorRequired   = errors.New("project codegen target validator is required for plugin targets")
-	ErrProjectCodegenPythonMutationUnsupported = errors.New("python codegen target mutations are not supported in Go yet")
+	ErrProjectCodegenPythonMutationUnsupported = errors.New("python codegen target enablement and in-place edits are not supported in Go yet")
 )
 
 type CodegenTargetValidator interface {
@@ -42,7 +42,7 @@ func (d *Document) SetProjectCodegenTargets(ctx context.Context, projectID strin
 	if err != nil {
 		return err
 	}
-	if err := validateSupportedPythonCodegenMutation(project.CodegenTargets, normalizedTargets); err != nil {
+	if err := applySupportedPythonCodegenMutation(&project, normalizedTargets); err != nil {
 		return err
 	}
 
@@ -92,13 +92,20 @@ func normalizeCodegenTargetsForMutation(ctx context.Context, targets []ProjectCo
 	return normalizedTargets, nil
 }
 
-func validateSupportedPythonCodegenMutation(previous []ProjectCodegenTarget, next []ProjectCodegenTarget) error {
-	previousPython, previousHasPython := pythonCodegenTarget(previous)
-	nextPython, nextHasPython := pythonCodegenTarget(next)
-	if !previousHasPython && !nextHasPython {
-		return nil
+func applySupportedPythonCodegenMutation(project *Project, next []ProjectCodegenTarget) error {
+	if project == nil {
+		return ErrProjectNotFound
 	}
-	if previousHasPython && nextHasPython {
+
+	previousPython, previousHasPython := pythonCodegenTarget(project.CodegenTargets)
+	nextPython, nextHasPython := pythonCodegenTarget(next)
+	switch {
+	case !previousHasPython && !nextHasPython:
+		return nil
+	case previousHasPython && !nextHasPython:
+		cleanupRemovedPythonCodegen(project)
+		return nil
+	case previousHasPython && nextHasPython:
 		equal, err := projectCodegenTargetsEqual(previousPython, nextPython)
 		if err != nil {
 			return err
@@ -106,8 +113,178 @@ func validateSupportedPythonCodegenMutation(previous []ProjectCodegenTarget, nex
 		if equal {
 			return nil
 		}
+		return ErrProjectCodegenPythonMutationUnsupported
+	default:
+		return ErrProjectCodegenPythonMutationUnsupported
 	}
-	return ErrProjectCodegenPythonMutationUnsupported
+}
+
+func cleanupRemovedPythonCodegen(project *Project) {
+	if project == nil {
+		return
+	}
+
+	removedSectionIDs := generatedPythonSectionIDs(*project)
+	removedSections := make(map[string]struct{}, len(removedSectionIDs))
+	removedVariantIDs := make(map[string]struct{})
+	removedImplIDs := make(map[string]struct{})
+
+	for _, sectionID := range removedSectionIDs {
+		removedSections[sectionID] = struct{}{}
+
+		section, ok := project.Sections[sectionID]
+		if !ok {
+			continue
+		}
+		for _, variantID := range collectSectionVariantIDs(*project, section) {
+			removedVariantIDs[variantID] = struct{}{}
+			variant, ok := project.SectionVariants[variantID]
+			if !ok {
+				continue
+			}
+			removedImplIDs[variant.ImplID] = struct{}{}
+		}
+	}
+
+	if _, ok := removedSections[project.EntryCodeBlockID]; ok {
+		project.EntryCodeBlockID = ""
+	}
+	project.GeneratedCodeBinding = nil
+	project.GeneratedMetadataBinding = nil
+	project.TopLevelSectionIDs = filterStringSlice(project.TopLevelSectionIDs, removedSections)
+	project.ActiveIDs = filterStringSlice(project.ActiveIDs, removedSections)
+	project.Edges = filterEdgesBySectionIDs(project.Edges, removedSections)
+	project.AgenticEdges = filterAgenticEdgesBySectionIDs(project.AgenticEdges, removedSections)
+
+	for sectionID := range removedSections {
+		delete(project.TopLevelSections, sectionID)
+		delete(project.SectionVariantMap, sectionID)
+		delete(project.Sections, sectionID)
+	}
+	for variantID := range removedVariantIDs {
+		delete(project.SectionVariants, variantID)
+	}
+
+	stillReferencedImplIDs := make(map[string]struct{}, len(project.SectionVariants))
+	for _, variant := range project.SectionVariants {
+		stillReferencedImplIDs[variant.ImplID] = struct{}{}
+	}
+	for implID := range removedImplIDs {
+		if _, ok := stillReferencedImplIDs[implID]; ok {
+			continue
+		}
+		delete(project.SectionImpls, implID)
+	}
+
+	for viewModeID, viewMode := range project.ViewModes {
+		for sectionID := range removedSections {
+			delete(viewMode.VisibilityBySectionID, sectionID)
+			delete(viewMode.TopLevelSections, sectionID)
+		}
+		project.ViewModes[viewModeID] = viewMode
+	}
+}
+
+func generatedPythonSectionIDs(project Project) []string {
+	sectionIDs := make([]string, 0, len(project.Sections))
+	for sectionID, section := range project.Sections {
+		if !sectionReferencesGeneratedPython(project, section) {
+			continue
+		}
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	return sectionIDs
+}
+
+func sectionReferencesGeneratedPython(project Project, section Section) bool {
+	for _, variantID := range collectSectionVariantIDs(project, section) {
+		variant, ok := project.SectionVariants[variantID]
+		if !ok {
+			continue
+		}
+		impl, ok := project.SectionImpls[variant.ImplID]
+		if !ok || !impl.IsGenerated() || impl.Generated == nil {
+			continue
+		}
+		if impl.Generated.Kind == GeneratedSectionKindPythonCode || impl.Generated.Kind == GeneratedSectionKindPythonMetadata {
+			return true
+		}
+	}
+	return false
+}
+
+func collectSectionVariantIDs(project Project, section Section) []string {
+	variantIDs := make([]string, 0, len(section.VariantIDs)+2)
+	seen := make(map[string]struct{}, len(section.VariantIDs)+2)
+	appendVariantID := func(raw string) {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		variantIDs = append(variantIDs, trimmed)
+	}
+
+	for _, variantID := range section.VariantIDs {
+		appendVariantID(variantID)
+	}
+	appendVariantID(section.DefaultVariantID)
+	appendVariantID(project.SectionVariantMap[section.ID])
+	return variantIDs
+}
+
+func filterStringSlice(values []string, removed map[string]struct{}) []string {
+	if len(values) == 0 || len(removed) == 0 {
+		return values
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := removed[value]; ok {
+			continue
+		}
+		filtered = append(filtered, value)
+	}
+	return filtered
+}
+
+func filterEdgesBySectionIDs(edges []Edge, removed map[string]struct{}) []Edge {
+	if len(edges) == 0 || len(removed) == 0 {
+		return edges
+	}
+
+	filtered := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if _, ok := removed[edge.SourceSectionID]; ok {
+			continue
+		}
+		if _, ok := removed[edge.TargetSectionID]; ok {
+			continue
+		}
+		filtered = append(filtered, edge)
+	}
+	return filtered
+}
+
+func filterAgenticEdgesBySectionIDs(edges []AgenticEdge, removed map[string]struct{}) []AgenticEdge {
+	if len(edges) == 0 || len(removed) == 0 {
+		return edges
+	}
+
+	filtered := make([]AgenticEdge, 0, len(edges))
+	for _, edge := range edges {
+		if _, ok := removed[edge.SourceSectionID]; ok {
+			continue
+		}
+		if _, ok := removed[edge.TargetSectionID]; ok {
+			continue
+		}
+		filtered = append(filtered, edge)
+	}
+	return filtered
 }
 
 func pythonCodegenTarget(targets []ProjectCodegenTarget) (ProjectCodegenTarget, bool) {

@@ -2,12 +2,20 @@ import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectCodegenPluginTarget,
+  createProjectCodegenPythonTarget,
   createProjectConfig,
   createSingletonSections,
+  type CodeFileBinding,
   type ProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyProjectCodegenTargetsResponse } from "./codegenTargets";
+
+const genCodeBindingFixture: CodeFileBinding = {
+  canonical_path: "code/sections/alpha/setta_gen.py",
+  access_mode: "read_only",
+  autoBinding: false,
+};
 
 describe("applyProjectCodegenTargetsResponse", () => {
   beforeEach(() => {
@@ -37,18 +45,21 @@ describe("applyProjectCodegenTargetsResponse", () => {
       projectConfig: createProjectConfig({
         id: "project-alpha",
         name: "Alpha",
-        codegenTargets: [],
+        codegenTargets: [createProjectCodegenPythonTarget()],
+        entryCodeBlockId: "gen-python-section",
       }),
-      singletonSections: createSingletonSections(),
+      singletonSections: createSingletonSections({
+        GenPythonCode: "gen-python-section",
+      }),
       parentSectionMap: {},
       shownParamIds: {},
       previewSectionVariantMap: {},
       requiredDecodedImages: [],
-      genCodeBinding: null,
+      genCodeBinding: genCodeBindingFixture,
     });
   });
 
-  it("updates the current project and matching metadata from the authoritative response", () => {
+  it("replaces the current project state and matching metadata from the authoritative response", () => {
     const responseState: ProjectStateSingleConfig = {
       sections: {},
       sectionImpls: {},
@@ -59,14 +70,8 @@ describe("applyProjectCodegenTargetsResponse", () => {
       projectConfig: createProjectConfig({
         id: "project-alpha",
         name: "Alpha",
-        codegenTargets: [
-          createProjectCodegenPluginTarget({
-            language: "setta-fixture-backend-codegen:typescript",
-            options: {
-              className: "AlphaState",
-            },
-          }),
-        ],
+        codegenTargets: [],
+        entryCodeBlockId: null,
       }),
       singletonSections: createSingletonSections(),
       parentSectionMap: {},
@@ -77,15 +82,16 @@ describe("applyProjectCodegenTargetsResponse", () => {
 
     applyProjectCodegenTargetsResponse(responseState);
 
-    expect(useProjectState.getState().projectConfig.codegenTargets).toEqual(
-      responseState.projectConfig.codegenTargets,
+    expect(useProjectState.getState().projectConfig).toEqual(
+      responseState.projectConfig,
     );
-    expect(
-      useAllProjectMetadata.getState().projectMetadata[0].codegenTargets,
-    ).toEqual(responseState.projectConfig.codegenTargets);
-    expect(
-      useAllProjectMetadata.getState().projectMetadata[1].codegenTargets,
-    ).toEqual([]);
+    expect(useProjectState.getState().singletonSections).toEqual(
+      responseState.singletonSections,
+    );
+    expect(useProjectState.getState().genCodeBinding).toBeNull();
+    expect(useAllProjectMetadata.getState().projectMetadata[0]).toEqual(
+      responseState.projectConfig,
+    );
   });
 
   it("leaves the loaded project state untouched when the response is for another project", () => {
@@ -114,9 +120,18 @@ describe("applyProjectCodegenTargetsResponse", () => {
 
     applyProjectCodegenTargetsResponse(responseState);
 
-    expect(useProjectState.getState().projectConfig.codegenTargets).toEqual([]);
-    expect(
-      useAllProjectMetadata.getState().projectMetadata[1].codegenTargets,
-    ).toEqual(responseState.projectConfig.codegenTargets);
+    expect(useProjectState.getState().projectConfig.id).toBe("project-alpha");
+    expect(useProjectState.getState().projectConfig.entryCodeBlockId).toBe(
+      "gen-python-section",
+    );
+    expect(useProjectState.getState().singletonSections.GenPythonCode).toBe(
+      "gen-python-section",
+    );
+    expect(useProjectState.getState().genCodeBinding).toEqual(
+      genCodeBindingFixture,
+    );
+    expect(useAllProjectMetadata.getState().projectMetadata[1]).toEqual(
+      responseState.projectConfig,
+    );
   });
 });

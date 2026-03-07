@@ -1,24 +1,21 @@
 import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import type { ProjectStateSingleConfig } from "utils/generatedTypes";
+import { loadProjectState } from "./loadProject";
 
 export function applyProjectCodegenTargetsResponse(
   projectState: ProjectStateSingleConfig,
 ): void {
-  const { id: projectConfigId, codegenTargets } = projectState.projectConfig;
+  const { id: projectConfigId } = projectState.projectConfig;
 
   useAllProjectMetadata.setState((state) => ({
     ...state,
     projectMetadata: state.projectMetadata.map((entry) =>
-      entry.id === projectConfigId
-        ? { ...entry, codegenTargets: [...codegenTargets] }
-        : entry,
+      entry.id === projectConfigId ? projectState.projectConfig : entry,
     ),
   }));
 
-  useProjectState.setState((state) => {
-    if (state.projectConfig.id !== projectConfigId) {
-      return;
-    }
-    state.projectConfig.codegenTargets = [...codegenTargets];
-  });
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+    return;
+  }
+  void loadProjectState(projectState);
 }

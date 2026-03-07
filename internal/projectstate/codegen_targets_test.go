@@ -143,7 +143,60 @@ func TestRuntimeSetProjectCodegenTargetsPropagatesValidatorFailure(t *testing.T)
 	}
 }
 
-// Python target changes should fail explicitly until Go owns the generated-section side effects that accompany them.
+// Removing the Python target should clear generated bindings and delete generated sections instead of leaving stale runtime state behind.
+func TestRuntimeSetProjectCodegenTargetsDisablesPythonTargetAndCleansUpGeneratedState(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := codegenTargetsTestDocument()
+	document.Projects["project-alpha"] = projectWithGeneratedPythonCodegenState()
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	snapshot, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", nil, nil)
+	if err != nil {
+		t.Fatalf("disable python codegen target: %v", err)
+	}
+	if snapshot.Revision != 2 {
+		t.Fatalf("expected revision 2, got %d", snapshot.Revision)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if len(project.CodegenTargets) != 0 {
+		t.Fatalf("expected python codegen target to be removed, got %#v", project.CodegenTargets)
+	}
+	if project.GeneratedCodeBinding != nil {
+		t.Fatalf("expected generated code binding to be cleared, got %#v", project.GeneratedCodeBinding)
+	}
+	if project.GeneratedMetadataBinding != nil {
+		t.Fatalf("expected generated metadata binding to be cleared, got %#v", project.GeneratedMetadataBinding)
+	}
+	if project.EntryCodeBlockID != "" {
+		t.Fatalf("expected entry code block id to be cleared, got %q", project.EntryCodeBlockID)
+	}
+	if _, ok := project.Sections["gen-python-section"]; ok {
+		t.Fatal("expected generated python section to be removed")
+	}
+	if _, ok := project.Sections["gen-python-metadata-section"]; ok {
+		t.Fatal("expected generated python metadata section to be removed")
+	}
+	if !reflect.DeepEqual(project.TopLevelSectionIDs, []string{"manual-section"}) {
+		t.Fatalf("expected only manual section to remain top-level, got %#v", project.TopLevelSectionIDs)
+	}
+	if !reflect.DeepEqual(project.ActiveIDs, []string{"manual-section"}) {
+		t.Fatalf("expected only manual section to remain active, got %#v", project.ActiveIDs)
+	}
+	if _, ok := project.ViewModes["focus"].VisibilityBySectionID["gen-python-section"]; ok {
+		t.Fatal("expected generated python section visibility to be removed from view mode")
+	}
+	if _, ok := project.ViewModes["focus"].TopLevelSections["gen-python-section"]; ok {
+		t.Fatal("expected generated python section layout to be removed from view mode")
+	}
+}
+
+// Python target enablement and in-place edits should still fail explicitly until Go owns the missing generator/runtime work behind them.
 func TestRuntimeSetProjectCodegenTargetsRejectsPythonTargetMutation(t *testing.T) {
 	t.Parallel()
 
@@ -224,6 +277,112 @@ func projectWithPythonCodegenTarget() Project {
 			{
 				Language: string(CodeLanguagePython),
 				Payload:  RawJSON(`{"language":"python","generateMetadata":true}`),
+			},
+		},
+	}
+}
+
+func projectWithGeneratedPythonCodegenState() Project {
+	return Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+				Payload:  RawJSON(`{"language":"python","generateMetadata":true}`),
+			},
+		},
+		GeneratedCodeBinding: &CodeFileBinding{
+			Path:       "code/sections/alpha/setta_gen.py",
+			AccessMode: CodeFileAccessModeReadOnly,
+		},
+		GeneratedMetadataBinding: &CodeFileBinding{
+			Path:       "code/sections/alpha/setta_gen_meta.py",
+			AccessMode: CodeFileAccessModeReadOnly,
+		},
+		EntryCodeBlockID:   "gen-python-section",
+		TopLevelSectionIDs: []string{"manual-section", "gen-python-section", "gen-python-metadata-section"},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			"manual-section":              {X: 10, Y: 20},
+			"gen-python-section":          {X: 30, Y: 40},
+			"gen-python-metadata-section": {X: 50, Y: 60},
+		},
+		SectionVariantMap: map[string]string{
+			"manual-section":              "manual-variant",
+			"gen-python-section":          "gen-python-variant",
+			"gen-python-metadata-section": "gen-python-metadata-variant",
+		},
+		ActiveIDs: []string{"manual-section", "gen-python-section"},
+		ViewModes: map[string]ViewMode{
+			"focus": {
+				ID: "focus",
+				VisibilityBySectionID: map[string]bool{
+					"manual-section":              true,
+					"gen-python-section":          true,
+					"gen-python-metadata-section": true,
+				},
+				TopLevelSections: map[string]TopLevelSectionLayout{
+					"manual-section":              {X: 10, Y: 20},
+					"gen-python-section":          {X: 30, Y: 40},
+					"gen-python-metadata-section": {X: 50, Y: 60},
+				},
+			},
+		},
+		Sections: map[string]Section{
+			"manual-section": {
+				ID:               "manual-section",
+				Name:             "Manual",
+				VariantIDs:       []string{"manual-variant"},
+				DefaultVariantID: "manual-variant",
+			},
+			"gen-python-section": {
+				ID:               "gen-python-section",
+				Name:             "Generated Python",
+				VariantIDs:       []string{"gen-python-variant"},
+				DefaultVariantID: "gen-python-variant",
+			},
+			"gen-python-metadata-section": {
+				ID:               "gen-python-metadata-section",
+				Name:             "Generated Python Metadata",
+				VariantIDs:       []string{"gen-python-metadata-variant"},
+				DefaultVariantID: "gen-python-metadata-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"manual-variant": {
+				ID:     "manual-variant",
+				ImplID: "manual-impl",
+			},
+			"gen-python-variant": {
+				ID:     "gen-python-variant",
+				ImplID: "gen-python-impl",
+			},
+			"gen-python-metadata-variant": {
+				ID:     "gen-python-metadata-variant",
+				ImplID: "gen-python-metadata-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"manual-impl": {
+				ID:   "manual-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language: CodeLanguagePython,
+				},
+			},
+			"gen-python-impl": {
+				ID:   "gen-python-impl",
+				Kind: SectionKindGenerated,
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonCode,
+				},
+			},
+			"gen-python-metadata-impl": {
+				ID:   "gen-python-metadata-impl",
+				Kind: SectionKindGenerated,
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonMetadata,
+				},
 			},
 		},
 	}

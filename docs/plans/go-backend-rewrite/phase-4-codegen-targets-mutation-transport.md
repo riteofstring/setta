@@ -41,14 +41,29 @@ Current repo status as of 2026-03-06:
     path for `setProjectConfigCodegenTargets` under:
     - `internal/httpapi/project_routes.go`
     - `internal/app/app.go`
+  - cleanup-only Python target removal side effects for this route under:
+    - `internal/projectstate/codegen_targets.go`
+    - generated Python section removal
+    - generated binding cleanup
+    - generated-entry `entryCodeBlockId` cleanup when it pointed at the
+      generated section
+    - top-level/view-mode cleanup for removed generated sections
+  - frontend authoritative state application for the current project under:
+    - `frontend/src/state/actions/project/codegenTargets.ts`
+    - route responses now reload the current project via `loadProjectState(...)`
+      instead of patching only `projectConfig.codegenTargets`
 - Python still owns the broader surrounding IDE mutation transport surface under:
   - `backend/setta/routers/project_manager.py`
   - `backend/setta/project_state/base_project_manager.py`
 - the current frontend caller already has one narrow mutation entry point:
   - `route_set_project_config_codegen_targets(...)`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
-- the current Go backend still has no IDE project-state mutation route surface
-  and no Go-owned project-state mutation broadcast transport for IDE mode
+- the remaining Go gap in this focused area is no longer route transport
+  correctness; it is first-party Python target enablement/in-place edits, which
+  still require a Go-owned authoritative Python codegen/materialization path
+- the current Go backend still has no broader IDE project-state mutation route
+  surface and no Go-owned project-state mutation broadcast transport for IDE
+  mode
 
 ## Scope
 
@@ -308,33 +323,74 @@ Tests:
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi ./internal/app ./internal/projectstate ./internal/plugins -count=1`
 - `pnpm -C frontend exec vitest run src/state/actions/project/codegenTargets.test.ts src/state/actions/project/loadProject.test.ts`
 
-### Slice 3: Python Codegen Section Side Effects
+### Slice 3: Python Disable Cleanup Side Effects
 
 Deliver:
 
-- Go-owned handling for the Python-codegen-specific generated section side
-  effects that the route needs
+- Go-owned handling for the cleanup side effects required when an existing
+  Python target is removed
 - explicit entry-section cleanup when Python codegen is disabled
+- authoritative frontend state application for the current project so removed
+  generated sections disappear from the UI immediately
 
 Acceptance:
 
-- the route can safely handle mixed Python + plugin codegen target changes
-- generated-entry planning keeps using source-of-truth fields after the
-  mutation
+- the route can remove an existing Python target while preserving plugin-only
+  targets
+- generated-entry planning no longer sees stale bindings/sections after Python
+  target removal
+- the frontend no longer keeps stale generated singleton state after the route
+  response
+
+Status:
+
+- complete
+
+Completed:
+
+- updated `internal/projectstate/codegen_targets.go` so Go now supports the
+  honest Python-target transition it can own today:
+  - existing Python target removal is allowed
+  - unchanged existing Python target plus plugin mutations remain allowed
+  - Python target enablement and in-place edits still fail explicitly
+- added cleanup of stale generated Python runtime state during target removal:
+  - clear `GeneratedCodeBinding`
+  - clear `GeneratedMetadataBinding`
+  - clear `entryCodeBlockId` when it pointed at the generated Python section
+  - remove generated Python and generated metadata sections
+  - prune top-level/layout/view-mode references for removed generated sections
+- updated the frontend response handler so `setProjectConfigCodegenTargets`
+  applies the authoritative project state for the currently loaded project
+  instead of only patching `codegenTargets`
+- covered the slice with focused tests for:
+  - runtime cleanup after Python target removal
+  - HTTP route response/state cleanup after Python target removal
+  - frontend authoritative project-state replacement for current-project
+    responses
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/httpapi -count=1`
+- `pnpm -C frontend exec vitest run src/state/actions/project/codegenTargets.test.ts`
 
 ## Open Questions
 
-- whether the next slice should keep extending this route or split a dedicated
-  focused doc for Python generated-section ownership before transport widens
+- whether the next slice should create a dedicated focused doc for first-party
+  Python codegen runtime/enablement ownership instead of extending this
+  transport doc further
 
 ## Next Recommended Step
 
-- Start Slice 3 from this doc: Go-owned Python generated-section side effects
-  for codegen-target mutations.
-- Keep the current clean-break boundary:
-  - plugin-only and unchanged-existing-Python mutations are supported
-  - Python target add/remove/config changes stay explicitly blocked until Go
-    owns the generated-section updates they require
-- If Slice 3 expands beyond the current focused scope, split a dedicated plan
-  doc before implementation rather than smuggling Python generated-entry
-  ownership into this transport doc.
+- Split the next slice into a dedicated focused doc before more implementation.
+- Scope that doc around first-party Python codegen runtime ownership:
+  - authoritative generated file materialization for `setta_gen.py`
+  - authoritative metadata materialization for `setta_gen_meta.py`
+  - generated section creation/update when Python target enablement or metadata
+    enablement occurs
+  - route support for Python target enablement and in-place target edits only
+    after that runtime exists
+- Keep the current clean-break boundary until that lands:
+  - plugin-only mutations are supported
+  - unchanged existing Python target plus plugin mutations are supported
+  - Python target removal cleanup is supported
+  - Python target enablement and in-place edits stay explicitly blocked
