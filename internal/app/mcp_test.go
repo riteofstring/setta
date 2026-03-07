@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 19 {
-		t.Fatalf("expected 19 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 20 {
+		t.Fatalf("expected 20 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 19 {
-		t.Fatalf("expected 19 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 20 {
+		t.Fatalf("expected 20 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -188,13 +188,19 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	summaryPayload := mustStructuredMapValue(t, summaryResult.StructuredContent)
 	sections := mustStructuredListValue(t, summaryPayload["sections"])
-	if len(sections) != 3 {
-		t.Fatalf("expected three scoped sections in summary, got %#v", sections)
+	if len(sections) != 4 {
+		t.Fatalf("expected four scoped sections in summary, got %#v", sections)
 	}
 	projectConfig := mustStructuredMapValue(t, summaryPayload["projectConfig"])
 	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
+	if len(sectionVariantMap) != 4 {
+		t.Fatalf("expected four scoped section variants, got %#v", sectionVariantMap)
+	}
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-callable-section"]; ok {
+		t.Fatalf("did not expect blocked-callable-section in scoped summary, got %#v", sectionVariantMap)
 	}
 	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
 		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
@@ -449,6 +455,39 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if got := paramPayload["value"]; got != "combined" {
 		t.Fatalf("expected combined param value, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_callable",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+			"callableName":    "sorted",
+			"refetchParams":   false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_callable: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_callable success, got %#v", result.StructuredContent)
+	}
+	callableResultPayload := mustStructuredMapValue(t, result.StructuredContent)
+	if callableResultPayload["callableId"] == "" {
+		t.Fatalf("expected non-empty callable id result, got %#v", callableResultPayload["callableId"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_callable: %v", err)
+	}
+	_, _, callableImpl, err := project.ResolveSection("allowed-callable-section")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-section after set_callable: %v", err)
+	}
+	callableSectionPayload := mustDecodedProjectPayloadValue(t, callableImpl.Payload)
+	if got := callableSectionPayload["callable"]; got != "allowed-callable-2" {
+		t.Fatalf("expected persisted callable allowed-callable-2, got %#v", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1056,20 +1095,24 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
-		"project-alpha":          "11",
-		"chat-1":                 "12",
-		"chat-section":           "13",
-		"allowed-section":        "14",
-		"peer-chat-section":      "15",
-		"allowed-variant":        "16",
-		"peer-chat-variant":      "17",
-		"blocked-section":        "18",
-		"blocked-variant":        "19",
-		"allowed-params-section": "20",
-		"allowed-params-variant": "21",
-		"allowed-param":          "22",
-		"blocked-params-section": "23",
-		"blocked-param":          "24",
+		"project-alpha":            "11",
+		"chat-1":                   "12",
+		"chat-section":             "13",
+		"allowed-section":          "14",
+		"peer-chat-section":        "15",
+		"allowed-variant":          "16",
+		"peer-chat-variant":        "17",
+		"blocked-section":          "18",
+		"blocked-variant":          "19",
+		"allowed-params-section":   "20",
+		"allowed-params-variant":   "21",
+		"allowed-param":            "22",
+		"blocked-params-section":   "23",
+		"blocked-param":            "24",
+		"allowed-callable-section": "25",
+		"blocked-callable-section": "26",
+		"allowed-callable-2":       "27",
+		"allowed-param-existing":   "28",
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -1245,6 +1288,39 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	}
 	if got := paramPayload["value"]; got != "combined" {
 		t.Fatalf("expected combined param value, got %#v", got)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_callable",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "25",
+			"callableName":    "sorted",
+			"refetchParams":   false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_callable: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_callable success, got %#v", writeResult.StructuredContent)
+	}
+	callablePayload := mustStructuredMapValue(t, writeResult.StructuredContent)
+	if callablePayload["callableId"] != "27" {
+		t.Fatalf("expected translated callable id 27, got %#v", callablePayload["callableId"])
+	}
+	childCodeObjs := mustStructuredListValue(t, callablePayload["childCodeObjs"])
+	if len(childCodeObjs) != 1 {
+		t.Fatalf("expected one translated callable child, got %#v", childCodeObjs)
+	}
+	firstChild := mustStructuredMapValue(t, childCodeObjs[0])
+	if firstChild["codeObjId"] != "28" {
+		t.Fatalf("expected translated child code-object id 28, got %#v", firstChild["codeObjId"])
 	}
 
 	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1506,8 +1582,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 19 {
-		t.Fatalf("expected tool count 19, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 20 {
+		t.Fatalf("expected tool count 20, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -2243,17 +2319,21 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					"chat-section",
 					"peer-chat-section",
 					"allowed-section",
+					"allowed-callable-section",
 					"blocked-section",
+					"blocked-callable-section",
 					"allowed-params-section",
 					"blocked-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"chat-section":           "chat-variant",
-					"peer-chat-section":      "peer-chat-variant",
-					"allowed-section":        "allowed-variant",
-					"blocked-section":        "blocked-variant",
-					"allowed-params-section": "allowed-params-variant",
-					"blocked-params-section": "blocked-params-variant",
+					"chat-section":             "chat-variant",
+					"peer-chat-section":        "peer-chat-variant",
+					"allowed-section":          "allowed-variant",
+					"allowed-callable-section": "allowed-callable-variant",
+					"blocked-section":          "blocked-variant",
+					"blocked-callable-section": "blocked-callable-variant",
+					"allowed-params-section":   "allowed-params-variant",
+					"blocked-params-section":   "blocked-params-variant",
 				},
 				AgenticEdges: []projectstate.AgenticEdge{
 					{
@@ -2272,6 +2352,18 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						ID:              "edge-write",
 						SourceSectionID: "chat-section",
 						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
+					},
+					{
+						ID:              "edge-callable-context",
+						SourceSectionID: "allowed-callable-section",
+						TargetSectionID: "chat-section",
+						Kind:            "section_chat",
+					},
+					{
+						ID:              "edge-callable-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-callable-section",
 						Kind:            "chat_section",
 					},
 					{
@@ -2306,11 +2398,25 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						VariantIDs:       []string{"allowed-variant"},
 						DefaultVariantID: "allowed-variant",
 					},
+					"allowed-callable-section": {
+						ID:               "allowed-callable-section",
+						Name:             "Allowed Callable",
+						VariantIDs:       []string{"allowed-callable-variant"},
+						DefaultVariantID: "allowed-callable-variant",
+						UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+					},
 					"blocked-section": {
 						ID:               "blocked-section",
 						Name:             "Blocked",
 						VariantIDs:       []string{"blocked-variant"},
 						DefaultVariantID: "blocked-variant",
+					},
+					"blocked-callable-section": {
+						ID:               "blocked-callable-section",
+						Name:             "Blocked Callable",
+						VariantIDs:       []string{"blocked-callable-variant"},
+						DefaultVariantID: "blocked-callable-variant",
+						UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
 					},
 					"allowed-params-section": {
 						ID:               "allowed-params-section",
@@ -2326,12 +2432,14 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"chat-variant":           {ID: "chat-variant", ImplID: "chat-impl"},
-					"peer-chat-variant":      {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
-					"allowed-variant":        {ID: "allowed-variant", ImplID: "allowed-impl"},
-					"blocked-variant":        {ID: "blocked-variant", ImplID: "blocked-impl"},
-					"allowed-params-variant": {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
-					"blocked-params-variant": {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
+					"chat-variant":             {ID: "chat-variant", ImplID: "chat-impl"},
+					"peer-chat-variant":        {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
+					"allowed-variant":          {ID: "allowed-variant", ImplID: "allowed-impl"},
+					"allowed-callable-variant": {ID: "allowed-callable-variant", ImplID: "allowed-callable-impl"},
+					"blocked-variant":          {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"blocked-callable-variant": {ID: "blocked-callable-variant", ImplID: "blocked-callable-impl"},
+					"allowed-params-variant":   {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
+					"blocked-params-variant":   {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
 					"chat-impl": {
@@ -2358,6 +2466,20 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 							"children":     []any{},
 						}),
 					},
+					"allowed-callable-impl": {
+						ID:   "allowed-callable-impl",
+						Kind: projectstate.SectionKind("callable"),
+						Payload: mustRawJSONValue(t, map[string]any{
+							"id":       "allowed-callable-impl",
+							"type":     "Callable",
+							"callable": "allowed-callable-1",
+							"codeObjVariantMap": map[string]string{
+								"allowed-callable-1":     "allowed-callable-variant-a",
+								"allowed-callable-2":     "allowed-callable-variant-b",
+								"allowed-param-existing": "allowed-param-existing-variant",
+							},
+						}),
+					},
 					"blocked-impl": {
 						ID:   "blocked-impl",
 						Kind: projectstate.SectionKindCode,
@@ -2372,6 +2494,16 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 							"children":     []any{},
 						}),
 					},
+					"blocked-callable-impl": {
+						ID:   "blocked-callable-impl",
+						Kind: projectstate.SectionKind("callable"),
+						Payload: mustRawJSONValue(t, map[string]any{
+							"id":                "blocked-callable-impl",
+							"type":              "Callable",
+							"callable":          nil,
+							"codeObjVariantMap": map[string]string{},
+						}),
+					},
 					"allowed-params-impl": {
 						ID:      "allowed-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
@@ -2384,6 +2516,24 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					},
 				},
 				CodeObjs: map[string]projectstate.CodeObject{
+					"allowed-callable-1": {
+						ID:               "allowed-callable-1",
+						Name:             "existing_callable",
+						VariantIDs:       []string{"allowed-callable-variant-a"},
+						DefaultVariantID: "allowed-callable-variant-a",
+					},
+					"allowed-callable-2": {
+						ID:               "allowed-callable-2",
+						Name:             "sorted",
+						VariantIDs:       []string{"allowed-callable-variant-b"},
+						DefaultVariantID: "allowed-callable-variant-b",
+					},
+					"allowed-param-existing": {
+						ID:               "allowed-param-existing",
+						Name:             "iterable",
+						VariantIDs:       []string{"allowed-param-existing-variant"},
+						DefaultVariantID: "allowed-param-existing-variant",
+					},
 					"allowed-param": {
 						ID:               "allowed-param",
 						Name:             "allowed_param",
@@ -2398,6 +2548,18 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					},
 				},
 				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"allowed-callable-variant-a": {
+						ID:     "allowed-callable-variant-a",
+						ImplID: "allowed-callable-impl-a",
+					},
+					"allowed-callable-variant-b": {
+						ID:     "allowed-callable-variant-b",
+						ImplID: "allowed-callable-impl-b",
+					},
+					"allowed-param-existing-variant": {
+						ID:     "allowed-param-existing-variant",
+						ImplID: "allowed-param-existing-impl",
+					},
 					"allowed-param-variant": {
 						ID:     "allowed-param-variant",
 						ImplID: "allowed-param-impl",
@@ -2408,6 +2570,21 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					},
 				},
 				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"allowed-callable-impl-a": {
+						ID:      "allowed-callable-impl-a",
+						Type:    "CodeCallable",
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-callable-impl-a", "type": "CodeCallable", "children": []any{}}),
+					},
+					"allowed-callable-impl-b": {
+						ID:      "allowed-callable-impl-b",
+						Type:    "CodeCallable",
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-callable-impl-b", "type": "CodeCallable", "children": []any{"allowed-param-existing"}}),
+					},
+					"allowed-param-existing-impl": {
+						ID:      "allowed-param-existing-impl",
+						Type:    "CodeParam",
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-param-existing-impl", "type": "CodeParam", "value": "user_value", "passingStyle": "DEFAULT"}),
+					},
 					"allowed-param-impl": {
 						ID:      "allowed-param-impl",
 						Type:    "TextParam",
@@ -2472,6 +2649,16 @@ func mustStructuredMapValue(t *testing.T, value any) map[string]any {
 	var decoded map[string]any
 	if err := json.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatalf("decode structured map value: %v", err)
+	}
+	return decoded
+}
+
+func mustDecodedProjectPayloadValue(t *testing.T, raw projectstate.RawJSON) map[string]any {
+	t.Helper()
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("decode project payload value: %v", err)
 	}
 	return decoded
 }

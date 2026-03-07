@@ -53,15 +53,7 @@ func selectValuesByPath(payload any, path string) []any {
 	for _, segment := range segments {
 		nextValues := make([]any, 0, len(current))
 		for _, item := range current {
-			object, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			value, ok := object[segment]
-			if !ok {
-				continue
-			}
-			nextValues = append(nextValues, value)
+			nextValues = append(nextValues, selectSegmentValues(item, segment)...)
 		}
 		current = nextValues
 		if len(current) == 0 {
@@ -96,20 +88,30 @@ func rewriteIDsAtPath(current any, segments []string, transform func(string) (st
 		return rewriteIDCarrier(current, transform)
 	}
 
-	object, ok := current.(map[string]any)
-	if !ok {
+	switch typed := current.(type) {
+	case map[string]any:
+		child, ok := typed[segments[0]]
+		if !ok {
+			return current, nil
+		}
+		rewritten, err := rewriteIDsAtPath(child, segments[1:], transform)
+		if err != nil {
+			return nil, err
+		}
+		typed[segments[0]] = rewritten
+		return current, nil
+	case []any:
+		for index, entry := range typed {
+			rewritten, err := rewriteIDsAtPath(entry, segments, transform)
+			if err != nil {
+				return nil, err
+			}
+			typed[index] = rewritten
+		}
+		return current, nil
+	default:
 		return current, nil
 	}
-	child, ok := object[segments[0]]
-	if !ok {
-		return current, nil
-	}
-	rewritten, err := rewriteIDsAtPath(child, segments[1:], transform)
-	if err != nil {
-		return nil, err
-	}
-	object[segments[0]] = rewritten
-	return current, nil
 }
 
 func rewriteIDCarrier(value any, transform func(string) (string, error)) (any, error) {
@@ -197,4 +199,23 @@ func pathSegments(path string) []string {
 		segments = append(segments, trimmed)
 	}
 	return segments
+}
+
+func selectSegmentValues(value any, segment string) []any {
+	switch typed := value.(type) {
+	case map[string]any:
+		next, ok := typed[segment]
+		if !ok {
+			return nil
+		}
+		return []any{next}
+	case []any:
+		values := make([]any, 0, len(typed))
+		for _, entry := range typed {
+			values = append(values, selectSegmentValues(entry, segment)...)
+		}
+		return values
+	default:
+		return nil
+	}
 }

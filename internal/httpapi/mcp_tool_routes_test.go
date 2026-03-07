@@ -376,6 +376,41 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 
 	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_callable",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","callableName":"sorted","refetchParams":false},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_callable success, got %#v", payload.StructuredContent)
+	}
+	callablePayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if callablePayload["callableId"] != "allowed-callable-2" {
+		t.Fatalf("expected callable id allowed-callable-2, got %#v", callablePayload["callableId"])
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_callable: %v", err)
+	}
+	_, _, callableImpl, err := project.ResolveSection("allowed-callable-section")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-section after route set_callable: %v", err)
+	}
+	callableSectionPayload := mustDecodedRouteProjectPayload(t, callableImpl.Payload)
+	if got := callableSectionPayload["callable"]; got != "allowed-callable-2" {
+		t.Fatalf("expected persisted callable allowed-callable-2, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
 		"tool":"set_type_error_ignore",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
 		"agenticContext":{
@@ -929,17 +964,21 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					"chat-section",
 					"peer-chat-section",
 					"allowed-section",
+					"allowed-callable-section",
 					"blocked-section",
+					"blocked-callable-section",
 					"allowed-params-section",
 					"blocked-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"chat-section":           "chat-variant",
-					"peer-chat-section":      "peer-chat-variant",
-					"allowed-section":        "allowed-variant",
-					"blocked-section":        "blocked-variant",
-					"allowed-params-section": "allowed-params-variant",
-					"blocked-params-section": "blocked-params-variant",
+					"chat-section":             "chat-variant",
+					"peer-chat-section":        "peer-chat-variant",
+					"allowed-section":          "allowed-variant",
+					"allowed-callable-section": "allowed-callable-variant",
+					"blocked-section":          "blocked-variant",
+					"blocked-callable-section": "blocked-callable-variant",
+					"allowed-params-section":   "allowed-params-variant",
+					"blocked-params-section":   "blocked-params-variant",
 				},
 				AgenticEdges: []projectstate.AgenticEdge{
 					{
@@ -958,6 +997,18 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						ID:              "edge-write",
 						SourceSectionID: "chat-section",
 						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
+					},
+					{
+						ID:              "edge-callable-context",
+						SourceSectionID: "allowed-callable-section",
+						TargetSectionID: "chat-section",
+						Kind:            "section_chat",
+					},
+					{
+						ID:              "edge-callable-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-callable-section",
 						Kind:            "chat_section",
 					},
 					{
@@ -992,11 +1043,25 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						VariantIDs:       []string{"allowed-variant"},
 						DefaultVariantID: "allowed-variant",
 					},
+					"allowed-callable-section": {
+						ID:               "allowed-callable-section",
+						Name:             "Allowed Callable",
+						VariantIDs:       []string{"allowed-callable-variant"},
+						DefaultVariantID: "allowed-callable-variant",
+						UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+					},
 					"blocked-section": {
 						ID:               "blocked-section",
 						Name:             "Blocked",
 						VariantIDs:       []string{"blocked-variant"},
 						DefaultVariantID: "blocked-variant",
+					},
+					"blocked-callable-section": {
+						ID:               "blocked-callable-section",
+						Name:             "Blocked Callable",
+						VariantIDs:       []string{"blocked-callable-variant"},
+						DefaultVariantID: "blocked-callable-variant",
+						UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
 					},
 					"allowed-params-section": {
 						ID:               "allowed-params-section",
@@ -1012,12 +1077,14 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"chat-variant":           {ID: "chat-variant", ImplID: "chat-impl"},
-					"peer-chat-variant":      {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
-					"allowed-variant":        {ID: "allowed-variant", ImplID: "allowed-impl"},
-					"blocked-variant":        {ID: "blocked-variant", ImplID: "blocked-impl"},
-					"allowed-params-variant": {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
-					"blocked-params-variant": {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
+					"chat-variant":             {ID: "chat-variant", ImplID: "chat-impl"},
+					"peer-chat-variant":        {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
+					"allowed-variant":          {ID: "allowed-variant", ImplID: "allowed-impl"},
+					"allowed-callable-variant": {ID: "allowed-callable-variant", ImplID: "allowed-callable-impl"},
+					"blocked-variant":          {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"blocked-callable-variant": {ID: "blocked-callable-variant", ImplID: "blocked-callable-impl"},
+					"allowed-params-variant":   {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
+					"blocked-params-variant":   {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
 					"chat-impl": {
@@ -1044,6 +1111,20 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 							"children":     []any{},
 						}),
 					},
+					"allowed-callable-impl": {
+						ID:   "allowed-callable-impl",
+						Kind: projectstate.SectionKind("callable"),
+						Payload: mustRouteRawJSON(t, map[string]any{
+							"id":       "allowed-callable-impl",
+							"type":     "Callable",
+							"callable": "allowed-callable-1",
+							"codeObjVariantMap": map[string]string{
+								"allowed-callable-1":     "allowed-callable-variant-a",
+								"allowed-callable-2":     "allowed-callable-variant-b",
+								"allowed-param-existing": "allowed-param-existing-variant",
+							},
+						}),
+					},
 					"blocked-impl": {
 						ID:   "blocked-impl",
 						Kind: projectstate.SectionKindCode,
@@ -1058,6 +1139,16 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 							"children":     []any{},
 						}),
 					},
+					"blocked-callable-impl": {
+						ID:   "blocked-callable-impl",
+						Kind: projectstate.SectionKind("callable"),
+						Payload: mustRouteRawJSON(t, map[string]any{
+							"id":                "blocked-callable-impl",
+							"type":              "Callable",
+							"callable":          nil,
+							"codeObjVariantMap": map[string]string{},
+						}),
+					},
 					"allowed-params-impl": {
 						ID:      "allowed-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
@@ -1070,6 +1161,24 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					},
 				},
 				CodeObjs: map[string]projectstate.CodeObject{
+					"allowed-callable-1": {
+						ID:               "allowed-callable-1",
+						Name:             "existing_callable",
+						VariantIDs:       []string{"allowed-callable-variant-a"},
+						DefaultVariantID: "allowed-callable-variant-a",
+					},
+					"allowed-callable-2": {
+						ID:               "allowed-callable-2",
+						Name:             "sorted",
+						VariantIDs:       []string{"allowed-callable-variant-b"},
+						DefaultVariantID: "allowed-callable-variant-b",
+					},
+					"allowed-param-existing": {
+						ID:               "allowed-param-existing",
+						Name:             "iterable",
+						VariantIDs:       []string{"allowed-param-existing-variant"},
+						DefaultVariantID: "allowed-param-existing-variant",
+					},
 					"allowed-param": {
 						ID:               "allowed-param",
 						Name:             "allowed_param",
@@ -1084,6 +1193,18 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					},
 				},
 				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"allowed-callable-variant-a": {
+						ID:     "allowed-callable-variant-a",
+						ImplID: "allowed-callable-impl-a",
+					},
+					"allowed-callable-variant-b": {
+						ID:     "allowed-callable-variant-b",
+						ImplID: "allowed-callable-impl-b",
+					},
+					"allowed-param-existing-variant": {
+						ID:     "allowed-param-existing-variant",
+						ImplID: "allowed-param-existing-impl",
+					},
 					"allowed-param-variant": {
 						ID:     "allowed-param-variant",
 						ImplID: "allowed-param-impl",
@@ -1094,6 +1215,21 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					},
 				},
 				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"allowed-callable-impl-a": {
+						ID:      "allowed-callable-impl-a",
+						Type:    "CodeCallable",
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-callable-impl-a", "type": "CodeCallable", "children": []any{}}),
+					},
+					"allowed-callable-impl-b": {
+						ID:      "allowed-callable-impl-b",
+						Type:    "CodeCallable",
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-callable-impl-b", "type": "CodeCallable", "children": []any{"allowed-param-existing"}}),
+					},
+					"allowed-param-existing-impl": {
+						ID:      "allowed-param-existing-impl",
+						Type:    "CodeParam",
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-param-existing-impl", "type": "CodeParam", "value": "user_value", "passingStyle": "DEFAULT"}),
+					},
 					"allowed-param-impl": {
 						ID:      "allowed-param-impl",
 						Type:    "TextParam",

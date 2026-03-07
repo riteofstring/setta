@@ -46,6 +46,7 @@ type ServerOptions struct {
 	ProjectState       projectStateProvider
 	SettingsState      settingsStateProvider
 	SectionNames       sectionNameProvider
+	CallableSignatures projectstate.CallableSignatureResolver
 	LSPDiagnostics     lspDiagnosticsProvider
 	TemporaryIDMapPath string
 }
@@ -64,6 +65,7 @@ type projectStateProvider interface {
 	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
+	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
@@ -157,7 +159,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
-	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SettingsState, opts.SectionNames, opts.LSPDiagnostics) {
+	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SettingsState, opts.SectionNames, opts.CallableSignatures, opts.LSPDiagnostics) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -697,6 +699,56 @@ func newCreateNewSectionVariantHandler(projectState projectStateProvider) tools.
 	}
 }
 
+func newSetCallableHandler(projectState projectStateProvider, callableSignatures projectstate.CallableSignatureResolver) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		callableName, err := readRequiredRawStringArgument(arguments, "callableName")
+		if err != nil {
+			return nil, err
+		}
+		refetchParams, err := readRequiredBoolArgument(arguments, "refetchParams")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped callable invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.SetCallable(
+			ctx,
+			projectConfigID,
+			sectionID,
+			callableName,
+			refetchParams,
+			callableSignatures,
+		)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
 func newSetCodeSectionDiagnosticsMuteHandler(projectState projectStateProvider, diagnostics lspDiagnosticsProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1071,6 +1123,7 @@ func defaultToolDefinitions(
 	projectState projectStateProvider,
 	settingsState settingsStateProvider,
 	sectionNames sectionNameProvider,
+	callableSignatures projectstate.CallableSignatureResolver,
 	lspDiagnostics lspDiagnosticsProvider,
 ) []toolDefinition {
 	definitions := []toolDefinition{
@@ -1509,6 +1562,75 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"variantId"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_callable",
+				Description: "Select the active callable for a callable section and optionally refetch its params.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"callableId", "childCodeObjs.codeObjId"},
+					},
+					SearchCategory: "code",
+					SearchTags:     []string{"callable", "function", "signature", "params", "bind"},
+				},
+				Handler: newSetCallableHandler(projectState, callableSignatures),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose callable section should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Callable section id whose active callable should be updated.",
+					},
+					"callableName": map[string]any{
+						"type":        "string",
+						"description": "Callable name to select; pass an empty string to clear the current callable.",
+					},
+					"refetchParams": map[string]any{
+						"type":        "boolean",
+						"description": "When true, refetch callable params from the configured signature-help resolver.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "callableName", "refetchParams"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"callableId": map[string]any{
+						"type": []string{"string", "null"},
+					},
+					"childCodeObjs": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"codeObjId": map[string]any{
+									"type": "string",
+								},
+								"name": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"codeObjId", "name"},
+						},
+					},
+					"lspStatus": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"callableId", "childCodeObjs", "lspStatus"},
 			},
 		})
 	}
@@ -2406,6 +2528,7 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCallableSectionRequired),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),

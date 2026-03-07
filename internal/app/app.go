@@ -403,6 +403,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			ProjectState:       projectRuntime,
 			SettingsState:      settingsRuntime,
 			SectionNames:       renameRefactors,
+			CallableSignatures: lspSignature,
 			LSPDiagnostics:     lspDiagnostics,
 			TemporaryIDMapPath: mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 		})

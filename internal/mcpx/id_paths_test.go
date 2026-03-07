@@ -70,3 +70,54 @@ func TestTranslateIDsAtPathsRewritesNestedStringsAndLists(t *testing.T) {
 		t.Fatalf("unexpected translated section id list %#v", values)
 	}
 }
+
+func TestExtractIDsByTypeCollectsIDsFromArraysOfObjects(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"childCodeObjs": []any{
+			map[string]any{"codeObjId": "code-1"},
+			map[string]any{"codeObjId": "code-2"},
+		},
+	}
+
+	idsByType := extractIDsByType(payload, map[tools.IDType][]string{
+		tools.IDTypeCodeObject: {"childCodeObjs.codeObjId"},
+	}, false)
+
+	expected := map[string]struct{}{
+		"code-1": {},
+		"code-2": {},
+	}
+	if !reflect.DeepEqual(idsByType[tools.IDTypeCodeObject], expected) {
+		t.Fatalf("unexpected extracted code-object ids %#v", idsByType[tools.IDTypeCodeObject])
+	}
+}
+
+func TestTranslateIDsAtPathsRewritesNestedArrayObjectFields(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"childCodeObjs": []any{
+			map[string]any{"codeObjId": "code-1", "name": "first"},
+			map[string]any{"codeObjId": "code-2", "name": "second"},
+		},
+	}
+
+	err := translateIDsAtPaths(payload, []string{"childCodeObjs.codeObjId"}, func(value string) (string, error) {
+		return "tmp-" + value, nil
+	})
+	if err != nil {
+		t.Fatalf("translate nested array object ids at paths: %v", err)
+	}
+
+	values, ok := payload["childCodeObjs"].([]any)
+	if !ok {
+		t.Fatalf("expected translated child list, got %#v", payload["childCodeObjs"])
+	}
+	first := values[0].(map[string]any)
+	second := values[1].(map[string]any)
+	if first["codeObjId"] != "tmp-code-1" || second["codeObjId"] != "tmp-code-2" {
+		t.Fatalf("unexpected translated child code-object ids %#v", values)
+	}
+}
