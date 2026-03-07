@@ -495,6 +495,101 @@ func TestBuildPythonDependencyGraphPasswordParamHonorsProvidedSecrets(t *testing
 	}
 }
 
+// Callable names and childless param values should resolve real Python `state.<name>` references
+// against the graph's final full-path index, even when the target node is exported later.
+func TestBuildPythonDependencyGraphResolvesForwardStateReferences(t *testing.T) {
+	t.Parallel()
+
+	project := pythonStateReferenceProject(
+		t,
+		"state.Shared_Config",
+		"state.Shared_Config",
+	)
+
+	exported := mustPythonCodegenExport(t, project)
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build graph with forward refs: %v", err)
+	}
+
+	targetKey := PythonCodeObjectDependencyKey("globals", "global-shared")
+	runnerNode := mustSectionNode(t, graph, PythonSectionDependencyKey("runner"))
+	if !runnerNode.Deps[targetKey] {
+		t.Fatalf("expected callable section to depend on %v, deps=%#v", targetKey, runnerNode.Deps)
+	}
+
+	paramNode := mustParamNode(t, graph, PythonCodeObjectDependencyKey("runner", "runner-param"))
+	if !paramNode.Deps[targetKey] {
+		t.Fatalf("expected param node to depend on %v, deps=%#v", targetKey, paramNode.Deps)
+	}
+}
+
+// The parser-backed extractor should ignore references when `state` is shadowed in supported scopes
+// and should drop invalid Python snippets instead of creating heuristic edges.
+func TestBuildPythonDependencyGraphSkipsShadowedAndInvalidStateReferences(t *testing.T) {
+	t.Parallel()
+
+	t.Run("function scope shadowing", func(t *testing.T) {
+		t.Parallel()
+
+		project := pythonStateReferenceProject(
+			t,
+			"runner",
+			"def inner(state):\n    return state.Shared_Config",
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build graph with function shadowing: %v", err)
+		}
+
+		paramNode := mustParamNode(t, graph, PythonCodeObjectDependencyKey("runner", "runner-param"))
+		if len(paramNode.Deps) != 0 {
+			t.Fatalf("expected no deps for shadowed function reference, got %#v", paramNode.Deps)
+		}
+	})
+
+	t.Run("comprehension shadowing", func(t *testing.T) {
+		t.Parallel()
+
+		project := pythonStateReferenceProject(
+			t,
+			"runner",
+			"[state.Shared_Config for state in items if state.Shared_Config]",
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build graph with comprehension shadowing: %v", err)
+		}
+
+		paramNode := mustParamNode(t, graph, PythonCodeObjectDependencyKey("runner", "runner-param"))
+		if len(paramNode.Deps) != 0 {
+			t.Fatalf("expected no deps for shadowed comprehension reference, got %#v", paramNode.Deps)
+		}
+	})
+
+	t.Run("syntax error", func(t *testing.T) {
+		t.Parallel()
+
+		project := pythonStateReferenceProject(
+			t,
+			"runner",
+			"state.Shared_Config(",
+		)
+		exported := mustPythonCodegenExport(t, project)
+		graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+		if err != nil {
+			t.Fatalf("build graph with syntax error: %v", err)
+		}
+
+		paramNode := mustParamNode(t, graph, PythonCodeObjectDependencyKey("runner", "runner-param"))
+		if len(paramNode.Deps) != 0 {
+			t.Fatalf("expected no deps for invalid python, got %#v", paramNode.Deps)
+		}
+	})
+}
+
 func singleSectionProject(
 	t *testing.T,
 	sectionName string,
@@ -537,6 +632,157 @@ func singleSectionProject(
 			"section-impl-1": {
 				ID:      "section-impl-1",
 				Payload: sectionPayload,
+			},
+		},
+	}
+}
+
+func pythonStateReferenceProject(
+	t *testing.T,
+	callableName string,
+	paramValue string,
+) projectstate.Project {
+	t.Helper()
+
+	return projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{Language: string(projectstate.CodeLanguagePython)},
+		},
+		TopLevelSectionIDs: []string{"runner", "globals"},
+		SectionVariantMap: map[string]string{
+			"runner":  "runner-variant-1",
+			"globals": "globals-variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"runner": {
+				ID:               "runner",
+				Name:             "Runner",
+				VariantIDs:       []string{"runner-variant-1"},
+				DefaultVariantID: "runner-variant-1",
+			},
+			"globals": {
+				ID:               "globals",
+				Name:             "Globals",
+				VariantIDs:       []string{"globals-variant-1"},
+				DefaultVariantID: "globals-variant-1",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"runner-variant-1": {
+				ID:     "runner-variant-1",
+				ImplID: "runner-impl-1",
+			},
+			"globals-variant-1": {
+				ID:     "globals-variant-1",
+				ImplID: "globals-impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"runner-impl-1": {
+				ID: "runner-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{
+						"id":"runner-impl-1",
+						"type":"Callable",
+						"callable":"runner-callable",
+						"codeObjVariantMap":{
+							"runner-callable":"runner-callable-variant-1",
+							"runner-param":"runner-param-variant-1"
+						}
+					}`,
+				),
+			},
+			"globals-impl-1": {
+				ID: "globals-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{
+						"id":"globals-impl-1",
+						"type":"GlobalVariables",
+						"topLevelParamId":"globals-root",
+						"codeObjVariantMap":{
+							"globals-root":"globals-root-variant-1",
+							"global-shared":"global-shared-variant-1"
+						}
+					}`,
+				),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"runner-callable": {
+				ID:               "runner-callable",
+				Name:             callableName,
+				VariantIDs:       []string{"runner-callable-variant-1"},
+				DefaultVariantID: "runner-callable-variant-1",
+			},
+			"runner-param": {
+				ID:               "runner-param",
+				Name:             "script",
+				VariantIDs:       []string{"runner-param-variant-1"},
+				DefaultVariantID: "runner-param-variant-1",
+			},
+			"globals-root": {
+				ID:               "globals-root",
+				Name:             "root",
+				VariantIDs:       []string{"globals-root-variant-1"},
+				DefaultVariantID: "globals-root-variant-1",
+			},
+			"global-shared": {
+				ID:               "global-shared",
+				Name:             "Shared Config",
+				VariantIDs:       []string{"global-shared-variant-1"},
+				DefaultVariantID: "global-shared-variant-1",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"runner-callable-variant-1": {
+				ID:     "runner-callable-variant-1",
+				ImplID: "runner-callable-impl-1",
+			},
+			"runner-param-variant-1": {
+				ID:     "runner-param-variant-1",
+				ImplID: "runner-param-impl-1",
+			},
+			"globals-root-variant-1": {
+				ID:     "globals-root-variant-1",
+				ImplID: "globals-root-impl-1",
+			},
+			"global-shared-variant-1": {
+				ID:     "global-shared-variant-1",
+				ImplID: "global-shared-impl-1",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"runner-callable-impl-1": {
+				ID: "runner-callable-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"runner-callable-impl-1","type":"CodeCallable","children":["runner-param"]}`,
+				),
+			},
+			"runner-param-impl-1": {
+				ID: "runner-param-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"runner-param-impl-1","type":"CodeParam","value":`+mustJSONString(t, paramValue)+`}`,
+				),
+			},
+			"globals-root-impl-1": {
+				ID: "globals-root-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"globals-root-impl-1","type":"NestedParam","children":["global-shared"]}`,
+				),
+			},
+			"global-shared-impl-1": {
+				ID: "global-shared-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"global-shared-impl-1","type":"CodeParam","value":"42"}`,
+				),
 			},
 		},
 	}
@@ -590,4 +836,14 @@ func mustRawJSON(t *testing.T, raw string) projectstate.RawJSON {
 		t.Fatalf("invalid raw JSON test fixture: %s", raw)
 	}
 	return projectstate.RawJSON(raw)
+}
+
+func mustJSONString(t *testing.T, value string) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json string: %v", err)
+	}
+	return string(encoded)
 }

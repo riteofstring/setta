@@ -150,6 +150,7 @@ type pythonDependencyGraphBuilder struct {
 	export          projectstate.PythonCodegenExport
 	graph           *PythonDependencyGraph
 	passwordSecrets map[string]string
+	potentialRefs   map[PythonDependencyKey]map[string]struct{}
 }
 
 var pythonDependencyGraphSectionExporters = map[string]struct{}{
@@ -184,10 +185,12 @@ func BuildPythonDependencyGraph(
 			FullPathNameToKey: map[string]PythonDependencyKey{},
 		},
 		passwordSecrets: cloneStringMap(options.PasswordSecrets),
+		potentialRefs:   map[PythonDependencyKey]map[string]struct{}{},
 	}
 	if _, err := builder.exportSections(export.TopLevelSectionIDs, true, nil); err != nil {
 		return nil, err
 	}
+	builder.resolvePotentialRefs()
 	return builder.graph, nil
 }
 
@@ -263,6 +266,11 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 		}
 		node.Deps = deps
 		b.addNode(key, node)
+		if literal, ok := value.(LiteralDependencyValue); ok {
+			if err := b.recordPotentialRefs(key, literal.Payload); err != nil {
+				return PythonDependencyKey{}, nil, err
+			}
+		}
 		return key, node, nil
 	case "Dict":
 		node := &PythonSectionNode{
@@ -564,6 +572,11 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 		}
 		if isChildlessPythonCodeObjectType(codeObject.Type) {
 			node.Value = LiteralDependencyValue{Payload: codeObject.StringField("value")}
+			if literal, ok := node.Value.(LiteralDependencyValue); ok {
+				if err := b.recordPotentialRefs(key, literal.Payload); err != nil {
+					return nil, err
+				}
+			}
 		}
 		if codeObject.Type == "PasswordParam" {
 			node.HasSecret = strings.TrimSpace(b.passwordSecrets[codeObject.ImplID]) != ""
@@ -584,6 +597,41 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 func (b *pythonDependencyGraphBuilder) addNode(key PythonDependencyKey, node PythonDependencyNode) {
 	b.graph.Nodes[key] = node
 	b.graph.FullPathNameToKey[node.Base().FullPathName] = key
+}
+
+func (b *pythonDependencyGraphBuilder) recordPotentialRefs(
+	key PythonDependencyKey,
+	value string,
+) error {
+	refs, err := findUndefinedPythonSpecialVarExpressions(value, "state", true)
+	if err != nil {
+		return err
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	b.potentialRefs[key] = refs
+	return nil
+}
+
+func (b *pythonDependencyGraphBuilder) resolvePotentialRefs() {
+	for key, refs := range b.potentialRefs {
+		node, ok := b.graph.Nodes[key]
+		if !ok {
+			continue
+		}
+		for ref := range refs {
+			targetKey, ok := b.graph.FullPathNameToKey[ref]
+			if !ok {
+				continue
+			}
+			targetNode, ok := b.graph.Nodes[targetKey]
+			if !ok {
+				continue
+			}
+			node.Base().Deps[targetKey] = targetNode.HasNameAndValue()
+		}
+	}
 }
 
 func (b *pythonDependencyGraphBuilder) createFullPathName(

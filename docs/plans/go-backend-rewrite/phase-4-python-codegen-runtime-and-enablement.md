@@ -261,11 +261,20 @@ Completed Slice 3 chunk on 2026-03-06:
 - fixed the Go export surface so MetaControl policy resolution derives the
   control code-object type from effective state instead of requiring a payload
   field
+- added robust parser-backed Python expression reference-edge extraction for
+  `state.<name>` reads in callable names and childless code-object values using
+  tree-sitter Python, with syntax-error rejection instead of heuristic fallback
+- resolved extracted Python reference edges against the graph's authoritative
+  full-path index in a second pass so forward references land after structural
+  export completes
 - added focused Go coverage for:
   - callable param path generation
   - global-variables top-level param export
   - plugin/chat/draw section value shaping
   - password-secret presence gating
+  - forward reference resolution to later-exported nodes
+  - function/comprehension shadowing for `state`
+  - syntax-invalid Python snippets producing no reference edges
   - MetaControl allowlist resolution from the derived control param type
 
 Recommended Slice 3 structure:
@@ -301,12 +310,13 @@ Rationale:
 
 Current open gap inside Slice 3:
 
-- the new Go dependency graph currently owns structural dependencies only
-- Python expression reference-edge extraction (`state.<name>` discovery from
-  callable/code-param source text) is not yet ported
-- do not replace the final Python renderer/materializer ordering logic until
-  that reference-edge layer is owned in Go or an explicit alternative ordering
-  strategy is chosen
+- the Go dependency graph now owns both structural dependencies and
+  parser-backed `state.<name>` reference edges
+- Go still lacks the packaged-runtime Python value codec and helper-import
+  tracker that turn dependency nodes into `setta_gen.py` expressions
+- wrapper-class rendering, metadata rendering, and composed save-hook
+  materialization should stay blocked on that codec layer instead of
+  reintroducing ad-hoc formatting paths
 
 ### Slice 4: Generated Section Sync + Route Enablement
 
