@@ -40,11 +40,13 @@ Use the docs in this order:
    - focused current-work plan for the first Go plugin worker host + transport boundary needed by the remaining listener producer migration
 18. `phase-4-plugin-worker-session-owner.md`
    - focused current-work plan for the first Go-owned backend worker process/session lifecycle boundary
-19. `spike-mcp.md`
+19. `phase-4-plugin-codegen-worker-runtime.md`
+   - focused current-work plan for the first worker-backed plugin codegen runtime and target invocation boundary
+20. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-20. `spike-pty.md`
+21. `spike-pty.md`
    - PTY uncertainty-reduction plan
-21. `spike-lsp.md`
+22. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -15,6 +15,8 @@ import (
 const (
 	workerRPCVersion                  = "2.0"
 	workerRPCTransportErrorCode       = "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+	workerRPCCapabilityDeniedCode     = "PLUGIN_CAPABILITY_DENIED"
+	workerRPCRegisterFailedCode       = "PLUGIN_BACKEND_REGISTER_FAILED"
 	workerRPCListenerEmitFailedCode   = "PLUGIN_BACKEND_LISTENER_EMIT_FAILED"
 	workerRPCInvalidErrorPayloadLabel = "backend worker returned an invalid error payload"
 )
@@ -283,6 +285,19 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostUnsupportedMethod),
 		errors.Is(err, ErrWorkerHostParamsInvalid):
 		return workerRPCTransportErrorCode
+	case errors.Is(err, ErrWorkerHostCapabilityDenied):
+		return workerRPCCapabilityDeniedCode
+	case errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
+		errors.Is(err, ErrWorkerHostPluginIDRequired),
+		errors.Is(err, ErrWorkerHostCodegenTargetRequired),
+		errors.Is(err, ErrWorkerHostCodegenTargetIDRequired),
+		errors.Is(err, ErrWorkerHostCodegenTargetIDInvalid),
+		errors.Is(err, ErrWorkerHostCodegenTargetNameRequired),
+		errors.Is(err, ErrWorkerHostCodegenTargetLanguageNeeded),
+		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
+		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
+		errors.Is(err, ErrCodegenTargetRegistrationConflict):
+		return workerRPCRegisterFailedCode
 	default:
 		return workerRPCListenerEmitFailedCode
 	}

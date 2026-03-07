@@ -176,7 +176,9 @@ have a robust reusable-terminal signal.
 The remaining Go gaps are now narrower:
 
 - free-terminal reuse for non-attached runs is still deferred
-- plugin codegen still has no Go execution/runtime boundary
+- plugin codegen now has a Go worker-backed execution/runtime boundary under
+  `internal/plugins/codegen_runtime.go`, but `internal/runs` has not adopted it
+  yet
 - deployment/share run policy and session-run semantics still live outside this
   slice
 

@@ -24,6 +24,19 @@ type workerHostEnvelope struct {
 	Content     json.RawMessage `json:"content"`
 }
 
+// The host should reject empty configurations instead of silently accepting a no-op boundary.
+func TestNewWorkerHostRequiresService(t *testing.T) {
+	t.Parallel()
+
+	host, err := NewWorkerHost(WorkerHostOptions{})
+	if host != nil {
+		t.Fatal("expected nil host")
+	}
+	if !errors.Is(err, ErrWorkerHostServiceRequired) {
+		t.Fatalf("expected service-required error, got %v", err)
+	}
+}
+
 // Host requests without the emitListenerEvents capability should fail before delivery.
 func TestWorkerHostEmitListenerDependencyEventsRequiresCapability(t *testing.T) {
 	t.Parallel()
@@ -190,6 +203,85 @@ func TestWorkerHostEmitListenerDependencyEventsTouchesSessionAndDeliversBatch(t 
 	}
 	if string(content.DependencyEvents[1].Payload) != `{"type":"Literal","payload":"second"}` {
 		t.Fatalf("expected second payload to round-trip, got %s", string(content.DependencyEvents[1].Payload))
+	}
+}
+
+// Codegen target registration should require the explicit worker capability before mutating runtime state.
+func TestWorkerHostRegisterCodegenTargetRequiresCapability(t *testing.T) {
+	t.Parallel()
+
+	registry := NewCodegenTargetRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		CodegenTargetRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterCodegenTarget(context.Background(), WorkerContext{
+		PluginID: "fixture-plugin",
+	}, RegisterCodegenTargetRequest{
+		Target: &workerCodegenTargetRegistrationPayload{
+			ID:        "typescript",
+			Name:      "TypeScript",
+			Language:  "typescript",
+			HandlerID: "typescript",
+		},
+	})
+	if !errors.Is(err, ErrWorkerHostCapabilityDenied) {
+		t.Fatalf("expected capability-denied error, got %v", err)
+	}
+}
+
+// Registration should compose the final target id and default file name before storing the target for later generation.
+func TestWorkerHostRegisterCodegenTargetNormalizesRegistration(t *testing.T) {
+	t.Parallel()
+
+	registry := NewCodegenTargetRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		CodegenTargetRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterCodegenTarget(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		EffectiveCapabilities: []string{CapabilityRegisterCodegenTarget},
+	}, RegisterCodegenTargetRequest{
+		Target: &workerCodegenTargetRegistrationPayload{
+			ID:        "typescript",
+			Name:      "TypeScript",
+			Language:  "typescript",
+			HandlerID: "handler-ts",
+		},
+	})
+	if err != nil {
+		t.Fatalf("register codegen target: %v", err)
+	}
+
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 registration, got %d", len(registrations))
+	}
+	registration := registrations[0]
+	if registration.TargetID != "fixture-plugin:typescript" {
+		t.Fatalf("expected composed target id, got %q", registration.TargetID)
+	}
+	if registration.PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin, got %q", registration.PluginID)
+	}
+	if registration.Language != "typescript" {
+		t.Fatalf("expected typescript language, got %q", registration.Language)
+	}
+	if registration.Name != "TypeScript" {
+		t.Fatalf("expected TypeScript name, got %q", registration.Name)
+	}
+	if registration.DefaultFileName != defaultCodegenTargetFileName {
+		t.Fatalf("expected default file name %q, got %q", defaultCodegenTargetFileName, registration.DefaultFileName)
+	}
+	if registration.HandlerID != "handler-ts" {
+		t.Fatalf("expected handler-ts, got %q", registration.HandlerID)
 	}
 }
 

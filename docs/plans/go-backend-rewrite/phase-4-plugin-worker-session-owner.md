@@ -25,12 +25,14 @@ Current repo status as of 2026-03-06:
   - `internal/plugins/worker_session.go`
 - Go now also owns the first caller-facing worker launcher boundary under:
   - `internal/plugins/worker_launcher.go`
+- Go now also owns the first narrow adopter above the launcher under:
+  - `internal/plugins/codegen_runtime.go`
 - Python still owns broader worker adoption/load lifecycle under:
   - `backend/setta/plugins/manager.py`
   - `tests/plugins/test_plugin_manager.py`
 - the next dependency is not more listener transport logic
-- the next dependency is the first real Go caller outside `internal/plugins`
-  that adopts the new launcher/session boundary
+- the next dependency is the first non-`internal/plugins` caller that adopts
+  the new codegen runtime boundary
 
 ## Scope
 
@@ -78,6 +80,9 @@ That layer now exists in `internal/plugins/worker_session.go`.
 
 The first caller-facing adoption boundary now also exists in
 `internal/plugins/worker_launcher.go`.
+
+The first narrow adopter above that boundary now also exists in
+`internal/plugins/codegen_runtime.go`.
 
 ## Working Decisions
 
@@ -192,7 +197,8 @@ Tests:
 ## Next Recommended Step
 
 - Treat this focused plan as complete.
-- The next step is a separate, larger adoption problem: identify or define the
-  first real Go caller outside `internal/plugins` that should own resolved
-  plugin metadata and invoke `WorkerLauncher` without widening immediately into
-  discovery, install, or registry persistence work.
+- Follow
+  `docs/plans/go-backend-rewrite/phase-4-plugin-codegen-worker-runtime.md`.
+- The next concrete step is Slice 2 there: adopt the new worker-backed codegen
+  runtime from `internal/runs` so generated-entry/plugin-codegen flows stop
+  failing with an explicit unsupported error.

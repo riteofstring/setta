@@ -12,6 +12,8 @@ Remaining run-code follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`.
 Generated-entry and temporary-terminal follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`.
+Plugin worker/codegen adoption follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-plugin-codegen-worker-runtime.md`.
 Deployment/share run-code follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-deployment-run-code-policy-and-session-overlays.md`.
 Deployment session bootstrap and cleanup follow-up work is tracked in
@@ -131,6 +133,10 @@ Current repo status as of 2026-03-06:
   - `internal/plugins/worker_session.go`
 - Go now also includes the first caller-facing worker launcher boundary under:
   - `internal/plugins/worker_launcher.go`
+- Go now also includes the first worker-backed plugin codegen runtime under:
+  - `internal/plugins/codegen_runtime.go`
+  - register-time codegen target capture plus invoke-time generated-file
+    normalization in `internal/plugins`
 - broader plugin worker discovery/load/runtime ownership still lives only in
   Python under:
   - `backend/setta/plugins/manager.py`
