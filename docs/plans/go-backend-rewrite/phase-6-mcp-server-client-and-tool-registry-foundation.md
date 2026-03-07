@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 5 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 6 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -43,6 +43,7 @@ Current repo status as of 2026-03-07:
     - `set_agentic_context` as the first session-scoped init tool
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
+    - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
@@ -50,6 +51,9 @@ Current repo status as of 2026-03-07:
     session state
   - invocation-edge temporary/canonical id translation for current Go-owned MCP
     carriers and filtered results
+  - metadata-driven target extraction from `Metadata.IDPathsByType`
+  - targeted scope-denial payloads with explicit `blockedSectionIds` and
+    `targetSectionIds`
   - authenticated `/__setta__/tools/call` reusing the shared MCP invocation
     path
   - namespaced multi-server tool routing and per-server runtime status tracking
@@ -404,11 +408,12 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Slice 5 is now complete.
-- Use `phase-6-invocation-edge-id-translation-and-lsp-diagnostics.md` as the
-  source of truth for the completed temp-id + diagnostics slice.
-- Next, add a focused write/structural slice for:
-  - explicit target-id extraction over `IDPathsByType`
-  - the first real scoped mutation tool on the Go MCP path
-  - any remaining temp-id translation extensions required by that mutation
-    boundary
+- Slice 6 is now complete.
+- Use `phase-6-first-scoped-write-tool-and-target-extraction.md` as the source
+  of truth for the completed metadata-targeting + first-write slice.
+- Next, add the follow-on targeting/parity slice for:
+  - code-object target mapping at the MCP invocation edge
+  - default-singleton target fallback where metadata requires it
+  - `set_code_section_diagnostic_code_suppression` as the next scoped mutation
+  - the first structural/project-shape pilot once richer target resolution is
+    in place

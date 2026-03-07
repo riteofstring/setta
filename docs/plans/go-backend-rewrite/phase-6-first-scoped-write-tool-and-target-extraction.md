@@ -19,14 +19,17 @@ current read/no-target shortcut.
 
 Current repo status as of 2026-03-07:
 
-- `internal/mcpx` can resolve scope and translate ids
+- `internal/mcpx` now resolves scoped write targets from tool metadata instead
+  of hard-coded tool-name branches
 - `internal/tools.Metadata` already carries:
   - `AccessType`
   - `IDPathsByType`
   - `DefaultTargetSingletonSection`
-- `internal/mcpx/checkAgenticScope(...)` still does not use those metadata
-  target paths to derive write targets
-- there is still no Go-owned MCP write/structural tool on the server surface
+- `internal/mcpx/checkAgenticScope(...)` now uses metadata-derived section
+  targets for targeted read and write decisions
+- Go now owns the first scoped MCP write tool on the server surface:
+  - `set_code_section_diagnostics_mute`
+- code-object target mapping and default-singleton fallback are still deferred
 
 ## Scope
 
@@ -158,9 +161,69 @@ Own:
 - the MCP mutation path reuses Go runtime owners instead of duplicating route
   logic
 
+## Status
+
+- complete
+
+## Completed
+
+- added `internal/mcpx/id_paths.go`
+  - narrow Python-parity dot-path lookup over MCP argument payloads
+  - section-id extraction from strings, string lists, and dict-key carriers
+  - path-based ID rewriting reused by invocation-edge temp-id translation
+- updated `internal/mcpx/translation.go`
+  - `projectConfigId` translation remains explicit
+  - section ids are now rewritten from `Metadata.IDPathsByType[section]`
+    instead of tool-name-specific branches
+- updated `internal/mcpx/agentic_context.go`
+  - write-scope checks now use metadata-derived target sections
+  - targeted reads also fail closed when explicit section targets are outside
+    scope
+  - denied results surface sorted `blockedSectionIds` and `targetSectionIds`
+- added the first scoped mutation tool in `internal/mcpx/server.go`
+  - `set_code_section_diagnostics_mute`
+  - `AccessTypeWrite`
+  - `IDPathsByType[section] = ["sectionId"]`
+  - direct runtime call into Go-owned diagnostics-ignore mutation and
+    diagnostics reapply owners
+- updated MCP/server/app/HTTP fixtures so the writable and blocked targets are
+  real code sections and the allowed writable target is granted by an explicit
+  `chat_section` edge
+- added focused tests in:
+  - `internal/mcpx/id_paths_test.go`
+  - `internal/mcpx/server_test.go`
+  - `internal/httpapi/mcp_tool_routes_test.go`
+  - `internal/app/mcp_test.go`
+
+## Decisions
+
+- keep metadata-driven target extraction section-only in this slice
+  - do not mix in code-object target mapping yet
+  - do not mix in default-singleton fallback yet
+- reuse the real app save/LSP path in app-level mutation tests
+  - app mutation coverage now prepares the existing mini language-server test
+    fixture instead of bypassing the save pipeline
+  - this keeps MCP write-tool coverage aligned with production runtime owners
+- keep the first write pilot narrowly on diagnostics mute
+  - suppression and structural tools remain follow-on work
+
+## Open Questions
+
+- none at this slice boundary
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute|TestRegisterLSPRoutesMutesCodeSectionDiagnostics' -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsScopedWriteMutationOverAuthenticatedSSE|ServerSupportsTemporaryIDsOverAuthenticatedSSE|RuntimeStatusRouteReportsConnectedSelfClient|ToolCallRouteSupportsAgenticContextBody|ToolCallRouteSupportsScopedWriteMutation)' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx ./internal/httpapi ./internal/app -run 'Test(ServerListsToolsAndScopesToolCalls|ServerSetCodeSectionDiagnosticsMute|ServerTranslatesTemporaryIDsAtInvocationEdge|MCPToolCallRoute|AppIDEMCP)' -count=1 -timeout 420s`
+
 ## Recommended Follow-On
 
 - extend the same extraction boundary to:
   - code-object target mapping
   - default singleton fallback
-  - the first structural tool once the write pilot is stable
+- then add the next mutation/parity slice:
+  - `set_code_section_diagnostic_code_suppression`
+  - the first structural/project-shape tool once the richer targeting boundary
+    is in place
