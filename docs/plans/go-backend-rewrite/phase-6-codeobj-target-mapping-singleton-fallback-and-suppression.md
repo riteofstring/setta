@@ -22,15 +22,18 @@ uses before evaluating scope:
 
 ## Status
 
+This slice is now complete.
+
 Current repo status as of 2026-03-07:
 
 - `internal/mcpx` resolves section targets from `Metadata.IDPathsByType`
-- `internal/mcpx` still ignores:
+- `internal/mcpx` now also resolves effective scoped targets from:
   - `Metadata.IDPathsByType[codeObj]`
   - `Metadata.DefaultTargetSingletonSection`
-- scoped denials still do not surface `unmappedCodeObjIds`
-- Go owns diagnostics mute, but not diagnostics-code suppression, on the MCP
-  surface
+- scoped denials can now surface `unmappedCodeObjIds`
+- Go now owns both diagnostics-ignore MCP mutation tools:
+  - `set_code_section_diagnostics_mute`
+  - `set_code_section_diagnostic_code_suppression`
 
 ## Scope
 
@@ -176,9 +179,69 @@ Remain the owner for:
 - `set_code_section_diagnostic_code_suppression` is callable through Go MCP
   transports
 
+## Completed
+
+- added `internal/mcpx/target_resolution.go`
+  - effective target resolution over:
+    - explicit section ids
+    - mapped `codeObj` ids
+    - metadata-declared singleton fallback
+  - source-of-truth `codeObj -> section` mapping from effective section payloads
+    and singleton ownership in `projectview.SingleConfig`
+- updated `internal/mcpx/agentic_context.go`
+  - scope checks now resolve `codeObj` carriers and singleton targets before
+    allow/deny evaluation
+  - denied results can now distinguish:
+    - `unmapped_code_obj`
+    - `out_of_scope_and_unmapped_code_obj`
+  - structured failures now include sorted `unmappedCodeObjIds`
+- updated `internal/mcpx/translation.go`
+  - invocation-edge temp-id translation now rewrites `codeObj` ids from
+    metadata paths
+  - structured failures now translate `unmappedCodeObjIds` back to temporary
+    ids
+- added the next scoped write tool in `internal/mcpx/server.go`
+  - `set_code_section_diagnostic_code_suppression`
+  - discoverable write tool using the existing Go diagnostics-ignore runtime
+    and reapply path
+- expanded focused coverage in:
+  - `internal/mcpx/agentic_context_test.go`
+  - `internal/mcpx/translation_test.go`
+  - `internal/mcpx/server_test.go`
+  - `internal/httpapi/mcp_tool_routes_test.go`
+  - `internal/app/mcp_test.go`
+
+## Decisions
+
+- keep `codeObj` mapping view-derived and explicit
+  - target resolution reads effective section payload data and singleton state
+    from `projectview.SingleConfig`
+  - no tool-name heuristics or best-effort fallback matching were added
+- keep singleton fallback metadata-driven
+  - only the declared `DefaultTargetSingletonSection` is considered
+  - no implicit singleton lookup was added for tools without that metadata
+- extend the existing diagnostics-ignore boundary before moving to broader
+  write/structural parity
+  - `set_code_section_diagnostic_code_suppression` reuses already-migrated Go
+    runtime semantics instead of opening a new subsystem in the same slice
+
+## Open Questions
+
+- none at this slice boundary
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute|TestRegisterLSPRoutesMutesCodeSectionDiagnostics' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 420s`
+
 ## Recommended Follow-On
 
-- the first structural/project-shape slice after richer target resolution is
-  stable
-- missing-edge hint parity if the frontend/chat flow needs it before broader
-  tool migration
+- Slice 7 is complete.
+- The next recommended step is a focused code-object write slice that uses the
+  now-complete targeting boundary for real tool parity:
+  - `set_param_entered_value`
+  - `set_type_error_ignore`
+  - `set_code_obj_display_name` if it falls out cleanly from the same owner
+- Keep structural/project-shape tools as the follow-on after code-object write
+  semantics are proven over real Go runtime owners.

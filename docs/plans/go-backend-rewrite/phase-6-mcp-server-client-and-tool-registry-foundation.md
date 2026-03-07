@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 6 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 7 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -44,6 +44,8 @@ Current repo status as of 2026-03-07:
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
+    - `set_code_section_diagnostic_code_suppression` as the next scoped write
+      tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
@@ -52,8 +54,12 @@ Current repo status as of 2026-03-07:
   - invocation-edge temporary/canonical id translation for current Go-owned MCP
     carriers and filtered results
   - metadata-driven target extraction from `Metadata.IDPathsByType`
+  - effective `codeObj -> section` target mapping from project-state view data
+  - metadata-driven singleton target fallback
   - targeted scope-denial payloads with explicit `blockedSectionIds` and
     `targetSectionIds`
+  - targeted scope-denial payloads with explicit `unmappedCodeObjIds` when
+    applicable
   - authenticated `/__setta__/tools/call` reusing the shared MCP invocation
     path
   - namespaced multi-server tool routing and per-server runtime status tracking
@@ -397,23 +403,92 @@ Acceptance:
 - allowed unscoped init/discovery tools still work
 - scope decisions use Setta-owned metadata and context, not keyword heuristics
 
-## Open Questions
+Status:
 
-- which minimal scoped pilot tool is the best anchor:
-  - project-state summary
-  - diagnostics summary
-  - file-read
-- whether temporary/canonical ID translation should start in the scoped pilot
-  slice or wait for the later LLM/chat migration
+- complete
+
+Reference:
+
+- `phase-6-scoped-tool-call-pilot.md`
+
+### Slice 5: Invocation-Edge ID Translation And Scoped Diagnostics
+
+Deliver:
+
+- temp/canonical id translation at the MCP invocation edge
+- the next filtered scoped read tool
+- app/runtime wiring for Go-owned diagnostics runtime usage
+
+Acceptance:
+
+- current Go-owned scoped tools translate ids before scope/handler execution
+- filtered results translate ids back to MCP-facing temporary ids
+- diagnostics filtering reuses Go runtime state instead of route-local adapters
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-invocation-edge-id-translation-and-lsp-diagnostics.md`
+
+### Slice 6: First Scoped Write Tool And Target Extraction
+
+Deliver:
+
+- metadata-driven target extraction from `Metadata.IDPathsByType`
+- the first explicit scoped write tool
+- scope-denial payloads for blocked write targets
+
+Acceptance:
+
+- section-targeted writes derive targets from metadata paths
+- blocked writes surface explicit target and blocked section ids
+- the write path reuses Go runtime owners instead of transport duplication
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-first-scoped-write-tool-and-target-extraction.md`
+
+### Slice 7: CodeObj Target Mapping, Singleton Fallback, And Suppression
+
+Deliver:
+
+- effective `codeObj -> section` target mapping ahead of scope checks
+- metadata-driven singleton fallback where tools declare implicit singleton
+  targets
+- explicit denial payloads for unmapped code objects
+- the next scoped diagnostics-ignore write tool
+
+Acceptance:
+
+- `codeObj` ids are translated and resolved through metadata paths and the
+  effective project view
+- singleton-targeted tools resolve from declared metadata without heuristics
+- denied results can surface `unmappedCodeObjIds`
+- `set_code_section_diagnostic_code_suppression` is callable through Go MCP
+  transports
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-codeobj-target-mapping-singleton-fallback-and-suppression.md`
 
 ## Next Recommended Step
 
-- Slice 6 is now complete.
-- Use `phase-6-first-scoped-write-tool-and-target-extraction.md` as the source
-  of truth for the completed metadata-targeting + first-write slice.
-- Next, add the follow-on targeting/parity slice for:
-  - code-object target mapping at the MCP invocation edge
-  - default-singleton target fallback where metadata requires it
-  - `set_code_section_diagnostic_code_suppression` as the next scoped mutation
-  - the first structural/project-shape pilot once richer target resolution is
-    in place
+- Slice 7 is now complete.
+- The next recommended step is a focused code-object write slice that uses the
+  completed targeting boundary for real mutation parity:
+  - `set_param_entered_value`
+  - `set_type_error_ignore`
+  - `set_code_obj_display_name` if it falls out cleanly from the same owner
+- Keep the first structural/project-shape pilot after those code-object writes
+  are proven over real Go runtime owners.
