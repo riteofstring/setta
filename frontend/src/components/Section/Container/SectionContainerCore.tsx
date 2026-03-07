@@ -19,7 +19,6 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import {
   getOnSectionClick,
   getOutlineColor,
@@ -192,9 +191,6 @@ function _SectionContainerCore({
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
-      )}
-      {shouldRenderAgenticEdgeHandles && (
-        <StateMachineEdgeHandles isUserView={isUserView} />
       )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
