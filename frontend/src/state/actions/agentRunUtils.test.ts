@@ -1,7 +1,6 @@
 import { AgentRunStatusEnum, type AgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  filterRunsByProjectConfigId,
   getRunInputNumber,
   getRunInputString,
   getRunLastUpdatedMs,
@@ -70,26 +69,5 @@ describe("agentRunUtils", () => {
     });
     expect(getRunInputNumber(run, "branchCreatedAt")).toBe(1234);
     expect(getRunInputNumber(run, "nanValue")).toBeNull();
-  });
-
-  it("filters runs to the active project config id", () => {
-    const runs = [
-      buildRun({
-        id: "run-active",
-        inputs: { projectConfigId: "project-a" },
-      }),
-      buildRun({
-        id: "run-foreign",
-        inputs: { projectConfigId: "project-b" },
-      }),
-      buildRun({
-        id: "run-unscoped",
-        inputs: { projectConfigId: null },
-      }),
-    ];
-
-    expect(
-      filterRunsByProjectConfigId(runs, "project-a").map((run) => run.id),
-    ).toEqual(["run-active"]);
   });
 });

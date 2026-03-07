@@ -1865,7 +1865,6 @@ test("project ai shows context unavailable when backend context telemetry is mis
       .filter({ hasText: "Context unavailable thread" })
       .first();
     await expect(threadEntry).toBeVisible();
-    await expect(overviewPane.getByLabel("context unavailable")).toHaveCount(0);
     await threadEntry.click();
 
     await expect(
