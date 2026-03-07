@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 32 tools total
-- 29 current Go tool names overlap with Python
+- Go MCP now exposes 33 tools total
+- 30 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 27 of those overlaps are mutation or structural tools
-- Python still has 22 mutation or structural project-state MCP tools that do
+- 28 of those overlaps are mutation or structural tools
+- Python still has 21 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -62,6 +62,7 @@ MCP server:
 - writes:
   - `set_section_name`
   - `set_section_tag_color`
+  - `set_section_style_color`
   - `set_callable`
   - `set_code`
   - `set_top_level_section_layout`
@@ -82,25 +83,23 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `set_section_style_color`
+- `set_watch_code_enabled`
 
 Why this is next:
 
 1. Go already owns the authoritative runtime and IDE HTTP route in:
-   - `internal/projectstate/layout_presentation.go`
+   - `internal/projectstate/watch_code.go`
    - `internal/httpapi/project_routes.go`
-2. It reuses the completed scoped write-tool boundary plus the existing
-   section-id invocation-edge translation already exercised by the completed
-   section-targeted presentation slices.
-3. It is the next bounded section-targeted presentation mutation after the
-   now-completed `set_section_tag_color` slice.
+2. It is the next bounded Go-owned mutation after the now-completed
+   section-color pair, without needing new runtime owner work first.
+3. Its request surface is project-scoped rather than section-scoped, so it is
+   the next useful parity slice outside the section-presentation cluster.
 
-### 2. Good Follow-Ons After `set_section_style_color`
+### 2. Good Follow-Ons After `set_watch_code_enabled`
 
 These already have Go runtime owners and existing IDE HTTP route transport, so
 their main remaining gap is MCP registration and scoped test coverage:
 
-- `set_watch_code_enabled`
 - `set_watch_code_inputs`
 
 ### 3. Gaps That Still Need More Go Runtime Work First
@@ -138,9 +137,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `set_section_style_color` as the next bounded MCP slice
-- keep `set_watch_code_enabled` as the follow-on Go-owned mutation after the
-  section-color pair
+- use `set_watch_code_enabled` as the next bounded MCP slice
+- keep `set_watch_code_inputs` as the follow-on Go-owned mutation after that
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -151,8 +149,8 @@ priority:
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetSectionTagColor|TestMCPToolCallRouteSetSectionTagColorAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetSectionTagColorOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionTagColorOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetSectionTagColor' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetSectionStyleColor|TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -190,3 +188,7 @@ priority:
   tool over the existing Go layout-presentation owner.
 - 2026-03-07: the next bounded slice moved to
   `set_section_style_color`.
+- 2026-03-07: `set_section_style_color` MCP parity completed as a scoped
+  write tool over the existing Go layout-presentation owner.
+- 2026-03-07: the next bounded slice moved to
+  `set_watch_code_enabled`.

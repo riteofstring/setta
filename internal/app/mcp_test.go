@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 32 {
-		t.Fatalf("expected 32 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 33 {
+		t.Fatalf("expected 33 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 32 {
-		t.Fatalf("expected 32 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 33 {
+		t.Fatalf("expected 33 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1574,6 +1574,132 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionTagColorOverAuthenticat
 	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
 	if got := allowedPayload["tagColor"]; got != "#123456" {
 		t.Fatalf("expected allowed-section tagColor #123456 after temp-id app mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetSectionStyleColorOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_style_color",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"styleColor":      "#654321",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_style_color: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_style_color success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_section_style_color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["styleColor"]; got != "#654321" {
+		t.Fatalf("expected allowed-section styleColor #654321 after app mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_style_color",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"styleColor":      "#654321",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_style_color: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_style_color success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_section_style_color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["styleColor"]; got != "#654321" {
+		t.Fatalf("expected allowed-section styleColor #654321 after temp-id app mutation, got %#v", got)
 	}
 }
 
@@ -3232,8 +3358,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 32 {
-		t.Fatalf("expected tool count 32, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 33 {
+		t.Fatalf("expected tool count 33, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -3962,6 +4088,75 @@ func TestAppIDEMCPToolCallRouteSupportsSetSectionTagColor(t *testing.T) {
 	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
 	if got := allowedPayload["tagColor"]; got != "#123456" {
 		t.Fatalf("expected allowed-section tagColor #123456 after route mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_style_color",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-section",
+				"styleColor":"#654321"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_style_color tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_style_color tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_style_color success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_style_color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["styleColor"]; got != "#654321" {
+		t.Fatalf("expected allowed-section styleColor #654321 after route mutation, got %#v", got)
 	}
 }
 

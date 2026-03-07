@@ -18,12 +18,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_section_tag_color` MCP parity is complete
-- `set_section_style_color` is the next bounded slice
+- `set_section_style_color` MCP parity is now complete
 - Go already owns `set_section_style_color` in:
   - `internal/projectstate/layout_presentation.go`
   - `internal/httpapi/project_routes.go`
 - Python tags `set_section_style_color` as a write project-state tool with
   explicit `sectionId` argument targeting metadata
+- scoped write, temporary-id, authenticated HTTP bridge, and IDE SSE coverage
+  landed in the completed slice
 
 ## Scope
 
@@ -127,15 +129,16 @@ The Go runtime already owns the same section-field mutation through
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetSectionStyleColor|TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- keep `set_watch_code_enabled` as the next bounded Go-owned mutation slice
+- move to `set_watch_code_enabled` as the next bounded Go-owned mutation slice
   after the section-color pair
 - keep `set_watch_code_inputs` as the nearby follow-on after that
 
@@ -143,3 +146,13 @@ The Go runtime already owns the same section-field mutation through
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `set_section_style_color`.
+- 2026-03-07: MCP now exposes `set_section_style_color` as a scoped write tool
+  over the existing Go layout-presentation runtime owner.
+- 2026-03-07: the slice preserved `sectionId` targeting metadata so scoped
+  denials and temporary-id translation remain source-of-truth driven at the
+  MCP invocation edge.
+- 2026-03-07: `styleColor: null` now clears the persisted field through the
+  same Go runtime owner used by the IDE HTTP route.
+- 2026-03-07: missing section ids for this scoped write fail closed at the
+  scope boundary before reaching the runtime owner; no MCP-local fallback or
+  compatibility shim was added.
