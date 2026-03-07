@@ -27,6 +27,8 @@ Current repo status as of 2026-03-06:
   - a websocket hub with live connection ownership
   - JSON send/broadcast helpers
   - frontend identity and connection-inventory messages
+  - a listener registry with bootstrap and dependency subscriptions
+  - listener realtime delta and force-refresh broadcasters
 - realtime sequencing, websocket connection ownership, listener fan-out, and terminal runtime still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
@@ -267,7 +269,48 @@ Acceptance:
 
 Status:
 
-- planned
+- complete
+
+Completed:
+
+- added `internal/realtime/listener_messages.go`
+- added `internal/realtime/listener_registry.go`
+- added `internal/realtime/listener_broadcaster.go`
+- introduced a Go-owned listener subscription boundary with:
+  - bootstrap tracking separate from callback registrations
+  - dependency-mode-aware realtime matching
+  - share-session-aware targeting that includes shared listeners for session-scoped fan-out
+- made the first listener-facing runtime messages explicit:
+  - `ListenerRealtimeEvent`
+  - `ListenerForceRefresh`
+- attached the listener broadcaster to the existing websocket hub and sequencer
+- kept sequence ownership explicit:
+  - realtime deltas increment per `(project id, share session id)` scope
+  - force refresh resets the relevant scope even when no listeners are connected
+- kept the snapshot path intentionally narrow:
+  - the broadcaster ships opaque `projectState` JSON without owning project-state shaping
+  - force refresh targets bootstrapped listener sockets, not just fully registered ones
+
+Tests:
+
+- focused coverage in:
+  - `internal/realtime/listener_registry_test.go`
+  - `internal/realtime/listener_broadcaster_test.go`
+- verified behaviors include:
+  - bootstrap-derived project/session registration scope
+  - wildcard and refresh-only callback handling
+  - share-session-scoped delta fan-out with shared-listener inclusion
+  - deterministic per-session delta sequencing
+  - force-refresh targeting of bootstrapped listener sockets
+  - sequence reset after force refresh, including the no-target case
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- listener dependency/action event fan-out
+- websocket route wiring to the listener broadcaster through `internal/wsapi`
+- listener registration message parsing/ack behavior
+- terminal session lifecycle and PTY attachment
 
 ### Slice 4: Terminal Runtime
 
@@ -313,8 +356,8 @@ Phase 4 is complete when:
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Implement websocket route wiring on top of the new realtime services:
 
-- add listener-facing snapshot, delta, and force-refresh broadcast helpers on top of the websocket hub
-- keep sequence ownership in `internal/realtime`
-- defer listener registration/dependency filtering only as long as needed to land the first deterministic snapshot + delta path
+- wire frontend and listener websocket lifecycle into `internal/realtime` from `internal/wsapi`
+- attach bootstrap recording, frontend identity send, and disconnect cleanup to the route layer
+- then add listener dependency/action-event fan-out once the transport path is live
