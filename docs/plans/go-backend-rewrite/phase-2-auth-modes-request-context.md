@@ -62,6 +62,7 @@ This phase should deliver:
   - use `SETTA_SESSIONS_ROOT` when present
   - otherwise read from `<runtimeRoot>/sessions`
 - gate IDE HTTP at the `/api/*` router boundary instead of scattering auth checks across handlers
+- split share-session extraction into `internal/modes` now that mode policy is growing beyond pure auth concerns
 
 ## Implementation Slices
 
@@ -172,6 +173,46 @@ Acceptance:
 - protected IDE routes are blocked in non-IDE modes where appropriate
 - share-mode routes can require a share session via a clear request-context contract
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/modes` for:
+  - IDE/share/app/launcher policy helpers
+  - typed request-context access for mode/share-session data
+  - share-session extraction from header, cookie, and query param
+  - share-session validation/touching through a store interface
+- added HTTP mode middleware helpers in `internal/httpapi` for:
+  - IDE-mode route gating
+  - launcher-mode route gating
+  - share-session requirement and request-context injection
+- injects mode request context for all HTTP requests so later handlers can depend on a stable mode contract
+
+Error contracts:
+
+- missing deployment share session:
+  - `400`
+  - code `missing_share_session`
+- unknown deployment share session:
+  - `404`
+  - code `unknown_share_session`
+- mode-forbidden routes:
+  - `403`
+  - code `mode_forbidden`
+
+Tests:
+
+- policy and share-session extraction precedence in `internal/modes/modes_test.go`
+- HTTP route-gating and share-session middleware integration in `internal/httpapi/httpapi_test.go`
+
+Deferred:
+
+- real share session store/runtime wiring
+- share/app route migration
+- websocket share-session extraction
+
 ### Slice 4: Websocket Auth Entry Points
 
 Deliver:
@@ -223,14 +264,13 @@ contract that later request context, websocket auth, and share-mode policy can b
 ## Open Questions
 
 - Do we need the HTML bootstrap page immediately for a real launcher/browser flow, or is the JSON consume endpoint still sufficient for the current phase?
-- When Phase 2 reaches share mode, do we keep share-session extraction in `internal/auth` or split it into `internal/modes` once mode policies become more complex?
 
 ## Next Recommended Step
 
-Move to Slice 3.
+Move to Slice 4.
 
 Specifically:
 
-- add mode-policy helpers for IDE/share/app/launcher
-- introduce share-session extraction from header/cookie/query through a typed request-context contract
-- keep auth refresh/status endpoints deferred unless a real frontend caller forces them into scope
+- add websocket auth helpers aligned with the HTTP auth/session contracts
+- choose the unauthorized websocket close/error behavior explicitly
+- keep trusted-origin and bootstrap-page parity deferred unless a real client path forces them in
