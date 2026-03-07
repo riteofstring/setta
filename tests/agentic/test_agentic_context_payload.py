@@ -169,7 +169,9 @@ def test_build_agentic_context_payload_reference_only_omits_section_body() -> No
     assert "### " not in payload.text
 
 
-def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_available() -> None:
+def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_available() -> (
+    None
+):
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-summary-cache-test")
@@ -211,7 +213,9 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
     assert "... (168 more lines)" not in payload.text
 
 
-def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_is_partial() -> None:
+def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_is_partial() -> (
+    None
+):
     project_state, callable_section_id, _ = build_callable_project_state("hello")
     settings = SettingsState()
     chat_section_id = create_top_level_section(
@@ -239,3 +243,44 @@ def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_
 
     assert payload.section_ids == [ID(callable_section_id)]
     assert "- param: hello" in payload.text
+
+
+def test_build_agentic_context_payload_includes_linked_chat_targets() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="agentic-context-linked-chat-test")
+    )
+    chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    linked_chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    project_state.sections[linked_chat_section_id].displayName = "Planner"
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=chat_section_id,
+            targetSectionId=linked_chat_section_id,
+            kind=AgenticEdgeKind.chat_chat,
+            contextMode=AgenticEdgeContextMode.reference_only,
+        ),
+    )
+
+    payload = build_agentic_context_payload(
+        project_state,
+        chat_section_id,
+        format_section_id=lambda _section_id: "TEMP-LINKED-CHAT",
+    )
+
+    assert payload.section_ids == [ID(linked_chat_section_id)]
+    assert "## Linked Chats" in payload.text
+    assert "`invoke_linked_chat`" in payload.text
+    assert "Planner [id: TEMP-LINKED-CHAT]" in payload.text

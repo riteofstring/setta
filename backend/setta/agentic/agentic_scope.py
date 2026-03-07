@@ -24,6 +24,10 @@ class AgenticContext:
     section_id: ID | None
     frontend_affinity_token: str | None = None
     allow_unscoped: bool = False
+    linked_chat_invocation_depth: int = 0
+    linked_chat_invocation_chain_section_ids: tuple[ID, ...] = field(
+        default_factory=tuple
+    )
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,63 @@ class AgenticScopeCheck:
     blocked_section_ids: set[ID]
     unmapped_code_obj_ids: set[ID]
     reason: str
+
+
+def normalize_linked_chat_invocation_depth(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        raise TypeError("linkedChatInvocationDepth must be an integer")
+    if isinstance(value, int):
+        depth = value
+    elif isinstance(value, str):
+        normalized = value.strip()
+        if normalized == "":
+            return 0
+        try:
+            depth = int(normalized)
+        except ValueError as exc:
+            raise TypeError("linkedChatInvocationDepth must be an integer") from exc
+    else:
+        raise TypeError("linkedChatInvocationDepth must be an integer")
+    if depth < 0:
+        raise ValueError("linkedChatInvocationDepth must be non-negative")
+    return depth
+
+
+def normalize_linked_chat_invocation_chain_section_ids(
+    value: Any,
+) -> tuple[ID, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized == "":
+            return ()
+        raw_entries: list[Any] = [entry for entry in normalized.split(",")]
+    elif isinstance(value, (list, tuple)):
+        raw_entries = list(value)
+    else:
+        raise TypeError(
+            "linkedChatInvocationChainSectionIds must be a list of section ids"
+        )
+
+    chain: list[ID] = []
+    for raw_entry in raw_entries:
+        if isinstance(raw_entry, ID):
+            chain.append(raw_entry)
+            continue
+        if not isinstance(raw_entry, str):
+            raise TypeError(
+                "linkedChatInvocationChainSectionIds must be a list of section ids"
+            )
+        normalized_entry = raw_entry.strip()
+        if normalized_entry == "":
+            raise ValueError(
+                "linkedChatInvocationChainSectionIds cannot contain empty values"
+            )
+        chain.append(ID(normalized_entry))
+    return tuple(chain)
 
 
 def resolve_agentic_scope(
