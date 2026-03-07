@@ -35,7 +35,6 @@ export function TextInputCodeMirror({
   isKeyName = false,
   isDisabled = false,
   completionsFn,
-  benchmarkTextWidgetKind,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -90,7 +89,6 @@ export function TextInputCodeMirror({
           theme={theme}
           placeholder={defaultVal}
           language={language}
-          benchmarkTextWidgetKind={benchmarkTextWidgetKind}
         />
       )}
       {activationEvent && (

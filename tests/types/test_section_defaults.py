@@ -1,7 +1,7 @@
 import pytest
 
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.helpers_lvl2 import create_child_sections, create_top_level_section
 from setta.types.generated.settings_state import SettingsState
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
@@ -12,6 +12,10 @@ from setta.types.section_impls import (
     SectionType,
     SectionSize,
     SectionSizeMode,
+    StateMachineEndSectionImpl,
+    StateMachineGateSectionImpl,
+    StateMachineGateType,
+    StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
 )
 from setta.types.settings_state import SectionSizingPolicy
@@ -28,6 +32,18 @@ def test_section_size_defaults_to_auto_width() -> None:
         (ChartSectionImpl(), SectionSizingPolicy().byType.Chart),
         (DrawSectionImpl(), SectionSizingPolicy().byType.Draw),
         (ChatSectionImpl(), SectionSizingPolicy().byType.Chat),
+        (
+            StateMachineStartSectionImpl(),
+            SectionSizingPolicy().byType.StateMachineStart,
+        ),
+        (
+            StateMachineGateSectionImpl(),
+            SectionSizingPolicy().byType.StateMachineGate,
+        ),
+        (
+            StateMachineEndSectionImpl(),
+            SectionSizingPolicy().byType.StateMachineEnd,
+        ),
     ],
 )
 def test_default_section_sizes_meet_policy_minimums(impl, policy_entry) -> None:
@@ -166,3 +182,80 @@ def test_task_board_explicit_empty_settings_survive_round_trip() -> None:
     )
     assert reloaded_settings.taskBoardSectionDefault.columns == []
     assert task_board_impl.columns == []
+
+
+def test_state_machine_section_defaults_round_trip() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    start_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.StateMachineStart,
+        Position(),
+    )
+    gate_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.StateMachineGate,
+        Position(x=220, y=0),
+    )
+    end_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.StateMachineEnd,
+        Position(x=440, y=0),
+    )
+
+    start_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        start_id,
+        StateMachineStartSectionImpl,
+    )
+    gate_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        gate_id,
+        StateMachineGateSectionImpl,
+    )
+    end_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        end_id,
+        StateMachineEndSectionImpl,
+    )
+
+    assert start_impl.label == "Start"
+    assert gate_impl.gateType == StateMachineGateType.AND
+    assert end_impl.label == "End"
+    assert start_impl.machineGroupId
+    assert gate_impl.machineGroupId
+    assert end_impl.machineGroupId
+
+    reloaded = ProjectStateSingleConfig.model_validate(
+        project_state.model_dump(mode="python")
+    )
+    reloaded_gate_impl = get_curr_effective_section_impl_with_type_guard(
+        reloaded,
+        gate_id,
+        StateMachineGateSectionImpl,
+    )
+    assert reloaded_gate_impl.gateType == StateMachineGateType.AND
+
+
+def test_state_machine_sections_cannot_be_created_as_children() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    group_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Group,
+        Position(),
+    )
+
+    with pytest.raises(ValueError):
+        create_child_sections(
+            settings,
+            project_state,
+            group_id,
+            SectionType.StateMachineStart,
+            1,
+            None,
+        )
