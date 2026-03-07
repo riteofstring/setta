@@ -5,32 +5,23 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
   useEffect,
+  useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useLocalStorage, useNodeInternals } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
-import type {
-  CoordinateExtent,
-  Node,
-  ReactFlowState,
-  Rect,
-} from "../core/types";
-import { getBoundsOfRects, getWheelDelta } from "../core/utils";
-import { getNodesBounds, getPaneRect } from "../core/utils/graph";
-import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
+import type { CoordinateExtent, Node, Rect } from "../core/types";
+import { getWheelDelta } from "../core/utils";
+import { getNodesBounds } from "../core/utils/graph";
+import { MiniMapNodes } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
-
-type MiniMapSelector = {
-  viewBB: Rect;
-  boundingRect: Rect;
-};
 
 type XYWidthHeightParams = {
   boundingRect: Rect;
@@ -55,34 +46,29 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef: RefObject<SVGSVGElement>;
-  onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
+  svgRef?: RefObject<SVGSVGElement>;
+  onClick?: MiniMapProps["onClick"];
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
-  viewBB: Rect;
+  viewBB?: Rect;
   maskColor: string;
   maskStrokeColor: string;
   maskStrokeWidth: number;
-  nodes: Node[] | null;
+  nodes: Node[];
 };
 
-function getSelector(
-  nodes: Node[],
-  overviewWidth: number,
-  uiEditorWidth: number,
-) {
-  return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
-
-    return {
-      viewBB,
-      boundingRect:
-        nodes.length > 0
-          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
-          : viewBB,
-    };
-  };
-}
+type ProjectedMiniMapNode = {
+  className: string;
+  color: string;
+  height: number;
+  id: string;
+  left: number;
+  selected: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+  top: number;
+  width: number;
+};
 
 export function getXYWidthHeight({
   boundingRect,
@@ -128,16 +114,22 @@ function MiniMap({
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(getNodes, shallow);
-  const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
-  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth, uiEditorWidth),
-    shallow,
-  );
   const elementWidth =
     typeof style?.width === "number" ? style.width : defaultWidth;
   const elementHeight =
     typeof style?.height === "number" ? style.height : defaultHeight;
+  const boundingRect = useMemo(
+    () =>
+      nodes.length > 0
+        ? getNodesBounds(nodes)
+        : {
+            x: 0,
+            y: 0,
+            width: elementWidth,
+            height: elementHeight,
+          },
+    [elementHeight, elementWidth, nodes],
+  );
 
   const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
     boundingRect,
@@ -225,16 +217,6 @@ function MiniMap({
     };
   }, [pannable, zoomable, inversePan, zoomStep]);
 
-  const onSvgClick = onClick
-    ? (event: ReactMouseEvent<SVGSVGElement>) => {
-        const rfCoord = pointer(event);
-        onClick(event, {
-          x: rfCoord[0] - useLocalStorage.getState().overviewTrueWidth,
-          y: rfCoord[1],
-        });
-      }
-    : undefined;
-
   const onSvgNodeClick = onNodeClick
     ? (event: ReactMouseEvent, nodeId: string) => {
         const node = useNodeInternals.getState().x.get(nodeId)!;
@@ -257,7 +239,7 @@ function MiniMap({
         width={width}
         height={height}
         svgRef={svgRef}
-        onSvgClick={onSvgClick}
+        onClick={onClick}
         onSvgNodeClick={onSvgNodeClick}
         nodeColor={nodeColor}
         nodeStrokeColor={nodeStrokeColor}
@@ -266,11 +248,10 @@ function MiniMap({
         nodeStrokeWidth={nodeStrokeWidth}
         nodeComponent={nodeComponent}
         offset={offset}
-        viewBB={viewBB}
         maskColor={maskColor}
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
-        nodes={null}
+        nodes={nodes}
       />
     </Panel>
   );
@@ -288,7 +269,7 @@ export function MinimapSvg({
   width,
   height,
   svgRef,
-  onSvgClick,
+  onClick,
   onSvgNodeClick,
   nodeColor,
   nodeStrokeColor,
@@ -303,6 +284,11 @@ export function MinimapSvg({
   maskStrokeWidth,
   nodes,
 }: MinimapSvgProps) {
+  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
+  const activeSectionIdSet = useMemo(
+    () => new Set(activeSectionIds),
+    [activeSectionIds],
+  );
   const minimapNodesProps: MiniMapNodesType = {
     onClick: onSvgNodeClick,
     nodeColor,
@@ -312,33 +298,303 @@ export function MinimapSvg({
     nodeStrokeWidth,
     nodeComponent,
   };
+  const nodeColorFunc = useMemo(
+    () => getNodeAttributeFunction(nodeColor),
+    [nodeColor],
+  );
+  const nodeStrokeColorFunc = useMemo(
+    () => getNodeAttributeFunction(nodeStrokeColor),
+    [nodeStrokeColor],
+  );
+  const nodeClassNameFunc = useMemo(
+    () => getNodeAttributeFunction(nodeClassName),
+    [nodeClassName],
+  );
+  const projectedNodes = useMemo<Array<ProjectedMiniMapNode>>(() => {
+    const scaleX = width === 0 ? 0 : elementWidth / width;
+    const scaleY = height === 0 ? 0 : elementHeight / height;
+    return nodes.map((node) => {
+      const nodeX = node.position.x;
+      const nodeY = node.position.y;
+      return {
+        id: node.id,
+        left: (nodeX - x) * scaleX,
+        top: (nodeY - y) * scaleY,
+        width: (node.width ?? 0) * scaleX,
+        height: (node.height ?? 0) * scaleY,
+        color: nodeColorFunc(node),
+        strokeColor: nodeStrokeColorFunc(node),
+        strokeWidth: nodeStrokeWidth ?? 0,
+        className: nodeClassNameFunc(node),
+        selected: activeSectionIdSet.has(node.id),
+      };
+    });
+  }, [
+    activeSectionIdSet,
+    elementHeight,
+    elementWidth,
+    height,
+    nodeClassNameFunc,
+    nodeColorFunc,
+    nodeStrokeColorFunc,
+    nodeStrokeWidth,
+    nodes,
+    width,
+    x,
+    y,
+  ]);
+  const viewRect = useMemo(() => {
+    if (!viewBB) {
+      return {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      };
+    }
+    const scaleX = width === 0 ? 0 : elementWidth / width;
+    const scaleY = height === 0 ? 0 : elementHeight / height;
+    return {
+      x: (viewBB.x - x) * scaleX,
+      y: (viewBB.y - y) * scaleY,
+      width: viewBB.width * scaleX,
+      height: viewBB.height * scaleY,
+    };
+  }, [elementHeight, elementWidth, height, viewBB, width, x, y]);
+  const useCanvasNodeLayer =
+    !nodeComponent &&
+    (typeof nodeClassName !== "function"
+      ? (nodeClassName ?? "").length === 0
+      : false);
+
+  const handleSvgClick = (event: ReactMouseEvent<SVGSVGElement>) => {
+    const [localX, localY] = pointer(event);
+    if (onSvgNodeClick) {
+      const hitNode = projectedNodes.findLast(
+        (node) =>
+          localX >= node.left &&
+          localX <= node.left + node.width &&
+          localY >= node.top &&
+          localY <= node.top + node.height,
+      );
+      if (hitNode) {
+        onSvgNodeClick(event, hitNode.id);
+      }
+    }
+
+    if (!onClick) {
+      return;
+    }
+
+    const positionX = x + (localX / Math.max(elementWidth, 1)) * width;
+    const positionY = y + (localY / Math.max(elementHeight, 1)) * height;
+    onClick(event, { x: positionX, y: positionY });
+  };
 
   return (
-    <svg
-      width={elementWidth}
-      height={elementHeight}
-      viewBox={`${x} ${y} ${width} ${height}`}
-      role="img"
-      ref={svgRef}
-      onClick={onSvgClick}
+    <div
+      style={{
+        width: elementWidth,
+        height: elementHeight,
+        position: "relative",
+      }}
     >
-      {nodes ? (
-        <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
-      ) : (
-        <MiniMapNodesReactive {...minimapNodesProps} />
-      )}
-      {viewBB && (
-        <path
-          className="react-flow__minimap-mask"
-          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
-M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-          fill={maskColor}
-          fillRule="evenodd"
-          stroke={maskStrokeColor}
-          strokeWidth={maskStrokeWidth}
-          pointerEvents="none"
+      {useCanvasNodeLayer ? (
+        <MiniMapCanvasNodes
+          borderRadius={nodeBorderRadius ?? 0}
+          elementHeight={elementHeight}
+          elementWidth={elementWidth}
+          nodes={projectedNodes}
         />
+      ) : (
+        <svg
+          width={elementWidth}
+          height={elementHeight}
+          viewBox={`0 0 ${elementWidth} ${elementHeight}`}
+          role="img"
+          aria-hidden="true"
+          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+        >
+          <MiniMapNodes
+            nodes={nodes.map((node, index) => ({
+              ...node,
+              id: node.id,
+              position: {
+                x: projectedNodes[index]?.left ?? 0,
+                y: projectedNodes[index]?.top ?? 0,
+              },
+              width: projectedNodes[index]?.width ?? 0,
+              height: projectedNodes[index]?.height ?? 0,
+            }))}
+            {...minimapNodesProps}
+          />
+        </svg>
       )}
-    </svg>
+      <svg
+        width={elementWidth}
+        height={elementHeight}
+        viewBox={`0 0 ${elementWidth} ${elementHeight}`}
+        role="img"
+        ref={svgRef}
+        data-testid="rf__minimap-viewport-layer"
+        onClick={handleSvgClick}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        {viewBB && (
+          <path
+            className="react-flow__minimap-mask"
+            d={`M${-offset},${-offset}h${elementWidth + offset * 2}v${elementHeight + offset * 2}h${-elementWidth - offset * 2}z
+M${viewRect.x},${viewRect.y}h${viewRect.width}v${viewRect.height}h${-viewRect.width}z`}
+            fill={maskColor}
+            fillRule="evenodd"
+            stroke={maskStrokeColor}
+            strokeWidth={maskStrokeWidth}
+            pointerEvents="none"
+          />
+        )}
+      </svg>
+    </div>
   );
+}
+
+type MiniMapCanvasNodesProps = {
+  borderRadius: number;
+  elementHeight: number;
+  elementWidth: number;
+  nodes: Array<ProjectedMiniMapNode>;
+};
+
+const MiniMapCanvasNodes = memo(function MiniMapCanvasNodes({
+  borderRadius,
+  elementHeight,
+  elementWidth,
+  nodes,
+}: MiniMapCanvasNodesProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    const devicePixelRatio =
+      typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+    const targetWidth = Math.max(
+      Math.round(elementWidth * devicePixelRatio),
+      1,
+    );
+    const targetHeight = Math.max(
+      Math.round(elementHeight * devicePixelRatio),
+      1,
+    );
+
+    if (canvas.width !== targetWidth) {
+      canvas.width = targetWidth;
+    }
+    if (canvas.height !== targetHeight) {
+      canvas.height = targetHeight;
+    }
+
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.clearRect(0, 0, elementWidth, elementHeight);
+
+    for (const node of nodes) {
+      if (node.width <= 0 || node.height <= 0) {
+        continue;
+      }
+
+      drawRoundedRect(
+        ctx,
+        node.left,
+        node.top,
+        node.width,
+        node.height,
+        borderRadius,
+      );
+      ctx.fillStyle = node.color;
+      ctx.fill();
+
+      if (node.strokeWidth > 0) {
+        ctx.lineWidth = node.strokeWidth;
+        ctx.strokeStyle = node.strokeColor;
+        ctx.stroke();
+      }
+
+      if (node.selected) {
+        drawRoundedRect(
+          ctx,
+          node.left,
+          node.top,
+          node.width,
+          node.height,
+          borderRadius,
+        );
+        ctx.lineWidth = Math.max(node.strokeWidth, 1);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.stroke();
+      }
+    }
+  }, [borderRadius, elementHeight, elementWidth, nodes]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={Math.max(elementWidth, 1)}
+      height={Math.max(elementHeight, 1)}
+      data-testid="rf__minimap-node-layer"
+      data-node-count={nodes.length}
+      style={{
+        width: elementWidth,
+        height: elementHeight,
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+      }}
+    />
+  );
+});
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  borderRadius: number,
+) {
+  const radius = Math.max(0, Math.min(borderRadius, width / 2, height / 2));
+  ctx.beginPath();
+  if (radius === 0) {
+    ctx.rect(left, top, width, height);
+    return;
+  }
+  ctx.moveTo(left + radius, top);
+  ctx.lineTo(left + width - radius, top);
+  ctx.quadraticCurveTo(left + width, top, left + width, top + radius);
+  ctx.lineTo(left + width, top + height - radius);
+  ctx.quadraticCurveTo(
+    left + width,
+    top + height,
+    left + width - radius,
+    top + height,
+  );
+  ctx.lineTo(left + radius, top + height);
+  ctx.quadraticCurveTo(left, top + height, left, top + height - radius);
+  ctx.lineTo(left, top + radius);
+  ctx.quadraticCurveTo(left, top, left + radius, top);
+}
+
+function getNodeAttributeFunction(
+  func: string | ((node: Node) => string) | undefined,
+): (node: Node) => string {
+  if (typeof func === "function") {
+    return func;
+  }
+  return () => func ?? "";
 }
