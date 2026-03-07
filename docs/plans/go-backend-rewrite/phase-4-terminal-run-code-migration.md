@@ -33,13 +33,13 @@ Current repo status as of 2026-03-06:
   - `internal/runs/service.go`
 - the current Go IDE `runCode` route supports:
   - manual Python/Bash code-section runs
+  - `sectionVariantOverrides` applied against a cloned document without mutating the active section map
   - explicit valid attached-terminal reuse
-  - attached-terminal creation through Go project-state mutation when needed
+  - attached-terminal validation and creation against the planner-resolved variant when needed
   - `drawSnapshotsBySectionId` application through Go-owned binary upload, artifact writes, and draw-section state updates
   - terminal-session open/reuse plus shell-command dispatch through `internal/terminals`
 - the current Go IDE `runCode` route still rejects:
   - `cliId`
-  - `sectionVariantOverrides`
   - `paramOverrides`
 - Python still owns `POST /api/runCode` under:
   - `backend/setta/routers/terminals.py`
@@ -66,7 +66,6 @@ Current repo status as of 2026-03-06:
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
-- the HTTP route still rejects `sectionVariantOverrides` until terminal selection semantics against an overridden document are explicit
 
 ## Scope
 
@@ -224,11 +223,8 @@ What they do need is the set of side effects:
 The remaining gaps are no longer basic transport or project-graph modeling.
 The open work is now concentrated in the higher-level run semantics:
 
-- the HTTP route still rejects `sectionVariantOverrides`
-  - the planner can already apply them against a cloned document
-  - terminal attachment selection against that overridden document is not yet explicit
+- Go still does not have backend-log start notifications for successful runs
 - Go does not yet have temporary-terminal fallback for non-attached/manual-non-code targets
-- Go does not yet have a backend-log event sink for run start notifications
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have deployment/share run policy ownership for:
   - `allowRun`
@@ -467,6 +463,8 @@ Completed:
   - the handlers validate the current unsupported payload edges
   - `internal/runs.Service` owns planner invocation, attached-terminal reuse/ensure, PTY session open/reuse, and command dispatch
 - implemented the first IDE transport behaviors:
+  - `sectionVariantOverrides` now flow through the Go route into the planner
+  - terminal validation and ensure now target the planner-resolved variant instead of the active base-state variant
   - explicit valid attached terminals are reused
   - missing attached terminals are created through Go project-state mutation before dispatch
   - terminal sessions are opened lazily through `internal/terminals`
@@ -484,8 +482,6 @@ Tests:
 
 Deferred Within Slice 3:
 
-- route-level override support
-  - the planner can already handle section-variant overrides, but the HTTP route still rejects them until terminal attachment semantics for overridden variants are made explicit
 - temporary terminal allocation for non-attached/manual-non-code targets
 - backend-log start notifications
 - `cliId` output transport
@@ -531,8 +527,8 @@ Rationale:
 
 ## Next Recommended Step
 
-Keep Slice 3 moving by making IDE `sectionVariantOverrides` explicit at the HTTP boundary:
+Finish the current IDE manual-run slice by adding backend-log start notifications:
 
-- plan runs against an overridden cloned document instead of only the base project snapshot
-- define terminal attachment selection against that overridden document before the route stops rejecting `sectionVariantOverrides`
-- keep `paramOverrides`, `cliId`, backend-log parity, temporary-terminal fallback, and deployment/share policy work deferred until the override boundary is settled
+- emit the Go-owned equivalent of Python's `Started command` backend log event after successful dispatch
+- keep the transport thin by routing through a dedicated backend-log broadcaster service instead of teaching `internal/runs` about websocket details
+- defer temporary-terminal fallback, `cliId`, `paramOverrides`, and deployment/share policy until the current IDE side effects are complete
