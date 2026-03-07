@@ -6,11 +6,15 @@ Review this branch for merge into `main`.
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status main...HEAD`
       - `git diff $(git merge-base main HEAD)..HEAD`
+
+    Branch intent guardrails
+    - Read `branch_intent.md` before reviewing the diff.
+    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch.
+    - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
+    - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
  
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
-    - Treat `branch_intent.md` as source of truth for intentional feature/bug-fix behavior in this branch that must not be accidentally reverted in follow-up reviews.
-    - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
     - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
     - Reopen only for regression with concrete evidence in this branch.
     - If reopened, cite prior decision + what changed + evidence.
