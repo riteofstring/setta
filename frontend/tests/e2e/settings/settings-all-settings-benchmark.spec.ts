@@ -27,6 +27,7 @@ const STAGES = [
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",
+  "full-section-snapdom-hidden-live",
 ] as const;
 
 type StageMetrics = {
@@ -593,6 +594,43 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("full-section-opacity-hidden")?.sampleParamRowCount,
   ).toBeGreaterThan(0);
 
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")?.sectionSnapdomCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionSnapdomReadyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionSnapdomPendingCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionSnapdomPreviewCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionOpacityHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionOpacityHiddenHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sectionOpacityHiddenVisibleActiveCount,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")?.textInputDummyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
+
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
   );
@@ -649,67 +687,26 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("full-section-opacity-hidden")?.domCount,
   ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")?.domCount,
+  ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
 });
 
 test("full-section-snapdom hydrates a clicked section body back to live controls", async ({
   page,
 }) => {
   await ensureAppReady(page);
-  await openBenchmarkStage(page, "full-section-snapdom");
+  await assertSectionStageActivatesToLiveControls(page, "full-section-snapdom");
+});
 
-  const firstSection = page.locator("section[data-section-id]").first();
-  await expect(firstSection).toBeVisible();
-  await firstSection.click();
-
-  await page.waitForFunction(() => {
-    const liveSections = document.querySelectorAll(
-      '[data-settings-benchmark-section-snapdom-status="live-active"]',
-    );
-    if (liveSections.length !== 1) {
-      return false;
-    }
-
-    const liveBody = liveSections[0]?.querySelector(
-      "[data-settings-benchmark-section-snapdom-live]",
-    );
-    if (!(liveBody instanceof HTMLElement)) {
-      return false;
-    }
-
-    return (
-      liveBody.querySelector(
-        'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
-      ) !== null
-    );
-  });
-
-  const hydrationMetrics = await page.evaluate(() => {
-    const liveSections = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-settings-benchmark-section-snapdom-status="live-active"]',
-      ),
-    );
-    const liveBody = liveSections[0]?.querySelector<HTMLElement>(
-      "[data-settings-benchmark-section-snapdom-live]",
-    );
-    return {
-      liveSectionCount: liveSections.length,
-      readyPreviewCount: document.querySelectorAll(
-        '[data-settings-benchmark-section-snapdom-status="ready"]',
-      ).length,
-      liveParamRowCount:
-        liveBody?.querySelectorAll('[data-param-row="true"]').length ?? 0,
-      interactiveControlCount:
-        liveBody?.querySelectorAll(
-          'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
-        ).length ?? 0,
-    };
-  });
-
-  expect(hydrationMetrics.liveSectionCount).toBe(1);
-  expect(hydrationMetrics.readyPreviewCount).toBeGreaterThan(0);
-  expect(hydrationMetrics.liveParamRowCount).toBeGreaterThan(0);
-  expect(hydrationMetrics.interactiveControlCount).toBeGreaterThan(0);
+test("full-section-snapdom-hidden-live reveals a clicked section body without losing live controls", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await assertSectionStageActivatesToLiveControls(
+    page,
+    "full-section-snapdom-hidden-live",
+  );
 });
 
 async function openBenchmarkStage(
@@ -743,23 +740,12 @@ async function openBenchmarkStage(
     () => document.querySelectorAll(".react-flow__node").length > 0,
   );
   if (stage === "full-section-snapdom") {
-    await page.waitForFunction(() => {
-      const roots = document.querySelectorAll(
-        "[data-settings-benchmark-section-snapdom]",
-      );
-      if (roots.length === 0) {
-        return false;
-      }
-
-      return (
-        document.querySelectorAll(
-          '[data-settings-benchmark-section-snapdom-status="pending"]',
-        ).length === 0 &&
-        document.querySelectorAll(
-          '[data-settings-benchmark-section-snapdom-status="ready"]',
-        ).length > 0
-      );
-    });
+    await waitForSectionSnapdomStage(page, false);
+    await assertSectionSnapdomPreviewFidelity(page);
+  }
+  if (stage === "full-section-snapdom-hidden-live") {
+    await waitForSectionSnapdomStage(page, true);
+    await assertSectionSnapdomPreviewFidelity(page);
   }
   if (stage === "full-section-opacity-hidden") {
     await page.waitForFunction(() => {
@@ -780,6 +766,168 @@ async function openBenchmarkStage(
       );
     });
   }
+}
+
+async function waitForSectionSnapdomStage(
+  page: Page,
+  expectHiddenLive: boolean,
+): Promise<void> {
+  await page.waitForFunction((hiddenLive) => {
+    const snapdomRoots = document.querySelectorAll(
+      "[data-settings-benchmark-section-snapdom]",
+    ).length;
+    const readyRoots = document.querySelectorAll(
+      '[data-settings-benchmark-section-snapdom-status="ready"]',
+    ).length;
+    const pendingRoots = document.querySelectorAll(
+      '[data-settings-benchmark-section-snapdom-status="pending"]',
+    ).length;
+    const hiddenRoots = document.querySelectorAll(
+      '[data-settings-benchmark-section-opacity-hidden-status="hidden-ready"]',
+    ).length;
+    if (snapdomRoots === 0 || readyRoots === 0 || pendingRoots !== 0) {
+      return false;
+    }
+
+    if (hiddenLive && hiddenRoots === 0) {
+      return false;
+    }
+
+    const previews = Array.from(
+      document.querySelectorAll<HTMLImageElement>(
+        "[data-settings-benchmark-section-snapdom-preview]",
+      ),
+    );
+    if (previews.length === 0) {
+      return false;
+    }
+
+    return previews.every((preview) => preview.complete && preview.naturalWidth > 0);
+  }, expectHiddenLive);
+}
+
+async function assertSectionSnapdomPreviewFidelity(page: Page): Promise<void> {
+  const fidelity = await page.evaluate(() => {
+    const previews = Array.from(
+      document.querySelectorAll<HTMLImageElement>(
+        "[data-settings-benchmark-section-snapdom-preview]",
+      ),
+    );
+    const sample = previews.slice(0, 8).map((preview) => {
+      const rect = preview.getBoundingClientRect();
+      const root = preview.closest<HTMLElement>(
+        "[data-settings-benchmark-section-snapdom]",
+      );
+      const captureWidth = Number(
+        root?.getAttribute("data-settings-benchmark-section-snapdom-capture-width") ??
+          "0",
+      );
+      const captureHeight = Number(
+        root?.getAttribute("data-settings-benchmark-section-snapdom-capture-height") ??
+          "0",
+      );
+
+      return {
+        naturalWidth: preview.naturalWidth,
+        naturalHeight: preview.naturalHeight,
+        displayWidth: rect.width,
+        displayHeight: rect.height,
+        captureWidth,
+        captureHeight,
+        isUndersized:
+          preview.naturalWidth <
+            Math.max(100, rect.width * 5, captureWidth * 0.5) ||
+          preview.naturalHeight <
+            Math.max(100, rect.height * 2, captureHeight * 0.5),
+      };
+    });
+
+    return {
+      previewCount: previews.length,
+      sampleCount: sample.length,
+      undersizedCount: sample.filter((preview) => preview.isUndersized).length,
+      sample,
+    };
+  });
+
+  expect(fidelity.previewCount).toBeGreaterThan(0);
+  expect(fidelity.sampleCount).toBeGreaterThan(0);
+  expect(fidelity.undersizedCount).toBe(0);
+}
+
+async function assertSectionStageActivatesToLiveControls(
+  page: Page,
+  stage: "full-section-snapdom" | "full-section-snapdom-hidden-live",
+): Promise<void> {
+  await openBenchmarkStage(page, stage);
+
+  const firstSection = page.locator("section[data-section-id]").first();
+  await expect(firstSection).toBeVisible();
+  await firstSection.click();
+
+  await page.waitForFunction(() => {
+    const liveSections = document.querySelectorAll(
+      '[data-settings-benchmark-section-snapdom-status="live-active"]',
+    );
+    if (liveSections.length !== 1) {
+      return false;
+    }
+
+    const liveBody = liveSections[0]?.querySelector(
+      "[data-settings-benchmark-section-snapdom-live]",
+    );
+    if (!(liveBody instanceof HTMLElement)) {
+      return false;
+    }
+
+    return (
+      liveBody.querySelector(
+        'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
+      ) !== null
+    );
+  });
+
+  const activationMetrics = await page.evaluate(() => {
+    const liveSections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-settings-benchmark-section-snapdom-status="live-active"]',
+      ),
+    );
+    const liveBody = liveSections[0]?.querySelector<HTMLElement>(
+      "[data-settings-benchmark-section-snapdom-live]",
+    );
+    return {
+      liveSectionCount: liveSections.length,
+      readyPreviewCount: document.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="ready"]',
+      ).length,
+      hiddenReadyCount: document.querySelectorAll(
+        '[data-settings-benchmark-section-opacity-hidden-status="hidden-ready"]',
+      ).length,
+      previewCount: document.querySelectorAll(
+        "[data-settings-benchmark-section-snapdom-preview]",
+      ).length,
+      liveParamRowCount:
+        liveBody?.querySelectorAll('[data-param-row="true"]').length ?? 0,
+      interactiveControlCount:
+        liveBody?.querySelectorAll(
+          'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
+        ).length ?? 0,
+    };
+  });
+
+  expect(activationMetrics.liveSectionCount).toBe(1);
+  if (stage === "full-section-snapdom") {
+    expect(activationMetrics.readyPreviewCount).toBeGreaterThan(0);
+    expect(activationMetrics.hiddenReadyCount).toBe(0);
+    expect(activationMetrics.previewCount).toBeGreaterThan(0);
+  } else {
+    expect(activationMetrics.readyPreviewCount).toBeGreaterThan(0);
+    expect(activationMetrics.hiddenReadyCount).toBeGreaterThan(0);
+    expect(activationMetrics.previewCount).toBeGreaterThan(0);
+  }
+  expect(activationMetrics.liveParamRowCount).toBeGreaterThan(0);
+  expect(activationMetrics.interactiveControlCount).toBeGreaterThan(0);
 }
 
 async function collectStageMetrics(page: Page): Promise<StageMetrics> {
@@ -927,9 +1075,13 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       sectionOpacityHiddenCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-section-opacity-hidden]",
       ).length,
-      sectionOpacityHiddenHiddenCount: flowRoot.querySelectorAll(
-        '[data-settings-benchmark-section-opacity-hidden-status="hidden"]',
-      ).length,
+      sectionOpacityHiddenHiddenCount:
+        flowRoot.querySelectorAll(
+          '[data-settings-benchmark-section-opacity-hidden-status="hidden"]',
+        ).length +
+        flowRoot.querySelectorAll(
+          '[data-settings-benchmark-section-opacity-hidden-status="hidden-ready"]',
+        ).length,
       sectionOpacityHiddenVisibleActiveCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-section-opacity-hidden-status="visible-active"]',
       ).length,

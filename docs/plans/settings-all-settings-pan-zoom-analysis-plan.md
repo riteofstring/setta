@@ -85,11 +85,16 @@ For each benchmark stage:
 1. Open `/settings` with the stage query parameter.
 2. Switch to `All Settings`.
 3. Ensure the same viewport and browser window size are used for every run.
-4. Collect:
+4. Take benchmark screenshots before trusting any numbers.
+   - Capture at least one screenshot of the benchmark stage before measurement.
+   - If the benchmark uses a replacement surface or stripped render path, capture a matched screenshot of the reference stage too.
+   - Confirm visually that the benchmark is rendering the intended thing, not an empty/incorrect surrogate.
+   - If the screenshot does not match the intended benchmark target, stop and fix the benchmark harness before collecting metrics.
+5. Collect:
    - DOM node count from the page
    - deterministic pan/zoom frame metrics from the page runtime
    - a DevTools Performance trace covering the same pan/zoom sequence
-5. Append the stage results to the perf report before moving to the next stage.
+6. Append the stage results to the perf report before moving to the next stage.
 
 ## Deterministic Pan/Zoom Sequence
 
@@ -116,3 +121,4 @@ The sequence should run long enough to generate stable frame samples without mix
 - Stripped stages can change natural section dimensions. Use a fixed viewport during measurement so results stay comparable.
 - The Settings screen may not default to `All Settings`; the benchmark flow must always activate that view mode explicitly.
 - Timing assertions in automation may be flaky. Prefer structural automation plus manual DevTools numbers in the report.
+- Benchmarks that replace live DOM with previews or synthetic shells can silently measure the wrong thing. Screenshot confirmation is mandatory before treating a result as valid.

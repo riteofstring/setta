@@ -2000,3 +2000,288 @@ New benchmark stages:
   - this is still a benchmark-only stage, not a production behavior change
   - it measures steady-state pan/zoom only, not activation or interaction semantics
   - inactive section bodies remain mounted, so follow-up work still needs to check focus behavior, event handling, invalidation behavior, and whether active/inactive transitions stay smooth
+
+## Addendum: SnapDOM preview plus hidden live body keeps pan fast, but makes activation worse
+
+- Date: `2026-03-07`
+- Goal: test the combined idea:
+  - inactive section bodies render as SnapDOM previews
+  - the real live body stays mounted underneath, hidden with `opacity: 0`
+  - on activation, drop the preview immediately and reveal the already-mounted live body
+- Benchmark-only stage:
+  - `full-section-snapdom-hidden-live`
+
+### What changed in the benchmark harness
+
+- Added a new benchmark stage in `settingsAllSettingsBenchmark.tsx`:
+  - `full-section-snapdom-hidden-live`
+- Extended `SettingsAllSettingsBenchmarkSnapdomSectionBody`:
+  - keep the live section body mounted during SnapDOM preview mode
+  - mark inactive hidden-live bodies as `hidden-ready`
+  - drop the preview immediately when the section becomes active
+- Extended Playwright coverage:
+  - the benchmark ladder now includes the new stage
+  - a new E2E guard verifies the combined stage can activate a clicked section and expose real live controls
+
+### Live DOM verification
+
+- The combined path was confirmed live in headed Chrome:
+  - `42` SnapDOM wrappers
+  - `42` ready SnapDOM previews
+  - `42` mounted opacity-hidden live bodies
+  - `42` `hidden-ready` live bodies
+  - `697` mounted param rows
+  - `426` mounted text input dummy previews
+  - DOM nodes in `.react-flow`: `8679`
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-hidden-live-visible-rerun.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-hidden-live-activated-visible.png`
+
+### Repeated fixed-base pan rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - observed viewport size in headed Chrome: `1440x772`
+  - each stage rerun used `5` browser-side fixed-transform replay loops of `180` frames each
+  - compare these numbers only within this addendum
+
+### `full-section-snapdom` reference rerun
+
+- DOM nodes in `.react-flow`: `1251`
+- SnapDOM preview images: `41`
+- Mounted hidden live bodies: `0`
+- Text input dummy previews: `6`
+- Average frame time across `5` runs: `8.35ms`
+- Average FPS across `5` runs: `119.82`
+- Median FPS: `120.01`
+- Max frame time: `17.60ms`
+- Slow frames:
+  - `>16.7ms`: `1`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `120.06`, `120.01`, `120.06`, `119.33`, `119.66`
+
+### `full-section-opacity-hidden` reference rerun
+
+- DOM nodes in `.react-flow`: `8637`
+- SnapDOM preview images: `0`
+- Mounted opacity-hidden live bodies: `42`
+- Hidden inactive live bodies: `41`
+- Text input dummy previews: `426`
+- Average frame time across `5` runs: `8.34ms`
+- Average FPS across `5` runs: `119.94`
+- Median FPS: `120.07`
+- Max frame time: `16.00ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `119.40`, `120.06`, `120.09`, `120.09`, `120.07`
+
+### `full-section-snapdom-hidden-live`
+
+- DOM nodes in `.react-flow`: `8679`
+- SnapDOM wrappers: `42`
+- Ready SnapDOM previews: `42`
+- SnapDOM preview images: `42`
+- Mounted opacity-hidden live bodies: `42`
+- Hidden-ready live bodies: `42`
+- Visible active live bodies: `0`
+- Mounted param rows: `697`
+- Text input dummy previews: `426`
+- Average frame time across `5` runs: `8.33ms`
+- Average FPS across `5` runs: `120.09`
+- Median FPS: `120.03`
+- Max frame time: `9.40ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `120.32`, `120.03`, `120.02`, `120.10`, `119.98`
+- Trace artifact:
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-hidden-live-trace.json`
+
+### Pan conclusion
+
+- The combined mode does preserve the steady-state pan/zoom win.
+  - `full-section-snapdom`: `119.82 FPS`
+  - `full-section-opacity-hidden`: `119.94 FPS`
+  - `full-section-snapdom-hidden-live`: `120.09 FPS`
+- So from a pan-only perspective, the combined idea works.
+- But it does not buy anything over the two simpler benchmark modes. All three are effectively in the same `~120 FPS` band.
+
+### Activation rerun
+
+- Measurement method:
+  - pick two ready inactive sections
+  - alternate clicks between them for `5` activations
+  - measure:
+    - `previewGoneMs`: click to the target preview image disappearing
+    - `liveMs`: click to the target body entering its live active state
+    - `usableMs`: click to the first enabled control inside the target body
+    - `focusableMs`: click to that control accepting focus
+
+### `full-section-snapdom` activation reference rerun
+
+- Per-run results:
+  - run 1: `140.6ms`
+  - run 2: `147.5ms`
+  - run 3: `48.3ms`
+  - run 4: `188.0ms`
+  - run 5: `96.1ms`
+- Aggregate:
+  - average `previewGoneMs`: `124.10ms`
+  - average `liveMs`: `124.10ms`
+  - average `usableMs`: `124.10ms`
+  - average `focusableMs`: `124.10ms`
+  - max `usableMs`: `188.00ms`
+
+### `full-section-snapdom-hidden-live` activation rerun
+
+- Per-run results:
+  - run 1: `403.4ms`
+  - run 2: `161.9ms`
+  - run 3: `245.6ms`
+  - run 4: `304.9ms`
+  - run 5: `145.6ms`
+- Aggregate:
+  - average `previewGoneMs`: `252.28ms`
+  - average `liveMs`: `252.28ms`
+  - average `usableMs`: `252.28ms`
+  - average `focusableMs`: `252.28ms`
+  - max `usableMs`: `403.40ms`
+- Single traced activation:
+  - `605ms` from click to preview gone / live / usable in the sampled run
+  - trace artifact:
+    - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-hidden-live-activation-trace.json`
+
+### Combined-stage conclusion
+
+- The combined mode fails the real goal.
+  - It keeps the pan/zoom win.
+  - But it makes the inactive-to-active transition materially worse than plain SnapDOM.
+- Within this benchmark:
+  - plain SnapDOM activation: about `124ms` average
+  - combined SnapDOM + hidden live body activation: about `252ms` average
+  - regression: about `+128ms`
+- So this is not a best-of-both-worlds path. It keeps the steady-state rendering cheap, but the still-mounted hidden live bodies appear to make section activation and section-state turnover substantially more expensive.
+- Practical branch conclusion:
+  - this combined direction should be treated as a rejected experiment
+  - if we continue exploring the inactive-preview architecture, the better path is still SnapDOM-only plus direct work on activation latency hot spots, not keeping every inactive live body mounted underneath
+
+## Correction: screenshot gate invalidates the whole-section SnapDOM addenda
+
+- Date: `2026-03-07`
+- Why this correction exists:
+  - a CDP screenshot audit on the current branch showed that the whole-section SnapDOM stages were not visually benchmarking the intended thing
+  - the prior addenda at:
+    - `1730-1900` (`full-section-snapdom` and its activation addendum)
+    - `2004-2170` (`full-section-snapdom-hidden-live`)
+    should no longer be treated as valid decision-making data
+
+### What the screenshot audit showed
+
+- Reference live full stage:
+  - `perf/artifacts/frontend/settings-all-settings/visual-validation-2026-03-07/full-baseline-visible.png`
+- Corrected plain SnapDOM stage after fixing capture size:
+  - `perf/artifacts/frontend/settings-all-settings/visual-validation-2026-03-07/full-section-snapdom-corrected-visible.png`
+- Corrected SnapDOM + hidden-live stage after fixing capture size:
+  - `perf/artifacts/frontend/settings-all-settings/visual-validation-2026-03-07/full-section-snapdom-hidden-live-corrected-visible.png`
+- The SnapDOM preview images are no longer tiny transformed thumbnails:
+  - sample corrected preview dimensions: natural width about `116px`, capture width about `114px`
+  - this is materially better than the broken `12px`-wide captures
+- But the corrected screenshots still do not look like faithful section-body previews.
+  - the live full stage shows dense visible param content
+  - both corrected SnapDOM stages still show mostly empty dark cards at the benchmark zoom region
+
+### Practical conclusion
+
+- The harness bug was real, and it is now fixed enough to expose the deeper problem.
+- Even with corrected capture dimensions, whole-section SnapDOM is still not visually faithful for this benchmark target.
+- So the previously reported FPS and activation numbers for:
+  - `full-section-snapdom`
+  - `full-section-snapdom-hidden-live`
+  are invalid and should not guide product or architecture choices.
+- This is exactly the failure mode the plan now forbids:
+  - if screenshots do not confirm that the benchmarked stage matches the intended target, the numbers do not count
+
+## Addendum: valid rerun shows `full-section-opacity-hidden` still keeps the large pan win
+
+- Date: `2026-03-07`
+- Goal: replace the invalid section-SnapDOM comparison with a visually valid section-body comparison.
+- Valid stages in this rerun:
+  - `full`
+  - `full-section-opacity-hidden`
+- Invalid stages intentionally excluded from the comparison:
+  - `full-section-snapdom`
+  - `full-section-snapdom-hidden-live`
+
+### Visual confirmation
+
+- `full` is visually correct for the benchmark target:
+  - `perf/artifacts/frontend/settings-all-settings/visual-validation-2026-03-07/full-baseline-visible.png`
+- `full-section-opacity-hidden` is also visually correct for its intended benchmark target:
+  - `perf/artifacts/frontend/settings-all-settings/visual-validation-2026-03-07/full-section-opacity-hidden-corrected-visible.png`
+  - the empty inactive section bodies are intentional in this stage because the benchmark is explicitly measuring hidden-but-mounted content
+
+### Measurement note
+
+- Fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+- Viewport size: `1440x1200`
+- Each stage rerun used `5` browser-side fixed-transform replay loops of `180` frames each:
+  - `36` settle frames
+  - `36` pan down/right frames
+  - `36` pan back up/left frames
+  - `18` zoom-in frames
+  - `18` zoom-out frames
+  - `36` settle frames
+- Compare these numbers only within this addendum.
+
+### `full`
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Code widgets: `426`
+- Opacity-hidden section wrappers: `0`
+- Average frame time across `5` runs: `15.14ms`
+- Average FPS across `5` runs: `66.06`
+- Median FPS: `66.11`
+- Max frame time: `25.90ms`
+- Slow frames:
+  - `>16.7ms`: `325`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `65.29`, `65.89`, `66.52`, `66.11`, `66.51`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-corrected-rerun-trace.json`
+
+### `full-section-opacity-hidden`
+
+- DOM nodes in `.react-flow`: `8637`
+- Param containers: `697`
+- Code widgets: `426`
+- Opacity-hidden section wrappers: `42`
+- Hidden inactive section bodies: `41`
+- Visible active section bodies: `1`
+- SnapDOM preview images: `0`
+- Average frame time across `5` runs: `8.34ms`
+- Average FPS across `5` runs: `119.85`
+- Median FPS: `119.99`
+- Max frame time: `17.20ms`
+- Slow frames:
+  - `>16.7ms`: `1`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `120.00`, `119.30`, `120.05`, `119.99`, `119.92`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-section-opacity-hidden-corrected-rerun-trace.json`
+
+### Corrected takeaway
+
+- The valid large section-body win in this area is still `full-section-opacity-hidden`, not whole-section SnapDOM.
+- In this matched rerun:
+  - `full`: `66.06 FPS`
+  - `full-section-opacity-hidden`: `119.85 FPS`
+  - gain: about `+53.79 FPS`
+- That result is still surprising, but it is now tied to a visually confirmed stage.
+- The strongest remaining interpretation is:
+  - the dominant steady-state cost in the fully live `All Settings` view is heavily tied to painting/compositing visible section-body content during pan/zoom
+  - simply keeping the same DOM mounted is not enough to preserve the original cost if that content is no longer visibly painted

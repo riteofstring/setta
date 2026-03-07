@@ -33,6 +33,7 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",
+  "full-section-snapdom-hidden-live",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkStage =
@@ -67,6 +68,7 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamSortable: boolean;
   renderSectionBodySnapdomPreview: boolean;
   renderSectionBodyOpacityHidden?: boolean;
+  keepSectionBodyMountedWithSnapdomPreview?: boolean;
 };
 
 const DEFAULT_STAGE: SettingsAllSettingsBenchmarkStage = "full";
@@ -93,6 +95,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamSortable: true,
   renderSectionBodySnapdomPreview: false,
   renderSectionBodyOpacityHidden: false,
+  keepSectionBodyMountedWithSnapdomPreview: false,
 };
 
 const SettingsAllSettingsBenchmarkContext =
@@ -559,6 +562,7 @@ function resolveBenchmarkValue(
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
         renderSectionBodyOpacityHidden: false,
+        keepSectionBodyMountedWithSnapdomPreview: false,
       };
     case "full-section-opacity-hidden":
       return {
@@ -583,6 +587,32 @@ function resolveBenchmarkValue(
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
         renderSectionBodyOpacityHidden: true,
+        keepSectionBodyMountedWithSnapdomPreview: false,
+      };
+    case "full-section-snapdom-hidden-live":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: true,
+        renderSectionBodyOpacityHidden: false,
+        keepSectionBodyMountedWithSnapdomPreview: true,
       };
     default:
       return stage satisfies never;
