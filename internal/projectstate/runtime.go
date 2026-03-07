@@ -15,6 +15,13 @@ var (
 	ErrMutationMissing = errors.New("project runtime mutation is required")
 )
 
+type SavePolicy string
+
+const (
+	SavePolicyPersist  SavePolicy = "persist"
+	SavePolicyInMemory SavePolicy = "in_memory"
+)
+
 type Snapshot struct {
 	Document Document
 	Revision uint64
@@ -23,7 +30,9 @@ type Snapshot struct {
 type Mutation func(Document) (Document, error)
 
 type Runtime struct {
-	store *Store
+	store      *Store
+	savePolicy SavePolicy
+	saveFn     func(context.Context, Document) error
 
 	stateMu  sync.RWMutex
 	current  Document
@@ -60,18 +69,17 @@ func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
 		return nil, err
 	}
 
-	runtime := &Runtime{
-		store:    store,
-		current:  document.Clone(),
-		revision: 1,
-		ops:      make(chan operation, defaultRuntimeQueueSize),
-		done:     make(chan struct{}),
-	}
-	go runtime.runLoop(runtimeState{
-		current:  document.Clone(),
-		revision: 1,
+	return openRuntime(document, saveController{
+		store:      store,
+		savePolicy: SavePolicyPersist,
+		saveFn:     store.Save,
 	})
-	return runtime, nil
+}
+
+func OpenOverlayRuntime(document Document) (*Runtime, error) {
+	return openRuntime(document, saveController{
+		savePolicy: SavePolicyInMemory,
+	})
 }
 
 func (r *Runtime) Snapshot() Snapshot {
@@ -86,6 +94,13 @@ func (r *Runtime) Snapshot() Snapshot {
 		Document: r.current.Clone(),
 		Revision: r.revision,
 	}
+}
+
+func (r *Runtime) SavePolicy() SavePolicy {
+	if r == nil {
+		return ""
+	}
+	return r.savePolicy
 }
 
 func (r *Runtime) Mutate(mutate Mutation) (Snapshot, error) {
@@ -127,7 +142,10 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
 			snapshot := snapshotFromState(*state)
-			if err := r.store.Save(ctx, snapshot.Document); err != nil {
+			if r.savePolicy != SavePolicyPersist || r.saveFn == nil {
+				return snapshot, nil
+			}
+			if err := r.saveFn(ctx, snapshot.Document); err != nil {
 				return snapshot, err
 			}
 			return snapshot, nil
@@ -198,4 +216,32 @@ func snapshotFromState(state runtimeState) Snapshot {
 		Document: state.current.Clone(),
 		Revision: state.revision,
 	}
+}
+
+type saveController struct {
+	store      *Store
+	savePolicy SavePolicy
+	saveFn     func(context.Context, Document) error
+}
+
+func openRuntime(document Document, controller saveController) (*Runtime, error) {
+	normalized, err := document.Normalized()
+	if err != nil {
+		return nil, err
+	}
+
+	runtime := &Runtime{
+		store:      controller.store,
+		savePolicy: controller.savePolicy,
+		saveFn:     controller.saveFn,
+		current:    normalized.Clone(),
+		revision:   1,
+		ops:        make(chan operation, defaultRuntimeQueueSize),
+		done:       make(chan struct{}),
+	}
+	go runtime.runLoop(runtimeState{
+		current:  normalized.Clone(),
+		revision: 1,
+	})
+	return runtime, nil
 }
