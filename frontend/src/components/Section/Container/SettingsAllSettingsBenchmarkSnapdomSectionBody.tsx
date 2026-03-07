@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useProjectState } from "state/definitions";
 
 type SnapdomStatus = "pending" | "ready" | "error" | "live-active";
 type CaptureSize = {
@@ -24,13 +25,11 @@ type HiddenLiveMode = "none" | "opacity" | "visibility";
 
 type SettingsAllSettingsBenchmarkSnapdomSectionBodyProps = PropsWithChildren<{
   sectionId: string;
-  isActiveSection: boolean;
 }>;
 
 export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
   children,
   sectionId,
-  isActiveSection,
 }: SettingsAllSettingsBenchmarkSnapdomSectionBodyProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
   const liveBodyRootRef = useRef<HTMLDivElement | null>(null);
@@ -38,9 +37,7 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [captureSize, setCaptureSize] = useState<CaptureSize | null>(null);
   const [bodyBounds, setBodyBounds] = useState<SectionBodyBounds | null>(null);
-  const [status, setStatus] = useState<SnapdomStatus>(
-    isActiveSection ? "live-active" : "pending",
-  );
+  const [status, setStatus] = useState<SnapdomStatus>("pending");
 
   const shouldUseSnapdomPreview =
     benchmark.active && benchmark.renderSectionBodySnapdomPreview;
@@ -50,6 +47,13 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
   const shouldKeepMountedWithSnapdomPreview =
     benchmark.active &&
     benchmark.keepSectionBodyMountedWithSnapdomPreview === true;
+  const shouldTrackActiveState =
+    shouldUseSnapdomPreview ||
+    shouldUseOpacityHidden ||
+    shouldKeepMountedWithSnapdomPreview;
+  const isActiveSection = useProjectState((x) =>
+    shouldTrackActiveState && x.projectConfig.activeIds.includes(sectionId),
+  );
 
   useEffect(() => {
     const liveBodyRoot = liveBodyRootRef.current;

@@ -148,27 +148,25 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
-    useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        x,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        x,
-        sectionId,
-        paramInfoId,
-        isBaseParamCodeObjImpl,
-      );
-      const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-      return {
-        paramIsSelected: impl.selectedParams.includes(paramInfoId),
-        isKwarg: codeObjImpl.coreNameEditable,
-        paramChildren: isNestedParam ? codeObjImpl.children : [],
-        isNestedParam,
-      };
-    }, _.isEqual);
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ),
+  );
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImplWithTypeGuard(
+      x,
+      sectionId,
+      paramInfoId,
+      isBaseParamCodeObjImpl,
+    ),
+  );
+  const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
+  const isKwarg = codeObjImpl.coreNameEditable;
+  const paramChildren = isNestedParam ? codeObjImpl.children : [];
 
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);

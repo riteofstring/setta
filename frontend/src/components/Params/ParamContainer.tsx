@@ -7,12 +7,12 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import {
   getCurrEffectiveCodeObjImpl,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
   "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
@@ -42,20 +42,32 @@ function _ParamContainer({
   benchmarkParamRowMode,
 }) {
   const benchmark = useSettingsAllSettingsBenchmark();
-  const { description: paramDescription, name: paramName } = useProjectState(
-    (x) => {
-      const codeObjImpl = getCurrEffectiveCodeObjImpl(
-        x,
-        sectionId,
-        paramInfoId,
-      );
-      return {
-        description: codeObjImpl.description,
-        name: getParamDisplayName(x, sectionId, paramInfoId),
-      };
-    },
-    _.isEqual,
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
   );
+  const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
+  const showParamDisplayNames = useProjectState(
+    (x) => x.projectConfig.showParamDisplayNames,
+  );
+  const paramDescription = codeObjImpl.description;
+  const paramName = React.useMemo(() => {
+    if (!showParamDisplayNames) {
+      return paramCore.name;
+    }
+    if (isBaseParamCodeObjImpl(codeObjImpl) && codeObjImpl.coreNameEditable) {
+      return paramCore.name;
+    }
+    const trimmedDisplayName = paramCore.displayName.trim();
+    if (trimmedDisplayName.length > 0) {
+      return paramCore.displayName;
+    }
+    return paramCore.name;
+  }, [
+    codeObjImpl,
+    paramCore.displayName,
+    paramCore.name,
+    showParamDisplayNames,
+  ]);
 
   const columnWidth = "var(--param-column-width, 200px)";
 

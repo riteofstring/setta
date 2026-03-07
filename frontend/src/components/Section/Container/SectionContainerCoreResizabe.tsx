@@ -2,6 +2,7 @@ import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
+import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -42,7 +43,6 @@ import { getBgColor } from "./utils";
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
-  isActiveSection: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -50,10 +50,9 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
 };
 
-export function SectionContainerCoreResizable({
+function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
-  isActiveSection,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -128,7 +127,6 @@ export function SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -169,7 +167,6 @@ export function SectionContainerCoreResizable({
       ) : shouldRenderHeader ? (
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
@@ -181,10 +178,7 @@ export function SectionContainerCoreResizable({
         <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
       {shouldRenderAreaSwitch ? (
-        <SettingsAllSettingsBenchmarkSnapdomSectionBody
-          isActiveSection={isActiveSection}
-          sectionId={sectionId}
-        >
+        <SettingsAllSettingsBenchmarkSnapdomSectionBody sectionId={sectionId}>
           {sectionBody}
         </SettingsAllSettingsBenchmarkSnapdomSectionBody>
       ) : shouldRenderBenchmarkShell ? (
@@ -193,6 +187,10 @@ export function SectionContainerCoreResizable({
     </CustomResizable>
   );
 }
+
+export const SectionContainerCoreResizable = React.memo(
+  _SectionContainerCoreResizable,
+);
 
 function BenchmarkSectionBodyPlaceholder({
   stage,

@@ -1,6 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,
@@ -14,6 +14,7 @@ import {
   useProjectState,
   useSettings,
   useTemporaryMiscState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -40,6 +41,17 @@ import { shallow } from "zustand/shallow";
 type KwargsControlsProps = {
   sectionId: string;
 };
+
+function getDeletableSelectedParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  selectedParams: Array<string>,
+) {
+  return selectedParams.filter((paramId) => {
+    const paramImpl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
+    return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
+  });
+}
 
 export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
@@ -128,28 +140,41 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
 
-  const {
-    selectedParams,
-    edgeInputParams,
-    pinnedParams,
-    deletableSelectedParamIds,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
+    ),
+  );
+  const { codeObjs, codeObjVariants, codeObjImpls, sectionVariants } =
+    useProjectState(
+      (state) => ({
+        codeObjs: state.codeObjs,
+        codeObjVariants: state.codeObjVariants,
+        codeObjImpls: state.codeObjImpls,
+        sectionVariants: state.sectionVariants,
+      }),
+      shallow,
     );
-    const deletableSelectedParamIds = impl.selectedParams.filter((paramId) => {
-      const paramImpl = getCurrEffectiveCodeObjImpl(x, sectionId, paramId);
-      return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
-    });
-    return {
-      selectedParams: impl.selectedParams,
-      edgeInputParams: impl.edgeInputParams,
-      pinnedParams: impl.pinnedParams,
-      deletableSelectedParamIds,
-    };
-  }, _.isEqual);
+  const selectedParams = paramsImpl.selectedParams;
+  const edgeInputParams = paramsImpl.edgeInputParams;
+  const pinnedParams = paramsImpl.pinnedParams;
+  const deletableSelectedParamIds = useMemo(() => {
+    return getDeletableSelectedParamIds(
+      useProjectState.getState(),
+      sectionId,
+      selectedParams,
+    );
+  }, [
+    codeObjImpls,
+    codeObjVariants,
+    codeObjs,
+    paramsImpl,
+    sectionId,
+    sectionVariants,
+    selectedParams,
+  ]);
 
   const selectedAreAllEdgeInputs =
     selectedParams.length > 0 &&
@@ -475,20 +500,18 @@ function ParamFilter({
   includeCallablePadding: boolean;
   hasSectionStyleTheme: boolean;
 }) {
-  const paramFilterValue = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
-    );
-    return impl.paramFilter;
-  });
-  const sectionIsActive = useProjectState((x) => {
-    return (
-      x.projectConfig.activeIds.length === 1 &&
-      x.projectConfig.activeIds[0] === sectionId
-    );
-  });
+    ),
+  );
+  const solelyActiveSectionId = useProjectState((x) =>
+    x.projectConfig.activeIds.length === 1 ? x.projectConfig.activeIds[0] : null,
+  );
+  const paramFilterValue = paramsImpl.paramFilter;
+  const sectionIsActive = solelyActiveSectionId === sectionId;
 
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),

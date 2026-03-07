@@ -2808,3 +2808,142 @@ New benchmark stages:
 - So the next high-value direction is:
   - either defer / lighten UI editor section-config work on active-section change
   - or continue tightening section-level active-state subscribers if we want a fully behavior-preserving path first
+
+## Addendum: lazy Section Config mounting and row-shell selector cleanups were visually correct, but did not produce a decisive outline-latency win
+
+- Date: `2026-03-07`
+- Goal: continue reducing the plain `All Settings` section-activation lag after the dropdown fix by targeting:
+  - UI editor mount work in `SectionConfig`
+  - row-shell selector churn in `KwargsControls`, `GetParamSwitch`, `ParamSwitch`, and `ParamContainer`
+- Method:
+  - same alternating `shortcuts` / `gui` click loop
+  - measured `click -> active outline class flips`
+  - same-session comparisons only
+
+### Visual validation
+
+- Full stage after the UI editor lazy-mount change:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-editor-2026-03-07/full-after-ui-editor-lazy-load-visible.png`
+- `full-ui-editor-shell` after the same change:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-editor-2026-03-07/full-ui-editor-shell-after-ui-editor-lazy-load-visible.png`
+- Browser DOM check on the corrected `full` stage:
+  - the closed `APPEARANCE` accordion no longer mounted its `Style` / `Color Tag` subtree
+  - `#UiEditorPane` DOM count was about `254` in `full`
+  - `#UiEditorPane` DOM count was about `9` in `full-ui-editor-shell`
+
+### Production changes tested in this pass
+
+- `PaneAccordion` / `SectionConfigAccordion`
+  - lazy-on-first-open mounting for section-config accordion content
+- `EdgePortsSettings`
+  - split the large `useProjectState(..., _.isEqual)` selector into narrower subscriptions
+  - moved param-label derivation out of the store selector
+- `KwargsControls`
+  - subscribed to the effective params impl directly instead of returning a fresh object
+  - moved deletable-selected-param derivation out of the store selector
+  - changed `ParamFilter` to use the effective params impl + a primitive sole-active-section selector
+- `ParamSwitch`, `ParamContainer`, `GetParamSwitch`
+  - switched row-shell selectors to stable impl/core subscriptions plus memoized derivation
+
+### UI editor comparison after the lazy-mount change
+
+- `full`
+  - average `63.32ms`
+  - median `85.80ms`
+  - runs `104.80`, `85.80`, `45.70`, `26.20`, `27.70`, `91.70`, `98.00`, `89.00`, `46.60`, `22.50`, `23.50`, `92.60`, `98.90`, `91.30`, `45.90`, `22.90`
+- `full-ui-editor-shell`
+  - average `63.37ms`
+  - median `73.70ms`
+  - runs `87.00`, `79.50`, `78.40`, `43.60`, `21.70`, `74.60`, `73.70`, `77.20`, `73.90`, `47.20`, `70.80`, `72.30`, `73.10`, `73.80`, `45.70`, `21.50`
+
+### Row-shell comparison after the selector cleanups
+
+- `full`
+  - average `63.83ms`
+  - median `95.20ms`
+  - runs `99.80`, `99.10`, `28.00`, `26.40`, `29.70`, `99.90`, `106.30`, `96.20`, `39.20`, `27.20`, `27.70`, `96.30`, `100.90`, `95.20`, `26.30`, `23.10`
+- `param-container-shell`
+  - average `63.54ms`
+  - median `93.50ms`
+  - runs `103.20`, `98.40`, `28.60`, `25.10`, `27.20`, `94.90`, `103.20`, `93.50`, `33.80`, `25.40`, `25.90`, `98.20`, `103.10`, `94.50`, `38.40`, `23.30`
+
+### Conclusion
+
+- These changes were visually correct and they did reduce real mounted UI work in the side pane.
+- But in the current outline-based activation metric, they did not produce a decisive win.
+- The `full` and `param-container-shell` timings are still effectively in the same band, which means the common section shell / row-shell path still dominates.
+- So this pass should be treated as an inconclusive experiment, not a confirmed activation optimization.
+- The next likely high-value direction is still the shared section / row activation path, not the UI editor side pane.
+
+## Addendum: shell/body active-state split modestly improved activation, but the shared shell path still dominates
+
+- Date: `2026-03-07`
+- Goal: reduce plain `All Settings` section-activation lag by stopping `activeIds` changes from flowing through the heaviest section body path.
+- Method:
+  - same alternating `shortcuts` / `gui` click loop
+  - measured `click -> section data-section-active flips to true` on the live page
+  - same-session comparisons against the previous activation-shell baseline
+- Important caveat:
+  - this branch-head rerun was taken on top of the still-dirty selector-cleanup experiment from the previous addendum
+  - that earlier experiment had already measured as inconclusive on its own, so the new delta is still useful, but this is not a perfectly isolated single-change A/B
+
+### Production changes tested in this pass
+
+- `SectionContainerCore`
+  - moved the active z-layer to the outer section shell
+  - added a section-level active marker for instrumentation
+- `SectionContainerCoreResizable`
+  - removed `isActiveSection` from the heavy resizable/body path
+  - wrapped the resizable body component in `React.memo`
+- `CustomResizable`
+  - stopped deriving inner resizable z-index from active state
+- `SectionHeader`
+  - removed the active-state prop from the full header
+  - made only the title path subscribe to active state
+- `SettingsAllSettingsBenchmarkSnapdomSectionBody`
+  - stopped tracking active state in normal benchmark stages
+  - only subscribes to active state in the hidden/snapdom stages that actually need it
+
+### Visual validation
+
+- `full` after the shell split:
+  - `perf/artifacts/frontend/settings-all-settings/activation-shell-split-2026-03-07/full-visible-after-shell-split.png`
+- `param-container-shell` after the shell split:
+  - `perf/artifacts/frontend/settings-all-settings/activation-shell-split-2026-03-07/param-container-shell-visible-after-shell-split.png`
+
+### Activation rerun
+
+- Previous activation-shell baseline from the prior addendum:
+  - `full`
+    - average `63.83ms`
+    - median `95.20ms`
+  - `param-container-shell`
+    - average `63.54ms`
+    - median `93.50ms`
+
+- Current branch-head rerun after the shell split:
+  - `full`
+    - average `59.79ms`
+    - median `81.30ms`
+    - runs `101.80`, `90.70`, `87.00`, `44.10`, `25.30`, `24.70`, `24.60`, `82.90`, `87.60`, `81.30`, `62.10`, `24.80`, `26.00`, `21.80`, `86.50`, `85.50`
+  - `param-container-shell`
+    - average `59.24ms`
+    - median `77.60ms`
+    - runs `113.90`, `80.60`, `91.00`, `42.30`, `23.50`, `22.50`, `24.10`, `82.80`, `88.20`, `77.60`, `65.90`, `21.10`, `23.70`, `22.00`, `90.80`, `77.90`
+
+### Trace artifact
+
+- `full` activation after the shell split:
+  - `perf/artifacts/frontend/settings-all-settings/activation-shell-split-2026-03-07/full-activation-trace-after-shell-split.json`
+
+### Conclusion
+
+- This shell/body split produced a modest but real improvement:
+  - `full`: about `-4.04ms` average and `-13.90ms` median
+  - `param-container-shell`: about `-4.30ms` average and `-15.90ms` median
+- The larger median gain suggests the refactor helped the heavier activation samples more than the lighter ones.
+- But `full` and `param-container-shell` are still effectively in the same band after the change.
+- So the conclusion is:
+  - moving active chrome out of the heavy body path does help
+  - but it does not uncover a new large widget-specific cliff
+  - the remaining activation lag is still centered on the shared section / row shell path
