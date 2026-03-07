@@ -401,6 +401,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Logger:             logger,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			ProjectState:       projectRuntime,
+			LSPDiagnostics:     lspDiagnostics,
 			TemporaryIDMapPath: mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 		})
 		if err != nil {

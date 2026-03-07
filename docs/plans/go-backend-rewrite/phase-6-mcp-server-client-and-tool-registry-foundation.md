@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 4 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 5 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -34,6 +34,7 @@ Current repo status as of 2026-03-07:
     `setta_files/llm_config.json`
   - `internal/mcpx/client.go` for the first Go-owned internal MCP client
     runtime
+  - `internal/mcpx/temporary_ids.go` for the Go-owned temp-id map boundary
   - authenticated `/mcp` mounting in `internal/httpapi` via a root-level auth
     hook that keeps auth outside the SDK
   - `/api/mcpServerRuntimeStatus` as a thin Go-owned runtime-status transport
@@ -41,11 +42,14 @@ Current repo status as of 2026-03-07:
     - `list_mcp_tools` as the init-like tool
     - `set_agentic_context` as the first session-scoped init tool
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
+    - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
   - scoped agentic-context extraction from MCP `_meta`, request headers, and
     session state
+  - invocation-edge temporary/canonical id translation for current Go-owned MCP
+    carriers and filtered results
   - authenticated `/__setta__/tools/call` reusing the shared MCP invocation
     path
   - namespaced multi-server tool routing and per-server runtime status tracking
@@ -400,12 +404,11 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Slice 4 is now complete.
-- Use `phase-6-scoped-tool-call-pilot.md` as the source of truth for the
-  completed pilot and deferred decisions.
-- The active follow-on slice is now:
-  - `phase-6-invocation-edge-id-translation-and-lsp-diagnostics.md`
-- That slice covers:
-  - invocation-edge temporary/canonical ID translation ownership
-  - filtered LSP diagnostics MCP support
-  - the remaining prerequisites before the first scoped write/structural tool
+- Slice 5 is now complete.
+- Use `phase-6-invocation-edge-id-translation-and-lsp-diagnostics.md` as the
+  source of truth for the completed temp-id + diagnostics slice.
+- Next, add a focused write/structural slice for:
+  - explicit target-id extraction over `IDPathsByType`
+  - the first real scoped mutation tool on the Go MCP path
+  - any remaining temp-id translation extensions required by that mutation
+    boundary

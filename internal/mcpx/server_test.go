@@ -135,20 +135,25 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 4 {
-		t.Fatalf("expected 4 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 5 {
+		t.Fatalf("expected 5 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var summaryTool *sdkmcp.Tool
+	var diagnosticsTool *sdkmcp.Tool
 	for _, tool := range toolsResult.Tools {
 		names = append(names, tool.Name)
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
 		}
+		if tool.Name == "get_latest_lsp_diagnostics" {
+			diagnosticsTool = tool
+		}
 	}
 	sort.Strings(names)
 	expectedNames := []string{
+		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
 		"read_file_range",
@@ -167,6 +172,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
 		t.Fatalf("expected project-state result filter, got %#v", settaMeta["resultFilter"])
 	}
+	if diagnosticsTool == nil {
+		t.Fatal("expected get_latest_lsp_diagnostics tool")
+	}
+	diagnosticsMeta := mustStructuredMap(t, diagnosticsTool.Meta[toolMetaNamespace])
+	if diagnosticsMeta["resultFilter"] != string(tools.ResultFilterLSPDiagnostics) {
+		t.Fatalf("expected lsp diagnostics result filter, got %#v", diagnosticsMeta["resultFilter"])
+	}
 
 	listResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{Name: "list_mcp_tools"})
 	if err != nil {
@@ -174,8 +186,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 4 {
-		t.Fatalf("expected 4 registered tool names, got %#v", listNames)
+	if len(listNames) != 5 {
+		t.Fatalf("expected 5 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -276,6 +288,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if mismatchPayload["message"] == nil {
 		t.Fatalf("expected mismatch message, got %#v", mismatchPayload)
 	}
+
+	diagnosticsResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_latest_lsp_diagnostics",
+		Arguments: map[string]any{"projectConfigId": "project-alpha"},
+	})
+	if err != nil {
+		t.Fatalf("call get_latest_lsp_diagnostics: %v", err)
+	}
+	if diagnosticsResult.IsError {
+		t.Fatalf("expected lsp diagnostics success, got %#v", diagnosticsResult.StructuredContent)
+	}
+	assertDiagnosticsPayload(t, diagnosticsResult.StructuredContent)
 
 	if server.sessionAgenticContext("missing-session") != nil {
 		t.Fatal("expected missing session agentic context lookup to return nil")
@@ -378,6 +402,38 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	sort.Strings(sectionIDs)
 	if len(sectionIDs) != 2 || sectionIDs[0] != "14" || sectionIDs[1] != "15" {
 		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
+	}
+
+	diagnosticsResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name:      "get_latest_lsp_diagnostics",
+		Arguments: map[string]any{"projectConfigId": "11"},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id lsp diagnostics: %v", err)
+	}
+	if diagnosticsResult.IsError {
+		t.Fatalf("expected temp-id diagnostics success, got %#v", diagnosticsResult.StructuredContent)
+	}
+	diagnosticsPayload := mustStructuredMap(t, diagnosticsResult.StructuredContent)
+	codeSections := mustStructuredMap(t, diagnosticsPayload["codeSections"])
+	if _, ok := codeSections["14"]; !ok {
+		t.Fatalf("expected translated allowed-section diagnostics key 14, got %#v", codeSections)
+	}
+	if _, ok := codeSections["15"]; ok {
+		t.Fatalf("did not expect peer-chat-section diagnostics key 15, got %#v", codeSections)
+	}
+	genCode := mustStructuredMap(t, diagnosticsPayload["genCode"])
+	genErrors := mustStructuredMap(t, genCode["errors"])
+	if _, ok := genErrors["14"]; !ok {
+		t.Fatalf("expected translated allowed-section gen diagnostics key 14, got %#v", genErrors)
+	}
+	if unmapped := mustStructuredList(t, diagnosticsPayload["unmappedGenCode"]); len(unmapped) != 0 {
+		t.Fatalf("expected scoped diagnostics to drop unmapped gen code, got %#v", unmapped)
 	}
 }
 
@@ -528,8 +584,9 @@ func newScopedTestServerSession(t *testing.T, workspaceRoot string, projectRunti
 	t.Helper()
 
 	return newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
-		WorkspaceRoot: workspaceRoot,
-		ProjectState:  projectRuntime,
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
 	})
 }
 
@@ -541,6 +598,9 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
+	}
+	if options.LSPDiagnostics == nil {
+		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()
 	}
 
 	server, err := NewServer(options)
@@ -634,6 +694,57 @@ func assertSummaryPayload(t *testing.T, payload any) {
 	if len(sectionIDs) != 2 || sectionIDs[0] != "allowed-section" || sectionIDs[1] != "peer-chat-section" {
 		t.Fatalf("unexpected filtered section ids %#v", sectionIDs)
 	}
+}
+
+func assertDiagnosticsPayload(t *testing.T, payload any) {
+	t.Helper()
+
+	diagnostics := mustStructuredMap(t, payload)
+	codeSections := mustStructuredMap(t, diagnostics["codeSections"])
+	if len(codeSections) != 1 {
+		t.Fatalf("expected one allowed code section diagnostics entry, got %#v", codeSections)
+	}
+	if _, ok := codeSections["allowed-section"]; !ok {
+		t.Fatalf("expected allowed-section diagnostics, got %#v", codeSections)
+	}
+	genCode := mustStructuredMap(t, diagnostics["genCode"])
+	genErrors := mustStructuredMap(t, genCode["errors"])
+	if len(genErrors) != 1 {
+		t.Fatalf("expected one allowed generated diagnostics entry, got %#v", genErrors)
+	}
+	if _, ok := genErrors["allowed-section"]; !ok {
+		t.Fatalf("expected allowed-section generated diagnostics, got %#v", genErrors)
+	}
+	if unmapped := mustStructuredList(t, diagnostics["unmappedGenCode"]); len(unmapped) != 0 {
+		t.Fatalf("expected scoped diagnostics to drop unmapped gen code, got %#v", unmapped)
+	}
+}
+
+func openScopedTestLSPDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry {
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	diag := projectstate.LSPDiagnostic{
+		Message: "error",
+		Range: projectstate.LSPDiagnosticRange{
+			Start: projectstate.LSPDiagnosticPosition{Line: 0, Character: 0},
+			End:   projectstate.LSPDiagnosticPosition{Line: 0, Character: 1},
+		},
+	}
+	diagnostics.UpdateCodeSection("project-alpha", "allowed-section", []projectstate.LSPDiagnostic{diag})
+	diagnostics.UpdateCodeSection("project-alpha", "blocked-section", []projectstate.LSPDiagnostic{diag})
+	diagnostics.UpdateGeneratedDocument(
+		"project-alpha",
+		projectstate.GeneratedDiagnosticsDocumentCode,
+		projectstate.ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			IsGenCode: true,
+			Errors: map[string]projectstate.SectionTypeErrors{
+				"allowed-section": {Callable: []string{"ok"}},
+				"blocked-section": {Callable: []string{"nope"}},
+			},
+		},
+		[]projectstate.LSPDiagnostic{diag},
+	)
+	return diagnostics
 }
 
 func mustStructuredMap(t *testing.T, value any) map[string]any {

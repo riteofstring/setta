@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 4 {
-		t.Fatalf("expected 4 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 5 {
+		t.Fatalf("expected 5 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 4 {
-		t.Fatalf("expected 4 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 5 {
+		t.Fatalf("expected 5 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -196,6 +196,22 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
 	}
+
+	diagnosticsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_latest_lsp_diagnostics",
+		Arguments: map[string]any{"projectConfigId": "project-alpha"},
+	})
+	if err != nil {
+		t.Fatalf("call get_latest_lsp_diagnostics: %v", err)
+	}
+	if diagnosticsResult.IsError {
+		t.Fatalf("expected diagnostics success, got %#v", diagnosticsResult.StructuredContent)
+	}
+	diagnosticsPayload := mustStructuredMapValue(t, diagnosticsResult.StructuredContent)
+	codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"])
+	if len(codeSections) != 0 {
+		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
+	}
 }
 
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
@@ -266,6 +282,26 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	}
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect canonical blocked-section key, got %#v", sectionVariantMap)
+	}
+
+	diagnosticsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name:      "get_latest_lsp_diagnostics",
+		Arguments: map[string]any{"projectConfigId": "11"},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id diagnostics: %v", err)
+	}
+	if diagnosticsResult.IsError {
+		t.Fatalf("expected temp-id diagnostics success, got %#v", diagnosticsResult.StructuredContent)
+	}
+	diagnosticsPayload := mustStructuredMapValue(t, diagnosticsResult.StructuredContent)
+	if codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"]); len(codeSections) != 0 {
+		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
 	}
 }
 
@@ -345,8 +381,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 4 {
-		t.Fatalf("expected tool count 4, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 5 {
+		t.Fatalf("expected tool count 5, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))

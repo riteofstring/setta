@@ -19,17 +19,28 @@ between agent-facing MCP payloads and canonical project/runtime state.
 
 ## Status
 
+This slice is now complete.
+
 Current repo status as of 2026-03-07:
 
-- Go MCP calls still operate on canonical ids only
-- `internal/mcpx/server.go` scopes calls correctly, but it does not yet:
-  - translate agent-facing temporary ids to canonical ids before scope and
-    handler execution
-  - translate canonical result ids back to temporary ids before returning to
-    MCP clients
-- `get_latest_project_state_summary` is the only filtered scoped result tool
-- `get_latest_lsp_diagnostics` is still Python-owned for MCP usage even though
-  Go already owns the underlying diagnostics runtime and HTTP route
+- `internal/mcpx/temporary_ids.go` now owns:
+  - runtime-root-backed `temporary_id_map.json` load/refresh/persist
+  - canonical→temporary and temporary→canonical lookup
+  - monotonic numeric temporary-id allocation
+- `internal/mcpx/translation.go` now owns explicit invocation-edge translation
+  for:
+  - agentic context carriers
+  - current Go-owned MCP tool arguments
+  - filtered project-summary and diagnostics results
+- `internal/mcpx/server.go` now owns:
+  - temp-id translation before scope resolution and handler execution
+  - filtered LSP diagnostics application before result translation
+  - the new init tool `get_latest_lsp_diagnostics`
+- `internal/mcpx/lsp_diagnostics.go` now owns the first Go MCP-side
+  diagnostics result filter
+- `internal/app/app.go` now wires the MCP server to:
+  - the Go LSP diagnostics registry
+  - the runtime-root temporary-id map path
 
 ## Scope
 
@@ -88,16 +99,19 @@ Both options make later parity work harder.
 - keep temp-id ownership inside `internal/mcpx`
   - this boundary belongs to MCP/chat-facing invocation, not project-state core
 - persist the map under the Go runtime root
-  - this is mutable runtime state, not static workspace config
+  - the file now lives under `cfg.Paths.RuntimeRoot`
+  - this keeps mutable agent/runtime state out of static workspace config
 - keep translation explicit for the current slice
-  - translate known agentic-context fields
-  - translate known tool arguments for the Go-owned MCP tool set
-  - translate filtered result types through typed converters
-- do not add heuristic string-rewrite fallbacks
-  - any conversion path must be driven by known carrier fields or typed result
+  - current Go-owned tools translate only known carrier fields and typed result
     shapes
-- add diagnostics only after the translation path exists
-  - diagnostics should reuse the same invocation boundary as project-summary
+  - no blanket recursive string rewriting was added
+- keep temporary-id detection format-based at explicit carrier fields
+  - mapped temporary ids resolve to canonical ids
+  - unknown numeric ids fail as invalid MCP arguments
+  - canonical ids that are already known to the map still pass through cleanly
+- add diagnostics only through the shared invocation boundary
+  - `get_latest_lsp_diagnostics` reuses the same scope, filtering, and
+    temp-id translation path as the project-summary pilot
 
 ## Proposed Go Boundaries
 
@@ -116,42 +130,38 @@ Do not own:
 - diagnostics generation
 - project-state mutation semantics
 
-## Implementation Steps
+## Completed
 
-1. Add a runtime-root-backed temporary-id store under `internal/mcpx`.
-   - load canonical→temporary JSON
-   - derive temporary→canonical in memory
-   - persist atomically after new temp ids are introduced
+- added a Go-owned temporary-id store under `internal/mcpx`
+- persisted the temp-id map as runtime-owned JSON under the Go runtime root
+- translated current MCP agentic-context carriers to canonical ids before scope
+  resolution
+- translated current Go-owned MCP tool arguments to canonical ids before
+  handler execution
+- translated filtered MCP tool results back to temporary ids before transport
+- added `get_latest_lsp_diagnostics` as the next Go-owned filtered init tool
+- wired MCP server construction to the Go LSP diagnostics registry
+- covered the slice with focused unit, server, HTTP-route, and app tests
 
-2. Refactor MCP invocation to translate at the edge.
-   - normalize agentic context to canonical ids before scope resolution
-   - translate known tool arguments to canonical ids before handler execution
-   - translate filtered tool results back to temporary ids before transport
+## Verification
 
-3. Add `get_latest_lsp_diagnostics`.
-   - register it as a discoverable/read tool with result filter
-     `lsp_diagnostics`
-   - source payloads from the Go LSP diagnostics registry
-   - reuse the same scoped invocation path and filtered result translation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'Test(TemporaryIDStore|Server)' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi ./internal/app -run 'Test(MCPToolCallRoute|AppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsTemporaryIDsOverAuthenticatedSSE|RuntimeStatusRouteReportsConnectedSelfClient|ToolCallRouteSupportsAgenticContextBody))' -count=1 -timeout 360s`
 
-4. Cover the slice with focused tests.
-   - temp-id conversion unit tests
-   - MCP server tests for temp-id context/argument/result behavior
-   - HTTP root tool-call route tests for temp-id request bodies
-   - app integration tests for authenticated SSE and `/__setta__/tools/call`
+## Open Questions
 
-## Acceptance
-
-- MCP calls can send temporary ids for current scoped carriers and reach the
-  same canonical runtime state
-- filtered scoped results return temporary ids back to the caller
-- `get_latest_lsp_diagnostics` is Go-owned on the MCP path
-- temp-id persistence is written through one Go-owned source of truth
-- no heuristic blanket string rewriting is introduced
+- the current temp-id boundary is explicit for the current Go-owned tool set,
+  but broader write/structural tool parity still needs explicit target-path
+  extraction over `IDPathsByType`
+- generic arbitrary MCP argument/result conversion should remain deferred until
+  a stronger Go-owned id-path source of truth exists for those tools
 
 ## Recommended Follow-On
 
-- extend explicit invocation-edge target extraction over `IDPathsByType` for the
-  first scoped write/structural tool
-- add more filtered read tools only when they can reuse the same translation and
-  scope boundary cleanly
+- Slice 5 is complete.
+- The next recommended step is a focused write/structural slice that:
+  - extracts explicit target ids through `IDPathsByType`
+  - uses the completed temp-id boundary instead of adding tool-local
+    translation
+  - lands the first real scoped mutation tool rather than another read-only
+    pilot

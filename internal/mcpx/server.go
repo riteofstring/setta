@@ -31,6 +31,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateSnapshotProvider
+	lspDiagnostics       lspDiagnosticsSnapshotProvider
 	temporaryIDs         *TemporaryIDStore
 	server               *sdkmcp.Server
 	handler              http.Handler
@@ -43,6 +44,7 @@ type ServerOptions struct {
 	Registry           *tools.Registry
 	WorkspaceRoot      string
 	ProjectState       projectStateSnapshotProvider
+	LSPDiagnostics     lspDiagnosticsSnapshotProvider
 	TemporaryIDMapPath string
 }
 
@@ -54,6 +56,10 @@ type toolDefinition struct {
 
 type projectStateSnapshotProvider interface {
 	Snapshot() projectstate.Snapshot
+}
+
+type lspDiagnosticsSnapshotProvider interface {
+	Snapshot(projectID string) projectstate.LSPDiagnosticsPayload
 }
 
 type listMCPToolsResult struct {
@@ -115,6 +121,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		logger:               opts.Logger,
 		registry:             registry,
 		projectState:         opts.ProjectState,
+		lspDiagnostics:       opts.LSPDiagnostics,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -126,7 +133,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
-	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState) {
+	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.LSPDiagnostics) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -205,6 +212,10 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 	}
 
 	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
+	if err != nil {
+		return s.buildToolErrorResult(err)
+	}
+	result, err = applyToolResultFilter(result, registered.Metadata, invocation)
 	if err != nil {
 		return s.buildToolErrorResult(err)
 	}
@@ -333,6 +344,33 @@ func newProjectStateSummaryHandler() tools.Handler {
 	}
 }
 
+func newLSPDiagnosticsHandler(diagnostics lspDiagnosticsSnapshotProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		if diagnostics == nil {
+			return nil, newToolError("internal_error", "LSP diagnostics runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped diagnostics invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		return diagnostics.Snapshot(projectConfigID), nil
+	}
+}
+
 func (s *Server) sessionAgenticContext(sessionKey string) *AgenticContext {
 	if s == nil || strings.TrimSpace(sessionKey) == "" {
 		return nil
@@ -356,7 +394,7 @@ func (s *Server) setSessionAgenticContext(sessionKey string, value AgenticContex
 	s.agenticContextBySess[sessionKey] = value
 }
 
-func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateSnapshotProvider) []toolDefinition {
+func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateSnapshotProvider, lspDiagnostics lspDiagnosticsSnapshotProvider) []toolDefinition {
 	definitions := []toolDefinition{
 		{
 			Spec: tools.Spec{
@@ -460,6 +498,36 @@ func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tool
 					"projectConfigId": map[string]any{
 						"type":        "string",
 						"description": "Canonical project config id to summarize.",
+					},
+				},
+				"required": []string{"projectConfigId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+	}
+
+	if projectState != nil && lspDiagnostics != nil {
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "get_latest_lsp_diagnostics",
+				Description: "Return the latest filtered LSP diagnostics payload for the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindInit,
+					AccessType:     tools.AccessTypeRead,
+					ResultFilter:   tools.ResultFilterLSPDiagnostics,
+					SearchCategory: "lsp",
+					SearchTags:     []string{"lsp", "diagnostics", "errors", "python"},
+				},
+				Handler: newLSPDiagnosticsHandler(lspDiagnostics),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose latest diagnostics should be returned.",
 					},
 				},
 				"required": []string{"projectConfigId"},
@@ -621,6 +689,26 @@ func splitFileLines(content string) []string {
 		lines = lines[:len(lines)-1]
 	}
 	return lines
+}
+
+func applyToolResultFilter(payload any, metadata tools.Metadata, invocation ToolInvocationContext) (any, error) {
+	switch metadata.ResultFilter {
+	case tools.ResultFilterLSPDiagnostics:
+		if invocation.Scope == nil {
+			return nil, newToolError("internal_error", "Scoped LSP diagnostics filtering requires a resolved scope.")
+		}
+		diagnostics, ok := payload.(projectstate.LSPDiagnosticsPayload)
+		if !ok {
+			typed, ok := payload.(*projectstate.LSPDiagnosticsPayload)
+			if !ok || typed == nil {
+				return nil, fmt.Errorf("mcpx: unsupported lsp diagnostics payload type %T", payload)
+			}
+			diagnostics = *typed
+		}
+		return filterLSPDiagnosticsPayload(diagnostics, invocation.Scope.effectiveReadSectionIDs(), invocation.Scope.StructuralAllowed), nil
+	default:
+		return payload, nil
+	}
 }
 
 func readRequiredStringArgument(arguments map[string]any, key string) (string, error) {
