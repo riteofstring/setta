@@ -74,6 +74,12 @@ test.describe.serial("chat composer controls", () => {
       ).toHaveCount(0);
 
       const input = section.locator("textarea").first();
+      const sectionBox = await section.boundingBox();
+      const inputBox = await input.boundingBox();
+      if (!sectionBox || !inputBox) {
+        throw new Error("Expected visible chat section and composer bounds.");
+      }
+      expect(inputBox.width).toBeGreaterThan(sectionBox.width * 0.45);
       await input.fill("/resume");
       const sectionSuggestions = page
         .locator("div.fixed.z-40.overflow-y-auto")

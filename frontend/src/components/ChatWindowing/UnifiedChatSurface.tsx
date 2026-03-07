@@ -1,7 +1,7 @@
 import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectChat";
+import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
-import { RiChat3Line } from "react-icons/ri";
-import { getOpenFloatingProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowing";
+import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import {
   ChatWindowModeEnum,
@@ -19,11 +19,18 @@ type UnifiedChatSurfaceProps = {
   dataTestId?: string;
 };
 
-function resolveSurfaceClasses(className?: string): string {
+function resolveSurfaceHostClasses(
+  host: ChatSurfaceHost,
+  className?: string,
+): string {
+  const baseClassName =
+    host === "section_layout"
+      ? "section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden"
+      : "flex min-h-0 flex-1 flex-col";
   if (!className) {
-    return "flex min-h-0 flex-1 flex-col";
+    return baseClassName;
   }
-  return `flex min-h-0 flex-1 flex-col ${className}`;
+  return `${baseClassName} ${className}`;
 }
 
 export function UnifiedChatSurface({
@@ -33,54 +40,32 @@ export function UnifiedChatSurface({
   className,
   dataTestId,
 }: UnifiedChatSurfaceProps) {
-  const externalizedFloatingWindowId = useProjectState((state) => {
+  const externalizedWindowId = useProjectState((state) => {
     if (host !== "section_layout" || !sectionId) {
       return null;
     }
     return (
-      getOpenFloatingProjectChatWindowInstanceForSectionInState(
+      getOpenExternalProjectChatWindowInstanceForSectionInState(
         state.projectChatWindowing,
         sectionId,
       )?.instanceId ?? null
     );
   });
 
-  if (externalizedFloatingWindowId) {
+  if (externalizedWindowId) {
     return (
-      <div
-        className={resolveSurfaceClasses(className)}
-        data-chat-surface-mode={mode}
-        data-chat-surface-host={host}
-        data-testid={dataTestId}
-      >
-        <div
-          className="pointer-events-none relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md border border-dashed border-setta-300/80 bg-setta-100/45 dark:border-setta-600/80 dark:bg-setta-900/35"
-          data-testid="project-chat-canvas-floating-placeholder"
-          data-chat-window-instance-id={externalizedFloatingWindowId}
-          data-chat-window-section-id={sectionId}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-setta-300/20 via-setta-200/20 to-transparent dark:from-setta-600/15 dark:via-setta-700/10 dark:to-transparent" />
-          <div className="pointer-events-none relative flex max-w-[22rem] flex-col items-center gap-2 rounded-xl border border-setta-300/70 bg-white/75 px-5 py-4 text-center shadow-sm dark:border-setta-600/70 dark:bg-setta-925/70">
-            <RiChat3Line
-              size={26}
-              className="text-setta-600/90 dark:text-setta-200/90"
-            />
-            <p className="text-sm font-semibold text-setta-900 dark:text-setta-100">
-              Chat moved to floating window
-            </p>
-            <p className="text-xs text-setta-700/90 dark:text-setta-200/85">
-              Use Project AI Chat manager controls to focus, dock, or hide it.
-            </p>
-          </div>
-        </div>
-      </div>
+      <SectionWindowPlaceholder
+        instanceId={externalizedWindowId}
+        sectionId={sectionId}
+        dataTestId="project-chat-canvas-floating-placeholder"
+      />
     );
   }
 
   if (mode === ChatWindowModeEnum.project_ai_mode) {
     return (
       <div
-        className={resolveSurfaceClasses(className)}
+        className={resolveSurfaceHostClasses(host, className)}
         data-chat-surface-mode={mode}
         data-chat-surface-host={host}
         data-testid={dataTestId}
@@ -94,7 +79,7 @@ export function UnifiedChatSurface({
     return (
       <div
         role="alert"
-        className={resolveSurfaceClasses(className)}
+        className={resolveSurfaceHostClasses(host, className)}
         data-chat-surface-mode={mode}
         data-chat-surface-host={host}
         data-testid={dataTestId}
@@ -108,7 +93,7 @@ export function UnifiedChatSurface({
 
   return (
     <div
-      className={resolveSurfaceClasses(className)}
+      className={resolveSurfaceHostClasses(host, className)}
       data-chat-surface-mode={mode}
       data-chat-surface-host={host}
       data-testid={dataTestId}

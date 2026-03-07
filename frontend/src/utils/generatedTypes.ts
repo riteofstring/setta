@@ -8481,6 +8481,7 @@ export const ProjectChatWindowInstanceSchema = z.object({
     .default(null),
   mode: z.enum(ChatWindowModeEnum).default(ChatWindowModeEnum.project_ai_mode),
   sectionIdOrNull: z.union([IDSchema, z.null()]).default(null),
+  title: z.union([z.string(), z.null()]).default(null),
   lastFocusedAt: z.int().default(0),
   chatId: z.union([IDSchema, z.null()]).default(null),
 });

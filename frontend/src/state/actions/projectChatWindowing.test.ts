@@ -9,22 +9,29 @@ import {
   addProjectChatWindowInstanceInState,
   closeProjectChatWindowInState,
   focusProjectChatWindowInState,
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
   maximizeProjectChatWindowInState,
+  minimizeProjectChatWindowInState,
   moveProjectChatWindowToCanvasSectionInState,
   reopenProjectChatWindowInState,
+  resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
+  setProjectChatWindowBoundsByIdInState,
   setProjectChatWindowBoundsInState,
   setProjectChatWindowDockFractionsInState,
   setProjectChatWindowModeForSectionInState,
   setProjectChatWindowPlacementInState,
+  setProjectChatWindowTitleInState,
+  showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
   unmaximizeProjectChatWindowInState,
 } from "./projectChatWindowing";
 
 describe("project chat windowing reducer helpers", () => {
-  it("creates an open bottom-docked chat window instance", () => {
-    // New instances must be visible and docked by default.
+  it("creates an open bottom-docked chat window instance by default", () => {
+    // New instances should open docked so the dock owns the initial layout.
     const initial = createProjectChatWindowingState();
 
     const { state, instanceId } = addProjectChatWindowInstanceInState(initial);
@@ -38,6 +45,34 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.isClosed).toBe(false);
     expect(created.isMinimized).toBe(false);
     expect(state.order).toEqual([instanceId]);
+  });
+
+  it("resolves default docked chat height from the viewport height", () => {
+    // Default docked windows should take seventy percent of the viewport, clamped to the dock space.
+    expect(
+      resolveDefaultDockedChatHeightPx({
+        viewportHeightPx: 900,
+        workspaceTopInsetPx: 40,
+        bottomInsetPx: 36,
+      }),
+    ).toBe(630);
+  });
+
+  it("resolves default floating chat bounds on the right at seventy percent viewport height", () => {
+    // Explicit floating windows still use the right-aligned seventy percent viewport default.
+    const bounds = resolveDefaultFloatingChatBounds({
+      viewportWidthPx: 1440,
+      viewportHeightPx: 900,
+      workspaceTopInsetPx: 40,
+      bottomInsetPx: 0,
+    });
+
+    expect(bounds).toEqual({
+      x: 580,
+      y: 155,
+      width: 820,
+      height: 630,
+    });
   });
 
   it("maximizes and restores the previous placement", () => {
@@ -91,8 +126,8 @@ describe("project chat windowing reducer helpers", () => {
     });
   });
 
-  it("treats close as hide and allows reopen", () => {
-    // Close must preserve window identity and be reversible through reopen.
+  it("treats close as a true close and allows reopen", () => {
+    // Close should hide the window without also leaving it in the minimized tray.
     const baseInstance = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
     });
@@ -111,7 +146,7 @@ describe("project chat windowing reducer helpers", () => {
       throw new Error("Expected closed instance.");
     }
     expect(closedInstance.isClosed).toBe(true);
-    expect(closedInstance.isMinimized).toBe(true);
+    expect(closedInstance.isMinimized).toBe(false);
 
     const reopened = reopenProjectChatWindowInState(
       closed,
@@ -123,6 +158,40 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(reopenedInstance.isClosed).toBe(false);
     expect(reopenedInstance.isMinimized).toBe(false);
+  });
+
+  it("minimizes without closing and allows reopen", () => {
+    // Minimize should keep the window in the tray instead of treating it as closed.
+    const baseInstance = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: { [baseInstance.instanceId]: baseInstance },
+      order: [baseInstance.instanceId],
+      nextInstanceNumber: 2,
+    });
+
+    const minimized = minimizeProjectChatWindowInState(
+      initial,
+      baseInstance.instanceId,
+    );
+    const minimizedInstance = minimized.instancesById[baseInstance.instanceId];
+    if (!minimizedInstance) {
+      throw new Error("Expected minimized instance.");
+    }
+    expect(minimizedInstance.isClosed).toBe(false);
+    expect(minimizedInstance.isMinimized).toBe(true);
+
+    const reopened = reopenProjectChatWindowInState(
+      minimized,
+      baseInstance.instanceId,
+    );
+    expect(reopened.instancesById[baseInstance.instanceId]?.isClosed).toBe(
+      false,
+    );
+    expect(reopened.instancesById[baseInstance.instanceId]?.isMinimized).toBe(
+      false,
+    );
   });
 
   it("focuses windows by assigning increasing z-index", () => {
@@ -157,8 +226,54 @@ describe("project chat windowing reducer helpers", () => {
     expect(focusedInstance.lastFocusedAt).toBe(1234);
   });
 
+  it("updates multiple floating windows in a single reducer pass", () => {
+    // Shared snap split drags should commit every affected snapped window together.
+    const first = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+      placement: ChatWindowPlacementEnum.floating,
+      bounds: {
+        x: 40,
+        y: 40,
+        width: 480,
+        height: 320,
+      },
+    });
+    const second = createProjectChatWindowInstance({
+      instanceId: "chat-window-b",
+      placement: ChatWindowPlacementEnum.floating,
+      bounds: {
+        x: 520,
+        y: 40,
+        width: 880,
+        height: 320,
+      },
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [first.instanceId]: first,
+        [second.instanceId]: second,
+      },
+      order: [first.instanceId, second.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    const updated = setProjectChatWindowBoundsByIdInState(initial, {
+      [first.instanceId]: {
+        width: 560,
+      },
+      [second.instanceId]: {
+        x: 600,
+        width: 800,
+      },
+    });
+
+    expect(updated.instancesById[first.instanceId]?.bounds.width).toBe(560);
+    expect(updated.instancesById[second.instanceId]?.bounds.x).toBe(600);
+    expect(updated.instancesById[second.instanceId]?.bounds.width).toBe(800);
+  });
+
   it("returns only visible windows in normalized order", () => {
-    // Visibility list should ignore closed windows and normalize duplicate order ids.
+    // Visibility list should ignore closed and minimized windows and normalize duplicate order ids.
     const first = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
       isClosed: false,
@@ -169,6 +284,11 @@ describe("project chat windowing reducer helpers", () => {
     });
     const third = createProjectChatWindowInstance({
       instanceId: "chat-window-c",
+      isMinimized: true,
+      isClosed: false,
+    });
+    const fourth = createProjectChatWindowInstance({
+      instanceId: "chat-window-d",
       isClosed: false,
     });
     const initial = createProjectChatWindowingState({
@@ -176,16 +296,17 @@ describe("project chat windowing reducer helpers", () => {
         [first.instanceId]: first,
         [second.instanceId]: second,
         [third.instanceId]: third,
+        [fourth.instanceId]: fourth,
       },
       order: [first.instanceId, first.instanceId, second.instanceId],
-      nextInstanceNumber: 4,
+      nextInstanceNumber: 5,
     });
 
     const visible = getVisibleProjectChatWindowInstances(initial);
 
     expect(visible.map((instance) => instance.instanceId)).toEqual([
       first.instanceId,
-      third.instanceId,
+      fourth.instanceId,
     ]);
   });
 
@@ -213,6 +334,30 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.lastPlacementBeforeMaximize).toBe(
       ChatWindowPlacementEnum.canvas_section,
     );
+  });
+
+  it("stores a custom title for a plain project chat window", () => {
+    // Plain project chats need a persisted title so their headers can rename like sections.
+    const baseInstance = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+      title: null,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: { [baseInstance.instanceId]: baseInstance },
+      order: [baseInstance.instanceId],
+      nextInstanceNumber: 2,
+    });
+
+    const next = setProjectChatWindowTitleInState(
+      initial,
+      baseInstance.instanceId,
+      "Coast Bear",
+    );
+    const updated = next.instancesById[baseInstance.instanceId];
+    if (!updated) {
+      throw new Error("Expected updated project chat window.");
+    }
+    expect(updated.title).toBe("Coast Bear");
   });
 
   it("updates dock width fractions and preferred widths for known instances", () => {
@@ -343,8 +488,8 @@ describe("project chat windowing reducer helpers", () => {
     expect(next).toBe(initial);
   });
 
-  it("moves a chat window to canvas placement and reopens it", () => {
-    // Booting to canvas should bind the section id and make the window visible/focused.
+  it("moves a chat window to canvas placement as a section-backed chat and reopens it", () => {
+    // Booting to canvas should convert the window to real section mode before binding it.
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
       placement: ChatWindowPlacementEnum.floating,
@@ -380,11 +525,56 @@ describe("project chat windowing reducer helpers", () => {
     }
     expect(updated.placement).toBe(ChatWindowPlacementEnum.canvas_section);
     expect(updated.sectionIdOrNull).toBe("section-1");
-    expect(updated.mode).toBe(ChatWindowModeEnum.project_ai_mode);
+    expect(updated.mode).toBe(ChatWindowModeEnum.section_mode);
     expect(updated.isClosed).toBe(false);
     expect(updated.isMinimized).toBe(false);
     expect(updated.zIndex).toBe(4);
     expect(updated.lastFocusedAt).toBe(4321);
+  });
+
+  it("moves a project-ai chat window to canvas without forcing section mode", () => {
+    // Plain project chat windows should keep their project-ai surface when moved into a canvas section.
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      isClosed: true,
+      isMinimized: true,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      zIndex: 2,
+    });
+    const peer = createProjectChatWindowInstance({
+      instanceId: "chat-window-b",
+      zIndex: 3,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [target.instanceId]: target,
+        [peer.instanceId]: peer,
+      },
+      order: [target.instanceId, peer.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    const next = moveProjectChatWindowToCanvasSectionInState(
+      initial,
+      target.instanceId,
+      {
+        sectionId: "section-1",
+        nowMs: 6789,
+        mode: ChatWindowModeEnum.project_ai_mode,
+      },
+    );
+    const updated = next.instancesById[target.instanceId];
+    if (!updated) {
+      throw new Error("Expected updated project-ai canvas-section instance.");
+    }
+    expect(updated.placement).toBe(ChatWindowPlacementEnum.canvas_section);
+    expect(updated.sectionIdOrNull).toBe("section-1");
+    expect(updated.mode).toBe(ChatWindowModeEnum.project_ai_mode);
+    expect(updated.isClosed).toBe(false);
+    expect(updated.isMinimized).toBe(false);
+    expect(updated.zIndex).toBe(4);
+    expect(updated.lastFocusedAt).toBe(6789);
   });
 
   it("returns original state when moving an unknown window to canvas", () => {
@@ -522,5 +712,77 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.isMinimized).toBe(false);
     expect(updated.zIndex).toBe(4);
     expect(updated.lastFocusedAt).toBe(9876);
+  });
+
+  it("finds the visible external section window even when a canvas binding also exists", () => {
+    const canvas = createProjectChatWindowInstance({
+      instanceId: "chat-window-canvas",
+      placement: ChatWindowPlacementEnum.canvas_section,
+      sectionIdOrNull: "section-1",
+      zIndex: 1,
+    });
+    const docked = createProjectChatWindowInstance({
+      instanceId: "chat-window-docked",
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      sectionIdOrNull: "section-1",
+      zIndex: 3,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [canvas.instanceId]: canvas,
+        [docked.instanceId]: docked,
+      },
+      order: [canvas.instanceId, docked.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    expect(
+      getOpenExternalProjectChatWindowInstanceForSectionInState(
+        initial,
+        "section-1",
+      )?.instanceId,
+    ).toBe(docked.instanceId);
+  });
+
+  it("shows an existing section binding in a docked window without resetting its mode", () => {
+    const canvas = createProjectChatWindowInstance({
+      instanceId: "chat-window-canvas",
+      placement: ChatWindowPlacementEnum.canvas_section,
+      sectionIdOrNull: "section-1",
+      mode: ChatWindowModeEnum.project_ai_mode,
+      zIndex: 1,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [canvas.instanceId]: canvas,
+      },
+      order: [canvas.instanceId],
+      nextInstanceNumber: 2,
+    });
+
+    const next = showSectionInProjectChatWindowInState(initial, "section-1");
+
+    expect(next.instancesById[canvas.instanceId]?.placement).toBe(
+      ChatWindowPlacementEnum.bottom_docked,
+    );
+    expect(next.instancesById[canvas.instanceId]?.mode).toBe(
+      ChatWindowModeEnum.project_ai_mode,
+    );
+    expect(next.instancesById[canvas.instanceId]?.isClosed).toBe(false);
+    expect(next.instancesById[canvas.instanceId]?.isMinimized).toBe(false);
+  });
+
+  it("creates a new docked section window when a section has not been externalized yet", () => {
+    const initial = createProjectChatWindowingState();
+
+    const next = showSectionInProjectChatWindowInState(initial, "section-7");
+
+    const created = next.instancesById["project-chat-window-1"];
+    if (!created) {
+      throw new Error("Expected a newly created section window.");
+    }
+    expect(created.sectionIdOrNull).toBe("section-7");
+    expect(created.placement).toBe(ChatWindowPlacementEnum.bottom_docked);
+    expect(created.mode).toBe(ChatWindowModeEnum.section_mode);
   });
 });

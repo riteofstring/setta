@@ -145,6 +145,7 @@ class ProjectChatWindowInstance(BaseModel, extra="forbid"):
     lastPlacementBeforeMaximize: ChatWindowPlacement | None = None
     mode: ChatWindowMode = ChatWindowMode.project_ai_mode
     sectionIdOrNull: ID | None = None
+    title: str | None = None
     lastFocusedAt: int = 0
     chatId: ID | None = None
 

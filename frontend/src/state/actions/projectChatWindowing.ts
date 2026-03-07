@@ -1,3 +1,4 @@
+import { zoomIdentity } from "d3-zoom";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -6,11 +7,15 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
-import { route_set_project_chat_windowing_state } from "utils/generatedEndpoints";
+import {
+  route_set_project_chat_windowing_state,
+  route_set_section_name,
+} from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
+  createSectionSize,
   createProjectChatWindowInstance as createProjectChatWindowInstanceModel,
   createProjectChatWindowingState,
   type ChatWindowBounds,
@@ -30,7 +35,9 @@ type CreateProjectChatWindowInstanceOptions = {
   placement?: ChatWindowPlacement;
   mode?: ChatWindowMode;
   sectionIdOrNull?: string | null;
+  title?: string | null;
   chatId?: string | null;
+  bounds?: ChatWindowBounds | null;
   nowMs?: number;
 };
 
@@ -40,6 +47,7 @@ type SetDockFractionsOptions = {
 };
 
 type SetBoundsOptions = Partial<ChatWindowBounds>;
+type SetBoundsByInstanceIdOptions = Record<string, SetBoundsOptions>;
 
 type MoveProjectChatWindowToCanvasSectionOptions = {
   sectionId: string;
@@ -61,10 +69,166 @@ type Point = {
   y: number;
 };
 
+type DefaultFloatingChatBoundsOptions = {
+  viewportWidthPx: number;
+  viewportHeightPx: number;
+  workspaceTopInsetPx: number;
+  bottomInsetPx: number;
+  widthPx?: number;
+  heightViewportFraction?: number;
+  sideRailWidthPx?: number;
+  minWidthPx?: number;
+  minHeightPx?: number;
+};
+
+type DefaultDockedChatHeightOptions = {
+  viewportHeightPx: number;
+  workspaceTopInsetPx: number;
+  bottomInsetPx: number;
+  heightViewportFraction?: number;
+  minHeightPx?: number;
+};
+
+const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX = 1440;
+const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX = 900;
+const DEFAULT_FLOATING_CHAT_WIDTH_PX = 820;
+const DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
+const DEFAULT_FLOATING_CHAT_SIDE_RAIL_WIDTH_PX = 40;
+const DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX = 40;
+const DEFAULT_FLOATING_CHAT_VIEW_MODE_TABS_HEIGHT_PX = 36;
+const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
+const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
+const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
+const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
+
 function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
 ): ProjectChatWindowingState {
   return state.projectChatWindowing ?? createProjectChatWindowingState();
+}
+
+export function resolveDefaultFloatingChatBounds({
+  viewportWidthPx,
+  viewportHeightPx,
+  workspaceTopInsetPx,
+  bottomInsetPx,
+  widthPx = DEFAULT_FLOATING_CHAT_WIDTH_PX,
+  heightViewportFraction = DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION,
+  sideRailWidthPx = DEFAULT_FLOATING_CHAT_SIDE_RAIL_WIDTH_PX,
+  minWidthPx = DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX,
+  minHeightPx = DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX,
+}: DefaultFloatingChatBoundsOptions): ChatWindowBounds {
+  const safeViewportWidthPx =
+    Number.isFinite(viewportWidthPx) && viewportWidthPx > 0
+      ? viewportWidthPx
+      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX;
+  const safeViewportHeightPx =
+    Number.isFinite(viewportHeightPx) && viewportHeightPx > 0
+      ? viewportHeightPx
+      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
+  const safeWorkspaceTopInsetPx =
+    Number.isFinite(workspaceTopInsetPx) && workspaceTopInsetPx >= 0
+      ? workspaceTopInsetPx
+      : DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
+  const safeBottomInsetPx =
+    Number.isFinite(bottomInsetPx) && bottomInsetPx >= 0 ? bottomInsetPx : 0;
+  const availableWidthPx = Math.max(
+    minWidthPx,
+    safeViewportWidthPx - sideRailWidthPx * 2,
+  );
+  const availableHeightPx = Math.max(
+    minHeightPx,
+    safeViewportHeightPx - safeWorkspaceTopInsetPx - safeBottomInsetPx,
+  );
+  const resolvedWidthPx = Math.min(
+    Math.max(minWidthPx, widthPx),
+    availableWidthPx,
+  );
+  const desiredHeightPx = safeViewportHeightPx * heightViewportFraction;
+  const resolvedHeightPx = Math.min(
+    Math.max(minHeightPx, desiredHeightPx),
+    availableHeightPx,
+  );
+
+  return {
+    x:
+      sideRailWidthPx +
+      Math.max(0, Math.round(availableWidthPx - resolvedWidthPx)),
+    y:
+      safeWorkspaceTopInsetPx +
+      Math.max(0, Math.round((availableHeightPx - resolvedHeightPx) / 2)),
+    width: resolvedWidthPx,
+    height: resolvedHeightPx,
+  };
+}
+
+export function resolveDefaultDockedChatHeightPx({
+  viewportHeightPx,
+  workspaceTopInsetPx,
+  bottomInsetPx,
+  heightViewportFraction = DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION,
+  minHeightPx = DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX,
+}: DefaultDockedChatHeightOptions): number {
+  const safeViewportHeightPx =
+    Number.isFinite(viewportHeightPx) && viewportHeightPx > 0
+      ? viewportHeightPx
+      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
+  const safeWorkspaceTopInsetPx =
+    Number.isFinite(workspaceTopInsetPx) && workspaceTopInsetPx >= 0
+      ? workspaceTopInsetPx
+      : DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
+  const safeBottomInsetPx =
+    Number.isFinite(bottomInsetPx) && bottomInsetPx >= 0 ? bottomInsetPx : 0;
+  const availableHeightPx = Math.max(
+    minHeightPx,
+    safeViewportHeightPx - safeWorkspaceTopInsetPx - safeBottomInsetPx,
+  );
+  return Math.min(
+    Math.max(minHeightPx, safeViewportHeightPx * heightViewportFraction),
+    availableHeightPx,
+  );
+}
+
+function resolveFloatingWorkspaceTopInsetPx(): number {
+  if (typeof document === "undefined") {
+    return DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
+  }
+  const pane = document.querySelector(".react-flow__pane");
+  if (!(pane instanceof HTMLElement)) {
+    return DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
+  }
+  const topInset = pane.getBoundingClientRect().top;
+  if (!Number.isFinite(topInset) || topInset <= 0) {
+    return DEFAULT_FLOATING_CHAT_WORKSPACE_TOP_INSET_PX;
+  }
+  return topInset;
+}
+
+function resolveFloatingBottomInsetPx(): number {
+  const viewModes = useProjectState.getState().projectConfig.viewModes;
+  for (const modeId in viewModes) {
+    if (viewModes[modeId]?.isTab) {
+      return DEFAULT_FLOATING_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
+    }
+  }
+  return 0;
+}
+
+function resolveDefaultFloatingChatBoundsFromRuntime(): ChatWindowBounds {
+  const viewportWidthPx =
+    typeof window !== "undefined"
+      ? window.innerWidth
+      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX;
+  const viewportHeightPx =
+    typeof window !== "undefined"
+      ? window.innerHeight
+      : DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX;
+  return resolveDefaultFloatingChatBounds({
+    viewportWidthPx,
+    viewportHeightPx,
+    workspaceTopInsetPx: resolveFloatingWorkspaceTopInsetPx(),
+    bottomInsetPx: resolveFloatingBottomInsetPx(),
+  });
 }
 
 function isFinitePoint(value: unknown): value is Point {
@@ -93,7 +257,7 @@ function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
   );
 }
 
-function resolveProjectChatCanvasBootPosition(): Position | null {
+function resolveProjectChatCanvasBootPosition(instanceId?: string): Position | null {
   const domNode = useReactFlow.getState().domNode;
   if (!domNode) {
     return null;
@@ -101,6 +265,31 @@ function resolveProjectChatCanvasBootPosition(): Position | null {
   const canvasRect = domNode.getBoundingClientRect();
   if (canvasRect.width <= 0 || canvasRect.height <= 0) {
     return null;
+  }
+  if (instanceId) {
+    const sourceRect = resolveProjectChatWindowSurfaceRect(instanceId);
+    if (sourceRect) {
+      const maxScreenX = Math.max(
+        canvasRect.left,
+        canvasRect.right - sourceRect.width,
+      );
+      const maxScreenY = Math.max(
+        canvasRect.top,
+        canvasRect.bottom - sourceRect.height,
+      );
+      const clampedScreenLeft = Math.min(
+        Math.max(sourceRect.left, canvasRect.left),
+        maxScreenX,
+      );
+      const clampedScreenTop = Math.min(
+        Math.max(sourceRect.top, canvasRect.top),
+        maxScreenY,
+      );
+      return screenToFlowPosition({
+        x: clampedScreenLeft,
+        y: clampedScreenTop,
+      });
+    }
   }
   const miscState = useMisc.getState();
   const cursorCandidates: Array<unknown> = [
@@ -126,6 +315,44 @@ function resolveProjectChatCanvasBootPosition(): Position | null {
   return screenToFlowPosition({
     x: canvasRect.left + canvasRect.width / 2,
     y: canvasRect.top + canvasRect.height / 2,
+  });
+}
+
+function resolveProjectChatWindowSurfaceRect(
+  instanceId: string,
+): DOMRect | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const selectors = [
+    `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${instanceId}"]`,
+    `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${instanceId}"]`,
+    `[data-testid="project-chat-maximized-window"][data-chat-window-instance-id="${instanceId}"]`,
+  ];
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (!(element instanceof HTMLElement)) {
+      continue;
+    }
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      continue;
+    }
+    return rect;
+  }
+  return null;
+}
+
+function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
+  const rect = resolveProjectChatWindowSurfaceRect(instanceId);
+  if (!rect) {
+    return null;
+  }
+  const zoom = useReactFlow.getState().transform[2];
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  return createSectionSize({
+    width: Math.max(1, Math.round(rect.width / safeZoom)),
+    height: Math.max(1, Math.round(rect.height / safeZoom)),
   });
 }
 
@@ -281,6 +508,31 @@ export function getOpenFloatingProjectChatWindowInstanceForSectionInState(
   return bestMatch;
 }
 
+export function getOpenExternalProjectChatWindowInstanceForSectionInState(
+  state: ProjectChatWindowingState,
+  sectionId: string,
+): ProjectChatWindowInstance | null {
+  const normalized = normalizeProjectChatWindowingOrder(state).state;
+  let bestMatch: ProjectChatWindowInstance | null = null;
+  for (const instanceId of normalized.order) {
+    const instance = normalized.instancesById[instanceId];
+    if (!instance || instance.sectionIdOrNull !== sectionId) {
+      continue;
+    }
+    if (instance.placement === ChatWindowPlacementEnum.canvas_section) {
+      continue;
+    }
+    if (instance.isClosed || instance.isMinimized) {
+      continue;
+    }
+    if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {
+      continue;
+    }
+    bestMatch = instance;
+  }
+  return bestMatch;
+}
+
 function getNextWindowInstanceId(state: ProjectChatWindowingState): {
   instanceId: string;
   nextInstanceNumber: number;
@@ -352,7 +604,9 @@ export function addProjectChatWindowInstanceInState(
     placement = ChatWindowPlacementEnum.bottom_docked,
     mode = ChatWindowModeEnum.project_ai_mode,
     sectionIdOrNull = null,
+    title = null,
     chatId = null,
+    bounds = null,
     nowMs = Date.now(),
   }: CreateProjectChatWindowInstanceOptions = {},
 ): {
@@ -363,17 +617,25 @@ export function addProjectChatWindowInstanceInState(
   const { instanceId, nextInstanceNumber } =
     getNextWindowInstanceId(normalized);
   const nextZIndex = getHighestWindowZIndex(normalized) + 1;
+  const resolvedBounds =
+    bounds ??
+    (placement === ChatWindowPlacementEnum.floating
+      ? resolveDefaultFloatingChatBoundsFromRuntime()
+      : null);
+  const normalizedTitle = title?.trim() ? title.trim() : null;
   const nextInstance = createProjectChatWindowInstanceModel({
     instanceId,
     placement,
     mode,
     sectionIdOrNull,
+    title: normalizedTitle,
     chatId,
     isClosed: false,
     isMinimized: false,
     isMaximized: placement === ChatWindowPlacementEnum.maximized,
     lastFocusedAt: nowMs,
     zIndex: nextZIndex,
+    ...(resolvedBounds ? { bounds: resolvedBounds } : {}),
   });
   return {
     instanceId,
@@ -478,12 +740,28 @@ export function closeProjectChatWindowInState(
   instanceId: string,
 ): ProjectChatWindowingState {
   return withUpdatedWindow(state, instanceId, (current) => {
-    if (current.isClosed && current.isMinimized) {
+    if (current.isClosed && !current.isMinimized) {
       return current;
     }
     return {
       ...current,
       isClosed: true,
+      isMinimized: false,
+    };
+  });
+}
+
+export function minimizeProjectChatWindowInState(
+  state: ProjectChatWindowingState,
+  instanceId: string,
+): ProjectChatWindowingState {
+  return withUpdatedWindow(state, instanceId, (current) => {
+    if (!current.isClosed && current.isMinimized) {
+      return current;
+    }
+    return {
+      ...current,
+      isClosed: false,
       isMinimized: true,
     };
   });
@@ -631,13 +909,28 @@ export function setProjectChatWindowBoundsInState(
   });
 }
 
+export function setProjectChatWindowBoundsByIdInState(
+  state: ProjectChatWindowingState,
+  boundsByInstanceId: SetBoundsByInstanceIdOptions,
+): ProjectChatWindowingState {
+  let nextState = state;
+  for (const [instanceId, bounds] of Object.entries(boundsByInstanceId)) {
+    nextState = setProjectChatWindowBoundsInState(
+      nextState,
+      instanceId,
+      bounds,
+    );
+  }
+  return nextState;
+}
+
 export function moveProjectChatWindowToCanvasSectionInState(
   state: ProjectChatWindowingState,
   instanceId: string,
   {
     sectionId,
     nowMs = Date.now(),
-    mode = ChatWindowModeEnum.project_ai_mode,
+    mode = ChatWindowModeEnum.section_mode,
   }: MoveProjectChatWindowToCanvasSectionOptions,
 ): ProjectChatWindowingState {
   const withCanvasPlacement = setProjectChatWindowPlacementInState(
@@ -711,6 +1004,81 @@ export function setProjectChatWindowModeForSectionInState(
   return setProjectChatWindowModeInState(state, boundInstance.instanceId, mode);
 }
 
+export function showSectionInProjectChatWindowInState(
+  state: ProjectChatWindowingState,
+  sectionId: string,
+  {
+    placement = ChatWindowPlacementEnum.bottom_docked,
+    nowMs = Date.now(),
+  }: {
+    placement?: ChatWindowPlacement;
+    nowMs?: number;
+  } = {},
+): ProjectChatWindowingState {
+  const boundInstance = getProjectChatWindowInstanceForSectionInState(
+    state,
+    sectionId,
+  );
+  if (!boundInstance) {
+    return addProjectChatWindowInstanceInState(state, {
+      placement,
+      mode: ChatWindowModeEnum.section_mode,
+      sectionIdOrNull: sectionId,
+      nowMs,
+    }).state;
+  }
+
+  let next = setProjectChatWindowPlacementInState(
+    state,
+    boundInstance.instanceId,
+    placement,
+  );
+  next = withUpdatedWindow(next, boundInstance.instanceId, (current) => {
+    const shouldSeedFloatingBounds =
+      placement === ChatWindowPlacementEnum.floating &&
+      (!Number.isFinite(current.bounds.width) ||
+        current.bounds.width <= 0 ||
+        !Number.isFinite(current.bounds.height) ||
+        current.bounds.height <= 0);
+    const resolvedBounds = shouldSeedFloatingBounds
+      ? resolveDefaultFloatingChatBoundsFromRuntime()
+      : current.bounds;
+    if (
+      current.sectionIdOrNull === sectionId &&
+      !current.isClosed &&
+      !current.isMinimized &&
+      current.bounds === resolvedBounds
+    ) {
+      return current;
+    }
+    return {
+      ...current,
+      sectionIdOrNull: sectionId,
+      isClosed: false,
+      isMinimized: false,
+      bounds: resolvedBounds,
+    };
+  });
+  return focusProjectChatWindowInState(next, boundInstance.instanceId, nowMs);
+}
+
+export function setProjectChatWindowTitleInState(
+  state: ProjectChatWindowingState,
+  instanceId: string,
+  title: string | null,
+): ProjectChatWindowingState {
+  const normalizedTitle = title?.trim() ? title.trim() : null;
+  return withUpdatedWindow(state, instanceId, (current) => {
+    if (current.title === normalizedTitle) {
+      return current;
+    }
+    return {
+      ...current,
+      title: normalizedTitle,
+    };
+  });
+}
+
 export function getVisibleProjectChatWindowInstances(
   state: ProjectChatWindowingState,
 ): ProjectChatWindowInstance[] {
@@ -718,7 +1086,7 @@ export function getVisibleProjectChatWindowInstances(
   const visible: ProjectChatWindowInstance[] = [];
   for (const instanceId of normalized.order) {
     const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.isClosed) {
+    if (!instance || instance.isClosed || instance.isMinimized) {
       continue;
     }
     visible.push(instance);
@@ -807,6 +1175,16 @@ export function closeProjectChatWindow(instanceId: string): void {
   setProjectChatWindowingStateInStore(next);
 }
 
+export function minimizeProjectChatWindow(instanceId: string): void {
+  const state = useProjectState.getState();
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const next = minimizeProjectChatWindowInState(currentWindowing, instanceId);
+  if (next === currentWindowing) {
+    return;
+  }
+  setProjectChatWindowingStateInStore(next);
+}
+
 export function reopenProjectChatWindow(instanceId: string): void {
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
@@ -866,6 +1244,38 @@ export function setProjectChatWindowBounds(
   setProjectChatWindowingStateInStore(next);
 }
 
+export function setProjectChatWindowBoundsById(
+  boundsByInstanceId: SetBoundsByInstanceIdOptions,
+): void {
+  const state = useProjectState.getState();
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const next = setProjectChatWindowBoundsByIdInState(
+    currentWindowing,
+    boundsByInstanceId,
+  );
+  if (next === currentWindowing) {
+    return;
+  }
+  setProjectChatWindowingStateInStore(next);
+}
+
+export function setProjectChatWindowTitle(
+  instanceId: string,
+  title: string | null,
+): void {
+  const state = useProjectState.getState();
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const next = setProjectChatWindowTitleInState(
+    currentWindowing,
+    instanceId,
+    title,
+  );
+  if (next === currentWindowing) {
+    return;
+  }
+  setProjectChatWindowingStateInStore(next);
+}
+
 export async function bootProjectChatWindowToCanvasSection(
   instanceId: string,
 ): Promise<string | null> {
@@ -877,29 +1287,70 @@ export async function bootProjectChatWindowToCanvasSection(
   }
 
   let sectionId = currentInstance.sectionIdOrNull;
+  const canvasSectionSize = sectionId
+    ? null
+    : resolveProjectChatCanvasBootSectionSize(instanceId);
   if (!sectionId) {
+    const [viewportX, viewportY, viewportZoom] = useReactFlow.getState().transform;
     const created = await createTopLevelSectionWithResult({
       implType: SectionTypeEnum.Chat,
       implOverrides: {
         type: SectionTypeEnum.Chat,
+        ...(canvasSectionSize ? { size: canvasSectionSize } : {}),
       },
-      position: resolveProjectChatCanvasBootPosition(),
+      position: resolveProjectChatCanvasBootPosition(instanceId),
     });
     if (!created) {
       return null;
     }
+    const { d3Zoom, d3Selection } = useReactFlow.getState();
+    if (d3Zoom && d3Selection) {
+      d3Zoom.transform(
+        d3Selection,
+        zoomIdentity.translate(viewportX, viewportY).scale(viewportZoom),
+      );
+    }
     sectionId = created.sectionId;
+    if (currentInstance.title?.trim()) {
+      await route_set_section_name({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        name: currentInstance.title.trim(),
+      });
+    }
   }
 
   const next = moveProjectChatWindowToCanvasSectionInState(
     currentWindowing,
     instanceId,
-    { sectionId },
+    {
+      sectionId,
+      mode: currentInstance.mode,
+    },
   );
   if (next !== currentWindowing) {
     setProjectChatWindowingStateInStore(next);
   }
   return sectionId;
+}
+
+export function showSectionInProjectChatWindow(
+  sectionId: string,
+  placement: ChatWindowPlacement = ChatWindowPlacementEnum.bottom_docked,
+): void {
+  const state = useProjectState.getState();
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const next = showSectionInProjectChatWindowInState(
+    currentWindowing,
+    sectionId,
+    {
+      placement,
+    },
+  );
+  if (next === currentWindowing) {
+    return;
+  }
+  setProjectChatWindowingStateInStore(next);
 }
 
 export function undockProjectChatWindowFromCanvasSection(

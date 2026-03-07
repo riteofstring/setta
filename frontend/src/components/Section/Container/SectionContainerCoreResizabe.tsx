@@ -1,14 +1,21 @@
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowing";
+import {
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
+  getProjectChatWindowModeForSectionInState,
+} from "state/actions/projectChatWindowing";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  type ChatWindowPlacement,
+  SectionTypeEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
@@ -33,7 +40,9 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
@@ -151,10 +160,20 @@ export function SectionContainerCoreResizable({
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          extraControls={
+            !isUserView ? (
+              <SectionWindowToggleButton
+                sectionId={sectionId}
+                sectionTypeName={sectionTypeName}
+                isRoot={isRoot}
+                hasSectionStyleTheme={hasSectionStyleTheme}
+              />
+            ) : null
+          }
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
+      <CanvasSectionBody
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         bgColor={bgColor}
@@ -165,18 +184,20 @@ export function SectionContainerCoreResizable({
   );
 }
 
-function AreaSwitch({
+export function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
   isMinimized,
   isUserView,
+  chatHost = "section_layout",
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  chatHost?: ChatWindowPlacement | "section_layout";
 }) {
   if (isMinimized) {
     return null;
@@ -219,7 +240,7 @@ function AreaSwitch({
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
-      return <ChatSectionArea sectionId={sectionId} />;
+      return <ChatSectionArea sectionId={sectionId} host={chatHost} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.Plugin:
@@ -236,7 +257,59 @@ function AreaSwitch({
   }
 }
 
-function ChatSectionArea({ sectionId }: { sectionId: string }) {
+function CanvasSectionBody({
+  sectionId,
+  sectionTypeName,
+  bgColor,
+  isMinimized,
+  isUserView,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  bgColor: string;
+  isMinimized: boolean;
+  isUserView: boolean;
+}) {
+  const externalizedWindowId = useProjectState((state) => {
+    if (sectionTypeName === SectionTypeEnum.Chat) {
+      return null;
+    }
+    return (
+      getOpenExternalProjectChatWindowInstanceForSectionInState(
+        state.projectChatWindowing,
+        sectionId,
+      )?.instanceId ?? null
+    );
+  });
+
+  if (externalizedWindowId) {
+    return (
+      <SectionWindowPlaceholder
+        instanceId={externalizedWindowId}
+        sectionId={sectionId}
+        dataTestId="section-canvas-window-placeholder"
+      />
+    );
+  }
+
+  return (
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
+  );
+}
+
+function ChatSectionArea({
+  sectionId,
+  host,
+}: {
+  sectionId: string;
+  host: ChatWindowPlacement | "section_layout";
+}) {
   const mode = useProjectState((state) =>
     getProjectChatWindowModeForSectionInState(
       state.projectChatWindowing,
@@ -246,7 +319,7 @@ function ChatSectionArea({ sectionId }: { sectionId: string }) {
   return (
     <UnifiedChatSurface
       mode={mode}
-      host="section_layout"
+      host={host}
       sectionId={sectionId}
     />
   );

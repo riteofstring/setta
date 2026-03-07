@@ -19,10 +19,18 @@ vi.mock("components/Section/Layouts/ChatArea", () => ({
 
 type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
+  sections: Record<
+    string,
+    {
+      name: string;
+      displayName?: string;
+    }
+  >;
 };
 
 let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
+  sections: {},
 };
 
 vi.mock("state/definitions", () => ({
@@ -34,6 +42,7 @@ describe("UnifiedChatSurface", () => {
   beforeEach(() => {
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState(),
+      sections: {},
     };
   });
 
@@ -51,6 +60,22 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain('data-testid="mock-section-chat"');
   });
 
+  it("uses the section body shell for canvas-hosted project-ai mode", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-chat-surface-mode="project_ai_mode"');
+    expect(markup).toContain('data-chat-surface-host="section_layout"');
+    expect(markup).toContain("section-main-full-w");
+    expect(markup).toContain("overflow-hidden");
+    expect(markup).toContain('data-testid="mock-project-chat"');
+  });
+
   it("renders section chat for section mode with section id", () => {
     const markup = renderToStaticMarkup(
       <UnifiedChatSurface
@@ -62,6 +87,7 @@ describe("UnifiedChatSurface", () => {
 
     expect(markup).toContain('data-chat-surface-mode="section_mode"');
     expect(markup).toContain('data-chat-surface-host="section_layout"');
+    expect(markup).toContain("section-main-full-w");
     expect(markup).toContain('data-testid="mock-section-chat"');
     expect(markup).toContain("section chat:section-123");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
@@ -80,20 +106,23 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain('data-testid="mock-section-chat"');
   });
 
-  it("renders a placeholder when canvas-backed chat is externalized to floating", () => {
+  it("renders a placeholder when canvas-backed chat is externalized to another host", () => {
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
           "project-chat-window-1": {
             instanceId: "project-chat-window-1",
-            placement: ChatWindowPlacementEnum.floating,
+            placement: ChatWindowPlacementEnum.bottom_docked,
             sectionIdOrNull: "section-123",
             isClosed: false,
             isMinimized: false,
           },
         },
       }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
     };
     const markup = renderToStaticMarkup(
       <UnifiedChatSurface
@@ -106,7 +135,8 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain(
       'data-testid="project-chat-canvas-floating-placeholder"',
     );
-    expect(markup).toContain("Chat moved to floating window");
+    expect(markup).toContain("section-main-full-w");
+    expect(markup).toContain("moved to a window");
     expect(markup).not.toContain('data-testid="mock-section-chat"');
   });
 
@@ -125,6 +155,9 @@ describe("UnifiedChatSurface", () => {
           },
         },
       }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
     };
 
     const markup = renderToStaticMarkup(
@@ -138,6 +171,7 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain(
       'data-testid="project-chat-canvas-floating-placeholder"',
     );
+    expect(markup).toContain("section-main-full-w");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
   });
 });
