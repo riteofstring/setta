@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -43,7 +42,6 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     isActiveSection,
     sectionTypeName,
@@ -178,9 +176,7 @@ function _SectionContainerCore({
     ? ""
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles &&
-    !isAttachedTerminalChild &&
-    benchmark.renderSectionHandles;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -196,9 +192,7 @@ function _SectionContainerCore({
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
       )}
-      {benchmark.renderSectionHandles && (
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-      )}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
