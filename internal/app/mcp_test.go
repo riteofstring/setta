@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 23 {
-		t.Fatalf("expected 23 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 24 {
+		t.Fatalf("expected 24 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 23 {
-		t.Fatalf("expected 23 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 24 {
+		t.Fatalf("expected 24 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -649,6 +649,42 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if got := addedCallableParamPayload["value"]; got != "None" {
 		t.Fatalf("expected added callable param value None, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_selected_params",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+			"paramInfoIds":    []any{addedCallableParamID},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_selected_params: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected delete_selected_params success, got %#v", result.StructuredContent)
+	}
+	deleteSelectedParamsPayload := mustStructuredMapValue(t, result.StructuredContent)
+	deletedParamIDs := mustStringSliceValue(t, deleteSelectedParamsPayload["paramInfoIds"])
+	if len(deletedParamIDs) != 1 || deletedParamIDs[0] != addedCallableParamID {
+		t.Fatalf("expected deleted paramInfoIds [%s], got %#v", addedCallableParamID, deletedParamIDs)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after delete_selected_params: %v", err)
+	}
+	callableRootPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after delete_selected_params: %v", err)
+	}
+	callableChildren = mustStringSliceValue(t, callableRootPayload["children"])
+	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
+		t.Fatalf("expected callable children [allowed-param-existing] after delete_selected_params, got %#v", callableChildren)
+	}
+	if _, ok := project.CodeObjs[canonicalAddedCallableParamID]; ok {
+		t.Fatalf("expected deleted callable param %q to be pruned, got %#v", canonicalAddedCallableParamID, project.CodeObjs[canonicalAddedCallableParamID])
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1564,6 +1600,47 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 			"chatId":          "12",
 			"sectionId":       "13",
 		},
+		Name: "delete_selected_params",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "25",
+			"paramInfoIds":    []any{addedTempCodeObjID},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id delete_selected_params: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id delete_selected_params success, got %#v", writeResult.StructuredContent)
+	}
+	deleteSelectedParamsPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
+	deletedParamIDs := mustStringSliceValue(t, deleteSelectedParamsPayload["paramInfoIds"])
+	if len(deletedParamIDs) != 1 || deletedParamIDs[0] != addedTempCodeObjID {
+		t.Fatalf("expected translated deleted paramInfoIds [%s], got %#v", addedTempCodeObjID, deletedParamIDs)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id delete_selected_params: %v", err)
+	}
+	callableRootPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after temp-id delete_selected_params: %v", err)
+	}
+	callableChildren = mustStringSliceValue(t, callableRootPayload["children"])
+	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
+		t.Fatalf("expected callable children [allowed-param-existing] after temp-id delete_selected_params, got %#v", callableChildren)
+	}
+	if _, ok := project.CodeObjs[canonicalAddedCodeObjID]; ok {
+		t.Fatalf("expected canonical deleted callable param %q to be pruned", canonicalAddedCodeObjID)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
 		Name: "set_code_section_diagnostic_code_suppression",
 		Arguments: map[string]any{
 			"projectConfigId": "11",
@@ -1903,8 +1980,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 23 {
-		t.Fatalf("expected tool count 23, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 24 {
+		t.Fatalf("expected tool count 24, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))

@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 23 {
-		t.Fatalf("expected 23 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 24 {
+		t.Fatalf("expected 24 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -151,6 +151,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var addKwargTool *sdkmcp.Tool
 	var changeParamImplTool *sdkmcp.Tool
 	var updateParamImplConfigTool *sdkmcp.Tool
+	var deleteSelectedParamsTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
@@ -193,6 +194,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "update_param_impl_config" {
 			updateParamImplConfigTool = tool
 		}
+		if tool.Name == "delete_selected_params" {
+			deleteSelectedParamsTool = tool
+		}
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
 		}
@@ -234,6 +238,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"create_top_level_section",
 		"delete_child_sections_via_decrementer",
 		"delete_sections",
+		"delete_selected_params",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
@@ -285,6 +290,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if updateParamImplConfigTool == nil {
 		t.Fatal("expected update_param_impl_config tool")
+	}
+	if deleteSelectedParamsTool == nil {
+		t.Fatal("expected delete_selected_params tool")
 	}
 	createChildMeta := mustStructuredMap(t, createChildSectionsTool.Meta[toolMetaNamespace])
 	if createChildMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -413,6 +421,21 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, updateParamImplConfigPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
 		t.Fatalf("expected update_param_impl_config paramInfoId target path, got %#v", got)
 	}
+	deleteSelectedParamsMeta := mustStructuredMap(t, deleteSelectedParamsTool.Meta[toolMetaNamespace])
+	if deleteSelectedParamsMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for delete_selected_params, got %#v", deleteSelectedParamsMeta["accessType"])
+	}
+	deleteSelectedParamsPaths := mustStructuredMap(t, deleteSelectedParamsMeta["idPathsByType"])
+	if got := mustStringList(t, deleteSelectedParamsPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected delete_selected_params sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, deleteSelectedParamsPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoIds" {
+		t.Fatalf("expected delete_selected_params paramInfoIds target path, got %#v", got)
+	}
+	deleteSelectedParamsResultPaths := mustStructuredMap(t, deleteSelectedParamsMeta["resultIdPathsByType"])
+	if got := mustStringList(t, deleteSelectedParamsResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoIds" {
+		t.Fatalf("expected delete_selected_params paramInfoIds result path, got %#v", got)
+	}
 	settaMeta := mustStructuredMap(t, summaryTool.Meta[toolMetaNamespace])
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
 		t.Fatalf("expected project-state result filter, got %#v", settaMeta["resultFilter"])
@@ -494,8 +517,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 23 {
-		t.Fatalf("expected 23 registered tool names, got %#v", listNames)
+	if len(listNames) != 24 {
+		t.Fatalf("expected 24 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1292,6 +1315,77 @@ func TestServerUpdateParamImplConfigRespectsScopedWriteTargets(t *testing.T) {
 	}
 }
 
+func TestServerDeleteSelectedParamsRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, addResult, err := projectRuntime.AddKwarg(context.Background(), "project-alpha", "allowed-callable-section")
+	if err != nil {
+		t.Fatalf("prepare callable param for delete_selected_params: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_selected_params",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+			"paramInfoIds":    []any{addResult.CodeObjID},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_selected_params allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed delete_selected_params success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if ids := mustStringList(t, allowedPayload["paramInfoIds"]); len(ids) != 1 || ids[0] != addResult.CodeObjID {
+		t.Fatalf("expected deleted paramInfoIds [%s], got %#v", addResult.CodeObjID, ids)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after delete_selected_params: %v", err)
+	}
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-1")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-1 after delete_selected_params: %v", err)
+	}
+	if children := mustStringList(t, callablePayload["children"]); len(children) != 0 {
+		t.Fatalf("expected allowed-callable-1 children to be empty, got %#v", children)
+	}
+	if _, ok := project.CodeObjs[addResult.CodeObjID]; ok {
+		t.Fatalf("expected deleted callable param %q to be pruned, got %#v", addResult.CodeObjID, project.CodeObjs[addResult.CodeObjID])
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_selected_params",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"paramInfoIds":    []any{"blocked-param"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_selected_params blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked delete_selected_params call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
 func TestServerAddKwargTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1510,6 +1604,72 @@ func TestServerUpdateParamImplConfigTranslatesTemporaryIDs(t *testing.T) {
 	}
 	if got := payloadRawStringField(paramPayload, "value"); got != "10" {
 		t.Fatalf("expected slider value to clamp to 10 after temp-id update, got %q", got)
+	}
+}
+
+func TestServerDeleteSelectedParamsTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, addResult, err := projectRuntime.AddKwarg(context.Background(), "project-alpha", "allowed-callable-section")
+	if err != nil {
+		t.Fatalf("prepare callable param for temp-id delete_selected_params: %v", err)
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":            "11",
+		"chat-1":                   "12",
+		"chat-section":             "13",
+		"allowed-callable-section": "24",
+		addResult.CodeObjID:        "28",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_selected_params",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "24",
+			"paramInfoIds":    []any{"28"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id delete_selected_params allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id delete_selected_params success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if ids := mustStringList(t, allowedPayload["paramInfoIds"]); len(ids) != 1 || ids[0] != "28" {
+		t.Fatalf("expected translated deleted paramInfoIds [28], got %#v", ids)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id delete_selected_params: %v", err)
+	}
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-1")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-1 after temp-id delete_selected_params: %v", err)
+	}
+	if children := mustStringList(t, callablePayload["children"]); len(children) != 0 {
+		t.Fatalf("expected callable children to be empty after temp-id delete_selected_params, got %#v", children)
+	}
+	if _, ok := project.CodeObjs[addResult.CodeObjID]; ok {
+		t.Fatalf("expected canonical deleted callable param %q to be pruned", addResult.CodeObjID)
 	}
 }
 

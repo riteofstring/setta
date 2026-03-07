@@ -65,6 +65,7 @@ type projectStateProvider interface {
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
+	DeleteSelectedParams(ctx context.Context, projectID string, input projectstate.DeleteSelectedParamsInput) (projectstate.Snapshot, projectstate.DeleteSelectedParamsResult, error)
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
@@ -1002,6 +1003,48 @@ func newUpdateParamImplConfigHandler(projectState projectStateProvider) tools.Ha
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newDeleteSelectedParamsHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramInfoIDs, err := readRequiredStringArrayArgument(arguments, "paramInfoIds")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped delete_selected_params invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.DeleteSelectedParams(ctx, projectConfigID, projectstate.DeleteSelectedParamsInput{
+			SectionID:    sectionID,
+			ParamInfoIDs: paramInfoIDs,
+		})
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
 	}
 }
 
@@ -1976,6 +2019,60 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "delete_selected_params",
+				Description: "Delete the selected editable params from the targeted callable or dict section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"paramInfoIds"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"paramInfoIds"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "delete", "remove", "selection", "write"},
+				},
+				Handler: newDeleteSelectedParamsHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose selected params should be deleted.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Callable or dict section id containing the targeted params.",
+					},
+					"paramInfoIds": map[string]any{
+						"type":        "array",
+						"description": "Ordered list of selected param code-object ids to delete.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "paramInfoIds"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"paramInfoIds": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"paramInfoIds"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "set_param_entered_value",
 				Description: "Write a new manual value for the targeted section parameter.",
 				Metadata: tools.Metadata{
@@ -2815,6 +2912,12 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrUpdateParamImplConfigUnsupported),
 		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldUnsupported),
 		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldInvalid),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsUnsupported),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamIDBlank),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsRootMissing),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamUnsupported),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentMissing),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),

@@ -171,9 +171,9 @@ impl unusable. The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- `update_param_impl_config` is now complete on the Go-owned MCP boundary
-- the next bounded follow-on in this param-editing cluster is
-  `delete_selected_params`
+- `update_param_impl_config` and `delete_selected_params` are now complete on
+  the Go-owned MCP boundary
+- the next bounded follow-on in this param-editing cluster is `delete_kwarg`
 - keep config and delete/move/reparent follow-ons authoritative in
   `internal/projectstate`
 

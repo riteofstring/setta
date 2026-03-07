@@ -20,10 +20,12 @@ selected editable params without falling back to Python-side orchestration.
 
 Current repo status as of 2026-03-07:
 
-- this slice is in progress
-- the highest-leverage bounded gap is `delete_selected_params`
-- transport already supports array ID-path translation, so `paramInfoIds` can
-  stay a first-class list argument without a custom translation shim
+- this slice is complete
+- Go now owns `delete_selected_params` through `internal/projectstate` and MCP
+- selected-param deletion now removes hierarchy references, section-local
+  state, active edge-input targets, and unreachable code objects
+- MCP now translates `paramInfoIds` arrays at both the invocation and result
+  edges without a tool-specific shim
 
 ## Scope
 
@@ -144,11 +146,14 @@ section even after disappearing from the visible hierarchy.
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient|TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
@@ -158,3 +163,7 @@ section even after disappearing from the visible hierarchy.
 ## Progress Notes
 
 - 2026-03-07: doc created to scope the slice before implementation.
+- 2026-03-07: slice completed with a Go-owned `delete_selected_params`
+  mutation owner, section-local cleanup, edge-input edge removal,
+  `codeObjVariantMap` cleanup plus pruning, MCP registration, and
+  authenticated HTTP/app coverage.

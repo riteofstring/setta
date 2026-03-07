@@ -563,6 +563,45 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
 
+	response = postMCPToolRoute(t, handler, fmt.Sprintf(`{
+		"tool":"delete_selected_params",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","paramInfoIds":["%s"]},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`, addedCallableParamID))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected delete_selected_params success, got %#v", payload.StructuredContent)
+	}
+	deleteSelectedParamsPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	deletedParamIDs := mustStringListForRoute(t, deleteSelectedParamsPayload["paramInfoIds"])
+	if len(deletedParamIDs) != 1 || deletedParamIDs[0] != addedCallableParamID {
+		t.Fatalf("expected deleted paramInfoIds [%s], got %#v", addedCallableParamID, deletedParamIDs)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route delete_selected_params: %v", err)
+	}
+	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after route delete_selected_params: %v", err)
+	}
+	callableChildren := mustStringListForRoute(t, callableCodeObjPayload["children"])
+	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
+		t.Fatalf("expected callable children [allowed-param-existing] after delete_selected_params, got %#v", callableChildren)
+	}
+	if _, ok := project.CodeObjs[addedCallableParamID]; ok {
+		t.Fatalf("expected deleted callable param %q to be pruned, got %#v", addedCallableParamID, project.CodeObjs[addedCallableParamID])
+	}
+
 	response = postMCPToolRoute(t, handler, `{
 		"tool":"set_type_error_ignore",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},

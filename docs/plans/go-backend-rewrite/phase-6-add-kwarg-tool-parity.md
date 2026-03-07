@@ -138,10 +138,9 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- `change_param_impl` and `update_param_impl_config` are now complete on the
-  Go-owned MCP boundary
-- the next bounded follow-on in this param-editing cluster is
-  `delete_selected_params`
+- `change_param_impl`, `update_param_impl_config`, and
+  `delete_selected_params` are now complete on the Go-owned MCP boundary
+- the next bounded follow-on in this param-editing cluster is `delete_kwarg`
 - keep delete/move/reparent follow-ons deferred until their own bounded slices
 
 ## Progress Notes
