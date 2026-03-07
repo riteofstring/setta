@@ -398,9 +398,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	if modePolicy.IsIDE() {
 		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
-			Logger:        logger,
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			ProjectState:  projectRuntime,
+			Logger:             logger,
+			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+			ProjectState:       projectRuntime,
+			TemporaryIDMapPath: mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

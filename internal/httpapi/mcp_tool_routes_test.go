@@ -105,6 +105,79 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	})
 }
 
+func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":     "11",
+		"chat-1":            "12",
+		"chat-section":      "13",
+		"allowed-section":   "14",
+		"peer-chat-section": "15",
+		"allowed-variant":   "16",
+		"peer-chat-variant": "17",
+	})
+
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      workspaceRoot,
+		ProjectState:       projectRuntime,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_latest_project_state_summary",
+		"arguments":{"projectConfigId":"11"},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"chatId":"12",
+			"sectionId":"13"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected summary success, got %#v", payload.StructuredContent)
+	}
+	summary := mustStructuredMapForRoute(t, payload.StructuredContent)
+	projectConfig := mustStructuredMapForRoute(t, summary["projectConfig"])
+	if projectConfig["id"] != "11" {
+		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
+	}
+	sectionVariantMap := mustStructuredMapForRoute(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["14"]; !ok {
+		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["15"]; !ok {
+		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+}
+
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
@@ -293,4 +366,16 @@ func mustRouteRawJSON(t *testing.T, value any) projectstate.RawJSON {
 		t.Fatalf("marshal route raw json: %v", err)
 	}
 	return encoded
+}
+
+func writeRouteTemporaryIDMap(t *testing.T, path string, payload map[string]string) {
+	t.Helper()
+
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal temporary id map: %v", err)
+	}
+	if err := os.WriteFile(path, encoded, 0o644); err != nil {
+		t.Fatalf("write temporary id map: %v", err)
+	}
 }

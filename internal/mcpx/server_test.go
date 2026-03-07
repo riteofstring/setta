@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -306,6 +307,80 @@ func TestServerProjectStateSummaryCanUsePerCallMeta(t *testing.T) {
 	assertSummaryPayload(t, result.StructuredContent)
 }
 
+func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":     "11",
+		"chat-1":            "12",
+		"chat-section":      "13",
+		"allowed-section":   "14",
+		"peer-chat-section": "15",
+		"blocked-section":   "16",
+		"allowed-variant":   "17",
+		"peer-chat-variant": "18",
+		"blocked-variant":   "19",
+		"edge-context":      "20",
+		"edge-peer":         "21",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name:      "get_latest_project_state_summary",
+		Arguments: map[string]any{"projectConfigId": "11"},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id project summary: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id summary success, got %#v", result.StructuredContent)
+	}
+
+	summary := mustStructuredMap(t, result.StructuredContent)
+	projectConfig := mustStructuredMap(t, summary["projectConfig"])
+	if projectConfig["id"] != "11" {
+		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
+	}
+	sectionVariantMap := mustStructuredMap(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["14"]; !ok {
+		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["15"]; !ok {
+		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["16"]; ok {
+		t.Fatalf("did not expect blocked-section key 16 in scoped summary, got %#v", sectionVariantMap)
+	}
+
+	sections := mustStructuredList(t, summary["sections"])
+	sectionIDs := make([]string, 0, len(sections))
+	for _, rawSection := range sections {
+		section := mustStructuredMap(t, rawSection)
+		sectionID, ok := section["sectionId"].(string)
+		if !ok {
+			t.Fatalf("expected translated sectionId string, got %#v", section["sectionId"])
+		}
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	sort.Strings(sectionIDs)
+	if len(sectionIDs) != 2 || sectionIDs[0] != "14" || sectionIDs[1] != "15" {
+		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
+	}
+}
+
 func TestServerHandlerServesSSETransport(t *testing.T) {
 	t.Parallel()
 
@@ -452,10 +527,23 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 func newScopedTestServerSession(t *testing.T, workspaceRoot string, projectRuntime *projectstate.Runtime) (*Server, *sdkmcp.ClientSession) {
 	t.Helper()
 
-	server, err := NewServer(ServerOptions{
+	return newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
 		WorkspaceRoot: workspaceRoot,
 		ProjectState:  projectRuntime,
 	})
+}
+
+func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, projectRuntime *projectstate.Runtime, options ServerOptions) (*Server, *sdkmcp.ClientSession) {
+	t.Helper()
+
+	if strings.TrimSpace(options.WorkspaceRoot) == "" {
+		options.WorkspaceRoot = workspaceRoot
+	}
+	if options.ProjectState == nil {
+		options.ProjectState = projectRuntime
+	}
+
+	server, err := NewServer(options)
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}

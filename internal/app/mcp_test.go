@@ -198,6 +198,77 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":     "11",
+		"chat-1":            "12",
+		"chat-section":      "13",
+		"allowed-section":   "14",
+		"peer-chat-section": "15",
+		"allowed-variant":   "16",
+		"peer-chat-variant": "17",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name:      "get_latest_project_state_summary",
+		Arguments: map[string]any{"projectConfigId": "11"},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id project summary: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id summary success, got %#v", result.StructuredContent)
+	}
+
+	summaryPayload := mustStructuredMapValue(t, result.StructuredContent)
+	projectConfig := mustStructuredMapValue(t, summaryPayload["projectConfig"])
+	if projectConfig["id"] != "11" {
+		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
+	}
+	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["14"]; !ok {
+		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["15"]; !ok {
+		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-section"]; ok {
+		t.Fatalf("did not expect canonical blocked-section key, got %#v", sectionVariantMap)
+	}
+}
+
 func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -437,6 +508,21 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 		},
 	}); err != nil {
 		t.Fatalf("save scoped MCP project: %v", err)
+	}
+}
+
+func writeAppTemporaryIDMap(t *testing.T, path string, payload map[string]string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir temporary id map dir: %v", err)
+	}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal temporary id map: %v", err)
+	}
+	if err := os.WriteFile(path, encoded, 0o644); err != nil {
+		t.Fatalf("write temporary id map: %v", err)
 	}
 }
 

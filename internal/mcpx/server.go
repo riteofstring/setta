@@ -31,6 +31,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateSnapshotProvider
+	temporaryIDs         *TemporaryIDStore
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -38,10 +39,11 @@ type Server struct {
 }
 
 type ServerOptions struct {
-	Logger        *slog.Logger
-	Registry      *tools.Registry
-	WorkspaceRoot string
-	ProjectState  projectStateSnapshotProvider
+	Logger             *slog.Logger
+	Registry           *tools.Registry
+	WorkspaceRoot      string
+	ProjectState       projectStateSnapshotProvider
+	TemporaryIDMapPath string
 }
 
 type toolDefinition struct {
@@ -116,6 +118,13 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
+	if strings.TrimSpace(opts.TemporaryIDMapPath) != "" {
+		temporaryIDs, err := NewTemporaryIDStore(opts.TemporaryIDMapPath)
+		if err != nil {
+			return nil, err
+		}
+		instance.temporaryIDs = temporaryIDs
+	}
 
 	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState) {
 		registered, err := registry.Register(definition.Spec)
@@ -156,7 +165,7 @@ func (s *Server) addTool(registered tools.Registered, inputSchema map[string]any
 	}, func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
 		arguments, err := decodeToolArguments(req)
 		if err != nil {
-			return buildToolErrorResult(err), nil
+			return s.buildToolErrorResult(err), nil
 		}
 		return s.invokeRegisteredTool(ctx, registered, arguments, requestContextFromSDK(req)), nil
 	})
@@ -177,6 +186,10 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 	if arguments == nil {
 		arguments = map[string]any{}
 	}
+	translatedArguments, err := translateArgumentsToCanonical(registered.Name, arguments, s.temporaryIDs)
+	if err != nil {
+		return s.buildToolErrorResult(err)
+	}
 
 	invocation := ToolInvocationContext{
 		SessionKey: requestContext.SessionKey,
@@ -184,21 +197,26 @@ func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Regi
 	if !isUnscopedToolName(registered.Name) {
 		resolvedAgenticContext, scope, projectView, err := s.resolveScopedInvocationContext(registered.Name, registered.Metadata, requestContext)
 		if err != nil {
-			return buildToolErrorResult(err)
+			return s.buildToolErrorResult(err)
 		}
 		invocation.AgenticContext = resolvedAgenticContext
 		invocation.Scope = scope
 		invocation.ProjectView = projectView
 	}
 
-	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), arguments)
+	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
 	if err != nil {
-		return buildToolErrorResult(err)
+		return s.buildToolErrorResult(err)
+	}
+
+	result, err = translateResultToTemporary(result, registered.Metadata, s.temporaryIDs)
+	if err != nil {
+		return s.buildToolErrorResult(err)
 	}
 
 	callResult, err := buildToolSuccessResult(result)
 	if err != nil {
-		return buildToolErrorResult(err)
+		return s.buildToolErrorResult(err)
 	}
 	return callResult
 }
@@ -211,6 +229,10 @@ func (s *Server) resolveScopedInvocationContext(toolName string, metadata tools.
 	}
 	if resolvedAgenticContext == nil || strings.TrimSpace(resolvedAgenticContext.ProjectConfigID) == "" {
 		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil)
+	}
+	resolvedAgenticContext, err = translateAgenticContextToCanonical(resolvedAgenticContext, s.temporaryIDs)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	if strings.TrimSpace(resolvedAgenticContext.SectionID) == "" && !resolvedAgenticContext.AllowUnscoped {
 		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil)
@@ -745,6 +767,10 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 		},
 		StructuredContent: structuredContent,
 	}
+}
+
+func (s *Server) buildToolErrorResult(err error) *sdkmcp.CallToolResult {
+	return buildToolErrorResult(translateToolErrorToTemporary(err, s.temporaryIDs))
 }
 
 func buildSDKToolAnnotations(metadata tools.Metadata) *sdkmcp.ToolAnnotations {
