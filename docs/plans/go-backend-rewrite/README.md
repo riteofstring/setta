@@ -56,11 +56,13 @@ Use the docs in this order:
    - focused current-work plan for Go-owned callable binding, signature-help parsing, and param synthesis
 26. `phase-5-watch-code-runtime-and-callable-refresh.md`
    - focused current-work plan for Go-owned Watch Code state, transport, watcher runtime, and callable refresh reuse
-27. `spike-mcp.md`
+27. `phase-5-watch-code-scan-diff-and-manager-foundation.md`
+   - focused current-work plan for Slice 2 parser-backed Watch Code scan/delete/move planning and manager foundations
+28. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-28. `spike-pty.md`
+29. `spike-pty.md`
    - PTY uncertainty-reduction plan
-29. `spike-lsp.md`
+30. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

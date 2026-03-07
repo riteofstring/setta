@@ -56,6 +56,12 @@ Current repo status as of 2026-03-07:
 That means the active gap has narrowed from state/transport foundation to the
 long-lived watcher/runtime owner itself.
 
+The active Slice 2 execution work is now narrowed in:
+
+- `docs/plans/go-backend-rewrite/phase-5-watch-code-scan-diff-and-manager-foundation.md`
+- that focused doc starts with the parser/diff foundation before the observer
+  lifecycle and later section-mutation wiring
+
 ## Scope
 
 This focused follow-up covers:
@@ -336,10 +342,8 @@ For later slices, add:
 
 ## Next Recommended Step
 
-Execute Slice 2 next:
+Continue with:
 
-- add `internal/watchcode` as the long-lived watcher/runtime owner
-- port parser-backed registry/baseline diffing, file create/delete/move
-  handling, and callable section create/remove/rename behavior
-- keep the completed Slice 1 state/transport path as the source of truth while
-  the new watcher runtime starts driving it
+- `phase-5-watch-code-scan-diff-and-manager-foundation.md`
+- execute its Step 1 parser/diff foundation before wiring the long-lived watch
+  manager and later section mutation behavior
