@@ -12,6 +12,7 @@ import {
   setCustomRunMode,
   toggleCustomRunInDropdown,
 } from "state/actions/customRuns";
+import { applyProjectCodegenTargetsResponse } from "state/actions/project/codegenTargets";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveCodeObjImpl,
@@ -21,7 +22,6 @@ import {
 } from "state/actions/sectionInfos";
 import {
   CustomRunItem,
-  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useRunControl,
@@ -35,6 +35,7 @@ import {
   isPluginCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
+import { res200 } from "utils/endpointUtils";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
@@ -315,17 +316,11 @@ export function RunInstructions() {
     void route_set_project_config_codegen_targets({
       projectConfigId,
       codegenTargets: nextTargets,
-    });
-    useAllProjectMetadata.setState((state) => ({
-      ...state,
-      projectMetadata: state.projectMetadata.map((entry) =>
-        entry.id === projectConfigId
-          ? { ...entry, codegenTargets: nextTargets }
-          : entry,
-      ),
-    }));
-    useProjectState.setState((state) => {
-      state.projectConfig.codegenTargets = nextTargets;
+    }).then((response) => {
+      if (!res200(response) || !response.data) {
+        return;
+      }
+      applyProjectCodegenTargetsResponse(response.data);
     });
   };
 
