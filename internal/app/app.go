@@ -64,6 +64,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectStates      *projectstate.Registry
 		deploymentRuntime  *deployments.Runtime
 		projectRuntime     *projectstate.Runtime
+		codegenValidator   projectstate.CodegenTargetValidator
 		pluginMaterializer *codegen.PluginMaterializer
 		plannerFilesRoot   string
 		artifactsRoot      string
@@ -93,6 +94,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			RuntimeProvider: workerRuntimeProvider,
 			ServerMode:      cfg.Server.Mode,
 		})
+		if err != nil {
+			return nil, err
+		}
+		codegenValidator, err = plugins.NewProjectCodegenTargetValidator(workerSpecs)
 		if err != nil {
 			return nil, err
 		}
@@ -226,6 +231,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ShareSessions: shareSessions,
 				Terminals:     terminalService,
 				RunCode:       runCodeService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterProjectRoutes(r, httpapi.ProjectRouteDependencies{
+				ModePolicy:             modePolicy,
+				ProjectState:           projectRuntime,
+				CodegenTargetValidator: codegenValidator,
 			}); err != nil {
 				panic(err)
 			}

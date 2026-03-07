@@ -23,6 +23,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/terminals"
 )
 
@@ -556,6 +557,95 @@ func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 		t.Fatalf("read plugin codegen output: %v", err)
 	}
 	expected := "export class DirectSaveState {\n  readonly projectName = 'Alpha';\n}\n"
+	if string(content) != expected {
+		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	}
+}
+
+func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	installAppBackendCodegenFixture(t, cfg)
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigCodegenTargets, strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"RouteState"}}]}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post codegen targets: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload projectview.SingleConfig
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode project state response: %v", err)
+	}
+	if payload.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha response, got %q", payload.ProjectConfig.ID)
+	}
+	if len(payload.ProjectConfig.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target in response, got %d", len(payload.ProjectConfig.CodegenTargets))
+	}
+
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one plugin codegen output, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read plugin codegen output: %v", err)
+	}
+	expected := "export class RouteState {\n  readonly projectName = 'Alpha';\n}\n"
 	if string(content) != expected {
 		t.Fatalf("unexpected plugin codegen output: %q", string(content))
 	}
