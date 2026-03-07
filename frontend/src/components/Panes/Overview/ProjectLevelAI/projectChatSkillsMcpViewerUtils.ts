@@ -19,7 +19,7 @@ import {
 } from "utils/generatedTypes";
 
 export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
-  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
+  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 export function filterSkills(
   skills: AppGenSkillEntry[],
@@ -318,79 +318,23 @@ function buildSkillIdentifierIndex(
   return index;
 }
 
-function compareSkillCandidates({
-  left,
-  right,
-  applicableRootPriority,
-}: {
-  left: AppGenSkillEntry;
-  right: AppGenSkillEntry;
-  applicableRootPriority: Map<string, number>;
-}): number {
-  const leftRootId = getSkillRootId(left.skillId);
-  const rightRootId = getSkillRootId(right.skillId);
-  const leftIsApplicable = applicableRootPriority.has(leftRootId);
-  const rightIsApplicable = applicableRootPriority.has(rightRootId);
-  if (leftIsApplicable !== rightIsApplicable) {
-    return leftIsApplicable ? -1 : 1;
-  }
-  const leftPriority =
-    applicableRootPriority.get(leftRootId) ?? Number.MAX_SAFE_INTEGER;
-  const rightPriority =
-    applicableRootPriority.get(rightRootId) ?? Number.MAX_SAFE_INTEGER;
-  if (leftPriority !== rightPriority) {
-    return leftPriority - rightPriority;
-  }
-  const leftRelativePathLength = left.relativePath.length;
-  const rightRelativePathLength = right.relativePath.length;
-  if (leftRelativePathLength !== rightRelativePathLength) {
-    return leftRelativePathLength - rightRelativePathLength;
-  }
-  return left.skillId.localeCompare(right.skillId);
-}
-
-function selectBestSkillCandidate({
-  candidates,
-  applicableRootPriority,
-}: {
-  candidates: AppGenSkillEntry[];
-  applicableRootPriority: Map<string, number>;
-}): AppGenSkillEntry | null {
-  let bestCandidate: AppGenSkillEntry | null = null;
-  for (const candidate of candidates) {
-    if (bestCandidate === null) {
-      bestCandidate = candidate;
-      continue;
-    }
-    if (
-      compareSkillCandidates({
-        left: candidate,
-        right: bestCandidate,
-        applicableRootPriority,
-      }) < 0
-    ) {
-      bestCandidate = candidate;
-    }
-  }
-  return bestCandidate;
-}
-
 function mapActiveSkillNamesToSkillIds({
   skills,
   activeSkillNames,
-  applicableRootIds,
 }: {
   skills: AppGenSkillEntry[];
   activeSkillNames: Map<string, string>;
-  applicableRootIds: string[];
-}): Map<string, string> {
+}): {
+  activeSkillSourcesBySkillId: Map<string, string>;
+  ambiguousSkillIds: Set<string>;
+} {
   const activeSkillSourcesBySkillId = new Map<string, string>();
+  const ambiguousSkillIds = new Set<string>();
   if (activeSkillNames.size === 0) {
-    return activeSkillSourcesBySkillId;
-  }
-  const applicableRootPriority = new Map<string, number>();
-  for (const [index, rootId] of applicableRootIds.entries()) {
-    applicableRootPriority.set(rootId, index);
+    return {
+      activeSkillSourcesBySkillId,
+      ambiguousSkillIds,
+    };
   }
   const skillIdentifierIndex = buildSkillIdentifierIndex(skills);
   for (const [activeSkillName, source] of activeSkillNames.entries()) {
@@ -398,16 +342,18 @@ function mapActiveSkillNamesToSkillIds({
     if (candidates.length === 0) {
       continue;
     }
-    const bestCandidate = selectBestSkillCandidate({
-      candidates,
-      applicableRootPriority,
-    });
-    if (!bestCandidate) {
+    if (candidates.length > 1) {
+      for (const candidate of candidates) {
+        ambiguousSkillIds.add(candidate.skillId);
+      }
       continue;
     }
-    activeSkillSourcesBySkillId.set(bestCandidate.skillId, source);
+    activeSkillSourcesBySkillId.set(candidates[0].skillId, source);
   }
-  return activeSkillSourcesBySkillId;
+  return {
+    activeSkillSourcesBySkillId,
+    ambiguousSkillIds,
+  };
 }
 
 export function buildSkillStatusBySkillId({
@@ -436,20 +382,22 @@ export function buildSkillStatusBySkillId({
       externalAgentToolType,
       messages,
     });
-  const activeSkillSourcesBySkillId = mapActiveSkillNamesToSkillIds({
-    skills,
-    activeSkillNames,
-    applicableRootIds,
-  });
+  const { activeSkillSourcesBySkillId, ambiguousSkillIds } =
+    mapActiveSkillNamesToSkillIds({
+      skills,
+      activeSkillNames,
+    });
   for (const skill of skills) {
     const rootId = getSkillRootId(skill.skillId);
     const isApplicable = applicableRootIdSet.has(rootId);
     const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
     const activityState: SkillActivityState = activeSource
       ? "active"
-      : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
+      : ambiguousSkillIds.has(skill.skillId)
         ? "unknown"
-        : "inactive";
+        : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
+          ? "unknown"
+          : "inactive";
     statusesBySkillId[skill.skillId] = {
       isApplicable,
       applicabilityReason: isApplicable
@@ -906,11 +854,16 @@ export function collectAgentNativeSlashCommandTokensFromRuns(
   return discoveredTokens;
 }
 
-export function collectAgentNativeSlashCommandTokensFromStorage(
-  rawStorageValue: string | null,
-  engineConfigIds?: string[],
-): string[] {
-  if (!rawStorageValue) {
+export function collectAgentNativeSlashCommandTokensFromStorage({
+  rawStorageValue,
+  projectConfigId,
+  engineConfigIds,
+}: {
+  rawStorageValue: string | null;
+  projectConfigId: string;
+  engineConfigIds?: string[];
+}): string[] {
+  if (!rawStorageValue || !projectConfigId.trim()) {
     return [];
   }
   let parsed: unknown;
@@ -922,13 +875,17 @@ export function collectAgentNativeSlashCommandTokensFromStorage(
   if (!isRecord(parsed)) {
     return [];
   }
+  const projectEntries = parsed[projectConfigId];
+  if (!isRecord(projectEntries)) {
+    return [];
+  }
   const allowedEngineIds =
     Array.isArray(engineConfigIds) && engineConfigIds.length > 0
       ? new Set(engineConfigIds)
       : null;
   const discoveredTokens: string[] = [];
   const seen = new Set<string>();
-  for (const [engineId, entry] of Object.entries(parsed)) {
+  for (const [engineId, entry] of Object.entries(projectEntries)) {
     if (allowedEngineIds && !allowedEngineIds.has(engineId)) {
       continue;
     }

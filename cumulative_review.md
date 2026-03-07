@@ -239,3 +239,47 @@
   - authoritative custom-skill root label visibility,
   - slash-command custom editor visibility,
   - Watch Code portal clamping/alignment after row growth.
+
+## 2026-03-05 22:32:42 PST
+
+### Consolidated findings implemented
+- Restored read-only behavior for `GET /getAppGenSkills` so opening the Skills browser no longer creates custom-skill directories or write-probe files as a side effect.
+- Scoped persisted native slash-command metadata by `projectConfigId` plus `engineConfigId`, eliminating cross-project reservation bleed when default engine IDs are reused.
+- Made runtime native slash-command selection deterministic by choosing the newest run per engine rather than whichever run happened to appear last in an unsorted list.
+- Removed hidden agent-run loading from non-slash aux views so `Skills` and `MCP` no longer trigger slash-command/runtime discovery work on mount.
+- Hardened skill activity badges to fail closed: ambiguous runtime skill identifiers now surface as `unknown` instead of heuristically marking one candidate `active`.
+
+### Proposed fixes applied
+- Backend skills-list response now resolves only the preferred create root path for display and defers all directory creation plus writability probing to `upsert_app_gen_custom_skill`.
+- Project AI slash-command storage now persists under a project-scoped map and the composer reads only the active project's cached native command entries during startup hydration.
+- Slash-command runtime resolution now compares candidate runs by `getRunLastUpdatedMs` (with stable `run.id` tie-break) before extracting authoritative native command metadata.
+- `ProjectChatSkillsMcpViewer` no longer performs an unconditional startup `loadAgentRuns()`; agent-run fetching remains behind the existing slash-only polling gate.
+- Skill-activity mapping now only marks a skill `active` when the runtime-reported identifier maps uniquely; collisions across multiple discovered skills are treated as ambiguous.
+
+### UX/DX before and after
+- Before: Opening the Skills view could silently create `~/.agents/skills` or workspace custom-skill directories just by listing skills.  
+  After: Skills discovery is read-only; filesystem changes happen only after an explicit create/save action.
+- Before: Native slash commands discovered in Project A could reserve the same token in Project B before Project B had loaded its own run metadata.  
+  After: Startup slash-command availability is isolated to the active project and active engine set.
+- Before: An older run could overwrite newer native slash-command metadata depending on backend enumeration order.  
+  After: Newest-run-wins behavior is deterministic, so native command status and reservations stay aligned with current runtime state.
+- Before: Opening `Skills` or `MCP` still caused hidden `/getAgentRuns` traffic and unrelated slash-command state churn.  
+  After: Only the `Slash Commands` aux view loads agent-run metadata.
+- Before: If two discovered skills shared the same runtime token/name, the UI could mark the wrong one as `active`.  
+  After: Ambiguous matches degrade to `unknown`, preserving badge trustworthiness.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - `resolve_app_gen_skills_response()` remaining side-effect free when the preferred custom-skill root does not yet exist,
+  - `GET /getAppGenSkills` leaving candidate custom-skill roots absent after the request.
+- Frontend Vitest coverage for:
+  - project-scoped native slash-command storage parsing,
+  - newest-run-wins and newer-`none` handling for native slash metadata,
+  - cross-project cached native command isolation in composer fallback logic,
+  - ambiguous skill-activity mapping failing closed as `unknown`.
+- Playwright E2E coverage for:
+  - `Skills`/`MCP` avoiding hidden `getAgentRuns` requests while `Slash Commands` still triggers them,
+  - cross-project cached native slash metadata not blocking a valid custom command in the active project.
+- Manual Chrome DevTools MCP verification for:
+  - Project AI `Skills`, `MCP`, and `Slash Commands` aux-view transitions in the running app,
+  - external-agent slash-command tab rendering and empty native-command state messaging.

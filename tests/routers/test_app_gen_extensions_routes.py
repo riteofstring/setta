@@ -665,16 +665,20 @@ class TestAppGenExtensionsRoutes:
             monkeypatch.delenv("AGENTS_HOME", raising=False)
             monkeypatch.delenv("CODEX_HOME", raising=False)
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            expected_create_root = fake_home / ".agents" / "skills"
+
+            assert expected_create_root.exists() is False
 
             response = resolve_app_gen_skills_response(workspace_root)
 
             assert response.customSkillCreateRootPath == str(
-                (fake_home / ".agents" / "skills").resolve(strict=False)
+                expected_create_root.resolve(strict=False)
             )
             assert response.customSkillCreateRootError is None
             assert [skill.skillId for skill in response.skills] == [
                 "workspace_agents_skills::workspace-only"
             ]
+            assert expected_create_root.exists() is False
 
     def test_updates_existing_workspace_custom_skill_by_skill_id(
         self,
@@ -1176,6 +1180,7 @@ class TestAppGenExtensionsRoutes:
             (fake_home / ".agents" / "skills").resolve(strict=False)
         )
         assert payload["customSkillCreateRootError"] is None
+        assert (fake_home / ".agents" / "skills").exists() is False
         row_by_id = {row["skillId"]: row for row in payload["skills"]}
         root_row = row_by_id["workspace_agents_skills::."]
         assert root_row["isEditable"] is False

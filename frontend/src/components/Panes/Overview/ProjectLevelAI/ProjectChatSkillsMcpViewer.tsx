@@ -18,7 +18,10 @@ import {
 import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { filterRunsByProjectConfigId } from "state/actions/agentRunUtils";
+import {
+  filterRunsByProjectConfigId,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -97,6 +100,10 @@ type AgentNativeSlashCommandsEntry = {
   status: AgentNativeSlashCommandsStatus;
   statusDetail: string | null;
 };
+type AgentNativeSlashCommandsByProjectConfigId = Record<
+  string,
+  Record<string, AgentNativeSlashCommandsEntry>
+>;
 type SkillMarkdownViewMode =
   | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
   | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
@@ -323,7 +330,7 @@ function normalizeAgentNativeSlashCommandsStatus(
 
 export function parseAgentNativeSlashCommandsStorage(
   rawStorageValue: string | null,
-): Record<string, AgentNativeSlashCommandsEntry> {
+): AgentNativeSlashCommandsByProjectConfigId {
   if (!rawStorageValue) {
     return {};
   }
@@ -332,36 +339,46 @@ export function parseAgentNativeSlashCommandsStorage(
     if (!isRecord(parsed)) {
       return {};
     }
-    const normalized: Record<string, AgentNativeSlashCommandsEntry> = {};
-    for (const [engineId, rawEntry] of Object.entries(parsed)) {
-      if (!engineId.trim()) {
+    const normalized: AgentNativeSlashCommandsByProjectConfigId = {};
+    for (const [projectConfigId, rawProjectEntry] of Object.entries(parsed)) {
+      if (!projectConfigId.trim() || !isRecord(rawProjectEntry)) {
         continue;
       }
-      if (!isRecord(rawEntry)) {
+      const normalizedProjectEntries: Record<
+        string,
+        AgentNativeSlashCommandsEntry
+      > = {};
+      for (const [engineId, rawEntry] of Object.entries(rawProjectEntry)) {
+        if (!engineId.trim() || !isRecord(rawEntry)) {
+          continue;
+        }
+        const hasCommandsField = Array.isArray(rawEntry.commands);
+        const commands = normalizeSlashCommandList(rawEntry.commands);
+        const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
+        const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
+        let resolvedStatus = status;
+        if (commands.length > 0 && resolvedStatus === "unknown") {
+          resolvedStatus = "available";
+        } else if (hasCommandsField && resolvedStatus === "unknown") {
+          resolvedStatus = "none";
+        }
+        if (
+          commands.length === 0 &&
+          resolvedStatus === "unknown" &&
+          statusDetail === null
+        ) {
+          continue;
+        }
+        normalizedProjectEntries[engineId] = {
+          commands,
+          status: resolvedStatus,
+          statusDetail,
+        };
+      }
+      if (Object.keys(normalizedProjectEntries).length === 0) {
         continue;
       }
-      const hasCommandsField = Array.isArray(rawEntry.commands);
-      const commands = normalizeSlashCommandList(rawEntry.commands);
-      const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
-      const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
-      let resolvedStatus = status;
-      if (commands.length > 0 && resolvedStatus === "unknown") {
-        resolvedStatus = "available";
-      } else if (hasCommandsField && resolvedStatus === "unknown") {
-        resolvedStatus = "none";
-      }
-      if (
-        commands.length === 0 &&
-        resolvedStatus === "unknown" &&
-        statusDetail === null
-      ) {
-        continue;
-      }
-      normalized[engineId] = {
-        commands,
-        status: resolvedStatus,
-        statusDetail,
-      };
+      normalized[projectConfigId] = normalizedProjectEntries;
     }
     return normalized;
   } catch {
@@ -489,13 +506,39 @@ export function resolveAgentNativeSlashCommandsByEngineId({
 }): Record<string, AgentNativeSlashCommandsEntry> {
   const scopedRuns = filterRunsByProjectConfigId(runs, projectConfigId);
   const allowedEngineIds = new Set(engineConfigIds);
-  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  const nextByEngineId: Record<
+    string,
+    {
+      entry: AgentNativeSlashCommandsEntry;
+      lastUpdatedMs: number;
+      runId: string;
+    }
+  > = {};
   for (const run of scopedRuns) {
     const extracted = extractAgentNativeSlashCommandsFromRun(run);
     if (!extracted || !allowedEngineIds.has(extracted.engineConfigId)) {
       continue;
     }
-    next[extracted.engineConfigId] = extracted.entry;
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const current = nextByEngineId[extracted.engineConfigId];
+    const nextRunId = run.id.trim();
+    if (
+      current &&
+      (lastUpdatedMs < current.lastUpdatedMs ||
+        (lastUpdatedMs === current.lastUpdatedMs &&
+          nextRunId.localeCompare(current.runId) <= 0))
+    ) {
+      continue;
+    }
+    nextByEngineId[extracted.engineConfigId] = {
+      entry: extracted.entry,
+      lastUpdatedMs,
+      runId: nextRunId,
+    };
+  }
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const [engineConfigId, value] of Object.entries(nextByEngineId)) {
+    next[engineConfigId] = value.entry;
   }
   return next;
 }
@@ -753,9 +796,9 @@ export function ProjectChatSkillsMcpViewer({
     setCustomSlashDraftByProjectConfigId,
   ] = useState<Record<string, CustomSlashCommandDraft>>({});
   const [
-    agentNativeSlashCommandsByEngineId,
-    setAgentNativeSlashCommandsByEngineId,
-  ] = useState<Record<string, AgentNativeSlashCommandsEntry>>(() => {
+    agentNativeSlashCommandsByProjectConfigId,
+    setAgentNativeSlashCommandsByProjectConfigId,
+  ] = useState<AgentNativeSlashCommandsByProjectConfigId>(() => {
     return parseAgentNativeSlashCommandsStorage(
       storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
     );
@@ -1005,18 +1048,11 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSkillContent, selectedSkillId, skillContentLoadStatus]);
 
   useEffect(() => {
-    if (agentRunsInitialLoadComplete) {
-      return;
-    }
-    void loadAgentRuns();
-  }, [agentRunsInitialLoadComplete]);
-
-  useEffect(() => {
     storageAdapter.setItem(
       AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-      JSON.stringify(agentNativeSlashCommandsByEngineId),
+      JSON.stringify(agentNativeSlashCommandsByProjectConfigId),
     );
-  }, [agentNativeSlashCommandsByEngineId, storageAdapter]);
+  }, [agentNativeSlashCommandsByProjectConfigId, storageAdapter]);
 
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
@@ -1071,17 +1107,20 @@ export function ProjectChatSkillsMcpViewer({
       engineConfigIds: slashCommandEngineIds,
     });
   }, [agentRuns, projectConfigId, slashCommandEngineIds]);
+  const persistedAgentNativeSlashCommandsByEngineId = useMemo(() => {
+    return agentNativeSlashCommandsByProjectConfigId[projectConfigId] ?? {};
+  }, [agentNativeSlashCommandsByProjectConfigId, projectConfigId]);
   const visibleAgentNativeSlashCommandsByEngineId = useMemo(() => {
     if (agentRunsInitialLoadComplete) {
       return runtimeAgentNativeSlashCommandsByEngineId;
     }
     return filterAgentNativeSlashCommandsByEngineId({
-      entries: agentNativeSlashCommandsByEngineId,
+      entries: persistedAgentNativeSlashCommandsByEngineId,
       engineConfigIds: slashCommandEngineIds,
     });
   }, [
-    agentNativeSlashCommandsByEngineId,
     agentRunsInitialLoadComplete,
+    persistedAgentNativeSlashCommandsByEngineId,
     runtimeAgentNativeSlashCommandsByEngineId,
     slashCommandEngineIds,
   ]);
@@ -1183,19 +1222,29 @@ export function ProjectChatSkillsMcpViewer({
     if (!showSlashCommandsSection || !agentRunsInitialLoadComplete) {
       return;
     }
-    setAgentNativeSlashCommandsByEngineId((current) => {
+    setAgentNativeSlashCommandsByProjectConfigId((current) => {
+      const currentProjectEntries = current[projectConfigId] ?? {};
       if (
         areAgentNativeSlashCommandMapsEqual(
-          current,
+          currentProjectEntries,
           runtimeAgentNativeSlashCommandsByEngineId,
         )
       ) {
         return current;
       }
-      return runtimeAgentNativeSlashCommandsByEngineId;
+      const next = {
+        ...current,
+      };
+      if (Object.keys(runtimeAgentNativeSlashCommandsByEngineId).length === 0) {
+        delete next[projectConfigId];
+        return next;
+      }
+      next[projectConfigId] = runtimeAgentNativeSlashCommandsByEngineId;
+      return next;
     });
   }, [
     agentRunsInitialLoadComplete,
+    projectConfigId,
     runtimeAgentNativeSlashCommandsByEngineId,
     showSlashCommandsSection,
   ]);

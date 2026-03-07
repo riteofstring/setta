@@ -1232,11 +1232,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       ),
   );
   const persistedNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromStorage(
-      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    return collectAgentNativeSlashCommandTokensFromStorage({
+      rawStorageValue: storageAdapter.getItem(
+        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+      ),
+      projectConfigId,
       engineConfigIds,
-    );
-  }, [engineConfigIds, storageAdapter]);
+    });
+  }, [engineConfigIds, projectConfigId, storageAdapter]);
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({

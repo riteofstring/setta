@@ -180,6 +180,64 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("codex_skill_tool");
   });
 
+  it("fails closed when multiple skills match the same runtime identifier", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Workspace triage instructions.",
+        },
+        {
+          skillId: "user_agents_skills::triage",
+          name: "triage",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "User triage instructions.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/triage",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(statuses["workspace_agents_skills::triage"]?.activityState).toBe(
+      "unknown",
+    );
+    expect(
+      statuses["workspace_agents_skills::triage"]?.activitySource,
+    ).toBeNull();
+    expect(statuses["user_agents_skills::triage"]?.activityState).toBe(
+      "unknown",
+    );
+    expect(statuses["user_agents_skills::triage"]?.activitySource).toBeNull();
+  });
+
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
@@ -598,43 +656,66 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   });
 
   it("collects normalized agent-native slash tokens from persisted viewer metadata", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromStorage(
-      JSON.stringify({
-        "engine-1": {
-          commands: [" /deploy ", "/status", 1],
-          status: "available",
-          statusDetail: "From cached run metadata.",
+    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+      rawStorageValue: JSON.stringify({
+        "project-a": {
+          "engine-1": {
+            commands: [" /deploy ", "/status", 1],
+            status: "available",
+            statusDetail: "From cached run metadata.",
+          },
+          "engine-2": {
+            commands: ["/DEPLOY", "/diagnose"],
+            status: "available",
+            statusDetail: null,
+          },
         },
-        "engine-2": {
-          commands: ["/DEPLOY", "/diagnose"],
-          status: "available",
-          statusDetail: null,
-        },
-        "engine-3": ["/legacy-array-shape"],
       }),
-    );
+      projectConfigId: "project-a",
+    });
 
     expect(tokens).toEqual(["/deploy", "/status", "/diagnose"]);
   });
 
   it("scopes persisted agent-native slash tokens to the active engine ids", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromStorage(
-      JSON.stringify({
-        "engine-foreign": {
-          commands: ["/deploy"],
-          status: "available",
-          statusDetail: null,
-        },
-        "engine-live": {
-          commands: ["/help"],
-          status: "available",
-          statusDetail: null,
+    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+      rawStorageValue: JSON.stringify({
+        "project-a": {
+          "engine-foreign": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+          "engine-live": {
+            commands: ["/help"],
+            status: "available",
+            statusDetail: null,
+          },
         },
       }),
-      ["engine-live"],
-    );
+      projectConfigId: "project-a",
+      engineConfigIds: ["engine-live"],
+    });
 
     expect(tokens).toEqual(["/help"]);
+  });
+
+  it("ignores cached native slash commands from other projects", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+      rawStorageValue: JSON.stringify({
+        "project-a": {
+          "engine-live": {
+            commands: ["/ship"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      }),
+      projectConfigId: "project-b",
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(tokens).toEqual([]);
   });
 
   it("reconciles colliding custom commands against managed and native reserved tokens", () => {

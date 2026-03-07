@@ -240,6 +240,15 @@ def _resolve_writable_custom_skill_root(
     )
 
 
+def _resolve_preferred_custom_skill_root(
+    workspace_root: Path,
+) -> tuple[str, str, Path]:
+    prioritized_roots = _iter_prioritized_custom_skill_roots(workspace_root)
+    if not prioritized_roots:
+        raise ValueError("No custom skill root available.")
+    return prioritized_roots[0]
+
+
 def _normalize_custom_skill_relative_path(relative_path: str) -> str:
     normalized = relative_path.strip()
     if not _CUSTOM_SKILL_RELATIVE_PATH_PATTERN.fullmatch(normalized):
@@ -319,7 +328,7 @@ def resolve_app_gen_skills_response(workspace_root: Path) -> GetAppGenSkillsResp
     custom_skill_create_root_path: str | None = None
     custom_skill_create_root_error: str | None = None
     try:
-        _, _, custom_skill_create_root = _resolve_writable_custom_skill_root(
+        _, _, custom_skill_create_root = _resolve_preferred_custom_skill_root(
             workspace_root
         )
         custom_skill_create_root_path = str(custom_skill_create_root)
