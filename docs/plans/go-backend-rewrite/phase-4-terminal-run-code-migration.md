@@ -501,7 +501,7 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
 
 Completed:
 
@@ -537,6 +537,21 @@ Completed:
   - `internal/httpapi/terminal_routes_test.go`
   - `internal/app/app_test.go`
   - `internal/app/websocket_test.go`
+- deployment/share run support is now Go-owned for the existing `runCode`
+  surface:
+  - `allowRun` policy denial is enforced from `internal/deployments`
+  - `allowMultipleRuns` reservation and rollback are enforced per share session
+  - deployment overlays now provide the runnable project-state source of truth
+  - deployment runs use session-scoped snapshot roots instead of mutating base
+    deployment state
+  - deployment `allowVariantChanges` and `allowParamChanges` are enforced in
+    the Go run service before planning
+- deployment/share run coverage now includes:
+  - policy denial
+  - single-run rejection after the first successful run
+  - reservation rollback on startup failure
+  - session-scoped snapshot output roots
+  - overlay-state draw snapshot updates
 
 Tests:
 
@@ -570,36 +585,42 @@ Acceptance:
 - single-run policy behavior matches the documented product rule
 - the implementation is explicitly share-session-scoped
 
+Status:
+
+- complete
+
+Completed:
+
+- deployment/share `runCode` policy now resolves from Go-owned deployment state
+  instead of Python route-local guards
+- the Go run service now:
+  - denies runs when `allowRun` is false
+  - denies variant changes when `allowVariantChanges` is false
+  - denies param overrides when `allowParamChanges` is false
+  - reserves and rolls back single-run sessions when
+    `allowMultipleRuns` is false
+- deployment/share runs now plan against the session overlay runtime and write
+  snapshots under session-scoped roots
+- focused Go route coverage now proves:
+  - policy denial returns `deployment_policy_denied`
+  - a second run is blocked when multiple runs are disabled
+  - startup failure rolls back a reserved single-run count
+  - deployment/share runs use session-scoped snapshot outputs
+
 Blocked On:
 
-- Go-owned deployment policy source of truth
-- Go-owned session overlay state with runnable project graphs
+- none
 
 ## Open Questions
 
 - does any real Go migration consumer need the `cliId` branch before detached-run work starts?
 - how much of deployment/share run policy should move with the next slice versus waiting for more share-runtime consolidation?
 
-## Recommended Option
-
-Start Slice 4: deployment/share `runCode` policy and session-overlay behavior.
-
-Rationale:
-
-- the IDE path now covers both attached-terminal code runs and generated-entry
-  terminal selection without relying on Python heuristics
-- the remaining product gap for `runCode` is no longer terminal allocation, it
-  is deployment/share policy ownership
-- `cliId` remains lower leverage until there is a real Go-owned consumer for it
-
 ## Next Recommended Step
 
-Return to the Phase 4 umbrella and scope the next bounded remaining gap:
-
-- `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
-
-Immediate target:
-
-- continue
-  `docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`
-  rather than widening `runCode` further speculatively
+- This focused `runCode` migration doc is complete for the current backend
+  caller surface.
+- Keep `cliId` and any future detached-run transport in a later focused doc
+  when there is a concrete Go consumer.
+- Return to the broader rewrite plan for the next uncovered subsystem outside
+  terminal run-code transport.

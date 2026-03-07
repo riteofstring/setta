@@ -74,11 +74,13 @@ Use the docs in this order:
    - focused current-work plan for Go-owned Watch Code Callable section backfill, rename/remove handling, and Python import-prefix sync
 35. `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
    - focused current-work plan for Go-owned inline `setCode` and bound code-file reload reuse over the completed Watch Code apply/runtime path
-36. `spike-mcp.md`
+36. `phase-6-mcp-server-client-and-tool-registry-foundation.md`
+   - focused next-work plan for Go-owned MCP server/client foundations, namespaced tool registry, and scoped tool-call boundaries ahead of LLM/chat migration
+37. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-37. `spike-pty.md`
+38. `spike-pty.md`
    - PTY uncertainty-reduction plan
-38. `spike-lsp.md`
+39. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

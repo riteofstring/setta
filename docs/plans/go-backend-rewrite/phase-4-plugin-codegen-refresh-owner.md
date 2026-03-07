@@ -199,7 +199,7 @@ Acceptance:
 
 Status:
 
-- in_progress
+- complete
 
 Completed:
 
@@ -278,16 +278,13 @@ Tests:
   refresh ownership exists, or whether a minimal content fingerprint is worth
   adding before broader refresh ownership leaves the current save-hook
   boundary
-- which first Go-owned IDE mutation/save transport should adopt the central
-  runtime save hook so ordinary editor mutations persist and refresh plugin
-  outputs without depending on run-triggered saves or test-only callers
+- none that block this focused doc; ordinary Go-owned IDE mutation/save
+  transport now exists and already uses the central runtime save hook
 
 ## Next Recommended Step
 
-- Continue Slice 2.
-- Keep the new runtime save hook as the ownership boundary.
-- Continue in
-  `docs/plans/go-backend-rewrite/phase-4-codegen-targets-mutation-transport.md`
-  with the first real Go-owned IDE mutation/save transport on top of it so
-  ordinary project-state edits start persisting through that hook and refresh
-  plugin codegen outputs automatically.
+- This focused plugin-codegen refresh doc is complete.
+- Keep the runtime save hook as the source-of-truth refresh boundary for plugin
+  codegen outputs.
+- Return to the broader rewrite plan for the next uncovered subsystem outside
+  plugin codegen refresh ownership.
