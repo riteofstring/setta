@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 10 {
-		t.Fatalf("expected 10 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 11 {
+		t.Fatalf("expected 11 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 10 {
-		t.Fatalf("expected 10 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 11 {
+		t.Fatalf("expected 11 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -315,6 +315,29 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_name",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"name":            "Allowed Renamed",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_name: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_name success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_name: %v", err)
+	}
+	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
+		t.Fatalf("expected renamed section name, got %q", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -569,6 +592,34 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 			"chatId":          "12",
 			"sectionId":       "13",
 		},
+		Name: "set_section_name",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"name":            "Translated Section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_name: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_section_name success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_section_name: %v", err)
+	}
+	if got := project.Sections["allowed-section"].Name; got != "Translated Section" {
+		t.Fatalf("expected translated section name, got %q", got)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
 		Name: "set_param_entered_value",
 		Arguments: map[string]any{
 			"projectConfigId": "11",
@@ -761,8 +812,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 10 {
-		t.Fatalf("expected tool count 10, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 11 {
+		t.Fatalf("expected tool count 11, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -940,6 +991,44 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_name",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","name":"Allowed Renamed"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_name tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_name tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_name: %v", err)
+	}
+	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
+		t.Fatalf("expected renamed section name, got %q", got)
 	}
 
 	response, err = client.Post(

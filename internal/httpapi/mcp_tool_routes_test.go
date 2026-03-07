@@ -31,6 +31,7 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
 	if err != nil {
@@ -133,6 +134,7 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
@@ -199,6 +201,7 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
 		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
 	if err != nil {
@@ -280,6 +283,32 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_section_name",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","name":"Allowed Renamed"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_section_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_name: %v", err)
+	}
+	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
+		t.Fatalf("expected renamed section name, got %q", got)
 	}
 
 	response = postMCPToolRoute(t, handler, `{
@@ -640,6 +669,18 @@ func decodeCallToolRouteResult(t *testing.T, payload []byte) mcpxCallToolResult 
 type mcpxCallToolResult struct {
 	StructuredContent any  `json:"structuredContent"`
 	IsError           bool `json:"isError"`
+}
+
+type routeSectionNameService struct {
+	runtime *projectstate.Runtime
+}
+
+func (s routeSectionNameService) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
+	if s.runtime == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+	_, err := s.runtime.SetSectionName(ctx, projectID, sectionID, name)
+	return err
 }
 
 func mustStructuredMapForRoute(t *testing.T, value any) map[string]any {

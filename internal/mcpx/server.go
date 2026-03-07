@@ -44,6 +44,7 @@ type ServerOptions struct {
 	Registry           *tools.Registry
 	WorkspaceRoot      string
 	ProjectState       projectStateProvider
+	SectionNames       sectionNameProvider
 	LSPDiagnostics     lspDiagnosticsProvider
 	TemporaryIDMapPath string
 }
@@ -61,6 +62,10 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+}
+
+type sectionNameProvider interface {
+	SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error
 }
 
 type lspDiagnosticsProvider interface {
@@ -139,7 +144,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
-	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.LSPDiagnostics) {
+	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SectionNames, opts.LSPDiagnostics) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -487,6 +492,44 @@ func newSetCodeSectionDiagnosticCodeSuppressionHandler(projectState projectState
 	}
 }
 
+func newSetSectionNameHandler(sectionNames sectionNameProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		name, err := readRequiredRawStringArgument(arguments, "name")
+		if err != nil {
+			return nil, err
+		}
+		if sectionNames == nil {
+			return nil, newToolError("internal_error", "Section-name mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped section-name invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if err := sectionNames.SetSectionName(ctx, projectConfigID, sectionID, name); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func newSetParamEnteredValueHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -636,7 +679,7 @@ func (s *Server) setSessionAgenticContext(sessionKey string, value AgenticContex
 	s.agenticContextBySess[sessionKey] = value
 }
 
-func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateProvider, lspDiagnostics lspDiagnosticsProvider) []toolDefinition {
+func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateProvider, sectionNames sectionNameProvider, lspDiagnostics lspDiagnosticsProvider) []toolDefinition {
 	definitions := []toolDefinition{
 		{
 			Spec: tools.Spec{
@@ -751,6 +794,52 @@ func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tool
 	}
 
 	if projectState != nil && lspDiagnostics != nil {
+		if sectionNames != nil {
+			definitions = append(definitions, toolDefinition{
+				Spec: tools.Spec{
+					Name:        "set_section_name",
+					Description: "Rename a section within the requested project config.",
+					Metadata: tools.Metadata{
+						Kind:       tools.KindDiscoverable,
+						AccessType: tools.AccessTypeWrite,
+						IDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection: {"sectionId"},
+						},
+						SearchCategory: "project",
+						SearchTags:     []string{"section", "name", "rename", "title"},
+					},
+					Handler: newSetSectionNameHandler(sectionNames),
+				},
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"projectConfigId": map[string]any{
+							"type":        "string",
+							"description": "Project config id whose section name should be updated.",
+						},
+						"sectionId": map[string]any{
+							"type":        "string",
+							"description": "Section id whose name should be updated.",
+						},
+						"name": map[string]any{
+							"type":        "string",
+							"description": "Raw section name to validate and persist.",
+						},
+					},
+					"required": []string{"projectConfigId", "sectionId", "name"},
+				},
+				OutputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"status": map[string]any{
+							"type": "string",
+						},
+					},
+					"required": []string{"status"},
+				},
+			})
+		}
+
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
 				Name:        "get_latest_lsp_diagnostics",
@@ -1371,6 +1460,8 @@ func normalizeProjectStateMutationError(err error) error {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
+	case projectstate.IsInvalidSectionNameError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
