@@ -14,6 +14,30 @@ type CreateSectionResponse = {
 type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
+      stateMachineEdges?: Array<{
+        id?: string;
+        machineGroupId?: string;
+        sourceSectionId?: string;
+        sourcePortId?: string;
+        targetSectionId?: string;
+        targetPortId?: string;
+        sourceFilter?: {
+          type?: string | null;
+          signalName?: string | null;
+          payloadField?: string | null;
+          equals?: string | null;
+        } | null;
+        targetAction?: {
+          type?: string | null;
+          promptTemplateId?: string | null;
+          inlinePrompt?: string | null;
+          threadStrategy?: string | null;
+        } | null;
+        style?: Record<string, string | number> | null;
+        hidden?: boolean;
+        zIndex?: number;
+        selected?: boolean;
+      }>;
       sectionVariantMap?: Record<string, string>;
     };
     sections?: Record<
@@ -47,7 +71,7 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("state machine sections", () => {
-  test("creates workflow sections and edits gate settings", async ({
+  test("creates workflow sections, connects workflow edges, and edits workflow settings", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -81,10 +105,17 @@ test.describe.serial("state machine sections", () => {
         "StateMachineEnd",
         { x: 1040, y: 80 },
       );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 640, y: 280 },
+      );
 
       const startNode = page.getByTestId(`rf__node-${startSectionId}`);
       const gateNode = page.getByTestId(`rf__node-${gateSectionId}`);
       const endNode = page.getByTestId(`rf__node-${endSectionId}`);
+      const chatNode = page.getByTestId(`rf__node-${chatSectionId}`);
 
       await expect(startNode).toContainText("Workflow");
       await expect(startNode).toContainText("Start");
@@ -92,6 +123,7 @@ test.describe.serial("state machine sections", () => {
       await expect(gateNode).toContainText("AND Gate");
       await expect(endNode).toContainText("Workflow");
       await expect(endNode).toContainText("End");
+      await expect(chatNode).toBeVisible();
 
       await gateNode.click();
       const uiEditorPane = page.locator("#UiEditorPane");
@@ -131,6 +163,182 @@ test.describe.serial("state machine sections", () => {
           machineGroupId: "workflow-main",
           label: "Review Gate",
         });
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Start",
+          gateType: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "End",
+          gateType: null,
+        },
+      );
+
+      const gateSourceHandle = page.getByTestId(
+        `workflow-source-handle-${gateSectionId}`,
+      );
+      const chatTargetHandle = page.getByTestId(
+        `workflow-target-handle-${chatSectionId}`,
+      );
+      const chatSourceHandle = page.getByTestId(
+        `workflow-source-handle-${chatSectionId}`,
+      );
+      const endTargetHandle = page.getByTestId(
+        `workflow-target-handle-${endSectionId}`,
+      );
+
+      await startNode.hover();
+      await expect(
+        page.getByTestId(`workflow-source-handle-${startSectionId}`),
+      ).toBeVisible();
+      await gateNode.hover();
+      await expect(gateSourceHandle).toBeVisible();
+      await chatNode.hover();
+      await expect(chatTargetHandle).toBeVisible();
+      await expect(chatSourceHandle).toBeVisible();
+      await endNode.hover();
+      await expect(endTargetHandle).toBeVisible();
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: gateSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          inlinePrompt: null,
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: chatSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: {
+          type: "run_completed",
+          signalName: null,
+          payloadField: null,
+          equals: null,
+        },
+        targetAction: null,
+      });
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(2);
+
+      const edges = await readStateMachineEdges(page, projectContext.projectConfigId);
+      const gateToChatEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === chatSectionId,
+      );
+      const chatToEndEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === chatSectionId &&
+          edge.targetSectionId === endSectionId,
+      );
+      expect(gateToChatEdge?.id).toBeTruthy();
+      expect(chatToEndEdge?.id).toBeTruthy();
+      if (!gateToChatEdge?.id || !chatToEndEdge?.id) {
+        throw new Error("Expected workflow edge ids after connecting handles.");
+      }
+
+      await page
+        .getByTestId(`workflow-edge-hitbox-${chatToEndEdge.id}`)
+        .click({ force: true });
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-source-filter",
+        "Structured Signal",
+      );
+      await page.getByTestId("workflow-edge-signal-name").fill("merge_decision");
+      await page
+        .getByTestId("workflow-edge-signal-payload-field")
+        .fill("decision");
+      await page.getByTestId("workflow-edge-signal-equals").fill("retry");
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              chatToEndEdge.id,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          sourceFilter: {
+            type: "signal",
+            signalName: "merge_decision",
+            payloadField: "decision",
+            equals: "retry",
+          },
+        });
+
+      await selectStateMachineEdge(
+        page,
+        projectContext.projectConfigId,
+        gateToChatEdge.id,
+      );
+      await expect(inspector).toBeVisible();
+      await expect(page.locator("#workflow-edge-target-action")).toBeVisible();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-target-action",
+        "Send Prompt",
+      );
+      await page
+        .getByTestId("workflow-edge-inline-prompt")
+        .fill("Review the latest output.");
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              gateToChatEdge.id,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          targetAction: {
+            type: "send_prompt",
+            inlinePrompt: "Review the latest output.",
+            threadStrategy: "continue_current_thread",
+          },
+        });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -166,7 +374,7 @@ async function createSectionViaCommandPalette(
 async function createTopLevelSection(
   page: Page,
   projectConfigId: string,
-  implType: "StateMachineGate" | "StateMachineEnd",
+  implType: "Chat" | "StateMachineGate" | "StateMachineEnd",
   position: { x: number; y: number },
 ): Promise<string> {
   const response = await postBackend<CreateSectionResponse>(
@@ -182,6 +390,59 @@ async function createTopLevelSection(
     throw new Error(`Missing sectionId when creating ${implType}.`);
   }
   return response.sectionId;
+}
+
+async function setStateMachineSectionSettings(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  payload: {
+    machineGroupId: string;
+    label: string;
+    gateType: string | null;
+  },
+): Promise<void> {
+  await postBackend(page, "/setStateMachineSectionSettings", {
+    projectConfigId,
+    sectionId,
+    machineGroupId: payload.machineGroupId,
+    label: payload.label,
+    gateType: payload.gateType,
+  });
+}
+
+async function createStateMachineEdge(
+  page: Page,
+  projectConfigId: string,
+  payload: {
+    machineGroupId: string;
+    sourceSectionId: string;
+    sourcePortId: string;
+    targetSectionId: string;
+    targetPortId: string;
+    sourceFilter: {
+      type: string;
+      signalName: string | null;
+      payloadField: string | null;
+      equals: string | null;
+    } | null;
+    targetAction: {
+      type: string;
+      promptTemplateId: string | null;
+      inlinePrompt: string | null;
+      threadStrategy: string;
+      stopIfRunning: boolean;
+      engineConfigId: string | null;
+      agentProfileId: string | null;
+      permissionMode: string | null;
+      searchEnabled: boolean | null;
+    } | null;
+  },
+): Promise<void> {
+  await postBackend(page, "/createStateMachineEdge", {
+    projectConfigId,
+    ...payload,
+  });
 }
 
 async function getSectionIds(
@@ -265,6 +526,117 @@ async function readStateMachineImpl(
       sectionImpl?.label ??
       null,
   };
+}
+
+async function readStateMachineEdges(
+  page: Page,
+  projectConfigId: string,
+): Promise<
+  Array<{
+    id: string | null;
+    machineGroupId: string | null;
+    sourceSectionId: string | null;
+    targetSectionId: string | null;
+    sourceFilter: {
+      type: string | null;
+      signalName: string | null;
+      payloadField: string | null;
+      equals: string | null;
+    } | null;
+    targetAction: {
+      type: string | null;
+      promptTemplateId: string | null;
+      inlinePrompt: string | null;
+      threadStrategy: string | null;
+    } | null;
+  }>
+> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  return (response?.projectState?.projectConfig?.stateMachineEdges ?? []).map(
+    (edge) => ({
+      id: edge.id ?? null,
+      machineGroupId: edge.machineGroupId ?? null,
+      sourceSectionId: edge.sourceSectionId ?? null,
+      targetSectionId: edge.targetSectionId ?? null,
+      sourceFilter: edge.sourceFilter
+        ? {
+            type: edge.sourceFilter.type ?? null,
+            signalName: edge.sourceFilter.signalName ?? null,
+            payloadField: edge.sourceFilter.payloadField ?? null,
+            equals: edge.sourceFilter.equals ?? null,
+          }
+        : null,
+      targetAction: edge.targetAction
+        ? {
+            type: edge.targetAction.type ?? null,
+            promptTemplateId: edge.targetAction.promptTemplateId ?? null,
+            inlinePrompt: edge.targetAction.inlinePrompt ?? null,
+            threadStrategy: edge.targetAction.threadStrategy ?? null,
+          }
+        : null,
+    }),
+  );
+}
+
+async function readStateMachineEdge(
+  page: Page,
+  projectConfigId: string,
+  edgeId: string,
+): Promise<{
+  id: string | null;
+  machineGroupId: string | null;
+  sourceSectionId: string | null;
+  targetSectionId: string | null;
+  sourceFilter: {
+    type: string | null;
+    signalName: string | null;
+    payloadField: string | null;
+    equals: string | null;
+  } | null;
+  targetAction: {
+    type: string | null;
+    promptTemplateId: string | null;
+    inlinePrompt: string | null;
+    threadStrategy: string | null;
+  } | null;
+} | null> {
+  const edges = await readStateMachineEdges(page, projectConfigId);
+  return edges.find((edge) => edge.id === edgeId) ?? null;
+}
+
+async function selectStateMachineEdge(
+  page: Page,
+  projectConfigId: string,
+  edgeId: string,
+): Promise<void> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const rawEdges = response?.projectState?.projectConfig?.stateMachineEdges ?? [];
+  await postBackend(page, "/setStateMachineEdges", {
+    projectConfigId,
+    edges: rawEdges.map((edge) => ({
+      ...edge,
+      selected: edge.id === edgeId,
+    })),
+  });
+}
+
+async function selectComboboxOption(
+  page: Page,
+  inputSelector: string,
+  optionName: string,
+): Promise<void> {
+  const input = page.locator(inputSelector);
+  await input.click();
+  await input.fill(optionName);
+  await page.getByText(optionName, { exact: true }).click();
 }
 
 async function expectNodeTextWithinBounds(

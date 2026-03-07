@@ -458,6 +458,17 @@ export const TextBlockFormatEnum = {
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
+const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+
+const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+
 const MCPServerRuntimeStateEnum = {
   connected: "connected",
   connecting: "connecting",
@@ -938,17 +949,6 @@ const RunSnapshotModeEnum = {
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
 const DeploymentTypeEnum = { share: "share", app: "app" } as const;
-
-const StateMachineSourceFilterTypeEnum = {
-  run_completed: "run_completed",
-  run_failed: "run_failed",
-  signal: "signal",
-} as const;
-
-const StateMachineTargetActionTypeEnum = {
-  send_prompt: "send_prompt",
-  reset_thread: "reset_thread",
-} as const;
 
 const StateMachineThreadStrategyEnum = {
   continue_current_thread: "continue_current_thread",
