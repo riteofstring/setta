@@ -48,7 +48,7 @@ Current repo status as of 2026-03-06:
   - terminal selection and command dispatch in `backend/setta/terminals/run_code.py`
   - IDE command planning in `backend/setta/project_state/base_project_manager.py`
   - deployment/share command planning in `backend/setta/project_state/share_runtime_state.py`
-- Current Go gaps are structural:
+- the early structural blockers are largely cleared:
 - `internal/projectstate` now includes a first runnable project-graph minimum:
   - entry code block ids
   - active section variants
