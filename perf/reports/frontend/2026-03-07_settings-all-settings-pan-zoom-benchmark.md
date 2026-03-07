@@ -1303,3 +1303,185 @@ New benchmark stages:
 - Updated next step:
   - stop splitting `TextParam` vs `TextAreaParam` for this benchmark, because they are absent here
   - focus the next optimization pass on the `CodeParam` / `TextInputCodeMirror` path
+
+## Addendum: flatter DummyCodeMirror preview preserves highlighting and removes the code-widget cliff
+
+- Date: `2026-03-07`
+- Goal: keep real parser-driven syntax highlighting for `CodeParam`, but replace the old `DummyCodeMirror` line-by-line token DOM with a flatter preview that should be cheaper during steady-state pan/zoom.
+- Change under test:
+  - keep the same `CodeMirror` parser + theme mapping
+  - remove the `RangeSetBuilder` / `Decoration` / `Text` line-wrapping path from `DummyCodeMirror`
+  - render a single highlighted content stream with merged adjacent style runs
+  - remove the per-line `.cm-line` wrappers from the idle dummy preview
+- Measurement note:
+  - the first after-only rerun was sensitive to stage-specific fit differences, so the final comparison below uses a fixed viewport transform copied from the live `full` stage
+  - compare these numbers only within this addendum
+  - use the earlier `Remaining Widget Cost Is Mostly CodeParam` addendum as the directional baseline for the old code-widget path
+
+### `param-container-shell` fixed-base anchor
+
+- DOM nodes in `.react-flow`: `6332`
+- Code widgets: `0`
+- Average frame time: `11.78ms`
+- Approx FPS: `84.92`
+- Max frame time: `21.40ms`
+- Slow frames:
+  - `>16.7ms`: `13`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+
+### `non-text-widgets` fixed-base rerun
+
+- DOM nodes in `.react-flow`: `7038`
+- Param containers: `697`
+- Code widgets: `0`
+- Code widget shells: `426`
+- `.cm-line` nodes: `0`
+- Average frame time: `11.38ms`
+- Approx FPS: `87.87`
+- Max frame time: `33.80ms`
+- Slow frames:
+  - `>16.7ms`: `32`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/non-text-widgets-dummy-preview-flattened-fixed-base-trace.json`
+
+### `code-widgets` fixed-base rerun
+
+- DOM nodes in `.react-flow`: `7940`
+- Param containers: `697`
+- Code widgets: `426`
+- Code widget shells: `0`
+- `.cm-line` nodes: `0`
+- Highlighted spans under code widgets: `476`
+- Average frame time: `7.84ms`
+- Approx FPS: `127.50`
+- Max frame time: `13.40ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+
+### `full` fixed-base rerun
+
+- DOM nodes in `.react-flow`: `8108`
+- Param containers: `697`
+- Code widgets: `426`
+- Code widget shells: `0`
+- `.cm-line` nodes: `0`
+- Highlighted spans under code widgets: `476`
+- Average frame time: `8.19ms`
+- Approx FPS: `122.10`
+- Max frame time: `10.90ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/dummy-preview-flattened-full-visible.png`
+
+### Addendum conclusion
+
+- The old code-widget cliff is gone in this rerun.
+  - previous code-widget addendum: `code-widgets` at `40.64 FPS`, `full` at `43.74 FPS`
+  - this flatter highlighted preview rerun: `code-widgets` at `127.50 FPS`, `full` at `122.10 FPS`
+- The DOM reduction is modest in total count but important in shape.
+  - old `code-widgets` DOM: `8385`
+  - new `code-widgets` DOM: `7940`
+  - old `full` DOM: `8553`
+  - new `full` DOM: `8108`
+  - the idle code preview no longer renders any `.cm-line` wrappers
+- The practical takeaway is that syntax highlighting itself was not the blocker.
+  - the expensive part was the old dummy preview structure and its extra line/token DOM path
+  - preserving parser-driven highlighting with a flatter preview is viable
+- Interpretation caution:
+  - this fixed-base rerun now shows `code-widgets` and `full` in the same band as, or slightly ahead of, the shell baselines
+  - treat the exact inversion as noisy because stage geometry still differs, but the directional result is robust: the code-widget path no longer stands out as the dominant pan/zoom bottleneck in this benchmark
+
+## Addendum: repeated rerun correction for the flattened DummyCodeMirror pass
+
+- Date: `2026-03-07`
+- Goal: verify that the flattened `DummyCodeMirror` change is actually live in the headed browser and replace the suspicious single-pass `122 FPS` claim with a repeated rerun.
+- Correction:
+  - the previous single-pass fixed-base numbers in the immediately preceding addendum were too optimistic and should not be used as the branch conclusion
+  - use this repeated rerun instead
+
+### Live DOM verification
+
+- Benchmark stage confirmed live in the headed page:
+  - `code-widgets` renders `426` code widgets
+  - `.cm-line` count is `0`
+  - highlighted span count under code widgets is `476`
+- Sample widget verification:
+  - a simple code widget now renders as a single root preview with direct highlighted span children
+  - the richest visible sampled code widget had `48` child spans for `367` characters of code
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/dummy-preview-flattened-code-widgets-visible-rerun.png`
+  - `perf/artifacts/frontend/settings-all-settings/dummy-preview-flattened-code-widgets-closeup-rerun.png`
+  - `perf/artifacts/frontend/settings-all-settings/dummy-preview-flattened-full-visible-rerun.png`
+
+### Repeated fixed-base rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - each stage rerun used `5` browser-side D3 zoom loops of `180` frames each
+  - compare these numbers only within this addendum
+
+### `param-container-shell`
+
+- DOM nodes in `.react-flow`: `6332`
+- Code widgets: `0`
+- Average frame time across `5` runs: `47.13ms`
+- Average FPS across `5` runs: `21.22`
+- Median FPS: `21.12`
+- Per-run FPS: `21.12`, `20.93`, `21.02`, `21.43`, `21.59`
+
+### `non-text-widgets`
+
+- DOM nodes in `.react-flow`: `7038`
+- Code widgets: `0`
+- Code widget shells: `426`
+- Average frame time across `5` runs: `39.65ms`
+- Average FPS across `5` runs: `25.22`
+- Median FPS: `25.21`
+- Per-run FPS: `25.24`, `25.21`, `25.21`, `25.21`, `25.24`
+
+### `code-widgets`
+
+- DOM nodes in `.react-flow`: `7940`
+- Code widgets: `426`
+- Code widget shells: `0`
+- `.cm-line` nodes: `0`
+- Highlighted spans under code widgets: `476`
+- Average frame time across `5` runs: `22.56ms`
+- Average FPS across `5` runs: `44.38`
+- Median FPS: `44.75`
+- Per-run FPS: `45.51`, `42.32`, `44.75`, `45.89`, `43.40`
+
+### `full`
+
+- DOM nodes in `.react-flow`: `8108`
+- Code widgets: `426`
+- Code widget shells: `0`
+- `.cm-line` nodes: `0`
+- Highlighted spans under code widgets: `476`
+- Average frame time across `5` runs: `21.62ms`
+- Average FPS across `5` runs: `46.26`
+- Median FPS: `46.19`
+- Per-run FPS: `46.80`, `46.11`, `46.19`, `46.19`, `46.00`
+
+### Corrected conclusion
+
+- The `122 FPS` single-pass claim was not reliable. The repeated rerun puts the flattened `DummyCodeMirror` path in the mid-40 FPS band, not the 120 FPS band.
+- The implementation is live and does what it was intended to do:
+  - syntax highlighting is still present
+  - the idle preview no longer renders `.cm-line` wrappers
+  - the code preview DOM is flatter than before
+- The performance win is real, but modest, not dramatic.
+  - previous addendum baseline: `code-widgets` `40.64 FPS`, `full` `43.74 FPS`
+  - corrected repeated rerun: `code-widgets` `44.38 FPS`, `full` `46.26 FPS`
+  - practical gain: roughly `+3.74 FPS` on `code-widgets` and `+2.52 FPS` on `full`
+- The shell-only stages in this fixed region now benchmark lower than the real code-widget stages, so they are not a trustworthy subtraction baseline for this correction pass.
+- The only defensible branch conclusion from this lower-risk refactor is:
+  - the old dummy preview structure was part of the problem
+  - flattening it while preserving syntax highlighting helps
+  - but it does not erase the remaining pan/zoom cost in `All Settings`
