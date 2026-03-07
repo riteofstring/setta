@@ -144,11 +144,12 @@ The highest-leverage move is therefore:
 
 - `set_param_name_and_value` has now landed as the next completed combined
   code-object write slice
-- the next recommended step is a focused `set_callable` slice so the canonical
-  callable selection and param-refetch workflow moves onto the completed Go
-  MCP/runtime boundary
-- keep it layered on the completed Phase 5 signature-help/callable refresh
-  groundwork instead of broadening it into unrelated callable orchestration
+- `set_callable` has now landed as the callable selection/refetch follow-on
+- the next recommended step is a focused `add_kwarg` slice so new param
+  creation lands on the completed callable selection and combined rename/value
+  boundaries
+- keep `change_param_impl` and unrelated callable orchestration deferred until
+  a dedicated slice narrows them into one owner
 - keep structural move/reparent semantics deferred until a dedicated
   structural plan narrows them into a bounded owner
 
@@ -163,3 +164,5 @@ The highest-leverage move is therefore:
   rename service.
 - 2026-03-07: follow-on `set_param_name_and_value` slice completed; next
   recommended step moved to `set_callable`.
+- 2026-03-07: follow-on `set_callable` slice completed; next recommended step
+  moved to `add_kwarg`.

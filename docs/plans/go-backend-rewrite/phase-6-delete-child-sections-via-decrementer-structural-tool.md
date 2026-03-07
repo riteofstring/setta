@@ -176,9 +176,11 @@ The high-leverage move is therefore:
   slice
 - `set_param_name_and_value` has now landed as the next completed combined
   code-object write slice
-- the next bounded Phase 6 slice should move to `set_callable`
-- it remains the highest-leverage remaining canonical callable workflow gap
-- keep `set_callable` scoped to one coherent callable/refetch boundary
+- `set_callable` has now landed as the callable selection/refetch follow-on
+- the next bounded Phase 6 slice should move to `add_kwarg`
+- it remains the highest-leverage remaining prompt-visible param-creation
+  workflow gap
+- keep `add_kwarg` scoped to one coherent param-creation boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 
@@ -194,3 +196,5 @@ The high-leverage move is therefore:
   step moved to `set_param_name_and_value`.
 - 2026-03-07: follow-on `set_param_name_and_value` slice completed; next
   recommended step moved to `set_callable`.
+- 2026-03-07: follow-on `set_callable` slice completed; next recommended step
+  moved to `add_kwarg`.

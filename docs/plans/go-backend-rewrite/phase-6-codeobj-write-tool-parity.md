@@ -238,8 +238,10 @@ Do not own:
   boundary.
 - `set_param_name_and_value` is now complete over the Go-owned combined
   rename/value boundary.
-- The next recommended step is a focused `set_callable` slice so the canonical
-  callable selection and param-refetch workflow moves onto the completed Go
-  MCP/runtime boundary.
+- `set_callable` is now complete over the Go-owned callable/signature-help
+  boundary.
+- The next recommended step is a focused `add_kwarg` slice so new param
+  creation lands on the completed callable selection and combined rename/value
+  boundaries.
 - Leave broader structural create/delete/move tools deferred until a dedicated
   structural plan narrows them into a bounded owner.

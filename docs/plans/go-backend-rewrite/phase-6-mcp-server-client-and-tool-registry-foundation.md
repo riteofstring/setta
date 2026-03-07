@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 17 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 18 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -56,6 +56,7 @@ Current repo status as of 2026-03-07:
     - `set_section_name` as the first rename/refactor-backed project-shape tool
     - `set_param_entered_value` as the first scoped code-object value tool
     - `set_param_name_and_value` as the combined scoped param rename/value tool
+    - `set_callable` as the scoped callable selection/refetch tool
     - `set_type_error_ignore` as the scoped type-ignore write tool
     - `set_code_obj_display_name` as the scoped code-object rename/display tool
     - `set_code_obj_name` as the scoped code-object naming tool
@@ -800,14 +801,47 @@ Reference:
 
 - `phase-6-param-name-and-value-tool-parity.md`
 
+### Slice 18: Set Callable Tool Parity
+
+Deliver:
+
+- a Go MCP `set_callable` write tool over the completed callable/signature-help
+  runtime
+- shared callable-signature resolver wiring through MCP server/app
+  construction
+- structured MCP results returning `callableId`, `childCodeObjs`, and
+  `lspStatus`
+- result temp-id translation for nested child `codeObjId` payloads
+- focused MCP server, authenticated HTTP bridge, and IDE-mode app coverage
+
+Acceptance:
+
+- Go MCP exposes `set_callable`
+- callable selection/refetch semantics stay source-of-truth in
+  `internal/projectstate`
+- MCP temp-id translation rewrites returned `callableId` plus nested child
+  `codeObjId` values
+- scoped callable writes fail closed through `sectionId` metadata targeting
+- the IDE HTTP `setCallable` route continues to reuse the same callable owner
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-set-callable-tool-parity.md`
+
 ## Next Recommended Step
 
-- Slice 17 is now complete.
-- The next recommended step is a focused `set_callable` slice so the canonical
-  callable selection and param-refetch workflow moves onto the completed Go
-  MCP/runtime boundary.
-- Keep it layered on the completed Phase 5 signature-help/callable refresh
-  groundwork instead of broadening it into unrelated callable orchestration.
+- Slice 18 is now complete.
+- The next recommended step is a focused `add_kwarg` slice so new callable and
+  param entries land on the completed callable selection plus combined
+  rename/value boundaries.
+- Keep it scoped to explicit project-state ownership for param creation instead
+  of transport-local heuristics or broad callable orchestration.
+- Keep `change_param_impl` deferred until a dedicated param-impl slice narrows
+  type-switch semantics into one owner.
 - Keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice

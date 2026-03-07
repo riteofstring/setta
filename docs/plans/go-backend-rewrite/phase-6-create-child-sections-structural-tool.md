@@ -200,7 +200,8 @@ The high-leverage move is therefore:
   slice
 - `set_param_name_and_value` has now landed as the next completed combined
   code-object write slice
-- the next bounded Phase 6 slice should move to `set_callable`
-- keep `set_callable` scoped to one coherent callable/refetch boundary
+- `set_callable` has now landed as the callable selection/refetch follow-on
+- the next bounded Phase 6 slice should move to `add_kwarg`
+- keep `add_kwarg` scoped to one coherent param-creation boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner

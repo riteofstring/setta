@@ -245,8 +245,10 @@ Remain the owner for:
   boundary.
 - Structural/project-shape follow-ons through `create_new_section_variant` are
   now complete.
-- The next recommended step is a focused `set_callable` slice so the canonical
-  callable selection and param-refetch workflow moves onto the completed Go
-  MCP/runtime boundary.
+- `set_callable` is now complete over the Go-owned callable/signature-help
+  boundary.
+- The next recommended step is a focused `add_kwarg` slice so new param
+  creation lands on the completed callable selection and combined rename/value
+  boundaries.
 - Keep broader structural move/reparent semantics deferred until a dedicated
   structural plan narrows them into a bounded owner.

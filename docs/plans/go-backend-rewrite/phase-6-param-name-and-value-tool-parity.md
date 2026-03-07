@@ -133,12 +133,12 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- implement a focused `set_callable` slice so the canonical callable selection
-  and param-refetch workflow moves onto the completed Go MCP/runtime boundary
-- keep it layered on the completed Phase 5 signature-help/callable refresh
-  groundwork instead of broadening this slice into callable orchestration
-- keep `add_kwarg`, `change_param_impl`, and broader structural semantics
-  deferred until they can each move as bounded follow-ons
+- `set_callable` is now complete over the Go-owned callable/signature-help
+  boundary
+- implement a focused `add_kwarg` slice so new callable/global-var params land
+  on the completed callable selection and combined rename/value boundaries
+- keep `change_param_impl` and broader structural semantics deferred until
+  they can each move as bounded follow-ons
 
 ## Progress Notes
 
@@ -148,3 +148,5 @@ The highest-leverage move is therefore:
   temp-id translation, and authenticated route/SSE coverage.
 - 2026-03-07: kept the IDE HTTP `setParamNameAndValue` route deferred; the
   combined write boundary lives in `internal/projectstate`.
+- 2026-03-07: follow-on `set_callable` slice completed; next recommended step
+  moved to `add_kwarg`.
