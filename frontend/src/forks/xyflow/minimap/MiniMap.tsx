@@ -11,16 +11,12 @@ import {
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import {
-  useLocalStorage,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type { CoordinateExtent, Node, Rect } from "../core/types";
 import { getWheelDelta } from "../core/utils";
-import { getNodesBounds, getPaneRect } from "../core/utils/graph";
+import { getNodesBounds } from "../core/utils/graph";
 import { MiniMapNodes } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
@@ -118,20 +114,22 @@ function MiniMap({
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(getNodes, shallow);
-  const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
-  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
-  const viewBB = useReactFlow(
-    (state) => getPaneRect(state, overviewWidth, uiEditorWidth),
-    shallow,
-  );
-  const boundingRect = useMemo(
-    () => (nodes.length > 0 ? getNodesBounds(nodes) : viewBB),
-    [nodes, viewBB],
-  );
   const elementWidth =
     typeof style?.width === "number" ? style.width : defaultWidth;
   const elementHeight =
     typeof style?.height === "number" ? style.height : defaultHeight;
+  const boundingRect = useMemo(
+    () =>
+      nodes.length > 0
+        ? getNodesBounds(nodes)
+        : {
+            x: 0,
+            y: 0,
+            width: elementWidth,
+            height: elementHeight,
+          },
+    [elementHeight, elementWidth, nodes],
+  );
 
   const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
     boundingRect,
@@ -250,7 +248,6 @@ function MiniMap({
         nodeStrokeWidth={nodeStrokeWidth}
         nodeComponent={nodeComponent}
         offset={offset}
-        viewBB={viewBB}
         maskColor={maskColor}
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}

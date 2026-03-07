@@ -144,3 +144,49 @@ Takeaway:
 
 Raw artifact:
 - `perf/artifacts/2026-03-06_minimap-iterative/stage2-content-bounds-only.trace.json`
+
+## Stage 3: Static Thumbnail, No Viewport Mask
+
+Change:
+- Remove the viewport mask entirely.
+- Keep the minimap node thumbnail and click-to-center interaction, but stop subscribing the minimap to live viewport changes.
+
+Behavior removed:
+- No live viewport box or mask is shown.
+- The minimap becomes a static thumbnail plus click target rather than a live viewport preview.
+
+Behavior kept:
+- minimap stays visible
+- click-to-center still works
+- node geometry still refreshes after layout changes
+
+Scenario medians from the iterative harness (`with minimap + grid`):
+- Median scenario: `2674.9ms`
+- Avg frame gap: `18.46ms`
+- P95 frame gap: `25.00ms`
+- Frames `>33ms`: `0`
+- Estimated dropped frames: `9`
+- Max frame gap: `25.8ms`
+
+Trace sample for `with minimap + grid`:
+- Main renderer thread `RunTask`: `3197.65ms`
+- Main renderer thread paint + layout: `53.87ms`
+- Main renderer thread pre-paint: `7.57ms`
+- Main renderer thread style recalc (`UpdateLayoutTree`): `9.30ms`
+
+Delta vs stage 2:
+- Scenario median: `-50.2ms` (`-1.8%`)
+- Avg frame gap: `-0.35ms` (`-1.8%`)
+- Main renderer `RunTask`: `-87.26ms` (`-2.7%`)
+
+Delta vs the stage-1 no-minimap reference:
+- Compared to `no minimap + grid` (`2683.3ms`), this stage is within noise at `-8.4ms` (`-0.3%`).
+- Compared to `no minimap + no grid` (`2589.6ms`), the remaining gap is basically the grid itself plus normal trace variance.
+
+Takeaway:
+- Removing the viewport mask is the first tradeoff stage that effectively erases the remaining minimap tax in this harness.
+- If live viewport context is important, stage 2 is the better stopping point.
+- If performance parity with `showMinimap=false` matters more than live viewport feedback, this stage is the strongest minimap-on option.
+
+Raw artifact:
+- `perf/artifacts/2026-03-06_minimap-iterative/stage3-static-thumbnail-no-mask.trace.json`
