@@ -34,6 +34,7 @@ type PythonCodegenSection struct {
 	Name            string
 	DisplayName     string
 	ParentSectionID string
+	ImplID          string
 	VariantID       string
 	VariantName     string
 	Type            string
@@ -48,6 +49,7 @@ type PythonCodegenCodeObject struct {
 	ID          string
 	Name        string
 	DisplayName string
+	ImplID      string
 	VariantID   string
 	VariantName string
 	Type        string
@@ -118,11 +120,23 @@ func (e PythonCodegenExport) resolveSection(
 	if sectionType == "" {
 		return PythonCodegenSection{}, fmt.Errorf("%w: section=%q", ErrPythonCodegenExportSectionTypeEmpty, section.ID)
 	}
+	controlCodeObjType := stringFieldFromPythonCodegenObject(payload, "controlCodeObjType")
+	if sectionType == "MetaControl" && controlCodeObjType == "" {
+		metaControlParamID := stringFieldFromPythonCodegenObject(payload, "metaControlParamId")
+		if metaControlParamID != "" {
+			codeObjVariantMap := stringMapFieldFromPythonCodegenObject(payload, "codeObjVariantMap")
+			metaControlCodeObj, err := e.resolveCodeObjectWithVariantMap(codeObjVariantMap, metaControlParamID)
+			if err != nil {
+				return PythonCodegenSection{}, err
+			}
+			controlCodeObjType = metaControlCodeObj.Type
+		}
+	}
 	resolvedPolicy, err := ResolvePythonSectionCodegenPolicy(
 		e.SectionPolicy,
 		section.ID,
 		sectionType,
-		stringFieldFromPythonCodegenObject(payload, "controlCodeObjType"),
+		controlCodeObjType,
 	)
 	if err != nil {
 		return PythonCodegenSection{}, err
@@ -132,6 +146,7 @@ func (e PythonCodegenExport) resolveSection(
 		Name:            section.Name,
 		DisplayName:     section.DisplayName,
 		ParentSectionID: section.ParentSectionID,
+		ImplID:          impl.ID,
 		VariantID:       variant.ID,
 		VariantName:     variant.Name,
 		Type:            sectionType,
@@ -148,6 +163,36 @@ func (s PythonCodegenSection) ResolveCodeObject(codeObjID string) (PythonCodegen
 	if len(codeObjVariantMap) == 0 {
 		return PythonCodegenCodeObject{}, fmt.Errorf("%w: section=%q codeObjVariantMap", ErrCodeObjVariantNotFound, s.ID)
 	}
+	return s.resolveCodeObjectWithVariantMap(codeObjVariantMap, codeObjID)
+}
+
+func (e PythonCodegenExport) resolveCodeObjectWithVariantMap(codeObjVariantMap map[string]string, codeObjID string) (PythonCodegenCodeObject, error) {
+	payload, codeObj, variant, err := effectivePythonCodegenCodeObject(e.project, codeObjVariantMap, codeObjID)
+	if err != nil {
+		return PythonCodegenCodeObject{}, err
+	}
+	codeObjType := strings.TrimSpace(codeObjTypeForPythonCodegen(e.project, codeObj.ID, payload))
+	if codeObjType == "" {
+		return PythonCodegenCodeObject{}, fmt.Errorf("%w: codeObj=%q", ErrPythonCodegenExportCodeObjTypeEmpty, codeObj.ID)
+	}
+	valuePolicy, err := ResolvePythonCodeObjValuePolicy(e.CodeObjValuePolicy, codeObj.ID, codeObjType)
+	if err != nil {
+		return PythonCodegenCodeObject{}, err
+	}
+	return PythonCodegenCodeObject{
+		ID:          codeObj.ID,
+		Name:        codeObj.Name,
+		DisplayName: codeObj.DisplayName,
+		ImplID:      variant.ImplID,
+		VariantID:   variant.ID,
+		VariantName: variant.Name,
+		Type:        codeObjType,
+		Payload:     clonePythonCodegenObject(payload),
+		ValuePolicy: valuePolicy,
+	}, nil
+}
+
+func (s PythonCodegenSection) resolveCodeObjectWithVariantMap(codeObjVariantMap map[string]string, codeObjID string) (PythonCodegenCodeObject, error) {
 	payload, codeObj, variant, err := effectivePythonCodegenCodeObject(s.project, codeObjVariantMap, codeObjID)
 	if err != nil {
 		return PythonCodegenCodeObject{}, err
@@ -164,6 +209,7 @@ func (s PythonCodegenSection) ResolveCodeObject(codeObjID string) (PythonCodegen
 		ID:          codeObj.ID,
 		Name:        codeObj.Name,
 		DisplayName: codeObj.DisplayName,
+		ImplID:      variant.ImplID,
 		VariantID:   variant.ID,
 		VariantName: variant.Name,
 		Type:        codeObjType,

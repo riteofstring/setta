@@ -228,7 +228,7 @@ Acceptance:
 
 Status:
 
-- pending
+- in progress
 
 Slice 3 inventory as of 2026-03-06:
 
@@ -243,6 +243,30 @@ Slice 3 inventory as of 2026-03-06:
   renderer and metadata builder consume.
 - The save hook in Go is already the correct integration point, but it is
   currently wired only to plugin materialization in `internal/app/app.go`.
+
+Completed Slice 3 chunk on 2026-03-06:
+
+- added a Go-owned structural Python dependency-node graph in `internal/codegen`
+  over `projectstate.PythonCodegenExport`
+- ported deterministic Python path naming and sibling de-duplication for
+  section/code-object full-path names
+- ported the current section/code-object traversal boundaries for:
+  - callable, dict, list-root, group, global-variables
+  - text-block, prompt, plugin, meta-control
+  - chat, draw, image
+  - task-board, spreadsheet
+- ported current section value shaping for file-backed chat/draw/image nodes,
+  plugin literal payloads, task-board/spreadsheet literals, meta-control
+  control values, and password-secret presence gating
+- fixed the Go export surface so MetaControl policy resolution derives the
+  control code-object type from effective state instead of requiring a payload
+  field
+- added focused Go coverage for:
+  - callable param path generation
+  - global-variables top-level param export
+  - plugin/chat/draw section value shaping
+  - password-secret presence gating
+  - MetaControl allowlist resolution from the derived control param type
 
 Recommended Slice 3 structure:
 
@@ -274,6 +298,15 @@ Rationale:
 - direct rendering from section payloads would duplicate traversal and naming
   logic, then force a second rewrite when metadata and temp-edit position
   tracking land
+
+Current open gap inside Slice 3:
+
+- the new Go dependency graph currently owns structural dependencies only
+- Python expression reference-edge extraction (`state.<name>` discovery from
+  callable/code-param source text) is not yet ported
+- do not replace the final Python renderer/materializer ordering logic until
+  that reference-edge layer is owned in Go or an explicit alternative ordering
+  strategy is chosen
 
 ### Slice 4: Generated Section Sync + Route Enablement
 
@@ -315,9 +348,10 @@ Acceptance:
 ## Next Recommended Step
 
 - Start Slice 3 from this doc:
-  - add the Go dependency-node graph over `projectstate.PythonCodegenExport`
+  - port Python expression reference-edge extraction for `state.<name>`
+    dependencies into the Go dependency graph
   - port the packaged-runtime Python value codec and wrapper-class renderer for
-    `setta_gen.py`
+    `setta_gen.py` on top of that completed graph
   - port the metadata renderer for `setta_gen_meta.py`
   - integrate the resulting Python materializer into the authoritative save
     hook alongside plugin materialization

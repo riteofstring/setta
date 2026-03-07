@@ -288,3 +288,98 @@ func TestProjectPythonCodegenExportResolvesEffectiveSectionAndCodeObject(t *test
 		t.Fatalf("expected extra modifier field, got %q", got)
 	}
 }
+
+// MetaControl section policy resolution should derive the control code object type from effective state instead of relying on a payload field.
+func TestProjectPythonCodegenExportResolvesMetaControlPolicyFromControlParam(t *testing.T) {
+	t.Parallel()
+
+	project := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+				Payload: mustRawJSON(
+					t,
+					`{
+						"language":"python",
+						"sectionPolicy":{
+							"metaControlAllowlist":["TextParam"]
+						}
+					}`,
+				),
+			},
+		},
+		TopLevelSectionIDs: []string{"meta-1"},
+		SectionVariantMap: map[string]string{
+			"meta-1": "meta-variant-1",
+		},
+		Sections: map[string]Section{
+			"meta-1": {
+				ID:               "meta-1",
+				Name:             "Meta Control",
+				VariantIDs:       []string{"meta-variant-1"},
+				DefaultVariantID: "meta-variant-1",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"meta-variant-1": {
+				ID:     "meta-variant-1",
+				ImplID: "meta-impl-1",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"meta-impl-1": {
+				ID: "meta-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{
+						"id":"meta-impl-1",
+						"type":"MetaControl",
+						"metaControlParamId":"control-param-1",
+						"codeObjVariantMap":{"control-param-1":"control-param-variant-1"}
+					}`,
+				),
+			},
+		},
+		CodeObjs: map[string]CodeObject{
+			"control-param-1": {
+				ID:               "control-param-1",
+				Name:             "control_param",
+				VariantIDs:       []string{"control-param-variant-1"},
+				DefaultVariantID: "control-param-variant-1",
+			},
+		},
+		CodeObjVariants: map[string]CodeObjectVariant{
+			"control-param-variant-1": {
+				ID:     "control-param-variant-1",
+				ImplID: "control-param-impl-1",
+			},
+		},
+		CodeObjImpls: map[string]CodeObjectImpl{
+			"control-param-impl-1": {
+				ID: "control-param-impl-1",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"control-param-impl-1","type":"TextParam","value":"notes"}`,
+				),
+			},
+		},
+	}
+
+	exported, ok, err := project.PythonCodegenExport()
+	if err != nil {
+		t.Fatalf("build python codegen export: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python export")
+	}
+
+	section, err := exported.ResolveSection("meta-1")
+	if err != nil {
+		t.Fatalf("resolve meta control section: %v", err)
+	}
+	if !section.Policy.IncludeInCodegen {
+		t.Fatal("expected meta control section to remain included after deriving control param type")
+	}
+}
