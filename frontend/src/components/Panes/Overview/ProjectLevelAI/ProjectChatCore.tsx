@@ -192,14 +192,29 @@ export function resolveProjectChatComposerNativeSlashCommandTokens({
   return persistedNativeSlashCommandTokens;
 }
 
+export function resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+  runtimeNativeSlashCommandTokens,
+  agentRunsAuthorityState,
+}: {
+  runtimeNativeSlashCommandTokens: string[];
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+}): string[] {
+  if (!isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
+    return [];
+  }
+  return runtimeNativeSlashCommandTokens;
+}
+
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
   discoveredAgentNativeSlashCommands,
+  executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
   showPermissionExecutionControl,
   showSearchExecutionControl,
 }: {
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
   discoveredAgentNativeSlashCommands: string[];
+  executableAgentNativeSlashCommands?: string[];
   showPermissionExecutionControl: boolean;
   showSearchExecutionControl: boolean;
 }): {
@@ -234,6 +249,10 @@ export function resolveProjectChatComposerSlashCommandSets({
   const recognizedCommands: ChatSlashCommandDefinition[] = [
     ...globallyReservedManagedCommands,
   ];
+  const globallyReservedManagedCommandTokens = new Set(
+    globallyReservedManagedCommands.map((entry) => entry.command),
+  );
+  const nativeCommandTokens = new Set<string>();
   const recognizedCommandTokens = new Set(
     recognizedCommands.map((entry) => entry.command),
   );
@@ -242,12 +261,21 @@ export function resolveProjectChatComposerSlashCommandSets({
       continue;
     }
     recognizedCommandTokens.add(token);
-    nativeCommands.push({
+    recognizedCommands.push({
       command: token,
       action: "native_prompt",
       summary: "Submit this native external-agent command verbatim.",
     });
-    recognizedCommands.push({
+  }
+  for (const token of executableAgentNativeSlashCommands) {
+    if (
+      nativeCommandTokens.has(token) ||
+      globallyReservedManagedCommandTokens.has(token)
+    ) {
+      continue;
+    }
+    nativeCommandTokens.add(token);
+    nativeCommands.push({
       command: token,
       action: "native_prompt",
       summary: "Submit this native external-agent command verbatim.",
@@ -1339,16 +1367,24 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     persistedNativeSlashCommandTokens,
     runtimeAgentNativeSlashCommandTokens,
   ]);
+  const executableAgentNativeSlashCommands = useMemo(() => {
+    return resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+      runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
+      agentRunsAuthorityState,
+    });
+  }, [agentRunsAuthorityState, runtimeAgentNativeSlashCommandTokens]);
   const { slashCommands, recognizedSlashCommands } = useMemo(() => {
     return resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands,
       discoveredAgentNativeSlashCommands,
+      executableAgentNativeSlashCommands,
       showPermissionExecutionControl,
       showSearchExecutionControl,
     });
   }, [
     customProjectChatSlashCommands,
     discoveredAgentNativeSlashCommands,
+    executableAgentNativeSlashCommands,
     showPermissionExecutionControl,
     showSearchExecutionControl,
   ]);
@@ -1655,10 +1691,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleUnknownSlashCommand = useCallback(
-    async (
-      message: string,
-      _attachments: ChatFileAttachment[],
-    ): Promise<ChatSlashCommandResult> => {
+    async (message: string): Promise<ChatSlashCommandResult> => {
       if (
         !isExternalEngine ||
         isAgentRunsAuthorityReady(agentRunsAuthorityState)
@@ -1692,11 +1725,104 @@ export const ProjectChatCore = memo(function ProjectChatCore({
             refreshedPersistedNativeSlashCommandTokens,
           agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
         });
+      const refreshedExecutableAgentNativeSlashCommands =
+        resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
       const refreshedSlashCommandSets =
         resolveProjectChatComposerSlashCommandSets({
           customProjectChatSlashCommands,
           discoveredAgentNativeSlashCommands:
             refreshedDiscoveredAgentNativeSlashCommands,
+          executableAgentNativeSlashCommands:
+            refreshedExecutableAgentNativeSlashCommands,
+          showPermissionExecutionControl,
+          showSearchExecutionControl,
+        });
+      const refreshedRequest = resolveSlashCommandRequest({
+        message,
+        slashCommands: refreshedSlashCommandSets.slashCommands,
+        recognizedSlashCommands:
+          refreshedSlashCommandSets.recognizedSlashCommands,
+      });
+      if (!isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState)) {
+        return {
+          handled: true,
+          feedback:
+            "Native slash commands are unavailable until agent metadata reloads.",
+          keepInput: true,
+        };
+      }
+      if (refreshedRequest.parsed) {
+        return {
+          refreshedSlashCommands: refreshedSlashCommandSets.slashCommands,
+          refreshedRecognizedSlashCommands:
+            refreshedSlashCommandSets.recognizedSlashCommands,
+        };
+      }
+      return false;
+    },
+    [
+      agentRunsAuthorityState,
+      customProjectChatSlashCommands,
+      engineConfigIds,
+      isExternalEngine,
+      projectConfigId,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+    ],
+  );
+
+  const handleUnavailableNativeSlashCommand = useCallback(
+    async (message: string): Promise<ChatSlashCommandResult> => {
+      if (
+        !isExternalEngine ||
+        isAgentRunsAuthorityReady(agentRunsAuthorityState)
+      ) {
+        return false;
+      }
+      await loadAgentRuns();
+      const refreshedState = useAIStore.getState();
+      const refreshedRuntimeNativeSlashCommandTokens =
+        collectAgentNativeSlashCommandTokensFromEntries(
+          resolveAgentNativeSlashCommandsByEngineId({
+            runs: refreshedState.agentRuns,
+            projectConfigId,
+            engineConfigIds,
+          }),
+        );
+      const refreshedPersistedNativeSlashCommandTokens =
+        collectAgentNativeSlashCommandTokensFromEntries(
+          filterAgentNativeSlashCommandsByEngineId({
+            entries:
+              useAgentNativeSlashCommandsCache.getState()[projectConfigId] ??
+              EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
+            engineConfigIds,
+          }),
+        );
+      const refreshedDiscoveredAgentNativeSlashCommands =
+        resolveProjectChatComposerNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          persistedNativeSlashCommandTokens:
+            refreshedPersistedNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
+      const refreshedExecutableAgentNativeSlashCommands =
+        resolveProjectChatComposerExecutableNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
+      const refreshedSlashCommandSets =
+        resolveProjectChatComposerSlashCommandSets({
+          customProjectChatSlashCommands,
+          discoveredAgentNativeSlashCommands:
+            refreshedDiscoveredAgentNativeSlashCommands,
+          executableAgentNativeSlashCommands:
+            refreshedExecutableAgentNativeSlashCommands,
           showPermissionExecutionControl,
           showSearchExecutionControl,
         });
@@ -2072,6 +2198,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           recognizedSlashCommands={recognizedSlashCommands}
           onSlashCommand={handleSlashCommand}
           onUnknownSlashCommand={handleUnknownSlashCommand}
+          onUnavailableNativeSlashCommand={handleUnavailableNativeSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
             permissionMode: showPermissionExecutionControl,

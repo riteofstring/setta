@@ -501,6 +501,51 @@ def _build_written_skill_content(
     )
 
 
+def _write_new_custom_skill_doc(
+    *,
+    skill_doc: Path,
+    relative_path: str,
+    content: str,
+) -> None:
+    try:
+        skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        with skill_doc.open("x", encoding="utf-8") as handle:
+            handle.write(content)
+    except FileExistsError as exc:
+        raise ValueError(
+            f"Custom skill already exists for relativePath '{relative_path}'."
+        ) from exc
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+
+
+def _write_existing_custom_skill_doc(
+    *,
+    skill_doc: Path,
+    skill_id: str,
+    content: str,
+) -> None:
+    try:
+        with skill_doc.open("r+", encoding="utf-8") as handle:
+            handle.seek(0)
+            handle.write(content)
+            handle.truncate()
+    except FileNotFoundError as exc:
+        raise KeyError(f"Missing SKILL.md for {skill_id}") from exc
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+
+    try:
+        written_content = skill_doc.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise KeyError(f"Missing SKILL.md for {skill_id}") from exc
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+
+    if written_content != content:
+        raise ValueError("SKILL.md changed during update. Retry the save.")
+
+
 def upsert_app_gen_custom_skill(
     *,
     workspace_root: Path,
@@ -549,6 +594,7 @@ def upsert_app_gen_custom_skill(
         target_root_path = existing_root_path
         target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
+        resolved_skill_id = selected_skill.skillId
         created = False
     else:
         (
@@ -577,16 +623,22 @@ def upsert_app_gen_custom_skill(
                 )
         except OSError as exc:
             raise ValueError(str(exc)) from exc
+        resolved_skill_id = f"{target_root_id}::{target_relative_path}"
         created = True
 
-    try:
-        skill_doc.parent.mkdir(parents=True, exist_ok=True)
-        with skill_doc.open("w", encoding="utf-8") as handle:
-            handle.write(content)
-    except OSError as exc:
-        raise ValueError(str(exc)) from exc
+    if created:
+        _write_new_custom_skill_doc(
+            skill_doc=skill_doc,
+            relative_path=target_relative_path,
+            content=content,
+        )
+    else:
+        _write_existing_custom_skill_doc(
+            skill_doc=skill_doc,
+            skill_id=resolved_skill_id,
+            content=content,
+        )
 
-    resolved_skill_id = f"{target_root_id}::{target_relative_path}"
     skill_index = _build_skill_index_by_id(workspace_root)
     if resolved_skill_id not in skill_index:
         raise KeyError(f"Unknown or non-discoverable skillId: {resolved_skill_id}")

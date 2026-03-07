@@ -510,3 +510,48 @@
   - opened Project AI Settings -> Skills in the headed app,
   - injected mocked skills/network responses in-page to avoid mutating real `~/.agents/skills`,
   - verified the beta row remained `data-selected=\"true\"` and the markdown viewer remained on `Beta stable body` after releasing the delayed alpha save.
+
+## 2026-03-06 09:17:15 PST
+
+### Consolidated findings implemented
+- Restored the fail-closed native slash-command invariant in Project AI Chat so cached external-agent slash metadata can reserve names and stay visible, but cannot execute until runtime agent-run authority is actually `ready`.
+- Restored strict custom-skill create/update semantics in the backend so concurrent filesystem changes no longer let update recreate a deleted `SKILL.md` or let create overwrite a file another writer created after validation.
+
+### Proposed fixes applied
+- Split Project AI slash-command handling into two authority layers:
+  - `resolveProjectChatComposerNativeSlashCommandTokens(...)` still returns recognized/reserved native tokens from persisted cache while authority is unresolved.
+  - `resolveProjectChatComposerExecutableNativeSlashCommandTokens(...)` returns executable native tokens only from authoritative runtime metadata when `agentRunsAuthorityState === "ready"`.
+- Updated `resolveProjectChatComposerSlashCommandSets(...)` so recognized native slash commands and executable native slash commands are built from separate inputs instead of collapsing both into one token list.
+- Extended `ChatInput` with an explicit unavailable-native slash-command recovery path so a recognized-but-unavailable native command triggers metadata reload/re-resolution instead of direct submission.
+- Kept the existing unknown-slash reload path for truly unresolved slash-prefixed input, but prevented cached native commands from bypassing the fail-closed guard via the executable command list.
+- Refactored backend custom-skill writes into:
+  - `_write_new_custom_skill_doc(...)` using exclusive create mode (`open(\"x\")`) so late create collisions fail instead of clobbering existing content.
+  - `_write_existing_custom_skill_doc(...)` using non-creating update mode (`open(\"r+\")`) so missing targets fail instead of being recreated.
+- Moved `upsert_app_gen_custom_skill(...)` onto those two write helpers so the create-vs-update invariant is enforced at the syscall boundary rather than only by stale preflight `exists()` checks.
+
+### UX/DX before and after
+- Before: A cached `/deploy` or similar native external-agent command could appear authoritative on first render and submit immediately even while runtime agent metadata was still loading or degraded.  
+  After: Cached native commands still reserve the namespace and remain visible to the user, but submission stays fail-closed until runtime authority is ready, with reload feedback instead of stale execution.
+- Before: The slash-command state model mixed \"recognized\" and \"executable\" into the same derived list, which made startup/degraded behavior hard to reason about and easy to regress.  
+  After: Recognition and executability are separate, explicit concepts, which makes the runtime authority model simpler to trace and test.
+- Before: Custom-skill save/update behavior relied on preflight existence checks, so concurrent changes could silently resurrect deleted skills or overwrite newly created ones.  
+  After: Late create/update races fail deterministically with the same user-facing collision/missing-target semantics the UI already promises.
+- Before: Backend reasoning about custom-skill writes depended on timing between validation and write.  
+  After: The write mode itself expresses the invariant, which is both more robust and easier to audit.
+
+### Validation coverage added or updated
+- Frontend Vitest coverage for:
+  - executable native slash commands remaining empty until authority is ready,
+  - cached native slash commands staying recognized but unavailable during unresolved authority states,
+  - fail-closed parsing of cached native slash input before authority resolves.
+- Backend pytest coverage for:
+  - update-by-`skillId` failing when the target disappears immediately before the update write path,
+  - create-by-`relativePath` failing without overwrite when another writer wins immediately before the create write path,
+  - route-level verification of both late collision and late deletion behavior.
+- Playwright E2E coverage for:
+  - blocking custom slash creation while native command authority is still loading,
+  - cached native slash command submission staying fail-closed until delayed `getAgentRuns` authority resolves, then submitting exactly once after re-resolution.
+- Manual Chrome DevTools MCP verification:
+  - opened Project AI Chat on the headed worktree instance,
+  - verified the Slash Commands side view still renders correctly,
+  - verified return-to-chat composer layout remains intact after the slash-command authority changes.

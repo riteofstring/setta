@@ -11,6 +11,39 @@ import {
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
 
+async function seedAIStore(
+  page: Page,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  await page.evaluate((nextState) => {
+    const key = "setta_ai_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = window.localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as {
+          state?: unknown;
+          version?: unknown;
+        };
+        payload = {
+          state:
+            parsed && typeof parsed.state === "object" && parsed.state !== null
+              ? (parsed.state as Record<string, unknown>)
+              : {},
+          version: typeof parsed?.version === "number" ? parsed.version : 0,
+        };
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, ...nextState };
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  }, patch);
+}
+
 function buildAppGenSkillsResponse(
   skills: Array<Record<string, unknown>>,
   overrides: {
@@ -908,6 +941,163 @@ test("project ai chat blocks custom slash creation until native command authorit
     await expect
       .poll(async () => await addButton.isDisabled(), { timeout: 10_000 })
       .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai chat keeps cached native slash submits fail-closed until authority becomes ready", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+    const engineConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getEngineConfigs`,
+    );
+    expect(engineConfigsResponse.ok()).toBe(true);
+    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+      id: string;
+      name: string;
+      engineType: string;
+    }>;
+    const externalEngine = engineConfigs.find(
+      (engine) => engine.engineType === "external_agent",
+    );
+    if (!externalEngine) {
+      throw new Error(
+        "Missing external agent engine for cached native slash submit test.",
+      );
+    }
+
+    let releaseAgentRuns: (() => void) | null = null;
+    const agentRunsGate = new Promise<void>((resolve) => {
+      releaseAgentRuns = resolve;
+    });
+    let getAgentRunsRequests = 0;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      getAgentRunsRequests += 1;
+      await agentRunsGate;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-native-commands",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-02-02T00:00:00Z",
+            finishedAt: "2026-02-02T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "external_agent",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "native-chat",
+              engineConfigId: externalEngine.id,
+              messages: [],
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: externalEngine.id,
+                agentNativeSlashCommands: ["/deploy"],
+              },
+            },
+          },
+        ]),
+      });
+    });
+
+    let llmResponseRequests = 0;
+    let submittedMessageText: string | null = null;
+    await page.route("**/api/getLLMResponse", async (route) => {
+      llmResponseRequests += 1;
+      const payload = route.request().postDataJSON() as {
+        message?: {
+          content?: Array<{
+            text?: string;
+          }>;
+        };
+      };
+      submittedMessageText = payload.message?.content?.[0]?.text ?? null;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("native-chat"),
+      });
+    });
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
+
+    await seedAIStore(page, {
+      projectChatSelectedEngineId: externalEngine.id,
+    });
+    await page.evaluate(
+      ({ externalEngineId, projectConfigId }) => {
+        window.localStorage.setItem(
+          "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId",
+          JSON.stringify({
+            [projectConfigId]: {
+              [externalEngineId]: {
+                commands: ["/deploy"],
+                status: "available",
+                statusDetail: null,
+              },
+            },
+          }),
+        );
+      },
+      {
+        externalEngineId: externalEngine.id,
+        projectConfigId: projectContext.projectConfigId,
+      },
+    );
+
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const input = page.getByTestId("chat-input-textarea");
+    await expect(input).toBeVisible();
+    await input.fill("/deploy now");
+    await page.getByLabel("Send message").click();
+
+    await expect
+      .poll(() => getAgentRunsRequests, { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(1);
+    expect(llmResponseRequests).toBe(0);
+    await expect(input).toHaveValue("/deploy now");
+
+    releaseAgentRuns?.();
+
+    await expect.poll(() => llmResponseRequests, { timeout: 10_000 }).toBe(1);
+    expect(submittedMessageText).toBe("/deploy now");
+    await expect(page.getByText("Submitted /deploy")).toBeVisible();
+    await expect(input).toHaveValue("");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

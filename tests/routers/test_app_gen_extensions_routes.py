@@ -843,6 +843,115 @@ class TestAppGenExtensionsRoutes:
             assert response.skillContent.content == "# editable\n\nUpdated.\n"
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_update_custom_skill_by_skill_id_fails_when_target_disappears_before_open(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            original_write_existing = app_gen_extensions._write_existing_custom_skill_doc
+
+            def delete_before_update_open(
+                *,
+                skill_doc: Path,
+                skill_id: str,
+                content: str,
+            ) -> None:
+                # Simulate the target disappearing after validation but before the
+                # non-creating update open executes.
+                skill_doc.unlink()
+                original_write_existing(
+                    skill_doc=skill_doc,
+                    skill_id=skill_id,
+                    content=content,
+                )
+
+            monkeypatch.setattr(
+                app_gen_extensions,
+                "_write_existing_custom_skill_doc",
+                delete_before_update_open,
+            )
+
+            with pytest.raises(
+                KeyError,
+                match="Missing SKILL.md for workspace_agents_skills::editable",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::editable",
+                    relative_path=None,
+                    content="# editable\n\nUpdated.\n",
+                )
+
+            assert skill_doc.exists() is False
+            assert skill_dir.exists() is True
+
+    def test_create_custom_skill_fails_when_target_appears_before_open_without_overwrite(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            skill_doc = fake_home / ".agents" / "skills" / "racy-create" / "SKILL.md"
+            winning_content = "# racy-create\n\nCreated by another writer.\n"
+            original_write_new = app_gen_extensions._write_new_custom_skill_doc
+
+            def create_before_exclusive_open(
+                *,
+                skill_doc: Path,
+                relative_path: str,
+                content: str,
+            ) -> None:
+                # Simulate another process winning the create race immediately
+                # before the exclusive open runs.
+                skill_doc.parent.mkdir(parents=True, exist_ok=True)
+                skill_doc.write_text(winning_content, encoding="utf-8")
+                original_write_new(
+                    skill_doc=skill_doc,
+                    relative_path=relative_path,
+                    content=content,
+                )
+
+            monkeypatch.setattr(
+                app_gen_extensions,
+                "_write_new_custom_skill_doc",
+                create_before_exclusive_open,
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Custom skill already exists for relativePath 'racy-create'.",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="racy-create",
+                    content="# racy-create\n\nUnexpected overwrite.\n",
+                )
+
+            assert skill_doc.read_text(encoding="utf-8") == winning_content
+
     def test_rejects_skill_id_target_when_skill_is_not_discoverable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1263,6 +1372,137 @@ class TestAppGenExtensionsRoutes:
             existing_skill_doc.read_text(encoding="utf-8")
             == "# existing\n\nOriginal.\n"
         )
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_rejects_late_create_collisions_without_overwrite(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        skill_doc = fake_home / ".agents" / "skills" / "racy-create" / "SKILL.md"
+        winning_content = "# racy-create\n\nCreated by another writer.\n"
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        original_write_new = app_gen_extensions._write_new_custom_skill_doc
+
+        def create_before_exclusive_open(
+            *,
+            skill_doc: Path,
+            relative_path: str,
+            content: str,
+        ) -> None:
+            # Simulate another writer creating the file after validation but
+            # before the route reaches the exclusive create open.
+            skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            skill_doc.write_text(winning_content, encoding="utf-8")
+            original_write_new(
+                skill_doc=skill_doc,
+                relative_path=relative_path,
+                content=content,
+            )
+
+        monkeypatch.setattr(
+            app_gen_extensions,
+            "_write_new_custom_skill_doc",
+            create_before_exclusive_open,
+        )
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "racy-create",
+                    "content": "# racy-create\n\nUnexpected overwrite.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert (
+            "Custom skill already exists for relativePath 'racy-create'."
+            in response.json()["detail"]
+        )
+        assert skill_doc.read_text(encoding="utf-8") == winning_content
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_returns_missing_when_update_target_disappears_before_open(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        skill_doc = workspace_root / ".agents" / "skills" / "editable" / "SKILL.md"
+        skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        original_write_existing = app_gen_extensions._write_existing_custom_skill_doc
+
+        def delete_before_update_open(
+            *,
+            skill_doc: Path,
+            skill_id: str,
+            content: str,
+        ) -> None:
+            # Simulate the selected target being deleted after validation but
+            # before the route performs the non-creating update open.
+            skill_doc.unlink()
+            original_write_existing(
+                skill_doc=skill_doc,
+                skill_id=skill_id,
+                content=content,
+            )
+
+        monkeypatch.setattr(
+            app_gen_extensions,
+            "_write_existing_custom_skill_doc",
+            delete_before_update_open,
+        )
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::editable",
+                    "relativePath": None,
+                    "content": "# editable\n\nUpdated.\n",
+                },
+            )
+
+        assert response.status_code == 404
+        assert (
+            response.json()["detail"]
+            == "Missing SKILL.md for workspace_agents_skills::editable"
+        )
+        assert skill_doc.exists() is False
+        assert skill_doc.parent.exists() is True
         clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_uses_workspace_root_when_agents_home_aliases_workspace(
