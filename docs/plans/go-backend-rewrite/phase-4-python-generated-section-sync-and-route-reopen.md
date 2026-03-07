@@ -216,7 +216,8 @@ Completed 2026-03-06:
 Completed 2026-03-07:
 
 - added stable frontend selectors for the Run Instructions Python codegen
-  toggle, metadata toggle, and Python-disabled policy message in
+  toggle, metadata toggle, Python-disabled policy message, and the section /
+  code-object override controls in
   `frontend/src/components/Panes/Overview/RunInstructions.tsx`
 - added real Playwright coverage in
   `frontend/tests/e2e/overview/codegen/python-codegen-target.spec.ts`
@@ -226,6 +227,8 @@ Completed 2026-03-07:
     persistence
   - metadata toggle on/off -> generated metadata singleton creation/removal and
     persistence
+  - section override add/edit/remove persistence through Run Instructions
+  - code-object override add/edit/remove persistence through Run Instructions
 - verified that the frontend now observes the authoritative backend response
   rather than leaving stale generated-section nodes on the canvas after target
   edits
@@ -236,6 +239,5 @@ Verification run:
 
 ## Next Recommended Step
 
-Run the same Python target enable/edit flow through chrome-devtools-mcp once a
-headed DevTools session is available, then decide whether broader Playwright
-coverage is needed for section-policy and code-object-policy editors.
+Run the same Python target enable/edit and policy-edit flows through
+chrome-devtools-mcp once a headed DevTools session is available.

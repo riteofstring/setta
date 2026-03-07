@@ -426,5 +426,5 @@ Completed 2026-03-06:
 ## Next Recommended Step
 
 - finish headed CDP verification of the reopened Run Instructions Python target
-  flow, then decide whether section-policy/code-object-policy editors need
-  broader frontend coverage beyond the new toggle-focused Playwright spec
+  flow, including the section-policy and code-object-policy editor paths that
+  now have focused Playwright coverage
