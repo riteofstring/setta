@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 16 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 17 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -55,6 +55,7 @@ Current repo status as of 2026-03-07:
       tool
     - `set_section_name` as the first rename/refactor-backed project-shape tool
     - `set_param_entered_value` as the first scoped code-object value tool
+    - `set_param_name_and_value` as the combined scoped param rename/value tool
     - `set_type_error_ignore` as the scoped type-ignore write tool
     - `set_code_obj_display_name` as the scoped code-object rename/display tool
     - `set_code_obj_name` as the scoped code-object naming tool
@@ -767,15 +768,46 @@ Reference:
 
 - `phase-6-codeobj-name-tool-parity.md`
 
+### Slice 17: Param Name And Value Tool Parity
+
+Deliver:
+
+- a Go-owned project-state owner for updating one parameter name and value in
+  one mutation
+- section-scoped param-name validation using the caller-supplied `sectionId`
+- atomic validation-before-mutation ordering for rename/value persistence
+- a Go MCP `set_param_name_and_value` write tool
+- argument temp-id translation for `sectionId` and `codeObjId`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `set_param_name_and_value`
+- write scope remains explicit and fail-closed through `section` + `codeObj`
+  metadata
+- combined rename/value semantics stay source-of-truth in
+  `internal/projectstate`
+- invalid rename failures normalize to MCP `invalid_arguments`
+- no partial rename/value writes survive validation or value-support failures
+- the IDE HTTP `setParamNameAndValue` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-param-name-and-value-tool-parity.md`
+
 ## Next Recommended Step
 
-- Slice 16 is now complete.
-- The next recommended step is a focused `set_param_name_and_value` slice so
-  the remaining system-prompt combined param rename/value workflow moves onto
-  Go-owned runtime boundaries.
-- Keep it layered on the completed `set_code_obj_name` and
-  `set_param_entered_value` owners instead of inventing a new transport-owned
-  mutation path.
+- Slice 17 is now complete.
+- The next recommended step is a focused `set_callable` slice so the canonical
+  callable selection and param-refetch workflow moves onto the completed Go
+  MCP/runtime boundary.
+- Keep it layered on the completed Phase 5 signature-help/callable refresh
+  groundwork instead of broadening it into unrelated callable orchestration.
 - Keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice

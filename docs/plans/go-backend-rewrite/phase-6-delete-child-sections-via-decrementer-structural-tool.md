@@ -174,10 +174,11 @@ The high-leverage move is therefore:
 - `create_new_section_variant` has now landed as the section-variant follow-on
 - `set_code_obj_name` has now landed as the next completed rename/refactor
   slice
-- the next bounded Phase 6 slice should move to `set_param_name_and_value`
-- it remains the highest-leverage remaining system-prompt param-editing gap
-- keep `set_param_name_and_value` scoped to one coherent code-object write
-  boundary
+- `set_param_name_and_value` has now landed as the next completed combined
+  code-object write slice
+- the next bounded Phase 6 slice should move to `set_callable`
+- it remains the highest-leverage remaining canonical callable workflow gap
+- keep `set_callable` scoped to one coherent callable/refetch boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 
@@ -191,3 +192,5 @@ The high-leverage move is therefore:
   recommended step moved to `set_code_obj_name`.
 - 2026-03-07: follow-on `set_code_obj_name` slice completed; next recommended
   step moved to `set_param_name_and_value`.
+- 2026-03-07: follow-on `set_param_name_and_value` slice completed; next
+  recommended step moved to `set_callable`.

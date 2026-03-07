@@ -236,8 +236,10 @@ Do not own:
   complete.
 - `set_code_obj_name` is now complete over the Go-owned rename-validation
   boundary.
-- The next recommended step is a focused `set_param_name_and_value` slice so
-  the remaining combined param rename/value workflow moves onto Go-owned
-  project-state owners.
+- `set_param_name_and_value` is now complete over the Go-owned combined
+  rename/value boundary.
+- The next recommended step is a focused `set_callable` slice so the canonical
+  callable selection and param-refetch workflow moves onto the completed Go
+  MCP/runtime boundary.
 - Leave broader structural create/delete/move tools deferred until a dedicated
   structural plan narrows them into a bounded owner.

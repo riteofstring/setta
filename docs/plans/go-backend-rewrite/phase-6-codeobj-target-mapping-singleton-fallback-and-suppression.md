@@ -241,10 +241,12 @@ Remain the owner for:
 - Follow-on code-object write slices for `set_param_entered_value`,
   `set_type_error_ignore`, `set_code_obj_display_name`, and
   `set_code_obj_name` are now complete.
+- `set_param_name_and_value` is now complete over the combined rename/value
+  boundary.
 - Structural/project-shape follow-ons through `create_new_section_variant` are
   now complete.
-- The next recommended step is a focused `set_param_name_and_value` slice so
-  the remaining combined param rename/value workflow moves onto Go-owned
-  project-state owners.
+- The next recommended step is a focused `set_callable` slice so the canonical
+  callable selection and param-refetch workflow moves onto the completed Go
+  MCP/runtime boundary.
 - Keep broader structural move/reparent semantics deferred until a dedicated
   structural plan narrows them into a bounded owner.

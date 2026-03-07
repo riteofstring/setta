@@ -142,12 +142,13 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- implement a focused `set_param_name_and_value` slice so the remaining
-  system-prompt combined param rename/value workflow moves onto a Go-owned
-  project-state boundary
-- keep it layered on the now-complete `set_code_obj_name` and
-  `set_param_entered_value` owners instead of reintroducing transport-owned
-  validation
+- `set_param_name_and_value` has now landed as the next completed combined
+  code-object write slice
+- the next recommended step is a focused `set_callable` slice so the canonical
+  callable selection and param-refetch workflow moves onto the completed Go
+  MCP/runtime boundary
+- keep it layered on the completed Phase 5 signature-help/callable refresh
+  groundwork instead of broadening it into unrelated callable orchestration
 - keep structural move/reparent semantics deferred until a dedicated
   structural plan narrows them into a bounded owner
 
@@ -160,3 +161,5 @@ The highest-leverage move is therefore:
 - 2026-03-07: kept the IDE HTTP `setCodeObjName` route deferred; the bounded
   owner lives in `internal/projectstate` instead of a transport-specific
   rename service.
+- 2026-03-07: follow-on `set_param_name_and_value` slice completed; next
+  recommended step moved to `set_callable`.
