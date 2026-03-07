@@ -1,0 +1,172 @@
+package lsp
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+
+	"setta/internal/projectstate"
+	"setta/internal/statefs"
+)
+
+type ProjectSynchronizerOptions struct {
+	SettaFilesRoot string
+	Service        *Service
+}
+
+type ProjectSynchronizer struct {
+	settaFilesRoot string
+	service        *Service
+}
+
+func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchronizer, error) {
+	if options.Service == nil {
+		return nil, fmt.Errorf("lsp: service is required")
+	}
+	settaFilesRoot, err := statefs.NormalizePath(options.SettaFilesRoot, "")
+	if err != nil {
+		return nil, fmt.Errorf("lsp: resolve setta files root: %w", err)
+	}
+	return &ProjectSynchronizer{
+		settaFilesRoot: settaFilesRoot,
+		service:        options.Service,
+	}, nil
+}
+
+func (s *ProjectSynchronizer) MaterializeDocument(ctx context.Context, document projectstate.Document) error {
+	if s == nil {
+		return nil
+	}
+
+	documents, err := s.buildDocuments(document)
+	if err != nil {
+		return err
+	}
+	return s.service.SyncDocuments(ctx, documents)
+}
+
+func (s *ProjectSynchronizer) Close(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	return s.service.Close(ctx)
+}
+
+func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (map[string]SyncedDocument, error) {
+	documents := map[string]SyncedDocument{}
+	projectIDs := make([]string, 0, len(document.Projects))
+	for projectID := range document.Projects {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+
+	for _, projectID := range projectIDs {
+		project := document.Projects[projectID]
+
+		sectionFiles, err := project.ActivePythonCodeSectionFiles()
+		if err != nil {
+			return nil, fmt.Errorf("lsp: project %q active python code sections: %w", projectID, err)
+		}
+		for _, sectionFile := range sectionFiles {
+			path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "python code section path")
+			if err != nil {
+				return nil, err
+			}
+			content, err := s.resolveSectionContent(path, sectionFile)
+			if err != nil {
+				return nil, err
+			}
+			documents[path] = SyncedDocument{
+				Path:       path,
+				LanguageID: "python",
+				Content:    content,
+			}
+		}
+
+		generatedDocuments, err := s.generatedPythonDocuments(project)
+		if err != nil {
+			return nil, err
+		}
+		for path, document := range generatedDocuments {
+			documents[path] = document
+		}
+	}
+
+	return documents, nil
+}
+
+func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile projectstate.PythonCodeSectionFile) (string, error) {
+	if sectionFile.HasInlineCode {
+		if err := statefs.AtomicWriteFile(path, []byte(sectionFile.Code), 0o644); err != nil {
+			return "", fmt.Errorf("lsp: write python code section %q: %w", sectionFile.SectionID, err)
+		}
+		return sectionFile.Code, nil
+	}
+
+	content, err := os.ReadFile(path)
+	if err == nil {
+		return string(content), nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("lsp: read python code section %q: %w", sectionFile.SectionID, err)
+	}
+	if err := statefs.AtomicWriteFile(path, []byte{}, 0o644); err != nil {
+		return "", fmt.Errorf("lsp: initialize empty python code section %q: %w", sectionFile.SectionID, err)
+	}
+	return "", nil
+}
+
+func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Project) (map[string]SyncedDocument, error) {
+	if !project.HasPythonCodegenTarget() {
+		return map[string]SyncedDocument{}, nil
+	}
+
+	config, _, err := project.PythonCodegenTarget()
+	if err != nil {
+		return nil, err
+	}
+
+	documents := map[string]SyncedDocument{}
+	generatedCodePath, err := s.resolveGeneratedPath(project.GeneratedCodeBinding, projectstate.GeneratedPythonCodeRelativePath(project.Name))
+	if err != nil {
+		return nil, err
+	}
+	generatedCode, err := os.ReadFile(generatedCodePath)
+	if err != nil {
+		return nil, fmt.Errorf("lsp: read generated python code %s: %w", generatedCodePath, err)
+	}
+	documents[generatedCodePath] = SyncedDocument{
+		Path:       generatedCodePath,
+		LanguageID: "python",
+		Content:    string(generatedCode),
+	}
+
+	if config.GenerateMetadata {
+		generatedMetadataPath, err := s.resolveGeneratedPath(project.GeneratedMetadataBinding, projectstate.GeneratedPythonMetadataRelativePath(project.Name))
+		if err != nil {
+			return nil, err
+		}
+		generatedMetadata, err := os.ReadFile(generatedMetadataPath)
+		if err != nil {
+			return nil, fmt.Errorf("lsp: read generated python metadata %s: %w", generatedMetadataPath, err)
+		}
+		documents[generatedMetadataPath] = SyncedDocument{
+			Path:       generatedMetadataPath,
+			LanguageID: "python",
+			Content:    string(generatedMetadata),
+		}
+	}
+
+	return documents, nil
+}
+
+func (s *ProjectSynchronizer) resolveGeneratedPath(binding *projectstate.CodeFileBinding, fallbackRelativePath string) (string, error) {
+	relativePath := fallbackRelativePath
+	if binding != nil && binding.Path != "" {
+		relativePath = binding.Path
+	}
+	return statefs.ResolveWithinRoot(s.settaFilesRoot, filepath.FromSlash(relativePath), "generated python path")
+}

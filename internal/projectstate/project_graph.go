@@ -590,6 +590,10 @@ func (p Project) Normalized() (Project, error) {
 		}
 	}
 
+	if err := normalized.ReconcilePythonCodeSectionBindings(); err != nil {
+		return Project{}, fmt.Errorf("reconcile python code section bindings: %w", err)
+	}
+
 	return normalized, nil
 }
 

@@ -16,6 +16,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/lsp"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/plugins"
@@ -40,6 +41,7 @@ type App struct {
 	runCode       *runs.Service
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
+	lspSync       *lsp.ProjectSynchronizer
 	handler       http.Handler
 }
 
@@ -65,6 +67,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		deploymentRuntime  *deployments.Runtime
 		projectRuntime     *projectstate.Runtime
 		codegenValidator   projectstate.CodegenTargetValidator
+		projectLSPSyncer   *lsp.ProjectSynchronizer
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		plannerFilesRoot   string
@@ -116,10 +119,26 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		pythonSession, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			return nil, err
+		}
+		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			Service:        lsp.NewService(pythonSession),
+		})
+		if err != nil {
+			return nil, err
+		}
 		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+						return err
+					}
+					if err := projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
 					}
 					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
@@ -273,6 +292,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		runCode:       runCodeService,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
+		lspSync:       projectLSPSyncer,
 		handler:       handler,
 	}, nil
 }
@@ -326,7 +346,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	return errors.Join(closeProjectResources(a.projectStates, a.deployment), a.terminals.Close(ctx), a.runtime.Shutdown(ctx))
+	return errors.Join(closeProjectResources(a.projectStates, a.deployment), closeLSPProjectSynchronizer(a.lspSync, ctx), a.terminals.Close(ctx), a.runtime.Shutdown(ctx))
 }
 
 type infoService struct {
@@ -377,4 +397,11 @@ func closeDeploymentRuntime(deploymentRuntime *deployments.Runtime) error {
 		return nil
 	}
 	return deploymentRuntime.Close()
+}
+
+func closeLSPProjectSynchronizer(syncer *lsp.ProjectSynchronizer, ctx context.Context) error {
+	if syncer == nil {
+		return nil
+	}
+	return syncer.Close(ctx)
 }

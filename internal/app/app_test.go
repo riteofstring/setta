@@ -83,6 +83,49 @@ func TestAppServesFoundationRoutes(t *testing.T) {
 	}
 }
 
+func TestAppSaveProjectsPythonCodeSectionFilesForLSP(t *testing.T) {
+	cfg := testConfig(t)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppLSPCodeSectionProject(t, app)
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save lsp code section project: %v", err)
+	}
+
+	sectionPath := filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "runner.py")
+	content, err := os.ReadFile(sectionPath)
+	if err != nil {
+		t.Fatalf("read canonical lsp section file: %v", err)
+	}
+	if string(content) != "print('runner')\n" {
+		t.Fatalf("unexpected canonical lsp section content %q", string(content))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("runner")
+	if err != nil {
+		t.Fatalf("resolve runner after save: %v", err)
+	}
+	if impl.Code == nil || impl.Code.Binding == nil {
+		t.Fatal("expected normalized runner binding after save")
+	}
+	if impl.Code.Binding.Path != "code/sections/alpha/runner.py" {
+		t.Fatalf("unexpected runner binding path %q", impl.Code.Binding.Path)
+	}
+}
+
 func TestAppShutdownStopsRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -1246,6 +1289,54 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 	}
 }
 
+func seedAppLSPCodeSectionProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+			SectionVariantMap: map[string]string{
+				"runner": "runner-variant",
+			},
+			Sections: map[string]projectstate.Section{
+				"runner": {
+					ID:               "runner",
+					Name:             "Runner",
+					VariantIDs:       []string{"runner-variant"},
+					DefaultVariantID: "runner-variant",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"runner-variant": {
+					ID:     "runner-variant",
+					ImplID: "runner-impl",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"runner-impl": {
+					ID:   "runner-impl",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguagePython,
+					},
+					Payload: projectstate.RawJSON(`{
+						"id":"runner-impl",
+						"type":"Code",
+						"code":"print('runner')\n",
+						"codeLanguage":"python",
+						"children":[]
+					}`),
+				},
+			},
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate lsp code section project: %v", err)
+	}
+}
+
 func seedAppPythonCodegenProject(t *testing.T, app *App) {
 	t.Helper()
 
@@ -1301,6 +1392,25 @@ func seedAppPythonCodegenProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
 	}
+}
+
+func prepareAppLSPFixture(t *testing.T) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_LSP_COMMAND", appTestWorkerPython(t, repoRoot))
+	t.Setenv(
+		"SETTA_LSP_ARGS",
+		filepath.Join(
+			repoRoot,
+			"tests",
+			"fixtures",
+			"plugins",
+			"backend-language-server-e2e",
+			"backend",
+			"mini_language_server.py",
+		),
+	)
 }
 
 func prepareAppCurrentSession(t *testing.T, cfg config.Config) {

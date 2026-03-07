@@ -27,7 +27,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 4 focused follow-ups are complete through backend tests, Playwright,
   and headed CDP verification for the Python codegen target flow
-- there is still no `internal/lsp` package in Go
+- Slice 1 is now complete:
+  - Go owns `internal/lsp` session/process supervision for a single Python
+    language server
+  - main-runtime save hooks now synchronize canonical Python code-section and
+    generated Python files into the live LSP session
+  - canonical Python code-section bindings normalize inside `internal/projectstate`
+  - file-backed Python sections keep their canonical on-disk source when the
+    current project snapshot has binding metadata but no inline `"code"` field
 - there are still no Go-owned HTTP routes for:
   - `getLatestLspDiagnostics`
   - `textFieldCompletion`
@@ -243,7 +250,7 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
 
 ### Slice 2: Diagnostics State + Hydration/Broadcast Transport
 
@@ -265,7 +272,7 @@ Acceptance:
 
 Status:
 
-- pending
+- next
 
 ### Slice 3: Snapshot Completion Transport
 
@@ -317,19 +324,44 @@ Status:
 
 ## Open Questions
 
-- which Go helper package, if any, is the narrowest acceptable fit for
-  JSON-RPC/LSP framing without taking over service design?
-- whether canonical code-section binding reconciliation should live in one Phase
-  5 commit or in a tiny pre-slice before the first session tests
-- whether the first generated-code diagnostics mapper should cover only Python
-  generated sections or also plugin-generated Python files in the same slice
+- whether generated-code diagnostics mapping in Slice 2 should initially cover
+  only Python-target outputs or also plugin-generated Python files from the
+  same save hook
+
+## Slice 1 Notes
+
+Completed in code and tests:
+
+- `internal/lsp` session framing, request correlation, timeout handling, and
+  diagnostics callback dispatch
+- current-process Python session resolution via explicit env override or the
+  active virtualenv
+- project-scoped synchronizer that keeps canonical Python section files and
+  generated Python files open with the language server
+- `internal/projectstate` canonical Python code-section binding reconciliation
+  during normalization
+- app lifecycle wiring for LSP start-on-demand and shutdown teardown
+
+Key decision:
+
+- treat inline section payload code as authoritative only when the effective
+  payload actually contains a `"code"` string
+- when a Python code section has a binding but no inline code field, preserve
+  and sync the canonical on-disk file instead of overwriting it with an empty
+  buffer
+
+Verification completed:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/lsp -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/lsp ./internal/projectstate ./internal/app -count=1`
 
 ## Next Recommended Step
 
-Execute Slice 1 first:
+Execute Slice 2 next:
 
-- add `internal/lsp` with a single Python language-server session
-- add deterministic per-section canonical code-file projection for Python Code
-  sections
-- prove the runtime against the existing fixture language-server integration
-  pattern before widening to diagnostics or completion routes
+- add project-scoped diagnostics storage under `internal/projectstate`
+- wire `publishDiagnostics` callbacks from `internal/lsp` into that store
+- broadcast `LSPDiagnostics` updates through the existing realtime boundary
+- add `getLatestLspDiagnostics` route wiring before widening to completion
