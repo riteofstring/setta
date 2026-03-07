@@ -17,6 +17,8 @@ that reuses those semantics through the scoped MCP invocation boundary.
 
 ## Status
 
+This slice is now complete.
+
 Current repo status as of 2026-03-07:
 
 - `internal/mcpx` owns scoped read/write invocation, metadata-driven target
@@ -24,11 +26,13 @@ Current repo status as of 2026-03-07:
 - `internal/projectstate` already owns section-name validation and mutation
 - `internal/app` already owns the rename-refactor service used by the IDE HTTP
   route
-- Go MCP does not yet expose `set_section_name`
-- the current Phase 6 follow-on text is stale if it implies a broader
-  user-facing name cluster
-  - `set_callable_name` is an internal rename-apply helper, not an existing
-    product-facing MCP tool boundary
+- Go MCP now exposes `set_section_name`
+- `internal/app` now wires the existing rename-refactor service into IDE MCP
+- invalid section-name validation failures now surface as structured MCP
+  `invalid_arguments` errors
+- the stale broader-name follow-on docs have been corrected
+  - `set_callable_name` remains an internal rename-apply helper, not an
+    existing product-facing MCP tool boundary
 
 ## Scope
 
@@ -161,9 +165,60 @@ Do not own:
   rename path
 - invalid section names return structured MCP tool errors
 
+## Completed
+
+- updated `internal/mcpx/server.go`
+  - added a narrow section-name mutation dependency for MCP
+  - registered `set_section_name` as a discoverable write tool with
+    `IDPathsByType[section] = ["sectionId"]`
+  - normalized invalid section-name failures into MCP `invalid_arguments`
+    results
+- updated `internal/app/app.go`
+  - IDE MCP setup now passes the existing rename-refactor service into the MCP
+    server
+  - `set_section_name` therefore reuses the same Go owner as the IDE HTTP
+    route
+- expanded focused coverage in:
+  - `internal/mcpx/server_test.go`
+  - `internal/httpapi/mcp_tool_routes_test.go`
+  - `internal/app/mcp_test.go`
+  - existing `internal/projectstate/section_names_test.go` remains the
+    validation authority used by this MCP slice
+
+## Decisions
+
+- keep section-rename semantics owned by the existing rename-refactor service
+  - MCP does not call `projectstate.SetSectionName` directly in the app wiring
+  - no second rename-planning path was added
+- keep invalid-name validation authoritative in `internal/projectstate`
+  - MCP passes the raw `name` argument through
+  - trim and validation semantics stay in the existing project-state owner
+- keep `set_callable_name` non-user-facing
+  - it remains an internal helper for rename-refactor changed-value application
+  - no new product-facing MCP tool was added for it
+- keep Python parity for missing `frontendOpId`
+  - MCP rename calls without `frontendOpId` do not create pending
+    rename-refactor prompts in `ALWAYS_ASK` mode
+  - this matches the current Python rename flow
+
+## Open Questions
+
+- none at this slice boundary
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute|TestRegisterLSPRoutesMutesCodeSectionDiagnostics' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestProjectSetSectionName' -count=1 -timeout 180s`
+
 ## Recommended Follow-On
 
-- the next bounded Phase 6 slice should move to the first structural
-  project-shape tool once section-rename parity is in place
+- Slice 9 is complete.
+- The next bounded Phase 6 slice should move to the first structural
+  project-shape tool:
+  - `create_top_level_section`
+- it is already a canonical MCP workflow anchor in the Python system prompt and
+  is the highest-leverage structural tool after section-rename parity
 - keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary

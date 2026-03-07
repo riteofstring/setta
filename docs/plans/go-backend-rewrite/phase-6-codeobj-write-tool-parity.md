@@ -231,11 +231,10 @@ Do not own:
 ## Recommended Follow-On
 
 - Slice 8 is complete.
-- The next recommended step is a focused `set_section_name` MCP slice that
-  reuses the existing Go rename-refactor owner.
-- `set_callable_name` remains an internal rename-apply helper, not a separate
-  product-facing MCP tool boundary.
+- Slice 9 is now complete.
+- The next recommended step is the first structural MCP slice, anchored on
+  `create_top_level_section`.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as a coherent boundary.
-- Leave broader structural create/delete/move tools after section-rename
-  parity is in place.
+- Leave broader structural create/delete/move tools after that first
+  structural slice proves the boundary.

@@ -514,14 +514,40 @@ Reference:
 
 - `phase-6-codeobj-write-tool-parity.md`
 
+### Slice 9: Section Name Tool Parity
+
+Deliver:
+
+- a Go MCP `set_section_name` tool
+- reuse of the existing Go rename-refactor owner instead of a second rename
+  path in MCP
+- focused scoped-write, temp-id, authenticated HTTP bridge, and IDE-mode app
+  coverage for section rename
+
+Acceptance:
+
+- Go MCP exposes `set_section_name`
+- scoped writes enforce section-target access for rename calls
+- temp-id translation rewrites `sectionId` for rename calls
+- invalid section names return structured MCP tool errors
+- the app wiring reuses the existing rename-refactor owner
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-section-name-tool-parity.md`
+
 ## Next Recommended Step
 
-- Slice 8 is now complete.
-- The next recommended step is a focused `set_section_name` MCP slice that
-  reuses the existing Go rename-refactor owner.
-- `set_callable_name` remains an internal rename-apply helper, not a separate
-  product-facing MCP tool boundary.
+- Slice 9 is now complete.
+- The next recommended step is the first structural MCP slice, anchored on
+  `create_top_level_section`.
+- it is already a canonical MCP workflow anchor in the Python system prompt and
+  is the highest-leverage structural tool after section-rename parity
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
-- Leave broader structural create/delete/move mutations after section-rename
-  parity is in place.
+- Leave broader structural create/delete/move mutations after that first
+  structural slice proves the boundary.
