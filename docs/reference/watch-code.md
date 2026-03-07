@@ -31,6 +31,18 @@ The UI writes inputs via `route_set_watch_code_enabled` and
 `route_set_watch_code_inputs`. When inputs change, the backend baselines only the
 new additions (so existing callables don't auto-create sections).
 
+## UI surface
+- Watch Code no longer has its own Overview tab.
+- The primary UI entry point is the radar button in the canvas controls rail
+  (`frontend/src/forks/xyflow/controls/Controls.tsx`), which opens a floating
+  `WatchCodePane` popover.
+- The popover-open flag is session-local (`watchCodePortalOpen`) and is
+  intentionally reset on reload even though the underlying watch settings still
+  persist on `ProjectConfig`.
+- UI-setting reveal flows now keep the Overview pane targeted while opening the
+  Watch Code popover so `core.watch_code.*` anchors still resolve after the tab
+  removal.
+
 ## Baselines: avoiding retroactive section creation
 When Watch Code is enabled, the backend records a **baseline**:
 1. It scans the configured watch inputs and stores every discovered identity in
@@ -118,8 +130,7 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 - Non-recursive folders only match direct children.
 - Recursive folders match any descendant path.
 - Watch inputs are resolved with `normalize_workspace_path` so comparisons stay
-  consistent relative to the workspace root.
-  across relative/absolute paths.
+  consistent relative to the workspace root across relative/absolute paths.
 
 ## Code references
 - `backend/setta/project_state/watch_code.py`

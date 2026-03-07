@@ -1,18 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createAgentRun,
   createAllLLMConfigs,
   createEngineConfig,
   createExternalAgentPreflightStatus,
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
+  areAgentNativeSlashCommandMapsEqual,
+  buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
+  collectAgentNativeSlashCommandTokensFromEntries,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
+  resolveVisibleAgentNativeSlashCommandsByEngineId,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -26,6 +33,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "ui-layout",
+        isEditable: false,
+        editabilityReason: null,
         description: "Create dense dashboard layouts.",
       },
       {
@@ -34,6 +43,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.agents/skills",
         rootPath: "/home/.agents/skills",
         relativePath: "build-tools",
+        isEditable: true,
+        editabilityReason: null,
         description: "Automate builds and releases.",
       },
     ];
@@ -53,6 +64,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: "frontend-design",
+        isEditable: false,
+        editabilityReason: null,
         description: "Create polished frontend interfaces.",
       },
       {
@@ -61,6 +74,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "setta-cli",
+        isEditable: false,
+        editabilityReason: null,
         description: "Project-local CLI helpers.",
       },
       {
@@ -69,6 +84,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: ".system/skill-installer",
+        isEditable: false,
+        editabilityReason: null,
         description: "Install curated skills.",
       },
     ];
@@ -92,6 +109,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
+          isEditable: true,
+          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
@@ -129,6 +148,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
+          isEditable: true,
+          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
@@ -160,6 +181,178 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(
       statuses["workspace_agents_skills::frontend-design"]?.activitySource,
     ).toBe("codex_skill_tool");
+  });
+
+  it("fails closed when multiple skills match the same runtime identifier", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Workspace triage instructions.",
+        },
+        {
+          skillId: "user_agents_skills::triage",
+          name: "triage",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "User triage instructions.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/triage",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(statuses["workspace_agents_skills::triage"]?.activityState).toBe(
+      "unknown",
+    );
+    expect(
+      statuses["workspace_agents_skills::triage"]?.activitySource,
+    ).toBeNull();
+    expect(statuses["user_agents_skills::triage"]?.activityState).toBe(
+      "unknown",
+    );
+    expect(statuses["user_agents_skills::triage"]?.activitySource).toBeNull();
+  });
+
+  it("keeps cross-ecosystem duplicates active only for the applicable codex root", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Codex triage instructions.",
+        },
+        {
+          skillId: "workspace_claude_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .claude/skills",
+          rootPath: "/workspace/.claude/skills",
+          relativePath: "triage",
+          isEditable: false,
+          editabilityReason: null,
+          description: "Claude triage instructions.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/triage",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(statuses["workspace_agents_skills::triage"]?.activityState).toBe(
+      "active",
+    );
+    expect(statuses["workspace_agents_skills::triage"]?.activitySource).toBe(
+      "codex_skill_tool",
+    );
+    expect(statuses["workspace_claude_skills::triage"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
+  it("keeps cross-ecosystem duplicates active only for the applicable opencode root", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_opencode_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .opencode/skills",
+          rootPath: "/workspace/.opencode/skills",
+          relativePath: "triage",
+          isEditable: false,
+          editabilityReason: null,
+          description: "OpenCode triage instructions.",
+        },
+        {
+          skillId: "workspace_claude_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .claude/skills",
+          rootPath: "/workspace/.claude/skills",
+          relativePath: "triage",
+          isEditable: false,
+          editabilityReason: null,
+          description: "Claude triage instructions.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "opencode",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/triage",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(statuses["workspace_opencode_skills::triage"]?.activityState).toBe(
+      "active",
+    );
+    expect(statuses["workspace_opencode_skills::triage"]?.activitySource).toBe(
+      "opencode_skill_tool",
+    );
+    expect(statuses["workspace_claude_skills::triage"]?.activityState).toBe(
+      "inactive",
+    );
   });
 
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
@@ -468,6 +661,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/permissions",
       "/search",
@@ -477,6 +674,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/permissions",
       "/help",
@@ -530,14 +731,257 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/help",
     ]);
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
+      "/app-json",
+      "/app-image",
+      "/app-prompt",
+      "/app-mcp",
       "/model",
       "/help",
     ]);
+  });
+
+  it("collects normalized agent-native slash tokens from authoritative run metadata", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromEntries(
+      resolveAgentNativeSlashCommandsByEngineId({
+        runs: [
+          createAgentRun({
+            id: "run-1",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: [" /triage ", "/help", 1],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-2",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-second",
+                agentNativeSlashCommands: ["/TRIAGE", "/ship"],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-ignored",
+            inputs: {
+              projectConfigId: "project-b",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: ["/ignored"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-a",
+        engineConfigIds: ["engine-live", "engine-second"],
+      }),
+    );
+
+    expect(tokens).toEqual(["/triage", "/help", "/ship"]);
+  });
+
+  it("scopes authoritative runtime native slash tokens to the active engine ids", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromEntries(
+      resolveAgentNativeSlashCommandsByEngineId({
+        runs: [
+          createAgentRun({
+            id: "run-foreign-engine",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-foreign",
+                agentNativeSlashCommands: ["/deploy"],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-live-engine",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: ["/help"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-a",
+        engineConfigIds: ["engine-live"],
+      }),
+    );
+
+    expect(tokens).toEqual(["/help"]);
+  });
+
+  it("ignores authoritative runtime native slash commands from other projects", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromEntries(
+      resolveAgentNativeSlashCommandsByEngineId({
+        runs: [
+          createAgentRun({
+            id: "run-project-a",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: ["/ship"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-b",
+        engineConfigIds: ["engine-live"],
+      }),
+    );
+
+    expect(tokens).toEqual([]);
+  });
+
+  it("hides native slash entries until runtime authority is ready", () => {
+    const visible = resolveVisibleAgentNativeSlashCommandsByEngineId({
+      agentRunsAuthorityState: "terminal_error",
+      runtimeEntries: {},
+    });
+
+    expect(visible).toEqual({});
+  });
+
+  it("keeps the newest authoritative runtime metadata per engine across the full run list", () => {
+    const resolved = resolveAgentNativeSlashCommandsByEngineId({
+      runs: [
+        createAgentRun({
+          id: "run-project-a-old",
+          startedAt: "2026-02-01T00:00:00Z",
+          finishedAt: "2026-02-01T00:00:01Z",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/old"],
+            },
+          },
+        }),
+        createAgentRun({
+          id: "run-project-a-new",
+          startedAt: "2026-02-02T00:00:00Z",
+          finishedAt: "2026-02-02T00:00:01Z",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/deploy"],
+            },
+          },
+        }),
+      ],
+      projectConfigId: "project-a",
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(resolved).toEqual({
+      "engine-live": {
+        commands: ["/deploy"],
+        status: "available",
+        statusDetail: null,
+      },
+    });
+  });
+
+  it("detects when authoritative runtime metadata is unchanged", () => {
+    expect(
+      areAgentNativeSlashCommandMapsEqual(
+        {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+        {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("reconciles colliding custom commands against managed and native reserved tokens", () => {
+    const reservedTokens = buildReservedSlashCommandTokens({
+      managedCommands: [
+        {
+          command: "/new",
+          action: "new",
+          summary: "Start a new thread.",
+        },
+      ],
+      engineCommandGroups: [
+        {
+          commands: [
+            {
+              command: "/permissions",
+              action: "permissions",
+              summary: "Set permissions mode.",
+            },
+          ],
+        },
+      ],
+      discoveredNativeSlashCommands: ["/triage"],
+    });
+
+    const reconciled = reconcileCustomSlashCommands({
+      customCommands: [
+        {
+          command: "/triage",
+          action: "custom_prompt",
+          summary: "Run a saved custom prompt.",
+          promptTemplate: "Custom triage",
+        },
+        {
+          command: "/project-status",
+          action: "custom_prompt",
+          summary: "Run a saved custom prompt.",
+          promptTemplate: "Status report",
+        },
+      ],
+      reservedTokens,
+    });
+
+    expect(Array.from(reconciled.conflictingCommandTokens)).toEqual([
+      "/triage",
+    ]);
+    expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
+      ["/project-status"],
+    );
   });
 });

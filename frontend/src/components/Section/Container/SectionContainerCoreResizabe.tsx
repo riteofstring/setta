@@ -1,25 +1,19 @@
-import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import {
-  getOpenExternalProjectChatWindowInstanceForSectionInState,
-  getProjectChatWindowModeForSectionInState,
-} from "state/actions/projectChatWindowing";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import {
-  type ChatWindowPlacement,
-  SectionTypeEnum,
-  type SectionType,
-} from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
+import { ChatArea } from "../Layouts/ChatArea";
 import {
   CodeArea,
   GenPythonCodeArea,
@@ -40,9 +34,7 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
-import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
@@ -67,6 +59,7 @@ export function SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     isMinimized,
     isYouTube,
@@ -106,6 +99,18 @@ export function SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
+  const shouldRenderFullSectionBody = benchmark.renderFullSectionBody;
+  const shouldRenderHeader =
+    !hideHeader && (!benchmark.active || benchmark.renderSectionHeader);
+  const shouldRenderIncrementer =
+    isRoot && (!benchmark.active || benchmark.renderFullSectionBody);
+  const shouldRenderAreaSwitch =
+    !isMinimized &&
+    (!benchmark.active ||
+      benchmark.renderFullSectionBody ||
+      benchmark.renderSectionBody);
+  const shouldRenderBenchmarkShell =
+    benchmark.active && !benchmark.renderFullSectionBody && !isMetaControl;
 
   return (
     <CustomResizable
@@ -151,7 +156,7 @@ export function SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : hideHeader ? null : (
+      ) : shouldRenderHeader ? (
         <SectionHeader
           sectionId={sectionId}
           isActiveSection={isActiveSection}
@@ -160,44 +165,53 @@ export function SectionContainerCoreResizable({
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
-          extraControls={
-            !isUserView ? (
-              <SectionWindowToggleButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isRoot={isRoot}
-                hasSectionStyleTheme={hasSectionStyleTheme}
-              />
-            ) : null
-          }
         />
+      ) : null}
+      {shouldRenderIncrementer && (
+        <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
-      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <CanvasSectionBody
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {shouldRenderAreaSwitch ? (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      ) : shouldRenderBenchmarkShell ? (
+        <BenchmarkSectionBodyPlaceholder stage={benchmark.stage} />
+      ) : null}
     </CustomResizable>
   );
 }
 
-export function AreaSwitch({
+function BenchmarkSectionBodyPlaceholder({
+  stage,
+}: {
+  stage: SettingsAllSettingsBenchmarkStage;
+}) {
+  return (
+    <div
+      className="section-row-pin-main flex min-h-12 w-full items-center justify-center px-3 py-3 text-[0.6rem] uppercase tracking-[0.18em] text-setta-300 dark:text-setta-600"
+      data-settings-benchmark-placeholder={stage}
+    >
+      {stage === "frame-only" ? "Frame only" : "Header only"}
+    </div>
+  );
+}
+
+function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
   isMinimized,
   isUserView,
-  chatHost = "section_layout",
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
-  chatHost?: ChatWindowPlacement | "section_layout";
 }) {
   if (isMinimized) {
     return null;
@@ -240,7 +254,7 @@ export function AreaSwitch({
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
-      return <ChatSectionArea sectionId={sectionId} host={chatHost} />;
+      return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.Plugin:
@@ -255,72 +269,4 @@ export function AreaSwitch({
     default:
       return sectionTypeName satisfies never;
   }
-}
-
-function CanvasSectionBody({
-  sectionId,
-  sectionTypeName,
-  bgColor,
-  isMinimized,
-  isUserView,
-}: {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  bgColor: string;
-  isMinimized: boolean;
-  isUserView: boolean;
-}) {
-  const externalizedWindowId = useProjectState((state) => {
-    if (sectionTypeName === SectionTypeEnum.Chat) {
-      return null;
-    }
-    return (
-      getOpenExternalProjectChatWindowInstanceForSectionInState(
-        state.projectChatWindowing,
-        sectionId,
-      )?.instanceId ?? null
-    );
-  });
-
-  if (externalizedWindowId) {
-    return (
-      <SectionWindowPlaceholder
-        instanceId={externalizedWindowId}
-        sectionId={sectionId}
-        dataTestId="section-canvas-window-placeholder"
-      />
-    );
-  }
-
-  return (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
-  );
-}
-
-function ChatSectionArea({
-  sectionId,
-  host,
-}: {
-  sectionId: string;
-  host: ChatWindowPlacement | "section_layout";
-}) {
-  const mode = useProjectState((state) =>
-    getProjectChatWindowModeForSectionInState(
-      state.projectChatWindowing,
-      sectionId,
-    ),
-  );
-  return (
-    <UnifiedChatSurface
-      mode={mode}
-      host={host}
-      sectionId={sectionId}
-    />
-  );
 }

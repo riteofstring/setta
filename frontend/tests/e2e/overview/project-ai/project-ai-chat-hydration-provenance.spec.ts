@@ -1015,9 +1015,6 @@ test("project ai waits for authoritative engine config metadata before hydrating
     overviewWidth: 1100,
     overviewTrueWidth: 1100,
   });
-  await seedAIStore(page, {
-    activeChatId: selectedChatId,
-  });
   await page.route("**/api/getExternalAgentChat", async (route) => {
     await route.fulfill({
       status: 200,
@@ -1032,6 +1029,9 @@ test("project ai waits for authoritative engine config metadata before hydrating
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await seedAIStore(page, {
+    activeChatId: selectedChatId,
+  });
 
   await page.route("**/api/getEngineConfigs", async (route) => {
     await engineConfigsReady;
@@ -1865,6 +1865,7 @@ test("project ai shows context unavailable when backend context telemetry is mis
       .filter({ hasText: "Context unavailable thread" })
       .first();
     await expect(threadEntry).toBeVisible();
+    await expect(overviewPane.getByLabel("context unavailable")).toHaveCount(0);
     await threadEntry.click();
 
     await expect(

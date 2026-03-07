@@ -1,5 +1,4 @@
 import copy
-from enum import Enum
 
 from pydantic import (
     BaseModel,
@@ -109,53 +108,6 @@ class SingletonSections(BaseModel, extra="forbid"):
     GenPythonMetadata: ID | None = None
 
 
-class ChatWindowPlacement(str, Enum):
-    bottom_docked = "bottom_docked"
-    floating = "floating"
-    maximized = "maximized"
-    canvas_section = "canvas_section"
-
-
-class ChatWindowMode(str, Enum):
-    project_ai_mode = "project_ai_mode"
-    section_mode = "section_mode"
-
-
-class ChatWindowBounds(BaseModel, extra="forbid"):
-    x: float = 120.0
-    y: float = 120.0
-    width: float = 820.0
-    height: float = 520.0
-
-
-class ChatWindowDockMetrics(BaseModel, extra="forbid"):
-    widthFraction: float | None = None
-    preferredWidthPx: float | None = None
-
-
-class ProjectChatWindowInstance(BaseModel, extra="forbid"):
-    instanceId: ID
-    placement: ChatWindowPlacement = ChatWindowPlacement.bottom_docked
-    isMinimized: bool = False
-    isClosed: bool = False
-    isMaximized: bool = False
-    bounds: ChatWindowBounds = Field(default_factory=ChatWindowBounds)
-    dockMetrics: ChatWindowDockMetrics = Field(default_factory=ChatWindowDockMetrics)
-    zIndex: int = 0
-    lastPlacementBeforeMaximize: ChatWindowPlacement | None = None
-    mode: ChatWindowMode = ChatWindowMode.project_ai_mode
-    sectionIdOrNull: ID | None = None
-    title: str | None = None
-    lastFocusedAt: int = 0
-    chatId: ID | None = None
-
-
-class ProjectChatWindowingState(BaseModel, extra="forbid"):
-    instancesById: dict[ID, ProjectChatWindowInstance] = Field(default_factory=dict)
-    order: list[ID] = Field(default_factory=list)
-    nextInstanceNumber: int = 1
-
-
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[ID, Core] = Field(default_factory=dict)
     sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator] = Field(
@@ -202,9 +154,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
-    projectChatWindowing: ProjectChatWindowingState = Field(
-        default_factory=ProjectChatWindowingState
-    )
     _section_slug_cache: tuple[dict[ID, str], dict[str, list[ID]]] | None = PrivateAttr(
         default=None
     )
