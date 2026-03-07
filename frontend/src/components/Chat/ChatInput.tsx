@@ -376,10 +376,6 @@ type ChatInputProps = {
     message: string,
     attachments: ChatFileAttachment[],
   ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
-  onUnavailableNativeSlashCommand?: (
-    message: string,
-    attachments: ChatFileAttachment[],
-  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
   onStop?: () => Promise<void> | void;
   executionControls?: ChatExecutionControls;
   executionControlVisibility?: ChatExecutionControlVisibility;
@@ -418,7 +414,6 @@ export const ChatInput = memo(function ChatInput({
   onChange,
   onSubmit,
   onUnknownSlashCommand,
-  onUnavailableNativeSlashCommand,
   onStop,
   executionControls,
   executionControlVisibility = {
@@ -817,50 +812,6 @@ export const ChatInput = memo(function ChatInput({
       commandAvailable: boolean;
     }): Promise<boolean> => {
       if (!commandAvailable) {
-        if (
-          parsed.action === "native_prompt" &&
-          onUnavailableNativeSlashCommand
-        ) {
-          const result = await onUnavailableNativeSlashCommand(
-            message,
-            submittedAttachments,
-          );
-          if (result === false) {
-            setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
-            return true;
-          }
-          const slashResult =
-            result && typeof result === "object" ? result : undefined;
-          const refreshedSlashCommands =
-            slashResult?.refreshedSlashCommands ?? null;
-          const refreshedRecognizedSlashCommands =
-            slashResult?.refreshedRecognizedSlashCommands ?? null;
-          if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
-            const refreshedRequest = resolveSlashCommandRequest({
-              message,
-              slashCommands: refreshedSlashCommands,
-              recognizedSlashCommands: refreshedRecognizedSlashCommands,
-            });
-            if (refreshedRequest.parsed && refreshedRequest.commandAvailable) {
-              return executeResolvedSlashCommand({
-                message,
-                submittedAttachments,
-                parsed: refreshedRequest.parsed,
-                commandAvailable: true,
-              });
-            }
-          }
-          setSlashFeedback(
-            slashResult?.feedback ??
-              buildUnavailableSlashCommandFeedback(parsed),
-          );
-          if (slashResult?.keepInput === false) {
-            escClearedComposerDraftRef.current = null;
-            clearInput();
-            clearAttachments();
-          }
-          return true;
-        }
         setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
         return true;
       }
@@ -925,13 +876,7 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
-    [
-      clearAttachments,
-      clearInput,
-      onSlashCommand,
-      onSubmit,
-      onUnavailableNativeSlashCommand,
-    ],
+    [clearAttachments, clearInput, onSlashCommand, onSubmit],
   );
 
   const runSlashCommand = useCallback(

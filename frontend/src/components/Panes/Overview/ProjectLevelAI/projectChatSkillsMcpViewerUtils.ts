@@ -22,11 +22,6 @@ import {
   type EngineConfig,
   type ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
-import { createWithEqualityFn } from "zustand/traditional";
-
-export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
-  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
@@ -43,10 +38,6 @@ export type AgentNativeSlashCommandsEntry = {
   status: AgentNativeSlashCommandsStatus;
   statusDetail: string | null;
 };
-type AgentNativeSlashCommandsByProjectConfigId = Record<
-  string,
-  Record<string, AgentNativeSlashCommandsEntry>
->;
 export type AgentRunsAuthorityState =
   | "loading"
   | "ready"
@@ -58,16 +49,6 @@ export const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommands
     status: "unknown",
     statusDetail: null,
   };
-const agentNativeSlashCommandsStorageAdapter =
-  getSafeLocalStorageAdapter("agent-runs");
-export const useAgentNativeSlashCommandsCache =
-  createWithEqualityFn<AgentNativeSlashCommandsByProjectConfigId>()(() =>
-    parseAgentNativeSlashCommandsStorage(
-      agentNativeSlashCommandsStorageAdapter.getItem(
-        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-      ),
-    ),
-  );
 
 export function isAgentRunsAuthorityReady(
   agentRunsAuthorityState: AgentRunsAuthorityState,
@@ -729,25 +710,6 @@ function extractAgentNativeSlashCommandsFromRun(
   };
 }
 
-export function filterAgentNativeSlashCommandsByEngineId({
-  entries,
-  engineConfigIds,
-}: {
-  entries: Record<string, AgentNativeSlashCommandsEntry>;
-  engineConfigIds: string[];
-}): Record<string, AgentNativeSlashCommandsEntry> {
-  const allowedEngineIds = new Set(engineConfigIds);
-  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
-  for (const engineConfigId of engineConfigIds) {
-    const entry = entries[engineConfigId];
-    if (!entry || !allowedEngineIds.has(engineConfigId)) {
-      continue;
-    }
-    next[engineConfigId] = entry;
-  }
-  return next;
-}
-
 export function resolveAgentNativeSlashCommandsByEngineId({
   runs,
   projectConfigId,
@@ -792,67 +754,6 @@ export function resolveAgentNativeSlashCommandsByEngineId({
   const next: Record<string, AgentNativeSlashCommandsEntry> = {};
   for (const [engineConfigId, value] of Object.entries(nextByEngineId)) {
     next[engineConfigId] = value.entry;
-  }
-  return next;
-}
-
-export function resolveAgentNativeSlashCommandsByProjectConfigId({
-  runs,
-}: {
-  runs: AgentRun[];
-}): AgentNativeSlashCommandsByProjectConfigId {
-  const nextByProjectAndEngine: Record<
-    string,
-    Record<
-      string,
-      {
-        entry: AgentNativeSlashCommandsEntry;
-        lastUpdatedMs: number;
-        runId: string;
-      }
-    >
-  > = {};
-  for (const run of runs) {
-    const projectConfigId = run.inputs?.projectConfigId;
-    if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
-      continue;
-    }
-    const extracted = extractAgentNativeSlashCommandsFromRun(run);
-    if (!extracted) {
-      continue;
-    }
-    const lastUpdatedMs = getRunLastUpdatedMs(run);
-    const nextRunId = run.id.trim();
-    const currentByEngine =
-      nextByProjectAndEngine[projectConfigId] ??
-      (nextByProjectAndEngine[projectConfigId] = {});
-    const current = currentByEngine[extracted.engineConfigId];
-    if (
-      current &&
-      (lastUpdatedMs < current.lastUpdatedMs ||
-        (lastUpdatedMs === current.lastUpdatedMs &&
-          nextRunId.localeCompare(current.runId) <= 0))
-    ) {
-      continue;
-    }
-    currentByEngine[extracted.engineConfigId] = {
-      entry: extracted.entry,
-      lastUpdatedMs,
-      runId: nextRunId,
-    };
-  }
-  const next: AgentNativeSlashCommandsByProjectConfigId = {};
-  for (const [projectConfigId, entriesByEngineId] of Object.entries(
-    nextByProjectAndEngine,
-  )) {
-    const normalizedEntries: Record<string, AgentNativeSlashCommandsEntry> = {};
-    for (const [engineConfigId, value] of Object.entries(entriesByEngineId)) {
-      normalizedEntries[engineConfigId] = value.entry;
-    }
-    if (Object.keys(normalizedEntries).length === 0) {
-      continue;
-    }
-    next[projectConfigId] = normalizedEntries;
   }
   return next;
 }
@@ -912,35 +813,6 @@ export function areAgentNativeSlashCommandMapsEqual(
       return false;
     }
     if (!areAgentNativeSlashEntriesEqual(current[key], nextEntry)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function areAgentNativeSlashCommandProjectMapsEqual(
-  current: AgentNativeSlashCommandsByProjectConfigId,
-  next: AgentNativeSlashCommandsByProjectConfigId,
-): boolean {
-  const currentKeys = Object.keys(current);
-  const nextKeys = Object.keys(next);
-  if (currentKeys.length !== nextKeys.length) {
-    return false;
-  }
-  for (const key of currentKeys) {
-    if (!(key in next)) {
-      return false;
-    }
-    const nextProjectEntries = next[key];
-    if (!nextProjectEntries) {
-      return false;
-    }
-    if (
-      !areAgentNativeSlashCommandMapsEqual(
-        current[key] ?? {},
-        nextProjectEntries,
-      )
-    ) {
       return false;
     }
   }
@@ -1215,98 +1087,6 @@ export function buildSlashCommandsByEngine({
       }),
     };
   });
-}
-
-export function parseAgentNativeSlashCommandsStorage(
-  rawStorageValue: string | null,
-): AgentNativeSlashCommandsByProjectConfigId {
-  if (!rawStorageValue) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(rawStorageValue);
-    if (!isRecord(parsed)) {
-      return {};
-    }
-    const normalized: AgentNativeSlashCommandsByProjectConfigId = {};
-    for (const [projectConfigId, rawProjectEntry] of Object.entries(parsed)) {
-      if (!projectConfigId.trim() || !isRecord(rawProjectEntry)) {
-        continue;
-      }
-      const normalizedProjectEntries: Record<
-        string,
-        AgentNativeSlashCommandsEntry
-      > = {};
-      for (const [engineId, rawEntry] of Object.entries(rawProjectEntry)) {
-        if (!engineId.trim() || !isRecord(rawEntry)) {
-          continue;
-        }
-        const hasCommandsField = Array.isArray(rawEntry.commands);
-        const commands = normalizeSlashCommandList(rawEntry.commands);
-        const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
-        const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
-        let resolvedStatus = status;
-        if (commands.length > 0 && resolvedStatus === "unknown") {
-          resolvedStatus = "available";
-        } else if (hasCommandsField && resolvedStatus === "unknown") {
-          resolvedStatus = "none";
-        }
-        if (
-          commands.length === 0 &&
-          resolvedStatus === "unknown" &&
-          statusDetail === null
-        ) {
-          continue;
-        }
-        normalizedProjectEntries[engineId] = {
-          commands,
-          status: resolvedStatus,
-          statusDetail,
-        };
-      }
-      if (Object.keys(normalizedProjectEntries).length === 0) {
-        continue;
-      }
-      normalized[projectConfigId] = normalizedProjectEntries;
-    }
-    return normalized;
-  } catch {
-    return {};
-  }
-}
-
-function serializeAgentNativeSlashCommandsStorage(
-  entries: AgentNativeSlashCommandsByProjectConfigId,
-): string {
-  return JSON.stringify(entries);
-}
-
-export function replaceAgentNativeSlashCommandsCache(
-  nextEntries: AgentNativeSlashCommandsByProjectConfigId,
-): void {
-  const currentEntries = useAgentNativeSlashCommandsCache.getState();
-  const persistedEntries = parseAgentNativeSlashCommandsStorage(
-    agentNativeSlashCommandsStorageAdapter.getItem(
-      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-    ),
-  );
-  if (
-    areAgentNativeSlashCommandProjectMapsEqual(currentEntries, nextEntries) &&
-    areAgentNativeSlashCommandProjectMapsEqual(persistedEntries, nextEntries)
-  ) {
-    return;
-  }
-  useAgentNativeSlashCommandsCache.setState(nextEntries, true);
-  if (Object.keys(nextEntries).length === 0) {
-    agentNativeSlashCommandsStorageAdapter.removeItem(
-      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-    );
-    return;
-  }
-  agentNativeSlashCommandsStorageAdapter.setItem(
-    AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-    serializeAgentNativeSlashCommandsStorage(nextEntries),
-  );
 }
 
 export function buildReservedSlashCommandTokens({

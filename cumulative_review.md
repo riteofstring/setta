@@ -660,3 +660,49 @@
 - Manual Chrome DevTools MCP verification:
   - verified the skills viewer shows a disabled Save control with the backend reason for a non-editable skill,
   - verified the slash-command viewer shows runtime-authoritative native-command status text instead of cached native command rows before authority is ready.
+
+## 2026-03-06 11:19:40 PST
+
+### Consolidated findings implemented
+- Fixed project-chat native slash-command scoping so the composer only discovers and executes native commands for the currently selected external-agent engine.
+- Fixed mixed-engine slash-command recovery so project-level custom slash-command authority reloads when the Slash Commands view is open, even if the selected tab is a Setta LLM engine.
+- Removed the dead persisted native-slash cache path and the unreachable native-unavailable retry branch after the runtime-only authority decision.
+- Updated slash-command coverage to reflect the runtime-only source of truth rather than local-storage cache behavior.
+
+### Proposed fixes applied
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`:
+  - added `resolveProjectChatRuntimeNativeSlashCommandTokens(...)` so runtime native-command derivation is scoped by active `engineConfigId` and `engineType`,
+  - rebuilt composer native-command discovery/execution from that active-engine runtime slice only,
+  - removed the separate unavailable-native retry handler so unresolved native slash commands now re-enter the existing unknown-command refresh path.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`:
+  - changed `shouldPollSlashCommandAgentRuns(...)` to key off project-level external-agent presence instead of the currently selected engine tab,
+  - kept the selected tab responsible only for row rendering, not authority refresh ownership.
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.ts` and `frontend/src/state/actions/ai.ts`:
+  - removed the local-storage/Zustand native-slash cache constants, parser/writer helpers, and `loadAgentRuns()` write-through,
+  - kept runtime `agentRuns` metadata as the only native-command authority path.
+- `frontend/src/components/Chat/ChatInput.tsx`:
+  - removed `onUnavailableNativeSlashCommand` plumbing and collapsed the submit-state machine to the reachable slash-command paths only.
+
+### UX/DX before and after
+- Before: a native command discovered from engine B could appear or execute while the user was chatting with engine A or `setta_llm`.  
+  After: native command suggestion, recognition, and execution now match the active engine exactly.
+- Before: opening Slash Commands in a mixed-engine project could leave `Add slash command` blocked until the user manually switched to an external-agent tab.  
+  After: project authority refresh starts automatically when the view opens, and the add flow recovers without tab-switch discovery.
+- Before: maintainers had to reason about a dead local-storage cache path that no production reader used, plus an unreachable unavailable-native submit branch.  
+  After: runtime `agentRuns` metadata is the single native-command authority, and the chat submit flow is smaller and easier to audit.
+
+### Validation coverage added or updated
+- Frontend Vitest coverage for:
+  - active-engine runtime native-command scoping,
+  - excluding external-agent native commands when the active engine is `setta_llm`,
+  - mixed recognition/execution behavior through the integrated slash-command authority path,
+  - asserting `loadAgentRuns()` does not persist legacy native-command local storage.
+- Playwright coverage for:
+  - slash-command agent-run fetches being triggered by opening the Slash Commands view rather than by selecting an external-agent tab,
+  - mixed-engine recovery enabling custom slash-command creation without leaving the LLM tab,
+  - terminal native-authority failure continuing to hide native command rows,
+  - delayed native-authority recovery re-submitting an unresolved native slash command exactly once after live metadata arrives.
+- Manual Chrome DevTools MCP verification:
+  - opened Project AI Chat -> Slash Commands in the headed worktree instance,
+  - verified the dedicated Slash Commands view still renders correctly after the authority/polling rewrite,
+  - verified external-agent tabs show runtime metadata state without stale cached native command rows.

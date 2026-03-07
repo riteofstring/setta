@@ -443,15 +443,15 @@ export function resolveCanAddCustomSlashCommand({
 
 export function shouldPollSlashCommandAgentRuns({
   viewMode,
-  selectedEngineType,
+  hasExternalAgentEngine,
 }: {
   viewMode: ProjectChatSkillsMcpViewerProps["viewMode"];
-  selectedEngineType: EngineConfig["engineType"] | null;
+  hasExternalAgentEngine: boolean;
 }): boolean {
   if (viewMode !== "slash_commands") {
     return false;
   }
-  if (selectedEngineType !== "external_agent") {
+  if (!hasExternalAgentEngine) {
     return false;
   }
   return true;
@@ -1007,6 +1007,11 @@ export function ProjectChatSkillsMcpViewer({
       null
     );
   }, [selectedSlashEngineId, slashCommandsByEngine]);
+  const hasExternalAgentSlashEngine = useMemo(() => {
+    return slashCommandsByEngine.some(
+      (entry) => entry.engineType === EngineTypeEnum.external_agent,
+    );
+  }, [slashCommandsByEngine]);
   const selectedAgentNativeSlashCommands = useMemo(() => {
     if (
       !selectedSlashEngine ||
@@ -1103,11 +1108,10 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
-    const selectedEngineType = selectedSlashEngine?.engineType ?? null;
     if (
       !shouldPollSlashCommandAgentRuns({
         viewMode,
-        selectedEngineType,
+        hasExternalAgentEngine: hasExternalAgentSlashEngine,
       })
     ) {
       return;
@@ -1120,7 +1124,7 @@ export function ProjectChatSkillsMcpViewer({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [selectedSlashEngine, viewMode]);
+  }, [hasExternalAgentSlashEngine, viewMode]);
 
   const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({

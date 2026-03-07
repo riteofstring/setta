@@ -26,6 +26,7 @@ import {
   resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
+  resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
@@ -53,6 +54,68 @@ describe("getDefaultProjectChatPermissionMode", () => {
       "minimal",
     );
     expect(getDefaultProjectChatPermissionMode(null)).toBe("minimal");
+  });
+});
+
+describe("resolveProjectChatRuntimeNativeSlashCommandTokens", () => {
+  it("keeps native slash commands scoped to the selected external-agent engine", () => {
+    expect(
+      resolveProjectChatRuntimeNativeSlashCommandTokens({
+        runs: [
+          createAgentRun({
+            id: "run-engine-a",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-a",
+                agentNativeSlashCommands: ["/deploy"],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-engine-b",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-b",
+                agentNativeSlashCommands: ["/review"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-a",
+        engineConfigId: "engine-a",
+        engineType: EngineTypeEnum.external_agent,
+      }),
+    ).toEqual(["/deploy"]);
+  });
+
+  it("excludes native slash commands when the active engine is not external-agent", () => {
+    expect(
+      resolveProjectChatRuntimeNativeSlashCommandTokens({
+        runs: [
+          createAgentRun({
+            id: "run-engine-a",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-a",
+                agentNativeSlashCommands: ["/deploy"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-a",
+        engineConfigId: "engine-a",
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toEqual([]);
   });
 });
 

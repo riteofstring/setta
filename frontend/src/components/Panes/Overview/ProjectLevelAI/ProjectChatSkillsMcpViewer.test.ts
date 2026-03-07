@@ -17,50 +17,8 @@ import {
 } from "./ProjectChatSkillsMcpViewer";
 import {
   areAgentNativeSlashCommandMapsEqual,
-  filterAgentNativeSlashCommandsByEngineId,
-  parseAgentNativeSlashCommandsStorage,
   resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
-
-describe("parseAgentNativeSlashCommandsStorage", () => {
-  it("fails closed on legacy engine-scoped storage entries", () => {
-    const parsed = parseAgentNativeSlashCommandsStorage(
-      JSON.stringify({
-        "engine-1": {
-          commands: ["/legacy"],
-          status: "available",
-          statusDetail: null,
-        },
-      }),
-    );
-
-    expect(parsed).toEqual({});
-  });
-
-  it("hydrates canonical project-scoped storage entries", () => {
-    const parsed = parseAgentNativeSlashCommandsStorage(
-      JSON.stringify({
-        "project-a": {
-          "engine-1": {
-            commands: [" /help ", "/status"],
-            status: "available",
-            statusDetail: "Loaded from run metadata",
-          },
-        },
-      }),
-    );
-
-    expect(parsed).toEqual({
-      "project-a": {
-        "engine-1": {
-          commands: ["/help", "/status"],
-          status: "available",
-          statusDetail: "Loaded from run metadata",
-        },
-      },
-    });
-  });
-});
 
 describe("resolveAgentNativeSlashCommandsByEngineId", () => {
   it("keeps only authoritative entries for the active project and engine set", () => {
@@ -202,34 +160,6 @@ describe("resolveAgentNativeSlashCommandsByEngineId", () => {
       "engine-live": {
         commands: [],
         status: "none",
-        statusDetail: null,
-      },
-    });
-  });
-});
-
-describe("filterAgentNativeSlashCommandsByEngineId", () => {
-  it("drops cached entries for engines that are no longer configured", () => {
-    const filtered = filterAgentNativeSlashCommandsByEngineId({
-      entries: {
-        "engine-deleted": {
-          commands: ["/ship"],
-          status: "available",
-          statusDetail: null,
-        },
-        "engine-live": {
-          commands: ["/help"],
-          status: "available",
-          statusDetail: null,
-        },
-      },
-      engineConfigIds: ["engine-live"],
-    });
-
-    expect(filtered).toEqual({
-      "engine-live": {
-        commands: ["/help"],
-        status: "available",
         statusDetail: null,
       },
     });
@@ -417,11 +347,11 @@ describe("areAgentNativeSlashCommandMapsEqual", () => {
 });
 
 describe("shouldPollSlashCommandAgentRuns", () => {
-  it("enables polling only for slash commands view with external-agent engines", () => {
+  it("enables polling for slash commands whenever the project has any external-agent engine", () => {
     expect(
       shouldPollSlashCommandAgentRuns({
         viewMode: "slash_commands",
-        selectedEngineType: "external_agent",
+        hasExternalAgentEngine: true,
       }),
     ).toBe(true);
   });
@@ -430,28 +360,22 @@ describe("shouldPollSlashCommandAgentRuns", () => {
     expect(
       shouldPollSlashCommandAgentRuns({
         viewMode: "skills",
-        selectedEngineType: "external_agent",
+        hasExternalAgentEngine: true,
       }),
     ).toBe(false);
     expect(
       shouldPollSlashCommandAgentRuns({
         viewMode: "mcp",
-        selectedEngineType: "external_agent",
+        hasExternalAgentEngine: true,
       }),
     ).toBe(false);
   });
 
-  it("disables polling for non-external engines", () => {
+  it("disables polling when no external-agent engine is configured", () => {
     expect(
       shouldPollSlashCommandAgentRuns({
         viewMode: "slash_commands",
-        selectedEngineType: "setta_llm",
-      }),
-    ).toBe(false);
-    expect(
-      shouldPollSlashCommandAgentRuns({
-        viewMode: "slash_commands",
-        selectedEngineType: null,
+        hasExternalAgentEngine: false,
       }),
     ).toBe(false);
   });

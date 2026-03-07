@@ -1,11 +1,5 @@
-import {
-  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-  replaceAgentNativeSlashCommandsCache,
-  useAgentNativeSlashCommandsCache,
-} from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
 import { resetProjectStores } from "state/utils";
 import { createAgentRun } from "utils/generatedTypes";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import {
   afterAll,
   afterEach,
@@ -16,6 +10,9 @@ import {
   it,
   vi,
 } from "vitest";
+
+const LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -34,7 +31,6 @@ let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
 let loadLLMApiKeys: typeof import("state/actions/ai").loadLLMApiKeys;
 let loadLLMConfig: typeof import("state/actions/ai").loadLLMConfig;
 let memoryStorage: Storage;
-let agentRunsStorageAdapter: ReturnType<typeof getSafeLocalStorageAdapter>;
 
 describe("AI resource load guards", () => {
   beforeAll(async () => {
@@ -56,7 +52,6 @@ describe("AI resource load guards", () => {
       },
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
-    agentRunsStorageAdapter = getSafeLocalStorageAdapter("agent-runs");
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
@@ -68,7 +63,6 @@ describe("AI resource load guards", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    replaceAgentNativeSlashCommandsCache({});
     useAIStore.persist.setOptions({
       storage: {
         getItem: memoryStorage.getItem.bind(memoryStorage),
@@ -81,8 +75,6 @@ describe("AI resource load guards", () => {
 
   afterEach(() => {
     resetProjectStores();
-    replaceAgentNativeSlashCommandsCache({});
-    agentRunsStorageAdapter.removeItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY);
     memoryStorage.clear();
   });
 
@@ -218,7 +210,7 @@ describe("AI resource load guards", () => {
     expect(state.agentRunsAuthorityState).toBe("ready");
   });
 
-  it("hydrates cached native slash metadata from authoritative agent-run loads", async () => {
+  it("does not persist native slash metadata from authoritative agent-run loads", async () => {
     const route_get_agent_runs = (await import("utils/generatedEndpoints"))
       .route_get_agent_runs as unknown as vi.Mock;
     route_get_agent_runs.mockReset();
@@ -244,41 +236,11 @@ describe("AI resource load guards", () => {
     await loadAgentRuns();
 
     expect(
-      JSON.parse(
-        agentRunsStorageAdapter.getItem(
-          AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-        ) ?? "{}",
-      ),
-    ).toEqual({
-      "project-a": {
-        "engine-live": {
-          commands: ["/deploy"],
-          status: "available",
-          statusDetail: null,
-        },
-      },
-    });
-    expect(useAgentNativeSlashCommandsCache.getState()).toEqual({
-      "project-a": {
-        "engine-live": {
-          commands: ["/deploy"],
-          status: "available",
-          statusDetail: null,
-        },
-      },
-    });
+      memoryStorage.getItem(LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    ).toBeNull();
   });
 
-  it("replaces cached native slash metadata snapshots and prunes removed projects", async () => {
-    replaceAgentNativeSlashCommandsCache({
-      "project-a": {
-        "engine-live": {
-          commands: ["/deploy"],
-          status: "available",
-          statusDetail: null,
-        },
-      },
-    });
+  it("keeps the legacy native slash storage key absent when agent-run payloads are empty", async () => {
     const route_get_agent_runs = (await import("utils/generatedEndpoints"))
       .route_get_agent_runs as unknown as vi.Mock;
     route_get_agent_runs.mockReset();
@@ -291,9 +253,8 @@ describe("AI resource load guards", () => {
     await loadAgentRuns();
 
     expect(
-      agentRunsStorageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+      memoryStorage.getItem(LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
     ).toBeNull();
-    expect(useAgentNativeSlashCommandsCache.getState()).toEqual({});
   });
 
   it("retries transient agent-runs load failures and recovers to ready", async () => {
@@ -423,11 +384,11 @@ describe("AI resource load guards", () => {
     }
   });
 
-  it("keeps cached native slash metadata intact after terminal agent-run failures", async () => {
+  it("does not rewrite the legacy native slash storage key after terminal agent-run failures", async () => {
     vi.useFakeTimers();
     try {
-      agentRunsStorageAdapter.setItem(
-        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+      memoryStorage.setItem(
+        LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
         JSON.stringify({
           "project-a": {
             "engine-live": {
@@ -452,8 +413,8 @@ describe("AI resource load guards", () => {
 
       expect(
         JSON.parse(
-          agentRunsStorageAdapter.getItem(
-            AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+          memoryStorage.getItem(
+            LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
           ) ?? "{}",
         ),
       ).toEqual({

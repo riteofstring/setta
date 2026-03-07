@@ -204,6 +204,33 @@ export function resolveProjectChatComposerExecutableNativeSlashCommandTokens({
   return runtimeNativeSlashCommandTokens;
 }
 
+export function resolveProjectChatRuntimeNativeSlashCommandTokens({
+  runs,
+  projectConfigId,
+  engineConfigId,
+  engineType,
+}: {
+  runs: AgentRun[];
+  projectConfigId: string;
+  engineConfigId: string | null;
+  engineType: EngineTypeEnum | null;
+}): string[] {
+  if (
+    engineType !== EngineTypeEnum.external_agent ||
+    typeof engineConfigId !== "string" ||
+    engineConfigId.trim() === ""
+  ) {
+    return [];
+  }
+  return collectAgentNativeSlashCommandTokensFromEntries(
+    resolveAgentNativeSlashCommandsByEngineId({
+      runs,
+      projectConfigId,
+      engineConfigIds: [engineConfigId],
+    }),
+  );
+}
+
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
   discoveredAgentNativeSlashCommands,
@@ -1252,9 +1279,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const engineConfigIds = useAIStore((state) =>
-    state.engineConfigs.map((config) => config.id),
-  );
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
@@ -1343,16 +1367,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
   const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
-    const runtimeSlashCommandsByEngineId =
-      resolveAgentNativeSlashCommandsByEngineId({
-        runs: agentRuns,
-        projectConfigId,
-        engineConfigIds,
-      });
-    return collectAgentNativeSlashCommandTokensFromEntries(
-      runtimeSlashCommandsByEngineId,
-    );
-  }, [agentRuns, engineConfigIds, projectConfigId]);
+    return resolveProjectChatRuntimeNativeSlashCommandTokens({
+      runs: agentRuns,
+      projectConfigId,
+      engineConfigId,
+      engineType,
+    });
+  }, [agentRuns, engineConfigId, engineType, projectConfigId]);
   const agentRunsAuthorityState = useAIStore(
     (state) => state.agentRunsAuthorityState,
   );
@@ -1665,13 +1686,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       agentRunsAuthorityState: AgentRunsAuthorityState;
     }) => {
       const refreshedRuntimeNativeSlashCommandTokens =
-        collectAgentNativeSlashCommandTokensFromEntries(
-          resolveAgentNativeSlashCommandsByEngineId({
-            runs: refreshedState.agentRuns,
-            projectConfigId,
-            engineConfigIds,
-          }),
-        );
+        resolveProjectChatRuntimeNativeSlashCommandTokens({
+          runs: refreshedState.agentRuns,
+          projectConfigId,
+          engineConfigId,
+          engineType,
+        });
       const refreshedDiscoveredAgentNativeSlashCommands =
         resolveProjectChatComposerNativeSlashCommandTokens({
           runtimeNativeSlashCommandTokens:
@@ -1703,7 +1723,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       customProjectChatSlashCommands,
-      engineConfigIds,
+      engineConfigId,
+      engineType,
       isExternalEngine,
       projectConfigId,
       showPermissionExecutionControl,
@@ -1743,47 +1764,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleUnknownSlashCommand = useCallback(
-    async (message: string): Promise<ChatSlashCommandResult> => {
-      if (
-        !isExternalEngine ||
-        isAgentRunsAuthorityReady(agentRunsAuthorityState)
-      ) {
-        return false;
-      }
-      await loadAgentRuns();
-      const refreshedState = useAIStore.getState();
-      const refreshedSlashCommandSets =
-        resolveRefreshedSlashCommandSets(refreshedState);
-      const refreshedRequest = resolveSlashCommandRequest({
-        message,
-        slashCommands: refreshedSlashCommandSets.slashCommands,
-        recognizedSlashCommands:
-          refreshedSlashCommandSets.recognizedSlashCommands,
-      });
-      if (!isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState)) {
-        return {
-          handled: true,
-          feedback: NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK,
-          keepInput: true,
-        };
-      }
-      if (refreshedRequest.parsed) {
-        return {
-          refreshedSlashCommands: refreshedSlashCommandSets.slashCommands,
-          refreshedRecognizedSlashCommands:
-            refreshedSlashCommandSets.recognizedSlashCommands,
-        };
-      }
-      return false;
-    },
-    [
-      agentRunsAuthorityState,
-      isExternalEngine,
-      resolveRefreshedSlashCommandSets,
-    ],
-  );
-
-  const handleUnavailableNativeSlashCommand = useCallback(
     async (message: string): Promise<ChatSlashCommandResult> => {
       if (
         !isExternalEngine ||
@@ -2162,7 +2142,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           recognizedSlashCommands={recognizedSlashCommands}
           onSlashCommand={handleSlashCommand}
           onUnknownSlashCommand={handleUnknownSlashCommand}
-          onUnavailableNativeSlashCommand={handleUnavailableNativeSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
             permissionMode: showPermissionExecutionControl,
