@@ -265,6 +265,7 @@ class Route(str, Enum):
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_CHAT_SECTION_SETTINGS = "/setChatSectionSettings"
     SET_CHAT_SECTION_STATE = "/setChatSectionState"
+    SET_PROJECT_CHAT_WINDOWING_STATE = "/setProjectChatWindowingState"
     GET_CHAT_SECTION_CHAT_ID = "/getChatSectionChatId"
     SET_CHAT_SECTION_CHAT_ID = "/setChatSectionChatId"
     SET_SOCIAL_URL = "/setSocialUrl"

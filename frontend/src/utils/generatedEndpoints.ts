@@ -1445,6 +1445,12 @@ export async function route_set_chat_section_state(
   return await post("/setChatSectionState", x);
 }
 
+export async function route_set_project_chat_windowing_state(
+  x: gt.SetProjectChatWindowingStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setProjectChatWindowingState", x);
+}
+
 export async function route_get_chat_section_chat_id(
   x: gt.GetChatSectionChatIdRequestInput,
 ): Promise<ResponseDataAndStatus<string | null>> {

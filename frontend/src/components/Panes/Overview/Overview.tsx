@@ -49,7 +49,7 @@ import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
-import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
+import { ProjectChatManager } from "./ProjectLevelAI/ProjectChatManager";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
@@ -425,7 +425,7 @@ function TabContent({
     case OverviewTabNameEnum.BackendLogs:
       return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
-      return <ProjectChat />;
+      return <ProjectChatManager />;
     case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectAISettings />;
     default:

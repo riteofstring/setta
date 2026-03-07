@@ -40,9 +40,9 @@ def test_build_agentic_context_payload_uses_formatter_for_ids() -> None:
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=context_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.reference_only,
         ),
     )
@@ -81,9 +81,9 @@ def test_build_agentic_context_payload_includes_inline_text_with_truncation() ->
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=context_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )
@@ -119,9 +119,9 @@ def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation() ->
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=context_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.summary,
         ),
     )
@@ -155,9 +155,9 @@ def test_build_agentic_context_payload_reference_only_omits_section_body() -> No
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=context_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.reference_only,
         ),
     )
@@ -192,9 +192,9 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=context_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.summary,
         ),
     )
@@ -224,9 +224,9 @@ def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=callable_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=callable_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )

@@ -18,7 +18,7 @@ type EngineConfigSummary = {
 };
 
 test.describe.serial("chat composer controls", () => {
-  test("chat sections keep a compact composer with permission-only footer controls", async ({
+  test("chat sections keep a compact composer with no inline settings controls", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -59,7 +59,7 @@ test.describe.serial("chat composer controls", () => {
         },
       });
 
-      await expect(section.getByText("Existing thread message")).toBeVisible();
+      await expect(section.getByText("Existing thread message")).toHaveCount(1);
       await expect(section.getByRole("button", { name: "/new" })).toHaveCount(
         0,
       );
@@ -98,22 +98,368 @@ test.describe.serial("chat composer controls", () => {
         .toBe(true);
       await input.fill("/search off");
       await input.press("Enter");
+      await expect(
+        section.getByText("Unknown or unavailable command. Use /help."),
+      ).toBeVisible();
+      await input.fill("/permissions yolo");
+      await input.press("Enter");
+      await expect(
+        section.getByText("Unknown or unavailable command. Use /help."),
+      ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
 
-      await section
-        .getByRole("button", { name: /^minimal/i })
-        .first()
-        .click();
-      await page.getByRole("menuitem", { name: "yolo" }).click();
       await expect(
-        section.getByRole("button", { name: /^yolo/i }),
-      ).toBeVisible();
+        section.getByRole("button", { name: /permissions$/i }),
+      ).toHaveCount(0);
       await expect(section.getByRole("button", { name: "Search" })).toHaveCount(
         0,
       );
       await expect(section.getByRole("button", { name: "Skills" })).toHaveCount(
         0,
       );
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed chat sections keep thread actions in-chat and hide inline settings controls", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_managed_chat_threads_ui__",
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: null,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      await expect(
+        section.getByRole("button", { name: "History" }),
+      ).toBeVisible();
+      await expect(
+        section.getByRole("button", { name: "New Chat" }),
+      ).toBeVisible();
+      await expect(
+        section.getByRole("button", { name: /permissions$/i }),
+      ).toHaveCount(0);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed section zero-scope banner is dismissible per browser session", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_managed_zero_scope_banner__",
+      );
+      const applySettings = async (managed: boolean) => {
+        await postBackend(page, "/setChatSectionSettings", {
+          projectConfigId: projectContext.projectConfigId,
+          sectionId,
+          managed,
+          engineConfigId: null,
+          transcriptionProfileId: null,
+          agentProfileId: null,
+          thinking: false,
+          permissionMode: "minimal",
+          searchEnabled: true,
+          dictationMode: "auto",
+        });
+      };
+      await applySettings(true);
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const zeroScopeBanner = section.getByText(
+        "No outgoing scope links. This chat has no project access.",
+      );
+      const zeroScopeIndicator = section.getByTestId(
+        "managed-chat-zero-scope-indicator",
+      );
+      await expect(zeroScopeIndicator).toBeVisible();
+      await expect(zeroScopeBanner).toBeVisible();
+
+      const dismissButton = section.getByRole("button", { name: "Dismiss" });
+      await dismissButton.focus();
+      await dismissButton.press("Enter");
+      await expect(zeroScopeBanner).toHaveCount(0);
+      const dismissalStorageKey = `setta:managed-zero-scope-banner-dismissed:${projectContext.projectConfigId}:${sectionId}`;
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(
+              (storageKey) => window.sessionStorage.getItem(storageKey),
+              dismissalStorageKey,
+            ),
+        )
+        .toBe("1");
+
+      await applySettings(false);
+      await expect(
+        section.getByRole("button", { name: "History" }),
+      ).toHaveCount(0);
+      await applySettings(true);
+      await expect(
+        section.getByRole("button", { name: "History" }),
+      ).toBeVisible();
+      await expect(zeroScopeIndicator).toBeVisible();
+      await expect(zeroScopeBanner).toHaveCount(0);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("canvas section chat mode switch updates section rendering between section and project-ai modes", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: { Chat: "SectionConfig" },
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await ensureManagedChatEngine(page);
+    const instanceId = "project-chat-window-mode-switch";
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_canvas_chat_mode_switch__",
+      );
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              const { useAIStore } = await import("/src/state/definitions.ts");
+              const engine =
+                useAIStore
+                  .getState()
+                  .engineConfigs.find(
+                    (config) => config.engineType === "setta_llm",
+                  ) ?? null;
+              if (!engine) {
+                return null;
+              }
+              return `${engine.id}:${engine.name}`;
+            }),
+        )
+        .not.toBeNull();
+      const managedEngine = await page.evaluate(async () => {
+        const { useAIStore } = await import("/src/state/definitions.ts");
+        const engine =
+          useAIStore
+            .getState()
+            .engineConfigs.find(
+              (config) => config.engineType === "setta_llm",
+            ) ?? null;
+        if (!engine) {
+          return null;
+        }
+        return { id: engine.id, name: engine.name };
+      });
+      if (!managedEngine) {
+        throw new Error(
+          "Missing managed setta_llm engine for mode switch test.",
+        );
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: managedEngine.id,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+
+      const llmRequests: Array<{
+        sectionId: string | null;
+        allowUnscoped: boolean | null;
+      }> = [];
+      await page.route("**/api/getLLMResponse", async (route) => {
+        const payload = route.request().postDataJSON() as {
+          sectionId?: string | null;
+          allowUnscoped?: boolean;
+        };
+        llmRequests.push({
+          sectionId:
+            typeof payload.sectionId === "string" ? payload.sectionId : null,
+          allowUnscoped:
+            typeof payload.allowUnscoped === "boolean"
+              ? payload.allowUnscoped
+              : null,
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(`pw-chat-mode-scope-${llmRequests.length}`),
+        });
+      });
+      await page.route("**/api/getLLMChat", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "llm-e2e",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              api_key_env: null,
+              base_url: null,
+              other_params: {},
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      const setCanvasSectionBinding = async (
+        mode: "section_mode" | "project_ai_mode",
+      ) => {
+        const nextWindowingState = {
+          instancesById: {
+            [instanceId]: {
+              instanceId,
+              placement: "canvas_section",
+              isMinimized: false,
+              isClosed: false,
+              isMaximized: false,
+              bounds: {
+                x: 120,
+                y: 120,
+                width: 820,
+                height: 520,
+              },
+              dockMetrics: {
+                widthFraction: null,
+                preferredWidthPx: null,
+              },
+              zIndex: 1,
+              lastPlacementBeforeMaximize: null,
+              mode,
+              sectionIdOrNull: sectionId,
+              lastFocusedAt: Date.now(),
+              chatId: null,
+            },
+          },
+          order: [instanceId],
+          nextInstanceNumber: 2,
+        };
+        await page.evaluate(async (windowingState) => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          useProjectState.setState((state) => {
+            state.projectChatWindowing = windowingState;
+          });
+        }, nextWindowingState);
+        await postBackend(page, "/setProjectChatWindowingState", {
+          projectConfigId: projectContext.projectConfigId,
+          state: nextWindowingState,
+        });
+      };
+      const expectCanvasBindingForSection = async () => {
+        await expect
+          .poll(
+            async () =>
+              await page.evaluate(async (targetInstanceId) => {
+                const { useProjectState } = await import(
+                  "/src/state/definitions.ts"
+                );
+                const target =
+                  useProjectState.getState().projectChatWindowing.instancesById[
+                    targetInstanceId
+                  ];
+                if (!target) {
+                  return null;
+                }
+                return target.sectionIdOrNull;
+              }, instanceId),
+          )
+          .toBe(sectionId);
+      };
+
+      await setCanvasSectionBinding("section_mode");
+      await expectCanvasBindingForSection();
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      const surface = section
+        .locator('[data-chat-surface-host="section_layout"]')
+        .first();
+      await expect(surface).toHaveAttribute(
+        "data-chat-surface-mode",
+        "section_mode",
+      );
+      await setCanvasSectionBinding("project_ai_mode");
+      await expectCanvasBindingForSection();
+
+      await expect(surface).toHaveAttribute(
+        "data-chat-surface-mode",
+        "project_ai_mode",
+      );
+      await surface
+        .getByRole("button", { name: "Project AI Settings" })
+        .click();
+      const projectModeEngineInput = page.getByPlaceholder("Select an engine");
+      await expect(projectModeEngineInput).toBeVisible();
+      await projectModeEngineInput.fill(managedEngine.name);
+      await projectModeEngineInput.press("Enter");
+      await page.keyboard.press("Escape");
+      const projectModeInput = surface.locator("textarea").first();
+      await projectModeInput.fill("project-ai unscoped request");
+      await projectModeInput.press("Enter");
+      await expect.poll(() => llmRequests.length).toBe(1);
+      expect(llmRequests[0]).toEqual({
+        sectionId: null,
+        allowUnscoped: true,
+      });
+      await setCanvasSectionBinding("section_mode");
+      await expectCanvasBindingForSection();
+      await expect(surface).toHaveAttribute(
+        "data-chat-surface-mode",
+        "section_mode",
+      );
+      const restoredScopedInput = surface.locator("textarea").first();
+      await restoredScopedInput.fill("section-mode restored scope request");
+      await restoredScopedInput.press("Enter");
+      await expect.poll(() => llmRequests.length).toBe(2);
+      expect(llmRequests[1]).toEqual({
+        sectionId,
+        allowUnscoped: false,
+      });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -1461,7 +1807,9 @@ test.describe.serial("chat composer controls", () => {
         engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
         null;
       if (!historyEngineConfigId) {
-        throw new Error("Missing managed LLM engine config for history refresh.");
+        throw new Error(
+          "Missing managed LLM engine config for history refresh.",
+        );
       }
       const { sectionId, sectionName } = await createChatSection(
         page,

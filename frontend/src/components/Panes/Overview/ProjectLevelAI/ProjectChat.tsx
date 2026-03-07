@@ -365,6 +365,11 @@ export function ProjectChat() {
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
+  const [chatContainerNode, setChatContainerNode] =
+    useState<HTMLDivElement | null>(null);
+  const [chatContainerWidth, setChatContainerWidth] = useState<number | null>(
+    null,
+  );
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
@@ -450,6 +455,8 @@ export function ProjectChat() {
     _.isEqual,
   );
   const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
+  const effectiveInlineThreadsViewportWidth =
+    chatContainerWidth ?? overviewPaneWidth;
   const { threadAssignments, threadGroups } = useLocalStorage(
     (state) => ({
       threadAssignments:
@@ -497,7 +504,7 @@ export function ProjectChat() {
   const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedInlineThreadsResizeSyncRef = useRef(false);
   const previousLargeEnoughForInlineThreadsRef = useRef(
-    overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX,
+    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX,
   );
 
   const availableConfigGroups = useMemo(
@@ -1102,9 +1109,48 @@ export function ProjectChat() {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
 
+  const handleChatContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setChatContainerNode(node);
+  }, []);
+
+  useEffect(() => {
+    if (!chatContainerNode) {
+      return;
+    }
+
+    const syncChatContainerWidth = (nextWidth: number) => {
+      const roundedWidth = Math.max(0, Math.round(nextWidth));
+      setChatContainerWidth((currentWidth) => {
+        if (currentWidth === roundedWidth) {
+          return currentWidth;
+        }
+        return roundedWidth;
+      });
+    };
+
+    syncChatContainerWidth(chatContainerNode.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const firstEntry = entries[0];
+      if (!firstEntry) {
+        return;
+      }
+      syncChatContainerWidth(firstEntry.contentRect.width);
+    });
+    resizeObserver.observe(chatContainerNode);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [chatContainerNode]);
+
   useEffect(() => {
     const isLargeEnoughForInlineThreads =
-      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
     const nextVisibility = resolveProjectChatThreadVisibilityFromResize({
       isInitialRun: !hasInitializedInlineThreadsResizeSyncRef.current,
       wasLargeEnoughForInlineThreads:
@@ -1122,21 +1168,22 @@ export function ProjectChat() {
     }
     useAIStore.setState({ viewThreads: nextVisibility });
   }, [
-    overviewPaneWidth,
+    effectiveInlineThreadsViewportWidth,
     projectChatThreadsExplicitlyClosedAtLargeWidth,
     viewThreads,
   ]);
 
   const showInlineThreads =
-    viewThreads && overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    viewThreads &&
+    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
   const inlineThreadsMaxWidth = useMemo(() => {
     const boundedMaxWidth = clamp(
-      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      effectiveInlineThreadsViewportWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
       INLINE_THREADS_MIN_WIDTH_PX,
       INLINE_THREADS_MAX_WIDTH_PX,
     );
     return boundedMaxWidth;
-  }, [overviewPaneWidth]);
+  }, [effectiveInlineThreadsViewportWidth]);
   const resolvedInlineThreadsWidth = useMemo(() => {
     return clamp(
       inlineThreadsWidth,
@@ -1319,7 +1366,7 @@ export function ProjectChat() {
   const handleToggleThreads = useCallback(() => {
     setViewSkillsMcpViewer(false);
     const isLargeEnoughForInlineThreads =
-      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
     useAIStore.setState((state) => {
       const nextViewThreads = !state.viewThreads;
       if (!isLargeEnoughForInlineThreads) {
@@ -1330,7 +1377,7 @@ export function ProjectChat() {
         projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
       };
     });
-  }, [overviewPaneWidth]);
+  }, [effectiveInlineThreadsViewportWidth]);
   const startNewChatDraft = useCallback(
     ({
       targetGroupId,
@@ -1499,7 +1546,10 @@ export function ProjectChat() {
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
-      <div className="flex h-full min-h-0 flex-col @container">
+      <div
+        ref={handleChatContainerRef}
+        className="flex h-full min-h-0 flex-col @container"
+      >
         <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800 [&_button]:cursor-pointer">
           <div className="flex w-full min-w-0 items-stretch">
             {showInlineThreads ? (
