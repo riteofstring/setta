@@ -68,6 +68,7 @@ type projectStateProvider interface {
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
+	UpdateParamImplConfig(ctx context.Context, projectID string, sectionID string, paramInfoID string, newConfig map[string]any) (projectstate.Snapshot, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
@@ -956,6 +957,48 @@ func newChangeParamImplHandler(projectState projectStateProvider) tools.Handler 
 		}
 
 		if _, err := projectState.ChangeParamImpl(ctx, projectConfigID, sectionID, paramInfoID, selectedID); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newUpdateParamImplConfigHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramInfoID, err := readRequiredStringArgument(arguments, "paramInfoId")
+		if err != nil {
+			return nil, err
+		}
+		newConfig, err := readRequiredObjectArgument(arguments, "newConfig")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped param impl config invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.UpdateParamImplConfig(ctx, projectConfigID, sectionID, paramInfoID, newConfig); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1883,6 +1926,56 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "update_param_impl_config",
+				Description: "Update the active implementation config for the targeted parameter or meta-control.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"paramInfoId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "config", "impl", "control", "write"},
+				},
+				Handler: newUpdateParamImplConfigHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter implementation config should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id containing the targeted parameter.",
+					},
+					"paramInfoId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id for the targeted parameter.",
+					},
+					"newConfig": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+						"description":          "Implementation-specific config fields to persist on the targeted parameter.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "paramInfoId", "newConfig"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "set_param_entered_value",
 				Description: "Write a new manual value for the targeted section parameter.",
 				Metadata: tools.Metadata{
@@ -2468,6 +2561,18 @@ func readRequiredArgument(arguments map[string]any, key string) (any, error) {
 	return value, nil
 }
 
+func readRequiredObjectArgument(arguments map[string]any, key string) (map[string]any, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+	value, ok := rawValue.(map[string]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an object", key)
+	}
+	return value, nil
+}
+
 func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -2707,6 +2812,9 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired),
 		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown),
 		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed),
+		errors.Is(err, projectstate.ErrUpdateParamImplConfigUnsupported),
+		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldUnsupported),
+		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldInvalid),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),

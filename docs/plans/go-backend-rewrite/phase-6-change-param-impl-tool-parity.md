@@ -171,10 +171,11 @@ impl unusable. The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- implement a focused `update_param_impl_config` slice so callers can adjust the
-  newly selected impl without falling back to legacy route orchestration
-- keep config mutation authoritative in `internal/projectstate` above the
-  completed impl-switch and password-secret boundaries
+- `update_param_impl_config` is now complete on the Go-owned MCP boundary
+- the next bounded follow-on in this param-editing cluster is
+  `delete_selected_params`
+- keep config and delete/move/reparent follow-ons authoritative in
+  `internal/projectstate`
 
 ## Progress Notes
 

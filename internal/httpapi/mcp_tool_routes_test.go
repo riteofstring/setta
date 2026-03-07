@@ -376,6 +376,47 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected renamed param value, got %#v", got)
 	}
 
+	if _, err := projectRuntime.ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
+		t.Fatalf("prepare slider impl before route update_param_impl_config: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionCodeObjectValue(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "75"); err != nil {
+		t.Fatalf("prepare slider value before route update_param_impl_config: %v", err)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"update_param_impl_config",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","newConfig":{"max":10}},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected update_param_impl_config success, got %#v", payload.StructuredContent)
+	}
+	updateParamImplConfigPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if updateParamImplConfigPayload["status"] != "ok" {
+		t.Fatalf("expected update_param_impl_config status ok, got %#v", updateParamImplConfigPayload["status"])
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route update_param_impl_config: %v", err)
+	}
+	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after route update_param_impl_config: %v", err)
+	}
+	if got := paramPayload["value"]; got != "10" {
+		t.Fatalf("expected slider value to clamp to 10, got %#v", got)
+	}
+
 	response = postMCPToolRoute(t, handler, `{
 		"tool":"change_param_impl",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","selectedId":"PasswordParam"},

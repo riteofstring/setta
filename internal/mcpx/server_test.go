@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 22 {
-		t.Fatalf("expected 22 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 23 {
+		t.Fatalf("expected 23 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -150,6 +150,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCallableTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var changeParamImplTool *sdkmcp.Tool
+	var updateParamImplConfigTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
@@ -188,6 +189,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "change_param_impl" {
 			changeParamImplTool = tool
+		}
+		if tool.Name == "update_param_impl_config" {
+			updateParamImplConfigTool = tool
 		}
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
@@ -244,6 +248,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_param_name_and_value",
 		"set_section_name",
 		"set_type_error_ignore",
+		"update_param_impl_config",
 	}
 	for index, name := range expectedNames {
 		if names[index] != name {
@@ -277,6 +282,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if changeParamImplTool == nil {
 		t.Fatal("expected change_param_impl tool")
+	}
+	if updateParamImplConfigTool == nil {
+		t.Fatal("expected update_param_impl_config tool")
 	}
 	createChildMeta := mustStructuredMap(t, createChildSectionsTool.Meta[toolMetaNamespace])
 	if createChildMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -394,6 +402,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, changeParamImplPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
 		t.Fatalf("expected change_param_impl paramInfoId target path, got %#v", got)
 	}
+	updateParamImplConfigMeta := mustStructuredMap(t, updateParamImplConfigTool.Meta[toolMetaNamespace])
+	if updateParamImplConfigMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for update_param_impl_config, got %#v", updateParamImplConfigMeta["accessType"])
+	}
+	updateParamImplConfigPaths := mustStructuredMap(t, updateParamImplConfigMeta["idPathsByType"])
+	if got := mustStringList(t, updateParamImplConfigPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected update_param_impl_config sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, updateParamImplConfigPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
+		t.Fatalf("expected update_param_impl_config paramInfoId target path, got %#v", got)
+	}
 	settaMeta := mustStructuredMap(t, summaryTool.Meta[toolMetaNamespace])
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
 		t.Fatalf("expected project-state result filter, got %#v", settaMeta["resultFilter"])
@@ -475,8 +494,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 22 {
-		t.Fatalf("expected 22 registered tool names, got %#v", listNames)
+	if len(listNames) != 23 {
+		t.Fatalf("expected 23 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1194,6 +1213,85 @@ func TestServerChangeParamImplRespectsScopedWriteTargets(t *testing.T) {
 	}
 }
 
+func TestServerUpdateParamImplConfigRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, err := projectRuntime.ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
+		t.Fatalf("prepare slider param impl: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionCodeObjectValue(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "75"); err != nil {
+		t.Fatalf("prepare slider param value: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_param_impl_config",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"newConfig": map[string]any{
+				"max": 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call update_param_impl_config allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed update_param_impl_config success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if allowedPayload["status"] != "ok" {
+		t.Fatalf("expected update_param_impl_config status ok, got %#v", allowedPayload["status"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after update_param_impl_config: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed param after update_param_impl_config: %v", err)
+	}
+	if paramImpl.Type != "SliderParam" {
+		t.Fatalf("expected SliderParam impl after update_param_impl_config, got %q", paramImpl.Type)
+	}
+	if got := payloadRawStringField(paramPayload, "value"); got != "10" {
+		t.Fatalf("expected slider value to clamp to 10, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_param_impl_config",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"paramInfoId":     "blocked-param",
+			"newConfig": map[string]any{
+				"description": "Blocked",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call update_param_impl_config blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked update_param_impl_config call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
 func TestServerAddKwargTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1344,6 +1442,74 @@ func TestServerChangeParamImplTranslatesTemporaryIDs(t *testing.T) {
 	}
 	if !payloadBoolField(paramPayload, "hasSecret") {
 		t.Fatalf("expected password param hasSecret true after temp-id change_param_impl, got %#v", paramPayload)
+	}
+}
+
+func TestServerUpdateParamImplConfigTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, err := projectRuntime.ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
+		t.Fatalf("prepare slider param impl: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionCodeObjectValue(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "75"); err != nil {
+		t.Fatalf("prepare slider param value: %v", err)
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "26",
+		"allowed-param":          "27",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_param_impl_config",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "26",
+			"paramInfoId":     "27",
+			"newConfig": map[string]any{
+				"max": 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id update_param_impl_config allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id update_param_impl_config success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if allowedPayload["status"] != "ok" {
+		t.Fatalf("expected temp-id update_param_impl_config status ok, got %#v", allowedPayload["status"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id update_param_impl_config: %v", err)
+	}
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed param after temp-id update_param_impl_config: %v", err)
+	}
+	if got := payloadRawStringField(paramPayload, "value"); got != "10" {
+		t.Fatalf("expected slider value to clamp to 10 after temp-id update, got %q", got)
 	}
 }
 

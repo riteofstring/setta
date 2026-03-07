@@ -20,9 +20,11 @@ config fields without falling back to Python-side orchestration.
 
 Current repo status as of 2026-03-07:
 
-- this slice is in progress
-- no Go-owned `update_param_impl_config` mutation owner exists yet
-- MCP callers still need legacy route orchestration for post-switch config work
+- this slice is complete
+- Go now owns `update_param_impl_config` through `internal/projectstate` and MCP
+- impl config writes now use explicit per-type field parsing and validation
+- config-sensitive value normalization now stays on the Go-owned source-of-truth
+  path after config updates
 
 ## Scope
 
@@ -180,15 +182,18 @@ The highest-leverage move is therefore:
 
 ## Open Questions
 
-- none yet beyond exact field coverage, which should stay bounded to the
-  currently surfaced param-config UI and MCP preset flows
+- none after implementation
 
 ## Next Recommended Step
 
-- implement this slice end-to-end in `internal/projectstate` and MCP
-- once complete, reassess whether the next highest-leverage Phase 6 follow-on is
-  `delete_selected_params` or another scoped param-structure mutation
+- scope `delete_selected_params` as the next bounded param-structure slice
+- keep delete/move/reparent follow-ons separate from this completed config-write
+  boundary
 
 ## Progress Notes
 
 - 2026-03-07: doc created to scope the slice before implementation.
+- 2026-03-07: slice completed with a Go-owned `update_param_impl_config`
+  owner, explicit per-type field validation, config-sensitive value
+  normalization for slider/rotary/dropzone/color-picker/date flows, MCP
+  registration, and authenticated HTTP/app coverage.

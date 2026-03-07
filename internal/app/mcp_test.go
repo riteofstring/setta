@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 22 {
-		t.Fatalf("expected 22 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 23 {
+		t.Fatalf("expected 23 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 22 {
-		t.Fatalf("expected 22 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 23 {
+		t.Fatalf("expected 23 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -455,6 +455,50 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if got := paramPayload["value"]; got != "combined" {
 		t.Fatalf("expected combined param value, got %#v", got)
+	}
+
+	if _, err := app.ProjectStates().Main().ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
+		t.Fatalf("prepare slider impl before update_param_impl_config: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetSectionCodeObjectValue(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "75"); err != nil {
+		t.Fatalf("prepare slider value before update_param_impl_config: %v", err)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_param_impl_config",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"newConfig": map[string]any{
+				"max": 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call update_param_impl_config: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected update_param_impl_config success, got %#v", result.StructuredContent)
+	}
+	updateParamImplConfigPayload := mustStructuredMapValue(t, result.StructuredContent)
+	if updateParamImplConfigPayload["status"] != "ok" {
+		t.Fatalf("expected update_param_impl_config status ok, got %#v", updateParamImplConfigPayload["status"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after update_param_impl_config: %v", err)
+	}
+	paramPayload, _, _, updatedParamImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after update_param_impl_config: %v", err)
+	}
+	if updatedParamImpl.Type != "SliderParam" {
+		t.Fatalf("expected SliderParam impl after update_param_impl_config, got %q", updatedParamImpl.Type)
+	}
+	if got := paramPayload["value"]; got != "10" {
+		t.Fatalf("expected slider value to clamp to 10, got %#v", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1669,6 +1713,52 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 		t.Fatalf("expected translated display name, got %q", got)
 	}
 
+	if _, err := app.ProjectStates().Main().ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
+		t.Fatalf("prepare slider impl before temp-id update_param_impl_config: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetSectionCodeObjectValue(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "75"); err != nil {
+		t.Fatalf("prepare slider value before temp-id update_param_impl_config: %v", err)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "update_param_impl_config",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramInfoId":     "22",
+			"newConfig": map[string]any{
+				"max": 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id update_param_impl_config: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id update_param_impl_config success, got %#v", writeResult.StructuredContent)
+	}
+	updateParamImplConfigPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
+	if updateParamImplConfigPayload["status"] != "ok" {
+		t.Fatalf("expected temp-id update_param_impl_config status ok, got %#v", updateParamImplConfigPayload["status"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id update_param_impl_config: %v", err)
+	}
+	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after temp-id update_param_impl_config: %v", err)
+	}
+	if got := paramPayload["value"]; got != "10" {
+		t.Fatalf("expected slider value to clamp to 10 after temp-id update, got %#v", got)
+	}
+
 	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Meta: sdkmcp.Meta{
 			"projectConfigId": "11",
@@ -1813,8 +1903,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 22 {
-		t.Fatalf("expected tool count 22, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 23 {
+		t.Fatalf("expected tool count 23, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
