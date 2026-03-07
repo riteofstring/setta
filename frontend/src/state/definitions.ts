@@ -7,8 +7,6 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
   isOverviewTabKey,
-  OverviewNotificationsPaneTab,
-  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabNameEnum,
   ProjectSearchMode,
@@ -446,55 +444,6 @@ export type CustomRunItem = {
   action: CustomRunAction;
 };
 
-export type ProjectChatCustomSlashCommand = {
-  command: string;
-  prompt: string;
-};
-
-function isPersistedRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-  value: unknown,
-): Record<string, Array<ProjectChatCustomSlashCommand>> {
-  if (!isPersistedRecord(value)) {
-    return {};
-  }
-  const normalized: Record<string, Array<ProjectChatCustomSlashCommand>> = {};
-  for (const [projectConfigId, rawCommands] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
-    if (!normalizedProjectConfigId || !Array.isArray(rawCommands)) {
-      continue;
-    }
-    const normalizedCommands: Array<ProjectChatCustomSlashCommand> = [];
-    for (const rawCommand of rawCommands) {
-      if (!isPersistedRecord(rawCommand)) {
-        continue;
-      }
-      const commandValue = rawCommand.command;
-      const promptValue = rawCommand.prompt;
-      if (typeof commandValue !== "string" || typeof promptValue !== "string") {
-        continue;
-      }
-      const command = commandValue.trim();
-      const prompt = promptValue.trim();
-      if (!command || !prompt) {
-        continue;
-      }
-      normalizedCommands.push({
-        command,
-        prompt,
-      });
-    }
-    if (normalizedCommands.length === 0) {
-      continue;
-    }
-    normalized[normalizedProjectConfigId] = normalizedCommands;
-  }
-  return normalized;
-}
-
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -901,7 +850,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "all",
+        mode: "off",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -992,7 +941,6 @@ type ZustandLocalStorage = {
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
-  overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1005,10 +953,6 @@ type ZustandLocalStorage = {
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
-  customProjectChatSlashCommandsByProjectConfigId: Record<
-    string,
-    Array<ProjectChatCustomSlashCommand>
-  >;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
     string,
@@ -1065,8 +1009,6 @@ export const useLocalStorage = createWithEqualityFn(
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
-      overviewNotificationsPaneTab:
-        OverviewNotificationsPaneTabEnum.Notifications,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -1079,7 +1021,6 @@ export const useLocalStorage = createWithEqualityFn(
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
-      customProjectChatSlashCommandsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
@@ -1136,27 +1077,6 @@ export const useLocalStorage = createWithEqualityFn(
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
         }
-        if (merged.overviewTab === OverviewTabNameEnum.BackendLogs) {
-          merged.overviewTab = OverviewTabNameEnum.Notifications;
-          merged.overviewNotificationsPaneTab =
-            OverviewNotificationsPaneTabEnum.BackendLogs;
-        }
-        if (merged.overviewTab === OverviewTabNameEnum.WatchCode) {
-          merged.overviewTab = OverviewTabNameEnum.Overview;
-        }
-        if (
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.Notifications &&
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.BackendLogs
-        ) {
-          merged.overviewNotificationsPaneTab =
-            OverviewNotificationsPaneTabEnum.Notifications;
-        }
-        merged.customProjectChatSlashCommandsByProjectConfigId =
-          normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-            merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==

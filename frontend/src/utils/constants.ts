@@ -34,13 +34,6 @@ export const OverviewTabNameEnum = {
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
-export const OverviewNotificationsPaneTabEnum = {
-  Notifications: "notifications",
-  BackendLogs: "backend_logs",
-} as const;
-export type OverviewNotificationsPaneTab = ObjectValues<
-  typeof OverviewNotificationsPaneTabEnum
->;
 type PluginOverviewTabName = `PluginPane:${string}:${string}`;
 export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 const overviewTabNameValues = new Set<string>(

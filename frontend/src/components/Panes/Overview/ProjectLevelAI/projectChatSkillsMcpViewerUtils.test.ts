@@ -7,14 +7,11 @@ import {
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
-  buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
-  collectAgentNativeSlashCommandTokensFromRuns,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
-  reconcileCustomSlashCommands,
   resolveMcpServerStatus,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
@@ -29,8 +26,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "ui-layout",
-        isEditable: false,
-        editabilityReason: null,
         description: "Create dense dashboard layouts.",
       },
       {
@@ -39,8 +34,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.agents/skills",
         rootPath: "/home/.agents/skills",
         relativePath: "build-tools",
-        isEditable: true,
-        editabilityReason: null,
         description: "Automate builds and releases.",
       },
     ];
@@ -60,8 +53,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: "frontend-design",
-        isEditable: false,
-        editabilityReason: null,
         description: "Create polished frontend interfaces.",
       },
       {
@@ -70,8 +61,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "setta-cli",
-        isEditable: false,
-        editabilityReason: null,
         description: "Project-local CLI helpers.",
       },
       {
@@ -80,8 +69,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: ".system/skill-installer",
-        isEditable: false,
-        editabilityReason: null,
         description: "Install curated skills.",
       },
     ];
@@ -105,8 +92,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
-          isEditable: true,
-          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
@@ -144,8 +129,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           rootLabel: "Workspace .agents/skills",
           rootPath: "/workspace/.agents/skills",
           relativePath: "frontend-design",
-          isEditable: true,
-          editabilityReason: null,
           description: "Create polished frontend interfaces.",
         },
       ],
@@ -485,10 +468,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
       "/model",
       "/permissions",
       "/search",
@@ -498,10 +477,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
       "/model",
       "/permissions",
       "/help",
@@ -555,93 +530,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
       "/model",
       "/help",
     ]);
     expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
       "/new",
       "/resume",
-      "/app-json",
-      "/app-image",
-      "/app-prompt",
-      "/app-mcp",
       "/model",
       "/help",
     ]);
-  });
-
-  it("collects normalized agent-native slash tokens from run metadata", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromRuns([
-      {
-        outputs: {
-          metadata: {
-            agentNativeSlashCommands: [" /triage ", "/help", 1],
-          },
-        },
-      },
-      {
-        outputs: {
-          metadata: {
-            agentNativeSlashCommands: ["/TRIAGE", "/ship"],
-          },
-        },
-      },
-      { outputs: null },
-    ]);
-
-    expect(tokens).toEqual(["/triage", "/help", "/ship"]);
-  });
-
-  it("reconciles colliding custom commands against managed and native reserved tokens", () => {
-    const reservedTokens = buildReservedSlashCommandTokens({
-      managedCommands: [
-        {
-          command: "/new",
-          action: "new",
-          summary: "Start a new thread.",
-        },
-      ],
-      engineCommandGroups: [
-        {
-          commands: [
-            {
-              command: "/permissions",
-              action: "permissions",
-              summary: "Set permissions mode.",
-            },
-          ],
-        },
-      ],
-      discoveredNativeSlashCommands: ["/triage"],
-    });
-
-    const reconciled = reconcileCustomSlashCommands({
-      customCommands: [
-        {
-          command: "/triage",
-          action: "custom_prompt",
-          summary: "Run a saved custom prompt.",
-          promptTemplate: "Custom triage",
-        },
-        {
-          command: "/project-status",
-          action: "custom_prompt",
-          summary: "Run a saved custom prompt.",
-          promptTemplate: "Status report",
-        },
-      ],
-      reservedTokens,
-    });
-
-    expect(Array.from(reconciled.conflictingCommandTokens)).toEqual([
-      "/triage",
-    ]);
-    expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
-      ["/project-status"],
-    );
   });
 });

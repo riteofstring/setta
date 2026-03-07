@@ -1,6 +1,5 @@
 import {
   buildChatSlashCommands,
-  normalizeSlashCommandToken,
   type ChatSlashCommandDefinition,
 } from "components/Chat/chatComposerControls";
 import {
@@ -860,98 +859,7 @@ export function buildSlashCommandsByEngine({
         model: true,
         permissions: permissionsEnabled,
         search: searchEnabled,
-        appGenerationModes: true,
       }),
     };
   });
-}
-
-type AgentRunWithOutputs = {
-  outputs: unknown;
-};
-
-export function collectAgentNativeSlashCommandTokensFromRuns(
-  runs: AgentRunWithOutputs[],
-): string[] {
-  const discoveredTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const run of runs) {
-    const outputs = isRecord(run.outputs) ? run.outputs : null;
-    if (!outputs) {
-      continue;
-    }
-    const metadata = isRecord(outputs.metadata) ? outputs.metadata : null;
-    if (!metadata) {
-      continue;
-    }
-    const nativeCommands = metadata.agentNativeSlashCommands;
-    if (!Array.isArray(nativeCommands)) {
-      continue;
-    }
-    for (const nativeCommand of nativeCommands) {
-      if (typeof nativeCommand !== "string") {
-        continue;
-      }
-      const normalized = normalizeSlashCommandToken(nativeCommand);
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      discoveredTokens.push(normalized);
-    }
-  }
-  return discoveredTokens;
-}
-
-export function buildReservedSlashCommandTokens({
-  managedCommands,
-  engineCommandGroups,
-  discoveredNativeSlashCommands,
-}: {
-  managedCommands: ChatSlashCommandDefinition[];
-  engineCommandGroups: Array<{ commands: ChatSlashCommandDefinition[] }>;
-  discoveredNativeSlashCommands: string[];
-}): Set<string> {
-  const reserved = new Set<string>();
-  for (const command of managedCommands) {
-    reserved.add(command.command);
-  }
-  for (const group of engineCommandGroups) {
-    for (const command of group.commands) {
-      reserved.add(command.command);
-    }
-  }
-  for (const nativeCommand of discoveredNativeSlashCommands) {
-    const normalized = normalizeSlashCommandToken(nativeCommand);
-    if (!normalized) {
-      continue;
-    }
-    reserved.add(normalized);
-  }
-  return reserved;
-}
-
-export function reconcileCustomSlashCommands({
-  customCommands,
-  reservedTokens,
-}: {
-  customCommands: ChatSlashCommandDefinition[];
-  reservedTokens: Set<string>;
-}): {
-  executableCommands: ChatSlashCommandDefinition[];
-  conflictingCommandTokens: Set<string>;
-} {
-  const executableCommands: ChatSlashCommandDefinition[] = [];
-  const conflictingCommandTokens = new Set<string>();
-  for (const customCommand of customCommands) {
-    if (reservedTokens.has(customCommand.command)) {
-      conflictingCommandTokens.add(customCommand.command);
-      continue;
-    }
-    executableCommands.push(customCommand);
-  }
-  return {
-    executableCommands,
-    conflictingCommandTokens,
-  };
 }
