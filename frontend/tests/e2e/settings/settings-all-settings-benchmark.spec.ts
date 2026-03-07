@@ -14,6 +14,8 @@ const STAGES = [
   "group-container-static-list",
   "param-flat-shell",
   "param-simple-grid-shell",
+  "param-top-level-structure-shell",
+  "param-parent-structure-shell",
   "param-structure-shell",
   "param-chrome-shell",
   "param-container-shell",
@@ -40,6 +42,12 @@ type StageMetrics = {
   textWidgetShellCount: number;
   textInputDummyCount: number;
   resizeHandleCount: number;
+  parentRowCount: number;
+  leafRowCount: number;
+  topLevelRowCount: number;
+  nestedRowCount: number;
+  nestedChildSubtreeCount: number;
+  suppressedParentRowCount: number;
   flatRowModeCount: number;
   simpleGridRowModeCount: number;
   staticRowModeCount: number;
@@ -158,6 +166,81 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("param-simple-grid-shell")?.sortableRowModeCount,
   ).toBe(0);
 
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.parentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.topLevelRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.nestedRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")
+      ?.nestedChildSubtreeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")
+      ?.suppressedParentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")
+      ?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")
+      ?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.staticRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.sortableRowModeCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.parentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.leafRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.nestedRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.nestedChildSubtreeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")
+      ?.suppressedParentRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")
+      ?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")
+      ?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.staticRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.sortableRowModeCount,
+  ).toBe(0);
+
   expect(metricsByStage.get("param-structure-shell")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("param-structure-shell")?.flatParamRowCount).toBe(
     0,
@@ -177,6 +260,21 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("param-structure-shell")?.resizeHandleCount).toBe(
     0,
   );
+  expect(
+    metricsByStage.get("param-structure-shell")?.parentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.leafRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.nestedRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.nestedChildSubtreeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.suppressedParentRowCount,
+  ).toBe(0);
   expect(
     metricsByStage.get("param-structure-shell")?.sampleParamRowCount,
   ).toBeGreaterThan(0);
@@ -290,6 +388,12 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("group-container-static-list")?.domCount,
   ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("param-top-level-structure-shell")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-structure-shell")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("param-parent-structure-shell")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-structure-shell")?.domCount ?? 0);
   expect(metricsByStage.get("param-structure-shell")?.domCount).toBeLessThan(
     metricsByStage.get("param-chrome-shell")?.domCount ?? 0,
   );
@@ -347,6 +451,12 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
     if (!flowRoot) {
       throw new Error("Missing react flow root.");
     }
+    const paramRows = Array.from(
+      flowRoot.querySelectorAll<HTMLElement>('[data-param-row="true"]'),
+    );
+    const topLevelParamRows = paramRows.filter(
+      (row) => !row.parentElement?.closest("[data-settings-benchmark-nested-child-subtree]"),
+    );
     const viewport = flowRoot.querySelector(".react-flow__viewport");
     const viewportTransform =
       viewport instanceof HTMLElement
@@ -407,6 +517,20 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         .length,
       resizeHandleCount: flowRoot.querySelectorAll("[data-param-resize-handle]")
         .length,
+      parentRowCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-kind="parent"]',
+      ).length,
+      leafRowCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-kind="leaf"]',
+      ).length,
+      topLevelRowCount: topLevelParamRows.length,
+      nestedRowCount: paramRows.length - topLevelParamRows.length,
+      nestedChildSubtreeCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-nested-child-subtree]",
+      ).length,
+      suppressedParentRowCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-child-subtree-policy="suppressed"]',
+      ).length,
       flatRowModeCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-param-row-mode="flat"]',
       ).length,

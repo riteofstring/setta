@@ -83,6 +83,15 @@ function _ParamContainer({
     paramChildren,
   );
   const hasChildRows = renderChildren.length > 0;
+  const benchmarkRowKind = hasChildRows ? "parent" : "leaf";
+  const benchmarkRowDepth = isNestedParam ? "nested" : "top-level";
+  const childSubtreePolicy = hasChildRows
+    ? benchmark.renderNestedChildSubtrees
+      ? "enabled"
+      : "suppressed"
+    : "none";
+  const shouldRenderNestedChildSubtrees =
+    hasChildRows && benchmark.renderNestedChildSubtrees;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -160,6 +169,9 @@ function _ParamContainer({
       }}
       data-param-row="true"
       data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+      data-settings-benchmark-param-row-kind={benchmarkRowKind}
+      data-settings-benchmark-param-row-depth={benchmarkRowDepth}
+      data-settings-benchmark-child-subtree-policy={childSubtreePolicy}
       {...floatingBoxHandlers}
       onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
       onClick={onClick}
@@ -191,8 +203,11 @@ function _ParamContainer({
       {benchmark.renderParamChrome && hasError && (
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
-      {hasChildRows && (
-        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+      {shouldRenderNestedChildSubtrees && (
+        <div
+          className={NESTED_CHILD_ROWS_CLASS_NAME}
+          data-settings-benchmark-nested-child-subtree="true"
+        >
           <GetParamSwitch
             sectionId={sectionId}
             paramIds={renderChildren}
@@ -215,6 +230,9 @@ function _ParamContainer({
       }}
       data-param-row="true"
       data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+      data-settings-benchmark-param-row-kind={benchmarkRowKind}
+      data-settings-benchmark-param-row-depth={benchmarkRowDepth}
+      data-settings-benchmark-child-subtree-policy={childSubtreePolicy}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
       ref={dndRef}
@@ -224,16 +242,21 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={renderChildren}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      </div>
+      {shouldRenderNestedChildSubtrees && (
+        <div
+          className={NESTED_CHILD_ROWS_CLASS_NAME}
+          data-settings-benchmark-nested-child-subtree="true"
+        >
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -269,6 +292,9 @@ function BenchmarkFlatParamContainer({
     paramChildren,
   );
   const hasChildRows = renderChildren.length > 0;
+  const benchmarkRowKind = hasChildRows ? "parent" : "leaf";
+  const benchmarkRowDepth = isNestedParam ? "nested" : "top-level";
+  const childSubtreePolicy = hasChildRows ? "enabled" : "none";
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -281,6 +307,9 @@ function BenchmarkFlatParamContainer({
       data-param-row="true"
       data-settings-benchmark-flat-param-row="true"
       data-settings-benchmark-param-row-mode="flat"
+      data-settings-benchmark-param-row-kind={benchmarkRowKind}
+      data-settings-benchmark-param-row-depth={benchmarkRowDepth}
+      data-settings-benchmark-child-subtree-policy={childSubtreePolicy}
       {...floatingBoxHandlers}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
@@ -313,6 +342,7 @@ function BenchmarkFlatParamContainer({
         <div
           className="ml-3 flex min-w-0 flex-col gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-flat-param-children="true"
+          data-settings-benchmark-nested-child-subtree="true"
         >
           <GetParamSwitch
             sectionId={sectionId}
@@ -357,6 +387,9 @@ function BenchmarkSimpleGridParamContainer({
     paramChildren,
   );
   const hasChildRows = renderChildren.length > 0;
+  const benchmarkRowKind = hasChildRows ? "parent" : "leaf";
+  const benchmarkRowDepth = isNestedParam ? "nested" : "top-level";
+  const childSubtreePolicy = hasChildRows ? "enabled" : "none";
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -372,6 +405,9 @@ function BenchmarkSimpleGridParamContainer({
       data-param-row="true"
       data-settings-benchmark-simple-grid-param-row="true"
       data-settings-benchmark-param-row-mode="simple-grid"
+      data-settings-benchmark-param-row-kind={benchmarkRowKind}
+      data-settings-benchmark-param-row-depth={benchmarkRowDepth}
+      data-settings-benchmark-child-subtree-policy={childSubtreePolicy}
       {...floatingBoxHandlers}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
@@ -402,6 +438,7 @@ function BenchmarkSimpleGridParamContainer({
         <div
           className="col-span-2 grid min-w-0 gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-simple-grid-children="true"
+          data-settings-benchmark-nested-child-subtree="true"
         >
           <GetParamSwitch
             sectionId={sectionId}

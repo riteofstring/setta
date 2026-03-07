@@ -871,3 +871,114 @@ Recommended next performance target:
 - Updated interpretation:
   - simply replacing `grid-cols-subgrid` with a local named-grid wrapper is not enough
   - the remaining hotspot is likely deeper in the overall row/widget interaction, so the next worthwhile target is the text/code/text-area widget family or a different row-layout idea entirely
+
+## Addendum: Top-level Rows vs Parent-only Recursion vs Full Structure
+
+- Date: `2026-03-07`
+- Goal: split the remaining `static-param-list` -> `param-structure-shell` cliff into:
+  - the cost of the real production shell on the top-level visible rows
+  - the cost of recursive parent rows by themselves
+  - the extra cost of mounting the full nested subtree
+- Measurement note:
+  - this addendum uses the same browser-side viewport transform replay as the earlier render-isolation passes
+  - after stage activation and a `500ms` settle, it mutates the live `.react-flow__viewport` transform for `120` frames while capturing `requestAnimationFrame` deltas and a DevTools trace
+  - compare these numbers only within this addendum
+
+New benchmark stages:
+
+- `param-top-level-structure-shell`
+  - real `ParamSwitch` / `ParamContainer` row shell
+  - top-level rows only
+  - nested child subtrees suppressed
+- `param-parent-structure-shell`
+  - real recursive row shell
+  - current-level filtering keeps only parent rows
+  - leaf rows are excluded
+- `param-structure-shell`
+  - full recursive real row shell
+  - parent rows plus leaf rows plus mounted nested subtree
+
+### `static-param-list` anchor rerun
+
+- DOM nodes in `.react-flow`: `3773`
+- Static benchmark rows: `697`
+- Average frame time: `19.77ms`
+- Approx FPS: `50.58`
+- Max frame time: `42.10ms`
+- Slow frames:
+  - `>16.7ms`: `70`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/static-param-list-parent-leaf-breakdown-trace.json`
+
+### `param-top-level-structure-shell`
+
+- DOM nodes in `.react-flow`: `3483`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Nested rendered rows: `0`
+- Nested child wrappers: `0`
+- Suppressed parent rows: `27`
+- Average frame time: `36.36ms`
+- Approx FPS: `27.50`
+- Max frame time: `46.80ms`
+- Slow frames:
+  - `>16.7ms`: `115`
+  - `>33.3ms`: `90`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-structure-shell-parent-leaf-breakdown-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-structure-shell-visible.png`
+
+### `param-parent-structure-shell`
+
+- DOM nodes in `.react-flow`: `1935`
+- Param containers: `66`
+- Parent rows: `66`
+- Leaf rows: `0`
+- Top-level rows: `27`
+- Nested rendered rows: `39`
+- Nested child wrappers: `66`
+- Average frame time: `14.85ms`
+- Approx FPS: `67.36`
+- Max frame time: `25.10ms`
+- Slow frames:
+  - `>16.7ms`: `43`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-parent-structure-shell-parent-leaf-breakdown-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-parent-structure-shell-visible.png`
+
+### `param-structure-shell` rerun
+
+- DOM nodes in `.react-flow`: `4451`
+- Param containers: `697`
+- Parent rows: `66`
+- Leaf rows: `631`
+- Top-level rows: `452`
+- Nested rendered rows: `245`
+- Nested child wrappers: `66`
+- Average frame time: `48.38ms`
+- Approx FPS: `20.67`
+- Max frame time: `66.40ms`
+- Slow frames:
+  - `>16.7ms`: `115`
+  - `>33.3ms`: `115`
+  - `>50ms`: `49`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-parent-leaf-breakdown-trace.json`
+
+### Addendum conclusion
+
+- Parent-row recursion by itself is not the main bottleneck.
+  - `param-parent-structure-shell` keeps all `66` real parent rows and all `66` nested branch wrappers, yet it ran at `67.36 FPS`.
+- The biggest remaining cliff is already present before any nested child subtree mounts.
+  - `static-param-list` -> `param-top-level-structure-shell` drops from `50.58 FPS` to `27.50 FPS`, a `-23.08 FPS` hit, even with `0` nested rendered rows.
+- Mounting the nested subtree is a secondary penalty, not the primary one.
+  - `param-top-level-structure-shell` -> `param-structure-shell` drops another `-6.83 FPS` while adding `245` nested rendered rows.
+- The dominant cost inside the row-shell bucket now points at the real production shell on the many leaf rows.
+  - `param-structure-shell` contains `631` leaf rows and only `66` parent rows.
+  - `param-parent-structure-shell` is fast, while `param-top-level-structure-shell` is already slow with `425` leaf rows and no mounted nested subtree.
+- Updated interpretation:
+  - the remaining highest-value target is not parent recursion in general
+  - it is the ordinary leaf-row production path in `ParamContainer` / `ParamSwitch`
+  - nested subtree expansion still matters, but it is smaller than the per-leaf-row shell cost
