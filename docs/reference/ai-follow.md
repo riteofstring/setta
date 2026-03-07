@@ -17,7 +17,7 @@ This page explains how AIFollow works end-to-end, covering the backend metadata 
 - Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`backend/setta/llm/llm_chat_manager.py`).
 
 ## Frontend flow
-- AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId`, plus a frontend-only follow mode (`off`, `all`, `selected`) and per-project selections (`frontend/src/state/definitions.ts`). The current frontend default is `all`.
+- AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId`, plus a frontend-only follow mode (`off`, `all`, `selected`) and per-project selections (`frontend/src/state/definitions.ts`).
 - Websocket messages update the store:
   - `AIFollowToolArgumentsUpdate` replaces the ids for the chat (or clears them when the payload is empty).
   - `AIFollowToolResultUpdate` appends ids and schedules an auto-clear after 2 seconds so highlights are brief (`frontend/src/state/actions/aiFollow.ts`).
