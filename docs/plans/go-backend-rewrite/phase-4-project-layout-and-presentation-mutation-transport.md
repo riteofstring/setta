@@ -243,8 +243,9 @@ Tests:
 ## Next Recommended Step
 
 - This focused doc is complete.
-- The next highest-leverage adjacent slice is section layout and view-mode
-  mutation transport:
+- Continue
+  `docs/plans/go-backend-rewrite/phase-4-project-view-mode-and-top-level-layout-mutation-transport.md`,
+  which now owns the adjacent section layout and view-mode mutation cluster:
   - `setTopLevelSectionLayout`
   - `createViewMode`
   - `setActiveViewMode`

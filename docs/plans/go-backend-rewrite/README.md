@@ -48,29 +48,33 @@ Use the docs in this order:
    - focused current-work plan for the first IDE project-state mutation/save transport that can drive the new Go codegen refresh hook
 22. `phase-4-python-codegen-runtime-and-enablement.md`
    - focused current-work plan for first-party Python codegen runtime ownership, generated file materialization, and target enablement
-23. `phase-5-lsp-diagnostics-and-completion-runtime.md`
+23. `phase-4-project-layout-and-presentation-mutation-transport.md`
+   - focused current-work plan for the first Go-owned IDE project layout/presentation mutation transport cluster
+24. `phase-4-project-view-mode-and-top-level-layout-mutation-transport.md`
+   - focused current-work plan for Go-owned top-level layout persistence and view-mode lifecycle mutation transport
+25. `phase-5-lsp-diagnostics-and-completion-runtime.md`
    - focused current-work plan for the first Go-owned LSP runtime, diagnostics, and completion transport
-24. `phase-5-snapshot-completion-transport.md`
+26. `phase-5-snapshot-completion-transport.md`
    - focused current-work plan for Go-owned read-only LSP completion transport over canonical and generated Python snapshot documents
-25. `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
+27. `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
    - focused current-work plan for Go-owned callable binding, signature-help parsing, and param synthesis
-26. `phase-5-watch-code-runtime-and-callable-refresh.md`
+28. `phase-5-watch-code-runtime-and-callable-refresh.md`
    - focused current-work plan for Go-owned Watch Code state, transport, watcher runtime, and callable refresh reuse
-27. `phase-5-watch-code-scan-diff-and-manager-foundation.md`
+29. `phase-5-watch-code-scan-diff-and-manager-foundation.md`
    - focused current-work plan for Slice 2 parser-backed Watch Code scan/delete/move planning and manager foundations
-28. `phase-5-watch-code-file-identity-runtime-owner.md`
+30. `phase-5-watch-code-file-identity-runtime-owner.md`
    - focused current-work plan for the concrete Watch Code runtime owner using file-identity snapshots instead of heuristic watcher rename pairing
-29. `phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+31. `phase-5-watch-code-projectstate-apply-and-section-mutation.md`
    - focused current-work plan for Go-owned Watch Code file apply helpers, section mutation, and callable refresh reuse above the completed runtime owner
-30. `phase-5-watch-code-callable-section-mutation.md`
+32. `phase-5-watch-code-callable-section-mutation.md`
    - focused current-work plan for Go-owned Watch Code Callable section backfill, rename/remove handling, and Python import-prefix sync
-31. `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
+33. `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
    - focused current-work plan for Go-owned inline `setCode` and bound code-file reload reuse over the completed Watch Code apply/runtime path
-32. `spike-mcp.md`
+34. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-33. `spike-pty.md`
+35. `spike-pty.md`
    - PTY uncertainty-reduction plan
-34. `spike-lsp.md`
+36. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
