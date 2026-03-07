@@ -151,11 +151,14 @@ Use the docs in this order:
 63. `phase-6-toggle-position-locks-tool-parity.md`
   - focused slice doc for Go-owned `toggle_position_locks` MCP parity over the
     completed layout-presentation runtime and scoped structural boundary
-64. `spike-mcp.md`
+64. `phase-6-toggle-minimized-tool-parity.md`
+  - focused slice doc for Go-owned `toggle_minimized` MCP parity over the
+    completed layout-presentation runtime and scoped structural boundary
+65. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-65. `spike-pty.md`
+66. `spike-pty.md`
    - PTY uncertainty-reduction plan
-66. `spike-lsp.md`
+67. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
