@@ -86,11 +86,13 @@ Use the docs in this order:
    - focused current-work plan for metadata-driven target extraction and the first Go-owned scoped write tool
 41. `phase-6-codeobj-target-mapping-singleton-fallback-and-suppression.md`
    - focused current-work plan for `codeObj` target mapping, singleton fallback, and the next scoped MCP write tool
-42. `spike-mcp.md`
+42. `phase-6-codeobj-write-tool-parity.md`
+   - focused current-work plan for code-object write mutation parity over the completed MCP targeting boundary
+43. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-43. `spike-pty.md`
+44. `spike-pty.md`
    - PTY uncertainty-reduction plan
-44. `spike-lsp.md`
+45. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
