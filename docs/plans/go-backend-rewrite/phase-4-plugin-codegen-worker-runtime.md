@@ -5,9 +5,9 @@
 This doc narrows the next concrete adopter of the new Go backend-worker
 transport/session stack.
 
-After `phase-4-plugin-worker-session-owner.md`, the remaining abstract gap is
+After `phase-4-plugin-worker-session-owner.md`, the remaining abstract gap was
 "some real caller outside the lowest worker layers." The current repo already
-has one concrete blocked product path waiting on that: plugin codegen targets.
+had one concrete blocked product path waiting on that: plugin codegen targets.
 
 The goal here is not full plugin discovery or general backend-plugin load
 parity. The goal is to land the smallest Go-owned worker-backed codegen runtime
@@ -31,18 +31,18 @@ Current repo status as of 2026-03-06:
   - `CodegenTargetRegistry`
   - `StartCodegenRuntime(...)`
   - `(*CodegenRuntime).Generate(...)`
-- Go project state already models plugin-generated entry sections and plugin
-  codegen target languages under:
+- Go project state already models plugin codegen target payloads and explicit
+  plugin-generated sections under:
   - `internal/projectstate`
-  - `internal/runs/planner.go`
-- Go still explicitly rejects plugin-generated entry runs with:
-  - `internal/runs/planner.go`
-  - `runs.ErrPluginCodegenRunUnsupported`
+  - `internal/projectview`
 - Python currently owns plugin codegen registration and invocation under:
   - `backend/setta/plugins/manager.py`
   - `backend/setta/plugins/worker.py`
   - `tests/plugins/test_plugin_manager.py`
   - `tests/plugins/test_plugin_worker.py`
+- Python still owns plugin codegen output materialization under:
+  - `backend/setta/project_state/base_project_manager.py`
+  - `_refresh_plugin_codegen_outputs(...)`
 
 ## Scope
 
@@ -74,22 +74,16 @@ This focused plan covers:
 
 ## Dependency Finding
 
-The session-owner plan assumed the next step would be a caller outside
-`internal/plugins`, but current Go data does not yet include a broader plugin
-runtime or discovery registry that can robustly own resolved plugin metadata.
+This focused plan is now complete for the worker-runtime layer.
 
-The narrowest concrete adopter already blocked by product behavior is instead:
+Re-reading Python `create_run_command(...)` and `_refresh_codegen_state(...)`
+showed that the first real caller above this runtime is not the run planner.
+Python materializes plugin codegen outputs during codegen refresh and the run
+path consumes those files later.
 
-- a worker-backed plugin codegen runtime inside `internal/plugins`
+That follow-up work is now tracked separately in:
 
-That runtime can adopt the launcher immediately because it only needs:
-
-- resolved worker metadata
-- worker register-time codegen target registrations
-- worker invoke-time codegen execution payloads
-
-It does not need route registration, static assets, or general plugin load
-state.
+- `docs/plans/go-backend-rewrite/phase-4-plugin-codegen-refresh-owner.md`
 
 ## Working Decisions
 
@@ -104,8 +98,8 @@ state.
 - let the codegen runtime own a per-worker registration registry
   - do not recreate Python manager-global registration maps
   - the first runtime only needs registrations for one live worker session
-- leave generated-entry run adoption for a later slice once the codegen runtime
-  exists
+- leave output materialization ownership for a later slice once the codegen
+  runtime exists
 
 ## Implementation Slices
 
@@ -175,32 +169,20 @@ Tests:
 
 ### Slice 2: First External Caller Adoption
 
-Deliver:
-
-- the first non-`internal/plugins` caller that consumes the new codegen runtime
-- likely either:
-  - generated-entry/plugin-codegen run planning
-  - project-state/codegen refresh ownership
-
-Acceptance:
-
-- the current explicit unsupported plugin-codegen path moves to the new runtime
-  instead of rejecting the product flow outright
-
 Status:
 
-- pending
+- moved to `phase-4-plugin-codegen-refresh-owner.md`
 
 ## Open Questions
 
-- whether Slice 2 should keep runtime ownership directly in `internal/runs` or
-  introduce a narrow higher-level codegen service at the same time
+- whether later refresh ownership should live in `internal/projectstate` or a
+  future dedicated Go codegen subsystem
 - whether worker-backed codegen sessions should stay warm once a caller outside
   `internal/plugins` owns their lifecycle
 
 ## Next Recommended Step
 
-- Start Slice 2 in `internal/runs`.
-- Replace `runs.ErrPluginCodegenRunUnsupported` with the new worker-backed
-  codegen runtime for generated-entry/plugin-codegen planning and execution,
-  while still avoiding broader plugin discovery or registry work.
+- Follow
+  `docs/plans/go-backend-rewrite/phase-4-plugin-codegen-refresh-owner.md`.
+- The next concrete step is the first Go-owned plugin codegen output
+  materializer above `internal/plugins`.

@@ -137,6 +137,12 @@ Current repo status as of 2026-03-06:
   - `internal/plugins/codegen_runtime.go`
   - register-time codegen target capture plus invoke-time generated-file
     normalization in `internal/plugins`
+- Go now also includes the first plugin codegen output materializer above that
+  runtime under:
+  - `internal/codegen/plugin_materializer.go`
+  - source-of-truth project-state payload projection through
+    `internal/projectview`
+  - deterministic per-target output roots under the Go code tree
 - broader plugin worker discovery/load/runtime ownership still lives only in
   Python under:
   - `backend/setta/plugins/manager.py`

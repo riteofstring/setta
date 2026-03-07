@@ -177,8 +177,11 @@ The remaining Go gaps are now narrower:
 
 - free-terminal reuse for non-attached runs is still deferred
 - plugin codegen now has a Go worker-backed execution/runtime boundary under
-  `internal/plugins/codegen_runtime.go`, but `internal/runs` has not adopted it
-  yet
+  `internal/plugins/codegen_runtime.go`, and the first output materializer above
+  it now lives under `internal/codegen/plugin_materializer.go`
+- Go still does not have the project-state refresh adoption boundary that keeps
+  those plugin-generated files current as part of normal project-state
+  lifecycle work
 - deployment/share run policy and session-run semantics still live outside this
   slice
 
