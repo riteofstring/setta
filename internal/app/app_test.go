@@ -240,6 +240,84 @@ func TestAppServesDeleteTerminalsRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesInterruptTerminalProcessesRoute(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("section-a", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    interactiveAppTestBashCommand(t),
+	}); err != nil {
+		t.Fatalf("open terminal: %v", err)
+	}
+
+	attachment := attachAppTestTerminal(t, app.Terminals(), sessionID)
+	prepareAppInterruptShell(t, app.Terminals(), sessionID, attachment)
+	scriptPath := writeAppInterruptibleScript(t)
+	startAppInterruptibleForegroundJob(t, app.Terminals(), sessionID, attachment, scriptPath)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteInterruptTerminalProcesses, strings.NewReader(`{"projectId":"project-a"}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post interrupt terminal processes: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload httpapi.InterruptTerminalProcessesResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode interrupt response: %v", err)
+	}
+	if payload.InterruptedSessionCount != 1 {
+		t.Fatalf("expected one interrupted session, got %#v", payload)
+	}
+
+	output := waitForAppTestOutputContains(t, attachment, "CHILD_EXIT:130")
+	if !strings.Contains(output, "CHILD_INTERRUPTED") {
+		t.Fatalf("expected terminal to report interrupt, got %q", output)
+	}
+}
+
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 
@@ -311,6 +389,98 @@ func quietAppTestCatCommand(t *testing.T) []string {
 
 	shell := requireAppTestCommand(t, "sh")
 	return []string{shell, "-c", "stty -echo; cat"}
+}
+
+func interactiveAppTestBashCommand(t *testing.T) []string {
+	t.Helper()
+
+	bash := requireAppTestCommand(t, "bash")
+	return []string{bash, "--noprofile", "--norc", "-i"}
+}
+
+func attachAppTestTerminal(t *testing.T, service *terminals.Service, sessionID string) *terminals.Attachment {
+	t.Helper()
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach terminal %q: %v", sessionID, err)
+	}
+	t.Cleanup(attachment.Close)
+	return attachment
+}
+
+func prepareAppInterruptShell(t *testing.T, service *terminals.Service, sessionID string, attachment *terminals.Attachment) {
+	t.Helper()
+
+	if err := service.Write(sessionID, []byte("set -m\nstty -echo\nprintf 'READY\\n'\n")); err != nil {
+		t.Fatalf("prepare interactive shell: %v", err)
+	}
+	output := waitForAppTestOutputContains(t, attachment, "READY")
+	if !strings.Contains(output, "READY") {
+		t.Fatalf("expected shell readiness output, got %q", output)
+	}
+}
+
+func writeAppInterruptibleScript(t *testing.T) string {
+	t.Helper()
+
+	scriptPath := filepath.Join(t.TempDir(), "interruptible-child.sh")
+	script := strings.Join([]string{
+		"#!/bin/sh",
+		"trap 'printf \"CHILD_INTERRUPTED\\n\"; exit 130' INT",
+		"printf 'CHILD_RUNNING\\n'",
+		"while :; do sleep 1; done",
+		"",
+	}, "\n")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write interruptible script: %v", err)
+	}
+	return scriptPath
+}
+
+func startAppInterruptibleForegroundJob(t *testing.T, service *terminals.Service, sessionID string, attachment *terminals.Attachment, scriptPath string) {
+	t.Helper()
+
+	command := "sh " + shellSingleQuoteApp(scriptPath) + "; printf 'CHILD_EXIT:%s\\n' \"$?\"\n"
+	if err := service.Write(sessionID, []byte(command)); err != nil {
+		t.Fatalf("start foreground job: %v", err)
+	}
+	output := waitForAppTestOutputContains(t, attachment, "CHILD_RUNNING")
+	if !strings.Contains(output, "CHILD_RUNNING") {
+		t.Fatalf("expected child process to start, got %q", output)
+	}
+}
+
+func waitForAppTestOutputContains(t *testing.T, attachment *terminals.Attachment, needle string) string {
+	t.Helper()
+
+	buffer := strings.Builder{}
+	buffer.Write(attachment.History)
+	if strings.Contains(buffer.String(), needle) {
+		return buffer.String()
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case chunk, ok := <-attachment.Output:
+			if !ok {
+				t.Fatalf("attachment output closed before %q appeared; collected output: %q", needle, buffer.String())
+			}
+			buffer.Write(chunk)
+			if strings.Contains(buffer.String(), needle) {
+				return buffer.String()
+			}
+		case <-timeout.C:
+			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+		}
+	}
+}
+
+func shellSingleQuoteApp(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func requireAppTestCommand(t *testing.T, name string) string {

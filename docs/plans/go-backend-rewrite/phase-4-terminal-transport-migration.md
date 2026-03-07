@@ -18,11 +18,17 @@ Current repo status as of 2026-03-06:
   - attach/detach subscriptions
   - buffered history replay
   - input and resize operations
+  - Unix foreground-process-group interrupt semantics for active terminal work
 - Go websocket transport now includes:
   - `GET /ws/terminals/{projectID}/{sectionID}` in `internal/wsapi/routes.go`
   - route-level PTY integration tests in `internal/wsapi/routes_test.go`
   - app-level upgrade coverage in `internal/app/websocket_test.go`
-- terminal HTTP transport still lives only in Python under:
+- Go terminal HTTP transport now includes:
+  - `POST /api/deleteTerminals`
+  - `POST /api/interruptTerminalProcesses`
+  - route-level coverage in `internal/httpapi/terminal_routes_test.go`
+  - app-level coverage in `internal/app/app_test.go`
+- terminal run-code HTTP transport still lives only in Python under:
   - `backend/setta/routers/terminals.py`
 
 ## Scope
@@ -32,7 +38,7 @@ This focused plan covers:
 - terminal websocket attach/read/write/resize transport
 - thin route wiring onto `internal/terminals`
 - the first terminal-facing app-handler coverage through the real middleware stack
-- follow-up route migration planning for terminal delete/kill surfaces
+- follow-up route migration planning for the terminal run-code surface
 
 ## Non-Goals
 
@@ -94,13 +100,17 @@ Behavior:
 
 ### HTTP
 
-Deferred to follow-up slices:
+Completed in this focused plan:
 
 - terminal delete surface
-- terminal kill/interrupt surface
+- terminal interrupt surface
 
-Those should land only after the websocket slice is stable and after we make an
-explicit call on process interruption semantics.
+Deferred beyond this focused plan:
+
+- terminal run-code surface
+
+That remaining slice is intentionally deferred because it reaches beyond
+terminal transport into run-command orchestration and policy ownership.
 
 ## Implementation Slices
 
@@ -196,7 +206,7 @@ Tests:
   - delete route wiring through the real app HTTP stack
 - full Go suite passes with `./scripts/go.sh test ./...`
 
-### Slice 3: Interrupt/Kill Surface
+### Slice 3: Interrupt Surface
 
 Deliver:
 
@@ -226,11 +236,44 @@ Working choice for this slice:
   - Windows remains explicitly unsupported until we choose a native ConPTY
     interrupt strategy instead of a control-character heuristic
 
+Status:
+
+- complete
+
+Completed:
+
+- added project-scoped interrupt support to `internal/terminals`
+- chose a source-of-truth interrupt target:
+  - the PTY foreground process group
+  - idle shells are left alone because their foreground process group remains the shell itself
+- kept the HTTP boundary thin in `internal/httpapi`
+  - `POST /api/interruptTerminalProcesses` accepts `{"projectId":"..."}`
+  - handlers resolve request scope and delegate to `internal/terminals`
+  - the route returns an explicit `interruptedSessionCount`
+- kept the first interrupt transport slice IDE-only
+  - deployment/share `allowRun` gating remains deferred until Go owns that policy source of truth
+- made platform scope explicit:
+  - Unix terminals support foreground-job interrupt
+  - Windows returns `terminal_interrupt_unsupported` until we choose a native ConPTY interrupt strategy
+
+Tests:
+
+- `internal/terminals/service_test.go`
+  - idle shells are not interrupted
+  - project/share-session scoping interrupts only the targeted foreground terminal job
+- `internal/httpapi/terminal_routes_test.go`
+  - interrupt route only targets matching project terminals
+  - blank `projectId` is rejected
+  - deployment/share mode is rejected
+- `internal/app/app_test.go`
+  - interrupt route works through the real app middleware stack
+- full Go suite passes with `./scripts/go.sh test ./...`
+
 ## Open Questions
 
 - do we want an explicit terminal-created event/message later, or is the ready
   marker enough for the first frontend migration?
-- should the kill surface mean interrupt-first, hard-kill, or both?
+- do we need a later hard-kill surface in addition to interrupt, or is interrupt-first enough for product behavior?
 
 Resolved In Slice 1:
 
@@ -250,8 +293,8 @@ Resolved For Slice 3:
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Start a dedicated planning pass for terminal run-code migration:
 
-- define explicit terminal interrupt behavior in `internal/terminals`
-- wire `POST /api/interruptTerminalProcesses` onto that service boundary
+- inventory the current Python run-code orchestration boundary and its dependencies
+- decide what stays inside `internal/terminals` versus a separate run-command service
 - keep deployment/share transport deferred until a Go `allowRun` policy source exists

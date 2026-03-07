@@ -47,11 +47,11 @@ Current repo status as of 2026-03-06:
 - websocket terminal transport now exists in Go under:
   - `internal/wsapi/routes.go`
   - `internal/app/app.go`
-- terminal delete HTTP transport now exists in Go under:
+- terminal delete and interrupt HTTP transport now exist in Go under:
   - `internal/httpapi/terminal_routes.go`
   - `internal/app/app.go`
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
-- producer-side realtime event sources and terminal kill/run HTTP routes still live only in Python across:
+- producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/terminals.py`
@@ -543,8 +543,8 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Start the terminal transport migration on top of the new runtime:
+Plan the remaining terminal run-code migration on top of the new runtime:
 
-- wire websocket terminal attach/read/write/resize handling onto `internal/terminals`
-- migrate terminal delete/kill surfaces to the Go service boundary
-- keep producer-side run-command and frontend metadata work scoped until the transport surface is live
+- inventory the current Python run-code orchestration boundary and its dependencies
+- define the Go-owned service boundary for run-command execution versus terminal session ownership
+- keep producer-side run-command and frontend metadata work scoped until that plan is written down
