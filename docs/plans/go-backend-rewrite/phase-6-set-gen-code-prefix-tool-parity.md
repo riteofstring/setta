@@ -19,8 +19,7 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_project_config_codegen_targets` MCP parity is complete
-- reranking the remaining mutation inventory moved the next bounded slice to
-  `set_gen_code_prefix`
+- `set_gen_code_prefix` MCP parity is complete
 - Go already owns the relevant Python codegen target and generated-section
   boundaries in:
   - `internal/projectstate/python_codegen.go`
@@ -72,6 +71,7 @@ This focused slice covers:
 - `tests/project_state/test_format_code.py`
 - `internal/projectstate/python_codegen.go`
 - `internal/projectstate/codegen_targets.go`
+- `internal/projectstate/python_codegen_writes.go`
 - `internal/projectstate/python_codegen_test.go`
 - `internal/mcpx/server.go`
 - `internal/mcpx/target_resolution.go`
@@ -103,6 +103,9 @@ the Python codegen target and folded into the materialized generated file.
     an explicit `sectionId` argument
 - store the prefix on the Python target only
   - do not duplicate prefix text onto generated-section payloads
+- preserve raw prefix text
+  - decode `genCodePrefix` with the raw-string MCP path so trailing newlines
+    and empty-string clears survive transport unchanged
 - fail explicitly when Python codegen is not enabled
   - do not invent heuristic fallback targets or auto-enable behavior
 - keep the output simple
@@ -138,15 +141,25 @@ the Python codegen target and folded into the materialized generated file.
 
 ## Open Questions
 
-- none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- if `set_gen_code_prefix` lands cleanly, move next to `set_gen_code_suffix`
-  because it reuses the same Python target owner and singleton-target scope
-  boundary
+- move next to `set_gen_code_suffix`
+- it reuses the same Python target owner and singleton-target scope boundary
+- it should stay another narrow Phase 6 codegen-target write slice
 
 ## Progress Notes
 
 - 2026-03-07: doc created after reranking the remaining mutation inventory
   against the actual Go-owned runtime surface.
+- 2026-03-07: Go runtime now persists `genCodePrefix` through the Python target
+  owner and reuses canonical generated-binding reconciliation.
+- 2026-03-07: Go MCP now exposes `set_gen_code_prefix` as a scoped write tool
+  targeting `GenPythonCode`.
+- 2026-03-07: MCP argument decoding was switched to the raw-string path so
+  trailing newlines and empty-string clears are preserved instead of being
+  trimmed by transport.
+- 2026-03-07: coverage landed in `internal/projectstate`, `internal/mcpx`,
+  `internal/httpapi`, and `internal/app`, including authenticated SSE and tool
+  route flows.

@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 36 {
-		t.Fatalf("expected 36 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 37 {
+		t.Fatalf("expected 37 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -155,6 +155,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
 	var setProjectConfigCodegenTargetsTool *sdkmcp.Tool
+	var setGenCodePrefixTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
 	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
@@ -215,6 +216,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_project_config_codegen_targets" {
 			setProjectConfigCodegenTargetsTool = tool
+		}
+		if tool.Name == "set_gen_code_prefix" {
+			setGenCodePrefixTool = tool
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
@@ -301,6 +305,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code_obj_name",
 		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
+		"set_gen_code_prefix",
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_project_config_codegen_targets",
@@ -360,6 +365,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setProjectConfigCodegenTargetsTool == nil {
 		t.Fatal("expected set_project_config_codegen_targets tool")
+	}
+	if setGenCodePrefixTool == nil {
+		t.Fatal("expected set_gen_code_prefix tool")
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
@@ -521,6 +529,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setProjectConfigCodegenTargetsMeta := mustStructuredMap(t, setProjectConfigCodegenTargetsTool.Meta[toolMetaNamespace])
 	if setProjectConfigCodegenTargetsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_project_config_codegen_targets, got %#v", setProjectConfigCodegenTargetsMeta["accessType"])
+	}
+	setGenCodePrefixMeta := mustStructuredMap(t, setGenCodePrefixTool.Meta[toolMetaNamespace])
+	if setGenCodePrefixMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_gen_code_prefix, got %#v", setGenCodePrefixMeta["accessType"])
+	}
+	if setGenCodePrefixMeta["defaultTargetSingletonSection"] != "GenPythonCode" {
+		t.Fatalf("expected GenPythonCode singleton target for set_gen_code_prefix, got %#v", setGenCodePrefixMeta["defaultTargetSingletonSection"])
 	}
 	togglePositionLocksMeta := mustStructuredMap(t, togglePositionLocksTool.Meta[toolMetaNamespace])
 	if togglePositionLocksMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -694,8 +709,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 36 {
-		t.Fatalf("expected 36 registered tool names, got %#v", listNames)
+	if len(listNames) != 37 {
+		t.Fatalf("expected 37 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3066,6 +3081,126 @@ func TestServerSetProjectConfigCodegenTargetsRejectsDuplicateLanguages(t *testin
 	}
 	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "project codegen target language must be unique") {
 		t.Fatalf("expected duplicate codegen target message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetGenCodePrefixRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	enableScopedTestPythonCodegenTarget(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_prefix",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"genCodePrefix":   "import math\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_gen_code_prefix blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_gen_code_prefix call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != projectstate.GeneratedPythonCodeSectionID {
+		t.Fatalf("expected generated python targetSectionIds, got %#v", ids)
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != projectstate.GeneratedPythonCodeSectionID {
+		t.Fatalf("expected generated python blockedSectionIds, got %#v", ids)
+	}
+}
+
+func TestServerSetGenCodePrefixAllowsUnscopedCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	enableScopedTestPythonCodegenTarget(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_prefix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"genCodePrefix":   "import math\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_gen_code_prefix: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_gen_code_prefix success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected persisted gen code prefix, got %q", config.GenCodePrefix)
+	}
+}
+
+func TestServerSetGenCodePrefixRejectsProjectsWithoutPythonCodegen(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_prefix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"genCodePrefix":   "import math\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_gen_code_prefix: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_gen_code_prefix call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "project python codegen target was not found") {
+		t.Fatalf("expected missing python target message, got %#v", payload["message"])
 	}
 }
 
@@ -5596,6 +5731,84 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func enableScopedTestPythonCodegenTarget(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	_, err := runtime.SetProjectCodegenTargets(
+		context.Background(),
+		"project-alpha",
+		[]projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  projectstate.RawJSON(`{"language":"python"}`),
+			},
+		},
+		nil,
+		projectstate.PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *projectstate.Project) error {
+			if project == nil {
+				return projectstate.ErrProjectNotFound
+			}
+			if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+				return err
+			}
+
+			if project.Sections == nil {
+				project.Sections = map[string]projectstate.Section{}
+			}
+			if project.SectionVariants == nil {
+				project.SectionVariants = map[string]projectstate.SectionVariant{}
+			}
+			if project.SectionImpls == nil {
+				project.SectionImpls = map[string]projectstate.SectionImpl{}
+			}
+			if project.SectionVariantMap == nil {
+				project.SectionVariantMap = map[string]string{}
+			}
+			if project.TopLevelSections == nil {
+				project.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
+			}
+
+			project.Sections[projectstate.GeneratedPythonCodeSectionID] = projectstate.Section{
+				ID:               projectstate.GeneratedPythonCodeSectionID,
+				Name:             projectstate.GeneratedPythonCodeSectionName,
+				VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+				DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+			}
+			project.SectionVariants[projectstate.GeneratedPythonCodeVariantID] = projectstate.SectionVariant{
+				ID:     projectstate.GeneratedPythonCodeVariantID,
+				ImplID: projectstate.GeneratedPythonCodeImplID,
+			}
+			project.SectionImpls[projectstate.GeneratedPythonCodeImplID] = projectstate.SectionImpl{
+				ID:   projectstate.GeneratedPythonCodeImplID,
+				Kind: projectstate.SectionKindGenerated,
+				Payload: mustRawJSON(t, map[string]any{
+					"id":   projectstate.GeneratedPythonCodeImplID,
+					"type": "GenPythonCode",
+					"codeFileBinding": map[string]any{
+						"canonical_path": projectstate.GeneratedPythonCodeRelativePath(project.Name),
+						"access_mode":    "write_only",
+						"autoBinding":    false,
+					},
+				}),
+				Generated: &projectstate.GeneratedSectionImpl{
+					Kind: projectstate.GeneratedSectionKindPythonCode,
+				},
+			}
+			project.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID] = projectstate.GeneratedPythonCodeVariantID
+			if !containsString(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID) {
+				project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID)
+			}
+			if _, ok := project.TopLevelSections[projectstate.GeneratedPythonCodeSectionID]; !ok {
+				project.TopLevelSections[projectstate.GeneratedPythonCodeSectionID] = projectstate.TopLevelSectionLayout{X: 90, Y: 100}
+			}
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("enable python codegen target: %v", err)
+	}
 }
 
 func mustSeedScopedTestChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {

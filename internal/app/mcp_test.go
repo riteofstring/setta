@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 36 {
-		t.Fatalf("expected 36 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 37 {
+		t.Fatalf("expected 37 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,11 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 36 {
-		t.Fatalf("expected 36 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 37 {
+		t.Fatalf("expected 37 registered tool names, got %d", len(rawNames))
+	}
+	if !containsStructuredStringValue(rawNames, "set_gen_code_prefix") {
+		t.Fatalf("expected set_gen_code_prefix in registered tool names, got %#v", rawNames)
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2186,6 +2189,149 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOve
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetGenCodePrefixOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_prefix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"genCodePrefix":   "import math\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_gen_code_prefix: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_gen_code_prefix success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after app set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after app set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected persisted gen code prefix after app mutation, got %q", config.GenCodePrefix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "import math") {
+		t.Fatalf("expected generated python file to include prefix, got %q", content)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCodePrefixOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_prefix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"genCodePrefix":   "import random\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_gen_code_prefix: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_gen_code_prefix success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after temp-id app set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after temp-id app set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import random\n" {
+		t.Fatalf("expected persisted gen code prefix after temp-id app mutation, got %q", config.GenCodePrefix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "import random") {
+		t.Fatalf("expected generated python file to include temp-id prefix, got %q", content)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -3841,8 +3987,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 36 {
-		t.Fatalf("expected tool count 36, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 37 {
+		t.Fatalf("expected tool count 37, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -5142,6 +5288,86 @@ func TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets(t *testing
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetGenCodePrefix(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_gen_code_prefix",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"genCodePrefix":"import math\n"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_gen_code_prefix tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_gen_code_prefix tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_gen_code_prefix success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after route set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after route set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected persisted gen code prefix after route mutation, got %q", config.GenCodePrefix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "import math") {
+		t.Fatalf("expected generated python file to include route prefix, got %q", content)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsStructuralCreate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -5720,6 +5946,72 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 	}
 }
 
+func mustEnableAppSavedPythonCodegen(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load scoped MCP project: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	project.CodegenTargets = []projectstate.ProjectCodegenTarget{
+		{
+			Language: string(projectstate.CodeLanguagePython),
+			Payload:  projectstate.RawJSON(`{"language":"python"}`),
+		},
+	}
+	if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+		t.Fatalf("reconcile python generated bindings: %v", err)
+	}
+	project.Sections[projectstate.GeneratedPythonCodeSectionID] = projectstate.Section{
+		ID:               projectstate.GeneratedPythonCodeSectionID,
+		Name:             projectstate.GeneratedPythonCodeSectionName,
+		VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+		DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+	}
+	project.SectionVariants[projectstate.GeneratedPythonCodeVariantID] = projectstate.SectionVariant{
+		ID:     projectstate.GeneratedPythonCodeVariantID,
+		ImplID: projectstate.GeneratedPythonCodeImplID,
+	}
+	project.SectionImpls[projectstate.GeneratedPythonCodeImplID] = projectstate.SectionImpl{
+		ID:   projectstate.GeneratedPythonCodeImplID,
+		Kind: projectstate.SectionKindGenerated,
+		Payload: mustRawJSONValue(t, map[string]any{
+			"id":   projectstate.GeneratedPythonCodeImplID,
+			"type": "GenPythonCode",
+			"codeFileBinding": map[string]any{
+				"canonical_path": projectstate.GeneratedPythonCodeRelativePath(project.Name),
+				"access_mode":    "write_only",
+				"autoBinding":    false,
+			},
+		}),
+		Generated: &projectstate.GeneratedSectionImpl{
+			Kind: projectstate.GeneratedSectionKindPythonCode,
+		},
+	}
+	project.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID] = projectstate.GeneratedPythonCodeVariantID
+	if !containsAppString(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID) {
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID)
+	}
+	if _, ok := project.TopLevelSections[projectstate.GeneratedPythonCodeSectionID]; !ok {
+		project.TopLevelSections[projectstate.GeneratedPythonCodeSectionID] = projectstate.TopLevelSectionLayout{X: 90, Y: 100}
+	}
+
+	document.Projects[project.ID] = project
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save scoped MCP python codegen project: %v", err)
+	}
+}
+
 func mustSetAppScopedMCPProjectWatchCodeFiles(t *testing.T, cfg config.Config, files []string) {
 	t.Helper()
 
@@ -5879,6 +6171,35 @@ func readAppTemporaryIDMap(t *testing.T, path string) map[string]string {
 		t.Fatalf("decode temporary id map: %v", err)
 	}
 	return decoded
+}
+
+func mustReadAppGeneratedPythonCode(t *testing.T, cfg config.Config) string {
+	t.Helper()
+
+	path := filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.GeneratedPythonCodeRelativePath("Alpha"))
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated python code: %v", err)
+	}
+	return string(content)
+}
+
+func containsAppString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func containsStructuredStringValue(values []any, needle string) bool {
+	for _, value := range values {
+		if raw, ok := value.(string); ok && raw == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func mustStructuredMapValue(t *testing.T, value any) map[string]any {

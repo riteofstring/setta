@@ -2079,6 +2079,149 @@ func TestMCPToolCallRouteSetProjectConfigCodegenTargetsAcceptsTemporaryIDs(t *te
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetGenCodePrefix(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	enableRoutePythonCodegenTarget(t, projectRuntime)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_gen_code_prefix",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"genCodePrefix":"import math\n"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_gen_code_prefix success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after route set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after route set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected persisted gen code prefix after route mutation, got %q", config.GenCodePrefix)
+	}
+}
+
+func TestMCPToolCallRouteSetGenCodePrefixAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	enableRoutePythonCodegenTarget(t, projectRuntime)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_gen_code_prefix",
+		"arguments":{
+			"projectConfigId":"11",
+			"genCodePrefix":"import math\n"
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_gen_code_prefix success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_gen_code_prefix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after temp-id route set_gen_code_prefix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after temp-id route set_gen_code_prefix")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected persisted gen code prefix after temp-id route mutation, got %q", config.GenCodePrefix)
+	}
+}
+
 func TestMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
 	t.Parallel()
 
@@ -3228,6 +3371,65 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 	return runtime
 }
 
+func enableRoutePythonCodegenTarget(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	_, err := runtime.SetProjectCodegenTargets(
+		context.Background(),
+		"project-alpha",
+		[]projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  projectstate.RawJSON(`{"language":"python"}`),
+			},
+		},
+		nil,
+		projectstate.PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *projectstate.Project) error {
+			if project == nil {
+				return projectstate.ErrProjectNotFound
+			}
+			if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+				return err
+			}
+
+			project.Sections[projectstate.GeneratedPythonCodeSectionID] = projectstate.Section{
+				ID:               projectstate.GeneratedPythonCodeSectionID,
+				Name:             projectstate.GeneratedPythonCodeSectionName,
+				VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+				DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+			}
+			project.SectionVariants[projectstate.GeneratedPythonCodeVariantID] = projectstate.SectionVariant{
+				ID:     projectstate.GeneratedPythonCodeVariantID,
+				ImplID: projectstate.GeneratedPythonCodeImplID,
+			}
+			project.SectionImpls[projectstate.GeneratedPythonCodeImplID] = projectstate.SectionImpl{
+				ID:   projectstate.GeneratedPythonCodeImplID,
+				Kind: projectstate.SectionKindGenerated,
+				Payload: mustRouteRawJSON(t, map[string]any{
+					"id":   projectstate.GeneratedPythonCodeImplID,
+					"type": "GenPythonCode",
+					"codeFileBinding": map[string]any{
+						"canonical_path": projectstate.GeneratedPythonCodeRelativePath(project.Name),
+						"access_mode":    "write_only",
+						"autoBinding":    false,
+					},
+				}),
+				Generated: &projectstate.GeneratedSectionImpl{
+					Kind: projectstate.GeneratedSectionKindPythonCode,
+				},
+			}
+			project.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID] = projectstate.GeneratedPythonCodeVariantID
+			if !containsRouteString(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID) {
+				project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID)
+			}
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("enable python codegen target: %v", err)
+	}
+}
+
 func mustSeedRouteChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {
 	t.Helper()
 
@@ -3374,6 +3576,15 @@ func mustRouteRawJSON(t *testing.T, value any) projectstate.RawJSON {
 func mustRawJSONForRoute(t *testing.T, value any) projectstate.RawJSON {
 	t.Helper()
 	return mustRouteRawJSON(t, value)
+}
+
+func containsRouteString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func mustSetRouteWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
