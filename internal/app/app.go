@@ -75,13 +75,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	var mcpServer *mcpx.Server
 	var mcpClient *mcpx.Client
 	if modePolicy.IsIDE() {
-		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
-			Logger:        logger,
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		})
-		if err != nil {
-			return nil, err
-		}
 		mcpClient, err = newInternalMCPClient(cfg, logger, authService)
 		if err != nil {
 			return nil, err
@@ -403,6 +396,17 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	if modePolicy.IsIDE() {
+		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
+			Logger:        logger,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			ProjectState:  projectRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
@@ -437,6 +441,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			r.Handle("/mcp", mcpServer.Handler())
 			r.Handle("/mcp/", mcpServer.Handler())
+			if err := httpapi.RegisterMCPRootRoutes(r, httpapi.MCPRootRouteDependencies{
+				ModePolicy: modePolicy,
+				Server:     mcpServer,
+			}); err != nil {
+				panic(err)
+			}
 		},
 		Register: func(r chi.Router) {
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{

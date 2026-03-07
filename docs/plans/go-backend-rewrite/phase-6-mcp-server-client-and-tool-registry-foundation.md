@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1, Slice 2, and Slice 3 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 4 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -39,9 +39,15 @@ Current repo status as of 2026-03-07:
   - `/api/mcpServerRuntimeStatus` as a thin Go-owned runtime-status transport
   - one minimal Go-owned tool set:
     - `list_mcp_tools` as the init-like tool
+    - `set_agentic_context` as the first session-scoped init tool
+    - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
+  - scoped agentic-context extraction from MCP `_meta`, request headers, and
+    session state
+  - authenticated `/__setta__/tools/call` reusing the shared MCP invocation
+    path
   - namespaced multi-server tool routing and per-server runtime status tracking
 - the MCP SDK is now pinned in `go.mod`
 - the first Go server transport is SSE-only
@@ -394,10 +400,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 4 next.
-- Use the completed internal client/runtime-status layer as the source of truth
-  for scoped tool invocation.
-- Keep scope enforcement in Setta-owned metadata/context services instead of
-  pushing it into transport handlers.
-- Use `phase-6-scoped-tool-call-pilot.md` as the active implementation doc for
-  the bounded Slice 4 work.
+- Slice 4 is now complete.
+- Use `phase-6-scoped-tool-call-pilot.md` as the source of truth for the
+  completed pilot and deferred decisions.
+- Next, add a focused parity slice for:
+  - invocation-edge temporary/canonical ID translation ownership
+  - filtered LSP diagnostics MCP support
+  - the first scoped write/structural tool using explicit target-id extraction

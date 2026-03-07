@@ -11,31 +11,32 @@ Go already owns:
 - the authenticated `/mcp` SSE transport
 - the internal namespaced MCP client and runtime-status route
 
-What Go does not yet own is the first Setta-native scoped invocation boundary.
-Today the Go MCP server still treats every registered tool call like a plain
-transport invocation with no agentic context, session-scoped context, or
-project-state filtering.
+This slice is now complete.
 
 ## Status
 
-Current inspection as of 2026-03-07:
+Current repo status as of 2026-03-07:
 
-- `internal/mcpx/server.go` still invokes registered tool handlers directly
-  after JSON argument decode
-- `internal/tools.Metadata` already owns the core access metadata needed for
-  scope decisions:
+- `internal/tools.Metadata` now owns:
   - `AccessType`
   - `IDPathsByType`
   - `DefaultTargetSingletonSection`
-- the Go runtime already owns the project-state source of truth needed for a
-  scoped pilot:
-  - `internal/projectstate`
-  - `internal/projectview`
-- the Python backend remains the source of truth for:
-  - agentic-context carrier precedence
-  - scope resolution over `agenticEdges`
-  - project-state summary result filtering
-  - the synthetic `/__setta__/tools/call` route behavior
+  - `ResultFilter`
+- `internal/mcpx/agentic_context.go` now owns:
+  - normalized agentic-context extraction from MCP `_meta`, request headers, and
+    session state
+  - scope resolution over `projectConfig.agenticEdges`
+  - fail-closed scope-denied result shaping
+- `internal/mcpx/project_summary.go` now owns the first Go project-summary
+  filter path for MCP agents
+- `internal/mcpx/server.go` now owns:
+  - a shared scoped invocation boundary for both MCP and HTTP tool calls
+  - session-scoped `set_agentic_context`
+  - filtered `get_latest_project_state_summary`
+  - fail-closed scope requirements for non-allowlisted tools, including
+    `read_file_range`
+- `internal/httpapi/mcp_tool_routes.go` now owns authenticated
+  `/__setta__/tools/call`
 
 ## Scope
 
@@ -92,50 +93,56 @@ This focused slice covers:
   - only add `/__setta__/tools/call` if it can call the same server-owned
     invocation function without transport-specific branching
 
-## Planned Implementation
+## Completed
 
-### 1. Agentic context + invocation boundary
+- extended Setta tool metadata with `ResultFilter`
+- added the first Go-owned agentic-context carrier precedence:
+  - MCP `_meta`
+  - request headers
+  - session-scoped context set by `set_agentic_context`
+- added a small explicit unscoped allowlist:
+  - `list_mcp_tools`
+  - `set_agentic_context`
+- refactored MCP tool execution behind one shared invocation function under
+  `internal/mcpx/server.go`
+- added the first session-scoped init tool:
+  - `set_agentic_context`
+- added the first filtered scoped pilot tool:
+  - `get_latest_project_state_summary`
+- added the first Go-owned project-summary filter over the project runtime
+  source of truth
+- wired `/__setta__/tools/call` through the same invocation boundary instead of
+  copying scope logic into the route
+- updated app wiring so the Go MCP server receives the Go project runtime as the
+  source of truth for scoped tool calls
 
-Add Setta-owned types under `internal/mcpx` for:
+## Decisions
 
-- agentic context
-- normalized request context for tool calls
-- session-scoped context storage
-- scope-denied tool error payloads
+- keep the project-summary pilot canonical-id only for now
+  - do not add temporary/canonical id translation in Slice 4
+  - the later LLM/chat migration can add that boundary once the call owner
+    exists in Go
+- require agentic context for `read_file_range`
+  - this matches the Python fail-closed posture for non-allowlisted tools
+  - untargeted read tools are still allowed once a valid readable scope exists
+- keep `/__setta__/tools/call` stateless
+  - request-body `agenticContext` is the source of truth for that route
+  - `set_agentic_context` remains meaningful for persistent MCP sessions, not
+    the synthetic HTTP route session
 
-Refactor tool execution so both MCP transport handlers and any future HTTP tool
-route call the same invocation function.
+## Verification
 
-### 2. Scoped pilot tool
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools -count=1 -timeout 120s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'Test(MCPRuntimeStatusRoute|MCPToolCallRoute)' -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools ./internal/mcpx ./internal/httpapi ./internal/app -run 'Test(Registry|ReadFileRangeHandler|Server|MCPRuntimeStatusRoute|MCPToolCallRoute|AppIDEMCP)' -count=1 -timeout 300s`
 
-Add:
+## Follow-On
 
-- `set_agentic_context`
-- `get_latest_project_state_summary`
-
-Use the Go project runtime as the source of truth for:
-
-- project existence checks
-- `agenticEdges` traversal
-- filtered project-summary construction
-
-### 3. Thin HTTP tool-call route
-
-If the invocation refactor is clean, add a thin authenticated route for
-`/__setta__/tools/call` that:
-
-- validates the bare tool name
-- accepts an optional `agenticContext` object
-- synthesizes the normalized request context
-- forwards directly into the shared server invocation path
-
-## Expected Exit Criteria
-
-- `list_mcp_tools` remains callable without scope context
-- `set_agentic_context` can establish session-scoped agentic context
-- `read_file_range` and `get_latest_project_state_summary` fail closed when
-  context is missing
-- `get_latest_project_state_summary` returns a filtered result based on the
-  resolved scope instead of the full project snapshot
-- if added, `/__setta__/tools/call` reuses the same scoped invocation pathway
-  instead of copying scope logic into the route
+- Slice 4 is complete.
+- The next recommended step is a focused post-pilot parity slice for:
+  - temporary/canonical ID translation ownership at the invocation boundary
+  - `get_latest_lsp_diagnostics` as the next filtered read tool
+  - the first write/structural tool using explicit `IDPathsByType` target
+    extraction instead of the current no-target pilot path
