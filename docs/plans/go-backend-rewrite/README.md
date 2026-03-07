@@ -50,11 +50,13 @@ Use the docs in this order:
    - focused current-work plan for first-party Python codegen runtime ownership, generated file materialization, and target enablement
 23. `phase-5-lsp-diagnostics-and-completion-runtime.md`
    - focused current-work plan for the first Go-owned LSP runtime, diagnostics, and completion transport
-24. `spike-mcp.md`
+24. `phase-5-snapshot-completion-transport.md`
+   - focused current-work plan for Go-owned read-only LSP completion transport over canonical and generated Python snapshot documents
+25. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-25. `spike-pty.md`
+26. `spike-pty.md`
    - PTY uncertainty-reduction plan
-26. `spike-lsp.md`
+27. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
