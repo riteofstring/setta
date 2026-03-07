@@ -65,6 +65,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		deploymentRuntime  *deployments.Runtime
 		projectRuntime     *projectstate.Runtime
 		codegenValidator   projectstate.CodegenTargetValidator
+		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		plannerFilesRoot   string
 		artifactsRoot      string
@@ -108,9 +109,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		pythonMaterializer, err = codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+		})
+		if err != nil {
+			return nil, err
+		}
 		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+						return err
+					}
 					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
 				},
 			},

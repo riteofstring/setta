@@ -562,6 +562,51 @@ func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 	}
 }
 
+func TestAppMainRuntimeSaveMaterializesPythonCodegenOutputs(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppPythonCodegenProject(t, app)
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save project runtime: %v", err)
+	}
+
+	projectRoot := projectstate.ProjectCodeSectionsRoot(cfg.Paths.SettaFilesRoot, "Alpha")
+	codePath := filepath.Join(projectRoot, projectstate.GeneratedPythonCodeFileName)
+	metaPath := filepath.Join(projectRoot, projectstate.GeneratedPythonMetadataFileName)
+
+	code, err := os.ReadFile(codePath)
+	if err != nil {
+		t.Fatalf("read generated python code: %v", err)
+	}
+	if !strings.Contains(string(code), "from . import setta_gen_meta") {
+		t.Fatalf("expected metadata import in generated code:\n%s", string(code))
+	}
+	if !strings.Contains(string(code), "state.Greeting = 'hello world'") {
+		t.Fatalf("expected generated section assignment:\n%s", string(code))
+	}
+
+	meta, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatalf("read generated python metadata: %v", err)
+	}
+	if !strings.Contains(string(meta), "class SettaGenMetadata:") {
+		t.Fatalf("expected generated python metadata:\n%s", string(meta))
+	}
+}
+
 func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1070,6 +1115,63 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 	}
 	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
 		t.Fatalf("save project runtime: %v", err)
+	}
+}
+
+func seedAppPythonCodegenProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:                    "project-alpha",
+			Name:                  "Alpha",
+			EntryCodeBlockID:      "section-1",
+			ShowParamDisplayNames: true,
+			PreviewImgColor:       "#112233",
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload: mustAppJSON(t, map[string]any{
+						"language":         string(projectstate.CodeLanguagePython),
+						"generateMetadata": true,
+					}),
+				},
+			},
+			TopLevelSectionIDs: []string{"section-1"},
+			SectionVariantMap: map[string]string{
+				"section-1": "section-variant-1",
+			},
+			Sections: map[string]projectstate.Section{
+				"section-1": {
+					ID:               "section-1",
+					Name:             "Greeting",
+					VariantIDs:       []string{"section-variant-1"},
+					DefaultVariantID: "section-variant-1",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"section-variant-1": {
+					ID:     "section-variant-1",
+					Name:   "Greeting Variant",
+					ImplID: "section-impl-1",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"section-impl-1": {
+					ID:   "section-impl-1",
+					Kind: projectstate.SectionKind("text_block"),
+					Payload: mustAppJSON(t, map[string]any{
+						"id":   "section-impl-1",
+						"type": "TextBlock",
+						"text": "hello world",
+					}),
+				},
+			},
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
 	}
 }
 

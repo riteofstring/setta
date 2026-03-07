@@ -45,8 +45,6 @@ Current repo status as of 2026-03-06:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/base_project_manager.py`
 - Go still lacks:
-  - a Go Python code/meta renderer
-  - a Go materializer for `setta_gen.py` / `setta_gen_meta.py`
   - authoritative generated-section creation/update on Python target enablement
 
 ## Scope
@@ -228,7 +226,7 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
 
 Slice 3 inventory as of 2026-03-06:
 
@@ -290,6 +288,22 @@ Completed Slice 3 chunk on 2026-03-06:
   - wrapper renderer formatting for dict/callable multiline output, helper
     import block emission, and plugin assignments
   - MetaControl allowlist resolution from the derived control param type
+- added a Go metadata renderer for `setta_gen_meta.py` over
+  `projectstate.PythonCodegenExport` and the ordered dependency graph
+- added a Go Python materializer that:
+  - reads password-secret presence from the runtime password store
+  - writes authoritative `setta_gen.py` and optional `setta_gen_meta.py`
+  - prunes only the canonical first-party Python outputs, preserving unrelated
+    files under the same project code root
+- wired the Python materializer into the main-runtime save hook alongside
+  plugin materialization in `internal/app/app.go`
+- added focused Go coverage for:
+  - deterministic metadata rendering
+  - password-secret reads from the runtime password store during materialization
+  - stale metadata cleanup when `generateMetadata` is disabled
+  - stale document-level Python output pruning without deleting unrelated
+    files
+  - app-level save-hook integration for generated Python outputs
 
 Recommended Slice 3 structure:
 
@@ -322,16 +336,12 @@ Rationale:
   logic, then force a second rewrite when metadata and temp-edit position
   tracking land
 
-Current open gap inside Slice 3:
+Slice 3 result:
 
-- the Go dependency graph now owns both structural dependencies and
-  parser-backed `state.<name>` reference edges
-- Go now owns the value codec and helper-import layer for the graph value kinds
-  it emits
-- Go now owns the wrapper-class renderer that turns ordered dependency nodes
-  into authoritative `setta_gen.py` assignments
-- Go still lacks the metadata renderer and composed save-hook materializer that
-  turn those renderers into authoritative generated files on save
+- Go now owns the first-party Python dependency graph, value codec, wrapper
+  renderer, metadata renderer, and authoritative save-hook materialization
+- the remaining phase gap is no longer rendering/materialization; it is
+  generated-section reconciliation and route reopening
 
 ### Slice 4: Generated Section Sync + Route Enablement
 
@@ -347,9 +357,7 @@ Acceptance:
 
 ## Open Questions
 
-- whether the future renderer should stay in `internal/codegen` while consuming
-  the `internal/projectstate` export surface directly, or whether a narrower
-  shared data package is still warranted once rendering logic starts
+- none inside Slice 3; the remaining design work belongs to Slice 4
 
 ## Decisions Made In Slice 1
 
@@ -370,15 +378,24 @@ Acceptance:
 - normalize Python policy defaults in Go so semantic equality and later
   rendering logic use one source of truth for omission vs explicit-default cases
 
+## Decisions Made In Slice 3
+
+- keep both the metadata renderer and save-hook materializer in
+  `internal/codegen`, consuming the typed `internal/projectstate` export
+  surface directly
+- read PasswordParam presence from the runtime password store during
+  materialization instead of injecting test-only secret state into the save
+  path
+- prune only canonical first-party Python generated files from
+  `code/sections/<project_slug>/`
+  so plugin outputs and temp/manual files under the same root are preserved
+
 ## Next Recommended Step
 
-- Start Slice 3 from this doc:
-  - port Python expression reference-edge extraction for `state.<name>`
-    dependencies into the Go dependency graph
-  - port the packaged-runtime Python value codec and wrapper-class renderer for
-    `setta_gen.py` on top of that completed graph
-  - port the metadata renderer for `setta_gen_meta.py`
-  - integrate the resulting Python materializer into the authoritative save
-    hook alongside plugin materialization
-- Keep Python target enablement/edit support blocked until at least Slice 3
-  exists.
+- Start Slice 4 next:
+  - add a focused implementation doc for generated-section reconciliation and
+    Python target enable/edit reopening
+  - port `GenPythonCode` / `GenPythonMetadata` section creation, update, and
+    cleanup into Go using the new authoritative render/materialize path
+  - reopen Python target enablement/edit transport only after that section sync
+    exists end-to-end

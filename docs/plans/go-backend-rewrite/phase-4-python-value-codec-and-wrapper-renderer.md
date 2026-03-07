@@ -189,8 +189,9 @@ Acceptance:
 Status:
 
 - complete for wrapper-class rendering of `setta_gen.py`
-- metadata import/assignment hooks exist, but authoritative metadata generation
-  is still blocked on the dedicated Go metadata renderer
+- metadata import/assignment hooks exist, and authoritative metadata generation
+  now lands through
+  `docs/plans/go-backend-rewrite/phase-4-python-metadata-materializer.md`
 
 ### Slice C: Metadata Renderer + Save Hook Integration
 
@@ -204,12 +205,16 @@ Acceptance:
 - Go owns authoritative `setta_gen.py` and `setta_gen_meta.py` writes from the
   runtime save path
 
+Status:
+
+- complete via
+  `docs/plans/go-backend-rewrite/phase-4-python-metadata-materializer.md`
+
 ## Next Recommended Step
 
-Implement Slice C next:
+Move to Slice 4 next:
 
-- port the Python metadata renderer over the same ordered dependency graph
-- wire `PythonCodeRenderer` and the metadata renderer into a composed Go
-  materializer for `setta_gen.py` and `setta_gen_meta.py`
-- integrate that materializer into the authoritative save hook before
-  reopening Python target enablement/edit support
+- add a focused doc for generated-section reconciliation and Python target
+  enable/edit reopening
+- keep using the completed codec + wrapper renderer as the source of truth for
+  generated section content

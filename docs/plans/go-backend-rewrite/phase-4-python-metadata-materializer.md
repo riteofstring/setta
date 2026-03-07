@@ -6,13 +6,8 @@ This doc narrows Slice 3 after
 `docs/plans/go-backend-rewrite/phase-4-python-value-codec-and-wrapper-renderer.md`.
 
 Go already owns the Python target decode path, export surface, dependency
-graph, value codec, and wrapper-code renderer for `setta_gen.py`.
-
-What still blocks authoritative Python target runtime ownership is the last
-source-of-truth layer:
-
-- rendering `setta_gen_meta.py` in Go
-- materializing `setta_gen.py` and `setta_gen_meta.py` from the save hook
+graph, value codec, wrapper-code renderer for `setta_gen.py`, and now the
+metadata/materialization layer for first-party Python outputs.
 
 ## Status
 
@@ -22,12 +17,29 @@ Current repo status as of 2026-03-06:
   - typed Python target/policy decoding under `internal/projectstate`
   - ordered Python dependency graph export under `internal/codegen`
   - packaged-runtime wrapper rendering for `setta_gen.py`
+  - deterministic metadata rendering for `setta_gen_meta.py`
+  - authoritative save-hook materialization for first-party Python outputs
 - Python still owns:
-  - metadata rendering in `backend/setta/code_gen/python/meta_generator.py`
-  - generated Python file writes in `backend/setta/project_state/project_code.py`
-- Go still lacks:
-  - a native metadata renderer for `setta_gen_meta.py`
-  - a native save-hook materializer for first-party Python outputs
+  - generated singleton section reconciliation during Python target
+    enablement/edit flows
+
+Completed 2026-03-06:
+
+- added `internal/codegen/python_meta_renderer.go`
+- added deterministic metadata rendering over the Go export surface and ordered
+  dependency graph
+- added `internal/codegen/python_materializer.go`
+- added runtime password-store reads for PasswordParam presence gating during
+  materialization
+- added authoritative writes for `setta_gen.py` and optional
+  `setta_gen_meta.py`
+- added stale-output pruning that removes only canonical Python generated files
+  and preserves unrelated files under the shared project code root
+- wired Python materialization into the main-runtime save hook alongside plugin
+  codegen in `internal/app/app.go`
+- added focused Go coverage for renderer parity, materializer password-store
+  reads, stale metadata cleanup, stale-file pruning, and app-level save-hook
+  integration
 
 ## Scope
 
@@ -73,9 +85,11 @@ boundary already used for plugin codegen.
 - use dependency-graph section nodes for metadata section ordering and path
   naming
 - materialize authoritative file contents from the main save hook only
+- read PasswordParam presence from the runtime password store during
+  materialization
 - prune stale `setta_gen_meta.py` when metadata generation is disabled
-- prune stale Python output roots for projects that no longer exist or no longer
-  have a Python target
+- prune only canonical Python generated files so plugin outputs and temp/manual
+  files under the same project root are preserved
 
 ## Proposed Go Boundaries
 
@@ -122,6 +136,10 @@ Acceptance:
 - metadata content comes entirely from the Go export + graph
 - section entries are keyed by full path and by id in deterministic order
 
+Status:
+
+- complete
+
 ### Slice B: Save-Hook Materializer
 
 Deliver:
@@ -136,6 +154,22 @@ Acceptance:
 - removing a Python target removes stale Python generated outputs
 - disabling metadata removes stale `setta_gen_meta.py`
 
+Status:
+
+- complete
+
+## Open Questions
+
+- none inside this slice; the remaining rewrite gap is generated-section
+  reconciliation and route reopening
+
 ## Next Recommended Step
 
-Implement Slice A first, then wire Slice B through the main runtime save hook.
+Move to Slice 4:
+
+- add a focused doc for `GenPythonCode` / `GenPythonMetadata` section
+  reconciliation in Go
+- use the completed renderer/materializer as the source of truth for generated
+  section content
+- reopen Python target enable/edit support only after section sync is
+  authoritative end-to-end
