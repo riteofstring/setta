@@ -24,9 +24,14 @@ from setta.types.section_impls import (
     SectionType,
     StateMachineGateSectionImpl,
     StateMachineGateType,
+    StateMachineEndSectionImpl,
     StateMachineStartSectionImpl,
 )
-from setta.types.state_machine_edges import StateMachineEdge
+from setta.types.state_machine_edges import (
+    STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+    STATE_MACHINE_EDGE_TARGET_PORT_ID,
+    StateMachineEdge,
+)
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 from tests.utils.runtime_context import runtime_context
@@ -69,6 +74,13 @@ async def test_state_machine_edge_routes_crud() -> None:
                     position=Position(x=280, y=0),
                 ),
             )
+            end_response = await project_fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.StateMachineEnd,
+                    position=Position(x=560, y=0),
+                ),
+            )
 
             await route_set_state_machine_section_settings(
                 SetStateMachineSectionSettingsRequest(
@@ -89,15 +101,24 @@ async def test_state_machine_edge_routes_crud() -> None:
                 ),
                 ctx,
             )
+            await route_set_state_machine_section_settings(
+                SetStateMachineSectionSettingsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=end_response.sectionId,
+                    machineGroupId="workflow-main",
+                    label="Done",
+                ),
+                ctx,
+            )
 
             await route_create_state_machine_edge(
                 CreateStateMachineEdgeRequest(
                     projectConfigId=project_config_id,
                     machineGroupId="workflow-main",
                     sourceSectionId=start_response.sectionId,
-                    sourcePortId="start",
+                    sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
                     targetSectionId=gate_response.sectionId,
-                    targetPortId="gate_input",
+                    targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
                 ),
                 ctx,
             )
@@ -115,11 +136,18 @@ async def test_state_machine_edge_routes_crud() -> None:
                 gate_response.sectionId,
                 StateMachineGateSectionImpl,
             )
+            end_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                end_response.sectionId,
+                StateMachineEndSectionImpl,
+            )
             assert start_impl.machineGroupId == "workflow-main"
             assert start_impl.label == "Start Main"
             assert gate_impl.machineGroupId == "workflow-main"
             assert gate_impl.label == "Join"
             assert gate_impl.gateType == StateMachineGateType.OR
+            assert end_impl.machineGroupId == "workflow-main"
+            assert end_impl.label == "Done"
             assert len(project_state.projectConfig.stateMachineEdges) == 1
             edge = project_state.projectConfig.stateMachineEdges[0]
 
@@ -155,9 +183,9 @@ async def test_state_machine_edge_routes_crud() -> None:
             replacement = StateMachineEdge(
                 machineGroupId="workflow-main",
                 sourceSectionId=start_response.sectionId,
-                sourcePortId="start",
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
                 targetSectionId=gate_response.sectionId,
-                targetPortId="gate_input",
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
             )
             await route_set_state_machine_edges(
                 SetStateMachineEdgesRequest(
@@ -171,3 +199,14 @@ async def test_state_machine_edge_routes_crud() -> None:
                 project_config_id
             )
             assert project_state.projectConfig.stateMachineEdges == [replacement]
+
+            with pytest.raises(ValueError, match="at least one End"):
+                await route_set_state_machine_section_settings(
+                    SetStateMachineSectionSettingsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=end_response.sectionId,
+                        machineGroupId="other-machine",
+                        label="Done elsewhere",
+                    ),
+                    ctx,
+                )
