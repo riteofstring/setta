@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { isTempParam } from "forks/dnd-kit/paramDndState";
@@ -36,7 +37,9 @@ function _ParamContainer({
   dndStyle,
   dndClassName,
   listKey,
+  benchmarkParamRowMode,
 }) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
@@ -81,6 +84,69 @@ function _ParamContainer({
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+  const floatingBoxHandlers = benchmark.renderParamChrome
+    ? getFloatingBoxHandlers(...tooltipContentArray)
+    : {};
+
+  if (benchmark.renderFlatParamLayout) {
+    return (
+      <BenchmarkFlatParamContainer
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isKwarg={isKwarg}
+        isNestedParam={isNestedParam}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        isTopLevelWithPad={isTopLevelWithPad}
+        paramChildren={paramChildren}
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+        border={border}
+        bg={bg}
+        dndAttributes={dndAttributes}
+        dndListeners={dndListeners}
+        dndRef={dndRef}
+        dndStyle={dndStyle}
+        dndClassName={dndClassName}
+        listKey={listKey}
+        columnWidth={columnWidth}
+        floatingBoxHandlers={floatingBoxHandlers}
+      >
+        {children}
+      </BenchmarkFlatParamContainer>
+    );
+  }
+
+  if (benchmark.renderSimpleGridParamLayout) {
+    return (
+      <BenchmarkSimpleGridParamContainer
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isKwarg={isKwarg}
+        isNestedParam={isNestedParam}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        isTopLevelWithPad={isTopLevelWithPad}
+        paramChildren={paramChildren}
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+        border={border}
+        bg={bg}
+        dndAttributes={dndAttributes}
+        dndListeners={dndListeners}
+        dndRef={dndRef}
+        dndStyle={dndStyle}
+        dndClassName={dndClassName}
+        listKey={listKey}
+        columnWidth={columnWidth}
+        floatingBoxHandlers={floatingBoxHandlers}
+      >
+        {children}
+      </BenchmarkSimpleGridParamContainer>
+    );
+  }
 
   return !isNestedParam ? (
     <>
@@ -92,7 +158,8 @@ function _ParamContainer({
           ...(dndStyle ?? {}),
         }}
         data-param-row="true"
-        {...getFloatingBoxHandlers(...tooltipContentArray)}
+        data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+        {...floatingBoxHandlers}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
         onClick={onClick}
         ref={dndRef}
@@ -111,13 +178,19 @@ function _ParamContainer({
         ) : (
           <>{children}</>
         )}
-        <ParamInput
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          maybeErrorMessage={errorMessage}
-        />
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {hasError && (
+        {benchmark.renderParamInput ? (
+          <ParamInput
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            maybeErrorMessage={errorMessage}
+          />
+        ) : (
+          <BenchmarkParamValueShell />
+        )}
+        {benchmark.renderParamChrome && (
+          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        )}
+        {benchmark.renderParamChrome && hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
         )}
         {hasTempChild && (
@@ -139,12 +212,13 @@ function _ParamContainer({
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
-      {...getFloatingBoxHandlers(...tooltipContentArray)}
+      {...floatingBoxHandlers}
       style={{
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),
       }}
       data-param-row="true"
+      data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
       ref={dndRef}
@@ -170,6 +244,192 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
+
+function BenchmarkFlatParamContainer({
+  sectionId,
+  paramInfoId,
+  requiredParamIdsToPaths,
+  children,
+  onResizeStart,
+  isKwarg,
+  isNestedParam,
+  hasSectionStyleTheme,
+  isTopLevelWithPad,
+  paramChildren,
+  onMouseDown,
+  onClick,
+  border,
+  bg,
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  dndStyle,
+  dndClassName,
+  listKey,
+  columnWidth,
+  floatingBoxHandlers,
+}) {
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+  const paramHoverClassName = hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+
+  return (
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`group/arg-group relative col-span-full flex min-w-0 flex-col gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      style={dndStyle ?? undefined}
+      data-param-row="true"
+      data-settings-benchmark-flat-param-row="true"
+      data-settings-benchmark-param-row-mode="flat"
+      {...floatingBoxHandlers}
+      onMouseDownCapture={onMouseDown}
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes ?? {})}
+      {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
+    >
+      <div
+        className={`flex min-w-0 items-center gap-3 px-[2px] ${isTopLevelWithPad ? "pt-2" : ""}`}
+      >
+        {!isKwarg ? (
+          <div
+            className="min-w-0 shrink-0 overflow-hidden"
+            style={{ width: columnWidth }}
+          >
+            {children}
+          </div>
+        ) : (
+          <div className="min-w-0 overflow-hidden">{children}</div>
+        )}
+        {!isNestedParam && (
+          <div className="min-w-0 flex-1">
+            <BenchmarkParamValueShell />
+          </div>
+        )}
+      </div>
+      {renderChildren.length > 0 && (
+        <div
+          className="ml-3 flex min-w-0 flex-col gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
+          data-settings-benchmark-flat-param-children="true"
+        >
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
+      )}
+    </article>
+  );
+}
+
+function BenchmarkSimpleGridParamContainer({
+  sectionId,
+  paramInfoId,
+  requiredParamIdsToPaths,
+  children,
+  onResizeStart,
+  isKwarg,
+  isNestedParam,
+  hasSectionStyleTheme,
+  isTopLevelWithPad,
+  paramChildren,
+  onMouseDown,
+  onClick,
+  border,
+  bg,
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  dndStyle,
+  dndClassName,
+  listKey,
+  columnWidth,
+  floatingBoxHandlers,
+}) {
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+  const paramHoverClassName = hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+
+  return (
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`group/arg-group relative grid min-w-0 gap-x-3 gap-y-1 rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) minmax(0, 1fr)`,
+        ...(dndStyle ?? {}),
+      }}
+      data-param-row="true"
+      data-settings-benchmark-simple-grid-param-row="true"
+      data-settings-benchmark-param-row-mode="simple-grid"
+      {...floatingBoxHandlers}
+      onMouseDownCapture={onMouseDown}
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes ?? {})}
+      {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
+    >
+      <div className={`min-w-0 ${isTopLevelWithPad ? "pt-2" : ""}`}>
+        {!isKwarg ? (
+          <div
+            className="min-w-0 overflow-hidden"
+            style={{ width: columnWidth }}
+          >
+            {children}
+          </div>
+        ) : (
+          <div className="min-w-0 overflow-hidden">{children}</div>
+        )}
+      </div>
+      {!isNestedParam && (
+        <div className={`min-w-0 ${isTopLevelWithPad ? "pt-2" : ""}`}>
+          <BenchmarkParamValueShell />
+        </div>
+      )}
+      {renderChildren.length > 0 && (
+        <div
+          className="col-span-2 grid min-w-0 gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
+          data-settings-benchmark-simple-grid-children="true"
+        >
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
+      )}
+    </article>
+  );
+}
+
+function BenchmarkParamValueShell() {
+  return (
+    <div
+      className="section-key-value flex min-w-0 items-center rounded-sm border border-dashed border-setta-200/80 px-2 py-[0.2rem] text-[0.58rem] uppercase tracking-[0.14em] text-setta-400 dark:border-setta-700 dark:text-setta-500"
+      data-settings-benchmark-param-value-shell="true"
+    >
+      Value shell
+    </div>
+  );
+}
 
 function ErrorSection({
   sectionId,
