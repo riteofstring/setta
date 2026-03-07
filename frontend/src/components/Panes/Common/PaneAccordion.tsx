@@ -106,7 +106,7 @@ export function PaneAccordion({
         const isDisabled = item.disabled ?? false;
         const triggerClasses = isDisabled
           ? disabledTriggerClassName
-          : `${enabledTriggerClassName} cursor-pointer`;
+          : enabledTriggerClassName;
         const itemTestId = includeItemTestId
           ? `${item.triggerTestId}-item`
           : undefined;
