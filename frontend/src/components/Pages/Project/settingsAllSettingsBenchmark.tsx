@@ -32,6 +32,7 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "code-widgets",
   "full",
   "full-section-snapdom",
+  "full-section-opacity-hidden",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkStage =
@@ -65,6 +66,7 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamChrome: boolean;
   renderParamSortable: boolean;
   renderSectionBodySnapdomPreview: boolean;
+  renderSectionBodyOpacityHidden?: boolean;
 };
 
 const DEFAULT_STAGE: SettingsAllSettingsBenchmarkStage = "full";
@@ -90,6 +92,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamChrome: true,
   renderParamSortable: true,
   renderSectionBodySnapdomPreview: false,
+  renderSectionBodyOpacityHidden: false,
 };
 
 const SettingsAllSettingsBenchmarkContext =
@@ -555,6 +558,31 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
+        renderSectionBodyOpacityHidden: false,
+      };
+    case "full-section-opacity-hidden":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+        renderSectionBodyOpacityHidden: true,
       };
     default:
       return stage satisfies never;

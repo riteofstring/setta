@@ -26,6 +26,7 @@ const STAGES = [
   "code-widgets",
   "full",
   "full-section-snapdom",
+  "full-section-opacity-hidden",
 ] as const;
 
 type StageMetrics = {
@@ -71,6 +72,9 @@ type StageMetrics = {
   sectionSnapdomErrorCount: number;
   sectionSnapdomLiveActiveCount: number;
   sectionSnapdomPreviewCount: number;
+  sectionOpacityHiddenCount: number;
+  sectionOpacityHiddenHiddenCount: number;
+  sectionOpacityHiddenVisibleActiveCount: number;
 };
 
 test("all settings benchmark stages progressively restore section complexity", async ({
@@ -194,18 +198,18 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.flatParamRowCount,
   ).toBeGreaterThan(0);
-  expect(metricsByStage.get("param-top-level-flat-shell")?.flatParamChildrenCount).toBe(
-    0,
-  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.flatParamChildrenCount,
+  ).toBe(0);
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.parentRowCount,
   ).toBeGreaterThan(0);
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.topLevelRowCount,
   ).toBeGreaterThan(0);
-  expect(
-    metricsByStage.get("param-top-level-flat-shell")?.nestedRowCount,
-  ).toBe(0);
+  expect(metricsByStage.get("param-top-level-flat-shell")?.nestedRowCount).toBe(
+    0,
+  );
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.nestedChildSubtreeCount,
   ).toBe(0);
@@ -221,9 +225,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.flatRowModeCount,
   ).toBeGreaterThan(0);
-  expect(metricsByStage.get("param-top-level-flat-shell")?.staticRowModeCount).toBe(
-    0,
-  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.staticRowModeCount,
+  ).toBe(0);
   expect(
     metricsByStage.get("param-top-level-flat-shell")?.sortableRowModeCount,
   ).toBe(0);
@@ -235,10 +239,12 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("param-top-level-simple-grid-shell")?.staticRowCount,
   ).toBe(0);
   expect(
-    metricsByStage.get("param-top-level-simple-grid-shell")?.groupContainerCount,
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.groupContainerCount,
   ).toBeGreaterThan(0);
   expect(
-    metricsByStage.get("param-top-level-simple-grid-shell")?.paramContainerCount,
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.paramContainerCount,
   ).toBeGreaterThan(0);
   expect(
     metricsByStage.get("param-top-level-simple-grid-shell")
@@ -335,9 +341,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("param-parent-structure-shell")?.parentRowCount,
   ).toBeGreaterThan(0);
-  expect(
-    metricsByStage.get("param-parent-structure-shell")?.leafRowCount,
-  ).toBe(0);
+  expect(metricsByStage.get("param-parent-structure-shell")?.leafRowCount).toBe(
+    0,
+  );
   expect(
     metricsByStage.get("param-parent-structure-shell")?.nestedRowCount,
   ).toBeGreaterThan(0);
@@ -349,8 +355,7 @@ test("all settings benchmark stages progressively restore section complexity", a
       ?.suppressedParentRowCount,
   ).toBe(0);
   expect(
-    metricsByStage.get("param-parent-structure-shell")
-      ?.sampleParamRowMinWidth,
+    metricsByStage.get("param-parent-structure-shell")?.sampleParamRowMinWidth,
   ).toBeGreaterThan(250);
   expect(
     metricsByStage.get("param-parent-structure-shell")
@@ -480,7 +485,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("non-text-widgets")?.codeTextWidgetCount).toBe(0);
   expect(metricsByStage.get("non-text-widgets")?.textTextWidgetCount).toBe(0);
-  expect(metricsByStage.get("non-text-widgets")?.textAreaTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("non-text-widgets")?.textAreaTextWidgetCount).toBe(
+    0,
+  );
   expect(
     metricsByStage.get("non-text-widgets")?.codeTextWidgetShellCount,
   ).toBeGreaterThan(0);
@@ -491,12 +498,12 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("non-text-widgets")?.textAreaTextWidgetShellCount,
   ).toBe(0);
 
-  expect(metricsByStage.get("code-widgets")?.paramContainerCount).toBeGreaterThan(
-    0,
-  );
-  expect(metricsByStage.get("code-widgets")?.codeTextWidgetCount).toBeGreaterThan(
-    0,
-  );
+  expect(
+    metricsByStage.get("code-widgets")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("code-widgets")?.codeTextWidgetCount,
+  ).toBeGreaterThan(0);
   expect(metricsByStage.get("code-widgets")?.textTextWidgetCount).toBe(0);
   expect(metricsByStage.get("code-widgets")?.textAreaTextWidgetCount).toBe(0);
   expect(metricsByStage.get("code-widgets")?.codeTextWidgetShellCount).toBe(0);
@@ -548,9 +555,43 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full-section-snapdom")?.textInputDummyCount).toBe(
     0,
   );
+  expect(metricsByStage.get("full-section-snapdom")?.sampleParamRowCount).toBe(
+    0,
+  );
+
   expect(
-    metricsByStage.get("full-section-snapdom")?.sampleParamRowCount,
+    metricsByStage.get("full-section-opacity-hidden")?.staticRowCount,
   ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")
+      ?.sectionOpacityHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")
+      ?.sectionOpacityHiddenHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")
+      ?.sectionOpacityHiddenVisibleActiveCount,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    (metricsByStage.get("full-section-opacity-hidden")
+      ?.sectionOpacityHiddenHiddenCount ?? 0) +
+      (metricsByStage.get("full-section-opacity-hidden")
+        ?.sectionOpacityHiddenVisibleActiveCount ?? 0),
+  ).toBe(
+    metricsByStage.get("full-section-opacity-hidden")
+      ?.sectionOpacityHiddenCount,
+  );
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")?.textInputDummyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -570,9 +611,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("group-container-static-list")?.domCount,
   ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
-  expect(metricsByStage.get("param-top-level-flat-shell")?.domCount).toBeLessThan(
-    metricsByStage.get("param-flat-shell")?.domCount ?? 0,
-  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-flat-shell")?.domCount ?? 0);
   expect(
     metricsByStage.get("param-top-level-simple-grid-shell")?.domCount,
   ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
@@ -605,6 +646,70 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full-section-snapdom")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
   );
+  expect(
+    metricsByStage.get("full-section-opacity-hidden")?.domCount,
+  ).toBeGreaterThanOrEqual(metricsByStage.get("full")?.domCount ?? 0);
+});
+
+test("full-section-snapdom hydrates a clicked section body back to live controls", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await openBenchmarkStage(page, "full-section-snapdom");
+
+  const firstSection = page.locator("section[data-section-id]").first();
+  await expect(firstSection).toBeVisible();
+  await firstSection.click();
+
+  await page.waitForFunction(() => {
+    const liveSections = document.querySelectorAll(
+      '[data-settings-benchmark-section-snapdom-status="live-active"]',
+    );
+    if (liveSections.length !== 1) {
+      return false;
+    }
+
+    const liveBody = liveSections[0]?.querySelector(
+      "[data-settings-benchmark-section-snapdom-live]",
+    );
+    if (!(liveBody instanceof HTMLElement)) {
+      return false;
+    }
+
+    return (
+      liveBody.querySelector(
+        'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
+      ) !== null
+    );
+  });
+
+  const hydrationMetrics = await page.evaluate(() => {
+    const liveSections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-settings-benchmark-section-snapdom-status="live-active"]',
+      ),
+    );
+    const liveBody = liveSections[0]?.querySelector<HTMLElement>(
+      "[data-settings-benchmark-section-snapdom-live]",
+    );
+    return {
+      liveSectionCount: liveSections.length,
+      readyPreviewCount: document.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="ready"]',
+      ).length,
+      liveParamRowCount:
+        liveBody?.querySelectorAll('[data-param-row="true"]').length ?? 0,
+      interactiveControlCount:
+        liveBody?.querySelectorAll(
+          'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [role="switch"]:not([aria-disabled="true"])',
+        ).length ?? 0,
+    };
+  });
+
+  expect(hydrationMetrics.liveSectionCount).toBe(1);
+  expect(hydrationMetrics.readyPreviewCount).toBeGreaterThan(0);
+  expect(hydrationMetrics.liveParamRowCount).toBeGreaterThan(0);
+  expect(hydrationMetrics.interactiveControlCount).toBeGreaterThan(0);
 });
 
 async function openBenchmarkStage(
@@ -656,6 +761,25 @@ async function openBenchmarkStage(
       );
     });
   }
+  if (stage === "full-section-opacity-hidden") {
+    await page.waitForFunction(() => {
+      const roots = document.querySelectorAll(
+        "[data-settings-benchmark-section-opacity-hidden]",
+      );
+      const hiddenRoots = document.querySelectorAll(
+        '[data-settings-benchmark-section-opacity-hidden-status="hidden"]',
+      ).length;
+      const activeRoots = document.querySelectorAll(
+        '[data-settings-benchmark-section-opacity-hidden-status="visible-active"]',
+      ).length;
+      return (
+        roots.length > 0 &&
+        hiddenRoots > 0 &&
+        hiddenRoots + activeRoots === roots.length &&
+        activeRoots <= 1
+      );
+    });
+  }
 }
 
 async function collectStageMetrics(page: Page): Promise<StageMetrics> {
@@ -668,7 +792,10 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       flowRoot.querySelectorAll<HTMLElement>('[data-param-row="true"]'),
     );
     const topLevelParamRows = paramRows.filter(
-      (row) => !row.parentElement?.closest("[data-settings-benchmark-nested-child-subtree]"),
+      (row) =>
+        !row.parentElement?.closest(
+          "[data-settings-benchmark-nested-child-subtree]",
+        ),
     );
     const viewport = flowRoot.querySelector(".react-flow__viewport");
     const viewportTransform =
@@ -796,6 +923,15 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       ).length,
       sectionSnapdomPreviewCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-section-snapdom-preview]",
+      ).length,
+      sectionOpacityHiddenCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-opacity-hidden]",
+      ).length,
+      sectionOpacityHiddenHiddenCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-opacity-hidden-status="hidden"]',
+      ).length,
+      sectionOpacityHiddenVisibleActiveCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-opacity-hidden-status="visible-active"]',
       ).length,
     };
   });

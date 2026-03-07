@@ -1,10 +1,5 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
-import {
-  type PropsWithChildren,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 
 type SnapdomStatus = "pending" | "ready" | "error" | "live-active";
 
@@ -27,6 +22,8 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
 
   const shouldUseSnapdomPreview =
     benchmark.active && benchmark.renderSectionBodySnapdomPreview;
+  const shouldUseOpacityHidden =
+    benchmark.active && benchmark.renderSectionBodyOpacityHidden === true;
 
   useEffect(() => {
     if (!shouldUseSnapdomPreview) {
@@ -95,23 +92,49 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     };
   }, [isActiveSection, sectionId, shouldUseSnapdomPreview]);
 
-  if (!shouldUseSnapdomPreview) {
+  if (!shouldUseSnapdomPreview && !shouldUseOpacityHidden) {
     return children;
   }
 
-  const showLiveBody = previewSrc === null;
+  if (shouldUseOpacityHidden) {
+    const opacityStatus = isActiveSection ? "visible-active" : "hidden";
+    return (
+      <div
+        className="w-full min-w-0"
+        data-settings-benchmark-section-opacity-hidden={sectionId}
+        data-settings-benchmark-section-opacity-hidden-status={opacityStatus}
+      >
+        <div
+          aria-hidden={isActiveSection ? undefined : "true"}
+          className={
+            isActiveSection
+              ? "w-full min-w-0 opacity-100"
+              : "pointer-events-none w-full min-w-0 opacity-0"
+          }
+          data-settings-benchmark-section-opacity-hidden-live={opacityStatus}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  const effectiveStatus: SnapdomStatus = isActiveSection
+    ? "live-active"
+    : status;
+  const showLiveBody = isActiveSection || previewSrc === null;
 
   return (
     <div
       className="w-full min-w-0"
       data-settings-benchmark-section-snapdom={sectionId}
-      data-settings-benchmark-section-snapdom-status={status}
+      data-settings-benchmark-section-snapdom-status={effectiveStatus}
     >
       {showLiveBody ? (
         <div
           ref={liveBodyRef}
           className="w-full min-w-0"
-          data-settings-benchmark-section-snapdom-live={status}
+          data-settings-benchmark-section-snapdom-live={effectiveStatus}
         >
           {children}
         </div>

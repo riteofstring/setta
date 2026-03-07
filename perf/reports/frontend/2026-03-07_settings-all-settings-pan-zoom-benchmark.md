@@ -1814,3 +1814,189 @@ New benchmark stages:
 - Practical branch conclusion:
   - if the product can accept inactive-section preview mode with explicit hydration on interaction, this direction is worth serious consideration
   - if the product requires fully live inactive section bodies, this result should be treated as an upper-bound experiment, not a directly landable refactor
+
+## Addendum: inactive-to-active section hydration takes about 130ms on average
+
+- Date: `2026-03-07`
+- Goal: measure the cost of making a snapped inactive section body live again after the user clicks it.
+- Change under test:
+  - same benchmark-only `full-section-snapdom` stage as the previous addendum
+  - one follow-up benchmark-only refinement in `SettingsAllSettingsBenchmarkSnapdomSectionBody`:
+    - when a section becomes active, swap to the live body immediately during render instead of waiting for an effect to clear `previewSrc`
+    - this removes an artificial one-render delay from the activation path
+
+### Automated behavior guard
+
+- Playwright coverage now verifies the activation path directly:
+  - open `full-section-snapdom`
+  - click the first snapped section
+  - assert exactly one section body becomes `live-active`
+  - assert the live body exposes real param rows and real enabled controls
+
+### Measurement method
+
+- Same target page: Settings project, `All Settings`, headed Chrome DevTools MCP session
+- Target sections:
+  - the currently live section
+  - the next snapped ready section
+- Repeated sequence:
+  - alternate clicks between those two sections so every measured target starts in the inactive `ready` preview state
+- Transition metrics:
+  - `liveMs`: click to target wrapper status `live-active`
+  - `usableMs`: click to first enabled control inside the live body subtree
+  - `focusableMs`: click to that first enabled control successfully taking focus
+
+### Repeated transition rerun
+
+- Initial state before the measured sequence:
+  - `41` ready preview sections
+  - `1` already-live section
+- Measured sequence:
+  - `ready` section `07b6d359-bd61-47c5-b61c-e262d728de31`
+  - `live` section `038e6d5e-fd6f-449a-9222-3be6fc4d9a42`
+  - alternate between them for `5` measured activations
+- Per-run results:
+  - run 1: `live 137.9ms`, `usable 137.9ms`, `focusable 138.9ms`
+  - run 2: `live 156.3ms`, `usable 156.4ms`, `focusable 157.3ms`
+  - run 3: `live 55.3ms`, `usable 55.4ms`, `focusable 56.4ms`
+  - run 4: `live 207.9ms`, `usable 207.9ms`, `focusable 208.9ms`
+  - run 5: `live 101.8ms`, `usable 101.9ms`, `focusable 102.7ms`
+- Aggregate results:
+  - average `liveMs`: `131.84ms`
+  - average `usableMs`: `131.90ms`
+  - average `focusableMs`: `132.84ms`
+  - max `liveMs`: `207.90ms`
+  - max `usableMs`: `207.90ms`
+  - max `focusableMs`: `208.90ms`
+- Active-state DOM during the transition sequence:
+  - DOM nodes in `.react-flow`: `1351`
+  - live param rows: `17`
+  - remaining SnapDOM preview images: `40`
+
+### Activation trace
+
+- A single traced activation rerun measured `192.2ms` from click to a live enabled control.
+- Trace artifact:
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-activation-trace.json`
+- DevTools insight:
+  - one forced-reflow cluster was reported during activation
+  - top contributors:
+    - `43ms` in `updateHeight` at `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+    - `7ms` in `captureSnapshot` at `frontend/src/components/Section/Container/SettingsAllSettingsBenchmarkSnapdomSectionBody.tsx`
+
+### Activation conclusion
+
+- The whole-section preview path solves pan/zoom convincingly, but the section activation path is visibly not free.
+- On this benchmark, the current hydration path is roughly:
+  - best case: about `55ms`
+  - typical case: about `130ms`
+  - slower case: about `200ms`
+- The dominant activation cost is not the SnapDOM image removal itself. The trace points more directly at:
+  - remounting the real section body
+  - section-body layout work, especially `KwargsControls` height/update logic
+  - a smaller additional cost to recapture the section that just became inactive
+- Practical branch conclusion:
+  - if we pursue the inactive-preview architecture, the next optimization target is activation latency, not pan/zoom FPS
+  - the first concrete hotspot to inspect is `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+
+## Addendum: `opacity: 0` on inactive section bodies has a large pan/zoom effect
+
+- Date: `2026-03-07`
+- Goal: test whether keeping the real section bodies mounted, but hiding inactive section bodies with `opacity: 0`, changes pan/zoom performance in the same Settings `All Settings` benchmark.
+- Benchmark-only change:
+  - new `full-section-opacity-hidden` stage
+  - every section body still mounts its real live DOM
+  - inactive section bodies are wrapped in a benchmark-only container with `opacity: 0` and `pointer-events: none`
+  - the active section body remains fully visible and live
+
+### Live DOM verification
+
+- The opacity-hidden path was confirmed live in the headed browser:
+  - `42` opacity-hidden section wrappers
+  - `41` inactive hidden section bodies
+  - `1` visible active section body
+  - `0` SnapDOM preview images
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/full-opacity-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-section-opacity-hidden-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-section-opacity-hidden-snapdom-visible.png`
+
+### Repeated fixed-base rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - observed viewport size in headed Chrome: `1440x772`
+  - each stage rerun used `5` browser-side fixed-transform replay loops of `180` frames each
+  - this addendum mutates the live `.react-flow__viewport` transform directly and records `requestAnimationFrame` deltas
+  - compare these numbers only within this addendum
+
+### `full` baseline
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Code widgets: `426`
+- Opacity-hidden section wrappers: `0`
+- Average frame time across `5` runs: `21.86ms`
+- Average FPS across `5` runs: `45.74`
+- Median FPS: `45.77`
+- Max frame time: `41.60ms`
+- Slow frames:
+  - `>16.7ms`: `676`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Per-run FPS: `46.26`, `45.48`, `45.33`, `45.77`, `45.87`
+
+### `full-section-opacity-hidden`
+
+- DOM nodes in `.react-flow`: `8637`
+- Param containers: `697`
+- Code widgets: `426`
+- Text input dummy previews: `426`
+- Opacity-hidden section wrappers: `42`
+- Hidden inactive section bodies: `41`
+- Visible active section bodies: `1`
+- SnapDOM preview images: `0`
+- Average frame time across `5` runs: `8.33ms`
+- Average FPS across `5` runs: `120.01`
+- Median FPS: `119.99`
+- Max frame time: `16.60ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `119.99`, `120.11`, `119.98`, `120.04`, `119.94`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-section-opacity-hidden-trace.json`
+
+### `full-section-snapdom` reference rerun
+
+- DOM nodes in `.react-flow`: `1251`
+- Param containers: `8`
+- Code widgets: `6`
+- SnapDOM preview images: `41`
+- Average frame time across `5` runs: `8.33ms`
+- Average FPS across `5` runs: `120.03`
+- Median FPS: `120.01`
+- Max frame time: `9.50ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `119.98`, `120.07`, `120.01`, `119.98`, `120.09`
+
+### Opacity conclusion
+
+- In this fixed-transform pan benchmark, `opacity: 0` on inactive section bodies does have a very large effect.
+  - `full`: `45.74 FPS`
+  - `full-section-opacity-hidden`: `120.01 FPS`
+  - gain versus `full`: about `+74.27 FPS`
+- The surprising part is that this happens while keeping almost the entire DOM mounted.
+  - DOM nodes: `8553` -> `8637`, `+84`
+  - param containers: still `697`
+  - code widgets: still `426`
+- The practical interpretation is that, for this benchmark, the dominant steady-state cost is not just “DOM exists” or “layout exists.”
+  - the dominant cost appears much closer to painting and compositing the visible section-body content during the transform replay
+  - making inactive bodies fully transparent is enough to collapse that cost almost to the same level as whole-section SnapDOM previews
+- Important caveats:
+  - this is still a benchmark-only stage, not a production behavior change
+  - it measures steady-state pan/zoom only, not activation or interaction semantics
+  - inactive section bodies remain mounted, so follow-up work still needs to check focus behavior, event handling, invalidation behavior, and whether active/inactive transitions stay smooth
