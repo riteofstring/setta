@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 43 tools total
-- 40 current Go tool names overlap with Python
+- Go MCP now exposes 44 tools total
+- 41 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 38 of those overlaps are mutation or structural tools
-- Python still has 11 mutation or structural project-state MCP tools that do
+- 39 of those overlaps are mutation or structural tools
+- Python still has 10 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -64,6 +64,7 @@ MCP server:
   - `compare_and_set_watch_code_enabled`
   - `compare_and_set_watch_code_folders`
   - `compare_and_set_watch_code_files`
+  - `set_code_section_attached_terminal`
   - `toggle_position_locks`
   - `toggle_minimized`
 - writes:
@@ -93,31 +94,34 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- attached-terminal structural parity over existing Go run-graph owners:
-  - `set_code_section_attached_terminal`
+- section-size runtime owner plus MCP parity:
+  - `set_section_sizes`
 
 Why this is next:
 
-1. the compare-and-set UI-setting cluster is now complete.
-2. Go already owns the attached-terminal validation/ensure foundations in the
-   run-graph runtime plus the sizing behavior that attached terminals depend on.
-3. the remaining gap is a bounded explicit attach/detach owner and MCP
-   transport, not a brand-new subsystem.
-4. this unlocks the attached-terminal toggle UX without broadening Phase 6 into
-   section-variant ordering or app-definition ownership.
+1. the attached-terminal slice is now complete, and it clarified that Go still
+   lacks one general owner for resizing existing sections.
+2. `set_section_sizes` is the remaining layout mutation most likely to unblock
+   other size-sensitive gaps instead of adding another one-off transport.
+3. Go already has reusable sizing foundations:
+   - settings-backed policy resolution
+   - payload size parsing
+   - child-creation size normalization
+   - attached-terminal size synchronization on explicit attach
+4. the slice is large enough to need an implementation-plan doc before code:
+   `phase-6-set-section-sizes-tool-parity.md`
 
-### 2. After The Attached-Terminal Slice
+### 2. After The Section-Size Slice
 
-- rerank the remaining mutation gaps against the completed attached-terminal
-  owner layer
-- do not guess the post-formatting order in advance
+- rerank the remaining layout/runtime-heavy mutation gaps against the completed
+  section-size owner layer
+- keep app-definition work deferred until frontend-source ownership is ready
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
 These should not be turned into MCP work until their authoritative Go mutation
 owner is clearer:
 
-- `set_section_sizes`
 - `toggle_group_orientation`
 - `set_group_overflow_mode`
 - `set_section_param_filter`
@@ -138,8 +142,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-set-code-section-attached-terminal-tool-parity.md` as the next
-  bounded Phase 6 slice
+- use `phase-6-set-section-sizes-tool-parity.md` as the next bounded Phase 6
+  slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -149,10 +153,10 @@ priority:
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(CompareAndSet|SetShowParamDisplayNames|SetWatchCode)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|CompareAndSet)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteCompareAndSet' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupports(AuthenticatedSSECalls|CompareAndSet)|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime|Document).*(AttachedTerminal|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetCodeSectionAttachedTerminal|SetCodeSectionAttachedTerminalAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ToolCallRouteSupportsSetCodeSectionAttachedTerminal)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -218,6 +222,12 @@ priority:
 - 2026-03-07: the next bounded slice moved to `format_code`.
 - 2026-03-07: `format_code` is now complete across the Go owner, IDE
   route, and MCP boundaries.
+- 2026-03-07: `set_code_section_attached_terminal` is now complete across the
+  Go runtime owner, MCP server, HTTP tool-call route, and authenticated SSE
+  transport.
+- 2026-03-07: reranking after the attached-terminal slice moved the next
+  bounded Phase 6 step to `set_section_sizes`, which now has its own
+  implementation-plan doc.
 - 2026-03-07: the compare-and-set UI-setting cluster is now complete across
   the Go owner, MCP server, MCP HTTP bridge, and authenticated SSE transport.
 - 2026-03-07: reranking the remaining gaps moved the next bounded slice to

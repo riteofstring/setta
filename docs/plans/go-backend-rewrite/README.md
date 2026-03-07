@@ -191,11 +191,15 @@ Use the docs in this order:
   - focused slice doc for Go-owned `set_code_section_attached_terminal` MCP
     parity over the completed run-graph attached-terminal and section-sizing
     foundations
-75. `spike-mcp.md`
+75. `phase-6-set-section-sizes-tool-parity.md`
+  - focused implementation-plan doc for Go-owned `set_section_sizes` MCP
+    parity over the completed sizing-policy, attached-terminal, and auto-layout
+    foundations
+76. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-76. `spike-pty.md`
+77. `spike-pty.md`
    - PTY uncertainty-reduction plan
-77. `spike-lsp.md`
+78. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

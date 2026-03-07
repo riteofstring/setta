@@ -2,30 +2,22 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 6 slice after the completed
-compare-and-set UI-setting cluster.
-
-The highest-leverage remaining MCP mutation gap is now:
-
-- `set_code_section_attached_terminal`
-
-This slice is attractive because Go already owns most of the hard attached
-terminal invariants in the run-graph runtime. The remaining work is the
-explicit attach/detach owner plus thin MCP transport.
+This doc scoped the bounded Phase 6 slice that closed Go MCP parity for
+`set_code_section_attached_terminal`.
 
 ## Status
 
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity remains the active phase
-- compare-and-set UI-setting parity is complete
-- Go already owns important attached-terminal foundations:
-  - run-time validation for existing attached terminals
-  - ensure/create attached terminal helpers in the run graph
-  - attached-terminal cleanup when sections are deleted
-  - child-terminal creation paths that seed terminal sizing correctly
-- Go does not yet own the explicit attach/detach mutation transport exposed by
-  Python `set_code_section_attached_terminal`
+- `set_code_section_attached_terminal` is now complete
+- Go now owns:
+  - explicit attached-terminal attach/detach mutations in
+    `internal/projectstate/attached_terminal_writes.go`
+  - settings-backed parent/terminal size normalization during explicit attach
+  - deterministic top-level layout restoration on explicit detach
+  - MCP parity for `set_code_section_attached_terminal`
+  - authenticated route and SSE coverage for the new structural tool
 
 ## Scope
 
@@ -38,7 +30,7 @@ This focused slice covers:
   - missing target rejection
 - detach behavior that restores the terminal to top-level layout state
 - reuse of the existing attached-terminal size normalization rules already used
-  by child creation and run-time ensure flows
+  by child creation and now by the explicit attach/detach owner
 - Go MCP parity for `set_code_section_attached_terminal`
 - focused tests for:
   - attach/detach round-trip behavior
@@ -89,57 +81,60 @@ strong state invariants, not as a heuristic move side effect.
     runtime, not the MCP transport
 - reuse existing Go helpers where possible
   - `ValidateAttachedTerminal`
-  - `EnsureCodeSectionAttachedTerminal`
-  - existing attached-terminal size seeding/promotion logic
+  - existing attached-terminal size parsing and policy helpers
 - keep transport thin
   - the MCP tool should parse arguments and delegate
 - do not broaden this slice into generic move or resize transport
+- allow explicit attach to move a terminal out of an existing parent
+  - the owner clears the old parent relationship directly instead of adding a
+    generic move-sections transport shim
+- when a detached terminal has no surviving top-level layout entry, seed a
+  fresh deterministic top-level layout from the remaining active top-level
+  canvas
 
 ## Implementation Outline
 
 1. Add the explicit attach/detach owner.
-   - attach an existing terminal to a code-family section
-   - detach the current terminal back to top-level layout state
-   - preserve existing attached-terminal invariants in both typed state and
-     payload state
+   - completed in `internal/projectstate/attached_terminal_writes.go`
 
 2. Reuse existing sizing rules.
-   - attached terminal width should align to the parent
-   - attached terminal height should be concrete
-   - parent code height should respect the embedded-terminal minimum
+   - completed for explicit attach/detach mutations
 
 3. Add MCP parity.
-   - structural access
-   - project-scoped invocation
-   - temp-id translation
+   - completed in `internal/mcpx/server.go`
 
 4. Add focused tests.
-   - runtime attach/detach round-trip
-   - invalid target rejection
-   - MCP server + route + SSE coverage
+   - completed across `internal/projectstate`, `internal/mcpx`,
+     `internal/httpapi`, and `internal/app`
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime|Document).*(AttachedTerminal|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerSetCodeSectionAttachedTerminal|TestServerListsToolsAndScopesToolCalls' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SetCodeSectionAttachedTerminal|SupportsSetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminal|TestAppIDEMCPServerSupportsAuthenticatedSSECalls' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetCodeSectionAttachedTerminal|SetCodeSectionAttachedTerminalAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ToolCallRouteSupportsSetCodeSectionAttachedTerminal)' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- whether detach should preserve the terminal's prior top-level position when
-  possible or seed a fresh top-level layout entry every time
-  - recommendation: preserve existing top-level layout when present; otherwise
-    seed a deterministic top-level layout entry in the owner
+- none for this slice
 
 ## Next Recommended Step
 
-- implement the explicit attached-terminal owner first in
-  `internal/projectstate`
-- commit the owner plus focused runtime tests before adding MCP transport
+- use `phase-6-set-section-sizes-tool-parity.md` as the next bounded Phase 6
+  slice
+- keep the next code chunk focused on a reusable section-size normalization
+  owner before adding more layout mutation transport
 
 ## Progress Notes
 
 - 2026-03-07: doc created immediately after the completed compare-and-set
   UI-setting slice moved the next bounded Phase 6 step to
   `set_code_section_attached_terminal`.
+- 2026-03-07: explicit attached-terminal attach/detach ownership landed in
+  `internal/projectstate/attached_terminal_writes.go` with focused runtime
+  coverage for round-trip attach/detach, invalid targets, and terminal moves
+  from existing parents.
+- 2026-03-07: MCP parity landed in `internal/mcpx/server.go` with focused
+  server, route, and authenticated SSE coverage, including temp-id translation.
+- 2026-03-07: reranking the remaining mutation gaps moved the next bounded
+  slice to `set_section_sizes`, which needs its own implementation-plan doc.
