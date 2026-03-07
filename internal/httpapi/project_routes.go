@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
+	RouteSetCode                        = "/setCode"
 	RouteSetCallable                    = "/setCallable"
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
 	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
@@ -34,6 +36,11 @@ type ProjectRouteDependencies struct {
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
+	CodeUpdates                    ProjectCodeUpdateService
+}
+
+type ProjectCodeUpdateService interface {
+	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
 }
 
 type ProjectStateSingleConfigWithCompletedOpIDs struct {
@@ -61,6 +68,13 @@ type SetCallableRequest struct {
 	RefetchParams bool    `json:"refetchParams"`
 }
 
+type SetCodeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	Code         string  `json:"code"`
+}
+
 type SetWatchCodeEnabledRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -85,6 +99,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		if deps.ProjectState == nil {
 			return fmt.Errorf("project runtime is required in ide mode")
 		}
+		if deps.CodeUpdates == nil {
+			return fmt.Errorf("project code update service is required in ide mode")
+		}
 		if deps.CodegenTargetValidator == nil {
 			return fmt.Errorf("project codegen target validator is required in ide mode")
 		}
@@ -94,6 +111,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
@@ -168,6 +186,37 @@ func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.CodeUpdates == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.CodeUpdates.SetCode(r.Context(), projectID, sectionID, payload.Code); err != nil {
+			writeSetCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 
@@ -370,6 +419,26 @@ func writeSetCallableError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case errors.Is(err, projectstate.ErrCallableSectionRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_callable_section", "Section must resolve to a callable section.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetCodeError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeSectionReadOnly):
+		writeError(w, r, http.StatusForbidden, "code_section_read_only", "Code section is read-only.")
+	case errors.Is(err, projectstate.ErrCodeSectionRequired):
+		writeError(w, r, http.StatusBadRequest, "invalid_code_section", "Section must resolve to a code section.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

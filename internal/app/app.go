@@ -80,6 +80,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginMaterializer *codegen.PluginMaterializer
 		watchCodeService   *watchcode.Service
 		watchCodeWarnings  *watchCodeWarningTracker
+		codeUpdates        *codeUpdateService
 		plannerFilesRoot   string
 		artifactsRoot      string
 		shareSessions      modes.ShareSessionStore
@@ -271,6 +272,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
 				return nil, err
 			}
+			codeUpdates, err = newCodeUpdateService(codeUpdateServiceOptions{
+				ProjectState:       projectRuntime,
+				LSPSync:            projectLSPSyncer,
+				CallableSignatures: lspSignature,
+				WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+				WatchCodeWarnings:  watchCodeWarnings,
+				WebsocketHub:       websocketHub,
+			})
+			if err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				return nil, err
+			}
 		}
 	}
 
@@ -391,6 +404,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,
+				CodeUpdates:                    codeUpdates,
 			}); err != nil {
 				panic(err)
 			}

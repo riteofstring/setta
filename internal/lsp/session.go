@@ -631,6 +631,55 @@ func (s *Service) SyncDocuments(ctx context.Context, desired map[string]SyncedDo
 	return nil
 }
 
+func (s *Service) UpsertDocument(ctx context.Context, document SyncedDocument) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.session.Start(ctx); err != nil {
+		return err
+	}
+
+	path := strings.TrimSpace(document.Path)
+	if path == "" {
+		return fmt.Errorf("lsp: document path is required")
+	}
+
+	s.mu.Lock()
+	existing, ok := s.tracked[path]
+	s.mu.Unlock()
+
+	switch {
+	case !ok:
+		if err := s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback); err != nil {
+			return err
+		}
+	case existing.LanguageID != document.LanguageID:
+		if err := s.session.CloseDocument(path); err != nil {
+			return err
+		}
+		if err := s.session.OpenDocument(ctx, path, document.LanguageID, document.Content, document.Callback); err != nil {
+			return err
+		}
+	default:
+		if err := s.session.SetDiagnosticsCallback(path, document.Callback); err != nil {
+			return err
+		}
+		if existing.Content != document.Content {
+			if err := s.session.UpdateDocument(ctx, path, document.Content); err != nil {
+				return err
+			}
+		}
+	}
+
+	s.mu.Lock()
+	if s.tracked == nil {
+		s.tracked = map[string]SyncedDocument{}
+	}
+	s.tracked[path] = document
+	s.mu.Unlock()
+	return nil
+}
+
 func (s *Service) Close(ctx context.Context) error {
 	if s == nil {
 		return nil

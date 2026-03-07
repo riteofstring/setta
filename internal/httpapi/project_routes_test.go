@@ -136,6 +136,118 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	var captured projectRouteSetCodeCall
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		projectRouteCodeUpdateServiceFunc(func(_ context.Context, projectID string, sectionID string, code string) error {
+			captured = projectRouteSetCodeCall{
+				ProjectID: projectID,
+				SectionID: sectionID,
+				Code:      code,
+			}
+			return nil
+		}),
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","code":"print('updated')\n"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if captured != (projectRouteSetCodeCall{
+		ProjectID: "project-alpha",
+		SectionID: "section-1",
+		Code:      "print('updated')\n",
+	}) {
+		t.Fatalf("unexpected setCode call %#v", captured)
+	}
+}
+
+func TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		projectRouteCodeUpdateServiceFunc(func(context.Context, string, string, string) error {
+			return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "section-1")
+		}),
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","code":"print('updated')\n"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"code_section_read_only"`) {
+		t.Fatalf("expected read-only error body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *testing.T) {
 	t.Parallel()
 
@@ -745,6 +857,7 @@ func newProjectRouteTestHandler(
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
+	codeUpdates ...ProjectCodeUpdateService,
 ) http.Handler {
 	t.Helper()
 	if validator == nil {
@@ -754,6 +867,15 @@ func newProjectRouteTestHandler(
 	}
 	if pythonReconciler == nil {
 		pythonReconciler = projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		})
+	}
+	var codeUpdateService ProjectCodeUpdateService
+	if len(codeUpdates) > 0 {
+		codeUpdateService = codeUpdates[0]
+	}
+	if codeUpdateService == nil {
+		codeUpdateService = projectRouteCodeUpdateServiceFunc(func(context.Context, string, string, string) error {
 			return nil
 		})
 	}
@@ -770,6 +892,7 @@ func newProjectRouteTestHandler(
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,
+				CodeUpdates:                    codeUpdateService,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
@@ -792,6 +915,18 @@ type stubProjectRouteCallableSignatureResolver struct {
 	result projectstate.CallableSignatureResult
 	ok     bool
 	err    error
+}
+
+type projectRouteSetCodeCall struct {
+	ProjectID string
+	SectionID string
+	Code      string
+}
+
+type projectRouteCodeUpdateServiceFunc func(ctx context.Context, projectID string, sectionID string, code string) error
+
+func (f projectRouteCodeUpdateServiceFunc) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
+	return f(ctx, projectID, sectionID, code)
 }
 
 func (s *stubProjectRouteCallableSignatureResolver) ResolveCallableSignature(

@@ -80,6 +80,24 @@ func (s *ProjectSynchronizer) Close(ctx context.Context) error {
 	return s.service.Close(ctx)
 }
 
+func (s *ProjectSynchronizer) SyncWatchCodeBoundSection(
+	ctx context.Context,
+	section projectstate.WatchCodeBoundSection,
+) error {
+	if s == nil || s.service == nil {
+		return nil
+	}
+
+	if err := s.service.UpsertDocument(ctx, SyncedDocument{
+		Path:       section.SourcePath,
+		LanguageID: "python",
+		Content:    section.Code,
+	}); err != nil {
+		return fmt.Errorf("lsp: upsert watch code bound section %q: %w", section.SectionID, err)
+	}
+	return nil
+}
+
 func (s *ProjectSynchronizer) SetCallableAutoRefetchHandlers(
 	onCallableSymbolsResolved func(context.Context, string, []string),
 	onCallableSignatureMismatch func(context.Context, string, []string),

@@ -409,6 +409,87 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 	})
 }
 
+func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main","code":"def sorted(iterable):\n    return iterable\n"}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+		t.Fatalf("expected one callable section binding, got %#v", entry)
+	}
+
+	callableSectionID := entry.SectionIDs[0]
+	_, _, impl, err := project.ResolveSection(callableSectionID)
+	if err != nil {
+		t.Fatalf("resolve callable section: %v", err)
+	}
+	if impl.Kind != projectstate.SectionKind("callable") {
+		t.Fatalf("expected callable section impl, got %q", impl.Kind)
+	}
+
+	codeObjNames := map[string]struct{}{}
+	for _, codeObj := range project.CodeObjs {
+		codeObjNames[codeObj.Name] = struct{}{}
+	}
+	if _, ok := codeObjNames["sorted"]; !ok {
+		t.Fatalf("expected callable code object after setCode route, got %#v", codeObjNames)
+	}
+}
+
 func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
 	t.Parallel()
 
@@ -1635,6 +1716,71 @@ func seedAppPythonCodegenProject(t *testing.T, app *App) {
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
+	}
+}
+
+func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  mustAppJSON(t, map[string]any{"language": string(projectstate.CodeLanguagePython)}),
+				},
+			},
+			SectionVariantMap: map[string]string{
+				"section-main": "variant-main",
+			},
+			Sections: map[string]projectstate.Section{
+				"section-main": {
+					ID:               "section-main",
+					Name:             "Main",
+					VariantIDs:       []string{"variant-main"},
+					DefaultVariantID: "variant-main",
+					UnsharedKeys:     []string{"code"},
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"variant-main": {
+					ID:               "variant-main",
+					ImplID:           "impl-main",
+					NonPresetImplIDs: []string{"impl-main"},
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"impl-main": {
+					ID:   "impl-main",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguagePython,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "pkg/bound.py",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+					Payload: mustAppJSON(t, map[string]any{
+						"id":   "impl-main",
+						"type": "Code",
+						"code": "def existing(value):\n    return value\n",
+						"codeFileBinding": map[string]any{
+							"path":        "pkg/bound.py",
+							"access_mode": "read_write",
+						},
+						"codeLanguage": "python",
+						"children":     []string{},
+					}),
+				},
+			},
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate watch code bound section project: %v", err)
 	}
 }
 
