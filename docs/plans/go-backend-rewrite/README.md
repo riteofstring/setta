@@ -164,11 +164,15 @@ Use the docs in this order:
   - focused slice doc for Go-owned `set_watch_code_enabled` MCP parity over
     the completed Watch Code runtime owner and project-scoped structural MCP
     boundary
-68. `spike-mcp.md`
+68. `phase-6-set-watch-code-inputs-tool-parity.md`
+  - focused slice doc for Go-owned `set_watch_code_inputs` MCP parity over
+    the completed Watch Code input-normalization/runtime owner and
+    project-scoped structural MCP boundary
+69. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-69. `spike-pty.md`
+70. `spike-pty.md`
    - PTY uncertainty-reduction plan
-70. `spike-lsp.md`
+71. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
