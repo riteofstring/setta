@@ -62,3 +62,34 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
 Run pnpm -C frontend gcf. Add a new entry to cumulative_review.md (use date time as the heading). Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+
+Read the docs in `docs/plans/go-backend-rewrite/` in order, starting with `README.md`, then `go-backend-rewrite-plan.md`, then any relevant phase or spike docs for the current work. Treat those docs as the working context for this rewrite.
+
+Important constraints for this rewrite:
+- This is a clean break. Do not preserve backward compatibility, legacy route shapes, storage migrations, or Python-shaped architecture unless I explicitly ask.
+- Current Python code, tests, and docs are reference material for product capabilities and edge cases, not a compatibility contract.
+- Prefer explicit Go runtime/service boundaries over framework magic or giant stateful singletons.
+- Use libraries for transport and OS integration; keep product semantics custom.
+- Avoid broadening scope beyond the current phase or spike unless a dependency makes it necessary.
+
+Before doing substantive work:
+1. Inspect the current repo state and recent relevant files.
+2. Determine what phase or spike the rewrite appears to be in.
+3. Summarize:
+   - current phase/spike
+   - what seems complete
+   - what is in progress
+   - the highest-leverage next step
+4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
+
+Working rules:
+- Before touching a subsystem, read the relevant current Python code, tests, and docs for that subsystem.
+- If the active work needs a new or updated phase/spike doc, create or update it.
+- If earlier planning docs are stale relative to the code, fix them.
+- Keep transport layers thin.
+- Avoid band-aids and backward-compatibility shims.
+- Prefer robust source-of-truth pathways over heuristics.
+- Run the most relevant tests for the touched area, or explicitly state why they were not run.
+- At the end of any substantial chunk of work, update the relevant phase/spike doc with what was completed, decisions made, open questions, and the next recommended step.
+- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
+- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
