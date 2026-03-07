@@ -85,8 +85,14 @@ The active Slice 2 execution work is now narrowed in:
   - Step 1 there is now complete:
     - Go owns Callable section backfill/create/remove/rename
     - Python import-prefix updates for Watch Code now run in Go
-  - watcher-triggered callable refetch and warning notifications still sit
-    above that boundary
+  - Step 2 there is now complete:
+    - Watch Code signature changes now reuse the shared Go callable refetch
+      path
+    - Watch Code registry `callableName` is the source-of-truth refetch target
+      for linked sections
+    - unavailable signature context preserves existing params instead of
+      guessing
+  - warning notifications still sit above that boundary
   - the active section-mutation work is now narrowed in:
     - `docs/plans/go-backend-rewrite/phase-5-watch-code-callable-section-mutation.md`
 - the completed runtime-owner work remains captured in:
@@ -376,6 +382,6 @@ For later slices, add:
 
 Continue with:
 
-- `phase-5-watch-code-scan-diff-and-manager-foundation.md`
-- execute its Step 1 parser/diff foundation before wiring the long-lived watch
-  manager and later section mutation behavior
+- `phase-5-watch-code-callable-section-mutation.md`
+- execute its Step 3 warning-notification slice before widening Watch Code into
+  later inline-edit or bound-code-file reuse

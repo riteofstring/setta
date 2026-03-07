@@ -7,15 +7,15 @@ This doc narrows Step 2 from
 
 Go now owns Watch Code file apply helpers and runtime callback wiring into
 persisted project state. What is still missing at the current boundary is the
-authoritative section mutation layer above those helpers:
+authoritative layer above those helpers:
 
 - backfilling placeholder registry entries into real Callable sections
 - rename/remove behavior over existing Callable sections
 - Python `genCodePrefix` import bookkeeping for Watch Code-owned callables
+- signature-change reuse of the shared Go callable refetch path
 
-The later signature-refetch reuse and warning-notification work stays out of
-this focused doc so the section-mutation substrate can land and be tested on
-its own.
+The only remaining work after Step 2 is warning-notification emission for
+unresolved signature help.
 
 ## Status
 
@@ -36,9 +36,14 @@ Current repo status as of 2026-03-07:
     - rename/remove behavior over section IDs now runs in Go
     - Python target import-prefix updates now run in Go
     - the IDE Watch Code runtime now drives that section-mutation path
-  - the remaining gap is now after section mutation:
-    - watcher-triggered callable refetch still is not reused from the completed
-      Go callable runtime
+  - Step 2 is now complete:
+    - watcher-triggered signature changes now call the shared Go
+      `SetCallable(..., refetch=true)` path after section reconciliation
+    - refetch uses the Watch Code registry `callableName` as the authoritative
+      callable target for each linked section
+    - unavailable signature context now preserves existing params while still
+      updating registry signature/body metadata
+  - the remaining gap is now Step 3 only:
     - unresolved signature-help warning notifications still are not emitted
 
 ## Scope
@@ -50,6 +55,7 @@ This focused doc covers:
 - Go-owned section rename/remove behavior driven by the existing Watch Code
   scan/delete plans
 - alias-safe Python `genCodePrefix` import add/remove updates
+- Go-owned signature-change reuse of the shared callable refetch path
 - registry reconciliation for:
   - `callableName`
   - `sectionIds`
@@ -103,8 +109,10 @@ reuse the Go callable runtime cleanly.
 - prefer narrow Callable-only helpers here
   - generic section-creation abstractions can wait until another subsystem
     needs them
-- leave signature-refetch reuse to the next slice
-  - section mutation must land first so later refetch targets are stable
+- use the registry entry as the signature-refetch source of truth
+  - Watch Code owns the authoritative callable identity for its linked sections
+  - do not infer the target callable name from whichever code object happens to
+    be selected in the section payload
 
 ## Implementation Steps
 
@@ -156,6 +164,15 @@ Acceptance:
   diagnostics-triggered refetch
 - no second Watch Code-only param synthesis path exists
 
+Status: complete on 2026-03-07.
+
+Completed in this chunk:
+
+- `internal/projectstate/watch_code_callable_sections.go`
+- `internal/projectstate/watch_code_apply_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeApplyWatchCodeFileUpdate(SignatureChangeRefetchesCallableParams|SignatureChangeWithoutSignatureContextKeepsParams|RenamePreservesSectionIDsAndParams|SyntaxErrorPreservesProjectState)$|TestProjectRefetchCallableParamsReusesCurrentCallable|TestProjectSetCallableAppliesMatchedSignatureAndPreservesExistingValues' -count=1 -timeout 180s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/app -count=1 -timeout 180s`
+
 ### Step 3: Warning Notifications And Final Verification
 
 Deliver:
@@ -182,8 +199,10 @@ Acceptance:
 
 Execute Step 2 next:
 
-- route Watch Code signature changes through the completed Go callable binding /
-  refetch runtime
-- preserve the new section-mutation/import helpers as the only Watch Code
-  section owner
-- leave warning notifications for the final bounded step
+Execute Step 3 next:
+
+- emit deduped warning notifications when Watch Code signature help returns
+  `no_match`
+- keep the completed section-mutation and refetch helpers as the only Watch
+  Code section owner
+- finish the bounded runtime/app verification around that warning path

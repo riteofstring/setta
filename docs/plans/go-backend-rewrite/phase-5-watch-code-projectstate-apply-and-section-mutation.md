@@ -33,9 +33,9 @@ Current repo status as of 2026-03-07:
 - the current active Go gap is now:
   - Go now owns file update/delete apply helpers and runtime callback wiring
     into persisted project state
-  - Watch Code section create/remove/rename behavior is still Python-owned
-  - watcher-triggered callable refetch still is not routed through the Go
-    Watch Code apply path
+  - Watch Code section create/remove/rename behavior is now Go-owned
+  - watcher-triggered callable refetch is now routed through the Go Watch Code
+    apply path
   - warning notifications for unresolved signature help still are not emitted
     from Go Watch Code
 
@@ -188,10 +188,12 @@ Acceptance:
 
 Current split:
 
-- Step 1 in `phase-5-watch-code-callable-section-mutation.md` is now complete
+- Step 1 in `phase-5-watch-code-callable-section-mutation.md` is complete
   - Callable section backfill/create/remove/rename plus Python import sync
-- later steps there remain active
-  - callable refetch reuse
+- Step 2 there is now complete
+  - Watch Code signature changes now reuse the shared Go callable refetch path
+  - unavailable signature context preserves existing params instead of guessing
+- Step 3 there remains active
   - warning notifications
 
 ### Step 3: App Callback Wiring, Warning Notifications, And Verification
@@ -222,11 +224,11 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 2 in
+Execute Step 3 in
 `phase-5-watch-code-callable-section-mutation.md` next:
 
-- route Watch Code signature changes through the completed Go callable refetch
-  runtime
-- preserve the new section-mutation/import helpers as the source-of-truth
-  section owner
-- keep warning notifications for the final bounded step
+- emit deduped warning notifications from Go when Watch Code signature help
+  returns `no_match`
+- preserve the completed section-mutation/import/refetch helpers as the
+  source-of-truth Watch Code owner
+- use that step to close this focused apply/mutation doc
