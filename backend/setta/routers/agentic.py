@@ -108,6 +108,32 @@ class GetAgentRunRequest(BaseModel):
     runId: ID
 
 
+class StartStateMachineRunRequest(BaseModel):
+    projectConfigId: ID
+    machineGroupId: str
+    startSectionId: ID | None = None
+
+
+class StopStateMachineRunRequest(BaseModel):
+    projectConfigId: ID
+    machineGroupId: str
+
+
+class ResetStateMachineRequest(BaseModel):
+    projectConfigId: ID
+    machineGroupId: str
+
+
+class GetStateMachineRunRequest(BaseModel):
+    projectConfigId: ID
+    machineGroupId: str
+
+
+class StateMachineRunControlResponse(BaseModel):
+    alreadyStopped: bool
+    stoppedRunId: ID | None = None
+
+
 class GetAgenticSummaryCacheStatusRequest(BaseModel):
     projectConfigId: ID
     chatSectionId: ID
@@ -487,6 +513,85 @@ async def route_stop_agent_run(
         return await ctx.state.agent_runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(Route.START_STATE_MACHINE_RUN)
+async def route_start_state_machine_run(
+    x: StartStateMachineRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    try:
+        return ctx.state.state_machine_runner.start_run(
+            project_config_id=x.projectConfigId,
+            machine_group_id=x.machineGroupId,
+            start_section_id=x.startSectionId,
+            share_session_id=ctx.share_session_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(Route.STOP_STATE_MACHINE_RUN)
+async def route_stop_state_machine_run(
+    x: StopStateMachineRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> StateMachineRunControlResponse:
+    await ctx.enforce_llm_allowed()
+    try:
+        stopped_run = await ctx.state.state_machine_runner.stop_run(
+            project_config_id=x.projectConfigId,
+            machine_group_id=x.machineGroupId,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if stopped_run is None:
+        return StateMachineRunControlResponse(alreadyStopped=True)
+    return StateMachineRunControlResponse(
+        alreadyStopped=False,
+        stoppedRunId=stopped_run.id,
+    )
+
+
+@router.post(Route.RESET_STATE_MACHINE)
+async def route_reset_state_machine(
+    x: ResetStateMachineRequest,
+    ctx: RuntimeContextFromRequest,
+) -> StateMachineRunControlResponse:
+    await ctx.enforce_llm_allowed()
+    try:
+        stopped_run = await ctx.state.state_machine_runner.reset_machine(
+            project_config_id=x.projectConfigId,
+            machine_group_id=x.machineGroupId,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if stopped_run is None:
+        return StateMachineRunControlResponse(alreadyStopped=True)
+    return StateMachineRunControlResponse(
+        alreadyStopped=False,
+        stoppedRunId=stopped_run.id,
+    )
+
+
+@router.post(Route.GET_STATE_MACHINE_RUN)
+async def route_get_state_machine_run(
+    x: GetStateMachineRunRequest,
+    ctx: RuntimeContextFromRequest,
+) -> AgentRun:
+    await ctx.enforce_llm_allowed()
+    try:
+        run = ctx.state.state_machine_runner.get_latest_run(
+            project_config_id=x.projectConfigId,
+            machine_group_id=x.machineGroupId,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if run is None:
+        raise HTTPException(status_code=404, detail="State machine run not found")
+    return run
 
 
 @router.post(Route.STOP_EXTERNAL_AGENT_RUN)

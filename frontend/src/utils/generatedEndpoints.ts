@@ -583,6 +583,30 @@ export async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
+export async function route_start_state_machine_run(
+  x: gt.StartStateMachineRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startStateMachineRun", x);
+}
+
+export async function route_stop_state_machine_run(
+  x: gt.StopStateMachineRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
+  return await post("/stopStateMachineRun", x);
+}
+
+export async function route_reset_state_machine(
+  x: gt.ResetStateMachineRequestInput,
+): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
+  return await post("/resetStateMachine", x);
+}
+
+export async function route_get_state_machine_run(
+  x: gt.GetStateMachineRunRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/getStateMachineRun", x);
+}
+
 export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {

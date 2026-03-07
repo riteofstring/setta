@@ -646,6 +646,10 @@ export const RouteEnum = {
   STOP_AGENT_RUN: "/stopAgentRun",
   GET_AGENT_RUN: "/getAgentRun",
   GET_AGENT_RUNS: "/getAgentRuns",
+  START_STATE_MACHINE_RUN: "/startStateMachineRun",
+  STOP_STATE_MACHINE_RUN: "/stopStateMachineRun",
+  RESET_STATE_MACHINE: "/resetStateMachine",
+  GET_STATE_MACHINE_RUN: "/getStateMachineRun",
   GET_PROMPT_TEMPLATES: "/getPromptTemplates",
   GET_PROMPT_TEMPLATE: "/getPromptTemplate",
   CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
@@ -8789,6 +8793,15 @@ export type GetPromptTemplateRequestInput = z.input<
   typeof GetPromptTemplateRequestSchema
 >;
 
+const GetStateMachineRunRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  machineGroupId: z.string(),
+});
+
+export type GetStateMachineRunRequestInput = z.input<
+  typeof GetStateMachineRunRequestSchema
+>;
+
 const PluginRegisteredExternalAgentAdapterSchema = z.object({
   adapterId: z.string(),
   pluginId: z.string(),
@@ -8799,6 +8812,15 @@ const PluginRegisteredExternalAgentAdapterSchema = z.object({
   envVarWhitelist: z.array(z.string()).default(() => []),
   defaultModel: z.union([z.string(), z.null()]).default(null),
 });
+
+const ResetStateMachineRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  machineGroupId: z.string(),
+});
+
+export type ResetStateMachineRequestInput = z.input<
+  typeof ResetStateMachineRequestSchema
+>;
 
 const RespondExternalAgentApprovalRequestSchema = z.object({
   approvalId: z.string(),
@@ -8827,6 +8849,25 @@ export type StartAgentRunRequestInput = z.input<
   typeof StartAgentRunRequestSchema
 >;
 
+const StartStateMachineRunRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  machineGroupId: z.string(),
+  startSectionId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type StartStateMachineRunRequestInput = z.input<
+  typeof StartStateMachineRunRequestSchema
+>;
+
+const StateMachineRunControlResponseSchema = z.object({
+  alreadyStopped: z.boolean(),
+  stoppedRunId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type StateMachineRunControlResponse = z.infer<
+  typeof StateMachineRunControlResponseSchema
+>;
+
 const StopAgentRunRequestSchema = z.object({
   runId: IDSchema,
 });
@@ -8841,6 +8882,15 @@ const StopExternalAgentRunRequestSchema = z.object({
 
 export type StopExternalAgentRunRequestInput = z.input<
   typeof StopExternalAgentRunRequestSchema
+>;
+
+const StopStateMachineRunRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  machineGroupId: z.string(),
+});
+
+export type StopStateMachineRunRequestInput = z.input<
+  typeof StopStateMachineRunRequestSchema
 >;
 
 const UpdateAgentProfileRequestSchema = z.object({
