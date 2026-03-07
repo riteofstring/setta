@@ -23,6 +23,19 @@ Current repo status as of 2026-03-07:
 
 - Phase 5 LSP work is complete through the signature-help follow-up slices 1
   and 2
+- Slice 1 of this follow-up is now complete:
+  - Go-owned project state now persists `watchCodeEnabled`,
+    `watchCodeFolders`, `watchCodeFiles`, `watchCodeRegistry`, and
+    `watchCodeBaselineByPath`
+  - `internal/projectview` now exposes those fields to the frontend project
+    snapshot
+  - IDE mode now exposes Go-owned `setWatchCodeEnabled` and
+    `setWatchCodeInputs` routes
+  - enable/input mutations now normalize repo-relative inputs and baseline
+    existing/new watched Python definitions in Go without creating sections
+  - the frontend Watch Code controls now follow the authoritative
+    `getLatestProjectState` hydrate path after successful mutations instead of
+    assuming a Python-side websocket project-state push
 - Go owns the reusable callable refresh path in:
   - `internal/lspsignature/service.go`
   - `internal/projectstate/callable.go`
@@ -37,17 +50,11 @@ Current repo status as of 2026-03-07:
   - `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`
   - `frontend/src/utils/generatedEndpoints.ts`
 - the current Go repo has no Watch Code owner yet:
-  - `internal/projectstate.Project` does not carry
-    `watchCodeEnabled`, `watchCodeFolders`, `watchCodeFiles`,
-    `watchCodeRegistry`, or `watchCodeBaselineByPath`
-  - `internal/projectview.ProjectConfig` does not expose those fields to the
-    frontend
-  - there are no Go `setWatchCodeEnabled` or `setWatchCodeInputs` routes
   - there is no Go watch manager, Python callable parser, fsnotify observer, or
     bound code-file reload owner
 
-That means the next step is not a small patch on top of the signature-help
-follow-up. It is a new focused Watch Code migration plan.
+That means the active gap has narrowed from state/transport foundation to the
+long-lived watcher/runtime owner itself.
 
 ## Scope
 
@@ -146,8 +153,15 @@ transport.
     `SetCallable` / `RefetchCallableParams` path, not a second param-synthesis
     implementation
 - keep transport thin
-  - routes should decode, enforce IDE-only policy, call services, and return
-    authoritative project state only
+  - routes should decode, enforce IDE-only policy, call services, and leave the
+    frontend on one authoritative project-state hydrate path
+- use the explicit hydrate route for Slice 1
+  - the current generated frontend Watch Code endpoints still type both
+    mutations as `null`
+  - Go already has a dedicated `getLatestProjectState` route and no broader IDE
+    project-state websocket push
+  - Slice 1 should reuse that authoritative hydrate path instead of widening
+    endpoint generation scope before the watcher runtime lands
 
 ## Recommended Option
 
@@ -232,6 +246,8 @@ Do not own:
 
 ### Slice 1: Watch Code State And Transport Foundation
 
+Status: complete
+
 Deliver:
 
 - add `watchCodeEnabled`, `watchCodeFolders`, `watchCodeFiles`,
@@ -296,8 +312,13 @@ Acceptance:
 For Slice 1 implementation, require at minimum:
 
 - Go unit tests for Watch Code input normalization and baseline helpers
-- HTTP route tests for IDE-only gating and authoritative project-state payloads
+- HTTP route tests for IDE-only gating and authoritative hydrate payloads
 - frontend coverage for the Watch Code controls once the Go routes land
+
+Completed for Slice 1:
+
+- `./scripts/go.sh test ./internal/projectstate ./internal/projectview ./internal/httpapi -count=1 -timeout 180s`
+- `pnpm -C frontend exec vitest run src/state/actions/project/watchCode.test.ts src/components/AppHeader/WatchCodeToggleButton.test.tsx`
 
 For later slices, add:
 
@@ -315,9 +336,10 @@ For later slices, add:
 
 ## Next Recommended Step
 
-Execute Slice 1 next:
+Execute Slice 2 next:
 
-- add Watch Code fields to Go project state and frontend project view
-- add Go `setWatchCodeEnabled` / `setWatchCodeInputs` transport
-- add the baseline helpers that make those routes semantically correct before
-  the long-lived watcher runtime lands
+- add `internal/watchcode` as the long-lived watcher/runtime owner
+- port parser-backed registry/baseline diffing, file create/delete/move
+  handling, and callable section create/remove/rename behavior
+- keep the completed Slice 1 state/transport path as the source of truth while
+  the new watcher runtime starts driving it
