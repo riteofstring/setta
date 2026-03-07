@@ -25,6 +25,9 @@ Retrieved on:
 - [go-pty.md](./go-pty.md)
   - `github.com/aymanbagabas/go-pty`
   - pinned locally at `v0.2.2`
+- [modelcontextprotocol-go-sdk.md](./modelcontextprotocol-go-sdk.md)
+  - `github.com/modelcontextprotocol/go-sdk`
+  - pinned locally at `v1.4.0`
 
 ## Planned Candidates
 
@@ -36,9 +39,6 @@ Retrieved on:
   - not yet pinned in `go.mod`
 - [gorilla-securecookie.md](./gorilla-securecookie.md)
   - `github.com/gorilla/securecookie`
-  - not yet pinned in `go.mod`
-- [modelcontextprotocol-go-sdk.md](./modelcontextprotocol-go-sdk.md)
-  - `github.com/modelcontextprotocol/go-sdk`
   - not yet pinned in `go.mod`
 
 ## Ground Rules

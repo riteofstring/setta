@@ -20,6 +20,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/lspsignature"
+	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/plugins"
@@ -48,6 +49,7 @@ type App struct {
 	lspSync       *lsp.ProjectSynchronizer
 	watchCode     *watchcode.Service
 	boundCode     *boundcode.Service
+	mcpServer     *mcpx.Server
 	handler       http.Handler
 }
 
@@ -67,6 +69,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	var mcpServer *mcpx.Server
+	if modePolicy.IsIDE() {
+		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
+			Logger:        logger,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var (
@@ -412,6 +424,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 		},
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if mcpServer == nil {
+				return
+			}
+			r.Handle("/mcp", mcpServer.Handler())
+			r.Handle("/mcp/", mcpServer.Handler())
+		},
 		Register: func(r chi.Router) {
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
 				ModePolicy:          modePolicy,
@@ -486,6 +505,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspSync:       projectLSPSyncer,
 		watchCode:     watchCodeService,
 		boundCode:     boundCodeService,
+		mcpServer:     mcpServer,
 		handler:       handler,
 	}, nil
 }
@@ -516,6 +536,10 @@ func (a *App) DeploymentRuntime() *deployments.Runtime {
 
 func (a *App) ShareSessions() modes.ShareSessionStore {
 	return a.shareSessions
+}
+
+func (a *App) MCPServer() *mcpx.Server {
+	return a.mcpServer
 }
 
 func (a *App) Terminals() *terminals.Service {

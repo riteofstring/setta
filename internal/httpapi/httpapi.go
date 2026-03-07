@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -53,12 +55,13 @@ type RuntimeAuth struct {
 }
 
 type Dependencies struct {
-	Logger       *slog.Logger
-	Info         InfoService
-	Auth         *auth.Service
-	ModePolicy   modes.Policy
-	RegisterRoot func(chi.Router)
-	Register     func(chi.Router)
+	Logger                    *slog.Logger
+	Info                      InfoService
+	Auth                      *auth.Service
+	ModePolicy                modes.Policy
+	RegisterRoot              func(chi.Router)
+	RegisterAuthenticatedRoot func(chi.Router)
+	Register                  func(chi.Router)
 }
 
 type errorResponse struct {
@@ -102,6 +105,16 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
 		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth))
+	}
+	if deps.RegisterAuthenticatedRoot != nil {
+		if deps.Auth != nil && deps.Auth.Enabled() {
+			router.Group(func(r chi.Router) {
+				r.Use(authMiddleware(deps.Auth))
+				deps.RegisterAuthenticatedRoot(r)
+			})
+		} else {
+			deps.RegisterAuthenticatedRoot(router)
+		}
 	}
 
 	router.Route(apiPrefix, func(r chi.Router) {
@@ -412,4 +425,36 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Flush() {
+	flusher, ok := r.ResponseWriter.(http.Flusher)
+	if !ok {
+		return
+	}
+	flusher.Flush()
+}
+
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, http.ErrNotSupported
+	}
+	return hijacker.Hijack()
+}
+
+func (r *statusRecorder) Push(target string, opts *http.PushOptions) error {
+	pusher, ok := r.ResponseWriter.(http.Pusher)
+	if !ok {
+		return http.ErrNotSupported
+	}
+	return pusher.Push(target, opts)
+}
+
+func (r *statusRecorder) ReadFrom(reader io.Reader) (int64, error) {
+	readerFrom, ok := r.ResponseWriter.(io.ReaderFrom)
+	if ok {
+		return readerFrom.ReadFrom(reader)
+	}
+	return io.Copy(r.ResponseWriter, reader)
 }

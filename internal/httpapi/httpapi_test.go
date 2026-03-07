@@ -247,6 +247,55 @@ func TestHandlerRejectsReplayedBootstrapToken(t *testing.T) {
 	}
 }
 
+func TestHandlerProtectsAuthenticatedRootRoutes(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			r.Get("/mcp", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	unauthorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResponse, httptest.NewRequest(http.MethodGet, "/mcp", nil))
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", unauthorizedResponse.Code)
+	}
+
+	token, _, err := authService.MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	cookieName, err := authService.CookieName(currentSession.Metadata.ID)
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	authorizedRequest := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	authorizedRequest.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+	authorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(authorizedResponse, authorizedRequest)
+	if authorizedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", authorizedResponse.Code, authorizedResponse.Body.String())
+	}
+}
+
 func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 	t.Parallel()
 

@@ -14,10 +14,9 @@ on top of:
 - deployment/share session ownership
 - terminal/LSP/plugin/runtime process supervision primitives
 
-What Go still does not own is any MCP runtime surface. Python remains the
-source of truth for:
+What Go still does not own is the remaining MCP runtime surface above the first
+external transport slice. Python remains the source of truth for:
 
-- the MCP server transport
 - the internal multi-server MCP client
 - tool registration, metadata, and namespacing
 - agentic scope enforcement for tool calls
@@ -27,15 +26,26 @@ source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns a transport-free Phase 6 Slice 1 foundation:
+- Go now owns Phase 6 Slice 1 and Slice 2 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
-- there is no Go-owned MCP HTTP route or stdio bridge
+  - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
+  - authenticated `/mcp` mounting in `internal/httpapi` via a root-level auth
+    hook that keeps auth outside the SDK
+  - one minimal Go-owned tool set:
+    - `list_mcp_tools` as the init-like tool
+    - `read_file_range` as the first discoverable regular tool
+  - structured tool failures surfaced as MCP `CallToolResult` errors with
+    Setta-owned error codes
+- the MCP SDK is now pinned in `go.mod`
+- the first Go server transport is SSE-only
+- there is no Go-owned stdio bridge yet
 - there is no Go-owned namespaced tool registry or internal MCP client
+- there is no Go-owned runtime-status route yet
 - there is no Go-owned LLM/chat runtime yet, so MCP should be scoped as a
   foundation layer instead of being coupled to chat migration immediately
-- the MCP spike already narrowed the library choice toward
-  `github.com/modelcontextprotocol/go-sdk` with a tight wrapper boundary
+- the MCP spike recommendation is now exercised in real code:
+  `github.com/modelcontextprotocol/go-sdk` behind a tight wrapper boundary
 
 ## Scope
 
@@ -241,6 +251,55 @@ Acceptance:
 - auth is enforced outside the SDK instead of inside tool handlers
 - tool failures are surfaced as structured MCP tool errors
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/mcpx/server.go` as the first tight SDK wrapper boundary for
+  server transport
+  - the SDK remains contained inside `internal/mcpx`
+  - Setta-owned tool metadata stays in `internal/tools` and is exposed to MCP
+    clients under tool `_meta.setta`
+- mounted the first authenticated MCP transport under `/mcp`
+  - `internal/httpapi` now supports authenticated root routes separate from the
+    `/api` subtree
+  - auth is enforced by `httpapi` middleware before requests reach the MCP SDK
+- shipped the first minimal Setta-owned tool set:
+  - `list_mcp_tools` returns the sorted registered tool names
+  - `read_file_range` reads UTF-8 workspace files with explicit path-root
+    enforcement and line-range validation
+- kept the first regular tool unscoped on purpose
+  - this slice proves transport + metadata + structured tool errors
+  - scoped invocation stays deferred to Slice 4
+- added focused Go tests for:
+  - file-read tool behavior parity over temp workspaces
+  - Setta metadata exposure and structured tool errors over in-memory MCP
+    sessions
+  - authenticated root-route enforcement in `internal/httpapi`
+  - black-box authenticated SSE MCP calls through `internal/app`
+
+Decisions:
+
+- expose SSE only in Slice 2
+  - this keeps the first transport slice narrow and matches the documented
+    Python external-agent posture closely enough to move Phase 6 forward
+  - streamable HTTP remains a possible later addition if it becomes necessary
+- use SDK-native SSE endpoint shape at `/mcp`
+  - do not preserve the Python `/mcp/messages/` split route shape
+  - the clean-break rewrite can adopt the SDK's single-endpoint SSE flow
+- do not allow per-call workspace-root overrides on the Go file-read tool
+  - workspace confinement is owned by server construction, not by tool-call
+    arguments
+
+Verification:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx ./internal/httpapi -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run TestAppIDEMCPServerRejectsUnauthorizedClients -count=1 -timeout 45s -v`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run TestAppIDEMCPServerSupportsAuthenticatedSSECalls -count=1 -timeout 45s -v`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx ./internal/httpapi ./internal/app -run 'Test(Server|ReadFileRange|HandlerProtectsAuthenticatedRootRoutes|AppIDEMCPServer)' -count=1 -timeout 180s`
+
 ### Slice 3: Internal Namespaced Client And Runtime Status
 
 Deliver:
@@ -273,8 +332,6 @@ Acceptance:
 
 ## Open Questions
 
-- whether the first Go server transport should expose SSE only, or both SSE and
-  streamable HTTP immediately
 - which minimal scoped pilot tool is the best anchor:
   - project-state summary
   - diagnostics summary
@@ -284,8 +341,8 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 2 next.
-- Keep the first tool set intentionally small and avoid pulling LLM/chat
-  orchestration into the MCP foundation work.
-- Do not pin the MCP SDK in `go.mod` until Slice 2 actually needs the server
-  transport adapter.
+- Implement Slice 3 next.
+- Reuse the completed `/mcp` SSE server as the first configured upstream in the
+  Go internal MCP client tests.
+- Keep namespaced routing and runtime-status ownership in Go before starting
+  scoped tool-call work.

@@ -1,15 +1,16 @@
 # modelcontextprotocol/go-sdk
 
 - Module: `github.com/modelcontextprotocol/go-sdk`
-- Local status: planned candidate, not yet pinned in `go.mod`
+- Local status: pinned in `go.mod`
+- Pinned version: `v1.4.0`
 - Retrieved: 2026-03-07
 - Official module docs: https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk
 - Official `mcp` package docs: https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk/mcp
 - Official repo: https://github.com/modelcontextprotocol/go-sdk
 
-## Why It Is A Candidate
+## Why It Is In Use
 
-- official Go SDK for MCP client/server work if the rewrite spike approves it
+- official Go SDK for MCP client/server work after the rewrite spike approved it
 - attractive because it already models client/server/session boundaries and
   transports, which fits the rewrite's explicit runtime direction
 
@@ -33,7 +34,19 @@ Only for custom transports:
 - do not let MCP SDK types become general-purpose domain types across the repo
 - transport and protocol wiring may use the SDK; product semantics remain repo
   code
-- spike server and client roles separately before locking it in
+- keep server and client roles wrapped separately even though the dependency is
+  now pinned
+
+## Repo-Local Usage
+
+- current Slice 2 server transport uses:
+  - `mcp.NewServer`
+  - low-level `Server.AddTool`
+  - `mcp.NewSSEHandler`
+  - `mcp.SSEClientTransport` in black-box tests
+- custom Setta tool metadata is exposed through tool `_meta.setta`
+  while generic MCP hints use `ToolAnnotations`
+- auth is still enforced by repo middleware before the SDK handler runs
 
 ## Relevant Upstream Guidance
 
@@ -50,3 +63,5 @@ Only for custom transports:
   first spike unnecessarily
 - keep the spike honest about whether the SDK helps both server and client
   roles, or only one of them
+- if HTTP middleware wraps the response writer around SSE handlers, preserve
+  `http.Flusher` or the SDK cannot flush the initial SSE endpoint event
