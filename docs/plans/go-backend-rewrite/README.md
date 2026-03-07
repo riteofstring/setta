@@ -95,11 +95,14 @@ Use the docs in this order:
 45. `phase-6-create-child-sections-structural-tool.md`
    - focused current-work plan for Go-owned child section creation over the
      completed structural section-construction boundary
-46. `spike-mcp.md`
+46. `phase-6-create-child-sections-via-incrementer-structural-tool.md`
+   - focused current-work plan for Go-owned incrementer child creation over the
+     completed structural child-section boundary
+47. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-47. `spike-pty.md`
+48. `spike-pty.md`
    - PTY uncertainty-reduction plan
-48. `spike-lsp.md`
+49. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
