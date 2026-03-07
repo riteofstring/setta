@@ -18,24 +18,14 @@ import {
 } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
-import type {
-  CoordinateExtent,
-  Node,
-  ReactFlowState,
-  Rect,
-} from "../core/types";
-import { getBoundsOfRects, getWheelDelta } from "../core/utils";
+import type { CoordinateExtent, Node, Rect } from "../core/types";
+import { getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
 import { MiniMapNodes } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
-
-type MiniMapSelector = {
-  viewBB: Rect;
-  boundingRect: Rect;
-};
 
 type XYWidthHeightParams = {
   boundingRect: Rect;
@@ -84,24 +74,6 @@ type ProjectedMiniMapNode = {
   width: number;
 };
 
-function getSelector(
-  nodes: Node[],
-  overviewWidth: number,
-  uiEditorWidth: number,
-) {
-  return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
-
-    return {
-      viewBB,
-      boundingRect:
-        nodes.length > 0
-          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
-          : viewBB,
-    };
-  };
-}
-
 export function getXYWidthHeight({
   boundingRect,
   elementHeight,
@@ -148,9 +120,13 @@ function MiniMap({
   const nodes = useNodeInternals(getNodes, shallow);
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth, uiEditorWidth),
+  const viewBB = useReactFlow(
+    (state) => getPaneRect(state, overviewWidth, uiEditorWidth),
     shallow,
+  );
+  const boundingRect = useMemo(
+    () => (nodes.length > 0 ? getNodesBounds(nodes) : viewBB),
+    [nodes, viewBB],
   );
   const elementWidth =
     typeof style?.width === "number" ? style.width : defaultWidth;

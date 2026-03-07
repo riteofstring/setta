@@ -103,3 +103,44 @@ Raw artifact:
 - Playwright:
   - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
   - Added a minimap click-to-center assertion and made node counting renderer-agnostic.
+
+## Stage 2: Clamp Minimap Bounds To Content
+
+Change:
+- Stop expanding the minimap world bounds to include the live viewport.
+- Compute minimap scale from the visible node bounds only, then draw the live viewport mask inside that fixed content-bounds coordinate system.
+
+Behavior removed:
+- When the viewport drifts outside the actual section layout, the minimap no longer preserves that extra whitespace in its own coordinate system.
+- In practice, this means the viewport mask can pin against the minimap edge or clip away once the canvas is panned far enough beyond the nodes.
+
+Behavior kept:
+- click-to-center still works
+- minimap nodes still stay live after layout changes
+- viewport mask still updates live during pan/zoom
+
+Scenario medians from the iterative harness (`with minimap + grid`):
+- Median scenario: `2725.1ms`
+- Avg frame gap: `18.81ms`
+- P95 frame gap: `25.10ms`
+- Frames `>33ms`: `0`
+- Estimated dropped frames: `13`
+- Max frame gap: `26.4ms`
+
+Trace sample for `with minimap + grid`:
+- Main renderer thread `RunTask`: `3284.91ms`
+- Main renderer thread paint + layout: `59.82ms`
+- Main renderer thread pre-paint: `8.73ms`
+- Main renderer thread style recalc (`UpdateLayoutTree`): `15.02ms`
+
+Delta vs stage 1:
+- Scenario median: `-66.5ms` (`-2.4%`)
+- Avg frame gap: `-0.46ms` (`-2.4%`)
+- Main renderer `RunTask`: `-542.12ms` (`-14.2%`)
+
+Takeaway:
+- This is the first feature tradeoff that clearly reduces main-thread work without changing the visible minimap at rest.
+- Most of the gain comes from making pan-only movement stop invalidating the node projection math.
+
+Raw artifact:
+- `perf/artifacts/2026-03-06_minimap-iterative/stage2-content-bounds-only.trace.json`
