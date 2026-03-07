@@ -17,12 +17,22 @@ from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
 
 
+def _normalize_agentic_context_id(value: str | None) -> ID | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized == "":
+        return None
+    return ID(normalized)
+
+
 @setta_init_tool
 def set_agentic_context(
     *,
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
+    runId: str | None = None,
     frontendAffinityToken: str | None = None,
     allowUnscoped: bool = False,
     ctx: Context,
@@ -55,6 +65,7 @@ def set_agentic_context(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
+            run_id=_normalize_agentic_context_id(runId),
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allowUnscoped,
         ),
