@@ -154,6 +154,79 @@ func TestRuntimeEnsureCodeSectionAttachedTerminalReusesValidExistingTerminal(t *
 	}
 }
 
+func TestDocumentValidateAttachedTerminalForVariantUsesSpecifiedVariant(t *testing.T) {
+	t.Parallel()
+
+	document := newRunGraphVariantTestDocument()
+	if _, err := document.EnsureCodeSectionAttachedTerminalForVariant(
+		"project-alpha",
+		"code-section",
+		"code-bash-variant",
+		newRunGraphTerminalSeed("bash-terminal"),
+	); err != nil {
+		t.Fatalf("ensure attached terminal for variant: %v", err)
+	}
+
+	valid, err := document.ValidateAttachedTerminal("project-alpha", "code-section", "bash-terminal")
+	if err != nil {
+		t.Fatalf("validate attached terminal against active variant: %v", err)
+	}
+	if valid {
+		t.Fatal("did not expect inactive-variant terminal to validate against the active variant")
+	}
+
+	valid, err = document.ValidateAttachedTerminalForVariant("project-alpha", "code-section", "code-bash-variant", "bash-terminal")
+	if err != nil {
+		t.Fatalf("validate attached terminal for variant: %v", err)
+	}
+	if !valid {
+		t.Fatal("expected inactive-variant terminal to validate against the specified variant")
+	}
+}
+
+func TestRuntimeEnsureCodeSectionAttachedTerminalForVariantCreatesEmbeddedTerminalOnInactiveVariant(t *testing.T) {
+	t.Parallel()
+
+	runtime := openRunGraphTestRuntime(t, newRunGraphVariantTestDocument())
+
+	snapshot, terminalID, err := runtime.EnsureCodeSectionAttachedTerminalForVariant(
+		"project-alpha",
+		"code-section",
+		"code-bash-variant",
+		newRunGraphTerminalSeed("bash-terminal"),
+	)
+	if err != nil {
+		t.Fatalf("ensure attached terminal for inactive variant: %v", err)
+	}
+	if terminalID != "bash-terminal" {
+		t.Fatalf("expected bash-terminal id, got %q", terminalID)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap["code-section"]; got != "code-python-variant" {
+		t.Fatalf("expected active section variant to stay code-python-variant, got %q", got)
+	}
+
+	_, _, pythonImpl, err := project.ResolveSectionWithVariant("code-section", "code-python-variant")
+	if err != nil {
+		t.Fatalf("resolve python variant: %v", err)
+	}
+	if pythonImpl.Code.AttachedTerminalSectionID != "" {
+		t.Fatalf("did not expect active python variant to gain an attached terminal, got %q", pythonImpl.Code.AttachedTerminalSectionID)
+	}
+
+	_, _, bashImpl, err := project.ResolveSectionWithVariant("code-section", "code-bash-variant")
+	if err != nil {
+		t.Fatalf("resolve bash variant: %v", err)
+	}
+	if bashImpl.Code.AttachedTerminalSectionID != terminalID {
+		t.Fatalf("expected bash variant attached terminal %q, got %q", terminalID, bashImpl.Code.AttachedTerminalSectionID)
+	}
+	if len(bashImpl.Code.Children) != 1 || bashImpl.Code.Children[0] != terminalID {
+		t.Fatalf("expected bash variant child terminal [%q], got %#v", terminalID, bashImpl.Code.Children)
+	}
+}
+
 func TestRuntimeCreateTemporaryTerminalCreatesTopLevelTerminal(t *testing.T) {
 	t.Parallel()
 
@@ -239,6 +312,68 @@ func newRunGraphTestDocument() Document {
 							Language: CodeLanguagePython,
 							Binding: &CodeFileBinding{
 								Path:       "code/run.py",
+								AccessMode: CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newRunGraphVariantTestDocument() Document {
+	return Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section": "code-python-variant",
+				},
+				Sections: map[string]Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Code Section",
+						VariantIDs:       []string{"code-python-variant", "code-bash-variant"},
+						DefaultVariantID: "code-python-variant",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"code-python-variant": {
+						ID:     "code-python-variant",
+						ImplID: "code-python-impl",
+					},
+					"code-bash-variant": {
+						ID:     "code-bash-variant",
+						ImplID: "code-bash-impl",
+					},
+				},
+				SectionImpls: map[string]SectionImpl{
+					"code-python-impl": {
+						ID:   "code-python-impl",
+						Kind: SectionKindCode,
+						Code: &CodeSectionImpl{
+							Language: CodeLanguagePython,
+							Binding: &CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"code-bash-impl": {
+						ID:   "code-bash-impl",
+						Kind: SectionKindCode,
+						Code: &CodeSectionImpl{
+							Language: CodeLanguageBash,
+							Binding: &CodeFileBinding{
+								Path:       "code/run.sh",
 								AccessMode: CodeFileAccessModeReadWrite,
 							},
 						},

@@ -424,6 +424,136 @@ func TestRegisterTerminalRoutesReusesExplicitAttachedTerminal(t *testing.T) {
 	}
 }
 
+func TestRegisterTerminalRoutesRunsCodeWithSectionVariantOverridesWithoutMutatingBaseState(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never","sectionVariantOverrides":{"code-section":"code-bash-variant"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap["code-section"]; got != "code-python-variant" {
+		t.Fatalf("expected active section variant to stay code-python-variant, got %q", got)
+	}
+
+	_, _, pythonImpl, err := project.ResolveSectionWithVariant("code-section", "code-python-variant")
+	if err != nil {
+		t.Fatalf("resolve python variant: %v", err)
+	}
+	if pythonImpl.Code == nil {
+		t.Fatal("expected python code impl")
+	}
+	if pythonImpl.Code.AttachedTerminalSectionID != "" {
+		t.Fatalf("did not expect python variant to gain an attached terminal, got %q", pythonImpl.Code.AttachedTerminalSectionID)
+	}
+
+	_, _, bashImpl, err := project.ResolveSectionWithVariant("code-section", "code-bash-variant")
+	if err != nil {
+		t.Fatalf("resolve bash variant: %v", err)
+	}
+	if bashImpl.Code == nil || bashImpl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected bash override variant to gain an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(bashImpl.Code.AttachedTerminalSectionID, "")
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_BASH_OK")
+	if !strings.Contains(output, "ROUTE_BASH_OK") {
+		t.Fatalf("expected bash override output in attached terminal, got %q", output)
+	}
+}
+
+func TestRegisterTerminalRoutesReusesExplicitAttachedTerminalForSectionVariantOverride(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	_, attachedTerminalID, err := runFixture.runtime.EnsureCodeSectionAttachedTerminalForVariant(
+		"project-alpha",
+		"code-section",
+		"code-bash-variant",
+		projectstate.TerminalSectionSeed{
+			SectionID: "explicit-override-terminal",
+			VariantID: "explicit-override-terminal-variant",
+			ImplID:    "explicit-override-terminal-impl",
+			Name:      "Terminal",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ensure override attached terminal: %v", err)
+	}
+
+	terminalID := terminals.BuildTerminalID(attachedTerminalID, "")
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:         terminalID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveHTTPTestBashCommand(t),
+	})
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	prepareHTTPInterruptShell(t, terminalService, terminalID, attachment)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":"explicit-override-terminal","runSnapshotMode":"never","sectionVariantOverrides":{"code-section":"code-bash-variant"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	if _, _, _, err := runFixture.runtime.Snapshot().Document.Projects["project-alpha"].ResolveSection("terminal-seed-1"); err == nil {
+		t.Fatal("did not expect override run to create a replacement terminal")
+	}
+
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_BASH_OK")
+	if !strings.Contains(output, "ROUTE_BASH_OK") {
+		t.Fatalf("expected bash override output in explicit terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesAppliesDrawSnapshotsBeforeRunningCode(t *testing.T) {
 	t.Parallel()
 	skipIfTerminalPTYUnsupported(t)
@@ -548,9 +678,9 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 			expectedCode: `"code":"unsupported_run_code_cli"`,
 		},
 		{
-			name:         "section overrides",
-			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"code-section":"other"}}`,
-			expectedCode: `"code":"unsupported_run_code_overrides"`,
+			name:         "bad section override",
+			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"missing":"other"}}`,
+			expectedCode: `"code":"invalid_run_code_request"`,
 		},
 		{
 			name:         "param overrides",
@@ -642,6 +772,9 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	if err := os.WriteFile(filepath.Join(codeRoot, "run.py"), []byte("print('ROUTE_RUN_OK')\n"), 0o644); err != nil {
 		t.Fatalf("write run.py: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.sh"), []byte("echo ROUTE_BASH_OK\n"), 0o644); err != nil {
+		t.Fatalf("write run.sh: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(codeRoot, "helper.py"), []byte("print('helper')\n"), 0o644); err != nil {
 		t.Fatalf("write helper.py: %v", err)
 	}
@@ -660,7 +793,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					"draw-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section":   "code-variant",
+					"code-section":   "code-python-variant",
 					"helper-section": "helper-variant",
 					"draw-section":   "draw-variant",
 				},
@@ -668,8 +801,8 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					"code-section": {
 						ID:               "code-section",
 						Name:             "Runner",
-						VariantIDs:       []string{"code-variant"},
-						DefaultVariantID: "code-variant",
+						VariantIDs:       []string{"code-python-variant", "code-bash-variant"},
+						DefaultVariantID: "code-python-variant",
 					},
 					"helper-section": {
 						ID:               "helper-section",
@@ -685,9 +818,13 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"code-variant": {
-						ID:     "code-variant",
-						ImplID: "code-impl",
+					"code-python-variant": {
+						ID:     "code-python-variant",
+						ImplID: "code-python-impl",
+					},
+					"code-bash-variant": {
+						ID:     "code-bash-variant",
+						ImplID: "code-bash-impl",
 					},
 					"helper-variant": {
 						ID:     "helper-variant",
@@ -699,13 +836,24 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
-					"code-impl": {
-						ID:   "code-impl",
+					"code-python-impl": {
+						ID:   "code-python-impl",
 						Kind: projectstate.SectionKindCode,
 						Code: &projectstate.CodeSectionImpl{
 							Language: projectstate.CodeLanguagePython,
 							Binding: &projectstate.CodeFileBinding{
 								Path:       "code/run.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"code-bash-impl": {
+						ID:   "code-bash-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguageBash,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.sh",
 								AccessMode: projectstate.CodeFileAccessModeReadWrite,
 							},
 						},

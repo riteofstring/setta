@@ -153,10 +153,6 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_cli", "Run code CLI output is not supported in Go yet.")
 			return
 		}
-		if len(payload.SectionVariantOverrides) > 0 {
-			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code section variant overrides are not supported on the Go HTTP route yet.")
-			return
-		}
 		if len(payload.ParamOverrides) > 0 {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code parameter overrides are not supported on the Go HTTP route yet.")
 			return
@@ -168,6 +164,7 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			TerminalSectionID:        payload.TerminalSectionID,
 			RunSnapshotMode:          payload.RunSnapshotMode,
 			DrawSnapshotsBySectionID: payload.DrawSnapshotsBySectionID,
+			SectionVariantOverrides:  payload.SectionVariantOverrides,
 			ShareSessionID:           requestInfo.ShareSessionID,
 		}); err != nil {
 			switch {
@@ -180,9 +177,14 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, binarypayload.ErrContentIDRequired),
 				errors.Is(err, binarypayload.ErrInvalidContentID),
 				errors.Is(err, binarypayload.ErrPayloadNotFound),
+				errors.Is(err, projectstate.ErrProjectIDRequired),
 				errors.Is(err, projectstate.ErrProjectNotFound),
+				errors.Is(err, projectstate.ErrSectionIDRequired),
 				errors.Is(err, projectstate.ErrSectionNotFound),
+				errors.Is(err, projectstate.ErrSectionVariantIDRequired),
+				errors.Is(err, projectstate.ErrSectionVariantNotFound),
 				errors.Is(err, projectstate.ErrSectionActiveVariantNotFound),
+				errors.Is(err, projectstate.ErrSectionVariantMembership),
 				errors.Is(err, projectstate.ErrCodeSectionRequired),
 				errors.Is(err, projectstate.ErrDrawSectionRequired):
 				writeError(w, r, http.StatusBadRequest, "invalid_run_code_request", err.Error())

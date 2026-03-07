@@ -59,6 +59,7 @@ type PlanRequest struct {
 type Plan struct {
 	ProjectID         string
 	SectionID         string
+	VariantID         string
 	Language          projectstate.CodeLanguage
 	Command           string
 	EntryPath         string
@@ -171,6 +172,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		return Plan{
 			ProjectID:       target.Project.ID,
 			SectionID:       target.Section.ID,
+			VariantID:       target.Variant.ID,
 			Language:        target.Impl.Code.Language,
 			Command:         command,
 			EntryPath:       entryPath,
@@ -202,6 +204,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	return Plan{
 		ProjectID:         target.Project.ID,
 		SectionID:         target.Section.ID,
+		VariantID:         target.Variant.ID,
 		Language:          target.Impl.Code.Language,
 		Command:           command,
 		EntryPath:         entryPath,
@@ -320,16 +323,8 @@ func applySectionVariantOverrides(document *projectstate.Document, projectID str
 	for sectionID, variantID := range overrides {
 		trimmedSectionID := strings.TrimSpace(sectionID)
 		trimmedVariantID := strings.TrimSpace(variantID)
-
-		section, ok := project.Sections[trimmedSectionID]
-		if !ok {
-			return fmt.Errorf("unknown section id: %q", trimmedSectionID)
-		}
-		if _, ok := project.SectionVariants[trimmedVariantID]; !ok {
-			return fmt.Errorf("unknown variant id: %q", trimmedVariantID)
-		}
-		if !containsString(section.VariantIDs, trimmedVariantID) {
-			return fmt.Errorf("variant %q is not part of section %q", trimmedVariantID, trimmedSectionID)
+		if _, _, _, err := project.ResolveSectionWithVariant(trimmedSectionID, trimmedVariantID); err != nil {
+			return err
 		}
 		project.SectionVariantMap[trimmedSectionID] = trimmedVariantID
 	}

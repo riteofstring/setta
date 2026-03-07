@@ -35,6 +35,7 @@ type RunCodeRequest struct {
 	TerminalSectionID        string
 	RunSnapshotMode          RunSnapshotMode
 	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef
+	SectionVariantOverrides  map[string]string
 	ShareSessionID           string
 }
 
@@ -96,15 +97,16 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	}
 
 	plan, err := s.planner.Plan(PlanRequest{
-		ProjectID:       request.ProjectID,
-		SectionID:       request.SectionID,
-		RunSnapshotMode: request.RunSnapshotMode,
+		ProjectID:               request.ProjectID,
+		SectionID:               request.SectionID,
+		RunSnapshotMode:         request.RunSnapshotMode,
+		SectionVariantOverrides: request.SectionVariantOverrides,
 	})
 	if err != nil {
 		return RunCodeResult{}, err
 	}
 
-	terminalSectionID, err := s.resolveTerminalSection(ctx, request.ProjectID, plan.SectionID, request.TerminalSectionID)
+	terminalSectionID, err := s.resolveTerminalSection(ctx, request.ProjectID, plan, request.TerminalSectionID)
 	if err != nil {
 		return RunCodeResult{}, err
 	}
@@ -140,9 +142,9 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	}, nil
 }
 
-func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, sectionID string, explicitTerminalSectionID string) (string, error) {
+func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, plan Plan, explicitTerminalSectionID string) (string, error) {
 	document := s.projectState.Snapshot().Document
-	validExplicitTerminal, err := document.ValidateAttachedTerminal(projectID, sectionID, explicitTerminalSectionID)
+	validExplicitTerminal, err := document.ValidateAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, explicitTerminalSectionID)
 	if err != nil {
 		return "", err
 	}
@@ -150,7 +152,7 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, 
 		return strings.TrimSpace(explicitTerminalSectionID), nil
 	}
 
-	_, terminalSectionID, err := s.projectState.EnsureCodeSectionAttachedTerminal(projectID, sectionID, s.newTerminalSeed())
+	_, terminalSectionID, err := s.projectState.EnsureCodeSectionAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, s.newTerminalSeed())
 	if err != nil {
 		return "", err
 	}

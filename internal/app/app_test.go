@@ -523,6 +523,90 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	}
 }
 
+func TestAppServesRunCodeRouteWithSectionVariantOverrides(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never","sectionVariantOverrides":{"code-section":"code-bash-variant"}}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := project.SectionVariantMap["code-section"]; got != "code-python-variant" {
+		t.Fatalf("expected active section variant to stay code-python-variant, got %q", got)
+	}
+
+	_, _, pythonImpl, err := project.ResolveSectionWithVariant("code-section", "code-python-variant")
+	if err != nil {
+		t.Fatalf("resolve python variant: %v", err)
+	}
+	if pythonImpl.Code == nil {
+		t.Fatal("expected python code impl")
+	}
+	if pythonImpl.Code.AttachedTerminalSectionID != "" {
+		t.Fatalf("did not expect python variant to gain an attached terminal, got %q", pythonImpl.Code.AttachedTerminalSectionID)
+	}
+
+	_, _, bashImpl, err := project.ResolveSectionWithVariant("code-section", "code-bash-variant")
+	if err != nil {
+		t.Fatalf("resolve bash variant: %v", err)
+	}
+	if bashImpl.Code == nil || bashImpl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected bash override variant to gain an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(bashImpl.Code.AttachedTerminalSectionID, "")
+	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
+	output := waitForAppTestOutputContains(t, attachment, "APP_BASH_OK")
+	if !strings.Contains(output, "APP_BASH_OK") {
+		t.Fatalf("expected bash override output in attached terminal, got %q", output)
+	}
+}
+
 func TestAppRunCodeRouteRejectsUnsupportedCLIID(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -618,6 +702,9 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 	if err := os.WriteFile(filepath.Join(codeRoot, "run.py"), []byte(source), 0o644); err != nil {
 		t.Fatalf("write run.py: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.sh"), []byte("echo APP_BASH_OK\n"), 0o644); err != nil {
+		t.Fatalf("write run.sh: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(codeRoot, "helper.py"), []byte("print('helper')\n"), 0o644); err != nil {
 		t.Fatalf("write helper.py: %v", err)
 	}
@@ -633,7 +720,7 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 				"draw-section",
 			},
 			SectionVariantMap: map[string]string{
-				"code-section":   "code-variant",
+				"code-section":   "code-python-variant",
 				"helper-section": "helper-variant",
 				"draw-section":   "draw-variant",
 			},
@@ -641,8 +728,8 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 				"code-section": {
 					ID:               "code-section",
 					Name:             "Runner",
-					VariantIDs:       []string{"code-variant"},
-					DefaultVariantID: "code-variant",
+					VariantIDs:       []string{"code-python-variant", "code-bash-variant"},
+					DefaultVariantID: "code-python-variant",
 				},
 				"helper-section": {
 					ID:               "helper-section",
@@ -658,9 +745,13 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 				},
 			},
 			SectionVariants: map[string]projectstate.SectionVariant{
-				"code-variant": {
-					ID:     "code-variant",
-					ImplID: "code-impl",
+				"code-python-variant": {
+					ID:     "code-python-variant",
+					ImplID: "code-python-impl",
+				},
+				"code-bash-variant": {
+					ID:     "code-bash-variant",
+					ImplID: "code-bash-impl",
 				},
 				"helper-variant": {
 					ID:     "helper-variant",
@@ -672,13 +763,24 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 				},
 			},
 			SectionImpls: map[string]projectstate.SectionImpl{
-				"code-impl": {
-					ID:   "code-impl",
+				"code-python-impl": {
+					ID:   "code-python-impl",
 					Kind: projectstate.SectionKindCode,
 					Code: &projectstate.CodeSectionImpl{
 						Language: projectstate.CodeLanguagePython,
 						Binding: &projectstate.CodeFileBinding{
 							Path:       "code/run.py",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+				},
+				"code-bash-impl": {
+					ID:   "code-bash-impl",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguageBash,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "code/run.sh",
 							AccessMode: projectstate.CodeFileAccessModeReadWrite,
 						},
 					},

@@ -1,6 +1,7 @@
 package runs
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,6 +116,9 @@ func TestPlannerPlanAppliesSectionVariantOverridesWithoutMutatingBaseState(t *te
 	if plan.Language != projectstate.CodeLanguageBash {
 		t.Fatalf("expected bash language, got %q", plan.Language)
 	}
+	if plan.VariantID != "code-bash-variant" {
+		t.Fatalf("expected resolved variant id code-bash-variant, got %q", plan.VariantID)
+	}
 	bashPath, err := exec.LookPath("bash")
 	if err != nil {
 		t.Fatalf("resolve bash executable: %v", err)
@@ -145,8 +149,8 @@ func TestPlannerPlanRejectsUnknownVariantOverride(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected override error")
 	}
-	if !strings.Contains(err.Error(), "unknown section id") {
-		t.Fatalf("expected unknown section id error, got %v", err)
+	if !errors.Is(err, projectstate.ErrSectionNotFound) {
+		t.Fatalf("expected ErrSectionNotFound, got %v", err)
 	}
 }
 

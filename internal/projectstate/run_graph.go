@@ -58,6 +58,36 @@ func (d Document) ResolveRunTarget(projectID string, sectionID string) (Resolved
 	}, nil
 }
 
+func (p Project) ResolveSectionWithVariant(sectionID string, variantID string) (Section, SectionVariant, SectionImpl, error) {
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	if trimmedSectionID == "" {
+		return Section{}, SectionVariant{}, SectionImpl{}, ErrSectionIDRequired
+	}
+	trimmedVariantID := strings.TrimSpace(variantID)
+	if trimmedVariantID == "" {
+		return Section{}, SectionVariant{}, SectionImpl{}, ErrSectionVariantIDRequired
+	}
+
+	section, ok := p.Sections[trimmedSectionID]
+	if !ok {
+		return Section{}, SectionVariant{}, SectionImpl{}, fmt.Errorf("%w: %q", ErrSectionNotFound, trimmedSectionID)
+	}
+	if !containsString(section.VariantIDs, trimmedVariantID) {
+		return Section{}, SectionVariant{}, SectionImpl{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, trimmedSectionID, trimmedVariantID)
+	}
+
+	variant, ok := p.SectionVariants[trimmedVariantID]
+	if !ok {
+		return Section{}, SectionVariant{}, SectionImpl{}, fmt.Errorf("%w: %q", ErrSectionVariantNotFound, trimmedVariantID)
+	}
+	impl, ok := p.SectionImpls[variant.ImplID]
+	if !ok {
+		return Section{}, SectionVariant{}, SectionImpl{}, fmt.Errorf("%w: %q", ErrSectionImplNotFound, variant.ImplID)
+	}
+
+	return section, variant, impl, nil
+}
+
 func (d Document) ValidateAttachedTerminal(projectID string, sectionID string, terminalSectionID string) (bool, error) {
 	trimmedTerminalID := strings.TrimSpace(terminalSectionID)
 	if trimmedTerminalID == "" {
@@ -71,28 +101,54 @@ func (d Document) ValidateAttachedTerminal(projectID string, sectionID string, t
 	if !target.Impl.IsCode() {
 		return false, nil
 	}
-	code := target.Impl.Code
-	if code.AttachedTerminalSectionID != trimmedTerminalID {
-		return false, nil
-	}
-	if len(code.Children) != 1 || code.Children[0] != trimmedTerminalID {
+	return validateAttachedTerminalTarget(target.Project, target.Section, target.Impl, trimmedTerminalID), nil
+}
+
+func (d Document) ValidateAttachedTerminalForVariant(projectID string, sectionID string, variantID string, terminalSectionID string) (bool, error) {
+	trimmedTerminalID := strings.TrimSpace(terminalSectionID)
+	if trimmedTerminalID == "" {
 		return false, nil
 	}
 
-	terminalSection, _, terminalImpl, err := target.Project.ResolveSection(trimmedTerminalID)
+	project, err := d.ProjectByID(projectID)
 	if err != nil {
+		return false, err
+	}
+	section, _, impl, err := project.ResolveSectionWithVariant(sectionID, variantID)
+	if err != nil {
+		return false, err
+	}
+	if !impl.IsCode() {
 		return false, nil
+	}
+	return validateAttachedTerminalTarget(project, section, impl, trimmedTerminalID), nil
+}
+
+func validateAttachedTerminalTarget(project Project, targetSection Section, targetImpl SectionImpl, terminalSectionID string) bool {
+	if !targetImpl.IsCode() || targetImpl.Code == nil {
+		return false
+	}
+	if targetImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		return false
+	}
+	if len(targetImpl.Code.Children) != 1 || targetImpl.Code.Children[0] != terminalSectionID {
+		return false
+	}
+
+	terminalSection, _, terminalImpl, err := project.ResolveSection(terminalSectionID)
+	if err != nil {
+		return false
 	}
 	if !terminalImpl.IsTerminal() {
-		return false, nil
+		return false
 	}
-	if terminalSection.ParentSectionID != target.Section.ID {
-		return false, nil
+	if terminalSection.ParentSectionID != targetSection.ID {
+		return false
 	}
-	if target.Project.HasTopLevelSection(trimmedTerminalID) {
-		return false, nil
+	if project.HasTopLevelSection(terminalSectionID) {
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID string, seed TerminalSectionSeed) (string, error) {
@@ -111,10 +167,32 @@ func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID
 	if !target.Impl.IsCode() {
 		return "", ErrCodeSectionRequired
 	}
+	return d.ensureCodeSectionAttachedTerminalForVariant(project, target.Section, target.Variant, target.Impl, seed)
+}
 
-	existingTerminalID := strings.TrimSpace(target.Impl.Code.AttachedTerminalSectionID)
+func (d *Document) EnsureCodeSectionAttachedTerminalForVariant(projectID string, sectionID string, variantID string, seed TerminalSectionSeed) (string, error) {
+	if d == nil {
+		return "", fmt.Errorf("document is required")
+	}
+
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return "", err
+	}
+	section, variant, impl, err := project.ResolveSectionWithVariant(sectionID, variantID)
+	if err != nil {
+		return "", err
+	}
+	if !impl.IsCode() {
+		return "", ErrCodeSectionRequired
+	}
+	return d.ensureCodeSectionAttachedTerminalForVariant(project, section, variant, impl, seed)
+}
+
+func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, section Section, variant SectionVariant, impl SectionImpl, seed TerminalSectionSeed) (string, error) {
+	existingTerminalID := strings.TrimSpace(impl.Code.AttachedTerminalSectionID)
 	if existingTerminalID != "" {
-		valid, err := d.ValidateAttachedTerminal(projectID, target.Section.ID, existingTerminalID)
+		valid, err := d.ValidateAttachedTerminalForVariant(project.ID, section.ID, variant.ID, existingTerminalID)
 		if err != nil {
 			return "", err
 		}
@@ -136,7 +214,7 @@ func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID
 		Name:             normalizedSeed.Name,
 		VariantIDs:       []string{normalizedSeed.VariantID},
 		DefaultVariantID: normalizedSeed.VariantID,
-		ParentSectionID:  target.Section.ID,
+		ParentSectionID:  section.ID,
 	}
 	project.SectionVariants[normalizedSeed.VariantID] = SectionVariant{
 		ID:     normalizedSeed.VariantID,
@@ -149,7 +227,7 @@ func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
 
-	updatedImpl := target.Impl.Clone()
+	updatedImpl := impl.Clone()
 	updatedImpl.Code.AttachedTerminalSectionID = normalizedSeed.SectionID
 	updatedImpl.Code.Children = []string{normalizedSeed.SectionID}
 	project.SectionImpls[updatedImpl.ID] = updatedImpl
@@ -203,6 +281,20 @@ func (r *Runtime) EnsureCodeSectionAttachedTerminal(projectID string, sectionID 
 	snapshot, err := r.Mutate(func(document Document) (Document, error) {
 		nextDocument := document.Clone()
 		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminal(projectID, sectionID, seed)
+		if mutateErr != nil {
+			return nextDocument, mutateErr
+		}
+		terminalID = resolvedTerminalID
+		return nextDocument, nil
+	})
+	return snapshot, terminalID, err
+}
+
+func (r *Runtime) EnsureCodeSectionAttachedTerminalForVariant(projectID string, sectionID string, variantID string, seed TerminalSectionSeed) (Snapshot, string, error) {
+	var terminalID string
+	snapshot, err := r.Mutate(func(document Document) (Document, error) {
+		nextDocument := document.Clone()
+		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminalForVariant(projectID, sectionID, variantID, seed)
 		if mutateErr != nil {
 			return nextDocument, mutateErr
 		}
