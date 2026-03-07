@@ -979,6 +979,183 @@ func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.
 	}
 }
 
+func TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	if _, err := projectRuntime.SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]projectstate.TopLevelSectionLayout{
+		"chat-section":    {X: 10, Y: 10, ZIndex: 0},
+		"allowed-section": {X: 15, Y: 15, ZIndex: 1},
+		"blocked-section": {X: 20, Y: 20, ZIndex: 2},
+	}); err != nil {
+		t.Fatalf("seed route top-level layouts: %v", err)
+	}
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"auto_layout_top_level_sections",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"margin":10
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected auto_layout_top_level_sections success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected route auto layout to rewrite layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
+	}
+}
+
+func TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	if _, err := projectRuntime.SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]projectstate.TopLevelSectionLayout{
+		"chat-section":    {X: 10, Y: 10, ZIndex: 0},
+		"allowed-section": {X: 15, Y: 15, ZIndex: 1},
+		"blocked-section": {X: 20, Y: 20, ZIndex: 2},
+	}); err != nil {
+		t.Fatalf("seed temp-id route top-level layouts: %v", err)
+	}
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before temp-id route auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"auto_layout_top_level_sections",
+		"arguments":{
+			"projectConfigId":"11",
+			"margin":10
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id auto_layout_top_level_sections success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected temp-id route auto layout to rewrite layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
+	}
+}
+
 func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	t.Parallel()
 

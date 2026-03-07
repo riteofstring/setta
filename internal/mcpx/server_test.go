@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 27 {
-		t.Fatalf("expected 27 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 28 {
+		t.Fatalf("expected 28 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -149,6 +149,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
+	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
@@ -190,6 +191,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_code" {
 			setCodeTool = tool
+		}
+		if tool.Name == "auto_layout_top_level_sections" {
+			autoLayoutTopLevelSectionsTool = tool
 		}
 		if tool.Name == "set_top_level_section_layout" {
 			setTopLevelSectionLayoutTool = tool
@@ -243,6 +247,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	sort.Strings(names)
 	expectedNames := []string{
 		"add_kwarg",
+		"auto_layout_top_level_sections",
 		"change_param_impl",
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
@@ -299,6 +304,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCodeTool == nil {
 		t.Fatal("expected set_code tool")
+	}
+	if autoLayoutTopLevelSectionsTool == nil {
+		t.Fatal("expected auto_layout_top_level_sections tool")
 	}
 	if setTopLevelSectionLayoutTool == nil {
 		t.Fatal("expected set_top_level_section_layout tool")
@@ -418,6 +426,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCodePaths := mustStructuredMap(t, setCodeMeta["idPathsByType"])
 	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_code sectionId target path, got %#v", got)
+	}
+	autoLayoutTopLevelSectionsMeta := mustStructuredMap(t, autoLayoutTopLevelSectionsTool.Meta[toolMetaNamespace])
+	if autoLayoutTopLevelSectionsMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for auto_layout_top_level_sections, got %#v", autoLayoutTopLevelSectionsMeta["accessType"])
 	}
 	setTopLevelSectionLayoutMeta := mustStructuredMap(t, setTopLevelSectionLayoutTool.Meta[toolMetaNamespace])
 	if setTopLevelSectionLayoutMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -569,8 +581,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 27 {
-		t.Fatalf("expected 27 registered tool names, got %#v", listNames)
+	if len(listNames) != 28 {
+		t.Fatalf("expected 28 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2046,6 +2058,135 @@ func TestServerSetTopLevelSectionLayoutRespectsScopedStructuralTargets(t *testin
 	}
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerAutoLayoutTopLevelSectionsRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "auto_layout_top_level_sections",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"margin":          10,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call auto_layout_top_level_sections blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked auto_layout_top_level_sections call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerAutoLayoutTopLevelSectionsAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "auto_layout_top_level_sections",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"margin":          10,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id auto_layout_top_level_sections: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id auto_layout_top_level_sections success, got %#v", result.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected auto layout to rewrite top-level layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
+	}
+}
+
+func TestServerAutoLayoutTopLevelSectionsRejectsInvalidMargin(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "auto_layout_top_level_sections",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"margin":          -1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid-margin auto_layout_top_level_sections: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid-margin auto_layout_top_level_sections call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "Auto layout margin must be non-negative.") {
+		t.Fatalf("expected invalid margin message, got %#v", payload["message"])
 	}
 }
 

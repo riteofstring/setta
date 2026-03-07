@@ -18,13 +18,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_top_level_section_layout` MCP parity is complete
+- `auto_layout_top_level_sections` MCP parity is now complete
 - Go already owns top-level auto layout in:
   - `internal/projectstate/auto_layout.go`
   - `internal/httpapi/project_routes.go`
 - MCP server wiring already has the settings-runtime provider needed by this
   slice
-- the remaining work is MCP registration plus structural-scope, invalid-margin,
-  and authenticated transport coverage
+- structural-scope, invalid-margin, temporary-id, authenticated HTTP bridge,
+  and IDE SSE coverage landed in the completed slice
 
 ## Scope
 
@@ -131,22 +132,31 @@ The Go rewrite already owns the layout algorithm and runtime mutation through
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections|TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsAutoLayoutTopLevelSectionsOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForAutoLayoutTopLevelSectionsOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsAutoLayoutTopLevelSections' -count=1 -timeout 420s`
 
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- implement this slice before widening into the smaller layout/presentation
-  MCP tools
-- after this slice, the next likely bounded work is one of:
-  - `set_show_param_display_names`
-  - `toggle_position_locks`
-  - `toggle_minimized`
+- move to `set_show_param_display_names` as the next bounded Phase 6
+  layout-presentation MCP slice
+- keep `toggle_position_locks` and `toggle_minimized` as nearby follow-ons
+  after that narrower presentation-state parity work
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `auto_layout_top_level_sections`.
+- 2026-03-07: MCP now exposes `auto_layout_top_level_sections` as a structural
+  tool over the existing Go auto-layout runtime owner.
+- 2026-03-07: the slice kept runtime-owned validation and settings-policy
+  resolution; MCP only defaulted `margin` to `50`, enforced structural scope,
+  and delegated to the existing runtime.
+- 2026-03-07: coverage landed at the MCP server, authenticated
+  `__setta__/tools/call`, and IDE SSE layers, including temporary project-id
+  translation and invalid-margin mapping.

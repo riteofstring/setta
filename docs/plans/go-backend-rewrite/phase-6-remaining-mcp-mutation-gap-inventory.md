@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 27 tools total
-- 24 current Go tool names overlap with Python
+- Go MCP now exposes 28 tools total
+- 25 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 22 of those overlaps are mutation or structural tools
-- Python still has 27 mutation or structural project-state MCP tools that do
+- 23 of those overlaps are mutation or structural tools
+- Python still has 26 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -55,6 +55,7 @@ MCP server:
   - `delete_sections`
   - `delete_child_sections_via_decrementer`
   - `create_new_section_variant`
+  - `auto_layout_top_level_sections`
 - writes:
   - `set_section_name`
   - `set_callable`
@@ -77,26 +78,23 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `auto_layout_top_level_sections`
+- `set_show_param_display_names`
 
 Why this is next:
 
 1. Go already owns the authoritative runtime and IDE HTTP route in:
-   - `internal/projectstate/auto_layout.go`
+   - `internal/projectstate/layout_presentation.go`
    - `internal/httpapi/project_routes.go`
-2. The completed `set_top_level_section_layout` slice already landed the
-   section-keyed layout-target extraction and dict-key temporary-id rewrite
-   support needed by the same layout cluster.
-3. `auto_layout_top_level_sections` widens into settings-backed packing policy,
-   but it still reuses the same top-level layout ownership boundary instead of
-   depending on a new subsystem.
+2. It is narrower than the remaining section-targeted presentation toggles
+   because it does not need section-id scope extraction or result-id handling.
+3. It keeps Phase 6 moving through already-owned layout-presentation runtime
+   work before widening into additional section-targeted mutations.
 
-### 2. Good Follow-Ons After `auto_layout_top_level_sections`
+### 2. Good Follow-Ons After `set_show_param_display_names`
 
 These already have Go runtime owners and existing IDE HTTP route transport, so
 their main remaining gap is MCP registration and scoped test coverage:
 
-- `set_show_param_display_names`
 - `toggle_position_locks`
 - `toggle_minimized`
 - `set_section_tag_color`
@@ -139,13 +137,10 @@ priority:
 
 ## Recommended Next Step
 
-- use `auto_layout_top_level_sections` as the next bounded MCP slice
-- keep it separate from the completed `set_top_level_section_layout` work
-  - top-level layout persistence is now already Go-owned on the scoped MCP
-    boundary
-  - auto-layout widens into spacing and packing policy that should remain a
-    focused follow-on instead of being bundled into the completed persistence
-    slice
+- use `set_show_param_display_names` as the next bounded MCP slice
+- keep `toggle_position_locks` and `toggle_minimized` as the follow-on
+  section-targeted presentation mutations after that narrower layout-state
+  toggle lands
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -156,8 +151,8 @@ priority:
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetTopLevelSectionLayout|TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetTopLevelSectionLayoutOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetTopLevelSectionLayoutOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetTopLevelSectionLayout' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections|TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsAutoLayoutTopLevelSectionsOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForAutoLayoutTopLevelSectionsOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsAutoLayoutTopLevelSections' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -175,3 +170,7 @@ priority:
   maps at invocation time, not just during scope extraction.
 - 2026-03-07: the next bounded slice moved to
   `auto_layout_top_level_sections`.
+- 2026-03-07: `auto_layout_top_level_sections` MCP parity completed as an
+  unscoped structural tool over the existing Go auto-layout owner.
+- 2026-03-07: the next bounded slice moved to
+  `set_show_param_display_names`.

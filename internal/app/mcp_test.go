@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 27 {
-		t.Fatalf("expected 27 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 28 {
+		t.Fatalf("expected 28 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 27 {
-		t.Fatalf("expected 27 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 28 {
+		t.Fatalf("expected 28 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1148,6 +1148,173 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetTopLevelSectionLayoutOverAuthe
 	layout := project.TopLevelSections["allowed-section"]
 	if layout.X != 515.0 || layout.Y != 245.0 || layout.ZIndex != 8 {
 		t.Fatalf("expected translated app layout update, got %#v", layout)
+	}
+}
+
+func TestAppIDEMCPServerSupportsAutoLayoutTopLevelSectionsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]projectstate.TopLevelSectionLayout{
+		"chat-section":    {X: 10, Y: 10, ZIndex: 0},
+		"allowed-section": {X: 15, Y: 15, ZIndex: 1},
+		"blocked-section": {X: 20, Y: 20, ZIndex: 2},
+	}); err != nil {
+		t.Fatalf("seed app auto-layout top-level layouts: %v", err)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before app auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "auto_layout_top_level_sections",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"margin":          10,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call auto_layout_top_level_sections: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected auto_layout_top_level_sections success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected app auto layout to rewrite layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForAutoLayoutTopLevelSectionsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]projectstate.TopLevelSectionLayout{
+		"chat-section":    {X: 10, Y: 10, ZIndex: 0},
+		"allowed-section": {X: 15, Y: 15, ZIndex: 1},
+		"blocked-section": {X: 20, Y: 20, ZIndex: 2},
+	}); err != nil {
+		t.Fatalf("seed temp-id app auto-layout top-level layouts: %v", err)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before temp-id app auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "auto_layout_top_level_sections",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"margin":          10,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id auto_layout_top_level_sections: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id auto_layout_top_level_sections success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected temp-id app auto layout to rewrite layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
 	}
 }
 
@@ -3071,6 +3238,97 @@ func TestAppIDEMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
 	layout := project.TopLevelSections["allowed-section"]
 	if layout.X != 438 || layout.Y != 214 || layout.ZIndex != 4 {
 		t.Fatalf("unexpected route-persisted app layout %#v", layout)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsAutoLayoutTopLevelSections(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetTopLevelSectionLayout(context.Background(), "project-alpha", map[string]projectstate.TopLevelSectionLayout{
+		"chat-section":    {X: 10, Y: 10, ZIndex: 0},
+		"allowed-section": {X: 15, Y: 15, ZIndex: 1},
+		"blocked-section": {X: 20, Y: 20, ZIndex: 2},
+	}); err != nil {
+		t.Fatalf("seed route app auto-layout top-level layouts: %v", err)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route auto layout: %v", err)
+	}
+	beforeAllowed := project.TopLevelSections["allowed-section"]
+	beforeBlocked := project.TopLevelSections["blocked-section"]
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"auto_layout_top_level_sections",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"margin":10
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post auto_layout_top_level_sections tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode auto_layout_top_level_sections tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected auto_layout_top_level_sections success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route auto layout: %v", err)
+	}
+	afterAllowed := project.TopLevelSections["allowed-section"]
+	afterBlocked := project.TopLevelSections["blocked-section"]
+	if afterAllowed == beforeAllowed && afterBlocked == beforeBlocked {
+		t.Fatalf(
+			"expected route auto layout to rewrite layouts, allowed before=%#v after=%#v blocked before=%#v after=%#v",
+			beforeAllowed,
+			afterAllowed,
+			beforeBlocked,
+			afterBlocked,
+		)
 	}
 }
 

@@ -61,6 +61,7 @@ type toolDefinition struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
+	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settingsDocument projectstate.Document, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
@@ -906,6 +907,47 @@ func newSetTopLevelSectionLayoutHandler(projectState projectStateProvider) tools
 		}
 
 		if _, err := projectState.SetTopLevelSectionLayout(ctx, projectConfigID, topLevelSections); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newAutoLayoutTopLevelSectionsHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		margin := 50
+		if resolvedMargin, err := readOptionalIntArgument(arguments, "margin"); err != nil {
+			return nil, err
+		} else if resolvedMargin != nil {
+			margin = *resolvedMargin
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural auto-layout invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		if _, err := projectState.AutoLayoutTopLevelSections(ctx, projectConfigID, settingsDocument, margin); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1904,6 +1946,44 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "topLevelSections"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "auto_layout_top_level_sections",
+				Description: "Automatically repack top-level sections in the active view mode using the Go auto-layout runtime.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "auto", "pack", "top-level", "sections", "structural"},
+				},
+				Handler: newAutoLayoutTopLevelSectionsHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose active view-mode top-level sections should be auto laid out.",
+					},
+					"margin": map[string]any{
+						"type":        "integer",
+						"description": "Optional packing margin applied around each section; defaults to 50 when omitted.",
+						"default":     50,
+					},
+				},
+				"required": []string{"projectConfigId"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -3068,6 +3148,35 @@ func readOptionalFiniteNumberField(object map[string]any, parentKey string, fiel
 	return &value, nil
 }
 
+func readOptionalIntArgument(arguments map[string]any, key string) (*int, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	var value int
+	switch typed := rawValue.(type) {
+	case int:
+		value = typed
+	case int8:
+		value = int(typed)
+	case int16:
+		value = int(typed)
+	case int32:
+		value = int(typed)
+	case int64:
+		value = int(typed)
+	case float64:
+		if math.Trunc(typed) != typed {
+			return nil, newToolError("invalid_arguments", "%s must be an integer", key)
+		}
+		value = int(typed)
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an integer", key)
+	}
+	return &value, nil
+}
+
 func readOptionalIntField(object map[string]any, parentKey string, field string) (*int, error) {
 	rawValue, ok := object[field]
 	if !ok || rawValue == nil {
@@ -3273,6 +3382,8 @@ func normalizeProjectStateMutationError(err error) error {
 	case projectstate.IsInvalidCodeObjectNameError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsInvalidAutoLayoutError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrSettingsValueInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
