@@ -136,13 +136,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 15 {
-		t.Fatalf("expected 15 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 16 {
+		t.Fatalf("expected 16 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var createChildSectionsTool *sdkmcp.Tool
 	var createChildSectionsViaIncrementerTool *sdkmcp.Tool
+	var deleteChildSectionsViaDecrementerTool *sdkmcp.Tool
 	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
@@ -160,6 +161,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "create_child_sections_via_incrementer" {
 			createChildSectionsViaIncrementerTool = tool
+		}
+		if tool.Name == "delete_child_sections_via_decrementer" {
+			deleteChildSectionsViaDecrementerTool = tool
 		}
 		if tool.Name == "delete_sections" {
 			deleteSectionsTool = tool
@@ -197,6 +201,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
 		"create_top_level_section",
+		"delete_child_sections_via_decrementer",
 		"delete_sections",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
@@ -221,6 +226,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if createChildSectionsViaIncrementerTool == nil {
 		t.Fatal("expected create_child_sections_via_incrementer tool")
+	}
+	if deleteChildSectionsViaDecrementerTool == nil {
+		t.Fatal("expected delete_child_sections_via_decrementer tool")
 	}
 	if deleteSectionsTool == nil {
 		t.Fatal("expected delete_sections tool")
@@ -251,6 +259,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	createChildViaIncrementerResultPaths := mustStructuredMap(t, createChildViaIncrementerMeta["resultIdPathsByType"])
 	if got := mustStringList(t, createChildViaIncrementerResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected create_child_sections_via_incrementer sectionIds result path, got %#v", got)
+	}
+	deleteChildViaDecrementerMeta := mustStructuredMap(t, deleteChildSectionsViaDecrementerTool.Meta[toolMetaNamespace])
+	if deleteChildViaDecrementerMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for delete_child_sections_via_decrementer, got %#v", deleteChildViaDecrementerMeta["accessType"])
+	}
+	deleteChildViaDecrementerPaths := mustStructuredMap(t, deleteChildViaDecrementerMeta["idPathsByType"])
+	if got := mustStringList(t, deleteChildViaDecrementerPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "calledBy" {
+		t.Fatalf("expected delete_child_sections_via_decrementer calledBy target path, got %#v", got)
+	}
+	deleteChildViaDecrementerResultPaths := mustStructuredMap(t, deleteChildViaDecrementerMeta["resultIdPathsByType"])
+	if got := mustStringList(t, deleteChildViaDecrementerResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
+		t.Fatalf("expected delete_child_sections_via_decrementer sectionIds result path, got %#v", got)
 	}
 	deleteMeta := mustStructuredMap(t, deleteSectionsTool.Meta[toolMetaNamespace])
 	if deleteMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -347,8 +367,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 15 {
-		t.Fatalf("expected 15 registered tool names, got %#v", listNames)
+	if len(listNames) != 16 {
+		t.Fatalf("expected 16 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1141,6 +1161,71 @@ func TestServerDeleteSectionsAllowsUnscopedStructuralCallsAndTranslatesIDs(t *te
 	}
 	if _, ok := afterProject.CodeObjs["allowed-param"]; ok {
 		t.Fatalf("expected allowed-param to be pruned, got %#v", afterProject.CodeObjs)
+	}
+}
+
+func TestServerDeleteChildSectionsViaDecrementerAllowsUnscopedStructuralCallsAndTranslatesIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	canonicalChildID := mustSeedScopedTestChildSection(t, projectRuntime, "allowed-section")
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "delete_child_sections_via_decrementer",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"calledBy":        "14",
+			"numChildren":     1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_child_sections_via_decrementer allowed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected delete_child_sections_via_decrementer success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	sectionIDs := mustStringList(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one translated deleted child section id, got %#v", sectionIDs)
+	}
+	if sectionIDs[0] == canonicalChildID {
+		t.Fatalf("expected translated deleted child id to differ from canonical %q", canonicalChildID)
+	}
+
+	afterProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after delete_child_sections_via_decrementer: %v", err)
+	}
+	if _, ok := afterProject.Sections[canonicalChildID]; ok {
+		t.Fatalf("expected %q to be removed, got %#v", canonicalChildID, afterProject.Sections)
+	}
+	if _, ok := afterProject.Sections[sectionIDs[0]]; ok {
+		t.Fatalf("did not expect translated deleted child id %q to be a canonical project key", sectionIDs[0])
+	}
+
+	parentPayload := mustDecodedProjectPayload(t, afterProject.SectionImpls["allowed-impl"].Payload)
+	children := mustStringList(t, parentPayload["children"])
+	if len(children) != 0 {
+		t.Fatalf("expected allowed-section children to be empty after decrementer delete, got %#v", children)
 	}
 }
 
@@ -2040,6 +2125,23 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func mustSeedScopedTestChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {
+	t.Helper()
+
+	_, result, err := runtime.CreateChildSections(context.Background(), "project-alpha", projectstate.CreateChildSectionsInput{
+		ParentID:    parentID,
+		ImplType:    "Terminal",
+		NumChildren: 1,
+	}, projectstate.Document{})
+	if err != nil {
+		t.Fatalf("seed child section under %q: %v", parentID, err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
+	}
+	return result.SectionIDs[0]
 }
 
 func setScopedAgenticContext(t *testing.T, clientSession *sdkmcp.ClientSession, projectConfigID string, chatID string, sectionID string) {

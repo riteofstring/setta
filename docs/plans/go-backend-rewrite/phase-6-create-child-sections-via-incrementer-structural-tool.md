@@ -161,10 +161,12 @@ The high-leverage move is therefore:
 ## Next Recommended Step
 
 - `delete_sections` has now landed as the next completed structural slice
+- `delete_child_sections_via_decrementer` has now landed as the decrementer
+  deletion follow-on
 - the next bounded structural slice should move to
-  `delete_child_sections_via_decrementer`
-- keep move/reparent semantics deferred until decrementer deletion proves the
-  remaining structural cleanup boundary
+  `create_new_section_variant`
+- keep move/reparent semantics deferred until a dedicated structural plan
+  slices them into a bounded owner
 
 ## Progress Notes
 
@@ -173,3 +175,5 @@ The high-leverage move is therefore:
   MCP registration, temp-id translation, and authenticated route/SSE coverage.
 - 2026-03-07: follow-on `delete_sections` slice completed; next recommended
   step moved to `delete_child_sections_via_decrementer`.
+- 2026-03-07: follow-on `delete_child_sections_via_decrementer` slice
+  completed; next recommended step moved to `create_new_section_variant`.

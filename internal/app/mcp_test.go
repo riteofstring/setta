@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 15 {
-		t.Fatalf("expected 15 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 16 {
+		t.Fatalf("expected 16 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 15 {
-		t.Fatalf("expected 15 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 16 {
+		t.Fatalf("expected 16 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -796,6 +796,94 @@ func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.
 	}
 }
 
+func TestAppIDEMCPServerSupportsDecrementerStructuralDeleteOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	canonicalChildID := mustSeedAppChildSection(t, app.ProjectStates().Main(), "allowed-section")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "delete_child_sections_via_decrementer",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"calledBy":        "allowed-section",
+			"numChildren":     1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call delete_child_sections_via_decrementer: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected delete_child_sections_via_decrementer success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	sectionIDs := mustStructuredStringListValue(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one translated deleted child section id, got %#v", sectionIDs)
+	}
+	if sectionIDs[0] == canonicalChildID {
+		t.Fatalf("expected translated deleted child id to differ from canonical %q", canonicalChildID)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after decrementer structural delete: %v", err)
+	}
+	if _, ok := project.Sections[canonicalChildID]; ok {
+		t.Fatalf("expected %q to be removed, got %#v", canonicalChildID, project.Sections)
+	}
+	if _, ok := project.Sections[sectionIDs[0]]; ok {
+		t.Fatalf("did not expect translated deleted child id %q to be a canonical project key", sectionIDs[0])
+	}
+
+	parentPayload := mustStructuredMapValue(t, project.SectionImpls["allowed-impl"].Payload)
+	children := mustStructuredStringListValue(t, parentPayload["children"])
+	if len(children) != 0 {
+		t.Fatalf("expected allowed-section children to be empty after decrementer delete, got %#v", children)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1188,8 +1276,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 15 {
-		t.Fatalf("expected tool count 15, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 16 {
+		t.Fatalf("expected tool count 16, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -2023,6 +2111,23 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 	}); err != nil {
 		t.Fatalf("save scoped MCP project: %v", err)
 	}
+}
+
+func mustSeedAppChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {
+	t.Helper()
+
+	_, result, err := runtime.CreateChildSections(context.Background(), "project-alpha", projectstate.CreateChildSectionsInput{
+		ParentID:    parentID,
+		ImplType:    "Terminal",
+		NumChildren: 1,
+	}, projectstate.Document{})
+	if err != nil {
+		t.Fatalf("seed child section under %q: %v", parentID, err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
+	}
+	return result.SectionIDs[0]
 }
 
 func writeAppTemporaryIDMap(t *testing.T, path string, payload map[string]string) {

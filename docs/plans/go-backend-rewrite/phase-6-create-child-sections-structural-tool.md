@@ -193,7 +193,9 @@ The high-leverage move is therefore:
 - `create_child_sections_via_incrementer` has now landed as the next completed
   structural follow-on
 - `delete_sections` has now landed as the recursive cleanup follow-on
+- `delete_child_sections_via_decrementer` has now landed as the decrementer
+  deletion follow-on
 - the next bounded structural slice should move to
-  `delete_child_sections_via_decrementer`
-- keep move/reparent semantics deferred until deletion plus decrementer prove
-  the cleanup boundary
+  `create_new_section_variant`
+- keep move/reparent semantics deferred until a dedicated structural plan
+  slices them into a bounded owner

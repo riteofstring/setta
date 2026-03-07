@@ -179,10 +179,12 @@ The high-leverage move was therefore:
 
 ## Next Recommended Step
 
+- `delete_child_sections_via_decrementer` has now landed as the next completed
+  structural slice over this deletion owner
 - the next bounded structural slice should move to
-  `delete_child_sections_via_decrementer`
-- keep move/reparent semantics deferred until decrementer deletion proves the
-  remaining caller-resolution boundary
+  `create_new_section_variant`
+- keep move/reparent semantics deferred until a dedicated structural plan
+  slices them into a bounded owner
 - keep the IDE HTTP `deleteSections` route deferred unless a frontend-specific
   viewport/reveal workflow makes it necessary
 
@@ -191,3 +193,5 @@ The high-leverage move was therefore:
 - 2026-03-07: doc created to scope the slice before implementation.
 - 2026-03-07: slice completed with Go-owned recursive deletion, MCP
   registration, temp-id translation, and authenticated route/SSE coverage.
+- 2026-03-07: follow-on `delete_child_sections_via_decrementer` slice
+  completed; next recommended step moved to `create_new_section_variant`.

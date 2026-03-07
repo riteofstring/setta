@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 13 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 14 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -46,6 +46,8 @@ Current repo status as of 2026-03-07:
     - `create_child_sections_via_incrementer` as the incrementer-placement
       structural follow-on
     - `delete_sections` as the recursive section-deletion structural tool
+    - `delete_child_sections_via_decrementer` as the decrementer deletion
+      structural follow-on
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
@@ -668,14 +670,48 @@ Reference:
 
 - `phase-6-delete-sections-structural-tool.md`
 
+### Slice 14: Delete Child Sections Via Decrementer Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for decrementer-style child deletion
+- explicit `calledBy -> []sectionIds` resolution over current parent-child
+  state
+- reuse of `delete_sections` for actual recursive cleanup
+- a Go MCP `delete_child_sections_via_decrementer` structural tool
+- argument/result temp-id translation for `calledBy` and `sectionIds`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `delete_child_sections_via_decrementer`
+- structural scope remains explicit and fail-closed
+- decrementer caller resolution stays explicit instead of heuristic:
+  - parent caller deletes the first `numChildren` children
+  - non-parent caller deletes the next `numChildren` siblings after the caller
+- empty deletion windows return a bounded no-op instead of guessing or
+  over-deleting
+- deleted result ids are temp-id translated through metadata instead of a
+  tool-name branch
+- the IDE HTTP `deleteChildSectionsViaDecrementer` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-delete-child-sections-via-decrementer-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 13 is now complete.
-- The next recommended step is a bounded
-  `delete_child_sections_via_decrementer` slice over the completed
-  `delete_sections` owner.
-- Keep move/reparent semantics deferred until deletion plus decrementer prove
-  the structural cleanup boundary.
+- Slice 14 is now complete.
+- The next recommended step is a bounded `create_new_section_variant` slice so
+  Phase 6 can keep landing explicit structural tools without jumping ahead to
+  move/reparent geometry.
+- Keep move/reparent semantics deferred until a dedicated structural plan
+  slices them into a bounded owner.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice

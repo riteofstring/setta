@@ -674,6 +674,76 @@ func TestMCPToolCallRouteSupportsStructuralDeleteWithUnscopedContext(t *testing.
 	}
 }
 
+func TestMCPToolCallRouteSupportsDecrementerStructuralDeleteWithUnscopedContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	canonicalChildID := mustSeedRouteChildSection(t, projectRuntime, "allowed-section")
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"delete_child_sections_via_decrementer",
+		"arguments":{"projectConfigId":"project-alpha","calledBy":"allowed-section","numChildren":1},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected decrementer structural delete success, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	sectionIDs := mustStringListForRoute(t, structured["sectionIds"])
+	if len(sectionIDs) != 1 || sectionIDs[0] != canonicalChildID {
+		t.Fatalf("expected deleted child ids [%s], got %#v", canonicalChildID, sectionIDs)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route decrementer delete: %v", err)
+	}
+	if _, ok := project.Sections[canonicalChildID]; ok {
+		t.Fatalf("expected %q to be removed, got %#v", canonicalChildID, project.Sections)
+	}
+
+	parentPayload := mustDecodedRouteProjectPayload(t, project.SectionImpls["allowed-impl"].Payload)
+	children := mustStringListForRoute(t, parentPayload["children"])
+	if len(children) != 0 {
+		t.Fatalf("expected allowed-section children to be empty after decrementer delete, got %#v", children)
+	}
+}
+
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 
@@ -909,6 +979,23 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func mustSeedRouteChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {
+	t.Helper()
+
+	_, result, err := runtime.CreateChildSections(context.Background(), "project-alpha", projectstate.CreateChildSectionsInput{
+		ParentID:    parentID,
+		ImplType:    "Terminal",
+		NumChildren: 1,
+	}, projectstate.Document{})
+	if err != nil {
+		t.Fatalf("seed child section under %q: %v", parentID, err)
+	}
+	if len(result.SectionIDs) != 1 {
+		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
+	}
+	return result.SectionIDs[0]
 }
 
 func openMCPToolRouteDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry {

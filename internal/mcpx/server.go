@@ -61,6 +61,7 @@ type projectStateProvider interface {
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
@@ -603,6 +604,51 @@ func newDeleteSectionsHandler(projectState projectStateProvider) tools.Handler {
 
 		_, result, err := projectState.DeleteSections(ctx, projectConfigID, projectstate.DeleteSectionsInput{
 			SectionIDs: sectionIDs,
+		})
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newDeleteChildSectionsViaDecrementerHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		calledBy, err := readRequiredStringArgument(arguments, "calledBy")
+		if err != nil {
+			return nil, err
+		}
+		numChildren, err := readOptionalNonNegativeIntArgument(arguments, "numChildren")
+		if err != nil {
+			return nil, err
+		}
+		if numChildren == nil {
+			return nil, newToolError("invalid_arguments", "numChildren is required")
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural decrementer child-deletion invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.DeleteChildSectionsViaDecrementer(ctx, projectConfigID, projectstate.DeleteChildSectionsViaDecrementerInput{
+			CalledBy:    calledBy,
+			NumChildren: *numChildren,
 		})
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
@@ -1234,6 +1280,56 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "sectionIds"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sectionIds": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"sectionIds"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "delete_child_sections_via_decrementer",
+				Description: "Delete child sections using decrementer-style caller placement.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"calledBy"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionIds"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"delete", "remove", "child", "section", "decrementer", "structural"},
+				},
+				Handler: newDeleteChildSectionsViaDecrementerHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id where decrementer children should be deleted.",
+					},
+					"calledBy": map[string]any{
+						"type":        "string",
+						"description": "Parent section or existing child section that determines the deletion window.",
+					},
+					"numChildren": map[string]any{
+						"type":        "integer",
+						"description": "Number of child sections to delete from the resolved window.",
+					},
+				},
+				"required": []string{"projectConfigId", "calledBy", "numChildren"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -2057,6 +2153,10 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByRequired),
 		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByUnsupported),
 		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByNotInParent),
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByRequired),
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByUnsupported),
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCalledByNotInParent),
+		errors.Is(err, projectstate.ErrChildSectionDecrementerCountInvalid),
 		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDsRequired),
 		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDBlank),
 		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired),
