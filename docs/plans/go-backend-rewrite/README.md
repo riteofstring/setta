@@ -199,11 +199,16 @@ Use the docs in this order:
   - focused implementation-plan doc for Go-owned `toggle_group_orientation`
     and `set_group_overflow_mode` MCP parity over the completed
     section-size, layout-presentation, and Group-section foundations
-77. `spike-mcp.md`
+77. `phase-6-section-variant-selection-and-order-tools-parity.md`
+  - focused implementation-plan doc for Go-owned `set_section_variant`,
+    `set_default_section_variant`, and `set_section_variant_sort_order` MCP
+    parity over the completed section-variant creation and project-graph
+    foundations
+78. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-78. `spike-pty.md`
+79. `spike-pty.md`
    - PTY uncertainty-reduction plan
-79. `spike-lsp.md`
+80. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

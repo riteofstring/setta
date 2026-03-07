@@ -2,34 +2,30 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 6 slice after the completed
-`set_section_sizes` work.
+This doc recorded the bounded Phase 6 slice that closed the remaining Group
+layout toggle parity gap after `set_section_sizes`.
 
-The highest-leverage remaining group-layout mutation gaps are now:
+The slice covered:
 
 - `toggle_group_orientation`
 - `set_group_overflow_mode`
 
-These two tools share the same group-section runtime surface and should move as
-one bounded cluster instead of reopening the group subsystem twice.
+Both tools share the same Group-section runtime surface, so they landed as one
+cluster instead of reopening the group subsystem twice.
 
 ## Status
 
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity remains the active phase
-- `set_section_sizes` is now complete across the runtime, MCP server, HTTP
-  tool bridge, and authenticated SSE transport
-- Go still does not own explicit runtime mutations for:
-  - toggling group orientation
-  - setting group overflow mode
-- frontend code already treats overflow-mode size materialization as a separate
-  concern by pairing `route_set_group_overflow_mode` with an explicit
-  `route_set_section_sizes` call when needed
+- this Group-layout toggle slice is complete across the runtime, MCP server,
+  MCP HTTP tool bridge, and authenticated SSE transport
+- the remaining highest-leverage mutation gap moved on to the section-variant
+  selection and ordering cluster
 
 ## Scope
 
-This focused slice should cover:
+This focused slice covered:
 
 - a Go runtime owner for `toggle_group_orientation`
 - a Go runtime owner for `set_group_overflow_mode`
@@ -85,39 +81,52 @@ The current frontend flow makes one important boundary explicit:
   - orientation and overflow live on the same section type and should land
     together
 
-## Implementation Outline
+## Completed Work
 
-1. Add the runtime owners.
-   - toggle group orientation
-   - set group overflow mode
-   - reject non-Group targets
+1. Added the Group-only runtime owners in `internal/projectstate`.
+   - `Runtime.ToggleGroupOrientation`
+   - `Runtime.SetGroupOverflowMode`
+   - shared validation rejects non-Group sections with
+     `ErrGroupSectionRequired`
 
-2. Add MCP parity.
-   - structural access
-   - project-scoped invocation
-   - temp-id translation
+2. Added MCP transport parity in `internal/mcpx/server.go`.
+   - `toggle_group_orientation`
+   - `set_group_overflow_mode`
+   - both tools use scoped structural access on `sectionId`
+   - mutation errors map Group-type violations to `invalid_arguments`
 
-3. Add focused tests.
-   - runtime validation and payload persistence
-   - MCP server, HTTP bridge, and authenticated SSE coverage
+3. Added bridge and end-to-end coverage.
+   - MCP server tests
+   - HTTP tool-call route tests
+   - authenticated SSE app tests
 
 ## Open Questions
 
-- none right now
+- none after implementation
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime|Document).*(ToggleGroupOrientation|SetGroupOverflowMode)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|ToggleGroupOrientation|SetGroupOverflowMode)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsToggleGroupOrientation|SupportsSetGroupOverflowMode)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsToggleGroupOrientation|ServerSupportsSetGroupOverflowMode|ToolCallRouteSupportsToggleGroupOrientation|ToolCallRouteSupportsSetGroupOverflowMode)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(ToggleGroupOrientation|SetGroupOverflowMode|GroupLayoutMutationsRejectNonGroupSections)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetGroupOverflowMode|ToggleGroupOrientation)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsToggleGroupOrientation|SetGroupOverflowModeAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupports(ToggleGroupOrientation|SetGroupOverflowMode)|ToolCallRouteSupports(ToggleGroupOrientation|SetGroupOverflowMode)|ServerSupportsTemporaryIDsFor(ToggleGroupOrientation|SetGroupOverflowMode))' -count=1 -timeout 420s`
 
 ## Next Recommended Step
 
-- implement the group-only runtime owners in `internal/projectstate` first
-- keep overflow-mode writes strictly separate from size writes
+- use `phase-6-section-variant-selection-and-order-tools-parity.md` as the
+  next bounded Phase 6 slice
+- keep section-variant selection/order work separate from param-filter and
+  app-definition parity
 
 ## Progress Notes
 
 - 2026-03-07: doc created immediately after the completed
   `set_section_sizes` slice reranked the remaining Phase 6 mutation gaps.
+- 2026-03-07: runtime owners landed for `toggle_group_orientation` and
+  `set_group_overflow_mode`, with Group-only validation at the
+  project-state boundary.
+- 2026-03-07: MCP, HTTP tool-route, and authenticated SSE parity landed for
+  both Group-layout toggles.
+- 2026-03-07: overflow-mode writes stayed explicitly separate from
+  `set_section_sizes`; the frontend remains responsible for issuing both
+  writes when a size materialization is needed.

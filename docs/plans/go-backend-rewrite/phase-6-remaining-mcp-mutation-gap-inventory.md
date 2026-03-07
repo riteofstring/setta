@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 45 tools total
-- 42 current Go tool names overlap with Python
+- Go MCP now exposes 47 tools total
+- 44 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 40 of those overlaps are mutation or structural tools
-- Python still has 9 mutation or structural project-state MCP tools that do
+- 42 of those overlaps are mutation or structural tools
+- Python still has 7 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -66,6 +66,8 @@ MCP server:
   - `compare_and_set_watch_code_files`
   - `set_code_section_attached_terminal`
   - `set_section_sizes`
+  - `set_group_overflow_mode`
+  - `toggle_group_orientation`
   - `toggle_position_locks`
   - `toggle_minimized`
 - writes:
@@ -95,26 +97,27 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- group-layout toggle runtime owners plus MCP parity:
-  - `toggle_group_orientation`
-  - `set_group_overflow_mode`
+- section-variant selection and ordering parity:
+  - `set_section_variant`
+  - `set_default_section_variant`
+  - `set_section_variant_sort_order`
 
 Why this is next:
 
-1. `set_section_sizes` is now complete, so the next remaining layout-adjacent
-   mutations are the narrow Group toggles.
-2. both tools share the same Group-only runtime boundary and are better landed
-   as one bounded cluster than as two separate micro-slices.
-3. the frontend already treats overflow-mode size materialization as a
-   separate explicit `set_section_sizes` write, so the Go runtime can keep
-   these mutations boolean-only.
+1. `create_new_section_variant` is already Go-owned, so selection and ordering
+   are now the missing section-variant runtime owners with the highest MCP
+   leverage.
+2. these three tools share the same section/variant membership boundary and
+   are better landed together than as separate micro-slices.
+3. the slice stays bounded and avoids reopening the broader app-definition or
+   param-filter subsystems.
 4. the next slice is scoped in:
-   `phase-6-group-layout-toggle-tools-parity.md`
+   `phase-6-section-variant-selection-and-order-tools-parity.md`
 
-### 2. After The Group Toggle Slice
+### 2. After The Section-Variant Slice
 
-- rerank the remaining variant/configuration mutation gaps against the
-  completed section-size and group-layout owner layers
+- rerank the remaining configuration mutation gaps against the completed
+  section-variant owner layer
 - keep app-definition work deferred until frontend-source ownership is ready
 
 ### 3. Gaps That Still Need More Go Runtime Work First
@@ -122,8 +125,6 @@ Why this is next:
 These should not be turned into MCP work until their authoritative Go mutation
 owner is clearer:
 
-- `toggle_group_orientation`
-- `set_group_overflow_mode`
 - `set_section_param_filter`
 - `set_section_variant`
 - `set_default_section_variant`
@@ -142,7 +143,7 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-group-layout-toggle-tools-parity.md` as the next bounded
+- use `phase-6-section-variant-selection-and-order-tools-parity.md` as the next bounded
   Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
@@ -238,3 +239,8 @@ priority:
 - 2026-03-07: reranking after the section-size slice moved the next bounded
   Phase 6 step to the Group layout toggle cluster in
   `phase-6-group-layout-toggle-tools-parity.md`.
+- 2026-03-07: the Group layout toggle slice is now complete across the Go
+  runtime owner, MCP server, HTTP tool route, and authenticated SSE transport.
+- 2026-03-07: reranking after the Group layout toggle slice moved the next
+  bounded Phase 6 step to the section-variant selection and ordering cluster in
+  `phase-6-section-variant-selection-and-order-tools-parity.md`.
