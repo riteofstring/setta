@@ -116,9 +116,13 @@ Current repo status as of 2026-03-06:
   - `internal/realtime/listener_producer.go`
   - structured dependency-key projection plus binary listener frame support in
     `internal/realtime`
-- the remaining producer-side listener realtime sources still live only in
-  Python across:
-  - `backend/setta/project_state/artifacts.py`
+- Go now also owns draw/artifact binary listener delta emission from Go-owned
+  run paths under:
+  - `internal/realtime/listener_producer.go`
+  - `internal/runs/service.go`
+  - `internal/app/app.go`
+- the remaining producer-side listener realtime source still lives only in
+  Python under:
   - `backend/setta/plugins/manager.py`
 - deployment share/app state and project-config transport is now fully Go-owned
   under:

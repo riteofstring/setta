@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
@@ -240,6 +242,163 @@ func TestAppServesListenerForceRefreshRoute(t *testing.T) {
 	}
 }
 
+func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	authCookie := &http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	}
+
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1)+"?projectId=project-alpha",
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{cookieName + "=" + token},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["draw-section"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+
+	ack := readAppRouteEnvelope(t, listenerConn)
+	if ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	uploadBody, uploadContentType := buildAppBinaryUploadBody(t, []byte("listener-snapshot"), "")
+	uploadRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
+	if err != nil {
+		t.Fatalf("new binary upload request: %v", err)
+	}
+	uploadRequest.Header.Set("Content-Type", uploadContentType)
+	uploadRequest.AddCookie(authCookie)
+
+	uploadResponse, err := http.DefaultClient.Do(uploadRequest)
+	if err != nil {
+		t.Fatalf("post binary upload: %v", err)
+	}
+	defer uploadResponse.Body.Close()
+	if uploadResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", uploadResponse.StatusCode, string(body))
+	}
+
+	var ref binarypayload.ContentRef
+	if err := json.NewDecoder(uploadResponse.Body).Decode(&ref); err != nil {
+		t.Fatalf("decode binary upload response: %v", err)
+	}
+
+	runRequestBody, err := json.Marshal(httpapi.RunCodeRequest{
+		ProjectID:       "project-alpha",
+		SectionID:       "code-section",
+		RunSnapshotMode: "never",
+		DrawSnapshotsBySectionID: map[string]binarypayload.ContentRef{
+			"draw-section": ref,
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal run code request: %v", err)
+	}
+
+	runRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(string(runRequestBody)))
+	if err != nil {
+		t.Fatalf("new run code request: %v", err)
+	}
+	runRequest.Header.Set("Content-Type", "application/json")
+	runRequest.AddCookie(authCookie)
+
+	runResponse, err := http.DefaultClient.Do(runRequest)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer runResponse.Body.Close()
+	if runResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", runResponse.StatusCode, string(body))
+	}
+
+	envelope, payload := readAppBinaryEnvelope(t, listenerConn)
+	if envelope.MessageType != realtime.MessageTypeListenerRealtimeEvent {
+		t.Fatalf("expected listener realtime event, got %q", envelope.MessageType)
+	}
+	if string(payload) != "listener-snapshot" {
+		t.Fatalf("expected listener snapshot payload, got %q", string(payload))
+	}
+
+	var content realtime.ListenerRealtimeEventContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode listener realtime event content: %v", err)
+	}
+	if content.ProjectID != "project-alpha" {
+		t.Fatalf("expected project-alpha event, got %q", content.ProjectID)
+	}
+	if content.ShareSessionID != "" {
+		t.Fatalf("expected empty share session id, got %q", content.ShareSessionID)
+	}
+	if content.Sequence != 1 {
+		t.Fatalf("expected sequence 1, got %d", content.Sequence)
+	}
+	if len(content.Deltas) != 1 {
+		t.Fatalf("expected 1 delta, got %d", len(content.Deltas))
+	}
+	if content.Deltas[0].Dependency != "draw-section" {
+		t.Fatalf("expected draw-section dependency, got %q", content.Deltas[0].Dependency)
+	}
+
+	var value struct {
+		Type    string                   `json:"type"`
+		Payload binarypayload.ContentRef `json:"payload"`
+	}
+	if err := json.Unmarshal(content.Deltas[0].Value, &value); err != nil {
+		t.Fatalf("decode binary dependency value: %v", err)
+	}
+	if value.Type != realtime.DependencyValueTypeBinary {
+		t.Fatalf("expected binary dependency value type, got %q", value.Type)
+	}
+	if value.Payload != ref {
+		t.Fatalf("expected binary ref %#v, got %#v", ref, value.Payload)
+	}
+
+	if _, err := app.BinaryStore().ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
+		t.Fatalf("expected draw snapshot payload to be deleted after broadcast, got %v", err)
+	}
+}
+
 func TestAppRunCodeBroadcastsBackendLogEvent(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
@@ -380,6 +539,32 @@ func readAppRouteEnvelope(t *testing.T, conn *websocket.Conn) appRouteEnvelope {
 		t.Fatalf("decode app websocket message: %v", err)
 	}
 	return envelope
+}
+
+func readAppBinaryEnvelope(t *testing.T, conn *websocket.Conn) (appRouteEnvelope, []byte) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	messageType, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read app websocket frame: %v", err)
+	}
+	if messageType != websocket.MessageBinary {
+		t.Fatalf("expected binary websocket frame, got %d", messageType)
+	}
+
+	header, binaryPayload, err := realtime.DecodeBinaryFrame(payload)
+	if err != nil {
+		t.Fatalf("decode app binary frame: %v", err)
+	}
+
+	var envelope appRouteEnvelope
+	if err := json.Unmarshal(header, &envelope); err != nil {
+		t.Fatalf("decode app binary envelope: %v", err)
+	}
+	return envelope, binaryPayload
 }
 
 func readAppRouteEnvelopeUntilType(t *testing.T, conn *websocket.Conn, messageType string, maxReads int) appRouteEnvelope {

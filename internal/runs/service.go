@@ -11,6 +11,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/statefs"
 	"setta/internal/terminals"
 )
@@ -33,6 +34,7 @@ type ServiceOptions struct {
 	Terminals         *terminals.Service
 	BackendLogs       *backendlogs.Service
 	BinaryStore       *binarypayload.Store
+	ListenerProducer  *realtime.ListenerProducer
 	ArtifactsRoot     string
 	IDGenerator       func() string
 }
@@ -62,6 +64,7 @@ type Service struct {
 	terminals     *terminals.Service
 	backendLogs   *backendlogs.Service
 	binaryStore   *binarypayload.Store
+	listener      *realtime.ListenerProducer
 	artifactsRoot string
 	idGenerator   func() string
 }
@@ -99,6 +102,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		terminals:     options.Terminals,
 		backendLogs:   options.BackendLogs,
 		binaryStore:   options.BinaryStore,
+		listener:      options.ListenerProducer,
 		artifactsRoot: resolvedArtifactsRoot,
 		idGenerator:   idGenerator,
 	}, nil
@@ -124,7 +128,7 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 		}()
 	}
 
-	if err := s.applyDrawSnapshots(ctx, execution.projectState, execution.artifactsRoot, request.ProjectID, request.DrawSnapshotsBySectionID); err != nil {
+	if err := s.applyDrawSnapshots(ctx, execution.projectState, execution.artifactsRoot, request.ProjectID, request.ShareSessionID, request.DrawSnapshotsBySectionID); err != nil {
 		return RunCodeResult{}, err
 	}
 
@@ -340,7 +344,7 @@ func (s *Service) newTerminalSeed() projectstate.TerminalSectionSeed {
 	}
 }
 
-func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projectstate.Runtime, artifactsRoot string, projectID string, refsBySectionID map[string]binarypayload.ContentRef) error {
+func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projectstate.Runtime, artifactsRoot string, projectID string, shareSessionID string, refsBySectionID map[string]binarypayload.ContentRef) error {
 	if len(refsBySectionID) == 0 {
 		return nil
 	}
@@ -354,7 +358,7 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 	type drawSnapshotUpdate struct {
 		sectionID string
 		path      string
-		contentID string
+		ref       binarypayload.ContentRef
 		payload   []byte
 	}
 
@@ -384,7 +388,7 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 		updates = append(updates, drawSnapshotUpdate{
 			sectionID: sectionID,
 			path:      targetPath,
-			contentID: ref.ContentID,
+			ref:       ref,
 			payload:   payload,
 		})
 		renderedPathsBySectionID[sectionID] = targetPath
@@ -402,8 +406,25 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 	if _, err := projectState.Save(ctx); err != nil {
 		return err
 	}
+	if s.listener != nil {
+		deltas := make([]realtime.BinarySectionDelta, 0, len(updates))
+		for _, update := range updates {
+			deltas = append(deltas, realtime.BinarySectionDelta{
+				SectionID:     update.sectionID,
+				Value:         update.ref,
+				BinaryPayload: update.payload,
+			})
+		}
+		if err := s.listener.EmitSectionBinaryDeltas(ctx, realtime.EmitSectionBinaryDeltasParams{
+			ProjectID:      projectID,
+			ShareSessionID: shareSessionID,
+			Deltas:         deltas,
+		}); err != nil {
+			return err
+		}
+	}
 	for _, update := range updates {
-		_ = s.binaryStore.Delete(update.contentID)
+		_ = s.binaryStore.Delete(update.ref.ContentID)
 	}
 	return nil
 }

@@ -22,13 +22,16 @@ Current repo status as of 2026-03-06:
   - `internal/httpapi/listener_routes.go`
   - `internal/app/app.go`
   - `internal/projectview`
-- the remaining producer-side listener realtime gaps are now:
-  - project-state artifact/image binary delta emission
+- Go now also owns draw/artifact binary listener delta emission from Go-owned
+  run paths under:
+  - `internal/realtime/listener_producer.go`
+  - `internal/runs/service.go`
+  - `internal/app/app.go`
+- the remaining producer-side listener realtime gap is now:
   - plugin-worker `host.emit_listener_dependency_event`
 - Python reference behavior for this area still lives under:
   - `backend/setta/routers/project_manager.py`
   - `backend/setta/websockets/msg_handlers/frontend_receiver.py`
-  - `backend/setta/project_state/artifacts.py`
   - `backend/setta/plugins/manager.py`
 - route-local compatibility shims or a revived Python-shaped
   sender/receiver split would be a dead end
@@ -203,7 +206,40 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- added a Go-owned binary section-delta producer under:
+  - `internal/realtime/listener_producer.go`
+- wired Go draw snapshot application through that producer under:
+  - `internal/runs/service.go`
+  - `internal/app/app.go`
+- kept binary dependency shaping explicit:
+  - canonical listener dependency keys remain the section ids
+  - listener delta values use a Go-owned `{"type":"Binary","payload":...}`
+    envelope backed by `internal/binary.ContentRef`
+  - raw binary websocket frames remain the transport for listener binary bytes
+- reused the existing draw-snapshot payload bytes already loaded by the Go
+  run service instead of re-reading or inventing artifact-manager shims
+- added focused coverage for:
+  - deployment/share-session-scoped binary delta fan-out in
+    `internal/realtime/listener_producer_test.go`
+  - end-to-end IDE `runCode` draw-snapshot listener delivery in
+    `internal/app/websocket_test.go`
+
+Working decisions captured while landing Slice 3:
+
+- keep artifact binary producer semantics in `internal/realtime.ListenerProducer`
+  so project/session validation stays with the other producer boundaries
+- let Go-owned run/project-state paths supply the already-read binary payload
+  bytes into the producer instead of adding a second artifact runtime layer
+- preserve raw websocket binary frames for listener binary deltas while Go owns
+  both ends of the listener transport
+
+Tests:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/realtime ./internal/runs ./internal/app -count=1`
 
 ### Slice 4: Plugin Listener Dependency Events
 
@@ -231,7 +267,8 @@ Status:
 
 ## Next Recommended Step
 
-- Start Slice 3: artifact/image binary listener deltas.
-- Keep the slice narrow: move only the producer boundary that emits binary
-  listener updates from Go-owned project-state/run pathways, reusing the binary
-  listener broadcaster work from Slice 2.
+- Start Slice 4: plugin listener dependency events.
+- Keep the slice narrow: add only the first Go-owned plugin host boundary
+  needed to emit listener dependency events directly through
+  `internal/realtime.ListenerBroadcaster`, without widening Phase 4 into
+  general plugin-runtime migration.

@@ -110,6 +110,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: websocketHub,
+	})
+	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+		Broadcaster:  listenerBroadcaster,
+		ProjectState: projectRuntime,
+		Deployment:   deploymentRuntime,
+	})
 	backendLogService, err := backendlogs.NewService(backendlogs.ServiceOptions{
 		Logger:       logger,
 		WebsocketHub: websocketHub,
@@ -126,20 +134,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		Terminals:         terminalService,
 		BackendLogs:       backendLogService,
 		BinaryStore:       binaryStore,
+		ListenerProducer:  listenerProducer,
 		ArtifactsRoot:     artifactsRoot,
 	})
 	if err != nil {
 		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
 		return nil, err
 	}
-	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: websocketHub,
-	})
-	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-		Broadcaster:  listenerBroadcaster,
-		ProjectState: projectRuntime,
-		Deployment:   deploymentRuntime,
-	})
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
