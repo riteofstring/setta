@@ -158,6 +158,105 @@ func TestRegisterRoutesListenerRecordsBootstrapAndCleansUpOnDisconnect(t *testin
 	}
 }
 
+func TestRegisterRoutesListenerRegistersCallbacksAndReceivesRealtimeMessages(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a","section-action"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+
+	ack := readNextMessage(t, conn)
+	assertListenerRegisterAck(t, ack, "project-a", "")
+
+	sequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), realtime.EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []realtime.ListenerRealtimeDelta{
+			{
+				Dependency: "section-a.param-a",
+				Value:      json.RawMessage(`"value-1"`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit realtime deltas: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected realtime delivery (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	realtimeEvent := readNextMessage(t, conn)
+	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, `"value-1"`)
+
+	sequence, delivered, err = broadcaster.EmitDependencyEvents(context.Background(), realtime.EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []realtime.ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   456,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit dependency events: %v", err)
+	}
+	if sequence != 2 || delivered != 1 {
+		t.Fatalf("expected dependency event delivery (sequence=2 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	dependencyEvent := readNextMessage(t, conn)
+	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "", 2, `{"clicked":true}`)
+}
+
+func TestRegisterRoutesListenerClosesOnInvalidRegistration(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"unsupported"}}}}`)); err != nil {
+		t.Fatalf("write invalid listener register message: %v", err)
+	}
+
+	_, _, err := conn.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
+		t.Fatalf("expected bad-request close code %d, got %d", CloseCodeBadRequest, status)
+	}
+}
+
 func newRouteServer(t *testing.T, deps RouteDependencies) *httptest.Server {
 	t.Helper()
 
@@ -294,4 +393,85 @@ func waitForCondition(t *testing.T, check func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("condition did not become true before timeout")
+}
+
+func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerRegisterAckContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener register ack: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.ShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	}
+	if len(content.Callbacks) != 1 {
+		t.Fatalf("expected 1 callback ack, got %d", len(content.Callbacks))
+	}
+	if status := content.Callbacks["cb-a"].Status; status != "accepted" {
+		t.Fatalf("expected callback status accepted, got %q", status)
+	}
+}
+
+func assertRouteListenerRealtimeEvent(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, sequence uint64, expectedValue string) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerRealtimeEvent {
+		t.Fatalf("expected listener realtime event, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerRealtimeEventContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener realtime event: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.ShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	}
+	if content.Sequence != sequence {
+		t.Fatalf("expected sequence %d, got %d", sequence, content.Sequence)
+	}
+	if len(content.Deltas) != 1 {
+		t.Fatalf("expected 1 delta, got %d", len(content.Deltas))
+	}
+	if string(content.Deltas[0].Value) != expectedValue {
+		t.Fatalf("expected delta value %s, got %s", expectedValue, string(content.Deltas[0].Value))
+	}
+}
+
+func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string, sequence uint64, expectedPayload string) {
+	t.Helper()
+
+	if message.MessageType != realtime.MessageTypeListenerDependencyEvent {
+		t.Fatalf("expected listener dependency event, got %q", message.MessageType)
+	}
+
+	var content realtime.ListenerDependencyEventContent
+	if err := json.Unmarshal(message.Content, &content); err != nil {
+		t.Fatalf("decode listener dependency event: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.ShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	}
+	if content.Sequence != sequence {
+		t.Fatalf("expected sequence %d, got %d", sequence, content.Sequence)
+	}
+	if len(content.DependencyEvents) != 1 {
+		t.Fatalf("expected 1 dependency event, got %d", len(content.DependencyEvents))
+	}
+	if string(content.DependencyEvents[0].Payload) != expectedPayload {
+		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
+	}
 }

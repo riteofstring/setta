@@ -8,7 +8,10 @@ import (
 	"sync"
 )
 
-var ErrEmptyRealtimeDeltas = errors.New("realtime: listener deltas must contain at least one entry")
+var (
+	ErrEmptyRealtimeDeltas   = errors.New("realtime: listener deltas must contain at least one entry")
+	ErrEmptyDependencyEvents = errors.New("realtime: listener dependency events must contain at least one entry")
+)
 
 type ListenerBroadcasterOptions struct {
 	WebsocketHub *WebsocketHub
@@ -26,6 +29,12 @@ type EmitRealtimeDeltasParams struct {
 	ProjectID      string
 	ShareSessionID string
 	Deltas         []ListenerRealtimeDelta
+}
+
+type EmitDependencyEventsParams struct {
+	ProjectID        string
+	ShareSessionID   string
+	DependencyEvents []ListenerDependencyEvent
 }
 
 type ForceRefreshParams struct {
@@ -109,6 +118,54 @@ func (b *ListenerBroadcaster) EmitRealtimeDeltas(ctx context.Context, params Emi
 	return sequence, delivered, nil
 }
 
+func (b *ListenerBroadcaster) EmitDependencyEvents(ctx context.Context, params EmitDependencyEventsParams) (uint64, int, error) {
+	if len(params.DependencyEvents) == 0 {
+		return 0, 0, ErrEmptyDependencyEvents
+	}
+
+	dependencyKeys := make([]string, 0, len(params.DependencyEvents))
+	for _, event := range params.DependencyEvents {
+		dependencyKey := strings.TrimSpace(event.DependencyKey)
+		if dependencyKey == "" {
+			return 0, 0, ErrEmptyListenerDependency
+		}
+		dependencyKeys = append(dependencyKeys, dependencyKey)
+	}
+
+	scope := Scope{
+		ProjectID:      params.ProjectID,
+		ShareSessionID: params.ShareSessionID,
+	}
+	sequence, err := b.sequencer.Next(scope)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	targetConnectionIDs := b.registry.MatchingConnectionIDs(
+		params.ProjectID,
+		dependencyKeys,
+		params.ShareSessionID,
+	)
+	if len(targetConnectionIDs) == 0 {
+		return sequence, 0, nil
+	}
+
+	delivered, err := b.sendMessageToTargets(
+		ctx,
+		NewListenerDependencyEventMessage(ListenerDependencyEventContent{
+			ProjectID:        params.ProjectID,
+			ShareSessionID:   params.ShareSessionID,
+			DependencyEvents: cloneDependencyEvents(params.DependencyEvents),
+			Sequence:         sequence,
+		}),
+		targetConnectionIDs,
+	)
+	if err != nil {
+		return 0, 0, err
+	}
+	return sequence, delivered, nil
+}
+
 func (b *ListenerBroadcaster) SendForceRefresh(ctx context.Context, params ForceRefreshParams) (int, error) {
 	scope := Scope{
 		ProjectID:      params.ProjectID,
@@ -178,6 +235,18 @@ func cloneListenerDeltas(deltas []ListenerRealtimeDelta) []ListenerRealtimeDelta
 		cloned = append(cloned, ListenerRealtimeDelta{
 			Dependency: delta.Dependency,
 			Value:      cloneRawMessage(delta.Value),
+		})
+	}
+	return cloned
+}
+
+func cloneDependencyEvents(events []ListenerDependencyEvent) []ListenerDependencyEvent {
+	cloned := make([]ListenerDependencyEvent, 0, len(events))
+	for _, event := range events {
+		cloned = append(cloned, ListenerDependencyEvent{
+			DependencyKey: event.DependencyKey,
+			Payload:       cloneRawMessage(event.Payload),
+			TimestampMS:   event.TimestampMS,
 		})
 	}
 	return cloned

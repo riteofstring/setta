@@ -114,6 +114,130 @@ func TestListenerBroadcasterEmitRealtimeDeltasFiltersByDependencyAndShareSession
 	assertListenerRealtimeMessage(t, readEnvelope(t, listenerShared), "project-a", "session-b", 1, `"value-b1"`)
 }
 
+func TestListenerBroadcasterEmitDependencyEventsFiltersByDependencyModeAndShareSession(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listenerA := connectListenerSocket(t, server.URL, hub, "listener-a", "session-a")
+	defer listenerA.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "session-a", map[string]ListenerCallback{
+		"cb-action": {
+			Dependencies:   []string{"section-action"},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	listenerB := connectListenerSocket(t, server.URL, hub, "listener-b", "session-b")
+	defer listenerB.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-b", "project-a", "session-b", map[string]ListenerCallback{
+		"cb-action": {
+			Dependencies:   []string{"section-action"},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	listenerShared := connectListenerSocket(t, server.URL, hub, "listener-shared", "")
+	defer listenerShared.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-shared", "project-a", "", map[string]ListenerCallback{
+		"cb-any": {
+			Dependencies:   []string{},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	listenerRefreshOnly := connectListenerSocket(t, server.URL, hub, "listener-refresh", "session-a")
+	defer listenerRefreshOnly.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-refresh", "project-a", "session-a", map[string]ListenerCallback{
+		"cb-refresh": {
+			Dependencies:   []string{"section-action"},
+			DependencyMode: ListenerDependencyModeRefreshOnly,
+		},
+	})
+
+	sequence, delivered, err := broadcaster.EmitDependencyEvents(context.Background(), EmitDependencyEventsParams{
+		ProjectID:      "project-a",
+		ShareSessionID: "session-a",
+		DependencyEvents: []ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   123,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit dependency events: %v", err)
+	}
+	if sequence != 1 || delivered != 2 {
+		t.Fatalf("expected dependency event delivery (sequence=1 delivered=2), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	assertListenerDependencyEventMessage(t, readEnvelope(t, listenerA), "project-a", "session-a", 1, `{"clicked":true}`)
+	assertListenerDependencyEventMessage(t, readEnvelope(t, listenerShared), "project-a", "session-a", 1, `{"clicked":true}`)
+}
+
+func TestListenerBroadcasterDependencyEventsShareSequenceWithRealtimeDeltas(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "", map[string]ListenerCallback{
+		"cb-realtime": {
+			Dependencies:   []string{"section-a.param-a", "section-action"},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	realtimeSequence, delivered, err := broadcaster.EmitRealtimeDeltas(context.Background(), EmitRealtimeDeltasParams{
+		ProjectID: "project-a",
+		Deltas: []ListenerRealtimeDelta{
+			{
+				Dependency: "section-a.param-a",
+				Value:      json.RawMessage(`"value-1"`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit realtime delta: %v", err)
+	}
+	if realtimeSequence != 1 || delivered != 1 {
+		t.Fatalf("expected realtime sequence 1 with 1 delivery, got sequence=%d delivered=%d", realtimeSequence, delivered)
+	}
+
+	dependencySequence, delivered, err := broadcaster.EmitDependencyEvents(context.Background(), EmitDependencyEventsParams{
+		ProjectID: "project-a",
+		DependencyEvents: []ListenerDependencyEvent{
+			{
+				DependencyKey: "section-action",
+				Payload:       json.RawMessage(`{"clicked":true}`),
+				TimestampMS:   456,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit dependency event: %v", err)
+	}
+	if dependencySequence != 2 || delivered != 1 {
+		t.Fatalf("expected dependency event sequence 2 with 1 delivery, got sequence=%d delivered=%d", dependencySequence, delivered)
+	}
+
+	assertListenerRealtimeMessage(t, readEnvelope(t, listener), "project-a", "", 1, `"value-1"`)
+	assertListenerDependencyEventMessage(t, readEnvelope(t, listener), "project-a", "", 2, `{"clicked":true}`)
+}
+
 func TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSequence(t *testing.T) {
 	t.Parallel()
 
@@ -368,5 +492,43 @@ func assertListenerForceRefreshMessage(
 	}
 	if string(content.ProjectState) != string(projectState) {
 		t.Fatalf("expected project state %s, got %s", string(projectState), string(content.ProjectState))
+	}
+}
+
+func assertListenerDependencyEventMessage(
+	t *testing.T,
+	envelope hubMessageEnvelope,
+	projectID string,
+	shareSessionID string,
+	sequence uint64,
+	expectedPayload string,
+) {
+	t.Helper()
+
+	if envelope.MessageType != MessageTypeListenerDependencyEvent {
+		t.Fatalf("expected listener dependency event, got %q", envelope.MessageType)
+	}
+
+	var content ListenerDependencyEventContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode listener dependency event content: %v", err)
+	}
+	if content.ProjectID != projectID {
+		t.Fatalf("expected project id %q, got %q", projectID, content.ProjectID)
+	}
+	if content.ShareSessionID != shareSessionID {
+		t.Fatalf("expected share session id %q, got %q", shareSessionID, content.ShareSessionID)
+	}
+	if content.Sequence != sequence {
+		t.Fatalf("expected sequence %d, got %d", sequence, content.Sequence)
+	}
+	if len(content.DependencyEvents) != 1 {
+		t.Fatalf("expected 1 dependency event, got %d", len(content.DependencyEvents))
+	}
+	if content.DependencyEvents[0].DependencyKey != "section-action" {
+		t.Fatalf("expected dependency key section-action, got %q", content.DependencyEvents[0].DependencyKey)
+	}
+	if string(content.DependencyEvents[0].Payload) != expectedPayload {
+		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
 	}
 }

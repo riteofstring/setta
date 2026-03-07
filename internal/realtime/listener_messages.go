@@ -3,13 +3,52 @@ package realtime
 import "encoding/json"
 
 const (
-	MessageTypeListenerRealtimeEvent = "ListenerRealtimeEvent"
-	MessageTypeListenerForceRefresh  = "ListenerForceRefresh"
+	MessageTypeListenerRegister        = "ListenerRegister"
+	MessageTypeListenerRegisterAck     = "ListenerRegisterAck"
+	MessageTypeListenerRealtimeEvent   = "ListenerRealtimeEvent"
+	MessageTypeListenerDependencyEvent = "ListenerDependencyEvent"
+	MessageTypeListenerForceRefresh    = "ListenerForceRefresh"
 )
 
 type ListenerRealtimeDelta struct {
 	Dependency string          `json:"dependency"`
 	Value      json.RawMessage `json:"value"`
+}
+
+type ListenerRegisterCallbackSpec struct {
+	Dependencies   []string               `json:"dependencies"`
+	DependencyMode ListenerDependencyMode `json:"dependencyMode"`
+}
+
+type ListenerRegisterContent struct {
+	Callbacks map[string]ListenerRegisterCallbackSpec `json:"callbacks"`
+}
+
+type ListenerRegisterMessage struct {
+	MessageType string                  `json:"messageType"`
+	Content     ListenerRegisterContent `json:"content"`
+}
+
+type ListenerRegisterAckStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+type ListenerRegisterAckContent struct {
+	ProjectID      string                               `json:"projectId"`
+	ShareSessionID string                               `json:"shareSessionId,omitempty"`
+	Callbacks      map[string]ListenerRegisterAckStatus `json:"callbacks"`
+}
+
+type ListenerRegisterAckMessage struct {
+	MessageType string                     `json:"messageType"`
+	Content     ListenerRegisterAckContent `json:"content"`
+}
+
+type ListenerDependencyEvent struct {
+	DependencyKey string          `json:"dependencyKey"`
+	Payload       json.RawMessage `json:"payload,omitempty"`
+	TimestampMS   int64           `json:"timestampMs"`
 }
 
 type ListenerRealtimeEventContent struct {
@@ -22,6 +61,18 @@ type ListenerRealtimeEventContent struct {
 type ListenerRealtimeEventMessage struct {
 	MessageType string                       `json:"messageType"`
 	Content     ListenerRealtimeEventContent `json:"content"`
+}
+
+type ListenerDependencyEventContent struct {
+	ProjectID        string                    `json:"projectId"`
+	ShareSessionID   string                    `json:"shareSessionId,omitempty"`
+	DependencyEvents []ListenerDependencyEvent `json:"dependencyEvents"`
+	Sequence         uint64                    `json:"sequence"`
+}
+
+type ListenerDependencyEventMessage struct {
+	MessageType string                         `json:"messageType"`
+	Content     ListenerDependencyEventContent `json:"content"`
 }
 
 type ListenerForceRefreshContent struct {
@@ -38,6 +89,20 @@ type ListenerForceRefreshMessage struct {
 func NewListenerRealtimeEventMessage(content ListenerRealtimeEventContent) ListenerRealtimeEventMessage {
 	return ListenerRealtimeEventMessage{
 		MessageType: MessageTypeListenerRealtimeEvent,
+		Content:     content,
+	}
+}
+
+func NewListenerRegisterAckMessage(content ListenerRegisterAckContent) ListenerRegisterAckMessage {
+	return ListenerRegisterAckMessage{
+		MessageType: MessageTypeListenerRegisterAck,
+		Content:     content,
+	}
+}
+
+func NewListenerDependencyEventMessage(content ListenerDependencyEventContent) ListenerDependencyEventMessage {
+	return ListenerDependencyEventMessage{
+		MessageType: MessageTypeListenerDependencyEvent,
 		Content:     content,
 	}
 }
