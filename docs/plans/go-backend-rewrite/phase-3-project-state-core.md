@@ -21,8 +21,9 @@ Current repo status as of 2026-03-06:
   - an in-memory project runtime
   - monotonic runtime revision tracking
   - serialized mutation execution
-- a main/settings runtime registry now exists and is wired into `internal/app`
-- deployment overlays still live only in Python across:
+  - a main/settings runtime registry now exists and is wired into `internal/app`
+- deployment session overlays and deployment path-policy hooks now exist in Go
+- later route migration and realtime fan-out still live only in Python across:
   - `backend/setta/project_state/session_project_manager.py`
   - `backend/setta/project_state/project_manager_switcher.py`
 
@@ -307,20 +308,65 @@ Acceptance:
 - overlay boundaries are explicit enough for later websocket/runtime work
 - path validation has one source-of-truth pathway
 
+Status:
+
+- complete
+
+Completed:
+
+- added `OpenOverlayRuntime` with an explicit `in_memory` save policy
+- kept the persistent vs non-persistent contract explicit in `Runtime`:
+  - persistent runtimes report `persist`
+  - deployment/session overlay runtimes report `in_memory`
+- added `SessionOverlayRegistry` for deployment sessions:
+  - clones a session runtime from the current base snapshot
+  - keeps session runtimes isolated from the base runtime
+  - owns overlay lifecycle separately from the base runtime
+- chose snapshot-at-creation overlay semantics:
+  - each deployment session starts from the current base runtime snapshot
+  - later session mutations stay local to that session runtime
+  - session saves never write back to the base project document
+- added `DeploymentPathPolicy` as the source-of-truth root contract for:
+  - deployment root
+  - runtime root
+  - `artifacts/`
+  - `code/`
+  - `json_sources/`
+  - `share_runs/`
+- path resolution now flows through explicit helpers instead of ad hoc path joins:
+  - artifact path resolution
+  - code path resolution
+  - json-source path resolution
+  - session run root/path resolution
+
+Tests:
+
+- focused coverage in `internal/projectstate/share_test.go` for:
+  - in-memory save policy on overlay runtimes
+  - session overlay creation from a base snapshot
+  - non-persistent overlay saves
+  - overlay deletion and unknown-session errors
+  - deployment path-policy root enforcement
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- share/app session expiry and cleanup loops
+- overlay-aware route resolution helpers
+- listener/terminal/chat/session-owned runtime attachments
+- deployment client-facing path rewriting and redaction
+
 ## First Recommended Work Item
 
-Start with Slice 4 only.
+Phase 3 is complete.
 
-That is the highest-leverage step because the persistent/runtime/registry
-layers now exist, and the remaining missing Phase 3 boundary is deployment
-session overlay ownership.
+The next highest-leverage step is to plan Phase 4 before implementation starts.
 
 Specifically:
 
-- define how share/app sessions derive isolated runtime state from a base runtime
-- keep overlay save policy explicit so deployment sessions never overwrite persistent IDE state
-- add only the minimum path-policy hooks needed for later websocket/runtime work
-- avoid broad route migration until the overlay boundary is settled
+- write a dedicated Phase 4 implementation doc before broad realtime work
+- define the websocket hub, subscription model, snapshot/delta shape, and terminal runtime boundary on top of the current project-state runtime APIs
+- keep MCP, LSP, and broad route migration deferred until Phase 4 scope is explicit
 
 ## Test Plan
 
@@ -375,12 +421,18 @@ Resolved In Slice 3:
 - `internal/app` owns project-state registry lifecycle directly instead of leaving runtime lookup to transport code
 - later phases can depend on runtime lookup by logical target rather than reconstructing file paths ad hoc
 
+Resolved In Slice 4:
+
+- deployment sessions are explicit overlay runtimes seeded from a base snapshot, not writes into the base runtime
+- non-persistent session save behavior is a named runtime policy, not an implicit no-op hidden in callers
+- deployment artifact/code/json/run roots now have a single path-policy boundary inside `internal/projectstate`
+
 ## Next Recommended Step
 
-Implement Slice 4.
+Move to Phase 4 planning.
 
 Specifically:
 
-- add a deployment/session overlay layer on top of the current registry/runtime model
-- decide whether overlays should wrap a base runtime snapshot or hydrate a session runtime directly from persisted state
-- keep route migration deferred until deployment overlay ownership and save rules are explicit
+- add `phase-4-realtime-and-terminal-runtime.md`
+- define the first realtime slice around websocket hub ownership and project/session subscriptions
+- define the terminal runtime slice on top of the current project and overlay runtime boundaries
