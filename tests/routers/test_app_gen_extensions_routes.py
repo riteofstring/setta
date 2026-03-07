@@ -680,6 +680,50 @@ class TestAppGenExtensionsRoutes:
             ]
             assert expected_create_root.exists() is False
 
+    def test_resolve_app_gen_skills_response_does_not_probe_writes(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            original_open = Path.open
+
+            def fail_mkdir(path: Path, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError(
+                    f"resolve_app_gen_skills_response must not mkdir {path}"
+                )
+
+            def fail_open(
+                path: Path,
+                mode: str = "r",
+                *args: object,
+                **kwargs: object,
+            ):
+                if any(flag in mode for flag in ("w", "a", "x", "+")):
+                    raise AssertionError(
+                        f"resolve_app_gen_skills_response must not open {path} with mode {mode}"
+                    )
+                return original_open(path, mode, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "mkdir", fail_mkdir)
+            monkeypatch.setattr(Path, "open", fail_open)
+
+            response = resolve_app_gen_skills_response(workspace_root)
+
+            assert response.customSkillCreateRootPath == str(
+                (fake_home / ".agents" / "skills").resolve(strict=False)
+            )
+            assert response.customSkillCreateRootActionable is False
+
     def test_resolve_app_gen_skills_response_matches_create_root_when_higher_priority_root_is_unwritable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1229,6 +1273,61 @@ class TestAppGenExtensionsRoutes:
         editable_row = row_by_id["workspace_agents_skills::editable"]
         assert editable_row["isEditable"] is True
         assert editable_row["editabilityReason"] is None
+
+    def test_get_app_gen_skills_route_does_not_probe_writes(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        original_open = Path.open
+
+        def fail_mkdir(path: Path, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError(f"GET /getAppGenSkills must not mkdir {path}")
+
+        def fail_open(
+            path: Path,
+            mode: str = "r",
+            *args: object,
+            **kwargs: object,
+        ):
+            if any(flag in mode for flag in ("w", "a", "x", "+")):
+                raise AssertionError(
+                    f"GET /getAppGenSkills must not open {path} with mode {mode}"
+                )
+            return original_open(path, mode, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "mkdir", fail_mkdir)
+        monkeypatch.setattr(Path, "open", fail_open)
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                response = client.get(
+                    f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}"
+                )
+        finally:
+            clear_setta_paths_cache()
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["customSkillCreateRootPath"] == str(
+            (fake_home / ".agents" / "skills").resolve(strict=False)
+        )
+        assert payload["customSkillCreateRootActionable"] is False
 
     def test_get_app_gen_skills_route_matches_create_route_under_fallback_root(
         self,

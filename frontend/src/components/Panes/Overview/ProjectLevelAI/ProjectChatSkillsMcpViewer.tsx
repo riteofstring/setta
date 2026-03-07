@@ -49,14 +49,16 @@ import {
   buildSlashCommandsByEngine,
   DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY,
   EMPTY_AGENT_NATIVE_COMMANDS,
-  filterAgentNativeSlashCommandsByEngineId,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
+  parseAgentNativeSlashCommandsStorage,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
+  resolveAgentNativeSlashCommandsStorageUpdate,
   resolveMcpServerStatus,
+  resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
@@ -142,10 +144,6 @@ type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
   projectConfigId: string;
   nextDraft: CustomSlashCommandDraft;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 export function resolveSkillMarkdownRawDraftBySkillIdHydration({
   skillMarkdownDraftStateBySkillId,
@@ -251,159 +249,6 @@ export function resolveCustomSlashDraftByProjectConfigIdUpdate({
     nextByProjectConfigId[projectConfigId] = nextDraft;
   }
   return nextByProjectConfigId;
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
-}
-
-function normalizeSlashCommandList(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const normalized: string[] = [];
-  const seen = new Set<string>();
-  for (const value of raw) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      continue;
-    }
-    if (seen.has(trimmed)) {
-      continue;
-    }
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  }
-  return normalized;
-}
-
-function normalizeAgentNativeSlashCommandsStatus(
-  rawStatus: unknown,
-): AgentNativeSlashCommandsStatus {
-  if (typeof rawStatus !== "string") {
-    return "unknown";
-  }
-  switch (rawStatus.trim()) {
-    case "available":
-      return "available";
-    case "none":
-      return "none";
-    case "not_supported":
-      return "not_supported";
-    case "error":
-      return "error";
-    default:
-      return "unknown";
-  }
-}
-
-export function parseAgentNativeSlashCommandsStorage(
-  rawStorageValue: string | null,
-): AgentNativeSlashCommandsByProjectConfigId {
-  if (!rawStorageValue) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(rawStorageValue);
-    if (!isRecord(parsed)) {
-      return {};
-    }
-    const normalized: AgentNativeSlashCommandsByProjectConfigId = {};
-    for (const [projectConfigId, rawProjectEntry] of Object.entries(parsed)) {
-      if (!projectConfigId.trim() || !isRecord(rawProjectEntry)) {
-        continue;
-      }
-      const normalizedProjectEntries: Record<
-        string,
-        AgentNativeSlashCommandsEntry
-      > = {};
-      for (const [engineId, rawEntry] of Object.entries(rawProjectEntry)) {
-        if (!engineId.trim() || !isRecord(rawEntry)) {
-          continue;
-        }
-        const hasCommandsField = Array.isArray(rawEntry.commands);
-        const commands = normalizeSlashCommandList(rawEntry.commands);
-        const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
-        const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
-        let resolvedStatus = status;
-        if (commands.length > 0 && resolvedStatus === "unknown") {
-          resolvedStatus = "available";
-        } else if (hasCommandsField && resolvedStatus === "unknown") {
-          resolvedStatus = "none";
-        }
-        if (
-          commands.length === 0 &&
-          resolvedStatus === "unknown" &&
-          statusDetail === null
-        ) {
-          continue;
-        }
-        normalizedProjectEntries[engineId] = {
-          commands,
-          status: resolvedStatus,
-          statusDetail,
-        };
-      }
-      if (Object.keys(normalizedProjectEntries).length === 0) {
-        continue;
-      }
-      normalized[projectConfigId] = normalizedProjectEntries;
-    }
-    return normalized;
-  } catch {
-    return {};
-  }
-}
-
-function areAgentNativeSlashEntriesEqual(
-  a: AgentNativeSlashCommandsEntry | undefined,
-  b: AgentNativeSlashCommandsEntry,
-): boolean {
-  if (!a) {
-    return false;
-  }
-  if (a.status !== b.status || a.statusDetail !== b.statusDetail) {
-    return false;
-  }
-  if (a.commands.length !== b.commands.length) {
-    return false;
-  }
-  for (let index = 0; index < a.commands.length; index += 1) {
-    if (a.commands[index] !== b.commands[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-export function areAgentNativeSlashCommandMapsEqual(
-  current: Record<string, AgentNativeSlashCommandsEntry>,
-  next: Record<string, AgentNativeSlashCommandsEntry>,
-): boolean {
-  const currentKeys = Object.keys(current);
-  const nextKeys = Object.keys(next);
-  if (currentKeys.length !== nextKeys.length) {
-    return false;
-  }
-  for (const key of currentKeys) {
-    if (!(key in next)) {
-      return false;
-    }
-    if (!areAgentNativeSlashEntriesEqual(current[key], next[key])) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function resolveAgentNativeSlashCommandsMessage(
@@ -572,8 +417,8 @@ export function ProjectChatSkillsMcpViewer({
     (state) => state.externalAgentHealthInitialLoadComplete,
   );
   const agentRuns = useAIStore((state) => state.agentRuns);
-  const agentRunsInitialLoadComplete = useAIStore(
-    (state) => state.agentRunsInitialLoadComplete,
+  const agentRunsAuthorityState = useAIStore(
+    (state) => state.agentRunsAuthorityState,
   );
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
   const allLLMConfigsInitialLoadComplete = useAIStore(
@@ -973,15 +818,14 @@ export function ProjectChatSkillsMcpViewer({
     return agentNativeSlashCommandsByProjectConfigId[projectConfigId] ?? {};
   }, [agentNativeSlashCommandsByProjectConfigId, projectConfigId]);
   const visibleAgentNativeSlashCommandsByEngineId = useMemo(() => {
-    if (agentRunsInitialLoadComplete) {
-      return runtimeAgentNativeSlashCommandsByEngineId;
-    }
-    return filterAgentNativeSlashCommandsByEngineId({
-      entries: persistedAgentNativeSlashCommandsByEngineId,
+    return resolveVisibleAgentNativeSlashCommandsByEngineId({
+      agentRunsAuthorityState,
+      persistedEntries: persistedAgentNativeSlashCommandsByEngineId,
+      runtimeEntries: runtimeAgentNativeSlashCommandsByEngineId,
       engineConfigIds: slashCommandEngineIds,
     });
   }, [
-    agentRunsInitialLoadComplete,
+    agentRunsAuthorityState,
     persistedAgentNativeSlashCommandsByEngineId,
     runtimeAgentNativeSlashCommandsByEngineId,
     slashCommandEngineIds,
@@ -1081,31 +925,19 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
-    if (!showSlashCommandsSection || !agentRunsInitialLoadComplete) {
+    if (!showSlashCommandsSection || agentRunsAuthorityState !== "ready") {
       return;
     }
     setAgentNativeSlashCommandsByProjectConfigId((current) => {
-      const currentProjectEntries = current[projectConfigId] ?? {};
-      if (
-        areAgentNativeSlashCommandMapsEqual(
-          currentProjectEntries,
-          runtimeAgentNativeSlashCommandsByEngineId,
-        )
-      ) {
-        return current;
-      }
-      const next = {
-        ...current,
-      };
-      if (Object.keys(runtimeAgentNativeSlashCommandsByEngineId).length === 0) {
-        delete next[projectConfigId];
-        return next;
-      }
-      next[projectConfigId] = runtimeAgentNativeSlashCommandsByEngineId;
-      return next;
+      const next = resolveAgentNativeSlashCommandsStorageUpdate({
+        currentEntries: current,
+        projectConfigId,
+        nextEntries: runtimeAgentNativeSlashCommandsByEngineId,
+      });
+      return next ?? current;
     });
   }, [
-    agentRunsInitialLoadComplete,
+    agentRunsAuthorityState,
     projectConfigId,
     runtimeAgentNativeSlashCommandsByEngineId,
     showSlashCommandsSection,

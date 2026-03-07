@@ -2,8 +2,6 @@ import { createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
-  areAgentNativeSlashCommandMapsEqual,
-  parseAgentNativeSlashCommandsStorage,
   resolveCustomSlashDraftByProjectConfigIdUpdate,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
@@ -11,7 +9,9 @@ import {
   shouldPollSlashCommandAgentRuns,
 } from "./ProjectChatSkillsMcpViewer";
 import {
+  areAgentNativeSlashCommandMapsEqual,
   filterAgentNativeSlashCommandsByEngineId,
+  parseAgentNativeSlashCommandsStorage,
   resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
 

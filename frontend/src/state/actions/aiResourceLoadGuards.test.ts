@@ -1,4 +1,7 @@
+import { AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY } from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
 import { resetProjectStores } from "state/utils";
+import { createAgentRun } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import {
   afterAll,
   afterEach,
@@ -27,6 +30,7 @@ let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
 let loadLLMApiKeys: typeof import("state/actions/ai").loadLLMApiKeys;
 let loadLLMConfig: typeof import("state/actions/ai").loadLLMConfig;
 let memoryStorage: Storage;
+let agentRunsStorageAdapter: ReturnType<typeof getSafeLocalStorageAdapter>;
 
 describe("AI resource load guards", () => {
   beforeAll(async () => {
@@ -48,6 +52,7 @@ describe("AI resource load guards", () => {
       },
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
+    agentRunsStorageAdapter = getSafeLocalStorageAdapter("agent-runs");
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
@@ -71,6 +76,7 @@ describe("AI resource load guards", () => {
 
   afterEach(() => {
     resetProjectStores();
+    agentRunsStorageAdapter.removeItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY);
     memoryStorage.clear();
   });
 
@@ -206,6 +212,48 @@ describe("AI resource load guards", () => {
     expect(state.agentRunsAuthorityState).toBe("ready");
   });
 
+  it("hydrates cached native slash metadata from authoritative agent-run loads", async () => {
+    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+      .route_get_agent_runs as unknown as vi.Mock;
+    route_get_agent_runs.mockReset();
+    route_get_agent_runs.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        createAgentRun({
+          id: "run-live",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/deploy"],
+            },
+          },
+        }),
+      ],
+    });
+
+    await loadAgentRuns();
+
+    expect(
+      JSON.parse(
+        agentRunsStorageAdapter.getItem(
+          AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+        ) ?? "{}",
+      ),
+    ).toEqual({
+      "project-a": {
+        "engine-live": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+    });
+  });
+
   it("retries transient agent-runs load failures and recovers to ready", async () => {
     vi.useFakeTimers();
     try {
@@ -328,6 +376,53 @@ describe("AI resource load guards", () => {
       expect(state.agentRunsInitialLoadComplete).toBe(true);
       expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
       expect(route_get_agent_runs).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps cached native slash metadata intact after terminal agent-run failures", async () => {
+    vi.useFakeTimers();
+    try {
+      agentRunsStorageAdapter.setItem(
+        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+        JSON.stringify({
+          "project-a": {
+            "engine-live": {
+              commands: ["/deploy"],
+              status: "available",
+              statusDetail: null,
+            },
+          },
+        }),
+      );
+      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+        .route_get_agent_runs as unknown as vi.Mock;
+      route_get_agent_runs.mockReset();
+      route_get_agent_runs.mockResolvedValue({
+        status: 500,
+        hasResponse: true,
+        data: { detail: "persistent failure" },
+      });
+
+      await loadAgentRuns();
+      await vi.advanceTimersByTimeAsync(4000);
+
+      expect(
+        JSON.parse(
+          agentRunsStorageAdapter.getItem(
+            AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+          ) ?? "{}",
+        ),
+      ).toEqual({
+        "project-a": {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      });
     } finally {
       vi.useRealTimers();
     }

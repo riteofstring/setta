@@ -614,6 +614,119 @@ test("project ai chat ignores cached native slash commands from other projects",
   }
 });
 
+test("project ai chat keeps cached native slash commands visible after terminal run-load failure", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+  allowExpectedApiError(page, {
+    path: "/api/getAgentRuns",
+    statuses: [500],
+    method: "GET",
+    count: 12,
+    ttlMs: 20_000,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  let getAgentRunsRequests = 0;
+  await page.route("**/api/getAgentRuns", async (route) => {
+    getAgentRunsRequests += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "forced failure" }),
+    });
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+    const engineConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getEngineConfigs`,
+    );
+    expect(engineConfigsResponse.ok()).toBe(true);
+    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+      id: string;
+      name: string;
+      engineType: string;
+    }>;
+    const externalEngine = engineConfigs.find(
+      (engine) => engine.engineType === "external_agent",
+    );
+    if (!externalEngine) {
+      throw new Error(
+        "Missing external agent engine for slash-command cache failure test.",
+      );
+    }
+
+    await page.evaluate(
+      ({ projectConfigId, externalEngineId }) => {
+        window.localStorage.setItem(
+          "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId",
+          JSON.stringify({
+            [projectConfigId]: {
+              [externalEngineId]: {
+                commands: ["/deploy"],
+                status: "available",
+                statusDetail: null,
+              },
+            },
+          }),
+        );
+      },
+      {
+        projectConfigId: projectContext.projectConfigId,
+        externalEngineId: externalEngine.id,
+      },
+    );
+
+    await openSlashCommandsViewer(page);
+    const externalEngineTab = page
+      .getByTestId("skills-mcp-slash-tab")
+      .filter({ hasText: externalEngine.name })
+      .first();
+    await expect(externalEngineTab).toBeVisible();
+    await externalEngineTab.click();
+
+    const deployCommand = page
+      .getByTestId("skills-mcp-agent-slash-command")
+      .filter({ hasText: "/deploy" });
+    await expect(deployCommand).toBeVisible();
+
+    await expect
+      .poll(() => getAgentRunsRequests, { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(4);
+    await expect(deployCommand).toBeVisible();
+
+    const storedCommands = await page.evaluate(() => {
+      return window.localStorage.getItem(
+        "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId",
+      );
+    });
+    expect(JSON.parse(storedCommands ?? "{}")).toMatchObject({
+      [projectContext.projectConfigId]: {
+        [externalEngine.id]: {
+          commands: ["/deploy"],
+        },
+      },
+    });
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("custom slash commands preserve attachments on submit", async ({
   page,
 }) => {

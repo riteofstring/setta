@@ -8,6 +8,7 @@ import {
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
+  areAgentNativeSlashCommandMapsEqual,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
@@ -16,9 +17,13 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  parseAgentNativeSlashCommandsStorage,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
+  resolveAgentNativeSlashCommandsByProjectConfigId,
+  resolveAgentNativeSlashCommandsStorageUpdate,
   resolveMcpServerStatus,
+  resolveVisibleAgentNativeSlashCommandsByEngineId,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -745,6 +750,155 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
 
     expect(tokens).toEqual([]);
+  });
+
+  it("keeps cached native slash entries visible until runtime authority is ready", () => {
+    const visible = resolveVisibleAgentNativeSlashCommandsByEngineId({
+      agentRunsAuthorityState: "terminal_error",
+      persistedEntries: {
+        "engine-live": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+        "engine-removed": {
+          commands: ["/obsolete"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+      runtimeEntries: {},
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(visible).toEqual({
+      "engine-live": {
+        commands: ["/deploy"],
+        status: "available",
+        statusDetail: null,
+      },
+    });
+  });
+
+  it("updates project-scoped cache entries only from ready runtime metadata", () => {
+    const next = resolveAgentNativeSlashCommandsStorageUpdate({
+      currentEntries: parseAgentNativeSlashCommandsStorage(
+        JSON.stringify({
+          "project-a": {
+            "engine-live": {
+              commands: ["/deploy"],
+              status: "available",
+              statusDetail: null,
+            },
+          },
+        }),
+      ),
+      projectConfigId: "project-a",
+      nextEntries: {
+        "engine-live": {
+          commands: [],
+          status: "none",
+          statusDetail: null,
+        },
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        "engine-live": {
+          commands: [],
+          status: "none",
+          statusDetail: null,
+        },
+      },
+    });
+  });
+
+  it("collects newest native slash metadata for each project across the full run list", () => {
+    const resolved = resolveAgentNativeSlashCommandsByProjectConfigId({
+      runs: [
+        createAgentRun({
+          id: "run-project-a-old",
+          startedAt: "2026-02-01T00:00:00Z",
+          finishedAt: "2026-02-01T00:00:01Z",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/old"],
+            },
+          },
+        }),
+        createAgentRun({
+          id: "run-project-a-new",
+          startedAt: "2026-02-02T00:00:00Z",
+          finishedAt: "2026-02-02T00:00:01Z",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/deploy"],
+            },
+          },
+        }),
+        createAgentRun({
+          id: "run-project-b",
+          startedAt: "2026-02-03T00:00:00Z",
+          finishedAt: "2026-02-03T00:00:01Z",
+          inputs: {
+            projectConfigId: "project-b",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-second",
+              agentNativeSlashCommands: ["/status"],
+            },
+          },
+        }),
+      ],
+    });
+
+    expect(resolved).toEqual({
+      "project-a": {
+        "engine-live": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+      "project-b": {
+        "engine-second": {
+          commands: ["/status"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+    });
+  });
+
+  it("detects when authoritative runtime metadata is unchanged", () => {
+    expect(
+      areAgentNativeSlashCommandMapsEqual(
+        {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+        {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      ),
+    ).toBe(true);
   });
 
   it("reconciles colliding custom commands against managed and native reserved tokens", () => {

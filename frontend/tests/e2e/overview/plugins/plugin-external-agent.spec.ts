@@ -46,7 +46,7 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
       }),
     ).toBeVisible();
 
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     await openProjectAiSettingsPopover(page);

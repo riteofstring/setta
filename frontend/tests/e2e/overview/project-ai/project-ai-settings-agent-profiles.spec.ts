@@ -12,7 +12,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("llm api keys supports adding custom key/value entries", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     const customKey = "E2E_CUSTOM_LLM_API_KEY";
@@ -71,7 +71,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("llm api key save retries on revision conflict and preserves concurrent keys", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     const customKey = "E2E_RETRY_CUSTOM_KEY";
@@ -192,7 +192,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("defaults to essentials open and persists accordion state", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
@@ -421,7 +421,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("agent profile toggles are visible and default off", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
@@ -455,7 +455,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   });
 
   test("guardrails completion toggle persists", async ({ page }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
@@ -514,7 +514,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("guardrails completion toggle is disabled while save is in flight", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {
@@ -573,7 +573,7 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("guardrails completion toggle rolls back when save fails", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     const projectContext = await openIsolatedProject(page);
     await openProjectAiSettingsPopover(page);
     try {

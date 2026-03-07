@@ -223,6 +223,45 @@ def _collect_missing_custom_skill_probe_paths(root_path: Path) -> list[Path]:
         current_path = parent_path
 
 
+def _find_existing_custom_skill_parent(root_path: Path) -> Path:
+    current_path = root_path.resolve(strict=False)
+    while True:
+        if current_path.exists():
+            return current_path
+        parent_path = current_path.parent
+        if parent_path == current_path:
+            return current_path
+        current_path = parent_path
+
+
+def _check_custom_skill_root_candidate(
+    root_path: Path,
+) -> tuple[bool, bool, str | None]:
+    resolved_root_path = root_path.resolve(strict=False)
+    try:
+        root_exists = resolved_root_path.exists()
+    except OSError as exc:
+        return False, False, str(exc)
+    if root_exists:
+        try:
+            if not resolved_root_path.is_dir():
+                return False, True, "not a directory"
+        except OSError as exc:
+            return False, True, str(exc)
+        if os.access(resolved_root_path, os.W_OK | os.X_OK):
+            return True, True, None
+        return False, True, "not writable"
+    try:
+        existing_parent_path = _find_existing_custom_skill_parent(resolved_root_path)
+        if not existing_parent_path.is_dir():
+            return False, False, "parent path is not a directory"
+    except OSError as exc:
+        return False, False, str(exc)
+    if os.access(existing_parent_path, os.W_OK | os.X_OK):
+        return True, False, None
+    return False, False, "parent directory not writable"
+
+
 def _probe_custom_skill_root_writable(
     root_path: Path,
 ) -> tuple[bool, bool, str | None]:
@@ -257,6 +296,23 @@ def _probe_custom_skill_root_writable(
 
 
 def _resolve_custom_skill_create_root(
+    workspace_root: Path,
+) -> tuple[str, str, Path, bool]:
+    checked_roots: list[str] = []
+    for root_id, root_label, root_path in _iter_prioritized_custom_skill_roots(
+        workspace_root
+    ):
+        is_candidate, root_exists, error = _check_custom_skill_root_candidate(root_path)
+        if is_candidate:
+            return root_id, root_label, root_path, root_exists
+        checked_roots.append(f"{root_id} ({root_path}): {error or 'not writable'}")
+    checked_detail = "; ".join(checked_roots)
+    raise ValueError(
+        f"No writable custom skill root available. Checked: {checked_detail}"
+    )
+
+
+def _resolve_custom_skill_create_root_for_write(
     workspace_root: Path,
 ) -> tuple[str, str, Path, bool]:
     checked_roots: list[str] = []
@@ -456,7 +512,7 @@ def upsert_app_gen_custom_skill(
             _,
             target_root_path,
             _,
-        ) = _resolve_custom_skill_create_root(workspace_root)
+        ) = _resolve_custom_skill_create_root_for_write(workspace_root)
         target_root_id = _resolve_discoverable_root_id_for_path(
             workspace_root=workspace_root,
             root_path=target_root_path,

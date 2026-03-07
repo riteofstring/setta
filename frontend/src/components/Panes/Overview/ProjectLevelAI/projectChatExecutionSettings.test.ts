@@ -91,6 +91,16 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
     ).toEqual(["/deploy", "/status"]);
   });
 
+  it("ignores runtime-only native tokens until agent-run authority is ready", () => {
+    expect(
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: ["/deploy"],
+        persistedNativeSlashCommandTokens: ["/status"],
+        agentRunsAuthorityState: "loading",
+      }),
+    ).toEqual(["/status"]);
+  });
+
   it("keeps conflicting custom commands non-executable during startup hydration", () => {
     const startupNativeTokens =
       resolveProjectChatComposerNativeSlashCommandTokens({

@@ -332,3 +332,44 @@
 - Manual Chrome DevTools MCP verification for:
   - `Custom skills root (not created yet)` rendering with `Open` disabled,
   - Watch Code control absence in deployment mode.
+
+## 2026-03-06 06:42:38 PST
+
+### Consolidated findings implemented
+- Restored strict read-only behavior for `GET /getAppGenSkills` by separating skills-browser root discovery from the write-capable create/save path.
+- Made native slash-command authority consistent across load, cache hydration, viewer rendering, and composer execution so reserved agent-native commands stay fail-closed until authoritative run metadata is ready.
+- Preserved cached native slash-command metadata during degraded agent-run states instead of hiding or deleting it on transient or terminal load failures.
+- Removed the remaining Playwright compatibility shims for deleted Overview destinations so E2E coverage follows the shipped Project AI Chat and Notifications flows directly.
+
+### Proposed fixes applied
+- Backend `app_gen_extensions` now uses `_resolve_custom_skill_create_root(...)` for `GET /getAppGenSkills` and keeps `_resolve_custom_skill_create_root_for_write(...)` for explicit custom-skill creation and updates.
+- Backend regression tests now fail immediately if the GET route attempts any `Path.mkdir(...)` or write-mode `Path.open(...)` while resolving the skills response.
+- Frontend agent-run loading now hydrates persisted native slash-command metadata from the authoritative load path in `ai.ts` instead of relying on the slash-command viewer to seed storage after the fact.
+- `ProjectChatSkillsMcpViewer` now treats runtime-native slash-command data as authoritative only when `agentRunsAuthorityState === "ready"` and avoids cache writeback in non-authoritative states.
+- `ProjectChatCore` now keeps slash-prefixed input fail-closed while authoritative agent-run metadata is unresolved and continues treating cached reserved/native tokens as protected during startup and terminal failure states.
+- Playwright helpers now reject removed `ProjectAISettings` and `BackendLogs` aliases, and the affected specs were rewritten to navigate through the live `Project AI Chat -> settings popover -> AI Settings` and `Notifications -> Logs` UI paths.
+
+### UX/DX before and after
+- Before: Opening the Skills browser could still create directories or write probe files under candidate custom-skill roots.  
+  After: Skills discovery is side-effect free; only create/save actions can mutate the filesystem.
+- Before: Fresh loads and degraded agent-run states could disagree about whether a reserved native slash token should be shown, cached, or blocked from execution.  
+  After: One authority model governs cache hydration, viewer visibility, and composer protection, so reserved native slash commands remain consistently fail-closed until runtime metadata is authoritative.
+- Before: A terminal run-load failure could hide cached native slash commands and even drop the persisted reservation metadata.  
+  After: Cached native commands remain visible and read-only during failure states, and load failures no longer erase the reservation cache.
+- Before: Playwright could keep passing while using removed Overview-tab aliases rather than the actual UI entry points users see.  
+  After: E2E coverage exercises the real shipped navigation flows, which makes failures more trustworthy and reduces dead compatibility code.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - read-only `GET /getAppGenSkills` behavior with hard failures on attempted directory creation,
+  - read-only `GET /getAppGenSkills` behavior with hard failures on attempted write opens,
+  - retained `customSkillCreateRootActionable` contract while the GET flow stays side-effect free.
+- Frontend Vitest coverage for:
+  - authoritative agent-run loads hydrating cached native slash metadata,
+  - retained cached native slash metadata after terminal agent-run failures,
+  - fail-closed composer reconciliation while `agentRunsAuthorityState` is not `ready`,
+  - viewer/runtime command resolution using the shared authority helpers.
+- Playwright E2E coverage for:
+  - Project AI Settings access through the live Project AI Chat settings popover flow,
+  - slash-command UX with cached native metadata surviving terminal run-load failures,
+  - updated Overview navigation paths without removed alias shortcuts.

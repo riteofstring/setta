@@ -357,6 +357,10 @@ type ChatInputProps = {
     message: string,
     attachments: ChatFileAttachment[],
   ) => Promise<boolean> | boolean;
+  onUnknownSlashCommand?: (
+    message: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
   onStop?: () => Promise<void> | void;
   executionControls?: ChatExecutionControls;
   executionControlVisibility?: ChatExecutionControlVisibility;
@@ -394,6 +398,7 @@ export const ChatInput = memo(function ChatInput({
   value,
   onChange,
   onSubmit,
+  onUnknownSlashCommand,
   onStop,
   executionControls,
   executionControlVisibility = {
@@ -787,7 +792,27 @@ export const ChatInput = memo(function ChatInput({
         recognizedSlashCommands: slashCommandRecognitionSet,
       });
       if (!parsed) {
-        return false;
+        if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
+          return false;
+        }
+        const result = await onUnknownSlashCommand(message, attachments);
+        if (result === false) {
+          return false;
+        }
+        const slashResult =
+          result && typeof result === "object" ? result : undefined;
+        if (slashResult?.handled === false) {
+          return false;
+        }
+        setSlashFeedback(
+          slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK,
+        );
+        if (slashResult?.keepInput === false) {
+          escClearedComposerDraftRef.current = null;
+          clearInput();
+          clearAttachments();
+        }
+        return true;
       }
       if (!commandAvailable) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
@@ -844,6 +869,7 @@ export const ChatInput = memo(function ChatInput({
       clearInput,
       onSlashCommand,
       onSubmit,
+      onUnknownSlashCommand,
       slashCommandRecognitionSet,
       slashCommands,
     ],

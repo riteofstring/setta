@@ -42,12 +42,23 @@ export type AgentNativeSlashCommandsByProjectConfigId = Record<
   string,
   Record<string, AgentNativeSlashCommandsEntry>
 >;
+export type AgentRunsAuthorityState =
+  | "loading"
+  | "ready"
+  | "transient_error"
+  | "terminal_error";
 export const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
   {
     commands: EMPTY_AGENT_NATIVE_COMMANDS,
     status: "unknown",
     statusDetail: null,
   };
+
+export function isAgentRunsAuthorityReady(
+  agentRunsAuthorityState: AgentRunsAuthorityState,
+): boolean {
+  return agentRunsAuthorityState === "ready";
+}
 
 export function filterSkills(
   skills: AppGenSkillEntry[],
@@ -759,6 +770,155 @@ export function resolveAgentNativeSlashCommandsByEngineId({
   return next;
 }
 
+export function resolveAgentNativeSlashCommandsByProjectConfigId({
+  runs,
+}: {
+  runs: AgentRun[];
+}): AgentNativeSlashCommandsByProjectConfigId {
+  const nextByProjectAndEngine: Record<
+    string,
+    Record<
+      string,
+      {
+        entry: AgentNativeSlashCommandsEntry;
+        lastUpdatedMs: number;
+        runId: string;
+      }
+    >
+  > = {};
+  for (const run of runs) {
+    const projectConfigId = run.inputs?.projectConfigId;
+    if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
+      continue;
+    }
+    const extracted = extractAgentNativeSlashCommandsFromRun(run);
+    if (!extracted) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const nextRunId = run.id.trim();
+    const currentByEngine =
+      nextByProjectAndEngine[projectConfigId] ??
+      (nextByProjectAndEngine[projectConfigId] = {});
+    const current = currentByEngine[extracted.engineConfigId];
+    if (
+      current &&
+      (lastUpdatedMs < current.lastUpdatedMs ||
+        (lastUpdatedMs === current.lastUpdatedMs &&
+          nextRunId.localeCompare(current.runId) <= 0))
+    ) {
+      continue;
+    }
+    currentByEngine[extracted.engineConfigId] = {
+      entry: extracted.entry,
+      lastUpdatedMs,
+      runId: nextRunId,
+    };
+  }
+  const next: AgentNativeSlashCommandsByProjectConfigId = {};
+  for (const [projectConfigId, entriesByEngineId] of Object.entries(
+    nextByProjectAndEngine,
+  )) {
+    const normalizedEntries: Record<string, AgentNativeSlashCommandsEntry> = {};
+    for (const [engineConfigId, value] of Object.entries(entriesByEngineId)) {
+      normalizedEntries[engineConfigId] = value.entry;
+    }
+    if (Object.keys(normalizedEntries).length === 0) {
+      continue;
+    }
+    next[projectConfigId] = normalizedEntries;
+  }
+  return next;
+}
+
+export function resolveVisibleAgentNativeSlashCommandsByEngineId({
+  agentRunsAuthorityState,
+  persistedEntries,
+  runtimeEntries,
+  engineConfigIds,
+}: {
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+  persistedEntries: Record<string, AgentNativeSlashCommandsEntry>;
+  runtimeEntries: Record<string, AgentNativeSlashCommandsEntry>;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  if (isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
+    return runtimeEntries;
+  }
+  return filterAgentNativeSlashCommandsByEngineId({
+    entries: persistedEntries,
+    engineConfigIds,
+  });
+}
+
+function areAgentNativeSlashEntriesEqual(
+  currentEntry: AgentNativeSlashCommandsEntry | undefined,
+  nextEntry: AgentNativeSlashCommandsEntry,
+): boolean {
+  if (!currentEntry) {
+    return false;
+  }
+  if (
+    currentEntry.status !== nextEntry.status ||
+    currentEntry.statusDetail !== nextEntry.statusDetail
+  ) {
+    return false;
+  }
+  if (currentEntry.commands.length !== nextEntry.commands.length) {
+    return false;
+  }
+  for (let index = 0; index < currentEntry.commands.length; index += 1) {
+    if (currentEntry.commands[index] !== nextEntry.commands[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areAgentNativeSlashCommandMapsEqual(
+  current: Record<string, AgentNativeSlashCommandsEntry>,
+  next: Record<string, AgentNativeSlashCommandsEntry>,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!(key in next)) {
+      return false;
+    }
+    if (!areAgentNativeSlashEntriesEqual(current[key], next[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function resolveAgentNativeSlashCommandsStorageUpdate({
+  currentEntries,
+  projectConfigId,
+  nextEntries,
+}: {
+  currentEntries: AgentNativeSlashCommandsByProjectConfigId;
+  projectConfigId: string;
+  nextEntries: Record<string, AgentNativeSlashCommandsEntry>;
+}): AgentNativeSlashCommandsByProjectConfigId | null {
+  const currentProjectEntries = currentEntries[projectConfigId] ?? {};
+  if (areAgentNativeSlashCommandMapsEqual(currentProjectEntries, nextEntries)) {
+    return null;
+  }
+  const next = {
+    ...currentEntries,
+  };
+  if (Object.keys(nextEntries).length === 0) {
+    delete next[projectConfigId];
+    return next;
+  }
+  next[projectConfigId] = nextEntries;
+  return next;
+}
+
 export function collectAgentNativeSlashCommandTokensFromEntries(
   entries: Record<string, AgentNativeSlashCommandsEntry>,
 ): string[] {
@@ -1038,20 +1198,12 @@ export function collectAgentNativeSlashCommandTokensFromStorage({
   projectConfigId: string;
   engineConfigIds?: string[];
 }): string[] {
-  if (!rawStorageValue || !projectConfigId.trim()) {
+  if (!projectConfigId.trim()) {
     return [];
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawStorageValue);
-  } catch {
-    return [];
-  }
-  if (!isRecord(parsed)) {
-    return [];
-  }
+  const parsed = parseAgentNativeSlashCommandsStorage(rawStorageValue);
   const projectEntries = parsed[projectConfigId];
-  if (!isRecord(projectEntries)) {
+  if (!projectEntries) {
     return [];
   }
   const allowedEngineIds =
@@ -1064,13 +1216,7 @@ export function collectAgentNativeSlashCommandTokensFromStorage({
     if (allowedEngineIds && !allowedEngineIds.has(engineId)) {
       continue;
     }
-    if (!isRecord(entry) || !Array.isArray(entry.commands)) {
-      continue;
-    }
     for (const command of entry.commands) {
-      if (typeof command !== "string") {
-        continue;
-      }
       const normalized = normalizeSlashCommandToken(command);
       if (!normalized || seen.has(normalized)) {
         continue;
@@ -1080,6 +1226,70 @@ export function collectAgentNativeSlashCommandTokensFromStorage({
     }
   }
   return discoveredTokens;
+}
+
+export function parseAgentNativeSlashCommandsStorage(
+  rawStorageValue: string | null,
+): AgentNativeSlashCommandsByProjectConfigId {
+  if (!rawStorageValue) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawStorageValue);
+    if (!isRecord(parsed)) {
+      return {};
+    }
+    const normalized: AgentNativeSlashCommandsByProjectConfigId = {};
+    for (const [projectConfigId, rawProjectEntry] of Object.entries(parsed)) {
+      if (!projectConfigId.trim() || !isRecord(rawProjectEntry)) {
+        continue;
+      }
+      const normalizedProjectEntries: Record<
+        string,
+        AgentNativeSlashCommandsEntry
+      > = {};
+      for (const [engineId, rawEntry] of Object.entries(rawProjectEntry)) {
+        if (!engineId.trim() || !isRecord(rawEntry)) {
+          continue;
+        }
+        const hasCommandsField = Array.isArray(rawEntry.commands);
+        const commands = normalizeSlashCommandList(rawEntry.commands);
+        const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
+        const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
+        let resolvedStatus = status;
+        if (commands.length > 0 && resolvedStatus === "unknown") {
+          resolvedStatus = "available";
+        } else if (hasCommandsField && resolvedStatus === "unknown") {
+          resolvedStatus = "none";
+        }
+        if (
+          commands.length === 0 &&
+          resolvedStatus === "unknown" &&
+          statusDetail === null
+        ) {
+          continue;
+        }
+        normalizedProjectEntries[engineId] = {
+          commands,
+          status: resolvedStatus,
+          statusDetail,
+        };
+      }
+      if (Object.keys(normalizedProjectEntries).length === 0) {
+        continue;
+      }
+      normalized[projectConfigId] = normalizedProjectEntries;
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeAgentNativeSlashCommandsStorage(
+  entries: AgentNativeSlashCommandsByProjectConfigId,
+): string {
+  return JSON.stringify(entries);
 }
 
 export function buildReservedSlashCommandTokens({

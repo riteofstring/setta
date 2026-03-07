@@ -12,6 +12,7 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
+  resolveSlashCommandRequest,
   type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
@@ -97,8 +98,10 @@ import {
   buildReservedSlashCommandTokens,
   collectAgentNativeSlashCommandTokensFromEntries,
   collectAgentNativeSlashCommandTokensFromStorage,
+  isAgentRunsAuthorityReady,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
+  type AgentRunsAuthorityState,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
@@ -181,32 +184,12 @@ export function resolveProjectChatComposerNativeSlashCommandTokens({
 }: {
   runtimeNativeSlashCommandTokens: string[];
   persistedNativeSlashCommandTokens: string[];
-  agentRunsAuthorityState:
-    | "loading"
-    | "ready"
-    | "transient_error"
-    | "terminal_error";
+  agentRunsAuthorityState: AgentRunsAuthorityState;
 }): string[] {
-  if (agentRunsAuthorityState === "ready") {
+  if (isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
     return runtimeNativeSlashCommandTokens;
   }
-  const mergedTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const token of persistedNativeSlashCommandTokens) {
-    if (seen.has(token)) {
-      continue;
-    }
-    seen.add(token);
-    mergedTokens.push(token);
-  }
-  for (const token of runtimeNativeSlashCommandTokens) {
-    if (seen.has(token)) {
-      continue;
-    }
-    seen.add(token);
-    mergedTokens.push(token);
-  }
-  return mergedTokens;
+  return persistedNativeSlashCommandTokens;
 }
 
 export function resolveProjectChatComposerSlashCommandSets({
@@ -1663,6 +1646,86 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
 
+  const handleUnknownSlashCommand = useCallback(
+    async (
+      message: string,
+      _attachments: ChatFileAttachment[],
+    ): Promise<ChatSlashCommandResult> => {
+      if (
+        !isExternalEngine ||
+        isAgentRunsAuthorityReady(agentRunsAuthorityState)
+      ) {
+        return false;
+      }
+      await loadAgentRuns();
+      const refreshedState = useAIStore.getState();
+      const refreshedRuntimeNativeSlashCommandTokens =
+        collectAgentNativeSlashCommandTokensFromEntries(
+          resolveAgentNativeSlashCommandsByEngineId({
+            runs: refreshedState.agentRuns,
+            projectConfigId,
+            engineConfigIds,
+          }),
+        );
+      const refreshedPersistedNativeSlashCommandTokens =
+        collectAgentNativeSlashCommandTokensFromStorage({
+          rawStorageValue: storageAdapter.getItem(
+            AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+          ),
+          projectConfigId,
+          engineConfigIds,
+        });
+      const refreshedDiscoveredAgentNativeSlashCommands =
+        resolveProjectChatComposerNativeSlashCommandTokens({
+          runtimeNativeSlashCommandTokens:
+            refreshedRuntimeNativeSlashCommandTokens,
+          persistedNativeSlashCommandTokens:
+            refreshedPersistedNativeSlashCommandTokens,
+          agentRunsAuthorityState: refreshedState.agentRunsAuthorityState,
+        });
+      const refreshedSlashCommandSets =
+        resolveProjectChatComposerSlashCommandSets({
+          customProjectChatSlashCommands,
+          discoveredAgentNativeSlashCommands:
+            refreshedDiscoveredAgentNativeSlashCommands,
+          showPermissionExecutionControl,
+          showSearchExecutionControl,
+        });
+      const refreshedRequest = resolveSlashCommandRequest({
+        message,
+        slashCommands: refreshedSlashCommandSets.slashCommands,
+        recognizedSlashCommands:
+          refreshedSlashCommandSets.recognizedSlashCommands,
+      });
+      if (refreshedRequest.parsed) {
+        return {
+          handled: true,
+          feedback: "Unknown or unavailable command. Use /help.",
+          keepInput: true,
+        };
+      }
+      if (!isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState)) {
+        return {
+          handled: true,
+          feedback:
+            "Native slash commands are unavailable until agent metadata reloads.",
+          keepInput: true,
+        };
+      }
+      return false;
+    },
+    [
+      agentRunsAuthorityState,
+      customProjectChatSlashCommands,
+      engineConfigIds,
+      isExternalEngine,
+      projectConfigId,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+      storageAdapter,
+    ],
+  );
+
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -2000,6 +2063,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           slashCommands={slashCommands}
           recognizedSlashCommands={recognizedSlashCommands}
           onSlashCommand={handleSlashCommand}
+          onUnknownSlashCommand={handleUnknownSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
             permissionMode: showPermissionExecutionControl,
