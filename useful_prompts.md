@@ -9,7 +9,8 @@ Review this branch for merge into `main`.
 
     Branch intent guardrails
     - Read `branch_intent.md` before reviewing the diff.
-    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch.
+    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch, except for any guidance about backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior.
+    - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
     - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
     - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
  
@@ -68,7 +69,7 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Add a new entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
 
