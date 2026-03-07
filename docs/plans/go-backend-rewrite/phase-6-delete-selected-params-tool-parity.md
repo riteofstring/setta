@@ -157,8 +157,10 @@ section even after disappearing from the visible hierarchy.
 
 ## Next Recommended Step
 
-- if this slice lands cleanly, scope `delete_kwarg` as the next bounded
-  single-param convenience tool in the same param-structure cluster
+- `delete_kwarg` has now landed to close the single-param convenience gap in
+  this cluster
+- the next bounded follow-on should be inventory work for the remaining
+  Python-owned MCP mutation gaps, not speculative move/reparent behavior
 
 ## Progress Notes
 

@@ -563,6 +563,67 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
 
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"delete_kwarg",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected delete_kwarg success, got %#v", payload.StructuredContent)
+	}
+	deleteKwargPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if got := deleteKwargPayload["codeObjId"]; got != addedCallableParamID {
+		t.Fatalf("expected deleted codeObjId %q, got %#v", addedCallableParamID, got)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route delete_kwarg: %v", err)
+	}
+	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after route delete_kwarg: %v", err)
+	}
+	callableChildren := mustStringListForRoute(t, callableCodeObjPayload["children"])
+	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
+		t.Fatalf("expected callable children [allowed-param-existing] after delete_kwarg, got %#v", callableChildren)
+	}
+	if _, ok := project.CodeObjs[addedCallableParamID]; ok {
+		t.Fatalf("expected deleted callable param %q to be pruned after delete_kwarg, got %#v", addedCallableParamID, project.CodeObjs[addedCallableParamID])
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"add_kwarg",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected second add_kwarg success, got %#v", payload.StructuredContent)
+	}
+	addKwargPayload = mustStructuredMapForRoute(t, payload.StructuredContent)
+	addedCallableParamID, ok = addKwargPayload["codeObjId"].(string)
+	if !ok || addedCallableParamID == "" {
+		t.Fatalf("expected second add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+	}
+
 	response = postMCPToolRoute(t, handler, fmt.Sprintf(`{
 		"tool":"delete_selected_params",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","paramInfoIds":["%s"]},
@@ -594,7 +655,7 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve allowed-callable-2 after route delete_selected_params: %v", err)
 	}
-	callableChildren := mustStringListForRoute(t, callableCodeObjPayload["children"])
+	callableChildren = mustStringListForRoute(t, callableCodeObjPayload["children"])
 	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
 		t.Fatalf("expected callable children [allowed-param-existing] after delete_selected_params, got %#v", callableChildren)
 	}

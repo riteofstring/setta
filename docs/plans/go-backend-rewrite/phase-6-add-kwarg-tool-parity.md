@@ -138,10 +138,11 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- `change_param_impl`, `update_param_impl_config`, and
-  `delete_selected_params` are now complete on the Go-owned MCP boundary
-- the next bounded follow-on in this param-editing cluster is `delete_kwarg`
-- keep delete/move/reparent follow-ons deferred until their own bounded slices
+- `change_param_impl`, `update_param_impl_config`, `delete_selected_params`,
+  and `delete_kwarg` are now complete on the Go-owned MCP boundary
+- the next bounded follow-on should be inventory work for the remaining
+  Python-owned MCP mutation gaps before inventing further param-structure
+  slices
 
 ## Progress Notes
 

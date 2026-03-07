@@ -186,9 +186,10 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- scope `delete_kwarg` as the next bounded single-param deletion slice
-- keep delete/move/reparent follow-ons separate from the completed
-  `delete_selected_params` and config-write boundaries
+- `delete_kwarg` has now landed to close the single-param deletion gap in this
+  param-editing cluster
+- the next bounded follow-on should be inventory work for the remaining
+  Python-owned MCP mutation gaps
 
 ## Progress Notes
 

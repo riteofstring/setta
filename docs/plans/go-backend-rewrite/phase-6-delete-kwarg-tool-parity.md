@@ -22,11 +22,10 @@ callable or dict section.
 
 Current repo status as of 2026-03-07:
 
-- this slice is in progress
-- the highest-leverage bounded gap is `delete_kwarg`
-- the main dependency is already complete:
-  `delete_selected_params` now owns the cleanup semantics that should be reused
-  here
+- this slice is complete
+- Go now owns `delete_kwarg` through `internal/projectstate` and MCP
+- last-param deletion now reuses the stronger selected-param cleanup boundary
+  instead of Python's narrower helper semantics
 
 ## Scope
 
@@ -140,18 +139,30 @@ The highest-leverage move is therefore:
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient|TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- if this slice lands cleanly, the next bounded param-structure follow-on
-  should move to move/reparent work only if a concrete product workflow needs
-  it
+- the callable/dict param-structure cluster now covers create, single-delete,
+  multi-delete, impl switching, and impl config writes on the Go-owned MCP
+  boundary
+- the next bounded follow-on should be inventory work for the remaining
+  Python-owned MCP mutation gaps rather than inventing move/reparent behavior
+  without a concrete product driver
 
 ## Progress Notes
 
 - 2026-03-07: doc created to scope the slice before implementation.
+- 2026-03-07: project-state owner landed with callable/dict last-child deletion,
+  selected-param cleanup reuse, section-local variant-map pruning, and
+  unreachable code-object pruning.
+- 2026-03-07: MCP parity landed with `delete_kwarg` registration, deleted-id
+  temp-id translation, scoped allow/deny coverage, and authenticated
+  HTTP/IDE-mode app verification.

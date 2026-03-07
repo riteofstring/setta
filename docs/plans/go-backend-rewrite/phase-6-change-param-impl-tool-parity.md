@@ -171,11 +171,11 @@ impl unusable. The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- `update_param_impl_config` and `delete_selected_params` are now complete on
-  the Go-owned MCP boundary
-- the next bounded follow-on in this param-editing cluster is `delete_kwarg`
-- keep config and delete/move/reparent follow-ons authoritative in
-  `internal/projectstate`
+- `update_param_impl_config`, `delete_selected_params`, and `delete_kwarg` are
+  now complete on the Go-owned MCP boundary
+- the next bounded follow-on should be inventory work for the remaining
+  Python-owned MCP mutation gaps while keeping any future param-structure
+  semantics authoritative in `internal/projectstate`
 
 ## Progress Notes
 

@@ -65,6 +65,7 @@ type projectStateProvider interface {
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
+	DeleteKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.DeleteKwargResult, error)
 	DeleteSelectedParams(ctx context.Context, projectID string, input projectstate.DeleteSelectedParamsInput) (projectstate.Snapshot, projectstate.DeleteSelectedParamsResult, error)
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
@@ -781,6 +782,41 @@ func newAddKwargHandler(projectState projectStateProvider) tools.Handler {
 		}
 
 		_, result, err := projectState.AddKwarg(ctx, projectConfigID, sectionID)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newDeleteKwargHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped delete_kwarg invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.DeleteKwarg(ctx, projectConfigID, sectionID)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -1829,6 +1865,49 @@ func defaultToolDefinitions(
 					"sectionId": map[string]any{
 						"type":        "string",
 						"description": "Callable or dict section id that should receive the new parameter.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"codeObjId": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"codeObjId"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "delete_kwarg",
+				Description: "Remove the last editable parameter entry from the targeted callable or dict section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "kwarg", "delete", "remove", "write"},
+				},
+				Handler: newDeleteKwargHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section should delete its last editable parameter.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Callable or dict section id whose last editable parameter should be removed.",
 					},
 				},
 				"required": []string{"projectConfigId", "sectionId"},
@@ -2905,6 +2984,11 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrAddKwargUnsupported),
 		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
 		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),
+		errors.Is(err, projectstate.ErrDeleteKwargUnsupported),
+		errors.Is(err, projectstate.ErrDeleteKwargCallableUnset),
+		errors.Is(err, projectstate.ErrDeleteKwargNoParams),
+		errors.Is(err, projectstate.ErrDeleteKwargRootMissing),
+		errors.Is(err, projectstate.ErrDeleteKwargParentUnsupported),
 		errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
 		errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired),
 		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown),
