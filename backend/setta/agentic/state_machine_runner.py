@@ -33,10 +33,12 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     StateMachineEndSectionImpl,
     StateMachineGateSectionImpl,
+    StateMachineGateType,
     StateMachineStartSectionImpl,
 )
 from setta.types.state_machine_edges import (
     StateMachineEdge,
+    StateMachineSourceFilterType,
     StateMachineTargetAction,
     StateMachineTargetActionType,
     StateMachineThreadStrategy,
@@ -88,9 +90,10 @@ class StateMachineRunner:
         start_section_id: ID | None = None,
         share_session_id: str | None = None,
     ) -> AgentRun:
-        existing_run = self.get_latest_run(
+        existing_run = await self.get_latest_run(
             project_config_id=project_config_id,
             machine_group_id=machine_group_id,
+            share_session_id=share_session_id,
         )
         if existing_run is not None and existing_run.status == AgentRunStatus.running:
             return existing_run
@@ -112,27 +115,7 @@ class StateMachineRunner:
                 "machineName": graph.machine_name,
             },
         )
-        run.outputs = {
-            "machineGroupId": graph.machine_group_id,
-            "machineName": graph.machine_name,
-            "stateMachineIteration": INITIAL_STATE_MACHINE_ITERATION,
-            "startSectionId": str(graph.start_section_id),
-            "startSectionIds": [
-                str(section_id) for section_id in graph.start_section_ids
-            ],
-            "gateSectionIds": [
-                str(section_id) for section_id in graph.gate_section_ids
-            ],
-            "endSectionIds": [str(section_id) for section_id in graph.end_section_ids],
-            "machineEdgeIds": [str(edge.id) for edge in graph.machine_edges],
-            "startOutgoingEdgeIds": [
-                str(edge.id) for edge in graph.start_outgoing_edges
-            ],
-            "startOutgoingTargetSectionIds": [
-                str(edge.targetSectionId) for edge in graph.start_outgoing_edges
-            ],
-            "childRunIds": [],
-        }
+        self._ensure_run_outputs_initialized(run, graph)
         save_agent_run(self.dbe, run)
         self._record_event(
             run,
@@ -192,12 +175,12 @@ class StateMachineRunner:
         if run.outputs is None:
             raise KeyError("State machine run outputs were not initialized.")
         run.outputs["dispatchedStartEdgeActions"] = dispatched_actions
-        run.outputs["childRunIds"] = [
-            raw_run_id
-            for action in dispatched_actions
-            for raw_run_id in [action.get("runId")]
-            if isinstance(raw_run_id, str)
-        ]
+        self._append_child_run_ids(run, dispatched_actions)
+        self._refresh_live_outputs(
+            run=run,
+            graph=graph,
+            project_config_id=project_config_id,
+        )
         save_agent_run(self.dbe, run)
         if dispatched_actions:
             self._record_event(
@@ -214,10 +197,12 @@ class StateMachineRunner:
         *,
         project_config_id: ID,
         machine_group_id: str,
+        share_session_id: str | None = None,
     ) -> AgentRun | None:
-        run = self.get_latest_run(
+        run = await self.get_latest_run(
             project_config_id=project_config_id,
             machine_group_id=machine_group_id,
+            share_session_id=share_session_id,
         )
         if run is None:
             return None
@@ -250,13 +235,37 @@ class StateMachineRunner:
         *,
         project_config_id: ID,
         machine_group_id: str,
+        share_session_id: str | None = None,
     ) -> AgentRun | None:
         return await self.stop_run(
             project_config_id=project_config_id,
             machine_group_id=machine_group_id,
+            share_session_id=share_session_id,
         )
 
-    def get_latest_run(
+    async def get_latest_run(
+        self,
+        *,
+        project_config_id: ID,
+        machine_group_id: str,
+        share_session_id: str | None = None,
+    ) -> AgentRun | None:
+        run = self._load_latest_run(
+            project_config_id=project_config_id,
+            machine_group_id=machine_group_id,
+        )
+        if run is None:
+            return None
+        if run.status != AgentRunStatus.running:
+            return run
+        return await self._refresh_run(
+            run=run,
+            project_config_id=project_config_id,
+            machine_group_id=machine_group_id,
+            share_session_id=share_session_id,
+        )
+
+    def _load_latest_run(
         self,
         *,
         project_config_id: ID,
@@ -391,6 +400,132 @@ class StateMachineRunner:
         )
         save_agent_run(self.dbe, run)
 
+    def _ensure_run_outputs_initialized(
+        self,
+        run: AgentRun,
+        graph: ResolvedStateMachineGraph,
+    ) -> None:
+        if run.outputs is None:
+            run.outputs = {}
+        defaults: dict[str, object] = {
+            "machineGroupId": graph.machine_group_id,
+            "machineName": graph.machine_name,
+            "stateMachineIteration": INITIAL_STATE_MACHINE_ITERATION,
+            "startSectionId": str(graph.start_section_id),
+            "startSectionIds": [
+                str(section_id) for section_id in graph.start_section_ids
+            ],
+            "gateSectionIds": [
+                str(section_id) for section_id in graph.gate_section_ids
+            ],
+            "endSectionIds": [str(section_id) for section_id in graph.end_section_ids],
+            "machineEdgeIds": [str(edge.id) for edge in graph.machine_edges],
+            "startOutgoingEdgeIds": [
+                str(edge.id) for edge in graph.start_outgoing_edges
+            ],
+            "startOutgoingTargetSectionIds": [
+                str(edge.targetSectionId) for edge in graph.start_outgoing_edges
+            ],
+            "childRunIds": [],
+            "processedChildTerminalRunIds": [],
+            "dispatchedEdgeActions": [],
+            "gateInputEdgeIdsBySectionId": {},
+            "gateStatusBySectionId": {},
+            "firedGateSectionIds": [],
+            "reachedEndSectionIds": [],
+            "activeChildRunIds": [],
+        }
+        for key, value in defaults.items():
+            if key not in run.outputs:
+                run.outputs[key] = value
+
+    def _append_child_run_ids(
+        self,
+        run: AgentRun,
+        action_results: list[dict[str, object]],
+    ) -> None:
+        child_run_ids = self._get_output_str_list(run, "childRunIds")
+        for action in action_results:
+            raw_run_id = action.get("runId")
+            if not isinstance(raw_run_id, str):
+                continue
+            if raw_run_id in child_run_ids:
+                continue
+            child_run_ids.append(raw_run_id)
+
+    def _refresh_live_outputs(
+        self,
+        *,
+        run: AgentRun,
+        graph: ResolvedStateMachineGraph,
+        project_config_id: ID,
+    ) -> None:
+        active_child_run_ids = [
+            str(child_run.id)
+            for child_run in self._list_child_runs(
+                run=run,
+                project_config_id=project_config_id,
+            )
+            if child_run.status == AgentRunStatus.running
+            and self._get_child_run_iteration(child_run)
+            == self._get_state_machine_iteration(run)
+        ]
+        run.outputs["activeChildRunIds"] = active_child_run_ids
+        gate_status_by_section_id = self._get_output_dict(run, "gateStatusBySectionId")
+        fired_gate_section_ids = set(
+            self._get_output_str_list(run, "firedGateSectionIds")
+        )
+        for gate_section_id in graph.gate_section_ids:
+            gate_status_by_section_id[str(gate_section_id)] = (
+                "satisfied"
+                if str(gate_section_id) in fired_gate_section_ids
+                else "waiting"
+            )
+
+    async def _refresh_run(
+        self,
+        *,
+        run: AgentRun,
+        project_config_id: ID,
+        machine_group_id: str,
+        share_session_id: str | None,
+    ) -> AgentRun:
+        graph = self._resolve_graph(
+            project_config_id=project_config_id,
+            machine_group_id=machine_group_id,
+            start_section_id=None,
+            share_session_id=share_session_id,
+        )
+        self._ensure_run_outputs_initialized(run, graph)
+        progress = False
+        for child_run in self._get_unprocessed_terminal_child_runs(
+            run=run,
+            project_config_id=project_config_id,
+        ):
+            if run.status != AgentRunStatus.running:
+                break
+            self._record_child_terminal_event(run, child_run)
+            dispatched_actions = await self._activate_child_run_edges(
+                run=run,
+                graph=graph,
+                child_run=child_run,
+                project_config_id=project_config_id,
+                share_session_id=share_session_id,
+            )
+            self._mark_child_run_processed(run, child_run.id)
+            if dispatched_actions:
+                self._append_child_run_ids(run, dispatched_actions)
+                self._append_dispatched_edge_actions(run, dispatched_actions)
+            progress = True
+        self._refresh_live_outputs(
+            run=run,
+            graph=graph,
+            project_config_id=project_config_id,
+        )
+        if progress:
+            save_agent_run(self.dbe, run)
+        return run
+
     async def _activate_start_edges(
         self,
         *,
@@ -401,6 +536,7 @@ class StateMachineRunner:
     ) -> list[dict[str, object]]:
         return await self._activate_ready_edges(
             run=run,
+            graph=graph,
             edges=graph.start_outgoing_edges,
             project_config_id=project_config_id,
             share_session_id=share_session_id,
@@ -410,6 +546,7 @@ class StateMachineRunner:
         self,
         *,
         run: AgentRun,
+        graph: ResolvedStateMachineGraph,
         edges: list[StateMachineEdge],
         project_config_id: ID,
         share_session_id: str | None,
@@ -421,6 +558,7 @@ class StateMachineRunner:
             *[
                 self._activate_edge_group(
                     run=run,
+                    graph=graph,
                     edges=edge_group,
                     project_config_id=project_config_id,
                     share_session_id=share_session_id,
@@ -437,21 +575,21 @@ class StateMachineRunner:
         self,
         *,
         run: AgentRun,
+        graph: ResolvedStateMachineGraph,
         edges: list[StateMachineEdge],
         project_config_id: ID,
         share_session_id: str | None,
     ) -> list[dict[str, object]]:
         action_results: list[dict[str, object]] = []
         for edge in edges:
-            action_result = await self._activate_edge_action(
+            edge_results = await self._activate_edge(
                 run=run,
+                graph=graph,
                 edge=edge,
                 project_config_id=project_config_id,
                 share_session_id=share_session_id,
             )
-            if action_result is None:
-                continue
-            action_results.append(action_result)
+            action_results.extend(edge_results)
         return action_results
 
     def _group_edges_by_target_section(
@@ -469,43 +607,205 @@ class StateMachineRunner:
             for target_section_id in ordered_target_section_ids
         ]
 
-    async def _activate_edge_action(
+    async def _activate_edge(
         self,
         *,
         run: AgentRun,
+        graph: ResolvedStateMachineGraph,
         edge: StateMachineEdge,
         project_config_id: ID,
         share_session_id: str | None,
-    ) -> dict[str, object] | None:
-        project_state = self._get_project_state(
-            project_config_id,
-            share_session_id=share_session_id,
-        )
+    ) -> list[dict[str, object]]:
         target_impl = get_curr_effective_section_impl(
-            project_state, edge.targetSectionId
+            graph.project_state, edge.targetSectionId
         )
+        if isinstance(target_impl, StateMachineGateSectionImpl):
+            return await self._activate_gate_input(
+                run=run,
+                graph=graph,
+                edge=edge,
+                gate_section_id=edge.targetSectionId,
+                gate_impl=target_impl,
+                project_config_id=project_config_id,
+                share_session_id=share_session_id,
+            )
+        if isinstance(target_impl, StateMachineEndSectionImpl):
+            self._reach_end(run=run, edge=edge)
+            return []
         if not isinstance(target_impl, ChatSectionImpl):
-            return None
+            return []
         target_action = edge.targetAction
         if target_action is None:
             raise ValueError(
                 f"State machine edge {edge.id} is missing a Chat target action."
             )
         if target_action.type == StateMachineTargetActionType.reset_thread:
-            return await self._reset_thread_action(
+            action_result = await self._reset_thread_action(
                 run=run,
                 edge=edge,
                 target_action=target_action,
                 project_config_id=project_config_id,
                 share_session_id=share_session_id,
             )
-        return await self._send_prompt_action(
+            return [action_result]
+        action_result = await self._send_prompt_action(
             run=run,
             edge=edge,
             target_action=target_action,
             project_config_id=project_config_id,
             share_session_id=share_session_id,
         )
+        return [action_result]
+
+    async def _activate_gate_input(
+        self,
+        *,
+        run: AgentRun,
+        graph: ResolvedStateMachineGraph,
+        edge: StateMachineEdge,
+        gate_section_id: ID,
+        gate_impl: StateMachineGateSectionImpl,
+        project_config_id: ID,
+        share_session_id: str | None,
+    ) -> list[dict[str, object]]:
+        gate_input_edge_ids_by_section_id = self._get_output_dict(
+            run,
+            "gateInputEdgeIdsBySectionId",
+        )
+        gate_section_key = str(gate_section_id)
+        raw_gate_inputs = gate_input_edge_ids_by_section_id.get(gate_section_key)
+        if raw_gate_inputs is None:
+            raw_gate_inputs = []
+            gate_input_edge_ids_by_section_id[gate_section_key] = raw_gate_inputs
+        if not isinstance(raw_gate_inputs, list):
+            raise TypeError(
+                f"State machine gate inputs for section {edge.targetSectionId} must be a list."
+            )
+        raw_edge_id = str(edge.id)
+        if raw_edge_id not in raw_gate_inputs:
+            raw_gate_inputs.append(raw_edge_id)
+            self._record_event(
+                run,
+                "gate_input_activated",
+                {
+                    "edgeId": raw_edge_id,
+                    "gateSectionId": gate_section_key,
+                    "gateType": gate_impl.gateType.value,
+                },
+            )
+        gate_actions = await self._evaluate_gate(
+            run=run,
+            graph=graph,
+            gate_section_id=gate_section_id,
+            gate_impl=gate_impl,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
+        return gate_actions
+
+    async def _evaluate_gate(
+        self,
+        *,
+        run: AgentRun,
+        graph: ResolvedStateMachineGraph,
+        gate_section_id: ID,
+        gate_impl: StateMachineGateSectionImpl,
+        project_config_id: ID,
+        share_session_id: str | None,
+    ) -> list[dict[str, object]]:
+        gate_section_key = str(gate_section_id)
+        gate_input_edge_ids_by_section_id = self._get_output_dict(
+            run,
+            "gateInputEdgeIdsBySectionId",
+        )
+        raw_activated_edge_ids = gate_input_edge_ids_by_section_id.get(gate_section_key)
+        if raw_activated_edge_ids is None:
+            activated_edge_ids: list[str] = []
+        elif isinstance(raw_activated_edge_ids, list):
+            activated_edge_ids = [
+                raw_edge_id
+                for raw_edge_id in raw_activated_edge_ids
+                if isinstance(raw_edge_id, str)
+            ]
+        else:
+            raise TypeError(
+                f"State machine gate inputs for section {gate_section_id} must be a list."
+            )
+        incoming_edges = [
+            edge
+            for edge in graph.machine_edges
+            if edge.targetSectionId == gate_section_id
+        ]
+        activated_edge_id_set = set(activated_edge_ids)
+        fired_gate_section_ids = self._get_output_str_list(run, "firedGateSectionIds")
+        gate_status_by_section_id = self._get_output_dict(run, "gateStatusBySectionId")
+        if gate_section_key in fired_gate_section_ids:
+            gate_status_by_section_id[gate_section_key] = "satisfied"
+            return []
+        is_satisfied = False
+        if gate_impl.gateType == StateMachineGateType.AND:
+            is_satisfied = all(
+                str(edge.id) in activated_edge_id_set for edge in incoming_edges
+            )
+        elif gate_impl.gateType == StateMachineGateType.OR:
+            is_satisfied = any(
+                str(edge.id) in activated_edge_id_set for edge in incoming_edges
+            )
+        elif gate_impl.gateType == StateMachineGateType.XOR:
+            is_satisfied = len(activated_edge_id_set) == 1
+        if not is_satisfied:
+            gate_status_by_section_id[gate_section_key] = "waiting"
+            return []
+        fired_gate_section_ids.append(gate_section_key)
+        gate_status_by_section_id[gate_section_key] = "satisfied"
+        self._record_event(
+            run,
+            "gate_satisfied",
+            {
+                "gateSectionId": gate_section_key,
+                "gateType": gate_impl.gateType.value,
+                "activatedEdgeIds": activated_edge_ids,
+            },
+        )
+        outgoing_edges = [
+            edge
+            for edge in graph.machine_edges
+            if edge.sourceSectionId == gate_section_id
+        ]
+        if not outgoing_edges:
+            return []
+        return await self._activate_ready_edges(
+            run=run,
+            graph=graph,
+            edges=outgoing_edges,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
+
+    def _reach_end(
+        self,
+        *,
+        run: AgentRun,
+        edge: StateMachineEdge,
+    ) -> None:
+        reached_end_section_ids = self._get_output_str_list(run, "reachedEndSectionIds")
+        target_section_key = str(edge.targetSectionId)
+        if target_section_key not in reached_end_section_ids:
+            reached_end_section_ids.append(target_section_key)
+            self._record_event(
+                run,
+                "end_reached",
+                {
+                    "edgeId": str(edge.id),
+                    "endSectionId": target_section_key,
+                },
+            )
+        if run.status != AgentRunStatus.running:
+            return
+        run.status = AgentRunStatus.completed
+        run.finishedAt = get_now_timestamp()
+        save_agent_run(self.dbe, run)
+        self._record_event(run, "run_completed", {})
 
     async def _reset_thread_action(
         self,
@@ -548,7 +848,12 @@ class StateMachineRunner:
         }
         self._record_event(
             run,
-            "start_edge_action_reset",
+            self._get_edge_action_event_type(
+                project_config_id=project_config_id,
+                edge=edge,
+                target_action=target_action,
+                share_session_id=share_session_id,
+            ),
             action_result,
         )
         return action_result
@@ -632,7 +937,12 @@ class StateMachineRunner:
         }
         self._record_event(
             run,
-            "start_edge_action_dispatched",
+            self._get_edge_action_event_type(
+                project_config_id=project_config_id,
+                edge=edge,
+                target_action=target_action,
+                share_session_id=share_session_id,
+            ),
             action_result,
         )
         return action_result
@@ -665,6 +975,159 @@ class StateMachineRunner:
         raw_iteration = run.outputs.get("stateMachineIteration")
         if not isinstance(raw_iteration, int):
             raise KeyError("State machine run iteration is missing.")
+        return raw_iteration
+
+    def _get_edge_action_event_type(
+        self,
+        *,
+        project_config_id: ID,
+        edge: StateMachineEdge,
+        target_action: StateMachineTargetAction,
+        share_session_id: str | None,
+    ) -> str:
+        project_state = self._get_project_state(
+            project_config_id,
+            share_session_id=share_session_id,
+        )
+        source_impl = get_curr_effective_section_impl(
+            project_state, edge.sourceSectionId
+        )
+        if target_action.type == StateMachineTargetActionType.reset_thread:
+            if isinstance(source_impl, StateMachineStartSectionImpl):
+                return "start_edge_action_reset"
+            return "edge_action_reset"
+        if isinstance(source_impl, StateMachineStartSectionImpl):
+            return "start_edge_action_dispatched"
+        return "edge_action_dispatched"
+
+    def _append_dispatched_edge_actions(
+        self,
+        run: AgentRun,
+        dispatched_actions: list[dict[str, object]],
+    ) -> None:
+        all_dispatched_actions = self._get_output_list_of_dicts(
+            run,
+            "dispatchedEdgeActions",
+        )
+        all_dispatched_actions.extend(dispatched_actions)
+
+    def _mark_child_run_processed(self, run: AgentRun, child_run_id: ID) -> None:
+        processed_child_terminal_run_ids = self._get_output_str_list(
+            run,
+            "processedChildTerminalRunIds",
+        )
+        raw_child_run_id = str(child_run_id)
+        if raw_child_run_id in processed_child_terminal_run_ids:
+            return
+        processed_child_terminal_run_ids.append(raw_child_run_id)
+
+    def _get_unprocessed_terminal_child_runs(
+        self,
+        *,
+        run: AgentRun,
+        project_config_id: ID,
+    ) -> list[AgentRun]:
+        processed_child_terminal_run_ids = set(
+            self._get_output_str_list(run, "processedChildTerminalRunIds")
+        )
+        current_iteration = self._get_state_machine_iteration(run)
+        terminal_runs: list[AgentRun] = []
+        for child_run in self._list_child_runs(
+            run=run,
+            project_config_id=project_config_id,
+        ):
+            if child_run.status not in {
+                AgentRunStatus.completed,
+                AgentRunStatus.failed,
+            }:
+                continue
+            if self._get_child_run_iteration(child_run) != current_iteration:
+                continue
+            if str(child_run.id) in processed_child_terminal_run_ids:
+                continue
+            terminal_runs.append(child_run)
+        terminal_runs.sort(key=get_run_last_updated)
+        return terminal_runs
+
+    def _record_child_terminal_event(self, run: AgentRun, child_run: AgentRun) -> None:
+        child_section_id = self._get_child_target_section_id(child_run)
+        self._record_event(
+            run,
+            f"child_run_{child_run.status.value}",
+            {
+                "childRunId": str(child_run.id),
+                "sourceSectionId": str(child_section_id),
+                "stateMachineIteration": self._get_child_run_iteration(child_run),
+            },
+        )
+
+    async def _activate_child_run_edges(
+        self,
+        *,
+        run: AgentRun,
+        graph: ResolvedStateMachineGraph,
+        child_run: AgentRun,
+        project_config_id: ID,
+        share_session_id: str | None,
+    ) -> list[dict[str, object]]:
+        source_section_id = self._get_child_target_section_id(child_run)
+        matching_edges = [
+            edge
+            for edge in graph.machine_edges
+            if edge.sourceSectionId == source_section_id
+            and self._edge_matches_child_terminal_run(edge, child_run)
+        ]
+        if not matching_edges:
+            return []
+        self._record_event(
+            run,
+            "child_run_edges_activated",
+            {
+                "childRunId": str(child_run.id),
+                "edgeIds": [str(edge.id) for edge in matching_edges],
+                "sourceSectionId": str(source_section_id),
+            },
+        )
+        return await self._activate_ready_edges(
+            run=run,
+            graph=graph,
+            edges=matching_edges,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
+
+    def _edge_matches_child_terminal_run(
+        self,
+        edge: StateMachineEdge,
+        child_run: AgentRun,
+    ) -> bool:
+        source_filter = edge.sourceFilter
+        if source_filter is None:
+            return child_run.status == AgentRunStatus.completed
+        if source_filter.type == StateMachineSourceFilterType.run_completed:
+            return child_run.status == AgentRunStatus.completed
+        if source_filter.type == StateMachineSourceFilterType.run_failed:
+            return child_run.status == AgentRunStatus.failed
+        return False
+
+    def _get_child_target_section_id(self, child_run: AgentRun) -> ID:
+        if not isinstance(child_run.inputs, dict):
+            raise KeyError(f"Child run {child_run.id} inputs are missing.")
+        raw_section_id = child_run.inputs.get("stateMachineTargetSectionId")
+        if not isinstance(raw_section_id, str) or raw_section_id == "":
+            raise KeyError(
+                f"Child run {child_run.id} is missing stateMachineTargetSectionId."
+            )
+        return ID(raw_section_id)
+
+    def _get_child_run_iteration(self, child_run: AgentRun) -> int:
+        if not isinstance(child_run.inputs, dict):
+            raise KeyError(f"Child run {child_run.id} inputs are missing.")
+        raw_iteration = child_run.inputs.get("stateMachineIteration")
+        if not isinstance(raw_iteration, int):
+            raise KeyError(
+                f"Child run {child_run.id} is missing stateMachineIteration."
+            )
         return raw_iteration
 
     def _resolve_prompt_text(
@@ -820,3 +1283,42 @@ class StateMachineRunner:
                 stopped_run = await self.agent_runner.stop_run(child_run.id)
             stopped_child_run_ids.append(str(stopped_run.id))
         return stopped_child_run_ids
+
+    def _get_output_str_list(self, run: AgentRun, key: str) -> list[str]:
+        raw_value = self._get_output_value(run, key)
+        if not isinstance(raw_value, list):
+            raise TypeError(f"State machine run output {key} must be a list.")
+        for entry in raw_value:
+            if not isinstance(entry, str):
+                raise TypeError(
+                    f"State machine run output {key} entries must all be strings."
+                )
+        return raw_value
+
+    def _get_output_dict(self, run: AgentRun, key: str) -> dict[str, object]:
+        raw_value = self._get_output_value(run, key)
+        if not isinstance(raw_value, dict):
+            raise TypeError(f"State machine run output {key} must be an object.")
+        return raw_value
+
+    def _get_output_list_of_dicts(
+        self,
+        run: AgentRun,
+        key: str,
+    ) -> list[dict[str, object]]:
+        raw_value = self._get_output_value(run, key)
+        if not isinstance(raw_value, list):
+            raise TypeError(f"State machine run output {key} must be a list.")
+        for entry in raw_value:
+            if not isinstance(entry, dict):
+                raise TypeError(
+                    f"State machine run output {key} entries must all be objects."
+                )
+        return raw_value
+
+    def _get_output_value(self, run: AgentRun, key: str) -> object:
+        if not isinstance(run.outputs, dict):
+            raise KeyError("State machine run outputs are missing.")
+        if key not in run.outputs:
+            raise KeyError(f"State machine run output {key} is missing.")
+        return run.outputs[key]

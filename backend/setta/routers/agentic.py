@@ -544,6 +544,7 @@ async def route_stop_state_machine_run(
         stopped_run = await ctx.state.state_machine_runner.stop_run(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
+            share_session_id=ctx.share_session_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -565,6 +566,7 @@ async def route_reset_state_machine(
         stopped_run = await ctx.state.state_machine_runner.reset_machine(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
+            share_session_id=ctx.share_session_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -583,9 +585,10 @@ async def route_get_state_machine_run(
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
     try:
-        run = ctx.state.state_machine_runner.get_latest_run(
+        run = await ctx.state.state_machine_runner.get_latest_run(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
+            share_session_id=ctx.share_session_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
