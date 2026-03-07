@@ -45,6 +45,7 @@ var (
 	ErrTerminalSectionRequired         = errors.New("section must resolve to a terminal section")
 	ErrDrawSectionRequired             = errors.New("section must resolve to a draw section")
 	ErrCallableSectionRequired         = errors.New("section must resolve to a callable section")
+	ErrGroupSectionRequired            = errors.New("section must resolve to a group section")
 )
 
 type SectionKind string

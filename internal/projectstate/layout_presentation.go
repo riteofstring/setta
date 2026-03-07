@@ -155,6 +155,64 @@ func (r *Runtime) ToggleMinimized(ctx context.Context, projectID string, section
 	})
 }
 
+func (p *Project) ToggleGroupOrientation(sectionID string) error {
+	section, _, payload, err := p.resolveGroupSectionMutationState(sectionID)
+	if err != nil {
+		return err
+	}
+	return p.setCurrentSectionField(section.ID, "isHorizontalOrientation", !payloadBoolField(payload, "isHorizontalOrientation"))
+}
+
+func (d *Document) ToggleGroupOrientation(projectID string, sectionID string) error {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.ToggleGroupOrientation(sectionID); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
+func (r *Runtime) ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (Snapshot, error) {
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.ToggleGroupOrientation(projectID, sectionID); err != nil {
+			return Document{}, err
+		}
+		return document, nil
+	})
+}
+
+func (p *Project) SetGroupOverflowMode(sectionID string, overflowMode bool) error {
+	section, _, _, err := p.resolveGroupSectionMutationState(sectionID)
+	if err != nil {
+		return err
+	}
+	return p.setCurrentSectionField(section.ID, "overflowMode", overflowMode)
+}
+
+func (d *Document) SetGroupOverflowMode(projectID string, sectionID string, overflowMode bool) error {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.SetGroupOverflowMode(sectionID, overflowMode); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
+func (r *Runtime) SetGroupOverflowMode(ctx context.Context, projectID string, sectionID string, overflowMode bool) (Snapshot, error) {
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetGroupOverflowMode(projectID, sectionID, overflowMode); err != nil {
+			return Document{}, err
+		}
+		return document, nil
+	})
+}
+
 func (p *Project) SetSectionTagColor(sectionID string, tagColor *string) error {
 	return p.setCurrentSectionField(strings.TrimSpace(sectionID), "tagColor", optionalStringValue(tagColor))
 }
@@ -291,6 +349,26 @@ func (p *Project) toggleCurrentSectionBoolField(sectionID string, fieldName stri
 		return err
 	}
 	return p.setCurrentSectionField(section.ID, fieldName, !payloadBoolField(payload, fieldName))
+}
+
+func (p *Project) resolveGroupSectionMutationState(sectionID string) (Section, SectionVariant, map[string]any, error) {
+	section, variant, impl, err := p.ResolveSection(strings.TrimSpace(sectionID))
+	if err != nil {
+		return Section{}, SectionVariant{}, nil, err
+	}
+	payload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
+	if err != nil {
+		return Section{}, SectionVariant{}, nil, err
+	}
+
+	sectionType := payloadStringField(payload, "type")
+	if sectionType == "" {
+		sectionType = fallbackSectionType(impl)
+	}
+	if !strings.EqualFold(sectionType, "Group") {
+		return Section{}, SectionVariant{}, nil, fmt.Errorf("%w: %q", ErrGroupSectionRequired, section.ID)
+	}
+	return section, variant, payload, nil
 }
 
 func optionalStringValue(value *string) any {

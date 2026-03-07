@@ -198,6 +198,123 @@ func TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload(t *t
 	}
 }
 
+func TestRuntimeToggleGroupOrientationUpdatesEffectivePayload(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": layoutPresentationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.ToggleGroupOrientation(context.Background(), "project-alpha", "group-section"); err != nil {
+		t.Fatalf("ToggleGroupOrientation returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "group-section", "group-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload group-section: %v", err)
+	}
+	if !payloadBoolField(payload, "isHorizontalOrientation") {
+		t.Fatal("expected group section orientation to toggle on")
+	}
+
+	if _, err := runtime.ToggleGroupOrientation(context.Background(), "project-alpha", "group-section"); err != nil {
+		t.Fatalf("ToggleGroupOrientation second call returned error: %v", err)
+	}
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err = effectiveSectionPayload(project, "group-section", "group-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload group-section after second toggle: %v", err)
+	}
+	if payloadBoolField(payload, "isHorizontalOrientation") {
+		t.Fatal("expected group section orientation to toggle off")
+	}
+}
+
+func TestRuntimeGroupLayoutMutationsRejectNonGroupSections(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": layoutPresentationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.ToggleGroupOrientation(context.Background(), "project-alpha", "plain-section"); !errors.Is(err, ErrGroupSectionRequired) {
+		t.Fatalf("expected ErrGroupSectionRequired from ToggleGroupOrientation, got %v", err)
+	}
+	if _, err := runtime.SetGroupOverflowMode(context.Background(), "project-alpha", "plain-section", true); !errors.Is(err, ErrGroupSectionRequired) {
+		t.Fatalf("expected ErrGroupSectionRequired from SetGroupOverflowMode, got %v", err)
+	}
+}
+
+func TestRuntimeSetGroupOverflowModeUpdatesEffectivePayload(t *testing.T) {
+	t.Parallel()
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": layoutPresentationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetGroupOverflowMode(context.Background(), "project-alpha", "group-section", true); err != nil {
+		t.Fatalf("SetGroupOverflowMode returned error: %v", err)
+	}
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "group-section", "group-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload group-section: %v", err)
+	}
+	if !payloadBoolField(payload, "overflowMode") {
+		t.Fatal("expected group section overflow mode to persist")
+	}
+
+	if _, err := runtime.SetGroupOverflowMode(context.Background(), "project-alpha", "group-section", false); err != nil {
+		t.Fatalf("SetGroupOverflowMode second call returned error: %v", err)
+	}
+	project = runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err = effectiveSectionPayload(project, "group-section", "group-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload group-section after reset: %v", err)
+	}
+	if payloadBoolField(payload, "overflowMode") {
+		t.Fatal("expected group section overflow mode to clear")
+	}
+}
+
 func layoutPresentationTestProject(t *testing.T) Project {
 	t.Helper()
 
@@ -212,6 +329,7 @@ func layoutPresentationTestProject(t *testing.T) Project {
 		},
 		SectionVariantMap: map[string]string{
 			"callable-section": "callable-variant",
+			"group-section":    "group-variant",
 			"plain-section":    "plain-variant",
 		},
 		Sections: map[string]Section{
@@ -220,6 +338,12 @@ func layoutPresentationTestProject(t *testing.T) Project {
 				Name:             "Callable Section",
 				VariantIDs:       []string{"callable-variant"},
 				DefaultVariantID: "callable-variant",
+			},
+			"group-section": {
+				ID:               "group-section",
+				Name:             "Group Section",
+				VariantIDs:       []string{"group-variant"},
+				DefaultVariantID: "group-variant",
 			},
 			"plain-section": {
 				ID:               "plain-section",
@@ -233,6 +357,10 @@ func layoutPresentationTestProject(t *testing.T) Project {
 				ID:     "callable-variant",
 				ImplID: "callable-impl",
 			},
+			"group-variant": {
+				ID:     "group-variant",
+				ImplID: "group-impl",
+			},
 			"plain-variant": {
 				ID:     "plain-variant",
 				ImplID: "plain-impl",
@@ -243,6 +371,16 @@ func layoutPresentationTestProject(t *testing.T) Project {
 				ID:      "callable-impl",
 				Kind:    SectionKind("frontend"),
 				Payload: mustMarshalProjectObject(map[string]any{"id": "callable-impl", "type": "Callable"}),
+			},
+			"group-impl": {
+				ID:   "group-impl",
+				Kind: SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":                      "group-impl",
+					"type":                    "Group",
+					"isHorizontalOrientation": false,
+					"overflowMode":            false,
+				}),
 			},
 			"plain-impl": {
 				ID:      "plain-impl",
