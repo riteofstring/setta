@@ -33,9 +33,15 @@ Current repo status as of 2026-03-07:
     state
   - Slice 1 baseline parsing in `internal/projectstate/watch_code.go` now
     delegates to the shared parser owner instead of keeping a second parser
+- Slice 2 Step 2 is now in progress:
+  - `internal/watchcode` now owns config snapshot normalization,
+    desired-watch-dir derivation, path matching, and missing-dir ancestor
+    fallback
+  - the new manager foundation keeps watcher state pure and testable before any
+    fsnotify/observer integration
 - the remaining active Watch Code gap is the Step 2 manager/runtime owner:
-  - there is still no Go watch manager for config snapshots, watch-dir sync,
-    debounce, or file-event routing
+  - pending moves, debounce/delete scheduling, and file-event routing are still
+    not owned in Go
 
 ## Scope
 
@@ -123,7 +129,7 @@ Acceptance:
 
 ### Step 2: Watch Manager Foundation
 
-Status: next in progress boundary.
+Status: in progress.
 
 Deliver:
 
@@ -141,6 +147,18 @@ Acceptance:
 - desired watch dirs are derived from Slice 1 persisted inputs only
 - recursive toggles and missing-dir ancestor fallback are deterministic
 - file-event routing does not require section mutation wiring yet
+
+Completed in this chunk:
+
+- `internal/watchcode/manager.go`
+- `internal/watchcode/manager_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/watchcode -count=1 -timeout 180s`
+
+Still open in Step 2:
+
+- pending move bookkeeping
+- debounced scan/delete scheduling state
+- event routing boundaries ahead of later section mutation wiring
 
 ### Step 3: Runtime Wiring Handoff
 
@@ -183,8 +201,8 @@ For Step 2, add:
 
 Execute Step 2 next:
 
-- add `internal/watchcode` manager state for persisted config snapshots,
-  normalized path matching, and desired watch-dir derivation
-- port the missing-dir ancestor fallback and recursive toggle behavior from the
-  Python manager with focused unit tests
-- keep section mutation and callable refresh out of that first manager chunk
+- add pending move bookkeeping and debounced scan/delete state to the manager
+- port the stale-config cleanup behavior from the Python manager onto the new
+  snapshot owner
+- keep observer/file-event integration bounded to manager state only before
+  touching section mutation or callable refresh reuse

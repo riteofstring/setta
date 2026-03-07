@@ -63,6 +63,9 @@ The active Slice 2 execution work is now narrowed in:
   - `internal/watchcode` owns parser-backed callable discovery and
     deterministic scan/delete/move planning
   - Slice 1 baseline parsing now reuses that shared parser owner
+- Slice 2 Step 2 is now in progress:
+  - `internal/watchcode` owns config snapshot normalization, desired watch-dir
+    derivation, path matching, and missing-dir ancestor fallback
 - the remaining Slice 2 gap is the observer/manager foundation before later
   section-mutation wiring
 
