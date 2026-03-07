@@ -200,16 +200,31 @@ Tests:
 
 Deliver:
 
-- explicit terminal interrupt/kill semantics in `internal/terminals`
-- matching HTTP route(s)
+- explicit terminal interrupt semantics in `internal/terminals`
+- a matching HTTP route
 - tests proving project-scoped process interruption behavior
 
 Acceptance:
 
-- kill semantics are defined by terminal runtime ownership, not by ad hoc shell
-  assumptions
+- interrupt semantics are defined by terminal runtime ownership and PTY state,
+  not by ad hoc shell assumptions
 - the implementation has a clear cross-platform story, or is explicitly scoped
   away from unsupported platforms
+
+Working choice for this slice:
+
+- do not port Python's misleading `killSubprocesses` contract as-is
+- add a clean-break Go route:
+  - `POST /api/interruptTerminalProcesses`
+- keep the request model explicit:
+  - `{"projectId":"..."}`
+- use the PTY foreground process group as the source of truth for what gets
+  interrupted
+  - interrupt only active foreground terminal work
+  - leave idle shells alone
+- scope the first implementation to Unix PTY behavior
+  - Windows remains explicitly unsupported until we choose a native ConPTY
+    interrupt strategy instead of a control-character heuristic
 
 ## Open Questions
 
@@ -227,10 +242,16 @@ Resolved In Slice 2:
 - we are not adding a terminal list HTTP route in Phase 4 because the current product surface does not need one
 - the first HTTP terminal route is delete-only and remains IDE-only until deployment run policy exists in Go
 
+Resolved For Slice 3:
+
+- the clean-break Go rewrite will expose `POST /api/interruptTerminalProcesses` instead of preserving `/killSubprocesses`
+- interrupt targeting will use the terminal's foreground process group so idle shells are not interrupted just because the shell process exists
+- Windows interrupt support remains deferred; the first Go implementation targets Unix PTY behavior only
+
 ## Next Recommended Step
 
 Implement Slice 3:
 
-- define explicit interrupt/kill semantics in `internal/terminals`
-- migrate the `killSubprocesses` HTTP surface only after that semantic choice is written down
+- define explicit terminal interrupt behavior in `internal/terminals`
+- wire `POST /api/interruptTerminalProcesses` onto that service boundary
 - keep deployment/share transport deferred until a Go `allowRun` policy source exists

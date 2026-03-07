@@ -28,10 +28,11 @@ const (
 )
 
 var (
-	ErrUnknownSession  = errors.New("terminals: unknown session")
-	ErrSessionConflict = errors.New("terminals: session already exists with different scope or command")
-	ErrInputDisabled   = errors.New("terminals: input is disabled for this session")
-	ErrServiceClosed   = errors.New("terminals: service is closed")
+	ErrUnknownSession       = errors.New("terminals: unknown session")
+	ErrSessionConflict      = errors.New("terminals: session already exists with different scope or command")
+	ErrInputDisabled        = errors.New("terminals: input is disabled for this session")
+	ErrServiceClosed        = errors.New("terminals: service is closed")
+	ErrInterruptUnsupported = errors.New("terminals: interrupt is unsupported on this platform")
 )
 
 type Options struct {
@@ -370,6 +371,48 @@ func (s *Service) Delete(ctx context.Context, sessionID string) error {
 	}
 	s.cleanupSession(session, true)
 	return waitForDone(ctx, session.waitDone)
+}
+
+func (s *Service) InterruptProject(projectID string, shareSessionID string) (int, error) {
+	projectID = strings.TrimSpace(projectID)
+	shareSessionID = strings.TrimSpace(shareSessionID)
+	if projectID == "" {
+		return 0, fmt.Errorf("project id is required")
+	}
+
+	s.mu.RLock()
+	sessions := make([]*session, 0, len(s.sessions))
+	for _, session := range s.sessions {
+		if session.projectID != projectID {
+			continue
+		}
+		if session.shareSessionID != shareSessionID {
+			continue
+		}
+		sessions = append(sessions, session)
+	}
+	s.mu.RUnlock()
+
+	interruptedCount := 0
+	var err error
+	for _, session := range sessions {
+		interrupted, interruptErr := interruptTerminalSession(session)
+		if interruptErr != nil {
+			err = errors.Join(err, interruptErr)
+			continue
+		}
+		if !interrupted {
+			continue
+		}
+		interruptedCount++
+		s.logger.Debug("terminal session interrupted",
+			slog.String("terminal_id", session.id),
+			slog.String("project_id", session.projectID),
+			slog.String("share_session_id", session.shareSessionID),
+		)
+	}
+
+	return interruptedCount, err
 }
 
 func (s *Service) DeleteShareSession(ctx context.Context, shareSessionID string) error {
