@@ -37,6 +37,8 @@ Current repo status as of 2026-03-07:
   - `internal/watchcode` now owns config snapshot normalization,
     desired-watch-dir derivation, path matching, and missing-dir ancestor
     fallback
+  - watcher-local pending move state and scheduled scan/delete bookkeeping now
+    exist with stale-config cleanup
   - the new manager foundation keeps watcher state pure and testable before any
     fsnotify/observer integration
 - the remaining active Watch Code gap is the Step 2 manager/runtime owner:
@@ -156,8 +158,7 @@ Completed in this chunk:
 
 Still open in Step 2:
 
-- pending move bookkeeping
-- debounced scan/delete scheduling state
+- observer/file-event integration over the new manager state
 - event routing boundaries ahead of later section mutation wiring
 
 ### Step 3: Runtime Wiring Handoff
@@ -201,8 +202,9 @@ For Step 2, add:
 
 Execute Step 2 next:
 
-- add pending move bookkeeping and debounced scan/delete state to the manager
-- port the stale-config cleanup behavior from the Python manager onto the new
-  snapshot owner
-- keep observer/file-event integration bounded to manager state only before
-  touching section mutation or callable refresh reuse
+- add observer/file-event integration over the new manager state without
+  touching section mutation yet
+- port the remaining move/delete/scan routing boundaries from the Python
+  manager onto the new scheduling state
+- keep later callable-refresh and section mutation wiring as the following
+  boundary after manager event routing is stable

@@ -66,6 +66,8 @@ The active Slice 2 execution work is now narrowed in:
 - Slice 2 Step 2 is now in progress:
   - `internal/watchcode` owns config snapshot normalization, desired watch-dir
     derivation, path matching, and missing-dir ancestor fallback
+  - watcher-local pending move state and scheduled scan/delete bookkeeping now
+    exist with stale-config cleanup
 - the remaining Slice 2 gap is the observer/manager foundation before later
   section-mutation wiring
 

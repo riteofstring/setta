@@ -173,3 +173,160 @@ func TestManagerSyncConfigsUsesExistingAncestorForMissingDirs(t *testing.T) {
 		t.Fatalf("expected new watch dir after creation, got %#v", manager.WatchedDirs())
 	}
 }
+
+func TestManagerScheduleScanKeepsBroaderNonBaselineRequests(t *testing.T) {
+	t.Parallel()
+
+	// Re-scheduling the same scan should retain a non-baseline request once one has been queued.
+	workspaceRoot := t.TempDir()
+	watchDir := filepath.Join(workspaceRoot, "pkg")
+	watchFile := filepath.Join(watchDir, "watch.py")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Files:   []string{"pkg/watch.py"},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+	if err := manager.ScheduleScan("project-alpha", watchFile, true); err != nil {
+		t.Fatalf("schedule baseline scan: %v", err)
+	}
+	if err := manager.ScheduleScan("project-alpha", watchFile, false); err != nil {
+		t.Fatalf("schedule full scan: %v", err)
+	}
+	if err := manager.ScheduleScan("project-alpha", watchFile, true); err != nil {
+		t.Fatalf("schedule later baseline scan: %v", err)
+	}
+
+	expected := []ScanRequest{{
+		ConfigID:     "project-alpha",
+		Path:         watchFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expected) {
+		t.Fatalf("expected scheduled scans %#v, got %#v", expected, manager.ScheduledScans())
+	}
+}
+
+func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
+	t.Parallel()
+
+	// Config re-sync should clear scheduled scans, deletes, and moves that no longer match enabled inputs.
+	workspaceRoot := t.TempDir()
+	currentDir := filepath.Join(workspaceRoot, "current")
+	otherDir := filepath.Join(workspaceRoot, "other")
+	if err := os.MkdirAll(currentDir, 0o755); err != nil {
+		t.Fatalf("mkdir current dir: %v", err)
+	}
+	if err := os.MkdirAll(otherDir, 0o755); err != nil {
+		t.Fatalf("mkdir other dir: %v", err)
+	}
+	currentFile := filepath.Join(currentDir, "watch.py")
+	destinationFile := filepath.Join(currentDir, "moved.py")
+	for _, path := range []string{currentFile, destinationFile} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "current", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync initial config: %v", err)
+	}
+	if err := manager.ScheduleScan("project-alpha", currentFile, false); err != nil {
+		t.Fatalf("schedule scan: %v", err)
+	}
+	if err := manager.ScheduleDelete("project-alpha", currentFile); err != nil {
+		t.Fatalf("schedule delete: %v", err)
+	}
+	if err := manager.RecordPendingMove("project-alpha", destinationFile, currentFile); err != nil {
+		t.Fatalf("record pending move: %v", err)
+	}
+
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "other", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync replacement config: %v", err)
+	}
+
+	if scans := manager.ScheduledScans(); len(scans) != 0 {
+		t.Fatalf("expected stale scans to clear, got %#v", scans)
+	}
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected stale deletes to clear, got %#v", deletes)
+	}
+	if moves := manager.PendingMoves(); len(moves) != 0 {
+		t.Fatalf("expected stale pending moves to clear, got %#v", moves)
+	}
+}
+
+func TestManagerScheduleDeleteAndMoveIgnoreUnmatchedInputs(t *testing.T) {
+	t.Parallel()
+
+	// Scheduling helpers should ignore paths that no longer belong to enabled watch inputs.
+	workspaceRoot := t.TempDir()
+	trackedDir := filepath.Join(workspaceRoot, "tracked")
+	untrackedDir := filepath.Join(workspaceRoot, "untracked")
+	if err := os.MkdirAll(trackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir tracked dir: %v", err)
+	}
+	if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir untracked dir: %v", err)
+	}
+	trackedFile := filepath.Join(trackedDir, "watch.py")
+	untrackedFile := filepath.Join(untrackedDir, "watch.py")
+	for _, path := range []string{trackedFile, untrackedFile} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+	if err := manager.ScheduleDelete("project-alpha", untrackedFile); err != nil {
+		t.Fatalf("schedule unmatched delete: %v", err)
+	}
+	if err := manager.RecordPendingMove("project-alpha", untrackedFile, trackedFile); err != nil {
+		t.Fatalf("record unmatched pending move: %v", err)
+	}
+
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected no deletes for unmatched path, got %#v", deletes)
+	}
+	if moves := manager.PendingMoves(); len(moves) != 0 {
+		t.Fatalf("expected no pending moves for unmatched destination, got %#v", moves)
+	}
+}

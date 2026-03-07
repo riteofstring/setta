@@ -27,11 +27,36 @@ type ConfigSnapshot struct {
 	Folders []FolderInput
 }
 
+type ScanRequest struct {
+	ConfigID     string
+	Path         string
+	BaselineOnly bool
+}
+
+type DeleteRequest struct {
+	ConfigID string
+	Path     string
+}
+
+type PendingMove struct {
+	ConfigID        string
+	DestinationPath string
+	SourcePath      string
+}
+
+type taskKey struct {
+	ConfigID string
+	Path     string
+}
+
 type Manager struct {
-	workspaceRoot   string
-	configSnapshots map[string]ConfigSnapshot
-	watchedDirs     map[string]bool
-	pendingDirs     map[string]struct{}
+	workspaceRoot    string
+	configSnapshots  map[string]ConfigSnapshot
+	watchedDirs      map[string]bool
+	pendingDirs      map[string]struct{}
+	scheduledScans   map[taskKey]bool
+	scheduledDeletes map[taskKey]struct{}
+	pendingMoves     map[taskKey]string
 }
 
 func NewManager(workspaceRoot string) (*Manager, error) {
@@ -40,10 +65,13 @@ func NewManager(workspaceRoot string) (*Manager, error) {
 		return nil, fmt.Errorf("normalize workspace root: %w", err)
 	}
 	return &Manager{
-		workspaceRoot:   resolvedWorkspaceRoot,
-		configSnapshots: map[string]ConfigSnapshot{},
-		watchedDirs:     map[string]bool{},
-		pendingDirs:     map[string]struct{}{},
+		workspaceRoot:    resolvedWorkspaceRoot,
+		configSnapshots:  map[string]ConfigSnapshot{},
+		watchedDirs:      map[string]bool{},
+		pendingDirs:      map[string]struct{}{},
+		scheduledScans:   map[taskKey]bool{},
+		scheduledDeletes: map[taskKey]struct{}{},
+		pendingMoves:     map[taskKey]string{},
 	}, nil
 }
 
@@ -66,6 +94,7 @@ func (m *Manager) SyncConfigs(configs map[string]ConfigInputs) error {
 	}
 
 	m.configSnapshots = nextSnapshots
+	m.discardStaleScheduledState()
 	m.syncWatchDirs()
 	return nil
 }
@@ -107,6 +136,68 @@ func (m *Manager) PendingDirs() []string {
 	return output
 }
 
+func (m *Manager) ScheduledScans() []ScanRequest {
+	if m == nil {
+		return []ScanRequest{}
+	}
+	output := make([]ScanRequest, 0, len(m.scheduledScans))
+	for key, baselineOnly := range m.scheduledScans {
+		output = append(output, ScanRequest{
+			ConfigID:     key.ConfigID,
+			Path:         key.Path,
+			BaselineOnly: baselineOnly,
+		})
+	}
+	sort.Slice(output, func(i int, j int) bool {
+		if output[i].ConfigID == output[j].ConfigID {
+			return output[i].Path < output[j].Path
+		}
+		return output[i].ConfigID < output[j].ConfigID
+	})
+	return output
+}
+
+func (m *Manager) ScheduledDeletes() []DeleteRequest {
+	if m == nil {
+		return []DeleteRequest{}
+	}
+	output := make([]DeleteRequest, 0, len(m.scheduledDeletes))
+	for key := range m.scheduledDeletes {
+		output = append(output, DeleteRequest{
+			ConfigID: key.ConfigID,
+			Path:     key.Path,
+		})
+	}
+	sort.Slice(output, func(i int, j int) bool {
+		if output[i].ConfigID == output[j].ConfigID {
+			return output[i].Path < output[j].Path
+		}
+		return output[i].ConfigID < output[j].ConfigID
+	})
+	return output
+}
+
+func (m *Manager) PendingMoves() []PendingMove {
+	if m == nil {
+		return []PendingMove{}
+	}
+	output := make([]PendingMove, 0, len(m.pendingMoves))
+	for key, sourcePath := range m.pendingMoves {
+		output = append(output, PendingMove{
+			ConfigID:        key.ConfigID,
+			DestinationPath: key.Path,
+			SourcePath:      sourcePath,
+		})
+	}
+	sort.Slice(output, func(i int, j int) bool {
+		if output[i].ConfigID == output[j].ConfigID {
+			return output[i].DestinationPath < output[j].DestinationPath
+		}
+		return output[i].ConfigID < output[j].ConfigID
+	})
+	return output
+}
+
 func (m *Manager) PathMatchesWatchInputs(configID string, path string) bool {
 	if m == nil {
 		return false
@@ -120,6 +211,51 @@ func (m *Manager) PathMatchesWatchInputs(configID string, path string) bool {
 		return false
 	}
 	return pathMatchesSnapshot(normalizedPath, snapshot)
+}
+
+func (m *Manager) ScheduleScan(configID string, path string, baselineOnly bool) error {
+	if m == nil {
+		return nil
+	}
+	key, ok, err := m.matchingTaskKey(configID, path)
+	if err != nil || !ok {
+		return err
+	}
+	currentBaselineOnly, exists := m.scheduledScans[key]
+	if !exists {
+		m.scheduledScans[key] = baselineOnly
+		return nil
+	}
+	m.scheduledScans[key] = currentBaselineOnly && baselineOnly
+	return nil
+}
+
+func (m *Manager) ScheduleDelete(configID string, path string) error {
+	if m == nil {
+		return nil
+	}
+	key, ok, err := m.matchingTaskKey(configID, path)
+	if err != nil || !ok {
+		return err
+	}
+	m.scheduledDeletes[key] = struct{}{}
+	return nil
+}
+
+func (m *Manager) RecordPendingMove(configID string, destinationPath string, sourcePath string) error {
+	if m == nil {
+		return nil
+	}
+	key, ok, err := m.matchingTaskKey(configID, destinationPath)
+	if err != nil || !ok {
+		return err
+	}
+	normalizedSourcePath, err := statefs.ResolveWithinRoot(m.workspaceRoot, sourcePath, "watch code path")
+	if err != nil {
+		return err
+	}
+	m.pendingMoves[key] = normalizedSourcePath
+	return nil
 }
 
 func (m *Manager) HandleDirectoryCreated(path string) error {
@@ -138,6 +274,28 @@ func (m *Manager) HandleDirectoryCreated(path string) error {
 		}
 	}
 	return nil
+}
+
+func (m *Manager) matchingTaskKey(configID string, path string) (taskKey, bool, error) {
+	trimmedConfigID := strings.TrimSpace(configID)
+	if trimmedConfigID == "" {
+		return taskKey{}, false, fmt.Errorf("config id is required")
+	}
+	snapshot, ok := m.configSnapshots[trimmedConfigID]
+	if !ok || !snapshot.Enabled {
+		return taskKey{}, false, nil
+	}
+	normalizedPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
+	if err != nil {
+		return taskKey{}, false, err
+	}
+	if !pathMatchesSnapshot(normalizedPath, snapshot) {
+		return taskKey{}, false, nil
+	}
+	return taskKey{
+		ConfigID: trimmedConfigID,
+		Path:     normalizedPath,
+	}, true, nil
 }
 
 func buildConfigSnapshot(workspaceRoot string, config ConfigInputs) (ConfigSnapshot, error) {
@@ -261,6 +419,32 @@ func (m *Manager) syncWatchDirs() {
 	}
 	m.watchedDirs = watchedDirs
 	m.pendingDirs = pendingDirs
+}
+
+func (m *Manager) discardStaleScheduledState() {
+	for key := range m.scheduledScans {
+		if !m.taskKeyStillMatchesSnapshot(key) {
+			delete(m.scheduledScans, key)
+		}
+	}
+	for key := range m.scheduledDeletes {
+		if !m.taskKeyStillMatchesSnapshot(key) {
+			delete(m.scheduledDeletes, key)
+		}
+	}
+	for key := range m.pendingMoves {
+		if !m.taskKeyStillMatchesSnapshot(key) {
+			delete(m.pendingMoves, key)
+		}
+	}
+}
+
+func (m *Manager) taskKeyStillMatchesSnapshot(key taskKey) bool {
+	snapshot, ok := m.configSnapshots[key.ConfigID]
+	if !ok || !snapshot.Enabled {
+		return false
+	}
+	return pathMatchesSnapshot(key.Path, snapshot)
 }
 
 func pathMatchesSnapshot(path string, snapshot ConfigSnapshot) bool {
