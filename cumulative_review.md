@@ -33,7 +33,6 @@
 - Scoped slash-command polling/work to slash mode and added a deterministic fallback selector helper.
 - Fixed notifications `initialTab` handling to apply once without overriding later user tab changes.
 - Added and updated backend, Vitest, and Playwright coverage for these behavior fixes.
-- Removed top-level `review*.md` files and kept `cumulative_review.md` as the canonical review log.
 
 ### UX/DX before and after
 - Before: Skill editability decisions were implicit and could be inconsistent between backend and UI.  
@@ -44,5 +43,3 @@
   After: Polling/lookup is limited to slash mode with stable fallback behavior and tests.
 - Before: Notifications `initialTab` could keep reapplying and disrupt user tab selection.  
   After: `initialTab` is consumed once, then user tab choice is preserved.
-- Before: Review context was split across multiple root-level files.  
-  After: Review history is centralized in `cumulative_review.md`.
