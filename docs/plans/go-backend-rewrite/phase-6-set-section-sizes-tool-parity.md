@@ -26,8 +26,9 @@ Current repo status as of 2026-03-07:
   - child-creation size normalization in `internal/projectstate/child_section_creation.go`
   - attached-terminal size normalization in
     `internal/projectstate/attached_terminal_writes.go`
-- Go does not yet own a general runtime mutation for resizing existing
-  sections, and MCP still has no `set_section_sizes` tool
+- Go now owns the general runtime mutation for resizing existing sections
+- MCP now exposes `set_section_sizes` with structural scope, temp-id
+  translation, HTTP bridge coverage, and authenticated SSE coverage
 
 ## Scope
 
@@ -136,10 +137,9 @@ The resize UX doc adds one important product rule beyond the narrow helper:
 
 ## Next Recommended Step
 
-- implement the `set_section_sizes` runtime owner first in
-  `internal/projectstate`
-- keep the first code chunk bounded to normalization + attached-terminal width
-  synchronization before adding MCP transport
+- move to the group-layout toggle cluster in
+  `phase-6-group-layout-toggle-tools-parity.md`
+- keep overflow-mode writes separate from size writes
 
 ## Progress Notes
 
@@ -151,3 +151,6 @@ The resize UX doc adds one important product rule beyond the narrow helper:
   preservation, non-finite rejection, and embedded code/terminal width
   lockstep plus code-height enforcement. MCP transport and bridge coverage are
   still pending.
+- 2026-03-07: `set_section_sizes` MCP parity completed across the MCP server,
+  HTTP tool route, and authenticated SSE transport. The next bounded Phase 6
+  slice moved to the group-layout toggle cluster.

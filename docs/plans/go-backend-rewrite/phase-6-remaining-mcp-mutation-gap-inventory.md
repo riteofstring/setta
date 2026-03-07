@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 44 tools total
-- 41 current Go tool names overlap with Python
+- Go MCP now exposes 45 tools total
+- 42 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 39 of those overlaps are mutation or structural tools
-- Python still has 10 mutation or structural project-state MCP tools that do
+- 40 of those overlaps are mutation or structural tools
+- Python still has 9 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -65,6 +65,7 @@ MCP server:
   - `compare_and_set_watch_code_folders`
   - `compare_and_set_watch_code_files`
   - `set_code_section_attached_terminal`
+  - `set_section_sizes`
   - `toggle_position_locks`
   - `toggle_minimized`
 - writes:
@@ -94,27 +95,26 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- section-size runtime owner plus MCP parity:
-  - `set_section_sizes`
+- group-layout toggle runtime owners plus MCP parity:
+  - `toggle_group_orientation`
+  - `set_group_overflow_mode`
 
 Why this is next:
 
-1. the attached-terminal slice is now complete, and it clarified that Go still
-   lacks one general owner for resizing existing sections.
-2. `set_section_sizes` is the remaining layout mutation most likely to unblock
-   other size-sensitive gaps instead of adding another one-off transport.
-3. Go already has reusable sizing foundations:
-   - settings-backed policy resolution
-   - payload size parsing
-   - child-creation size normalization
-   - attached-terminal size synchronization on explicit attach
-4. the slice is large enough to need an implementation-plan doc before code:
-   `phase-6-set-section-sizes-tool-parity.md`
+1. `set_section_sizes` is now complete, so the next remaining layout-adjacent
+   mutations are the narrow Group toggles.
+2. both tools share the same Group-only runtime boundary and are better landed
+   as one bounded cluster than as two separate micro-slices.
+3. the frontend already treats overflow-mode size materialization as a
+   separate explicit `set_section_sizes` write, so the Go runtime can keep
+   these mutations boolean-only.
+4. the next slice is scoped in:
+   `phase-6-group-layout-toggle-tools-parity.md`
 
-### 2. After The Section-Size Slice
+### 2. After The Group Toggle Slice
 
-- rerank the remaining layout/runtime-heavy mutation gaps against the completed
-  section-size owner layer
+- rerank the remaining variant/configuration mutation gaps against the
+  completed section-size and group-layout owner layers
 - keep app-definition work deferred until frontend-source ownership is ready
 
 ### 3. Gaps That Still Need More Go Runtime Work First
@@ -142,8 +142,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-set-section-sizes-tool-parity.md` as the next bounded Phase 6
-  slice
+- use `phase-6-group-layout-toggle-tools-parity.md` as the next bounded
+  Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -153,10 +153,10 @@ priority:
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime|Document).*(AttachedTerminal|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetCodeSectionAttachedTerminal)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetCodeSectionAttachedTerminal|SetCodeSectionAttachedTerminalAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedSSE|ToolCallRouteSupportsSetCodeSectionAttachedTerminal)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(ResolveAutoLayoutSectionSizingPolicy|ProjectCreateChildSections|RuntimeSetCodeSectionAttachedTerminal|RuntimeSetSectionSizes|NormalizeSectionSizeValueRejectsNonFiniteValues)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetSectionSizes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionSizes|SetSectionSizesAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetSectionSizesOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedSSE|ToolCallRouteSupportsSetSectionSizes|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -233,3 +233,8 @@ priority:
 - 2026-03-07: reranking the remaining gaps moved the next bounded slice to
   `set_code_section_attached_terminal` because the Go run-graph runtime already
   owns most of the hard attached-terminal invariants.
+- 2026-03-07: `set_section_sizes` is now complete across the Go runtime
+  owner, MCP server, HTTP tool route, and authenticated SSE transport.
+- 2026-03-07: reranking after the section-size slice moved the next bounded
+  Phase 6 step to the Group layout toggle cluster in
+  `phase-6-group-layout-toggle-tools-parity.md`.
