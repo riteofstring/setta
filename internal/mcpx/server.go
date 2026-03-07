@@ -61,6 +61,7 @@ type projectStateProvider interface {
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
@@ -649,6 +650,43 @@ func newDeleteChildSectionsViaDecrementerHandler(projectState projectStateProvid
 		_, result, err := projectState.DeleteChildSectionsViaDecrementer(ctx, projectConfigID, projectstate.DeleteChildSectionsViaDecrementerInput{
 			CalledBy:    calledBy,
 			NumChildren: *numChildren,
+		})
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newCreateNewSectionVariantHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural section-variant creation invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.CreateNewSectionVariant(ctx, projectConfigID, projectstate.CreateNewSectionVariantInput{
+			SectionID: sectionID,
 		})
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
@@ -1342,6 +1380,49 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"sectionIds"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "create_new_section_variant",
+				Description: "Duplicate the active variant of a section and switch the section to the new variant.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSectionVariant: {"variantId"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"create", "new", "section", "variant", "structural"},
+				},
+				Handler: newCreateNewSectionVariantHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id where the new section variant should be created.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose active variant should be duplicated.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"variantId": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"variantId"},
 			},
 		})
 	}

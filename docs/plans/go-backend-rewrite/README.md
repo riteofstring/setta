@@ -104,11 +104,14 @@ Use the docs in this order:
 48. `phase-6-delete-child-sections-via-decrementer-structural-tool.md`
    - focused current-work plan for Go-owned decrementer child deletion over the
      completed structural deletion boundary
-49. `spike-mcp.md`
+49. `phase-6-create-new-section-variant-structural-tool.md`
+   - focused current-work plan for Go-owned section-variant duplication over
+     the completed structural construction and deletion boundaries
+50. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-50. `spike-pty.md`
+51. `spike-pty.md`
    - PTY uncertainty-reduction plan
-51. `spike-lsp.md`
+52. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

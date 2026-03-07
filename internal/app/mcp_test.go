@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 16 {
-		t.Fatalf("expected 16 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 17 {
+		t.Fatalf("expected 17 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 16 {
-		t.Fatalf("expected 16 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 17 {
+		t.Fatalf("expected 17 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -717,6 +717,116 @@ func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticate
 	}
 }
 
+func TestAppIDEMCPServerSupportsSectionVariantCreateOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before section-variant create: %v", err)
+	}
+	beforeVariantIDs := append([]string(nil), beforeProject.Sections["allowed-params-section"].VariantIDs...)
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "create_new_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_new_section_variant: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_new_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	variantID, ok := payload["variantId"].(string)
+	if !ok || strings.TrimSpace(variantID) == "" {
+		t.Fatalf("expected created variant id, got %#v", payload["variantId"])
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after section-variant create: %v", err)
+	}
+	afterVariantIDs := project.Sections["allowed-params-section"].VariantIDs
+	if len(afterVariantIDs) != len(beforeVariantIDs)+1 {
+		t.Fatalf("expected one new section variant, got before=%#v after=%#v", beforeVariantIDs, afterVariantIDs)
+	}
+
+	var canonicalVariantID string
+	for _, currentVariantID := range afterVariantIDs {
+		found := false
+		for _, beforeVariantID := range beforeVariantIDs {
+			if beforeVariantID == currentVariantID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			canonicalVariantID = currentVariantID
+			break
+		}
+	}
+	if canonicalVariantID == "" {
+		t.Fatalf("expected one new canonical section variant id, got %#v", afterVariantIDs)
+	}
+	if variantID == canonicalVariantID {
+		t.Fatalf("expected translated variant id to differ from canonical %q", canonicalVariantID)
+	}
+	if _, ok := project.SectionVariants[variantID]; ok {
+		t.Fatalf("did not expect translated variant id %q to be a canonical project key", variantID)
+	}
+	if got := project.SectionVariantMap["allowed-params-section"]; got != canonicalVariantID {
+		t.Fatalf("expected active allowed-params-section variant %q, got %q", canonicalVariantID, got)
+	}
+	if len(project.CodeObjs["allowed-param"].VariantIDs) != 2 {
+		t.Fatalf("expected allowed-param to gain one code-object variant, got %#v", project.CodeObjs["allowed-param"].VariantIDs)
+	}
+}
+
 func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1276,8 +1386,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 16 {
-		t.Fatalf("expected tool count 16, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 17 {
+		t.Fatalf("expected tool count 17, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))

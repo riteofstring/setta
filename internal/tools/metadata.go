@@ -25,8 +25,9 @@ const (
 type IDType string
 
 const (
-	IDTypeSection    IDType = "section"
-	IDTypeCodeObject IDType = "codeObj"
+	IDTypeSection        IDType = "section"
+	IDTypeSectionVariant IDType = "sectionVariant"
+	IDTypeCodeObject     IDType = "codeObj"
 )
 
 type ResultFilter string
@@ -274,6 +275,8 @@ func normalizeIDType(idType IDType) (IDType, error) {
 	switch IDType(strings.TrimSpace(string(idType))) {
 	case IDTypeSection:
 		return IDTypeSection, nil
+	case IDTypeSectionVariant:
+		return IDTypeSectionVariant, nil
 	case IDTypeCodeObject:
 		return IDTypeCodeObject, nil
 	default:

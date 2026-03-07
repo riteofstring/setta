@@ -45,11 +45,14 @@ func translateArgumentsToCanonical(toolName string, metadata tools.Metadata, arg
 	if err := translateStringArgumentField(cloned, "projectConfigId", store); err != nil {
 		return nil, err
 	}
-	if err := translateIDsByTypeToCanonical(cloned, metadata, tools.IDTypeSection, store); err != nil {
-		return nil, err
-	}
-	if err := translateIDsByTypeToCanonical(cloned, metadata, tools.IDTypeCodeObject, store); err != nil {
-		return nil, err
+	for _, idType := range []tools.IDType{
+		tools.IDTypeSection,
+		tools.IDTypeSectionVariant,
+		tools.IDTypeCodeObject,
+	} {
+		if err := translateIDsByTypeToCanonical(cloned, metadata, idType, store); err != nil {
+			return nil, err
+		}
 	}
 	switch toolName {
 	case "set_agentic_context":
@@ -221,7 +224,11 @@ func translateResultIDsByTypeToTemporary(
 	}
 
 	rewritten := decoded
-	for _, idType := range []tools.IDType{tools.IDTypeSection, tools.IDTypeCodeObject} {
+	for _, idType := range []tools.IDType{
+		tools.IDTypeSection,
+		tools.IDTypeSectionVariant,
+		tools.IDTypeCodeObject,
+	} {
 		paths := resultIDPathsByType[idType]
 		if len(paths) == 0 {
 			continue

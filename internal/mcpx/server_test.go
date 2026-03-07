@@ -136,13 +136,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 16 {
-		t.Fatalf("expected 16 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 17 {
+		t.Fatalf("expected 17 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var createChildSectionsTool *sdkmcp.Tool
 	var createChildSectionsViaIncrementerTool *sdkmcp.Tool
+	var createNewSectionVariantTool *sdkmcp.Tool
 	var deleteChildSectionsViaDecrementerTool *sdkmcp.Tool
 	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
@@ -161,6 +162,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "create_child_sections_via_incrementer" {
 			createChildSectionsViaIncrementerTool = tool
+		}
+		if tool.Name == "create_new_section_variant" {
+			createNewSectionVariantTool = tool
 		}
 		if tool.Name == "delete_child_sections_via_decrementer" {
 			deleteChildSectionsViaDecrementerTool = tool
@@ -200,6 +204,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	expectedNames := []string{
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
+		"create_new_section_variant",
 		"create_top_level_section",
 		"delete_child_sections_via_decrementer",
 		"delete_sections",
@@ -226,6 +231,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if createChildSectionsViaIncrementerTool == nil {
 		t.Fatal("expected create_child_sections_via_incrementer tool")
+	}
+	if createNewSectionVariantTool == nil {
+		t.Fatal("expected create_new_section_variant tool")
 	}
 	if deleteChildSectionsViaDecrementerTool == nil {
 		t.Fatal("expected delete_child_sections_via_decrementer tool")
@@ -259,6 +267,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	createChildViaIncrementerResultPaths := mustStructuredMap(t, createChildViaIncrementerMeta["resultIdPathsByType"])
 	if got := mustStringList(t, createChildViaIncrementerResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected create_child_sections_via_incrementer sectionIds result path, got %#v", got)
+	}
+	createNewVariantMeta := mustStructuredMap(t, createNewSectionVariantTool.Meta[toolMetaNamespace])
+	if createNewVariantMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for create_new_section_variant, got %#v", createNewVariantMeta["accessType"])
+	}
+	createNewVariantPaths := mustStructuredMap(t, createNewVariantMeta["idPathsByType"])
+	if got := mustStringList(t, createNewVariantPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected create_new_section_variant sectionId target path, got %#v", got)
+	}
+	createNewVariantResultPaths := mustStructuredMap(t, createNewVariantMeta["resultIdPathsByType"])
+	if got := mustStringList(t, createNewVariantResultPaths[string(tools.IDTypeSectionVariant)]); len(got) != 1 || got[0] != "variantId" {
+		t.Fatalf("expected create_new_section_variant variantId result path, got %#v", got)
 	}
 	deleteChildViaDecrementerMeta := mustStructuredMap(t, deleteChildSectionsViaDecrementerTool.Meta[toolMetaNamespace])
 	if deleteChildViaDecrementerMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -367,8 +387,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 16 {
-		t.Fatalf("expected 16 registered tool names, got %#v", listNames)
+	if len(listNames) != 17 {
+		t.Fatalf("expected 17 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -843,6 +863,37 @@ func TestServerDeleteSectionsRequiresStructuralScope(t *testing.T) {
 	}
 }
 
+func TestServerCreateNewSectionVariantRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "create_new_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_new_section_variant blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked create_new_section_variant call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected targetSectionIds [blocked-section], got %#v", ids)
+	}
+}
+
 func TestServerCreateTopLevelSectionAllowsUnscopedStructuralCallsAndTranslatesResultIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1226,6 +1277,86 @@ func TestServerDeleteChildSectionsViaDecrementerAllowsUnscopedStructuralCallsAnd
 	children := mustStringList(t, parentPayload["children"])
 	if len(children) != 0 {
 		t.Fatalf("expected allowed-section children to be empty after decrementer delete, got %#v", children)
+	}
+}
+
+func TestServerCreateNewSectionVariantAllowsUnscopedStructuralCallsAndTranslatesVariantIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"allowed-params-section": "20",
+	})
+
+	beforeProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before create_new_section_variant: %v", err)
+	}
+	beforeVariantIDs := append([]string(nil), beforeProject.Sections["allowed-params-section"].VariantIDs...)
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "create_new_section_variant",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_new_section_variant allowed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_new_section_variant success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	tempVariantID, ok := payload["variantId"].(string)
+	if !ok || strings.TrimSpace(tempVariantID) == "" {
+		t.Fatalf("expected translated variantId string, got %#v", payload["variantId"])
+	}
+
+	afterProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after create_new_section_variant: %v", err)
+	}
+	afterVariantIDs := afterProject.Sections["allowed-params-section"].VariantIDs
+	if len(afterVariantIDs) != len(beforeVariantIDs)+1 {
+		t.Fatalf("expected one new section variant, got before=%#v after=%#v", beforeVariantIDs, afterVariantIDs)
+	}
+	var canonicalVariantID string
+	for _, variantID := range afterVariantIDs {
+		if !containsString(beforeVariantIDs, variantID) {
+			canonicalVariantID = variantID
+			break
+		}
+	}
+	if canonicalVariantID == "" {
+		t.Fatalf("expected one new canonical section variant id, got %#v", afterVariantIDs)
+	}
+	if tempVariantID == canonicalVariantID {
+		t.Fatalf("expected translated variant id to differ from canonical %q", canonicalVariantID)
+	}
+	if _, ok := afterProject.SectionVariants[tempVariantID]; ok {
+		t.Fatalf("did not expect translated variant id %q to be a canonical project key", tempVariantID)
+	}
+	if got := afterProject.SectionVariantMap["allowed-params-section"]; got != canonicalVariantID {
+		t.Fatalf("expected active allowed-params-section variant %q, got %q", canonicalVariantID, got)
+	}
+	if len(afterProject.CodeObjs["allowed-param"].VariantIDs) != 2 {
+		t.Fatalf("expected allowed-param to gain one code-object variant, got %#v", afterProject.CodeObjs["allowed-param"].VariantIDs)
 	}
 }
 
@@ -2422,6 +2553,15 @@ func mustStringList(t *testing.T, value any) []string {
 	}
 	sort.Strings(result)
 	return result
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func mustRawJSON(t *testing.T, value any) projectstate.RawJSON {

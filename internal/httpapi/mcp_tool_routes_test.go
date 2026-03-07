@@ -608,6 +608,85 @@ func TestMCPToolCallRouteSupportsIncrementerStructuralChildCreateWithUnscopedCon
 	}
 }
 
+func TestMCPToolCallRouteSupportsSectionVariantCreateWithUnscopedContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	beforeProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route variant create: %v", err)
+	}
+	beforeVariantIDs := append([]string(nil), beforeProject.Sections["allowed-params-section"].VariantIDs...)
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"create_new_section_variant",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected section variant create success, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	variantID, ok := structured["variantId"].(string)
+	if !ok || strings.TrimSpace(variantID) == "" {
+		t.Fatalf("expected created variant id, got %#v", structured["variantId"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route variant create: %v", err)
+	}
+	afterVariantIDs := project.Sections["allowed-params-section"].VariantIDs
+	if len(afterVariantIDs) != len(beforeVariantIDs)+1 {
+		t.Fatalf("expected one new section variant, got before=%#v after=%#v", beforeVariantIDs, afterVariantIDs)
+	}
+	if got := project.SectionVariantMap["allowed-params-section"]; got != variantID {
+		t.Fatalf("expected active allowed-params-section variant %q, got %q", variantID, got)
+	}
+	if _, ok := project.SectionVariants[variantID]; !ok {
+		t.Fatalf("expected created variant %q in project, got %#v", variantID, project.SectionVariants)
+	}
+	if len(project.CodeObjs["allowed-param"].VariantIDs) != 2 {
+		t.Fatalf("expected allowed-param to gain one code-object variant, got %#v", project.CodeObjs["allowed-param"].VariantIDs)
+	}
+}
+
 func TestMCPToolCallRouteSupportsStructuralDeleteWithUnscopedContext(t *testing.T) {
 	t.Parallel()
 
