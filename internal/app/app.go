@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/httpapi"
@@ -77,10 +78,21 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	backendLogService, err := backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       logger,
+		WebsocketHub: websocketHub,
+		EnvLookup:    os.LookupEnv,
+	})
+	if err != nil {
+		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
 		Planner:       runPlanner,
 		ProjectState:  projectStates.Main(),
 		Terminals:     terminalService,
+		BackendLogs:   backendLogService,
 		BinaryStore:   binaryStore,
 		ArtifactsRoot: filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts"),
 	})
@@ -88,7 +100,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
 		return nil, err
 	}
-	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
 	})

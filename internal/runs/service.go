@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
@@ -16,6 +17,7 @@ import (
 var (
 	ErrPlannerRequired         = fmt.Errorf("runs: planner is required")
 	ErrTerminalServiceRequired = fmt.Errorf("runs: terminal service is required")
+	ErrBackendLogsRequired     = fmt.Errorf("runs: backend log service is required")
 	ErrBinaryStoreRequired     = fmt.Errorf("runs: binary store is required")
 	ErrArtifactsRootRequired   = fmt.Errorf("runs: artifacts root is required")
 )
@@ -24,6 +26,7 @@ type ServiceOptions struct {
 	Planner       *Planner
 	ProjectState  *projectstate.Runtime
 	Terminals     *terminals.Service
+	BackendLogs   *backendlogs.Service
 	BinaryStore   *binarypayload.Store
 	ArtifactsRoot string
 	IDGenerator   func() string
@@ -50,6 +53,7 @@ type Service struct {
 	planner       *Planner
 	projectState  *projectstate.Runtime
 	terminals     *terminals.Service
+	backendLogs   *backendlogs.Service
 	binaryStore   *binarypayload.Store
 	artifactsRoot string
 	idGenerator   func() string
@@ -64,6 +68,9 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}
 	if options.Terminals == nil {
 		return nil, ErrTerminalServiceRequired
+	}
+	if options.BackendLogs == nil {
+		return nil, ErrBackendLogsRequired
 	}
 	if options.BinaryStore == nil {
 		return nil, ErrBinaryStoreRequired
@@ -82,6 +89,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		planner:       options.Planner,
 		projectState:  options.ProjectState,
 		terminals:     options.Terminals,
+		backendLogs:   options.BackendLogs,
 		binaryStore:   options.BinaryStore,
 		artifactsRoot: resolvedArtifactsRoot,
 		idGenerator:   idGenerator,
@@ -131,6 +139,14 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 		command += "\n"
 	}
 	if err := s.terminals.Write(terminalID, []byte(command)); err != nil {
+		return RunCodeResult{}, err
+	}
+	if err := s.backendLogs.LogAndBroadcast(ctx, backendlogs.LogRequest{
+		Message:        "Started command",
+		Severity:       backendlogs.SeverityInfo,
+		ProjectID:      request.ProjectID,
+		ShareSessionID: request.ShareSessionID,
+	}); err != nil {
 		return RunCodeResult{}, err
 	}
 

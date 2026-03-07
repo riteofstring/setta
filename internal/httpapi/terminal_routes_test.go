@@ -18,11 +18,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/runs"
 	"setta/internal/terminals"
 )
@@ -905,6 +907,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 		Planner:       runPlanner,
 		ProjectState:  projectRuntime,
 		Terminals:     terminalService,
+		BackendLogs:   mustNewHTTPTestBackendLogService(t),
 		BinaryStore:   binaryStore,
 		ArtifactsRoot: artifactsRoot,
 		IDGenerator: func() string {
@@ -921,6 +924,19 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 		binaryStore:   binaryStore,
 		artifactsRoot: artifactsRoot,
 	}
+}
+
+func mustNewHTTPTestBackendLogService(t *testing.T) *backendlogs.Service {
+	t.Helper()
+
+	service, err := backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       observability.NewLogger(0, io.Discard),
+		WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
+	})
+	if err != nil {
+		t.Fatalf("new backend log service: %v", err)
+	}
+	return service
 }
 
 func openHTTPTestTerminal(t *testing.T, service *terminals.Service, options terminals.OpenOptions) {
