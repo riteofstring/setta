@@ -41,6 +41,8 @@ Current repo status as of 2026-03-06:
   - per-session run-count reservation, increment, and rollback
 - the current Go deployment gap is now concentrated in wiring:
   - `internal/app.New` still always opens the IDE `setta_files` registry
+  - Go startup/config still has no deployment-root input, so share/app mode has
+    nowhere to load a deployment from
   - no Go route yet creates deployment sessions or injects the deployment
     runtime into HTTP/websocket handlers
   - `POST /api/runCode` is still mounted behind `RequireFullIDERuntime`
@@ -97,6 +99,10 @@ This focused plan covers:
   - no heuristic reuse of terminal state as a proxy for “already ran”
 - do not broaden this slice into public deployment session route transport until
   the runtime boundary exists
+- keep the first deployment startup contract explicit
+  - support `--deployment-root` first
+  - defer `--deployment-name/--version/--latest` selection until a later
+    deployment transport slice
 
 ## Dependency Finding
 
@@ -120,6 +126,22 @@ dependency that must be handled first:
     deployment-scoped snapshot roots cleanly
 
 That makes deployment runtime foundation the highest-leverage first slice.
+
+The next inspection pass after Slice 1 found one more prerequisite inside Slice
+2 itself:
+
+- even with `internal/deployments`, Go cannot yet start share/app mode because
+  `internal/config` and `cmd/setta-server` still only know IDE-style
+  `setta_files` inputs
+- Python supports both explicit deployment roots and deployment-name/version
+  discovery, but only the explicit-root path is required to boot the runtime
+  from a source of truth
+- the bounded Slice 2 path is therefore:
+  - add explicit `--deployment-root` startup support
+  - derive the deployment runtime root from deployment manifest metadata when no
+    explicit runtime root override is supplied
+  - wire `internal/app.New` to open the Go deployment runtime in share/app mode
+  - defer deployment-name/version/latest discovery until later
 
 ## Proposed Go Boundaries
 
@@ -201,6 +223,8 @@ Tests:
 Deliver:
 
 - `internal/app.New` mode-aware boot for share/app:
+  - accept an explicit deployment root from startup/config
+  - derive the deployment runtime root when share/app mode does not override it
   - load deployment runtime instead of IDE main project-state registry
   - provide share-session store to HTTP and websocket handlers
   - expose deployment runtime metadata to later route dependencies

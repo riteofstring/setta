@@ -194,6 +194,89 @@ func TestLoadRejectsMissingWorkspace(t *testing.T) {
 	}
 }
 
+func TestLoadDerivesDeploymentRuntimeRootInShareMode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	deploymentRoot := filepath.Join(tmpDir, "deployments", "demo-share", "v2")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"globalSettaFilesBase": filepath.Join(settaHome, "setta_files"),
+		"autoMode":             "create_local",
+	})
+	writeJSONFile(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v2",
+	})
+
+	cfg, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot:  workspaceRoot,
+			SettaHome:      settaHome,
+			Mode:           "share",
+			DeploymentRoot: deploymentRoot,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.DeploymentRoot != deploymentRoot {
+		t.Fatalf("expected deployment root %q, got %q", deploymentRoot, cfg.Paths.DeploymentRoot)
+	}
+	expectedRuntimeRoot := filepath.Join(tmpDir, "deployment_runtime", "demo-share", "v2")
+	if cfg.Paths.RuntimeRoot != expectedRuntimeRoot {
+		t.Fatalf("expected runtime root %q, got %q", expectedRuntimeRoot, cfg.Paths.RuntimeRoot)
+	}
+}
+
+func TestLoadRejectsMissingDeploymentRootInShareMode(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workspaceRoot := filepath.Join(tmpDir, "workspace")
+	settaHome := filepath.Join(tmpDir, ".setta")
+
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"globalSettaFilesBase": filepath.Join(settaHome, "setta_files"),
+		"autoMode":             "create_local",
+	})
+
+	_, err := Load(LoadOptions{
+		CWD:       workspaceRoot,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+			Mode:          "share",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected missing deployment root error")
+	}
+}
+
 func writeUserConfig(t *testing.T, settaHome string, payload map[string]any) {
 	t.Helper()
 	writeJSONFile(t, filepath.Join(settaHome, "config.json"), payload)

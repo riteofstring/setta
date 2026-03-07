@@ -30,6 +30,7 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("setta-server", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	flags.StringVar(&cli.WorkspaceRoot, "workspace", "", "Workspace root.")
+	flags.StringVar(&cli.DeploymentRoot, "deployment-root", "", "Deployment root for share/app mode.")
 	flags.StringVar(&cli.SettaHome, "setta-home", "", "Setta home.")
 	flags.StringVar(&cli.ProfileLookupHome, "profile-lookup-home", "", "Setta profile lookup home.")
 	flags.StringVar(&cli.Profile, "profile", "", "Runtime profile name.")

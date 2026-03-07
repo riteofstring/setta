@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"setta/internal/deployments"
 )
 
 const (
@@ -79,6 +81,7 @@ type Server struct {
 
 type Paths struct {
 	WorkspaceRoot          string
+	DeploymentRoot         string
 	SettaHome              string
 	ProfileLookupHome      string
 	ProfileName            string
@@ -110,6 +113,7 @@ func defaultUserConfig(settaHome string) UserConfig {
 
 type CLIOptions struct {
 	WorkspaceRoot      string
+	DeploymentRoot     string
 	SettaHome          string
 	ProfileLookupHome  string
 	SettaFilesRoot     string
@@ -219,7 +223,18 @@ func Load(opts LoadOptions) (Config, error) {
 		return Config{}, err
 	}
 
-	runtimeRoot, err := resolveRuntimeRoot(settaFilesRoot, trimmed(opts.CLI.RuntimeRoot), profile.RuntimeRoot, envLookup)
+	deploymentRoot, err := resolveDeploymentRoot(server.Mode, trimmed(opts.CLI.DeploymentRoot))
+	if err != nil {
+		return Config{}, err
+	}
+	runtimeRoot, err := resolveRuntimeRoot(
+		server.Mode,
+		settaFilesRoot,
+		deploymentRoot,
+		trimmed(opts.CLI.RuntimeRoot),
+		profile.RuntimeRoot,
+		envLookup,
+	)
 	if err != nil {
 		return Config{}, err
 	}
@@ -231,6 +246,7 @@ func Load(opts LoadOptions) (Config, error) {
 		Server: server,
 		Paths: Paths{
 			WorkspaceRoot:          workspaceRoot,
+			DeploymentRoot:         deploymentRoot,
 			SettaHome:              settaHome,
 			ProfileLookupHome:      profileLookupHome,
 			ProfileName:            profileName,
@@ -515,7 +531,32 @@ func resolveSettaFilesRoot(
 	}
 }
 
-func resolveRuntimeRoot(settaFilesRoot, explicitRuntimeRoot, profileRuntimeRoot string, envLookup func(string) (string, bool)) (string, error) {
+func resolveDeploymentRoot(mode Mode, explicitDeploymentRoot string) (string, error) {
+	if mode != ModeShare && mode != ModeApp {
+		return "", nil
+	}
+	if explicitDeploymentRoot == "" {
+		return "", fmt.Errorf("deployment root is required in %s mode", mode)
+	}
+
+	deploymentRoot, err := resolvePath(explicitDeploymentRoot, "")
+	if err != nil {
+		return "", err
+	}
+	if err := validateExistingDir(deploymentRoot, "deployment root"); err != nil {
+		return "", err
+	}
+	return deploymentRoot, nil
+}
+
+func resolveRuntimeRoot(
+	mode Mode,
+	settaFilesRoot string,
+	deploymentRoot string,
+	explicitRuntimeRoot string,
+	profileRuntimeRoot string,
+	envLookup func(string) (string, bool),
+) (string, error) {
 	switch {
 	case explicitRuntimeRoot != "":
 		return resolvePath(explicitRuntimeRoot, "")
@@ -523,6 +564,8 @@ func resolveRuntimeRoot(settaFilesRoot, explicitRuntimeRoot, profileRuntimeRoot 
 		return resolvePath(profileRuntimeRoot, "")
 	case lookupEnvTrimmed(envLookup, runtimeRootEnv) != "":
 		return resolvePath(lookupEnvTrimmed(envLookup, runtimeRootEnv), "")
+	case (mode == ModeShare || mode == ModeApp) && deploymentRoot != "":
+		return deployments.DefaultRuntimeRoot(deploymentRoot)
 	default:
 		return resolvePath(filepath.Join(settaFilesRoot, "runtime"), "")
 	}
