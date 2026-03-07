@@ -154,11 +154,14 @@ Use the docs in this order:
 64. `phase-6-toggle-minimized-tool-parity.md`
   - focused slice doc for Go-owned `toggle_minimized` MCP parity over the
     completed layout-presentation runtime and scoped structural boundary
-65. `spike-mcp.md`
+65. `phase-6-set-section-tag-color-tool-parity.md`
+  - focused slice doc for Go-owned `set_section_tag_color` MCP parity over the
+    completed layout-presentation runtime and scoped write boundary
+66. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-66. `spike-pty.md`
+67. `spike-pty.md`
    - PTY uncertainty-reduction plan
-67. `spike-lsp.md`
+68. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
