@@ -168,11 +168,15 @@ Use the docs in this order:
   - focused slice doc for Go-owned `set_watch_code_inputs` MCP parity over
     the completed Watch Code input-normalization/runtime owner and
     project-scoped structural MCP boundary
-69. `spike-mcp.md`
+69. `phase-6-set-project-config-codegen-targets-tool-parity.md`
+  - focused slice doc for Go-owned `set_project_config_codegen_targets` MCP
+    parity over the completed codegen-target runtime owner, validator,
+    generated-section reconciler, and project-scoped structural MCP boundary
+70. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-70. `spike-pty.md`
+71. `spike-pty.md`
    - PTY uncertainty-reduction plan
-71. `spike-lsp.md`
+72. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
