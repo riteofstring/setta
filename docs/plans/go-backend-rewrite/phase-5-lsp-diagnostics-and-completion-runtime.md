@@ -51,10 +51,16 @@ Current repo status as of 2026-03-07:
     Python files
   - `internal/lspcompletion` now owns runtime-snapshot completion builders and
     frontend-compatible completion payload mapping
-- Slice 4 is now the active gap:
-  - Go still needs diagnostics ignore-state routes for:
+- Slice 4 is now complete:
+  - Go owns diagnostics ignore-state routes for:
     `setCodeSectionDiagnosticsMute` and
     `setCodeSectionDiagnosticCodeSuppression`
+  - Go project state now persists Code-section diagnostics ignore state and
+    reapplies filtering from stored raw diagnostics without waiting for a new
+    language-server publish
+  - the frontend `lspDiagnostics` action now mirrors successful ignore-state
+    mutations into local effective project state so existing header badges and
+    menus update immediately without a broader project-state websocket push
 - Python still owns the current LSP runtime under:
   - `backend/setta/lsp/managers.py`
   - `backend/setta/lsp/server.py`
@@ -343,7 +349,37 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed in code and tests:
+
+- `internal/projectstate` now owns Code-section diagnostics ignore-state
+  mutation helpers with the same effective-field storage rules used by the
+  frontend effective-impl setter path
+- the LSP diagnostics registry now stores raw code-section diagnostics
+  separately from filtered diagnostics and can reapply ignore state from the
+  stored raw payloads without requesting a fresh LSP publish
+- `internal/lsp` now refreshes canonical Python code-section diagnostics
+  callbacks with the current ignore state during materialization, so policy-only
+  project edits still affect later publishes when file content is unchanged
+- `internal/httpapi` now serves IDE-only Go routes for
+  `setCodeSectionDiagnosticsMute` and
+  `setCodeSectionDiagnosticCodeSuppression`
+- `frontend/src/state/actions/lspDiagnostics.ts` now updates local effective
+  Code-section ignore state after successful route responses so the existing UI
+  reads stay in sync with the persisted Go mutation
+
+Key decision:
+
+- keep the filtering source of truth inside `internal/projectstate` by
+  reapplying against stored raw diagnostics, and keep the frontend follow-up
+  narrowly scoped to local effective project-state mirroring instead of adding a
+  second diagnostics-setting state path
+
+Verification completed:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/lsp ./internal/httpapi -count=1 -timeout 150s`
+- `pnpm -C frontend exec vitest run src/state/actions/lspDiagnostics.test.ts`
 
 ## Open Questions
 
@@ -443,11 +479,12 @@ Verification completed:
 
 ## Next Recommended Step
 
-Execute Slice 4 next:
+The bounded Phase 5 LSP runtime plan is now complete through Slice 4.
 
-- add thin Go routes for `setCodeSectionDiagnosticsMute` and
-  `setCodeSectionDiagnosticCodeSuppression`
-- keep ignore-state reapplication source-of-truth-driven by filtering the
-  stored raw diagnostics already held in `internal/projectstate`
-- prove IDE-only route behavior and filtered payload refresh with focused Go
-  route and registry tests before widening to frontend verification
+Next recommended step:
+
+- start a focused follow-up plan doc for the next still-Python-owned LSP
+  behavior, with signature-help-driven callable refetch/parameter synthesis as
+  the recommended next slice
+- keep watch-code/file-watcher parity explicitly deferred until that
+  signature-help boundary is stable
