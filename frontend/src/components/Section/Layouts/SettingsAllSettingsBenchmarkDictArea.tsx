@@ -1,20 +1,15 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  SettingsAllSettingsBenchmarkStaticParamRowItems,
+  useSettingsAllSettingsBenchmarkParamRows,
+} from "components/Params/SettingsAllSettingsBenchmarkParamRows";
 import _ from "lodash";
-import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-
-type BenchmarkParamRow = {
-  depth: number;
-  id: string;
-  isParent: boolean;
-  label: string;
-};
 
 export function SettingsAllSettingsBenchmarkDictArea({
   sectionId,
@@ -27,8 +22,10 @@ export function SettingsAllSettingsBenchmarkDictArea({
   const {
     inputPortCount,
     outputPortCount,
-    pinnedRows,
-    unpinnedRows,
+    pinnedTopLevelParamIds,
+    pinnedRequiredParamIdsToPaths,
+    unpinnedTopLevelParamIds,
+    unpinnedRequiredParamIdsToPaths,
     hideUnpinnedParams,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -39,37 +36,13 @@ export function SettingsAllSettingsBenchmarkDictArea({
     const pinned = getCurrShownParamIds(state, sectionId, true, true);
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
 
-    const toRows = (
-      topLevelParamIds: Array<string>,
-      requiredParamIdsToPaths: Record<string, Array<string>>,
-    ): Array<BenchmarkParamRow> => {
-      if (topLevelParamIds.length === 0) {
-        return [];
-      }
-      const tree = buildParamTreeView(
-        state,
-        sectionId,
-        topLevelParamIds,
-        requiredParamIdsToPaths,
-      );
-      return tree.flat.map((item) => ({
-        depth: item.depth,
-        id: item.id,
-        isParent: item.isParent,
-        label: getParamDisplayName(state, sectionId, item.id),
-      }));
-    };
-
     return {
       inputPortCount: impl.edgeInputParams.length,
       outputPortCount: impl.edgeOutputPorts.length,
-      pinnedRows: toRows(
-        pinned.topLevelParamIds,
-        pinned.requiredParamIdsToPaths,
-      ),
-      unpinnedRows: impl.hideUnpinnedParams
-        ? []
-        : toRows(unpinned.topLevelParamIds, unpinned.requiredParamIdsToPaths),
+      pinnedTopLevelParamIds: pinned.topLevelParamIds,
+      pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
+      unpinnedTopLevelParamIds: unpinned.topLevelParamIds,
+      unpinnedRequiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
       hideUnpinnedParams: impl.hideUnpinnedParams,
     };
   }, _.isEqual);
@@ -95,14 +68,18 @@ export function SettingsAllSettingsBenchmarkDictArea({
         </div>
       </section>
       <BenchmarkParamArea
+        sectionId={sectionId}
         title="Pinned Params"
-        rows={pinnedRows}
+        paramIds={pinnedTopLevelParamIds}
+        requiredParamIdsToPaths={pinnedRequiredParamIdsToPaths}
         renderRows={benchmark.renderStaticParamList}
       />
       {!hideUnpinnedParams && (
         <BenchmarkParamArea
+          sectionId={sectionId}
           title="Params"
-          rows={unpinnedRows}
+          paramIds={unpinnedTopLevelParamIds}
+          requiredParamIdsToPaths={unpinnedRequiredParamIdsToPaths}
           renderRows={benchmark.renderStaticParamList}
           grow
         />
@@ -112,16 +89,25 @@ export function SettingsAllSettingsBenchmarkDictArea({
 }
 
 function BenchmarkParamArea({
+  sectionId,
   title,
-  rows,
+  paramIds,
+  requiredParamIdsToPaths,
   renderRows,
   grow = false,
 }: {
+  sectionId: string;
   title: string;
-  rows: Array<BenchmarkParamRow>;
+  paramIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
   renderRows: boolean;
   grow?: boolean;
 }) {
+  const rows = useSettingsAllSettingsBenchmarkParamRows({
+    sectionId,
+    paramIds,
+    requiredParamIdsToPaths,
+  });
   const areaClassName = grow
     ? "mt-2 flex min-h-0 flex-1 flex-col overflow-hidden"
     : "mt-2 flex flex-col";
@@ -142,23 +128,7 @@ function BenchmarkParamArea({
               Empty
             </div>
           ) : (
-            rows.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-setta-600 dark:text-setta-200"
-                data-param-row="true"
-                data-settings-benchmark-static-param-row="true"
-                style={{ paddingLeft: `${row.depth * 12 + 8}px` }}
-              >
-                <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-setta-300 dark:bg-setta-600" />
-                <span className="truncate">{row.label}</span>
-                {row.isParent && (
-                  <span className="ml-auto text-[0.5rem] uppercase tracking-[0.16em] text-setta-400 dark:text-setta-500">
-                    Group
-                  </span>
-                )}
-              </div>
-            ))
+            <SettingsAllSettingsBenchmarkStaticParamRowItems rows={rows} />
           )}
         </div>
       ) : (

@@ -88,6 +88,36 @@ function _ParamContainer({
     ? getFloatingBoxHandlers(...tooltipContentArray)
     : {};
 
+  if (benchmark.renderFlatParamLayout) {
+    return (
+      <BenchmarkFlatParamContainer
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        isKwarg={isKwarg}
+        isNestedParam={isNestedParam}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        isTopLevelWithPad={isTopLevelWithPad}
+        paramChildren={paramChildren}
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+        border={border}
+        bg={bg}
+        dndAttributes={dndAttributes}
+        dndListeners={dndListeners}
+        dndRef={dndRef}
+        dndStyle={dndStyle}
+        dndClassName={dndClassName}
+        listKey={listKey}
+        columnWidth={columnWidth}
+        floatingBoxHandlers={floatingBoxHandlers}
+      >
+        {children}
+      </BenchmarkFlatParamContainer>
+    );
+  }
+
   return !isNestedParam ? (
     <>
       <article
@@ -184,6 +214,93 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
+
+function BenchmarkFlatParamContainer({
+  sectionId,
+  paramInfoId,
+  requiredParamIdsToPaths,
+  children,
+  onResizeStart,
+  isKwarg,
+  isNestedParam,
+  hasSectionStyleTheme,
+  isTopLevelWithPad,
+  paramChildren,
+  onMouseDown,
+  onClick,
+  border,
+  bg,
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  dndStyle,
+  dndClassName,
+  listKey,
+  columnWidth,
+  floatingBoxHandlers,
+}) {
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+  const paramHoverClassName = hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+
+  return (
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`group/arg-group relative col-span-full flex min-w-0 flex-col gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      style={dndStyle ?? undefined}
+      data-param-row="true"
+      data-settings-benchmark-flat-param-row="true"
+      data-settings-benchmark-param-row-mode="flat"
+      {...floatingBoxHandlers}
+      onMouseDownCapture={onMouseDown}
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes ?? {})}
+      {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
+    >
+      <div
+        className={`flex min-w-0 items-center gap-3 px-[2px] ${isTopLevelWithPad ? "pt-2" : ""}`}
+      >
+        {!isKwarg ? (
+          <div
+            className="min-w-0 shrink-0 overflow-hidden"
+            style={{ width: columnWidth }}
+          >
+            {children}
+          </div>
+        ) : (
+          <div className="min-w-0 overflow-hidden">{children}</div>
+        )}
+        {!isNestedParam && (
+          <div className="min-w-0 flex-1">
+            <BenchmarkParamValueShell />
+          </div>
+        )}
+      </div>
+      {renderChildren.length > 0 && (
+        <div
+          className="ml-3 flex min-w-0 flex-col gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
+          data-settings-benchmark-flat-param-children="true"
+        >
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        </div>
+      )}
+    </article>
+  );
+}
 
 function BenchmarkParamValueShell() {
   return (

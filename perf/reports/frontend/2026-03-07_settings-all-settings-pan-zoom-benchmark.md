@@ -384,3 +384,119 @@ Updated working hypothesis:
   - tooltip handlers
   - resize handles
   - idle sortable row wiring
+
+## Addendum: Group Container vs Flat Row vs Subgrid
+
+Date: 2026-03-07
+Baseline reference: same Settings `All Settings` target and the same `~0.1` zoom region used earlier.
+
+Method note:
+
+- This addendum uses a render-isolation replay to split the remaining row-shell cost more precisely.
+- After stage activation and a `500ms` settle, it replays the pan/zoom sequence by mutating the live `.react-flow__viewport` transform directly while capturing `requestAnimationFrame` deltas and a DevTools trace.
+- Use these numbers for comparison within this addendum. They are not directly comparable to the earlier absolute FPS values, which came from prior benchmark passes.
+
+Goal: split the remaining `static-param-list` -> `param-structure-shell` cost into:
+
+- real `ParamGroupContainer` scaffolding
+- recursive real param-row composition with a flatter flex layout
+- the extra cost of the current nested grid/subgrid row layout
+
+New benchmark stages:
+
+- `group-container-static-list`
+  - real `ParamGroupContainer` / pinned-unpinned shells
+  - static benchmark rows rendered inside the real group container
+- `param-flat-shell`
+  - real recursive `ParamSwitch` / `ParamContainer` tree
+  - lightweight labels + lightweight value shells
+  - flatter flex layout instead of the current grid/subgrid layout
+- `param-structure-shell`
+  - same recursive real tree
+  - current nested grid/subgrid row layout
+
+### `static-param-list` anchor rerun
+
+- DOM nodes in `.react-flow`: `3773`
+- Static benchmark rows: `697`
+- Average frame time: `8.79ms`
+- Approx FPS: `113.76`
+- Max frame time: `17.40ms`
+- Slow frames:
+  - `>16.7ms`: `3`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/static-param-list-group-container-breakdown-trace.json`
+
+### `group-container-static-list`
+
+- DOM nodes in `.react-flow`: `3939`
+- Real group-container markers: `42`
+- Static benchmark rows: `697`
+- Group-container static row wrappers: `41`
+- Average frame time: `8.28ms`
+- Approx FPS: `120.71`
+- Max frame time: `9.40ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/group-container-static-list-trace.json`
+- Observation: The real pinned/unpinned `ParamGroupContainer` scaffolding is effectively free in this render-isolation pass. Swapping the synthetic body for the real group container barely changes the result.
+
+### `param-flat-shell`
+
+- DOM nodes in `.react-flow`: `5845`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Flat benchmark rows: `697`
+- Flat child wrappers: `66`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Average frame time: `10.38ms`
+- Approx FPS: `96.33`
+- Max frame time: `41.50ms`
+- Slow frames:
+  - `>16.7ms`: `9`
+  - `>33.3ms`: `2`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-flat-shell-trace.json`
+- Observation: Restoring the recursive real param-row shell, even with a simpler flex layout, is the biggest remaining cliff in this pass. That points at the per-row `ParamSwitch` / `ParamContainer` composition itself as a major cost bucket.
+
+### `param-structure-shell` render-isolation rerun
+
+- DOM nodes in `.react-flow`: `4525`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Static row-mode markers: `697`
+- Average frame time: `11.08ms`
+- Approx FPS: `90.29`
+- Max frame time: `50.20ms`
+- Slow frames:
+  - `>16.7ms`: `12`
+  - `>33.3ms`: `7`
+  - `>50ms`: `1`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-subgrid-comparison-trace.json`
+- Observation: Moving from the flatter recursive shell to the current nested grid/subgrid shell costs another `~6 FPS` and increases the slow-frame tail, even though it removes roughly `1320` DOM nodes. That strongly suggests layout strategy is more important than raw node count here.
+
+### Group Container/Subgrid Conclusion
+
+- `ParamGroupContainer` scaffolding is not the culprit.
+  - `static-param-list` and `group-container-static-list` are effectively the same.
+- The recursive real param-row shell is the main remaining row-structure cost.
+  - `group-container-static-list` -> `param-flat-shell` is the large drop.
+- The current grid/subgrid layout is a smaller but real secondary penalty.
+  - `param-flat-shell` -> `param-structure-shell` still drops another `~6 FPS`.
+  - It is slower despite fewer DOM nodes, so simple DOM-count reduction is not enough.
+
+Updated strongest suspects inside the row-shell bucket:
+
+- `ParamSwitch` / `ParamContainer` recursive row composition
+- the current `grid-cols-subgrid` / nested grid layout path inside `ParamContainer`
+
+Lower-priority suspects after this pass:
+
+- top-level `ParamGroupContainer` pinned/unpinned shells
+- outer scroll wrappers alone

@@ -11,6 +11,8 @@ const STAGES = [
   "header-only",
   "section-body-shell",
   "static-param-list",
+  "group-container-static-list",
+  "param-flat-shell",
   "param-structure-shell",
   "param-chrome-shell",
   "param-container-shell",
@@ -23,14 +25,19 @@ type StageMetrics = {
   domCount: number;
   headerCount: number;
   shellCount: number;
+  groupContainerCount: number;
   staticRowCount: number;
+  groupContainerStaticListCount: number;
   paramContainerCount: number;
+  flatParamRowCount: number;
+  flatParamChildrenCount: number;
   lightLabelCount: number;
   paramValueShellCount: number;
   paramUiShellCount: number;
   textWidgetShellCount: number;
   textInputDummyCount: number;
   resizeHandleCount: number;
+  flatRowModeCount: number;
   staticRowModeCount: number;
   sortableRowModeCount: number;
 };
@@ -64,9 +71,55 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("static-param-list")?.staticRowCount,
   ).toBeGreaterThan(0);
+  expect(metricsByStage.get("static-param-list")?.groupContainerCount).toBe(0);
   expect(metricsByStage.get("static-param-list")?.paramContainerCount).toBe(0);
 
+  expect(
+    metricsByStage.get("group-container-static-list")?.groupContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("group-container-static-list")?.staticRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("group-container-static-list")
+      ?.groupContainerStaticListCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("group-container-static-list")?.paramContainerCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("group-container-static-list")?.flatParamRowCount,
+  ).toBe(0);
+
+  expect(metricsByStage.get("param-flat-shell")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.groupContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.flatParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.flatParamChildrenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.paramValueShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-flat-shell")?.flatRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-flat-shell")?.staticRowModeCount).toBe(0);
+  expect(metricsByStage.get("param-flat-shell")?.sortableRowModeCount).toBe(0);
+
   expect(metricsByStage.get("param-structure-shell")?.staticRowCount).toBe(0);
+  expect(metricsByStage.get("param-structure-shell")?.flatParamRowCount).toBe(
+    0,
+  );
   expect(
     metricsByStage.get("param-structure-shell")?.paramContainerCount,
   ).toBeGreaterThan(0);
@@ -161,8 +214,11 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("static-param-list")?.domCount ?? 0,
   );
   expect(metricsByStage.get("static-param-list")?.domCount).toBeLessThan(
-    metricsByStage.get("param-structure-shell")?.domCount ?? 0,
+    metricsByStage.get("group-container-static-list")?.domCount ?? 0,
   );
+  expect(
+    metricsByStage.get("group-container-static-list")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-flat-shell")?.domCount ?? 0);
   expect(metricsByStage.get("param-structure-shell")?.domCount).toBeLessThan(
     metricsByStage.get("param-chrome-shell")?.domCount ?? 0,
   );
@@ -226,11 +282,23 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       headerCount: flowRoot.querySelectorAll("header.section-title").length,
       shellCount: flowRoot.querySelectorAll("[data-settings-benchmark-shell]")
         .length,
+      groupContainerCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-group-container]",
+      ).length,
       staticRowCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-static-param-row]",
       ).length,
+      groupContainerStaticListCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-group-container-static-list]",
+      ).length,
       paramContainerCount: flowRoot.querySelectorAll('[id^="ParamContainer-"]')
         .length,
+      flatParamRowCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-flat-param-row]",
+      ).length,
+      flatParamChildrenCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-flat-param-children]",
+      ).length,
       lightLabelCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-light-label]",
       ).length,
@@ -247,6 +315,9 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         .length,
       resizeHandleCount: flowRoot.querySelectorAll("[data-param-resize-handle]")
         .length,
+      flatRowModeCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-mode="flat"]',
+      ).length,
       staticRowModeCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-param-row-mode="static"]',
       ).length,
