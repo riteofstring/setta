@@ -1,3 +1,4 @@
+import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
@@ -187,12 +188,7 @@ export function SectionContainerCoreResizable({
 function BenchmarkSectionBodyPlaceholder({
   stage,
 }: {
-  stage:
-    | "frame-only"
-    | "header-only"
-    | "section-body-shell"
-    | "static-param-list"
-    | "full";
+  stage: SettingsAllSettingsBenchmarkStage;
 }) {
   return (
     <div

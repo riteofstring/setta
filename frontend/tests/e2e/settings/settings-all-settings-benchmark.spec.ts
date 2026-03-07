@@ -11,6 +11,9 @@ const STAGES = [
   "header-only",
   "section-body-shell",
   "static-param-list",
+  "param-container-shell",
+  "param-input-shell",
+  "non-text-widgets",
   "full",
 ] as const;
 
@@ -20,6 +23,11 @@ type StageMetrics = {
   shellCount: number;
   staticRowCount: number;
   paramContainerCount: number;
+  lightLabelCount: number;
+  paramValueShellCount: number;
+  paramUiShellCount: number;
+  textWidgetShellCount: number;
+  textInputDummyCount: number;
 };
 
 test("all settings benchmark stages progressively restore section complexity", async ({
@@ -53,8 +61,44 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("static-param-list")?.paramContainerCount).toBe(0);
 
+  expect(metricsByStage.get("param-container-shell")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.paramValueShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-container-shell")?.paramUiShellCount).toBe(
+    0,
+  );
+
+  expect(
+    metricsByStage.get("param-input-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-input-shell")?.paramValueShellCount).toBe(0);
+  expect(
+    metricsByStage.get("param-input-shell")?.paramUiShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-input-shell")?.textWidgetShellCount).toBe(0);
+
+  expect(
+    metricsByStage.get("non-text-widgets")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("non-text-widgets")?.paramUiShellCount).toBe(0);
+  expect(
+    metricsByStage.get("non-text-widgets")?.textWidgetShellCount,
+  ).toBeGreaterThan(0);
+
   expect(metricsByStage.get("full")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("full")?.paramContainerCount).toBeGreaterThan(0);
+  expect(metricsByStage.get("full")?.lightLabelCount).toBe(0);
+  expect(metricsByStage.get("full")?.paramValueShellCount).toBe(0);
+  expect(metricsByStage.get("full")?.paramUiShellCount).toBe(0);
+  expect(metricsByStage.get("full")?.textWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("full")?.textInputDummyCount).toBeGreaterThan(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -66,6 +110,15 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("static-param-list")?.domCount ?? 0,
   );
   expect(metricsByStage.get("static-param-list")?.domCount).toBeLessThan(
+    metricsByStage.get("param-container-shell")?.domCount ?? 0,
+  );
+  expect(
+    metricsByStage.get("param-container-shell")?.domCount,
+  ).toBeLessThanOrEqual(metricsByStage.get("param-input-shell")?.domCount ?? 0);
+  expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("non-text-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
   );
 });
@@ -118,6 +171,20 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         "[data-settings-benchmark-static-param-row]",
       ).length,
       paramContainerCount: flowRoot.querySelectorAll('[id^="ParamContainer-"]')
+        .length,
+      lightLabelCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-light-label]",
+      ).length,
+      paramValueShellCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-param-value-shell]",
+      ).length,
+      paramUiShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-widget-shell="param-ui-shell"]',
+      ).length,
+      textWidgetShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-widget-shell="text-family"]',
+      ).length,
+      textInputDummyCount: flowRoot.querySelectorAll('[id$="-ParamInput"]')
         .length,
     };
   });

@@ -154,3 +154,125 @@ For each stage:
 
 - Playwright: `frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
 - Result: passed locally via `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+
+## Addendum: Granular Param Stack Breakdown
+
+Date: 2026-03-07
+Baseline reference: same Settings `All Settings` scenario, viewport, fixed transform, and pan/zoom loop as the initial report above.
+Run mode: steady-state only, after a `500ms` post-navigation settle.
+
+Additional code paths under test:
+
+- `frontend/src/components/Params/ParamSwitch.tsx`
+- `frontend/src/components/Params/ParamContainer.tsx`
+- `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+
+New benchmark stages:
+
+- `param-container-shell`
+  - real `ParamGroupContainer` / `GetParamSwitch` / `ParamSwitch` / `ParamContainer`
+  - lightweight labels
+  - lightweight value placeholder instead of `ParamInput`
+- `param-input-shell`
+  - real `ParamInput` + `ParamUI` state/router layer
+  - lightweight widget placeholder instead of live controls
+- `non-text-widgets`
+  - real non-text widgets restored
+  - `CodeParam` / `TextParam` / `TextAreaParam` still replaced with placeholders
+
+### `static-param-list` anchor rerun
+
+- DOM nodes in `.react-flow`: `3773`
+- Static benchmark rows: `697`
+- Average frame time: `11.06ms`
+- Approx FPS: `90.45`
+- Max frame time: `42.50ms`
+- Slow frames:
+  - `>16.7ms`: `17`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/static-param-list-granular-trace.json`
+
+### `param-container-shell`
+
+- DOM nodes in `.react-flow`: `6406`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Lightweight value shells: `627`
+- Average frame time: `19.21ms`
+- Approx FPS: `52.05`
+- Max frame time: `59.10ms`
+- Slow frames:
+  - `>16.7ms`: `38`
+  - `>33.3ms`: `28`
+  - `>50ms`: `5`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-granular-trace.json`
+- Observation: This is the biggest new cliff. Replacing the synthetic row list with the real param-tree shell drops the benchmark by about `38 FPS` before `ParamInput` or live widget controls are restored.
+
+### `param-input-shell`
+
+- DOM nodes in `.react-flow`: `6406`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Param UI shells: `627`
+- Average frame time: `19.40ms`
+- Approx FPS: `51.55`
+- Max frame time: `66.50ms`
+- Slow frames:
+  - `>16.7ms`: `34`
+  - `>33.3ms`: `30`
+  - `>50ms`: `8`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-input-shell-granular-trace.json`
+- Observation: Restoring `ParamInput` and the `ParamUI` selector/router layer barely changes steady-state pan/zoom. The cost delta from `param-container-shell` is effectively noise.
+
+### `non-text-widgets`
+
+- DOM nodes in `.react-flow`: `7112`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Text-family widget placeholders still active: `426`
+- Implied live non-text widget rows: `201`
+- Average frame time: `20.61ms`
+- Approx FPS: `48.53`
+- Max frame time: `51.10ms`
+- Slow frames:
+  - `>16.7ms`: `57`
+  - `>33.3ms`: `18`
+  - `>50ms`: `2`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/non-text-widgets-granular-trace.json`
+- Observation: Restoring the non-text control family costs some budget, but it is still a secondary effect relative to the row shell itself.
+
+### `full` granular rerun
+
+- DOM nodes in `.react-flow`: `8627`
+- Param containers: `697`
+- Text input dummy mounts: `426`
+- Average frame time: `22.30ms`
+- Approx FPS: `44.84`
+- Max frame time: `33.20ms`
+- Slow frames:
+  - `>16.7ms`: `94`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-granular-trace.json`
+- Observation: The remaining drop from `non-text-widgets` to `full` comes mostly from restoring the `426` text/code/text-area widget rows and their heavier text-input rendering path.
+
+### Granular Conclusion
+
+- Dominant cost bucket `#1`: the real param row shell, not `ParamInput`.
+  - The move from `static-param-list` to `param-container-shell` is the largest single regression in this addendum.
+  - That bucket includes `ParamGroupContainer`, `GetParamSwitch`, `ParamSwitch`, `ParamContainer`, sortable wiring, tooltip wiring, resize handles, and the real nested grid structure.
+- Dominant cost bucket `#2`: the text-family widgets.
+  - Restoring `CodeParam` / `TextParam` / `TextAreaParam` rows accounts for most of the remaining drop between `non-text-widgets` and `full`.
+  - Those rows number `426`, so this is the largest live-widget family in the benchmark.
+- Minor cost bucket: `ParamInput` plumbing.
+  - The `param-container-shell` to `param-input-shell` delta is negligible in steady-state pan/zoom, so optimizing debounced writes or `ParamInput` hook logic alone is unlikely to move the benchmark much.
+- Secondary cost bucket: non-text live widgets.
+  - They do matter, but they are not the main explanation for the overall slowdown.
+
+Most likely next breakdown if we want to go one level deeper:
+
+- split the row-shell bucket into:
+  - sortable / DnD hook overhead
+  - tooltip + resize + error affordance overhead
+  - pure nested grid / DOM structure overhead

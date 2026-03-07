@@ -8,7 +8,7 @@ import { SettingsAllSettingsBenchmarkDictArea } from "./SettingsAllSettingsBench
 function _DictArea({ sectionId, bgColor }) {
   const benchmark = useSettingsAllSettingsBenchmark();
 
-  if (benchmark.active && !benchmark.renderFullSectionBody) {
+  if (benchmark.active && benchmark.useSyntheticSectionBody) {
     return (
       <SettingsAllSettingsBenchmarkDictArea
         sectionId={sectionId}

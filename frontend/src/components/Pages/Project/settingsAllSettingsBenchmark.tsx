@@ -17,6 +17,9 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "header-only",
   "section-body-shell",
   "static-param-list",
+  "param-container-shell",
+  "param-input-shell",
+  "non-text-widgets",
   "full",
 ] as const;
 
@@ -29,8 +32,13 @@ type SettingsAllSettingsBenchmarkValue = {
   renderSectionHeader: boolean;
   renderSectionBody: boolean;
   renderFullSectionBody: boolean;
+  useSyntheticSectionBody: boolean;
   renderStaticParamList: boolean;
   renderSectionHandles: boolean;
+  renderLiveParamLabels: boolean;
+  renderParamInput: boolean;
+  renderParamWidgets: boolean;
+  renderTextFamilyWidgets: boolean;
 };
 
 const DEFAULT_STAGE: SettingsAllSettingsBenchmarkStage = "full";
@@ -41,8 +49,13 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderSectionHeader: true,
   renderSectionBody: true,
   renderFullSectionBody: true,
+  useSyntheticSectionBody: false,
   renderStaticParamList: false,
   renderSectionHandles: true,
+  renderLiveParamLabels: true,
+  renderParamInput: true,
+  renderParamWidgets: true,
+  renderTextFamilyWidgets: true,
 };
 
 const SettingsAllSettingsBenchmarkContext =
@@ -80,8 +93,13 @@ function resolveBenchmarkValue(
         renderSectionHeader: false,
         renderSectionBody: false,
         renderFullSectionBody: false,
+        useSyntheticSectionBody: false,
         renderStaticParamList: false,
         renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
       };
     case "header-only":
       return {
@@ -90,8 +108,13 @@ function resolveBenchmarkValue(
         renderSectionHeader: true,
         renderSectionBody: false,
         renderFullSectionBody: false,
+        useSyntheticSectionBody: false,
         renderStaticParamList: false,
         renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
       };
     case "section-body-shell":
       return {
@@ -100,8 +123,13 @@ function resolveBenchmarkValue(
         renderSectionHeader: true,
         renderSectionBody: true,
         renderFullSectionBody: false,
+        useSyntheticSectionBody: true,
         renderStaticParamList: false,
         renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
       };
     case "static-param-list":
       return {
@@ -110,8 +138,58 @@ function resolveBenchmarkValue(
         renderSectionHeader: true,
         renderSectionBody: true,
         renderFullSectionBody: false,
+        useSyntheticSectionBody: true,
         renderStaticParamList: true,
         renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
+      };
+    case "param-container-shell":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
+      };
+    case "param-input-shell":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: true,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
+      };
+    case "non-text-widgets":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: true,
+        renderParamWidgets: true,
+        renderTextFamilyWidgets: false,
       };
     case "full":
       return {
@@ -120,8 +198,13 @@ function resolveBenchmarkValue(
         renderSectionHeader: true,
         renderSectionBody: true,
         renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
         renderStaticParamList: false,
         renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderParamInput: true,
+        renderParamWidgets: true,
+        renderTextFamilyWidgets: true,
       };
     default:
       return stage satisfies never;
