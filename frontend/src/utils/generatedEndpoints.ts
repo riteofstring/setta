@@ -583,6 +583,18 @@ export async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
+export async function route_start_run_chain(
+  x: gt.StartRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startRunChain", x);
+}
+
+export async function route_stop_run_chain(
+  x: gt.StopRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopRunChain", x);
+}
+
 export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
@@ -997,7 +1009,7 @@ export async function route_set_text_block_text(
 
 export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
   return await post("/setProjectConfigCodegenTargets", x);
 }
 
@@ -1235,30 +1247,6 @@ export async function route_set_agentic_edges(
   return await post("/setAgenticEdges", x);
 }
 
-export async function route_create_state_machine_edge(
-  x: gt.CreateStateMachineEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createStateMachineEdge", x);
-}
-
-export async function route_update_state_machine_edge(
-  x: gt.UpdateStateMachineEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateStateMachineEdge", x);
-}
-
-export async function route_delete_state_machine_edges(
-  x: gt.DeleteStateMachineEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteStateMachineEdges", x);
-}
-
-export async function route_set_state_machine_edges(
-  x: gt.SetStateMachineEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setStateMachineEdges", x);
-}
-
 export async function route_set_section_variant(
   x: gt.SetSectionVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1455,12 +1443,6 @@ export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionSettings", x);
-}
-
-export async function route_set_state_machine_section_settings(
-  x: gt.SetStateMachineSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setStateMachineSectionSettings", x);
 }
 
 export async function route_set_chat_section_state(
