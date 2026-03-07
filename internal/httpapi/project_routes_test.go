@@ -249,14 +249,16 @@ func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		projectRouteCodeUpdateServiceFunc(func(_ context.Context, projectID string, sectionID string, code string) error {
-			captured = projectRouteSetCodeCall{
-				ProjectID: projectID,
-				SectionID: sectionID,
-				Code:      code,
-			}
-			return nil
-		}),
+		projectRouteCodeUpdateService{
+			setCode: func(_ context.Context, projectID string, sectionID string, code string) error {
+				captured = projectRouteSetCodeCall{
+					ProjectID: projectID,
+					SectionID: sectionID,
+					Code:      code,
+				}
+				return nil
+			},
+		},
 	)
 
 	request := httptest.NewRequest(
@@ -276,6 +278,67 @@ func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
 		Code:      "print('updated')\n",
 	}) {
 		t.Fatalf("unexpected setCode call %#v", captured)
+	}
+}
+
+func TestRegisterProjectRoutesFormatCodeInvokesServiceAndReturnsOK(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	var captured projectRouteFormatCodeCall
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		projectRouteCodeUpdateService{
+			formatCode: func(_ context.Context, projectID string, sectionID string) error {
+				captured = projectRouteFormatCodeCall{
+					ProjectID: projectID,
+					SectionID: sectionID,
+				}
+				return nil
+			},
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteFormatCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if captured != (projectRouteFormatCodeCall{
+		ProjectID: "project-alpha",
+		SectionID: "section-1",
+	}) {
+		t.Fatalf("unexpected formatCode call %#v", captured)
 	}
 }
 
@@ -405,9 +468,11 @@ func TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding(t *testi
 		nil,
 		nil,
 		nil,
-		projectRouteCodeUpdateServiceFunc(func(context.Context, string, string, string) error {
-			return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "section-1")
-		}),
+		projectRouteCodeUpdateService{
+			setCode: func(context.Context, string, string, string) error {
+				return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "section-1")
+			},
+		},
 	)
 
 	request := httptest.NewRequest(
@@ -423,6 +488,112 @@ func TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding(t *testi
 	}
 	if !strings.Contains(response.Body.String(), `"code":"code_section_read_only"`) {
 		t.Fatalf("expected read-only error body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesFormatCodeReturnsForbiddenForReadOnlyBinding(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		projectRouteCodeUpdateService{
+			formatCode: func(context.Context, string, string) error {
+				return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "section-1")
+			},
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteFormatCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"code_section_read_only"`) {
+		t.Fatalf("expected read-only error body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesFormatCodeReturns422ForInvalidTarget(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		projectRouteCodeUpdateService{
+			formatCode: func(context.Context, string, string) error {
+				return projectstate.NewFormatCodeError("Format code only supports Python code sections.")
+			},
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteFormatCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_format_code"`) {
+		t.Fatalf("expected invalid_format_code response, got %q", response.Body.String())
 	}
 }
 
@@ -1763,9 +1934,7 @@ func newProjectRouteTestHandlerWithRenameService(
 		codeUpdateService = codeUpdates[0]
 	}
 	if codeUpdateService == nil {
-		codeUpdateService = projectRouteCodeUpdateServiceFunc(func(context.Context, string, string, string) error {
-			return nil
-		})
+		codeUpdateService = projectRouteCodeUpdateService{}
 	}
 	if renameRefactors == nil {
 		renameRefactors = projectRouteRenameRefactorServiceFunc(func(context.Context, string, string, string) error {
@@ -1881,10 +2050,28 @@ type projectRouteSetCodeCall struct {
 	Code      string
 }
 
-type projectRouteCodeUpdateServiceFunc func(ctx context.Context, projectID string, sectionID string, code string) error
+type projectRouteFormatCodeCall struct {
+	ProjectID string
+	SectionID string
+}
 
-func (f projectRouteCodeUpdateServiceFunc) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
-	return f(ctx, projectID, sectionID, code)
+type projectRouteCodeUpdateService struct {
+	setCode    func(ctx context.Context, projectID string, sectionID string, code string) error
+	formatCode func(ctx context.Context, projectID string, sectionID string) error
+}
+
+func (s projectRouteCodeUpdateService) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
+	if s.setCode == nil {
+		return nil
+	}
+	return s.setCode(ctx, projectID, sectionID, code)
+}
+
+func (s projectRouteCodeUpdateService) FormatCode(ctx context.Context, projectID string, sectionID string) error {
+	if s.formatCode == nil {
+		return nil
+	}
+	return s.formatCode(ctx, projectID, sectionID)
 }
 
 type projectRouteRenameRefactorServiceFunc func(ctx context.Context, projectID string, sectionID string, name string) error

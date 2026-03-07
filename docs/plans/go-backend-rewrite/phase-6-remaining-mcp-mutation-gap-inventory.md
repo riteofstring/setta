@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 38 tools total
-- 35 current Go tool names overlap with Python
+- Go MCP now exposes 39 tools total
+- 36 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 33 of those overlaps are mutation or structural tools
-- Python still has 16 mutation or structural project-state MCP tools that do
+- 34 of those overlaps are mutation or structural tools
+- Python still has 15 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -65,10 +65,11 @@ MCP server:
 - writes:
   - `set_section_name`
   - `set_section_tag_color`
-- `set_section_style_color`
-- `set_gen_code_prefix`
-- `set_gen_code_suffix`
-- `set_callable`
+  - `set_section_style_color`
+  - `set_gen_code_prefix`
+  - `set_gen_code_suffix`
+  - `format_code`
+  - `set_callable`
   - `set_code`
   - `set_top_level_section_layout`
   - `add_kwarg`
@@ -88,20 +89,25 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `format_code`
+- compare-and-set UI-setting parity over existing Go owners:
+  - `compare_and_set_show_param_display_names`
+  - `compare_and_set_watch_code_enabled`
+  - `compare_and_set_watch_code_folders`
+  - `compare_and_set_watch_code_files`
 
 Why this is next:
 
-1. The narrow Python target prefix/suffix parity gap is now closed on the
-   Go-owned MCP boundary.
-2. `format_code` is the next product capability in the same user workflow that
-   still remains Python-owned.
-3. It is the highest-leverage remaining mutation gap before the unresolved
-   layout/variant/app-definition cluster broadens scope again.
+1. `format_code` is now complete on the Go-owned route and MCP boundaries.
+2. The compare-and-set tools reuse already-landed Go runtime owners instead of
+   requiring a brand-new subsystem.
+3. They preserve important product semantics around side-effect-free no-ops and
+   stale-precondition writes without broadening Phase 6 into section-variant or
+   app-definition runtime work.
 
-### 2. After `format_code`
+### 2. After The Compare-And-Set Cluster
 
-- rerank the remaining mutation gaps against the authoritative formatting owner
+- rerank the remaining mutation gaps against the completed compare-and-set
+  owner layer
 - do not guess the post-formatting order in advance
 
 ### 3. Gaps That Still Need More Go Runtime Work First
@@ -118,10 +124,6 @@ owner is clearer:
 - `set_section_variant_sort_order`
 - `set_meta_control_show_section_title`
 - `set_code_section_attached_terminal`
-- `compare_and_set_show_param_display_names`
-- `compare_and_set_watch_code_enabled`
-- `compare_and_set_watch_code_folders`
-- `compare_and_set_watch_code_files`
 - `set_app_definition`
 - `update_app_definition`
 
@@ -135,7 +137,8 @@ priority:
 
 ## Recommended Next Step
 
-- scope `format_code` as the next bounded Phase 6 slice
+- use `phase-6-compare-and-set-ui-setting-tools-parity.md` as the next bounded
+  Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -145,10 +148,12 @@ priority:
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeSetGenCode(Suffix|Prefix)(PersistsPythonTargetField|RequiresPythonTarget)' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServerSetGenCodePrefixRespectsScopedWriteTargets|TestServerSetGenCodePrefixAllowsUnscopedCallsAndTranslatesTemporaryProjectID|TestServerSetGenCodePrefixRejectsProjectsWithoutPythonCodegen|TestServerSetGenCodeSuffixRespectsScopedWriteTargets|TestServerSetGenCodeSuffixAllowsUnscopedCallsAndTranslatesTemporaryProjectID|TestServerSetGenCodeSuffixRejectsProjectsWithoutPythonCodegen' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetGenCode(Prefix|Suffix)|TestMCPToolCallRouteSetGenCode(Prefix|Suffix)AcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetGenCode(Prefix|Suffix)OverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCode(Prefix|Suffix)OverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetGenCode(Prefix|Suffix)|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codeformat -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestCodeUpdateServiceFormatCode|TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeSetGenCode(Suffix|Prefix)(PersistsPythonTargetField|RequiresPythonTarget)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServer(SetCodeRespectsScopedWriteTargets|FormatCodeRespectsScopedWriteTargets|SetCodeRejectsReadOnlyCodeSections|FormatCodeRejectsReadOnlyCodeSections|SetCodeTranslatesTemporaryIDs|FormatCodeTranslatesTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutes(SetCode|FormatCode)|TestMCPToolCallRoute(SupportsFormatCode|FormatCodeAcceptsTemporaryIDs|RejectsReadOnlyFormatCode|RejectsReadOnlySetCode)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp(SetCodeRouteAppliesWatchCodeBoundSectionUpdate|FormatCodeRouteAppliesWatchCodeBoundSectionUpdate)|TestAppIDEMCPServer(SupportsAuthenticatedSSECalls|RejectsReadOnlySetCodeOverAuthenticatedSSE|SupportsSetCodeOverAuthenticatedSSE|SupportsTemporaryIDsForSetCodeOverAuthenticatedSSE|SupportsFormatCodeOverAuthenticatedSSE|SupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE|SupportsGeneratedFormatCodeOverAuthenticatedSSE)|TestAppIDEMCPToolCallRouteSupports(SetCode|FormatCode)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -212,3 +217,8 @@ priority:
   tool over the existing Go Python codegen target owner and `GenPythonCode`
   singleton-target scope boundary.
 - 2026-03-07: the next bounded slice moved to `format_code`.
+- 2026-03-07: `format_code` is now complete across the Go owner, IDE
+  `/formatCode` route, MCP server, MCP HTTP bridge, and authenticated IDE app
+  SSE boundary.
+- 2026-03-07: the next bounded slice moved to the compare-and-set UI-setting
+  and Watch Code tools cluster.

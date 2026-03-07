@@ -490,6 +490,85 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	}
 }
 
+func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().SetCode(
+		context.Background(),
+		"project-alpha",
+		"section-main",
+		"def sorted( iterable ):\n return iterable\n",
+	); err != nil {
+		t.Fatalf("seed app set_code before route format_code: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteFormatCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main"}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post format code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after formatCode route: %v", err)
+	}
+	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+		t.Fatalf("expected one callable section binding, got %#v", entry)
+	}
+
+	payload := mustDecodedProjectPayloadValue(t, project.SectionImpls["impl-main"].Payload)
+	if got := payload["code"]; got != "def sorted(iterable):\n    return iterable\n" {
+		t.Fatalf("expected formatted code payload, got %#v", got)
+	}
+}
+
 func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

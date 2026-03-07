@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 38 {
-		t.Fatalf("expected 38 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 39 {
+		t.Fatalf("expected 39 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -150,6 +150,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
+	var formatCodeTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
@@ -202,6 +203,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_code" {
 			setCodeTool = tool
+		}
+		if tool.Name == "format_code" {
+			formatCodeTool = tool
 		}
 		if tool.Name == "auto_layout_top_level_sections" {
 			autoLayoutTopLevelSectionsTool = tool
@@ -298,6 +302,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"delete_kwarg",
 		"delete_sections",
 		"delete_selected_params",
+		"format_code",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
@@ -355,6 +360,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCodeTool == nil {
 		t.Fatal("expected set_code tool")
+	}
+	if formatCodeTool == nil {
+		t.Fatal("expected format_code tool")
 	}
 	if autoLayoutTopLevelSectionsTool == nil {
 		t.Fatal("expected auto_layout_top_level_sections tool")
@@ -501,6 +509,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCodePaths := mustStructuredMap(t, setCodeMeta["idPathsByType"])
 	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_code sectionId target path, got %#v", got)
+	}
+	formatCodeMeta := mustStructuredMap(t, formatCodeTool.Meta[toolMetaNamespace])
+	if formatCodeMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for format_code, got %#v", formatCodeMeta["accessType"])
+	}
+	formatCodePaths := mustStructuredMap(t, formatCodeMeta["idPathsByType"])
+	if got := mustStringList(t, formatCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected format_code sectionId target path, got %#v", got)
 	}
 	setSectionTagColorMeta := mustStructuredMap(t, setSectionTagColorTool.Meta[toolMetaNamespace])
 	if setSectionTagColorMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -724,8 +740,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 38 {
-		t.Fatalf("expected 38 registered tool names, got %#v", listNames)
+	if len(listNames) != 39 {
+		t.Fatalf("expected 39 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2399,6 +2415,70 @@ func TestServerSetCodeRespectsScopedWriteTargets(t *testing.T) {
 	}
 }
 
+func TestServerFormatCodeRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	var capturedProjectID string
+	var capturedSectionID string
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		CodeUpdates: testCodeUpdateService{
+			formatCode: func(_ context.Context, projectID string, sectionID string) error {
+				capturedProjectID = projectID
+				capturedSectionID = sectionID
+				return nil
+			},
+		},
+	})
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call format_code allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed format_code success, got %#v", allowedResult.StructuredContent)
+	}
+	if capturedProjectID != "project-alpha" || capturedSectionID != "allowed-section" {
+		t.Fatalf("unexpected allowed format_code call project=%q section=%q", capturedProjectID, capturedSectionID)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call format_code blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked format_code call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+	if capturedProjectID != "project-alpha" || capturedSectionID != "allowed-section" {
+		t.Fatalf("expected blocked format_code not to reach provider, got project=%q section=%q", capturedProjectID, capturedSectionID)
+	}
+}
+
 func TestServerSetTopLevelSectionLayoutRespectsScopedStructuralTargets(t *testing.T) {
 	t.Parallel()
 
@@ -3619,6 +3699,46 @@ func TestServerSetCodeRejectsReadOnlyCodeSections(t *testing.T) {
 	}
 	if payload["message"] != `code section is read-only: "allowed-section"` {
 		t.Fatalf("unexpected readonly set_code message %#v", payload["message"])
+	}
+}
+
+func TestServerFormatCodeRejectsReadOnlyCodeSections(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		CodeUpdates: testCodeUpdateService{
+			formatCode: func(context.Context, string, string) error {
+				return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "allowed-section")
+			},
+		},
+	})
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call format_code readonly: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected readonly format_code call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != `code section is read-only: "allowed-section"` {
+		t.Fatalf("unexpected readonly format_code message %#v", payload["message"])
 	}
 }
 
@@ -5283,6 +5403,59 @@ func TestServerSetCodeTranslatesTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestServerFormatCodeTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	var capturedProjectID string
+	var capturedSectionID string
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+		CodeUpdates: testCodeUpdateService{
+			formatCode: func(_ context.Context, projectID string, sectionID string) error {
+				capturedProjectID = projectID
+				capturedSectionID = sectionID
+				return nil
+			},
+		},
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id format_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id format_code success, got %#v", result.StructuredContent)
+	}
+	if capturedProjectID != "project-alpha" || capturedSectionID != "allowed-section" {
+		t.Fatalf("expected canonical format_code ids, got project=%q section=%q", capturedProjectID, capturedSectionID)
+	}
+}
+
 func TestServerSetTopLevelSectionLayoutTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -6130,7 +6303,8 @@ func (s testSectionNameService) SetSectionName(ctx context.Context, projectID st
 }
 
 type testCodeUpdateService struct {
-	runtime *projectstate.Runtime
+	runtime    *projectstate.Runtime
+	formatCode func(ctx context.Context, projectID string, sectionID string) error
 }
 
 func (s testCodeUpdateService) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
@@ -6139,6 +6313,16 @@ func (s testCodeUpdateService) SetCode(ctx context.Context, projectID string, se
 	}
 	_, err := s.runtime.SetCode(ctx, projectID, sectionID, code)
 	return err
+}
+
+func (s testCodeUpdateService) FormatCode(ctx context.Context, projectID string, sectionID string) error {
+	if s.formatCode != nil {
+		return s.formatCode(ctx, projectID, sectionID)
+	}
+	if s.runtime == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+	return nil
 }
 
 func mustReadFileRangeResult(t *testing.T, handler tools.Handler, arguments map[string]any) readFileRangeResult {

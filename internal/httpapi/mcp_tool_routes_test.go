@@ -2750,6 +2750,204 @@ func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsFormatCode(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	var capturedProjectID string
+	var capturedSectionID string
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectRuntime,
+		CodeUpdates: routeCodeUpdateService{
+			formatCode: func(_ context.Context, projectID string, sectionID string) error {
+				capturedProjectID = projectID
+				capturedSectionID = sectionID
+				return nil
+			},
+		},
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"format_code",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected format_code success, got %#v", payload.StructuredContent)
+	}
+	if capturedProjectID != "project-alpha" || capturedSectionID != "allowed-section" {
+		t.Fatalf("unexpected format_code call project=%q section=%q", capturedProjectID, capturedSectionID)
+	}
+}
+
+func TestMCPToolCallRouteFormatCodeAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeTemporaryIDMapForRouteTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+	})
+
+	var capturedProjectID string
+	var capturedSectionID string
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		TemporaryIDMapPath: temporaryIDMapPath,
+		CodeUpdates: routeCodeUpdateService{
+			formatCode: func(_ context.Context, projectID string, sectionID string) error {
+				capturedProjectID = projectID
+				capturedSectionID = sectionID
+				return nil
+			},
+		},
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"format_code",
+		"arguments":{"projectConfigId":"11","sectionId":"14"},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"chatId":"12",
+			"sectionId":"13"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id format_code success, got %#v", payload.StructuredContent)
+	}
+	if capturedProjectID != "project-alpha" || capturedSectionID != "allowed-section" {
+		t.Fatalf("expected canonical format_code ids, got project=%q section=%q", capturedProjectID, capturedSectionID)
+	}
+}
+
+func TestMCPToolCallRouteRejectsReadOnlyFormatCode(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectRuntime,
+		CodeUpdates: routeCodeUpdateService{
+			formatCode: func(context.Context, string, string) error {
+				return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, "allowed-section")
+			},
+		},
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"format_code",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected readonly format_code route call to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
+	}
+	if structured["message"] != `code section is read-only: "allowed-section"` {
+		t.Fatalf("unexpected readonly format_code message %#v", structured["message"])
+	}
+}
+
 func TestMCPToolCallRouteSupportsStructuralCreateWithUnscopedContext(t *testing.T) {
 	t.Parallel()
 
@@ -3639,7 +3837,8 @@ func (s routeSectionNameService) SetSectionName(ctx context.Context, projectID s
 }
 
 type routeCodeUpdateService struct {
-	runtime *projectstate.Runtime
+	runtime    *projectstate.Runtime
+	formatCode func(ctx context.Context, projectID string, sectionID string) error
 }
 
 func (s routeCodeUpdateService) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
@@ -3648,6 +3847,28 @@ func (s routeCodeUpdateService) SetCode(ctx context.Context, projectID string, s
 	}
 	_, err := s.runtime.SetCode(ctx, projectID, sectionID, code)
 	return err
+}
+
+func (s routeCodeUpdateService) FormatCode(ctx context.Context, projectID string, sectionID string) error {
+	if s.formatCode != nil {
+		return s.formatCode(ctx, projectID, sectionID)
+	}
+	if s.runtime == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+	return nil
+}
+
+func writeTemporaryIDMapForRouteTest(t *testing.T, path string, payload map[string]string) {
+	t.Helper()
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal temporary id map: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write temporary id map: %v", err)
+	}
 }
 
 func mustStructuredMapForRoute(t *testing.T, value any) map[string]any {

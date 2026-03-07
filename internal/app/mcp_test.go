@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 38 {
-		t.Fatalf("expected 38 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 39 {
+		t.Fatalf("expected 39 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,11 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 38 {
-		t.Fatalf("expected 38 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 39 {
+		t.Fatalf("expected 39 registered tool names, got %d", len(rawNames))
+	}
+	if !containsStructuredStringValue(rawNames, "format_code") {
+		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_gen_code_prefix") {
 		t.Fatalf("expected set_gen_code_prefix in registered tool names, got %#v", rawNames)
@@ -970,6 +973,138 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *te
 	}
 	if result.IsError {
 		t.Fatalf("expected temp-id set_code success, got %#v", result.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPServerSupportsFormatCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().SetCode(
+		context.Background(),
+		"project-alpha",
+		"section-main",
+		"def sorted( iterable ):\n return iterable\n",
+	); err != nil {
+		t.Fatalf("seed app set_code before format_code: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "section-main",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call format_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected format_code success, got %#v", result.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().SetCode(
+		context.Background(),
+		"project-alpha",
+		"section-main",
+		"def sorted( iterable ):\n return iterable\n",
+	); err != nil {
+		t.Fatalf("seed app set_code before temp-id format_code: %v", err)
+	}
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"section-main":  "14",
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "format_code",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id format_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id format_code success, got %#v", result.StructuredContent)
 	}
 
 	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
@@ -2189,6 +2324,88 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOve
 	}
 	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"TemporaryMCPState"`) {
 		t.Fatalf("expected temp-id codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
+func TestAppIDEMCPServerSupportsGeneratedFormatCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, err := app.ProjectStates().Main().SetGenCodePrefix(context.Background(), "project-alpha", "import os,sys\n"); err != nil {
+		t.Fatalf("seed generated prefix before format_code: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().SetGenCodeSuffix(context.Background(), "project-alpha", "state={1:2}\n"); err != nil {
+		t.Fatalf("seed generated suffix before format_code: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "format_code",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       projectstate.GeneratedPythonCodeSectionID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call generated format_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected generated format_code success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after generated format_code: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after generated format_code: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after generated format_code")
+	}
+	if config.GenCodePrefix != "import os\nimport sys\n" {
+		t.Fatalf("expected formatted gen code prefix, got %q", config.GenCodePrefix)
+	}
+	if config.GenCodeSuffix != "state = {1: 2}\n" {
+		t.Fatalf("expected formatted gen code suffix, got %q", config.GenCodeSuffix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "import os\nimport sys") {
+		t.Fatalf("expected generated python file to include formatted prefix, got %q", content)
+	}
+	if !strings.Contains(content, "state = {1: 2}") {
+		t.Fatalf("expected generated python file to include formatted suffix, got %q", content)
 	}
 }
 
@@ -4133,8 +4350,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 38 {
-		t.Fatalf("expected tool count 38, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 39 {
+		t.Fatalf("expected tool count 39, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -4628,6 +4845,71 @@ func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
 	}
 	if payload.IsError {
 		t.Fatalf("expected set_code success, got %#v", payload.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPToolCallRouteSupportsFormatCode(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().SetCode(
+		context.Background(),
+		"project-alpha",
+		"section-main",
+		"def sorted( iterable ):\n return iterable\n",
+	); err != nil {
+		t.Fatalf("seed app set_code before route format_code: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"format_code",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"section-main"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post format_code tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode format_code tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected format_code success, got %#v", payload.StructuredContent)
 	}
 
 	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")

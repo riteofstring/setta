@@ -99,6 +99,7 @@ type projectStateProvider interface {
 
 type codeUpdateProvider interface {
 	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
+	FormatCode(ctx context.Context, projectID string, sectionID string) error
 }
 
 type settingsStateProvider interface {
@@ -889,6 +890,40 @@ func newSetCodeHandler(codeUpdates codeUpdateProvider) tools.Handler {
 		}
 
 		if err := codeUpdates.SetCode(ctx, projectConfigID, sectionID, code); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newFormatCodeHandler(codeUpdates codeUpdateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if codeUpdates == nil {
+			return nil, newToolError("internal_error", "Code-format runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped code-format invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if err := codeUpdates.FormatCode(ctx, projectConfigID, sectionID); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2822,6 +2857,46 @@ func defaultToolDefinitions(
 					"required": []string{"status"},
 				},
 			})
+
+			definitions = append(definitions, toolDefinition{
+				Spec: tools.Spec{
+					Name:        "format_code",
+					Description: "Format the targeted Python code section or generated Python code target using Ruff.",
+					Metadata: tools.Metadata{
+						Kind:       tools.KindDiscoverable,
+						AccessType: tools.AccessTypeWrite,
+						IDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection: {"sectionId"},
+						},
+						SearchCategory: "code",
+						SearchTags:     []string{"code", "format", "python", "generated", "write"},
+					},
+					Handler: newFormatCodeHandler(codeUpdates),
+				},
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"projectConfigId": map[string]any{
+							"type":        "string",
+							"description": "Project config id whose Python code section should be formatted.",
+						},
+						"sectionId": map[string]any{
+							"type":        "string",
+							"description": "Python code section id or generated Python singleton section id to format.",
+						},
+					},
+					"required": []string{"projectConfigId", "sectionId"},
+				},
+				OutputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"status": map[string]any{
+							"type": "string",
+						},
+					},
+					"required": []string{"status"},
+				},
+			})
 		}
 	}
 
@@ -4330,6 +4405,8 @@ func normalizeProjectStateMutationError(err error) error {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
 	case projectstate.IsInvalidSectionNameError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	case projectstate.IsFormatCodeError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsInvalidCodeObjectNameError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())

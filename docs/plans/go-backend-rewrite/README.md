@@ -184,11 +184,14 @@ Use the docs in this order:
   - focused slice doc for Go-owned `format_code` runtime ownership plus
     project-route and MCP parity over the completed code-update and Python
     codegen target boundaries
-73. `spike-mcp.md`
+73. `phase-6-compare-and-set-ui-setting-tools-parity.md`
+  - focused slice doc for Go-owned compare-and-set UI-setting and Watch Code
+    MCP parity over the completed presentation and Watch Code runtime owners
+74. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-74. `spike-pty.md`
+75. `spike-pty.md`
    - PTY uncertainty-reduction plan
-75. `spike-lsp.md`
+76. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

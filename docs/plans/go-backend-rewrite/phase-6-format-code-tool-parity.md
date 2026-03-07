@@ -22,9 +22,13 @@ existing IDE `/formatCode` route and the Phase 6 MCP boundary.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- `set_gen_code_suffix` MCP parity is complete
-- Go does not yet own `format_code`
-- the current Go rewrite already owns the adjacent authoritative boundaries:
+- this slice is complete
+- Go now owns `format_code` through a shared formatting owner plus thin IDE
+  route and MCP transport
+- the Go MCP boundary now exposes 39 tools total
+- the existing `/formatCode` frontend endpoint now delegates to the Go-owned
+  formatter instead of falling back to Python
+- the current Go rewrite reuses the adjacent authoritative boundaries:
   - inline code edits plus Watch Code / LSP-sensitive apply ordering:
     `internal/app/code_updates.go`
   - code-section validation and read-only binding policy:
@@ -35,8 +39,6 @@ Current repo status as of 2026-03-07:
   - authoritative generated Python materialization after project saves:
     `internal/codegen`
     `internal/app`
-- the missing Go owner is the formatting runtime itself plus thin transport on
-  top of it
 
 ## Scope
 
@@ -129,6 +131,9 @@ from failures.
   - use the backend process environment PATH and fail explicitly when Ruff is
     unavailable
   - do not invent heuristic formatter fallbacks
+- keep the Ruff OS boundary in a small shared package
+  - `internal/codeformat` now owns the subprocess integration
+  - the app code-update owner stays responsible for product semantics
 - preserve raw Ruff error text after ANSI stripping
   - invalid formatting input should surface actionable messages, not generic
     transport errors
@@ -182,24 +187,35 @@ from failures.
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestCodeUpdateServiceFormatCode|TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsFormatCodeOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsFormatCode' -count=1 -timeout 420s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesFormatCode|TestMCPToolCallRouteSupportsFormatCode|TestMCPToolCallRouteFormatCodeAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServerFormatCode' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codeformat -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestCodeUpdateServiceFormatCode|TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeSetGenCode(Suffix|Prefix)(PersistsPythonTargetField|RequiresPythonTarget)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutes(SetCode|FormatCode)|TestMCPToolCallRoute(SupportsFormatCode|FormatCodeAcceptsTemporaryIDs|RejectsReadOnlyFormatCode|RejectsReadOnlySetCode)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServer(SetCodeRespectsScopedWriteTargets|FormatCodeRespectsScopedWriteTargets|SetCodeRejectsReadOnlyCodeSections|FormatCodeRejectsReadOnlyCodeSections|SetCodeTranslatesTemporaryIDs|FormatCodeTranslatesTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp(SetCodeRouteAppliesWatchCodeBoundSectionUpdate|FormatCodeRouteAppliesWatchCodeBoundSectionUpdate)|TestAppIDEMCPServer(SupportsAuthenticatedSSECalls|RejectsReadOnlySetCodeOverAuthenticatedSSE|SupportsSetCodeOverAuthenticatedSSE|SupportsTemporaryIDsForSetCodeOverAuthenticatedSSE|SupportsFormatCodeOverAuthenticatedSSE|SupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE|SupportsGeneratedFormatCodeOverAuthenticatedSSE)|TestAppIDEMCPToolCallRouteSupports(SetCode|FormatCode)' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- whether the formatting helper should live in `internal/app` or a small shared
-  package if another transport/runtime wants direct Ruff access later
-  - recommendation: start with a small shared package only if tests need it
-    independently; otherwise keep it close to the app code-update owner
+- none after implementation
 
 ## Next Recommended Step
 
-- implement the formatting owner first
-- commit that owner plus focused service tests before layering route and MCP
-  transport on top
+- use `phase-6-compare-and-set-ui-setting-tools-parity.md` for the next
+  bounded Phase 6 slice
+- keep the compare-and-set UI-setting/watch-code cluster separate from the
+  section-variant and app-definition work so Phase 6 does not broaden too early
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the completed `set_gen_code_suffix` slice moved
   the next bounded Phase 6 step to `format_code`.
+- 2026-03-07: the Go rewrite now owns Ruff subprocess integration in
+  `internal/codeformat`, `format_code` mutation semantics in the app code-update
+  owner, the IDE `/formatCode` route, and the scoped MCP `format_code` tool.
+- 2026-03-07: authenticated route, MCP HTTP bridge, authenticated SSE, temp-id,
+  generated Python prefix/suffix, Watch Code refresh, and read-only rejection
+  coverage all passed.
+- 2026-03-07: Ruff import sorting remains the source of truth; combined imports
+  are split exactly as Ruff emits them instead of being post-processed.
+- 2026-03-07: the next bounded slice moved to the compare-and-set UI-setting
+  and Watch Code tools cluster.

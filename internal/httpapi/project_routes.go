@@ -35,6 +35,7 @@ const (
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
 	RouteSetCode                        = "/setCode"
+	RouteFormatCode                     = "/formatCode"
 	RouteSetActiveIDs                   = "/setActiveIds"
 	RouteSetViewport                    = "/setViewport"
 	RouteSetSectionTagColor             = "/setSectionTagColor"
@@ -67,6 +68,7 @@ type ProjectRouteDependencies struct {
 
 type ProjectCodeUpdateService interface {
 	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
+	FormatCode(ctx context.Context, projectID string, sectionID string) error
 }
 
 type ProjectRenameRefactorService interface {
@@ -219,6 +221,12 @@ type SetCodeRequest struct {
 	Code         string  `json:"code"`
 }
 
+type FormatCodeRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+}
+
 type SetSectionTagColorRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -321,6 +329,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteFormatCode, formatCodeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveIDs, setActiveIDsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewport, setViewportHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -969,6 +978,37 @@ func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func formatCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[FormatCodeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.CodeUpdates == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.CodeUpdates.FormatCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
+			writeFormatCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setSectionTagColorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetSectionTagColorRequest](r)
@@ -1434,6 +1474,26 @@ func writeSetCodeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusForbidden, "code_section_read_only", "Code section is read-only.")
 	case errors.Is(err, projectstate.ErrCodeSectionRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_code_section", "Section must resolve to a code section.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeFormatCodeError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeSectionReadOnly):
+		writeError(w, r, http.StatusForbidden, "code_section_read_only", "Code section is read-only.")
+	case projectstate.IsFormatCodeError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_format_code", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
