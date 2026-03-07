@@ -28,11 +28,13 @@ Use the docs in this order:
    - focused current-work plan for generated-entry run support and temporary-terminal fallback
 12. `phase-4-deployment-run-code-policy-and-session-overlays.md`
    - focused current-work plan for deployment/share run-code policy and session runtime foundations
-13. `spike-mcp.md`
+13. `phase-4-deployment-session-transport-and-cleanup.md`
+   - focused current-work plan for deployment session bootstrap/state transport and session cleanup ownership
+14. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-14. `spike-pty.md`
+15. `spike-pty.md`
    - PTY uncertainty-reduction plan
-15. `spike-lsp.md`
+16. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -15,11 +15,13 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
+	"setta/internal/terminals"
 	"setta/internal/wsapi"
 )
 
@@ -172,6 +174,154 @@ func TestAppShareModeFrontendWebsocketUsesDeploymentShareSessions(t *testing.T) 
 	}
 	if !touched.LastSeenAt.After(session.LastSeenAt) {
 		t.Fatalf("expected websocket connect to advance last-seen time from %v to after %v", touched.LastSeenAt, session.LastSeenAt)
+	}
+}
+
+func TestAppShareModeServesCurrentDeploymentSessionRoute(t *testing.T) {
+	t.Parallel()
+
+	cfg := testDeploymentConfig(t, config.ModeShare)
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+httpapi.RouteShareDeploymentCurrentSession, nil)
+	response := httptest.NewRecorder()
+	app.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload httpapi.ShareDeploymentSessionResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode share session response: %v", err)
+	}
+	if payload.DeploymentName != "demo-share" || payload.DeploymentVersion != "v2" {
+		t.Fatalf("unexpected deployment identity %#v", payload)
+	}
+	if payload.ShareSessionID == "" {
+		t.Fatal("expected non-empty share session id")
+	}
+	if !app.ShareSessions().HasSession(payload.ShareSessionID) {
+		t.Fatal("expected current session route to create a deployment session")
+	}
+}
+
+func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testing.T) {
+	t.Parallel()
+	skipIfAppTerminalPTYUnsupported(t)
+
+	deploymentRoot := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeAppDeploymentFixture(t, deploymentRoot)
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
+		DeploymentRoot: deploymentRoot,
+		RuntimeRoot:    runtimeRoot,
+		Now: func() time.Time {
+			return now
+		},
+		SessionTTL: 30 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	terminalService, err := terminals.New(terminals.Options{
+		Logger: observability.NewLogger(0, io.Discard),
+	})
+	if err != nil {
+		t.Fatalf("new terminal service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := terminalService.Close(context.Background()); err != nil {
+			t.Fatalf("close terminal service: %v", err)
+		}
+	})
+
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create expired session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create active session: %v", err)
+	}
+
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-a", "share-a"),
+		ProjectID:      "project-alpha",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open expired-session terminal: %v", err)
+	}
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-b", "share-b"),
+		ProjectID:      "project-alpha",
+		ShareSessionID: "share-b",
+		AllowInput:     false,
+		Command:        quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open active-session terminal: %v", err)
+	}
+
+	sequencer := realtime.NewSequencer()
+	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
+		Sequencer:    sequencer,
+	})
+	if _, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil {
+		t.Fatalf("seed expired-session sequence: %v", err)
+	}
+	if _, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); err != nil {
+		t.Fatalf("seed active-session sequence: %v", err)
+	}
+
+	now = now.Add(45 * time.Second)
+	if err := deploymentRuntime.TouchSession("share-b"); err != nil {
+		t.Fatalf("touch active session: %v", err)
+	}
+	now = now.Add(29 * time.Second)
+
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	expiredIDs, err := cleanupExpiredDeploymentSessions(cleanupCtx, deploymentRuntime, terminalService, listenerBroadcaster)
+	if err != nil {
+		t.Fatalf("cleanup expired deployment sessions: %v", err)
+	}
+	if len(expiredIDs) != 1 || expiredIDs[0] != "share-a" {
+		t.Fatalf("expected only share-a to expire, got %#v", expiredIDs)
+	}
+	if deploymentRuntime.HasSession("share-a") {
+		t.Fatal("did not expect expired share session to remain")
+	}
+	if !deploymentRuntime.HasSession("share-b") {
+		t.Fatal("expected active share session to remain")
+	}
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "share-a")); ok {
+		t.Fatal("did not expect expired share-session terminal to remain")
+	}
+	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-b", "share-b")); !ok {
+		t.Fatal("expected active share-session terminal to remain")
+	}
+	if current, ok := sequencer.Current(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); ok || current != 0 {
+		t.Fatalf("expected expired share-session sequence to be removed, got %d ok=%t", current, ok)
+	}
+	if current, ok := sequencer.Current(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); !ok || current != 1 {
+		t.Fatalf("expected active share-session sequence to remain, got %d ok=%t", current, ok)
 	}
 }
 

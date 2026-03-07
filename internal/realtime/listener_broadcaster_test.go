@@ -238,6 +238,58 @@ func TestListenerBroadcasterDependencyEventsShareSequenceWithRealtimeDeltas(t *t
 	assertListenerDependencyEventMessage(t, readEnvelope(t, listener), "project-a", "", 2, `{"clicked":true}`)
 }
 
+func TestListenerBroadcasterDropShareSessionRemovesRegistrationsAndSequences(t *testing.T) {
+	t.Parallel()
+
+	sequencer := NewSequencer()
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: NewWebsocketHub(WebsocketHubOptions{}),
+		Sequencer:    sequencer,
+	})
+
+	if err := broadcaster.Registry().RecordBootstrap(ListenerBootstrap{
+		ConnectionID:   "listener-a",
+		ProjectID:      "project-a",
+		ShareSessionID: "session-a",
+	}); err != nil {
+		t.Fatalf("record bootstrap: %v", err)
+	}
+	if err := broadcaster.Registry().UpsertRegistration(
+		"listener-a",
+		"project-a",
+		map[string]ListenerCallback{
+			"cb-a": {
+				Dependencies:   []string{"section-a.param-a"},
+				DependencyMode: ListenerDependencyModeAlways,
+			},
+		},
+		"session-a",
+	); err != nil {
+		t.Fatalf("upsert registration: %v", err)
+	}
+	if _, err := sequencer.Next(Scope{ProjectID: "project-a", ShareSessionID: "session-a"}); err != nil {
+		t.Fatalf("seed dropped session sequence: %v", err)
+	}
+	if _, err := sequencer.Next(Scope{ProjectID: "project-a", ShareSessionID: "session-b"}); err != nil {
+		t.Fatalf("seed retained session sequence: %v", err)
+	}
+
+	broadcaster.DropShareSession("session-a")
+
+	if got := broadcaster.Registry().BootstrapConnectionIDs("project-a", "session-a"); len(got) != 0 {
+		t.Fatalf("expected no bootstraps for dropped share session, got %#v", got)
+	}
+	if got := broadcaster.Registry().MatchingConnectionIDs("project-a", []string{"section-a.param-a"}, "session-a"); len(got) != 0 {
+		t.Fatalf("expected no registrations for dropped share session, got %#v", got)
+	}
+	if current, ok := sequencer.Current(Scope{ProjectID: "project-a", ShareSessionID: "session-a"}); ok || current != 0 {
+		t.Fatalf("expected dropped share-session sequence to be removed, got %d ok=%t", current, ok)
+	}
+	if current, ok := sequencer.Current(Scope{ProjectID: "project-a", ShareSessionID: "session-b"}); !ok || current != 1 {
+		t.Fatalf("expected other session sequence to remain, got %d ok=%t", current, ok)
+	}
+}
+
 func TestListenerBroadcasterForceRefreshTargetsBootstrappedListenersAndResetsSequence(t *testing.T) {
 	t.Parallel()
 

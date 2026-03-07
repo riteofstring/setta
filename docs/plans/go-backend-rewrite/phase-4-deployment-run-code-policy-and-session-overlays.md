@@ -42,7 +42,9 @@ Current repo status as of 2026-03-06:
 - the current Go deployment gap is now concentrated in remaining transport:
   - deployment `runCode` now uses the Go deployment runtime and share-session
     overlays
-  - no Go route yet creates deployment sessions over HTTP
+  - current deployment-session bootstrap now exists in Go
+  - deployment session expiry cleanup now exists in Go
+  - deployment state/project-config transport is still missing
   - deployment terminal delete/interrupt transport is still IDE-only
 - Python still owns deployment/share `runCode` semantics across:
   - `backend/setta/routers/terminals.py`
@@ -306,7 +308,8 @@ Tests:
 
 ## Next Recommended Step
 
-- Add deployment session HTTP transport and cleanup wiring:
-  the frontend still cannot create share/app sessions from Go without Python,
-  and deployment terminal delete/interrupt parity still depends on that session
-  transport wave.
+- Continue with
+  `docs/plans/go-backend-rewrite/phase-4-deployment-session-transport-and-cleanup.md`:
+  deployment current-session bootstrap and expiry cleanup are now Go-owned, but
+  deployment state/project-config transport still depends on a richer Go
+  project-state transport boundary.

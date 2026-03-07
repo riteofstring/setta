@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,8 @@ var (
 	ErrRuntimeRequired         = errors.New("deployment runtime is required")
 )
 
+const DefaultSessionTTL = 30 * time.Minute
+
 type Session struct {
 	ID         string    `json:"id"`
 	CreatedAt  time.Time `json:"createdAt"`
@@ -33,6 +36,7 @@ type RuntimeOptions struct {
 	RuntimeRoot    string
 	IDGenerator    func() string
 	Now            func() time.Time
+	SessionTTL     time.Duration
 }
 
 type Runtime struct {
@@ -44,6 +48,7 @@ type Runtime struct {
 
 	idGenerator func() string
 	now         func() time.Time
+	sessionTTL  time.Duration
 
 	mu       sync.Mutex
 	sessions map[string]Session
@@ -98,6 +103,10 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 	if now == nil {
 		now = time.Now
 	}
+	sessionTTL := opts.SessionTTL
+	if sessionTTL <= 0 {
+		sessionTTL = DefaultSessionTTL
+	}
 
 	return &Runtime{
 		paths:       paths,
@@ -107,6 +116,7 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 		overlays:    overlayRegistry,
 		idGenerator: idGenerator,
 		now:         now,
+		sessionTTL:  sessionTTL,
 		sessions:    map[string]Session{},
 	}, nil
 }
@@ -139,6 +149,13 @@ func (r *Runtime) Policy() Policy {
 	return r.policy
 }
 
+func (r *Runtime) SessionTTL() time.Duration {
+	if r == nil {
+		return 0
+	}
+	return r.sessionTTL
+}
+
 func (r *Runtime) Base() *projectstate.Runtime {
 	if r == nil {
 		return nil
@@ -162,6 +179,29 @@ func (r *Runtime) Session(sessionID string) (Session, bool) {
 func (r *Runtime) HasSession(sessionID string) bool {
 	_, ok := r.Session(sessionID)
 	return ok
+}
+
+func (r *Runtime) GetOrCreateSession(sessionID string) (Session, bool, error) {
+	if r == nil {
+		return Session{}, false, ErrRuntimeRequired
+	}
+
+	trimmedID := strings.TrimSpace(sessionID)
+	if trimmedID != "" {
+		session, reused, err := r.tryReuseSession(trimmedID)
+		if err != nil {
+			return Session{}, false, err
+		}
+		if reused {
+			return session, false, nil
+		}
+	}
+
+	session, err := r.CreateSession()
+	if err != nil {
+		return Session{}, false, err
+	}
+	return session, true, nil
 }
 
 func (r *Runtime) CreateSession() (Session, error) {
@@ -213,6 +253,39 @@ func (r *Runtime) CreateSessionWithID(sessionID string) (Session, error) {
 	}
 	r.sessions[trimmedID] = session
 	return session, nil
+}
+
+func (r *Runtime) CleanupExpiredSessions() ([]string, error) {
+	if r == nil {
+		return nil, ErrRuntimeRequired
+	}
+
+	cutoff := r.now().UTC().Add(-r.sessionTTL)
+
+	r.mu.Lock()
+	expiredIDs := make([]string, 0)
+	for sessionID, session := range r.sessions {
+		if session.LastSeenAt.After(cutoff) {
+			continue
+		}
+		expiredIDs = append(expiredIDs, sessionID)
+		delete(r.sessions, sessionID)
+	}
+	r.mu.Unlock()
+
+	if len(expiredIDs) == 0 {
+		return nil, nil
+	}
+
+	sort.Strings(expiredIDs)
+
+	var err error
+	for _, sessionID := range expiredIDs {
+		if deleteErr := r.overlays.Delete(sessionID); deleteErr != nil && !errors.Is(deleteErr, projectstate.ErrUnknownOverlaySession) {
+			err = errors.Join(err, deleteErr)
+		}
+	}
+	return expiredIDs, err
 }
 
 func (r *Runtime) TouchSession(sessionID string) error {
@@ -388,6 +461,24 @@ func (r *Runtime) requireSession(sessionID string) (Session, error) {
 		return Session{}, fmt.Errorf("%w: %q", ErrUnknownSession, trimmedID)
 	}
 	return session, nil
+}
+
+func (r *Runtime) tryReuseSession(sessionID string) (Session, bool, error) {
+	r.mu.Lock()
+	session, ok := r.sessions[sessionID]
+	if !ok {
+		r.mu.Unlock()
+		return Session{}, false, nil
+	}
+	session.LastSeenAt = r.now().UTC()
+	r.sessions[sessionID] = session
+	r.mu.Unlock()
+
+	if _, err := r.overlays.GetOrCreate(sessionID); err != nil {
+		return Session{}, false, err
+	}
+
+	return session, true, nil
 }
 
 func newRandomSessionID() string {

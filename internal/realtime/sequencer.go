@@ -30,8 +30,8 @@ func (s *Sequencer) Next(scope Scope) (uint64, error) {
 		return 0, err
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	next := s.sequenceByScope[scope] + 1
 	s.sequenceByScope[scope] = next
@@ -44,8 +44,8 @@ func (s *Sequencer) Current(scope Scope) (uint64, bool) {
 		return 0, false
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	current, ok := s.sequenceByScope[scope]
 	return current, ok

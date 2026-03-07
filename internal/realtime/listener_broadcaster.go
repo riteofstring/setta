@@ -198,6 +198,16 @@ func (b *ListenerBroadcaster) RemoveConnection(connectionID string) {
 	b.registry.RemoveConnection(connectionID)
 }
 
+func (b *ListenerBroadcaster) DropShareSession(shareSessionID string) {
+	shareSessionID = strings.TrimSpace(shareSessionID)
+	if shareSessionID == "" {
+		return
+	}
+
+	b.registry.DropShareSession(shareSessionID)
+	b.sequencer.DropShareSession(shareSessionID)
+}
+
 func (b *ListenerBroadcaster) sendMessageToTargets(ctx context.Context, message any, connectionIDs []string) (int, error) {
 	payload, err := json.Marshal(message)
 	if err != nil {

@@ -135,6 +135,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
 	})
+	if deploymentRuntime != nil {
+		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
+			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
+		})
+	}
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -158,6 +163,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 		},
 		Register: func(r chi.Router) {
+			if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
+				ModePolicy: modePolicy,
+				Deployment: deploymentRuntime,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
 				ModePolicy: modePolicy,
 				Store:      binaryStore,

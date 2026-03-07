@@ -14,6 +14,8 @@ Generated-entry and temporary-terminal follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`.
 Deployment/share run-code follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-deployment-run-code-policy-and-session-overlays.md`.
+Deployment session bootstrap and cleanup follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-deployment-session-transport-and-cleanup.md`.
 
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.
@@ -95,8 +97,14 @@ Current repo status as of 2026-03-06:
 - `internal/app` now also owns deployment runtime lifecycle in share/app mode,
   with a Go-wired share-session source of truth feeding websocket mode
   resolution
+- Go now also owns current deployment-session bootstrap and expiry cleanup
+  under:
+  - `internal/httpapi/deployment_routes.go`
+  - `internal/app/deployment_cleanup.go`
+  - explicit session reuse/replacement in `internal/deployments`
+  - PTY + realtime teardown for expired deployment sessions
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
-- deployment session creation/cleanup transport still lives only in Python across:
+- deployment state/project-config transport still lives only in Python across:
   - `backend/setta/routers/share_deployments.py`
   - `backend/setta/routers/app_deployments.py`
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:

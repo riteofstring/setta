@@ -242,6 +242,138 @@ func TestRuntimeSessionRunReservationLifecycle(t *testing.T) {
 	}
 }
 
+func TestRuntimeGetOrCreateSessionReusesLiveSessionAndReplacesUnknownID(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, singleProjectDocument("project-alpha", "Alpha"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	}, map[string]any{})
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	nextGeneratedID := "generated-session"
+	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+		Now: func() time.Time {
+			return now
+		},
+		IDGenerator: func() string {
+			return nextGeneratedID
+		},
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	session, err := deploymentRuntime.CreateSessionWithID("session-a")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	now = now.Add(2 * time.Minute)
+	reused, created, err := deploymentRuntime.GetOrCreateSession("session-a")
+	if err != nil {
+		t.Fatalf("reuse live session: %v", err)
+	}
+	if created {
+		t.Fatal("did not expect existing session reuse to report creation")
+	}
+	if reused.ID != "session-a" {
+		t.Fatalf("expected reused session id session-a, got %q", reused.ID)
+	}
+	if !reused.LastSeenAt.After(session.LastSeenAt) {
+		t.Fatalf("expected reused session last-seen time after %v, got %v", session.LastSeenAt, reused.LastSeenAt)
+	}
+
+	now = now.Add(2 * time.Minute)
+	replacement, created, err := deploymentRuntime.GetOrCreateSession("missing-session")
+	if err != nil {
+		t.Fatalf("replace unknown session id: %v", err)
+	}
+	if !created {
+		t.Fatal("expected unknown session id to create a new session")
+	}
+	if replacement.ID != nextGeneratedID {
+		t.Fatalf("expected generated session id %q, got %q", nextGeneratedID, replacement.ID)
+	}
+	if replacement.ID == "missing-session" {
+		t.Fatal("did not expect unknown session id to be adopted as the new session id")
+	}
+}
+
+func TestRuntimeCleanupExpiredSessionsRemovesOnlyExpiredSessions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	writeDeploymentFixture(t, root, singleProjectDocument("project-alpha", "Alpha"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	}, map[string]any{})
+
+	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+		Now: func() time.Time {
+			return now
+		},
+		SessionTTL: 30 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	if _, err := deploymentRuntime.CreateSessionWithID("session-expired"); err != nil {
+		t.Fatalf("create expired session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("session-active"); err != nil {
+		t.Fatalf("create active session: %v", err)
+	}
+
+	now = now.Add(45 * time.Second)
+	if err := deploymentRuntime.TouchSession("session-active"); err != nil {
+		t.Fatalf("touch active session: %v", err)
+	}
+
+	now = now.Add(29 * time.Second)
+	expiredIDs, err := deploymentRuntime.CleanupExpiredSessions()
+	if err != nil {
+		t.Fatalf("cleanup expired sessions: %v", err)
+	}
+	if len(expiredIDs) != 1 || expiredIDs[0] != "session-expired" {
+		t.Fatalf("expected only session-expired to be cleaned up, got %#v", expiredIDs)
+	}
+	if deploymentRuntime.HasSession("session-expired") {
+		t.Fatal("did not expect expired session to remain")
+	}
+	if !deploymentRuntime.HasSession("session-active") {
+		t.Fatal("expected active session to remain")
+	}
+	if _, err := deploymentRuntime.Overlay("session-expired"); !errors.Is(err, ErrUnknownSession) {
+		t.Fatalf("expected expired overlay lookup to fail with unknown session, got %v", err)
+	}
+}
+
 func TestRuntimeDeleteSessionRemovesOverlayAndRunState(t *testing.T) {
 	t.Parallel()
 

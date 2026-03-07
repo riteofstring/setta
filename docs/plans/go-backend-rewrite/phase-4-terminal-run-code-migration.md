@@ -96,8 +96,12 @@ Current repo status as of 2026-03-06:
   - share-session overlay planning
   - `share_runs/<session>` snapshot roots
 - Go does not yet have a `cliId` output transport equivalent
-- Go does not yet expose deployment session creation/cleanup transport, so the
-  frontend still relies on Python for share/app session bootstrap
+- Go now exposes current deployment session bootstrap and expiry cleanup under:
+  - `internal/httpapi/deployment_routes.go`
+  - `internal/app/deployment_cleanup.go`
+- deployment share/app state + project-config transport still relies on Python,
+  because Go does not yet own a frontend-facing project-state payload for those
+  routes
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope
