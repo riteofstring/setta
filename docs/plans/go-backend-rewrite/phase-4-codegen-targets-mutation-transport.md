@@ -25,6 +25,11 @@ Current repo status as of 2026-03-06:
 - Go already owns:
   - persisted project-state runtime and registry boundaries in
     `internal/projectstate`
+  - a Go-owned persisted domain mutation for `projectConfig.codegenTargets`
+    under:
+    - `internal/projectstate/codegen_targets.go`
+    - `internal/plugins/codegen_target_validator.go`
+    - `internal/projectstate/runtime.go`
   - frontend read projection in `internal/projectview`
   - worker-backed plugin codegen runtime and materialization under
     `internal/plugins` and `internal/codegen`
@@ -203,6 +208,44 @@ Acceptance:
 - invalid target payloads or duplicate languages fail in Go before save
 - persistence flows through the existing runtime save hook
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/projectstate/codegen_targets.go` as the Go-owned persisted
+  mutation boundary for `projectConfig.codegenTargets`
+- added `Runtime.MutateAndSave(...)` in `internal/projectstate/runtime.go` so
+  narrow domain mutations can persist through the existing main-runtime save
+  hook without route handlers hand-editing document state
+- kept plugin-target validation explicit by introducing
+  `internal/plugins/codegen_target_validator.go`
+  - plugin targets resolve through the existing worker-spec resolver boundary
+  - Python targets bypass plugin resolver validation
+- enforced the slice boundary honestly:
+  - plugin-only target mutations are supported
+  - unchanged existing Python targets may remain present alongside plugin target
+    edits
+  - any Python target add/remove/config change still fails explicitly with
+    `ErrProjectCodegenPythonMutationUnsupported`
+- made Python-target equality semantic instead of formatting-sensitive by
+  compacting JSON payloads before comparison
+- ensured duplicate-language rejection happens before plugin validation so the
+  mutation contract stays source-of-truth and deterministic
+- covered the slice with focused Go tests for:
+  - persisted plugin-only target mutation through the main runtime save path
+  - duplicate-language rejection before validator calls
+  - validator-required and validator-error paths
+  - explicit Python mutation rejection
+  - unchanged Python target plus plugin-target mutation acceptance
+  - plugin-target validator delegation to the worker-spec resolver
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(SetProjectCodegenTargets|MutateAndSave)' -count=1 -v`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins -run 'TestProjectCodegenTargetValidator' -count=1 -v`
+
 ### Slice 2: IDE Route + Authoritative Project-State Response
 
 Deliver:
@@ -234,14 +277,15 @@ Acceptance:
 
 ## Open Questions
 
-- whether Slice 1 should initially support only plugin-only target mutations and
-  fail explicitly when Python codegen toggles are included
 - whether the authoritative route response should return the full projected
   project state directly or a narrower wrapper that still contains the same
   source-of-truth payload
 
 ## Next Recommended Step
 
-- Start Slice 1 with plugin-only target mutations first.
+- Start Slice 2 on top of the completed domain mutation boundary.
 - Keep the response-path decision from this doc: authoritative updated project
   state over HTTP, not Python-style mutation websocket broadcasts.
+- Reuse `Runtime.SetProjectCodegenTargets(...)` from the route/service layer and
+  return authoritative projected project state instead of optimistic frontend
+  patching.
