@@ -24,11 +24,13 @@ Use the docs in this order:
    - focused current-work plan for terminal websocket and HTTP transport migration
 10. `phase-4-terminal-run-code-migration.md`
    - focused current-work plan for remaining terminal run-code migration
-11. `spike-mcp.md`
+11. `phase-4-generated-entry-runs-and-temp-terminals.md`
+   - focused current-work plan for generated-entry run support and temporary-terminal fallback
+12. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-12. `spike-pty.md`
+13. `spike-pty.md`
    - PTY uncertainty-reduction plan
-13. `spike-lsp.md`
+14. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

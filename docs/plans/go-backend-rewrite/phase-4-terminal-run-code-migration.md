@@ -63,6 +63,9 @@ Current repo status as of 2026-03-06:
   - `internal/httpapi/binary_routes.go`
   - `internal/projectstate/draw_snapshots.go`
 - Go now has the first IDE `runCode` route for manual code-section runs, but it is still narrower than the Python route
+- temporary-terminal fallback is still blocked on generated-entry planning and is
+  now tracked in:
+  - `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
@@ -488,6 +491,14 @@ Deferred Within Slice 3:
 - temporary terminal allocation for non-attached/manual-non-code targets
 - `cliId` output transport
 
+Dependency Note:
+
+- the remaining temporary-terminal path is not independently reachable yet in Go
+- the current planner only returns runnable manual code sections, which always
+  flow through attached-terminal ensure
+- generated-entry run support is now tracked in:
+  - `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
+
 ### Slice 4: Deployment/Share Run Support
 
 Deliver:
@@ -528,9 +539,13 @@ Rationale:
 
 ## Next Recommended Step
 
-Finish the current IDE terminal-selection slice by adding temporary-terminal fallback:
+Start the generated-entry dependency slice tracked in:
 
-- teach `internal/runs.Service` to reuse a free project/share-scoped terminal when the target is not an attached code-section run
-- create visible temporary terminal sections through Go project-state mutation when reuse is not possible
-- keep transport thin by continuing to route all terminal-choice semantics through `internal/runs` instead of the HTTP handler
-- defer `cliId`, `paramOverrides`, and deployment/share policy until terminal-selection parity is in place
+- `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
+
+Immediate target:
+
+- add the minimum project-state metadata needed for first-party Python
+  generated-entry detection
+- keep plugin-codegen runs explicitly unsupported
+- defer temporary-terminal fallback until that planner path is reachable

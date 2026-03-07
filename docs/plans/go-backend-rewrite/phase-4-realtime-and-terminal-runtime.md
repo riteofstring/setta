@@ -10,6 +10,8 @@ Focused transport follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-terminal-transport-migration.md`.
 Remaining run-code follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`.
+Generated-entry and temporary-terminal follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`.
 
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.
@@ -79,6 +81,7 @@ Current repo status as of 2026-03-06:
   - attached-terminal reuse and ensure flow through Go project-state + terminal services
   - IDE draw snapshot uploads and project-state artifact updates now flow through Go-owned binary + run services
   - successful run dispatch now emits a Go-owned `Started command` backend-log event to frontend websockets
+  - generated-entry runs and temporary-terminal fallback are still deferred behind the focused dependency plan
   - `cliId` and `paramOverrides` still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
