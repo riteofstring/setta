@@ -38,6 +38,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
 )
 from setta.types.id import ID
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatPermissionMode
 
 AppGenerationMode = Literal[
@@ -592,6 +593,8 @@ class ManagedChatDispatcher:
     def dispatch(
         self,
         x: ManagedChatDispatchRequestBase,
+        *,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> ManagedChatDispatchResponse:
         extra_run_inputs = _get_extra_run_inputs(x)
         if x.sectionId is None and not x.allowUnscoped:
@@ -788,7 +791,11 @@ class ManagedChatDispatcher:
             if normalized_frontend_affinity_token is not None:
                 inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
             inputs = _merge_extra_run_inputs(inputs, extra_run_inputs)
-            run = self.agent_runner.start_run(profile, inputs)
+            run = self.agent_runner.start_run(
+                profile,
+                inputs,
+                project_state=project_state,
+            )
             return ManagedChatDispatchResponse(
                 chatId=chat_id,
                 runId=run.id,

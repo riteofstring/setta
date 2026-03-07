@@ -155,6 +155,30 @@ describe("StateMachineNodeArea", () => {
             projectConfigId: "project-1",
             machineGroupId: "workflow-main",
           },
+          outputs: {
+            stateMachineIteration: 1,
+            gateStatusBySectionId: {
+              "section-gate": "satisfied",
+            },
+          },
+          events: [
+            {
+              id: "event-gate-1",
+              timestamp: "2024-01-01T00:00:00Z",
+              type: "gate_input_activated",
+              payload: {
+                gateSectionId: "section-gate",
+              },
+            },
+            {
+              id: "event-gate-2",
+              timestamp: "2024-01-01T00:00:01Z",
+              type: "gate_satisfied",
+              payload: {
+                gateSectionId: "section-gate",
+              },
+            },
+          ],
         }),
       ],
     });
@@ -166,11 +190,91 @@ describe("StateMachineNodeArea", () => {
 
     expect(markup).toContain("Review Gate");
     expect(markup).toContain("Running");
+    expect(markup).toContain("Satisfied");
+    expect(markup).toContain("Gate satisfied");
     expect(markup).toContain(
       'data-testid="state-machine-run-status-section-gate"',
     );
+    expect(markup).toContain(
+      'data-testid="state-machine-gate-status-section-gate"',
+    );
+    expect(markup).toContain(
+      'data-testid="state-machine-activity-panel-section-gate"',
+    );
     expect(markup).not.toContain(
       'data-testid="state-machine-start-button-section-gate"',
+    );
+  });
+
+  it("renders recent workflow activity and iteration details on start nodes", () => {
+    seedWorkflowSection({
+      sectionId: "section-start-activity",
+      variantId: "variant-start-activity",
+      impl: {
+        id: "impl-start-activity",
+        type: SectionTypeEnum.StateMachineStart,
+        name: "Start Activity Node",
+        size: createSectionSize({ width: 260, height: 120 }),
+        machineGroupId: "workflow-main",
+        label: "Kickoff",
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "machine-run-activity",
+          status: AgentRunStatusEnum.cancelled,
+          startedAt: "2024-01-01T00:00:00Z",
+          finishedAt: "2024-01-01T00:00:02Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          outputs: {
+            stateMachineIteration: 2,
+          },
+          events: [
+            {
+              id: "event-start-1",
+              timestamp: "2024-01-01T00:00:00Z",
+              type: "run_started",
+              payload: {},
+            },
+            {
+              id: "event-start-2",
+              timestamp: "2024-01-01T00:00:01Z",
+              type: "signal_reported",
+              payload: {
+                signalName: "merge_decision",
+              },
+            },
+            {
+              id: "event-start-3",
+              timestamp: "2024-01-01T00:00:02Z",
+              type: "run_cancelled",
+              payload: {},
+            },
+          ],
+        }),
+      ],
+    });
+    syncStoreInitialState(useAIStore);
+
+    const markup = renderToStaticMarkup(
+      <StateMachineNodeArea sectionId="section-start-activity" />,
+    );
+
+    expect(markup).toContain("Iteration 2");
+    expect(markup).toContain("Workflow started");
+    expect(markup).toContain("Signal merge_decision reported");
+    expect(markup).toContain("Workflow stopped");
+    expect(markup).toContain(
+      'data-testid="state-machine-activity-panel-section-start-activity"',
+    );
+    expect(markup).toContain(
+      'data-testid="state-machine-iteration-section-start-activity"',
     );
   });
 });

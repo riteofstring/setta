@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
+  ensureManagedChatEngine,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
@@ -9,6 +10,11 @@ import {
 
 type CreateSectionResponse = {
   sectionId?: string;
+};
+
+type EngineConfigSummary = {
+  id: string;
+  engineType?: string;
 };
 
 type LatestProjectStateResponse = {
@@ -46,6 +52,7 @@ type LatestProjectStateResponse = {
         sharedModifier?: {
           machineGroupId?: string;
           label?: string;
+          engineConfigId?: string | null;
         };
       }
     >;
@@ -56,6 +63,7 @@ type LatestProjectStateResponse = {
         modifier?: {
           machineGroupId?: string;
           label?: string;
+          engineConfigId?: string | null;
         };
       }
     >;
@@ -65,6 +73,7 @@ type LatestProjectStateResponse = {
         type?: string;
         machineGroupId?: string;
         label?: string;
+        engineConfigId?: string | null;
       }
     >;
   };
@@ -86,8 +95,11 @@ test.describe.serial("state machine sections", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
 
     try {
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
       const startSectionId = await createSectionViaCommandPalette(
         page,
         projectContext.projectConfigId,
@@ -111,6 +123,41 @@ test.describe.serial("state machine sections", () => {
         "Chat",
         { x: 640, y: 280 },
       );
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: chatSectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      await expect
+        .poll(
+          async () =>
+            await readSectionEngineConfigId(
+              page,
+              projectContext.projectConfigId,
+              chatSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toBe(managedEngineId);
 
       const startNode = page.getByTestId(`rf__node-${startSectionId}`);
       const gateNode = page.getByTestId(`rf__node-${gateSectionId}`);
@@ -148,6 +195,17 @@ test.describe.serial("state machine sections", () => {
       await expectNodeTextWithinBounds(gateNode, "Review Gate");
       await expectNodeTextWithinBounds(gateNode, "workflow-main");
 
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        gateSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Review Gate",
+          gateType: "AND",
+        },
+      );
+
       await expect
         .poll(
           async () =>
@@ -161,7 +219,6 @@ test.describe.serial("state machine sections", () => {
         .toMatchObject({
           type: "StateMachineGate",
           machineGroupId: "workflow-main",
-          label: "Review Gate",
         });
 
       await setStateMachineSectionSettings(
@@ -184,6 +241,37 @@ test.describe.serial("state machine sections", () => {
           gateType: null,
         },
       );
+
+      await expect(startNode).toContainText("workflow-main");
+      await expect(endNode).toContainText("workflow-main");
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              startSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineStart",
+          machineGroupId: "workflow-main",
+        });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              endSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineEnd",
+          machineGroupId: "workflow-main",
+        });
 
       const gateSourceHandle = page.getByTestId(
         `workflow-source-handle-${gateSectionId}`,
@@ -355,6 +443,15 @@ test.describe.serial("state machine sections", () => {
       const gateStatus = page.getByTestId(
         `state-machine-run-status-${gateSectionId}`,
       );
+      const gateWorkflowStatus = page.getByTestId(
+        `state-machine-gate-status-${gateSectionId}`,
+      );
+      const startActivityPanel = page.getByTestId(
+        `state-machine-activity-panel-${startSectionId}`,
+      );
+      const gateActivityPanel = page.getByTestId(
+        `state-machine-activity-panel-${gateSectionId}`,
+      );
       const startButton = page.getByTestId(
         `state-machine-start-button-${startSectionId}`,
       );
@@ -371,19 +468,26 @@ test.describe.serial("state machine sections", () => {
       await startButton.click();
       await expect(startStatus).toHaveText("Running");
       await expect(gateStatus).toHaveText("Running");
+      await expect(gateWorkflowStatus).toHaveText("Satisfied");
+      await expect(startActivityPanel).toContainText("Dispatched 1 start action");
+      await expect(gateActivityPanel).toContainText("Gate satisfied");
 
       await stopButton.click();
       await expect(startStatus).toHaveText("Stopped");
       await expect(gateStatus).toHaveText("Stopped");
+      await expect(startActivityPanel).toContainText("Workflow stopped");
 
       await startButton.click();
       await expect(startStatus).toHaveText("Running");
       await expect(gateStatus).toHaveText("Running");
+      await expect(gateWorkflowStatus).toHaveText("Satisfied");
 
       await resetButton.click();
       await expect(startStatus).toHaveText("Stopped");
       await expect(gateStatus).toHaveText("Stopped");
+      await expect(startActivityPanel).toContainText("Workflow stopped");
     } finally {
+      await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -570,6 +674,36 @@ async function readStateMachineImpl(
       sectionImpl?.label ??
       null,
   };
+}
+
+async function readSectionEngineConfigId(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string | null> {
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  const projectState = response?.projectState;
+  const sectionVariantId =
+    projectState?.projectConfig?.sectionVariantMap?.[sectionId];
+  if (!sectionVariantId) {
+    return null;
+  }
+  const sectionImplId = projectState.sectionVariants?.[sectionVariantId]?.impl;
+  if (!sectionImplId) {
+    return null;
+  }
+  const sectionVariant = projectState.sectionVariants?.[sectionVariantId];
+  const sectionCore = projectState.sections?.[sectionId];
+  return (
+    sectionVariant?.modifier?.engineConfigId ??
+    sectionCore?.sharedModifier?.engineConfigId ??
+    projectState.sectionImpls?.[sectionImplId]?.engineConfigId ??
+    null
+  );
 }
 
 async function readStateMachineEdges(

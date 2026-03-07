@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
-  getLatestStateMachineRun,
   resetStateMachineRun,
   startStateMachineRun,
   stopStateMachineRun,
@@ -14,10 +13,10 @@ import {
   useShareSession,
 } from "state/definitions";
 import {
-  AgentRunStatusEnum,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
+import { getStateMachineNodePresentation } from "./stateMachineNodePresentation";
 
 type StateMachineNodeAreaProps = {
   sectionId: string;
@@ -90,79 +89,19 @@ function getNodeThemeClasses(type: StateMachineNodeSnapshot["type"]): string {
   return "border-amber-300/70 bg-amber-50/90 text-amber-950 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-100";
 }
 
-type MachineRunPresentation = {
-  statusLabel: string;
-  statusClasses: string;
-  isRunning: boolean;
-  hasRun: boolean;
-};
-
-function getMachineRunPresentation(
-  runs: Parameters<typeof getLatestStateMachineRun>[0],
-  projectConfigId: string,
-  machineGroupId: string,
-): MachineRunPresentation {
-  const latestRun = getLatestStateMachineRun(
-    runs,
-    projectConfigId,
-    machineGroupId,
-  );
-  if (!latestRun) {
-    return {
-      statusLabel: "Idle",
-      statusClasses:
-        "border-slate-300/70 bg-white/70 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200",
-      isRunning: false,
-      hasRun: false,
-    };
-  }
-  if (latestRun.status === AgentRunStatusEnum.running) {
-    return {
-      statusLabel: "Running",
-      statusClasses:
-        "border-emerald-400/70 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200",
-      isRunning: true,
-      hasRun: true,
-    };
-  }
-  if (latestRun.status === AgentRunStatusEnum.completed) {
-    return {
-      statusLabel: "Completed",
-      statusClasses:
-        "border-sky-400/70 bg-sky-500/10 text-sky-800 dark:border-sky-700 dark:bg-sky-500/15 dark:text-sky-200",
-      isRunning: false,
-      hasRun: true,
-    };
-  }
-  if (latestRun.status === AgentRunStatusEnum.failed) {
-    return {
-      statusLabel: "Failed",
-      statusClasses:
-        "border-rose-400/70 bg-rose-500/10 text-rose-800 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-200",
-      isRunning: false,
-      hasRun: true,
-    };
-  }
-  return {
-    statusLabel: "Stopped",
-    statusClasses:
-      "border-amber-400/70 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200",
-    isRunning: false,
-    hasRun: true,
-  };
-}
-
 export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const snapshot = useProjectState(() => getNodeSnapshot(sectionId), _.isEqual);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const machineRun = useAIStore(
     (state) =>
-      getMachineRunPresentation(
-        state.agentRuns,
+      getStateMachineNodePresentation({
+        runs: state.agentRuns,
         projectConfigId,
-        snapshot.machineGroupId,
-      ),
+        machineGroupId: snapshot.machineGroupId,
+        sectionId,
+        sectionType: snapshot.type,
+      }),
     _.isEqual,
   );
   const [pendingAction, setPendingAction] = useState<
@@ -173,6 +112,7 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const kindLabel = getNodeKindLabel(snapshot);
   const showMachineStatus = snapshot.type !== SectionTypeEnum.StateMachineEnd;
   const showControls = snapshot.type === SectionTypeEnum.StateMachineStart;
+  const showActivityPanel = showMachineStatus && machineRun.hasRun;
   const controlsDisabled =
     pendingAction !== null || machineGroupId === "" || isDeploymentMode;
 
@@ -210,6 +150,36 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
     }
   }
 
+  function getActivityItemClasses(
+    tone: "default" | "success" | "warning" | "danger",
+  ): {
+    dot: string;
+    text: string;
+  } {
+    if (tone === "success") {
+      return {
+        dot: "bg-emerald-500/80 dark:bg-emerald-400/80",
+        text: "text-emerald-900 dark:text-emerald-100",
+      };
+    }
+    if (tone === "warning") {
+      return {
+        dot: "bg-amber-500/80 dark:bg-amber-400/80",
+        text: "text-amber-950 dark:text-amber-100",
+      };
+    }
+    if (tone === "danger") {
+      return {
+        dot: "bg-rose-500/80 dark:bg-rose-400/80",
+        text: "text-rose-900 dark:text-rose-100",
+      };
+    }
+    return {
+      dot: "bg-slate-500/70 dark:bg-slate-300/70",
+      text: "text-slate-900 dark:text-slate-100",
+    };
+  }
+
   return (
     <div className="section-main-full-w flex h-full min-h-0 w-full items-stretch px-2 pb-2">
       <section
@@ -227,14 +197,69 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
           <p className="truncate text-sm font-semibold leading-tight">
             {title}
           </p>
-          <p className="truncate font-mono text-[10px] leading-tight opacity-75">
-            {machineGroupId !== "" ? machineGroupId : "machine-group-unset"}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate font-mono text-[10px] leading-tight opacity-75">
+              {machineGroupId !== "" ? machineGroupId : "machine-group-unset"}
+            </p>
+            {machineRun.iterationLabel ? (
+              <span
+                className="border-current/10 shrink-0 rounded-full border bg-white/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] opacity-80 dark:bg-slate-950/20"
+                data-testid={`state-machine-iteration-${sectionId}`}
+              >
+                {machineRun.iterationLabel}
+              </span>
+            ) : null}
+          </div>
         </div>
         {showMachineStatus ? (
-          <div className="mt-auto flex shrink-0 flex-col gap-1.5 pt-1.5">
+          <div
+            className={
+              showActivityPanel
+                ? "mt-1.5 flex min-h-0 flex-1 flex-col gap-1.5"
+                : "mt-auto flex shrink-0 flex-col gap-1.5 pt-1.5"
+            }
+          >
+            {showActivityPanel ? (
+              <section
+                className="border-current/10 min-h-0 flex-1 rounded-lg border bg-white/35 px-2 py-1.5 dark:bg-slate-950/20"
+                data-testid={`state-machine-activity-panel-${sectionId}`}
+              >
+                <header className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.18em] opacity-60">
+                    {snapshot.type === SectionTypeEnum.StateMachineGate
+                      ? "Gate Activity"
+                      : "Recent Activity"}
+                  </span>
+                </header>
+                {machineRun.activityItems.length > 0 ? (
+                  <ul className="min-h-0 space-y-1 overflow-auto pr-0.5">
+                    {machineRun.activityItems.map((item) => {
+                      const activityClasses = getActivityItemClasses(item.tone);
+                      return (
+                        <li
+                          key={item.id}
+                          className={`flex items-start gap-1 text-[10px] leading-[1.05rem] ${activityClasses.text}`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full ${activityClasses.dot}`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="truncate text-[10px] leading-[1.05rem] opacity-65">
+                    {snapshot.type === SectionTypeEnum.StateMachineGate
+                      ? "No gate activity yet."
+                      : "No recent activity yet."}
+                  </p>
+                )}
+              </section>
+            ) : null}
             {showControls ? (
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex shrink-0 items-center justify-between gap-2">
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${machineRun.statusClasses}`}
                   data-testid={`state-machine-run-status-${sectionId}`}
@@ -278,16 +303,31 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-65">
-                  Status
-                </span>
-                <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${machineRun.statusClasses}`}
-                  data-testid={`state-machine-run-status-${sectionId}`}
-                >
-                  {machineRun.statusLabel}
-                </span>
+              <div className="flex shrink-0 flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-65">
+                    Machine
+                  </span>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${machineRun.statusClasses}`}
+                    data-testid={`state-machine-run-status-${sectionId}`}
+                  >
+                    {machineRun.statusLabel}
+                  </span>
+                </div>
+                {machineRun.gateStatus ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-65">
+                      Gate
+                    </span>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${machineRun.gateStatus.classes}`}
+                      data-testid={`state-machine-gate-status-${sectionId}`}
+                    >
+                      {machineRun.gateStatus.label}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

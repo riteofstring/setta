@@ -307,12 +307,14 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRun:
         context = self._build_context(
             profile,
             inputs,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
+            project_state=project_state,
         )
         run = context.run
         self._runs[run.id] = run
@@ -850,6 +852,7 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRunContext:
         project_state_backend = self.dbe.read_project_required()
         if project_state_backend.defaultProjectConfigId is None:
@@ -918,9 +921,14 @@ class AgentRunner:
             profile,
             completion_guard_enabled=completion_guard_enabled,
         )
-        project_state = convert_backend_to_single_config(
-            project_state_backend, project_config_id
-        )
+        if project_state is None:
+            project_state = convert_backend_to_single_config(
+                project_state_backend, project_config_id
+            )
+        elif project_state.projectConfig.id != project_config_id:
+            raise KeyError(
+                f"project_state override does not match project config {project_config_id}"
+            )
         agentic_scope = resolve_agentic_scope(
             project_state,
             section_id,

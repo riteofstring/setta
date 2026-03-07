@@ -1603,6 +1603,57 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
 
 
 @pytest.mark.asyncio
+async def test_state_machine_runner_flushes_project_state_before_managed_child_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review the latest output.",
+                threadStrategy=StateMachineThreadStrategy.continue_current_thread,
+            ),
+        )
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+
+        async def _noop_run_agent(_context) -> None:
+            return None
+
+        monkeypatch.setattr(agent_runner, "_run_agent", _noop_run_agent)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert started.outputs is not None
+        assert started.outputs["childRunIds"]
+
+
+@pytest.mark.asyncio
 async def test_state_machine_runner_fails_closed_when_signal_tool_is_missing_from_profile() -> (
     None
 ):

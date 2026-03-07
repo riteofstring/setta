@@ -1198,6 +1198,17 @@ class StateMachineRunner:
                     share_session_id=share_session_id,
                 )
             chat_id = None
+        # Managed child runs resolve scope from the project-state backend.
+        # Flush queued section updates before dispatch so newly configured chats
+        # are visible to AgentRunner.
+        await self.project_manager_switcher.get(
+            project_config_id,
+            share_session_id=share_session_id,
+        ).finish_pending_operations()
+        dispatch_project_state = self._get_project_state(
+            project_config_id,
+            share_session_id=share_session_id,
+        )
         dispatch_response = self.chat_dispatcher.dispatch(
             ManagedChatDispatchRequest(
                 chatId=chat_id,
@@ -1228,7 +1239,8 @@ class StateMachineRunner:
                     else target_impl.searchEnabled
                 ),
                 extraRunInputs=self._build_child_run_inputs(run, edge),
-            )
+            ),
+            project_state=dispatch_project_state,
         )
         if chat_id != dispatch_response.chatId:
             await self._set_chat_section_chat_id(
