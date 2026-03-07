@@ -10,8 +10,8 @@ This guide is for UI work across the app. Do not use the following panes as visu
 
 - Watch Mode pane
 - Custom Runs pane
-- Backend Logs pane
-- Project AI Settings pane
+- Notifications pane (especially the Logs sub-tab)
+- Project AI settings aux view
 
 ## Principles
 
