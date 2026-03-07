@@ -42,6 +42,13 @@ Current repo status as of 2026-03-06:
   - worker-spec resolution through an injected source-of-truth resolver
   - worker-backed generation plus deterministic target-root rewrites under
     `setta_files/code/sections/<project>/plugin_codegen`
+- Go now also owns the first non-test worker-spec resolver dependency for that
+  materializer under:
+  - `internal/plugins/filesystem_worker_spec_resolver.go`
+  - read-only plugin root precedence across workspace, `setta_files`, and
+    `setta_home`
+  - read-only enablement state from `plugins_state.json` and
+    `plugins_global_state.json`
 
 ## Scope
 
@@ -178,15 +185,43 @@ Acceptance:
 
 Status:
 
-- pending
+- in_progress
+
+Completed:
+
+- added `internal/plugins/filesystem_worker_spec_resolver.go` as the first
+  non-test source-of-truth worker-spec resolver for plugin codegen targets
+- kept the resolver read-only and explicit instead of reviving Python's full
+  plugin manager/runtime surface
+- resolved plugin roots from the documented install roots:
+  - `<workspace>/.setta_plugins/<plugin-id>`
+  - `<setta_files_root>/plugins/<plugin-id>`
+  - `<setta_home>/plugins/<plugin-id>`
+- treated the configured target id namespace as source of truth by parsing
+  `<plugin-id>:<local-id>` and resolving the owning plugin from the prefix
+- matched current precedence and activation rules needed for this slice:
+  - workspace beats `setta_files`, which beats global
+  - higher-precedence disabled or invalid entries block lower fallbacks
+  - global auto-enable state is read from `plugins_global_state.json`
+  - effective capabilities are filtered by current server mode
+- validated backend worker manifests in Go before returning worker metadata:
+  - manifest schema version
+  - plugin id shape and root/id match
+  - known capability set with duplicate rejection
+  - backend entrypoint path existence within plugin root
+- covered the resolver with focused Go tests for:
+  - worker-spec construction from the active workspace plugin
+  - workspace/`setta_files`/global precedence
+  - disabled plugin rejection
+  - global auto-enable handling
+  - mode-blocked codegen capability rejection
+  - missing codegen capability rejection
+  - invalid target id rejection
 
 ## Open Questions
 
 - whether the first refresh adopter should live inside `internal/projectstate`
   or a future dedicated Go codegen subsystem
-- whether the required worker-spec resolver should start as a read-only
-  manifest-backed catalog in `internal/plugins`, or wait for broader plugin
-  discovery/runtime ownership
 - whether plugin codegen output caching should remain entirely absent until
   refresh ownership exists, or whether a minimal content fingerprint is worth
   adding during Slice 2
@@ -194,7 +229,6 @@ Status:
 ## Next Recommended Step
 
 - Start Slice 2.
-- Keep it narrow: land the first read-only Go worker-spec resolver from plugin
-  source-of-truth metadata, then adopt the materializer from the first
-  project-state refresh path instead of widening into full Python refresh/cache
-  parity.
+- Keep it narrow: adopt the materializer from the first Go-owned project-state
+  save/refresh boundary, starting with the existing persistent main-runtime save
+  paths before widening into broader Python refresh/cache parity.
