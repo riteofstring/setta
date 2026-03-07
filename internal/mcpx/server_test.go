@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -136,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 34 {
-		t.Fatalf("expected 34 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 35 {
+		t.Fatalf("expected 35 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +153,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
+	var setWatchCodeInputsTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
 	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
@@ -206,6 +208,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_enabled" {
 			setWatchCodeEnabledTool = tool
+		}
+		if tool.Name == "set_watch_code_inputs" {
+			setWatchCodeInputsTool = tool
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
@@ -301,6 +306,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
 		"set_watch_code_enabled",
+		"set_watch_code_inputs",
 		"toggle_minimized",
 		"toggle_position_locks",
 		"update_param_impl_config",
@@ -343,6 +349,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeEnabledTool == nil {
 		t.Fatal("expected set_watch_code_enabled tool")
+	}
+	if setWatchCodeInputsTool == nil {
+		t.Fatal("expected set_watch_code_inputs tool")
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
@@ -496,6 +505,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setWatchCodeEnabledMeta := mustStructuredMap(t, setWatchCodeEnabledTool.Meta[toolMetaNamespace])
 	if setWatchCodeEnabledMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_enabled, got %#v", setWatchCodeEnabledMeta["accessType"])
+	}
+	setWatchCodeInputsMeta := mustStructuredMap(t, setWatchCodeInputsTool.Meta[toolMetaNamespace])
+	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
 	}
 	togglePositionLocksMeta := mustStructuredMap(t, togglePositionLocksTool.Meta[toolMetaNamespace])
 	if togglePositionLocksMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -669,8 +682,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 34 {
-		t.Fatalf("expected 34 registered tool names, got %#v", listNames)
+	if len(listNames) != 35 {
+		t.Fatalf("expected 35 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2748,6 +2761,154 @@ func TestServerSetWatchCodeEnabledRejectsInvalidWatchInputPath(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected invalid set_watch_code_enabled call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "watch code input path is invalid") {
+		t.Fatalf("expected invalid watch code path message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetWatchCodeInputsRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_inputs",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "pkg", "recursive": true},
+			},
+			"watchCodeFiles": []any{"pkg/existing.py"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_watch_code_inputs blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_watch_code_inputs call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetWatchCodeInputsAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	existingBaselineKey := filepath.Clean(existingFile)
+	mustSetScopedTestWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		existingBaselineKey: {"pkg.existing.existing:function"},
+	})
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:      workspaceRoot,
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_inputs",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "pkg/subdir", "recursive": true},
+			},
+			"watchCodeFiles": []any{"pkg/existing.py"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_watch_code_inputs: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_watch_code_inputs success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	}
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+	if len(project.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected empty watch code registry after baseline-for-new-inputs, got %#v", project.WatchCodeRegistry)
+	}
+}
+
+func TestServerSetWatchCodeInputsRejectsInvalidWatchFolderPath(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_inputs",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "../outside_watch_dir", "recursive": false},
+			},
+			"watchCodeFiles": []any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_watch_code_inputs: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_watch_code_inputs call to fail")
 	}
 	payload := mustStructuredMap(t, result.StructuredContent)
 	if payload["code"] != "invalid_arguments" {
@@ -5332,17 +5493,31 @@ func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime,
 func mustSetScopedTestWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
 	t.Helper()
 
+	mustSetScopedTestWatchCodeState(t, runtime, false, nil, files, nil)
+}
+
+func mustSetScopedTestWatchCodeState(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+	enabled bool,
+	folders []projectstate.WatchCodeFolder,
+	files []string,
+	baseline map[string][]string,
+) {
+	t.Helper()
+
 	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		project := document.Projects["project-alpha"]
-		project.WatchCodeEnabled = false
+		project.WatchCodeEnabled = enabled
+		project.WatchCodeFolders = append([]projectstate.WatchCodeFolder(nil), folders...)
 		project.WatchCodeFiles = append([]string(nil), files...)
-		project.WatchCodeBaselineByPath = map[string][]string{}
+		project.WatchCodeBaselineByPath = cloneStringSliceMap(baseline)
 		project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
 		document.Projects["project-alpha"] = project
 		return document, nil
 	})
 	if err != nil {
-		t.Fatalf("seed watch code files: %v", err)
+		t.Fatalf("seed watch code state: %v", err)
 	}
 }
 

@@ -85,6 +85,7 @@ type projectStateProvider interface {
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
+	SetWatchCodeInputs(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 }
@@ -1022,6 +1023,44 @@ func newSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceR
 		}
 
 		if _, err := projectState.SetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFolders, err := readRequiredWatchCodeFoldersArgument(arguments, "watchCodeFolders")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFiles, err := readRequiredStringArrayArgument(arguments, "watchCodeFiles")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural watch-code inputs invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetWatchCodeInputs(ctx, projectConfigID, watchCodeFolders, watchCodeFiles, workspaceRoot); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2276,6 +2315,64 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "enabled"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_watch_code_inputs",
+				Description: "Update Watch Code folders/files for the active project and baseline only new inputs when Watch Code is already enabled.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "inputs", "files", "folders", "project", "structural"},
+				},
+				Handler: newSetWatchCodeInputsHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code folders and files should be updated.",
+					},
+					"watchCodeFolders": map[string]any{
+						"type":        "array",
+						"description": "Folder inputs for Watch Code, each with a repo-relative path and recursive flag.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type":        "string",
+									"description": "Repo-relative folder path to watch.",
+								},
+								"recursive": map[string]any{
+									"type":        "boolean",
+									"description": "Whether Watch Code should scan this folder recursively.",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+					"watchCodeFiles": map[string]any{
+						"type":        "array",
+						"description": "Repo-relative file paths Watch Code should track explicitly.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFolders", "watchCodeFiles"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -3749,6 +3846,76 @@ func readRequiredStringArrayArgument(arguments map[string]any, key string) ([]st
 	default:
 		return nil, newToolError("invalid_arguments", "%s must be an array of strings", key)
 	}
+}
+
+func readRequiredWatchCodeFoldersArgument(arguments map[string]any, key string) ([]projectstate.WatchCodeFolder, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+
+	switch typed := rawValue.(type) {
+	case []projectstate.WatchCodeFolder:
+		output := make([]projectstate.WatchCodeFolder, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []map[string]any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	case []any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of objects", key)
+	}
+}
+
+func readWatchCodeFolderValue(rawValue any, key string, index int) (projectstate.WatchCodeFolder, error) {
+	if folder, ok := rawValue.(projectstate.WatchCodeFolder); ok {
+		return folder, nil
+	}
+
+	object, ok := rawValue.(map[string]any)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+
+	pathValue, ok := object["path"]
+	if !ok || pathValue == nil {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].path is required", key, index)
+	}
+	path, ok := pathValue.(string)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].path must be a string", key, index)
+	}
+
+	recursiveValue, ok := object["recursive"]
+	if !ok || recursiveValue == nil {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].recursive is required", key, index)
+	}
+	recursive, ok := recursiveValue.(bool)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].recursive must be a boolean", key, index)
+	}
+
+	return projectstate.WatchCodeFolder{
+		Path:      strings.TrimSpace(path),
+		Recursive: recursive,
+	}, nil
 }
 
 func readOptionalNonNegativeIntArgument(arguments map[string]any, key string) (*int, error) {

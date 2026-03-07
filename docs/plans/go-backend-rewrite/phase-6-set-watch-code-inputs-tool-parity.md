@@ -18,13 +18,18 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_watch_code_enabled` MCP parity is complete
-- `set_watch_code_inputs` MCP parity is the active slice
+- `set_watch_code_inputs` MCP parity is now complete
 - Go already owns `set_watch_code_inputs` in:
   - `internal/projectstate/watch_code.go`
   - `internal/httpapi/project_routes.go`
 - Python tags `set_watch_code_inputs` as a structural project-state tool
 - runtime-owned Watch Code input normalization already handles repo-relative
   path resolution, dedupe, and baseline-for-new-inputs behavior
+- Go MCP now exposes `set_watch_code_inputs` as an unscoped structural tool
+  over that existing owner
+- focused MCP server, authenticated HTTP bridge, and IDE SSE coverage landed
+  for structural denial, temporary-id translation, folder/file input decoding,
+  and baseline-only-new-inputs behavior
 
 ## Scope
 
@@ -135,13 +140,24 @@ The Go runtime already owns the same mutation through
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- re-evaluate the remaining Go-owned mutation surface after
-  `set_watch_code_inputs` lands instead of assuming the next subsystem cluster
+- move to `set_project_config_codegen_targets` as the next bounded slice
+  because the Go runtime owner and IDE HTTP route already exist
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `set_watch_code_inputs`.
+- 2026-03-07: Go MCP now exposes `set_watch_code_inputs` as a structural tool
+  over the existing Watch Code runtime owner and IDE HTTP transport boundary.
+- 2026-03-07: the MCP handler passes both `watchCodeFolders` and
+  `watchCodeFiles` through to the Go runtime after shape validation only; no
+  MCP-local normalization or fallback heuristics were added.
+- 2026-03-07: when Watch Code is already enabled, MCP `set_watch_code_inputs`
+  now reuses the Go runtime's baseline-for-new-inputs path instead of
+  inventing a separate mutation flow.
+- 2026-03-07: the next bounded slice moved to
+  `set_project_config_codegen_targets`.

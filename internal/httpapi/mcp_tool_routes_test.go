@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1728,6 +1729,195 @@ func TestMCPToolCallRouteSetWatchCodeEnabledAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	existingBaselineKey := filepath.Clean(existingFile)
+	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		existingBaselineKey: {"pkg.existing.existing:function"},
+	})
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_watch_code_inputs",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
+			"watchCodeFiles":["pkg/existing.py"]
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_watch_code_inputs success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after route mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	}
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestMCPToolCallRouteSetWatchCodeInputsAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	existingBaselineKey := filepath.Clean(existingFile)
+	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		existingBaselineKey: {"pkg.existing.existing:function"},
+	})
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      workspaceRoot,
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_watch_code_inputs",
+		"arguments":{
+			"projectConfigId":"11",
+			"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
+			"watchCodeFiles":["pkg/existing.py"]
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_watch_code_inputs success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after temp-id route mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders after temp-id route, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files after temp-id route, got %#v", project.WatchCodeFiles)
+	}
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged after temp-id route, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline after temp-id route, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
 	t.Parallel()
 
@@ -3028,17 +3218,31 @@ func mustRawJSONForRoute(t *testing.T, value any) projectstate.RawJSON {
 func mustSetRouteWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
 	t.Helper()
 
+	mustSetRouteWatchCodeState(t, runtime, false, nil, files, nil)
+}
+
+func mustSetRouteWatchCodeState(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+	enabled bool,
+	folders []projectstate.WatchCodeFolder,
+	files []string,
+	baseline map[string][]string,
+) {
+	t.Helper()
+
 	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		project := document.Projects["project-alpha"]
-		project.WatchCodeEnabled = false
+		project.WatchCodeEnabled = enabled
+		project.WatchCodeFolders = append([]projectstate.WatchCodeFolder(nil), folders...)
 		project.WatchCodeFiles = append([]string(nil), files...)
-		project.WatchCodeBaselineByPath = map[string][]string{}
+		project.WatchCodeBaselineByPath = cloneRouteStringSliceMap(baseline)
 		project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
 		document.Projects["project-alpha"] = project
 		return document, nil
 	})
 	if err != nil {
-		t.Fatalf("seed route watch code files: %v", err)
+		t.Fatalf("seed route watch code state: %v", err)
 	}
 }
 
@@ -3077,4 +3281,15 @@ func writeRouteTemporaryIDMap(t *testing.T, path string, payload map[string]stri
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
 		t.Fatalf("write temporary id map: %v", err)
 	}
+}
+
+func cloneRouteStringSliceMap(values map[string][]string) map[string][]string {
+	if len(values) == 0 {
+		return map[string][]string{}
+	}
+	cloned := make(map[string][]string, len(values))
+	for key, current := range values {
+		cloned[key] = append([]string(nil), current...)
+	}
+	return cloned
 }
