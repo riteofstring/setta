@@ -36,6 +36,8 @@ Current repo status as of 2026-03-06:
   source of truth is Go
 - Remaining follow-up after this slice is frontend/browser verification of the
   reopened Python target flow, not more backend ownership inside this slice
+- Automated frontend verification for that follow-up is now in place; headed
+  CDP confirmation is still pending local DevTools availability
 
 ## Scope
 
@@ -209,8 +211,31 @@ Completed 2026-03-06:
     on save after route mutations
   - plugin-only target validation behavior remains unchanged
 
+## Follow-up Verification
+
+Completed 2026-03-07:
+
+- added stable frontend selectors for the Run Instructions Python codegen
+  toggle, metadata toggle, and Python-disabled policy message in
+  `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+- added real Playwright coverage in
+  `frontend/tests/e2e/overview/codegen/python-codegen-target.spec.ts`
+  covering:
+  - Python target disable -> generated code singleton removal and persistence
+  - Python target re-enable -> generated code singleton restoration and
+    persistence
+  - metadata toggle on/off -> generated metadata singleton creation/removal and
+    persistence
+- verified that the frontend now observes the authoritative backend response
+  rather than leaving stale generated-section nodes on the canvas after target
+  edits
+
+Verification run:
+
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/codegen/python-codegen-target.spec.ts`
+
 ## Next Recommended Step
 
-Add frontend/browser verification for Python target enable/edit through the
-existing Run Instructions flow so the reopened backend path is covered above
-HTTP as well.
+Run the same Python target enable/edit flow through chrome-devtools-mcp once a
+headed DevTools session is available, then decide whether broader Playwright
+coverage is needed for section-policy and code-object-policy editors.

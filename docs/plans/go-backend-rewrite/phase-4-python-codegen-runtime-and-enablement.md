@@ -388,7 +388,9 @@ Completed 2026-03-06:
 
 ## Open Questions
 
-- none inside this backend runtime slice
+- none inside the Go runtime itself
+- local headed CDP verification of the reopened frontend flow is still pending
+  tool availability
 
 ## Decisions Made In Slice 1
 
@@ -423,5 +425,6 @@ Completed 2026-03-06:
 
 ## Next Recommended Step
 
-- add frontend/browser verification for Python target enable/edit through the
-  existing Run Instructions flow now that the backend path is authoritative
+- finish headed CDP verification of the reopened Run Instructions Python target
+  flow, then decide whether section-policy/code-object-policy editors need
+  broader frontend coverage beyond the new toggle-focused Playwright spec
