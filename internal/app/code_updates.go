@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"setta/internal/boundcode"
+	"setta/internal/codeformat"
 	"setta/internal/lsp"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
@@ -85,6 +86,43 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 	}
 
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, []string{projectID}, signatureObserver.Attempts())
+}
+
+func (s *codeUpdateService) FormatCode(ctx context.Context, projectID string, sectionID string) error {
+	if s == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+
+	target, err := s.projectState.Snapshot().Document.ResolveFormatCodeTarget(projectID, sectionID)
+	if err != nil {
+		return err
+	}
+
+	switch target.Kind {
+	case projectstate.FormatCodeTargetKindCode:
+		if target.ReadOnly {
+			return fmt.Errorf("%w: %q", projectstate.ErrCodeSectionReadOnly, strings.TrimSpace(sectionID))
+		}
+
+		formattedCode, err := codeformat.FormatPython(ctx, target.Code, false)
+		if err != nil {
+			return projectstate.NewFormatCodeError(err.Error())
+		}
+		return s.SetCode(ctx, projectID, sectionID, formattedCode)
+	case projectstate.FormatCodeTargetKindGeneratedPython:
+		formattedPrefix, err := codeformat.FormatPython(ctx, target.GenCodePrefix, false)
+		if err != nil {
+			return projectstate.NewFormatCodeError("Gen code prefix: " + err.Error())
+		}
+		formattedSuffix, err := codeformat.FormatPython(ctx, target.GenCodeSuffix, false)
+		if err != nil {
+			return projectstate.NewFormatCodeError("Gen code suffix: " + err.Error())
+		}
+		_, err = s.projectState.SetGenCodePrefixAndSuffix(ctx, projectID, formattedPrefix, formattedSuffix)
+		return err
+	default:
+		return projectstate.NewFormatCodeError("Format code only supports Python code sections.")
+	}
 }
 
 func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string, bindings []boundcode.Binding) error {
