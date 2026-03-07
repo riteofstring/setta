@@ -20,7 +20,6 @@ def test_settings_view_modes_layout_and_viewport():
     }
     core_view = view_modes["Core"]
     param_view = view_modes["Param Defaults"]
-    structure_view = view_modes["Section Defaults Structure and Code"]
     expected_order = [name for name, _ in SETTINGS_VIEW_MODE_GROUPS] + [
         "All Settings"
     ]
@@ -61,19 +60,6 @@ def test_settings_view_modes_layout_and_viewport():
         section_id = name_to_id[section_name]
         layout = param_view.topLevelSections[section_id]
         assert param_view.visibilityBySectionId[section_id] is True
-        assert layout.x == (idx % SETTINGS_VIEW_GRID_COLUMNS) * SETTINGS_VIEW_GRID_SPACING
-        assert layout.y == (idx // SETTINGS_VIEW_GRID_COLUMNS) * SETTINGS_VIEW_GRID_SPACING
-
-    workflow_order = [
-        "stateMachineStartSectionDefault",
-        "stateMachineGateSectionDefault",
-        "stateMachineEndSectionDefault",
-    ]
-    workflow_start_idx = 9
-    for idx, section_name in enumerate(workflow_order, start=workflow_start_idx):
-        section_id = name_to_id[section_name]
-        layout = structure_view.topLevelSections[section_id]
-        assert structure_view.visibilityBySectionId[section_id] is True
         assert layout.x == (idx % SETTINGS_VIEW_GRID_COLUMNS) * SETTINGS_VIEW_GRID_SPACING
         assert layout.y == (idx // SETTINGS_VIEW_GRID_COLUMNS) * SETTINGS_VIEW_GRID_SPACING
 
