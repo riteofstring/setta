@@ -403,7 +403,9 @@ Acceptance:
 - Slice 4 is now complete.
 - Use `phase-6-scoped-tool-call-pilot.md` as the source of truth for the
   completed pilot and deferred decisions.
-- Next, add a focused parity slice for:
+- The active follow-on slice is now:
+  - `phase-6-invocation-edge-id-translation-and-lsp-diagnostics.md`
+- That slice covers:
   - invocation-edge temporary/canonical ID translation ownership
   - filtered LSP diagnostics MCP support
-  - the first scoped write/structural tool using explicit target-id extraction
+  - the remaining prerequisites before the first scoped write/structural tool
