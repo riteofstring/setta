@@ -56,6 +56,10 @@ Current repo status as of 2026-03-06:
     dead-end compatibility layer instead of a real source of truth
 - the missing dependency is now tracked in its own focused follow-up doc:
   - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
+  - Slice 1 and Slice 2 there are now complete:
+    - richer frontend deployment-state source fields live in
+      `internal/projectstate`
+    - frontend single-config projection now lives in `internal/projectview`
 
 ## Scope
 
@@ -259,8 +263,8 @@ Tests:
 
 ## Next Recommended Step
 
-- Implement Slice 2 from
+- Implement Slice 3 from
   `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
-  build the frontend read-projection layer on top of the richer Go
-  project-state source fields added in Slice 1, then return to deployment
-  state/project-config route migration.
+  migrate the remaining share/app deployment state and project-config routes
+  onto the new Go-owned projector and add focused route coverage around default
+  loads, alternate config selection, and session/config failures.

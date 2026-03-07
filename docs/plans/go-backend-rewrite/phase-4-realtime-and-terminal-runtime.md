@@ -115,6 +115,11 @@ Current repo status as of 2026-03-06:
   - `internal/projectstate`
   - richer frontend deployment-state source fields
   - opaque payload support for frontend-only impl/config subtrees
+- the read-projection slice for that work is now also in place under:
+  - `internal/projectview`
+  - deterministic single-config projection from deployment runtime snapshots
+  - effective frontend payload merging from base impl payload +
+    `sharedModifier` + variant modifier
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
@@ -606,8 +611,10 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Follow the dedicated run-code migration plan:
+Follow the dedicated deployment state-route migration plan:
 
-- `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`
-- start with the runnable project-graph minimum needed by `runCode`
-- keep producer-side run-command and frontend metadata work scoped until that dependency lands
+- `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
+- start with Slice 3: migrate the remaining share/app deployment `state` and
+  `project_config` routes onto the Go-owned deployment runtime + projector
+- keep `appDefinition` / `appSpec` as deployment-specific wrappers around the
+  projected single-config payload instead of widening `internal/projectview`

@@ -43,9 +43,15 @@ Current repo status as of 2026-03-06:
   - code-object graphs on each project
   - opaque frontend payload storage for codegen targets, section impls, code
     object impls, and modifier-heavy subtrees
-- the remaining blocker is now narrower:
-  - Go still does not have the frontend read-projection layer that turns those
-    source fields into `ProjectStateSingleConfig`
+- Go now owns the frontend read-projection layer under `internal/projectview`:
+  - default-project and explicit-project projection helpers
+  - deterministic derivation of `singletonSections`, `parentSectionMap`,
+    `shownParamIds`, `requiredDecodedImages`, and `genCodeBinding`
+  - effective frontend payload projection from base impl payload +
+    `sharedModifier` + variant modifier
+- the remaining blocker is now route-local:
+  - share/app deployment state and project-config handlers still need to call
+    that projector instead of Python
 - route-local compatibility shims would create a dead-end transport layer with
   no Go-owned source of truth
 
@@ -313,6 +319,35 @@ Acceptance:
 - projection behavior is deterministic from runtime snapshot contents
 - the projector does not read files or mutate runtime state
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/projectview` as the frontend read-projection boundary for
+  deployment project state
+- projected `projectstate.Document` + project id into a frontend-facing
+  single-config payload with:
+  - section/code-object cores and variants
+  - raw section/code-object impl payloads
+  - project-config view/layout fields
+  - derived `singletonSections`, `parentSectionMap`, `shownParamIds`,
+    `requiredDecodedImages`, and `genCodeBinding`
+- kept the runtime/source boundary explicit:
+  - `internal/projectstate` remains the persisted/runtime source of truth
+  - `internal/projectview` owns response-shape derivation only
+- matched Python effective-impl semantics for current frontend reads:
+  - effective section/code-object payloads now merge base impl payload,
+    `sharedModifier`, and variant modifier in that order
+  - generated-code binding derivation prefers project-owned bindings when
+    present, otherwise falls back to the projected generated-Python singleton
+
+Tests:
+
+- `./scripts/go.sh test ./internal/projectview -count=1`
+- `./scripts/go.sh test ./internal/projectstate ./internal/deployments ./internal/runs -count=1`
+
 ### Slice 3: Share/App Deployment State Route Migration
 
 Deliver:
@@ -360,8 +395,11 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 2:
-  - add `internal/projectview` as the frontend read-projection layer
-  - project richer runtime snapshots into `ProjectStateSingleConfig`
-  - keep `parentSectionMap`, `singletonSections`, `shownParamIds`, and
-    `genCodeBinding` derived instead of persisted
+- Implement Slice 3:
+  - migrate share/app deployment `state` and `project_config` handlers onto
+    `internal/projectview`
+  - keep transport thin by resolving the deployment overlay snapshot first,
+    then projecting it
+  - add route tests for default-config load, alternate config load, missing
+    session failures, unknown config failures, and app-definition/app-spec
+    response shaping

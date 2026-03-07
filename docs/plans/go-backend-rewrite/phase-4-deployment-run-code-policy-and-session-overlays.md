@@ -309,7 +309,8 @@ Tests:
 ## Next Recommended Step
 
 - Continue with
-  `docs/plans/go-backend-rewrite/phase-4-deployment-session-transport-and-cleanup.md`:
-  deployment current-session bootstrap and expiry cleanup are now Go-owned, but
-  deployment state/project-config transport still depends on a richer Go
-  project-state transport boundary.
+  `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
+  deployment `runCode`, current-session bootstrap, expiry cleanup, richer
+  project-state source fields, and frontend single-config projection are now
+  Go-owned; the remaining deployment gap is the share/app state and
+  project-config route migration on top of that boundary.

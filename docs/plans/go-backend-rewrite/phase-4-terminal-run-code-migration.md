@@ -578,11 +578,11 @@ Rationale:
 
 ## Next Recommended Step
 
-Start the focused deployment/share follow-up doc:
+Continue with the focused deployment state-route follow-up doc:
 
-- `docs/plans/go-backend-rewrite/phase-4-deployment-run-code-policy-and-session-overlays.md`
+- `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
 
 Immediate target:
 
-- wire the deployment runtime foundation into share/app startup and request
-  handling
+- migrate the remaining share/app deployment `state` and `project_config`
+  routes onto the Go-owned deployment runtime and frontend projector
