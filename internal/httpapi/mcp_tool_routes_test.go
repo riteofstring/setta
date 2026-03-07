@@ -27,9 +27,11 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 		t.Fatalf("write source file: %v", err)
 	}
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot: workspaceRoot,
-		ProjectState:  projectRuntime,
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: diagnostics,
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -110,12 +112,14 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha":     "11",
 		"chat-1":            "12",
 		"chat-section":      "13",
 		"allowed-section":   "14",
+		"blocked-section":   "18",
 		"peer-chat-section": "15",
 		"allowed-variant":   "16",
 		"peer-chat-variant": "17",
@@ -124,6 +128,7 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
+		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
 	if err != nil {
@@ -175,6 +180,68 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 	}
 	if _, ok := sectionVariantMap["15"]; !ok {
 		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+}
+
+func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_code_section_diagnostics_mute",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","mute":true},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected scoped write success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route scoped write: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after route scoped write: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
 }
 
@@ -246,6 +313,12 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						TargetSectionID: "peer-chat-section",
 						Kind:            "chat_chat",
 					},
+					{
+						ID:              "edge-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
+					},
 				},
 				Sections: map[string]projectstate.Section{
 					"chat-section": {
@@ -291,14 +364,32 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						Payload: mustRouteRawJSON(t, map[string]any{"id": "peer-chat-impl", "type": "Chat"}),
 					},
 					"allowed-impl": {
-						ID:      "allowed-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRouteRawJSON(t, map[string]any{"id": "allowed-impl", "type": "TextBlock"}),
+						ID:   "allowed-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRouteRawJSON(t, map[string]any{
+							"id":           "allowed-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('allowed')\n",
+							"children":     []any{},
+						}),
 					},
 					"blocked-impl": {
-						ID:      "blocked-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRouteRawJSON(t, map[string]any{"id": "blocked-impl", "type": "Dict"}),
+						ID:   "blocked-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRouteRawJSON(t, map[string]any{
+							"id":           "blocked-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('blocked')\n",
+							"children":     []any{},
+						}),
 					},
 				},
 			},
@@ -313,6 +404,17 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func openMCPToolRouteDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry {
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	diagnostics.UpdateCodeSection("project-alpha", "allowed-section", []projectstate.LSPDiagnostic{
+		{Message: "error", Range: projectstate.LSPDiagnosticRange{}},
+	})
+	diagnostics.UpdateCodeSection("project-alpha", "blocked-section", []projectstate.LSPDiagnostic{
+		{Message: "error", Range: projectstate.LSPDiagnosticRange{}},
+	})
+	return diagnostics
 }
 
 func postMCPToolRoute(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {

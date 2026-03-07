@@ -135,13 +135,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 5 {
-		t.Fatalf("expected 5 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 6 {
+		t.Fatalf("expected 6 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
+	var muteTool *sdkmcp.Tool
 	for _, tool := range toolsResult.Tools {
 		names = append(names, tool.Name)
 		if tool.Name == "get_latest_project_state_summary" {
@@ -149,6 +150,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "get_latest_lsp_diagnostics" {
 			diagnosticsTool = tool
+		}
+		if tool.Name == "set_code_section_diagnostics_mute" {
+			muteTool = tool
 		}
 	}
 	sort.Strings(names)
@@ -158,6 +162,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"set_agentic_context",
+		"set_code_section_diagnostics_mute",
 	}
 	for index, name := range expectedNames {
 		if names[index] != name {
@@ -179,6 +184,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if diagnosticsMeta["resultFilter"] != string(tools.ResultFilterLSPDiagnostics) {
 		t.Fatalf("expected lsp diagnostics result filter, got %#v", diagnosticsMeta["resultFilter"])
 	}
+	if muteTool == nil {
+		t.Fatal("expected set_code_section_diagnostics_mute tool")
+	}
+	muteMeta := mustStructuredMap(t, muteTool.Meta[toolMetaNamespace])
+	if muteMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type, got %#v", muteMeta["accessType"])
+	}
+	mutePaths := mustStructuredMap(t, muteMeta["idPathsByType"])
+	if got := mustStringList(t, mutePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected sectionId target path, got %#v", got)
+	}
 
 	listResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{Name: "list_mcp_tools"})
 	if err != nil {
@@ -186,8 +202,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 5 {
-		t.Fatalf("expected 5 registered tool names, got %#v", listNames)
+	if len(listNames) != 6 {
+		t.Fatalf("expected 6 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -303,6 +319,84 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 
 	if server.sessionAgenticContext("missing-session") != nil {
 		t.Fatal("expected missing session agentic context lookup to return nil")
+	}
+}
+
+func TestServerSetCodeSectionDiagnosticsMuteRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	diagnostics := openScopedTestLSPDiagnosticsRegistry()
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: diagnostics,
+	})
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostics_mute",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostics_mute allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed mute success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after mute: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state for allowed-section: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+
+	filteredDiagnostics := diagnostics.Snapshot("project-alpha")
+	if _, ok := filteredDiagnostics.CodeSections["allowed-section"]; ok {
+		t.Fatalf("expected allowed-section diagnostics to be filtered after mute, got %#v", filteredDiagnostics.CodeSections)
+	}
+	if _, ok := filteredDiagnostics.CodeSections["blocked-section"]; !ok {
+		t.Fatalf("expected blocked-section diagnostics to remain, got %#v", filteredDiagnostics.CodeSections)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostics_mute",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostics_mute blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked mute call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["code"] != scopeViolationErrorCode {
+		t.Fatalf("expected scope_violation code, got %#v", blockedPayload["code"])
+	}
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected targetSectionIds %#v", ids)
 	}
 }
 
@@ -437,6 +531,94 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	}
 }
 
+func TestServerSetCodeSectionDiagnosticsMuteTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	diagnostics := openScopedTestLSPDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostics_mute",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id mute allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id mute success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id mute: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state for allowed-section after temp-id mute: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostics_mute",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "16",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id mute blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id mute call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["code"] != scopeViolationErrorCode {
+		t.Fatalf("expected scope_violation code, got %#v", blockedPayload["code"])
+	}
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated targetSectionIds [16], got %#v", ids)
+	}
+}
+
 func TestServerHandlerServesSSETransport(t *testing.T) {
 	t.Parallel()
 
@@ -511,6 +693,12 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 						TargetSectionID: "peer-chat-section",
 						Kind:            agenticEdgeKindChatChat,
 					},
+					{
+						ID:              "edge-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-section",
+						Kind:            agenticEdgeKindChatSection,
+					},
 				},
 				Sections: map[string]projectstate.Section{
 					"chat-section": {
@@ -556,14 +744,32 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 						Payload: mustRawJSON(t, map[string]any{"id": "peer-chat-impl", "type": "Chat"}),
 					},
 					"allowed-impl": {
-						ID:      "allowed-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRawJSON(t, map[string]any{"id": "allowed-impl", "type": "TextBlock"}),
+						ID:   "allowed-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRawJSON(t, map[string]any{
+							"id":           "allowed-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('allowed')\n",
+							"children":     []any{},
+						}),
 					},
 					"blocked-impl": {
-						ID:      "blocked-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRawJSON(t, map[string]any{"id": "blocked-impl", "type": "Dict"}),
+						ID:   "blocked-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRawJSON(t, map[string]any{
+							"id":           "blocked-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('blocked')\n",
+							"children":     []any{},
+						}),
 					},
 				},
 			},
@@ -578,6 +784,25 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func setScopedAgenticContext(t *testing.T, clientSession *sdkmcp.ClientSession, projectConfigID string, chatID string, sectionID string) {
+	t.Helper()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": projectConfigID,
+			"chatId":          chatID,
+			"sectionId":       sectionID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
 }
 
 func newScopedTestServerSession(t *testing.T, workspaceRoot string, projectRuntime *projectstate.Runtime) (*Server, *sdkmcp.ClientSession) {

@@ -390,22 +390,64 @@ func cloneStringSet(values map[string]struct{}) map[string]struct{} {
 	return cloned
 }
 
-func checkAgenticScope(metadata tools.Metadata, scope AgenticScope) scopeCheckResult {
+func checkAgenticScope(metadata tools.Metadata, scope AgenticScope, arguments map[string]any) scopeCheckResult {
+	targetSectionIDs := extractedTargetSectionIDs(metadata, arguments)
 	switch metadata.AccessType {
 	case tools.AccessTypeStructural:
 		if scope.StructuralAllowed {
-			return scopeCheckResult{Allowed: true, Reason: "structural"}
+			return scopeCheckResult{
+				Allowed:          true,
+				Reason:           "structural",
+				TargetSectionIDs: targetSectionIDs,
+			}
 		}
-		return scopeCheckResult{Allowed: false, Reason: "structural_denied"}
+		return scopeCheckResult{
+			Allowed:           false,
+			Reason:            "structural_denied",
+			TargetSectionIDs:  targetSectionIDs,
+			BlockedSectionIDs: targetSectionIDs,
+		}
 	case tools.AccessTypeWrite:
-		if len(scope.WriteSectionIDs) == 0 {
+		if len(targetSectionIDs) == 0 {
 			if scope.StructuralAllowed {
 				return scopeCheckResult{Allowed: true, Reason: "write_without_targets_allowed"}
 			}
 			return scopeCheckResult{Allowed: false, Reason: "write_without_targets"}
 		}
-		return scopeCheckResult{Allowed: true, Reason: "allowed"}
+		if len(scope.WriteSectionIDs) == 0 {
+			return scopeCheckResult{
+				Allowed:           false,
+				Reason:            "empty_scope",
+				TargetSectionIDs:  targetSectionIDs,
+				BlockedSectionIDs: targetSectionIDs,
+			}
+		}
+		blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, scope.WriteSectionIDs)
+		return scopeCheckResult{
+			Allowed:           len(blockedSectionIDs) == 0,
+			Reason:            scopeReasonForBlockedIDs(blockedSectionIDs, "allowed"),
+			TargetSectionIDs:  targetSectionIDs,
+			BlockedSectionIDs: blockedSectionIDs,
+		}
 	case tools.AccessTypeRead:
+		if len(targetSectionIDs) > 0 {
+			allowedSectionIDs := scope.effectiveReadSectionIDs()
+			if len(allowedSectionIDs) == 0 {
+				return scopeCheckResult{
+					Allowed:           false,
+					Reason:            "empty_scope",
+					TargetSectionIDs:  targetSectionIDs,
+					BlockedSectionIDs: targetSectionIDs,
+				}
+			}
+			blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, allowedSectionIDs)
+			return scopeCheckResult{
+				Allowed:           len(blockedSectionIDs) == 0,
+				Reason:            scopeReasonForBlockedIDs(blockedSectionIDs, "allowed"),
+				TargetSectionIDs:  targetSectionIDs,
+				BlockedSectionIDs: blockedSectionIDs,
+			}
+		}
 		if len(scope.effectiveReadSectionIDs()) == 0 {
 			return scopeCheckResult{Allowed: false, Reason: "empty_scope"}
 		}
@@ -413,6 +455,39 @@ func checkAgenticScope(metadata tools.Metadata, scope AgenticScope) scopeCheckRe
 	default:
 		return scopeCheckResult{Allowed: false, Reason: "invalid_access_type"}
 	}
+}
+
+func extractedTargetSectionIDs(metadata tools.Metadata, arguments map[string]any) []string {
+	if len(arguments) == 0 || len(metadata.IDPathsByType) == 0 {
+		return nil
+	}
+	idsByType := extractIDsByType(arguments, metadata.IDPathsByType, true)
+	sectionIDs := idsByType[tools.IDTypeSection]
+	if len(sectionIDs) == 0 {
+		return nil
+	}
+	return sortedStringSet(sectionIDs)
+}
+
+func blockedTargetSectionIDs(targetSectionIDs []string, allowedSectionIDs map[string]struct{}) []string {
+	if len(targetSectionIDs) == 0 {
+		return nil
+	}
+	blocked := make([]string, 0, len(targetSectionIDs))
+	for _, sectionID := range targetSectionIDs {
+		if _, ok := allowedSectionIDs[sectionID]; ok {
+			continue
+		}
+		blocked = append(blocked, sectionID)
+	}
+	return blocked
+}
+
+func scopeReasonForBlockedIDs(blockedSectionIDs []string, allowedReason string) string {
+	if len(blockedSectionIDs) == 0 {
+		return allowedReason
+	}
+	return "out_of_scope"
 }
 
 func buildScopeViolationError(toolName string, reason string, blockedSectionIDs []string, targetSectionIDs []string) error {
@@ -449,4 +524,16 @@ func sortedStrings(values []string) []string {
 	copied := append([]string(nil), values...)
 	sort.Strings(copied)
 	return copied
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	sorted := make([]string, 0, len(values))
+	for value := range values {
+		sorted = append(sorted, value)
+	}
+	sort.Strings(sorted)
+	return sorted
 }

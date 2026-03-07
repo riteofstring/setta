@@ -35,29 +35,37 @@ func translateAgenticContextToCanonical(value *AgenticContext, store *TemporaryI
 	return &cloned, nil
 }
 
-func translateArgumentsToCanonical(toolName string, arguments map[string]any, store *TemporaryIDStore) (map[string]any, error) {
+func translateArgumentsToCanonical(toolName string, metadata tools.Metadata, arguments map[string]any, store *TemporaryIDStore) (map[string]any, error) {
 	if len(arguments) == 0 || store == nil {
 		return arguments, nil
 	}
 
 	cloned := maps.Clone(arguments)
+	if err := translateStringArgumentField(cloned, "projectConfigId", store); err != nil {
+		return nil, err
+	}
+	if err := translateSectionIDsToCanonical(cloned, metadata, store); err != nil {
+		return nil, err
+	}
 	switch toolName {
 	case "set_agentic_context":
-		if err := translateStringArgumentField(cloned, "projectConfigId", store); err != nil {
-			return nil, err
-		}
 		if err := translateStringArgumentField(cloned, "chatId", store); err != nil {
 			return nil, err
 		}
 		if err := translateStringArgumentField(cloned, "sectionId", store); err != nil {
 			return nil, err
 		}
-	case "get_latest_project_state_summary", "get_latest_lsp_diagnostics":
-		if err := translateStringArgumentField(cloned, "projectConfigId", store); err != nil {
-			return nil, err
-		}
 	}
 	return cloned, nil
+}
+
+func translateSectionIDsToCanonical(arguments map[string]any, metadata tools.Metadata, store *TemporaryIDStore) error {
+	if len(arguments) == 0 || store == nil || len(metadata.IDPathsByType) == 0 {
+		return nil
+	}
+	return translateIDsAtPaths(arguments, metadata.IDPathsByType[tools.IDTypeSection], func(value string) (string, error) {
+		return resolveCanonicalClientID(store, value)
+	})
 }
 
 func translateResultToTemporary(payload any, metadata tools.Metadata, store *TemporaryIDStore) (any, error) {

@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 5 {
-		t.Fatalf("expected 5 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 6 {
+		t.Fatalf("expected 6 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 5 {
-		t.Fatalf("expected 5 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 6 {
+		t.Fatalf("expected 6 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -214,9 +214,83 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostics_mute",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostics_mute: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected scoped write success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after scoped mute: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after scoped mute: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
@@ -224,9 +298,11 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 		"chat-1":            "12",
 		"chat-section":      "13",
 		"allowed-section":   "14",
+		"blocked-section":   "18",
 		"peer-chat-section": "15",
 		"allowed-variant":   "16",
 		"peer-chat-variant": "17",
+		"blocked-variant":   "19",
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -302,6 +378,65 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	diagnosticsPayload := mustStructuredMapValue(t, diagnosticsResult.StructuredContent)
 	if codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"]); len(codeSections) != 0 {
 		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
+	}
+
+	writeResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_code_section_diagnostics_mute",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id scoped write: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id scoped write success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id scoped write: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after temp-id scoped write: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+
+	blockedWriteResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_code_section_diagnostics_mute",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "18",
+			"mute":            true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id blocked scoped write: %v", err)
+	}
+	if !blockedWriteResult.IsError {
+		t.Fatal("expected blocked temp-id scoped write to fail")
+	}
+	blockedPayload := mustStructuredMapValue(t, blockedWriteResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStructuredListValue(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "18" {
+		t.Fatalf("expected translated blockedSectionIds [18], got %#v", ids)
 	}
 }
 
@@ -381,8 +516,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 5 {
-		t.Fatalf("expected tool count 5, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 6 {
+		t.Fatalf("expected tool count 6, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -450,6 +585,74 @@ func TestAppIDEMCPToolCallRouteSupportsAgenticContextBody(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code_section_diagnostics_mute",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","mute":true},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post scoped write tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected scoped write success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route scoped write: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after route scoped write: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+}
+
 func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -484,6 +687,12 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						SourceSectionID: "chat-section",
 						TargetSectionID: "peer-chat-section",
 						Kind:            "chat_chat",
+					},
+					{
+						ID:              "edge-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
 					},
 				},
 				Sections: map[string]projectstate.Section{
@@ -530,14 +739,32 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						Payload: mustRawJSONValue(t, map[string]any{"id": "peer-chat-impl", "type": "Chat"}),
 					},
 					"allowed-impl": {
-						ID:      "allowed-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-impl", "type": "TextBlock"}),
+						ID:   "allowed-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRawJSONValue(t, map[string]any{
+							"id":           "allowed-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('allowed')\n",
+							"children":     []any{},
+						}),
 					},
 					"blocked-impl": {
-						ID:      "blocked-impl",
-						Kind:    projectstate.SectionKind("frontend"),
-						Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-impl", "type": "Dict"}),
+						ID:   "blocked-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: mustRawJSONValue(t, map[string]any{
+							"id":           "blocked-impl",
+							"type":         "Code",
+							"codeLanguage": "python",
+							"code":         "print('blocked')\n",
+							"children":     []any{},
+						}),
 					},
 				},
 			},
