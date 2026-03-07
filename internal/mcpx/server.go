@@ -84,6 +84,7 @@ type projectStateProvider interface {
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
+	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 }
@@ -987,6 +988,40 @@ func newSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools
 		}
 
 		if _, err := projectState.SetShowParamDisplayNames(ctx, projectConfigID, showParamDisplayNames); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		enabled, err := readRequiredBoolArgument(arguments, "enabled")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural watch-code invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2204,6 +2239,43 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "showParamDisplayNames"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_watch_code_enabled",
+				Description: "Enable or disable Watch Code for the active project and baseline existing watched inputs when enabling.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "project", "structural"},
+				},
+				Handler: newSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code setting should be updated.",
+					},
+					"enabled": map[string]any{
+						"type":        "boolean",
+						"description": "True to enable Watch Code and baseline existing watched inputs; false to disable it.",
+					},
+				},
+				"required": []string{"projectConfigId", "enabled"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -3788,6 +3860,9 @@ func normalizeProjectStateMutationError(err error) error {
 	case projectstate.IsInvalidAutoLayoutError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSettingsValueInvalid):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
+		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),

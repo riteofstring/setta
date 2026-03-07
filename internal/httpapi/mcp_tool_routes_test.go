@@ -1571,6 +1571,163 @@ func TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustSetRouteWatchCodeFiles(t, projectRuntime, []string{"pkg/watch_me.py"})
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_watch_code_enabled",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"enabled":true
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_watch_code_enabled success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled after route mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestMCPToolCallRouteSetWatchCodeEnabledAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustSetRouteWatchCodeFiles(t, projectRuntime, []string{"pkg/watch_me.py"})
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      workspaceRoot,
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_watch_code_enabled",
+		"arguments":{
+			"projectConfigId":"11",
+			"enabled":true
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_watch_code_enabled success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled after temp-id route mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected temp-id watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
 	t.Parallel()
 
@@ -2866,6 +3023,23 @@ func mustRouteRawJSON(t *testing.T, value any) projectstate.RawJSON {
 func mustRawJSONForRoute(t *testing.T, value any) projectstate.RawJSON {
 	t.Helper()
 	return mustRouteRawJSON(t, value)
+}
+
+func mustSetRouteWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.WatchCodeEnabled = false
+		project.WatchCodeFiles = append([]string(nil), files...)
+		project.WatchCodeBaselineByPath = map[string][]string{}
+		project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
+		document.Projects["project-alpha"] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("seed route watch code files: %v", err)
+	}
 }
 
 func mustSetRouteCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {

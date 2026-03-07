@@ -18,13 +18,18 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_section_style_color` MCP parity is complete
-- `set_watch_code_enabled` MCP parity is the active slice
+- `set_watch_code_enabled` MCP parity is now complete
 - Go already owns `set_watch_code_enabled` in:
   - `internal/projectstate/watch_code.go`
   - `internal/httpapi/project_routes.go`
 - Python tags `set_watch_code_enabled` as a structural project-state tool
 - enabling Watch Code requires the MCP server to pass the real workspace root
   through to the Go runtime so existing watched inputs baseline immediately
+- Go MCP now exposes `set_watch_code_enabled` as an unscoped structural tool
+  over that existing owner
+- focused MCP server, authenticated HTTP bridge, and IDE SSE coverage landed
+  for structural denial, temporary-id translation, and baseline-on-enable
+  behavior
 
 ## Scope
 
@@ -134,6 +139,7 @@ The Go runtime already owns the same mutation through
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
@@ -144,3 +150,11 @@ The Go runtime already owns the same mutation through
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `set_watch_code_enabled`.
+- 2026-03-07: Go MCP now exposes `set_watch_code_enabled` as a structural tool
+  over the existing Watch Code runtime owner and IDE HTTP transport boundary.
+- 2026-03-07: the MCP handler passes the real workspace root through to the Go
+  runtime so enabling Watch Code baselines existing watched inputs instead of
+  only flipping config state.
+- 2026-03-07: Watch Code workspace-root-required and invalid-input-path
+  runtime failures now normalize to MCP `invalid_arguments`.
+- 2026-03-07: the next bounded slice moved to `set_watch_code_inputs`.

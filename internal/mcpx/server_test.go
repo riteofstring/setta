@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 33 {
-		t.Fatalf("expected 33 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 34 {
+		t.Fatalf("expected 34 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -151,6 +151,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCodeTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
+	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
 	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
@@ -202,6 +203,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_show_param_display_names" {
 			setShowParamDisplayNamesTool = tool
+		}
+		if tool.Name == "set_watch_code_enabled" {
+			setWatchCodeEnabledTool = tool
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
@@ -296,6 +300,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
+		"set_watch_code_enabled",
 		"toggle_minimized",
 		"toggle_position_locks",
 		"update_param_impl_config",
@@ -335,6 +340,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setShowParamDisplayNamesTool == nil {
 		t.Fatal("expected set_show_param_display_names tool")
+	}
+	if setWatchCodeEnabledTool == nil {
+		t.Fatal("expected set_watch_code_enabled tool")
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
@@ -484,6 +492,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setShowParamDisplayNamesMeta := mustStructuredMap(t, setShowParamDisplayNamesTool.Meta[toolMetaNamespace])
 	if setShowParamDisplayNamesMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_show_param_display_names, got %#v", setShowParamDisplayNamesMeta["accessType"])
+	}
+	setWatchCodeEnabledMeta := mustStructuredMap(t, setWatchCodeEnabledTool.Meta[toolMetaNamespace])
+	if setWatchCodeEnabledMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_watch_code_enabled, got %#v", setWatchCodeEnabledMeta["accessType"])
 	}
 	togglePositionLocksMeta := mustStructuredMap(t, togglePositionLocksTool.Meta[toolMetaNamespace])
 	if togglePositionLocksMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -657,8 +669,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 33 {
-		t.Fatalf("expected 33 registered tool names, got %#v", listNames)
+	if len(listNames) != 34 {
+		t.Fatalf("expected 34 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2617,6 +2629,132 @@ func TestServerSetShowParamDisplayNamesAllowsUnscopedStructuralCallsAndTranslate
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after mutation")
+	}
+}
+
+func TestServerSetWatchCodeEnabledRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_enabled",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"enabled":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_watch_code_enabled blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_watch_code_enabled call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetWatchCodeEnabledAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustSetScopedTestWatchCodeFiles(t, projectRuntime, []string{"pkg/watch_me.py"})
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:      workspaceRoot,
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_enabled",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"enabled":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_watch_code_enabled: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_watch_code_enabled success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to be enabled after mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+	if len(project.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected empty watch code registry after baseline-on-enable, got %#v", project.WatchCodeRegistry)
+	}
+}
+
+func TestServerSetWatchCodeEnabledRejectsInvalidWatchInputPath(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustSetScopedTestWatchCodeFiles(t, projectRuntime, []string{"../outside_watch.py"})
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_enabled",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"enabled":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_watch_code_enabled: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_watch_code_enabled call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "watch code input path is invalid") {
+		t.Fatalf("expected invalid watch code path message, got %#v", payload["message"])
 	}
 }
 
@@ -5188,6 +5326,23 @@ func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime,
 	})
 	if err != nil {
 		t.Fatalf("mark code section %q read-only: %v", sectionID, err)
+	}
+}
+
+func mustSetScopedTestWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.WatchCodeEnabled = false
+		project.WatchCodeFiles = append([]string(nil), files...)
+		project.WatchCodeBaselineByPath = map[string][]string{}
+		project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
+		document.Projects["project-alpha"] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("seed watch code files: %v", err)
 	}
 }
 

@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 33 tools total
-- 30 current Go tool names overlap with Python
+- Go MCP now exposes 34 tools total
+- 31 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 28 of those overlaps are mutation or structural tools
-- Python still has 21 mutation or structural project-state MCP tools that do
+- 29 of those overlaps are mutation or structural tools
+- Python still has 20 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -57,6 +57,7 @@ MCP server:
   - `create_new_section_variant`
   - `auto_layout_top_level_sections`
   - `set_show_param_display_names`
+  - `set_watch_code_enabled`
   - `toggle_position_locks`
   - `toggle_minimized`
 - writes:
@@ -83,24 +84,25 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `set_watch_code_enabled`
+- `set_watch_code_inputs`
 
 Why this is next:
 
 1. Go already owns the authoritative runtime and IDE HTTP route in:
    - `internal/projectstate/watch_code.go`
    - `internal/httpapi/project_routes.go`
-2. It is the next bounded Go-owned mutation after the now-completed
-   section-color pair, without needing new runtime owner work first.
-3. Its request surface is project-scoped rather than section-scoped, so it is
-   the next useful parity slice outside the section-presentation cluster.
+2. It is the direct follow-on after the now-completed
+   `set_watch_code_enabled` slice, so the remaining Watch Code MCP gap can be
+   closed while the subsystem context is still fresh.
+3. Its runtime semantics are already Go-owned, including normalization and
+   baseline-for-new-inputs behavior, so the remaining work is still bounded to
+   MCP transport and test coverage.
 
-### 2. Good Follow-Ons After `set_watch_code_enabled`
+### 2. Good Follow-Ons After `set_watch_code_inputs`
 
-These already have Go runtime owners and existing IDE HTTP route transport, so
-their main remaining gap is MCP registration and scoped test coverage:
-
-- `set_watch_code_inputs`
+After the Watch Code input slice lands, the remaining gaps should be
+re-evaluated from the actual Go-owned runtime surface instead of assuming the
+next subsystem cluster in advance.
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
@@ -137,8 +139,7 @@ priority:
 
 ## Recommended Next Step
 
-- use `set_watch_code_enabled` as the next bounded MCP slice
-- keep `set_watch_code_inputs` as the follow-on Go-owned mutation after that
+- use `set_watch_code_inputs` as the next bounded MCP slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -149,8 +150,8 @@ priority:
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetSectionStyleColor|TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetWatchCodeEnabled|TestMCPToolCallRouteSetWatchCodeEnabledAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetWatchCodeEnabledOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeEnabledOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetWatchCodeEnabled|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -192,3 +193,7 @@ priority:
   write tool over the existing Go layout-presentation owner.
 - 2026-03-07: the next bounded slice moved to
   `set_watch_code_enabled`.
+- 2026-03-07: `set_watch_code_enabled` MCP parity completed as an unscoped
+  structural tool over the existing Go Watch Code runtime owner.
+- 2026-03-07: the next bounded slice moved to
+  `set_watch_code_inputs`.
