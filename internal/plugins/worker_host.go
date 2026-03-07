@@ -14,11 +14,16 @@ import (
 
 const CapabilityEmitListenerEvents = "emitListenerEvents"
 
+const HostMethodEmitListenerDependencyEvent = "host.emit_listener_dependency_event"
+
 var (
 	ErrWorkerHostListenerProducerRequired = errors.New("plugins: listener producer is required")
 	ErrWorkerHostCapabilityDenied         = errors.New("plugins: emitListenerEvents capability is required")
 	ErrWorkerHostDependencyEventsRequired = errors.New("plugins: dependency events must contain at least one entry")
 	ErrWorkerHostShareSessionRequired     = errors.New("plugins: share session id is required in deployment mode")
+	ErrWorkerHostMethodRequired           = errors.New("plugins: worker host method is required")
+	ErrWorkerHostUnsupportedMethod        = errors.New("plugins: unsupported worker host method")
+	ErrWorkerHostParamsInvalid            = errors.New("plugins: worker host params are invalid")
 )
 
 type WorkerHostOptions struct {
@@ -106,6 +111,37 @@ func (h *WorkerHost) EmitListenerDependencyEvents(
 		return fmt.Errorf("emit plugin listener dependency events: %w", err)
 	}
 	return nil
+}
+
+func (h *WorkerHost) Dispatch(
+	ctx context.Context,
+	worker WorkerContext,
+	method string,
+	params json.RawMessage,
+) (json.RawMessage, error) {
+	method = strings.TrimSpace(method)
+	if method == "" {
+		return nil, ErrWorkerHostMethodRequired
+	}
+
+	switch method {
+	case HostMethodEmitListenerDependencyEvent:
+		decodedParams := json.RawMessage(`{}`)
+		if len(strings.TrimSpace(string(params))) > 0 {
+			decodedParams = append(json.RawMessage(nil), params...)
+		}
+
+		var request EmitListenerDependencyEventsRequest
+		if err := json.Unmarshal(decodedParams, &request); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrWorkerHostParamsInvalid, err)
+		}
+		if err := h.EmitListenerDependencyEvents(ctx, worker, request); err != nil {
+			return nil, err
+		}
+		return json.RawMessage(`{"ok":true}`), nil
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrWorkerHostUnsupportedMethod, method)
+	}
 }
 
 func (c WorkerContext) hasCapability(capability string) bool {

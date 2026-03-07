@@ -37,7 +37,7 @@ Use the docs in this order:
 16. `phase-4-listener-realtime-producer-migration.md`
    - focused current-work plan for the remaining listener realtime producer boundaries
 17. `phase-4-plugin-worker-listener-event-bridge.md`
-   - focused current-work plan for the first Go plugin worker host boundary needed by the remaining listener producer migration
+   - focused current-work plan for the first Go plugin worker host + transport boundary needed by the remaining listener producer migration
 18. `spike-mcp.md`
    - MCP uncertainty-reduction plan
 19. `spike-pty.md`

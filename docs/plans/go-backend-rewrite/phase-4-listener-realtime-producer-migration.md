@@ -33,11 +33,15 @@ Current repo status as of 2026-03-06:
 - Go now also includes the first transport-independent plugin worker host
   boundary under:
   - `internal/plugins/worker_host.go`
-- plugin worker transport/runtime integration is still missing on the Go side;
-  focused follow-up is tracked in:
+- Go now also includes the first thin plugin worker listener-event transport
+  boundary under:
+  - `internal/plugins/worker_rpc.go`
+- broader plugin worker process ownership is still missing on the Go side;
+  the focused listener-event boundary work is tracked in:
   - `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`
-- the remaining producer-side listener realtime gap is now:
-  - plugin-worker `host.emit_listener_dependency_event`
+- the remaining plugin-related gap is no longer the listener producer boundary;
+  it is the later worker-process/session ownership slice that can adopt the Go
+  transport directly
 - Python reference behavior for this area still lives under:
   - `backend/setta/routers/project_manager.py`
   - `backend/setta/websockets/msg_handlers/frontend_receiver.py`
@@ -265,26 +269,36 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
 
-Current progress:
+Completed:
 
 - the transport-independent worker host boundary for plugin listener dependency
   events is now Go-owned under
   `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`
-- the remaining gap is the first Go worker transport integration that can call
-  that host boundary without Python plugin-manager participation
+- the first Go worker JSON-RPC transport that can call that host boundary
+  without Python plugin-manager participation now lives in
+  `internal/plugins/worker_rpc.go`
+- focused live-worker tests now prove Python worker nested
+  `host.emit_listener_dependency_event` calls can reach the Go host boundary
+  and listener broadcaster without Python plugin-manager participation
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/realtime ./internal/plugins ./internal/runs ./internal/app -count=1`
 
 ## Open Questions
 
 - whether binary listener delta transport should reuse raw websocket binary
   frames or move to explicit content refs once Go owns both sides
-- whether plugin-emitted listener dependency events stay in Phase 4 or wait for
-  the first Go-owned plugin runtime boundary
+- when the first Go-owned plugin worker process/session owner lands, whether it
+  should adopt `internal/plugins/worker_rpc.go` directly or via a slightly
+  broader lifecycle wrapper
 
 ## Next Recommended Step
 
-- Continue Slice 4 via
-  `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`.
-- Start the first worker transport integration that can route backend-worker
-  listener-event requests into the new Go host boundary.
+- Treat listener producer migration as complete for plugin-emitted dependency
+  events.
+- If plugin migration work continues soon, create a separate implementation
+  plan for the first Go-owned worker process/session owner that can reuse the
+  new `internal/plugins` host + transport boundary without widening this phase.
