@@ -118,6 +118,26 @@ describe("useCreateSectionsList", () => {
     );
   });
 
+  it("exposes workflow control sections in a dedicated group", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+
+    const workflowGroup = items.find((group) => group.group === "Workflow");
+
+    expect(workflowGroup).toBeDefined();
+    expect(workflowGroup?.items.map((item) => item.name)).toEqual([
+      "State Machine Start",
+      "State Machine Gate",
+      "State Machine End",
+    ]);
+  });
+
   it("applies preset config when create response includes a meta control param id", async () => {
     const sectionId = "section-1";
     const controlParamId = "param-1";
