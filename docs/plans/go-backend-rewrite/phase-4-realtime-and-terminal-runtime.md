@@ -52,6 +52,9 @@ Current repo status as of 2026-03-06:
 - terminal delete and interrupt HTTP transport now exist in Go under:
   - `internal/httpapi/terminal_routes.go`
   - `internal/app/app.go`
+- binary upload HTTP transport now exists in Go under:
+  - `internal/httpapi/binary_routes.go`
+  - `internal/app/app.go`
 - run-code migration groundwork now exists in Go under:
   - `internal/projectstate`
   - `internal/runs`
@@ -69,7 +72,8 @@ Current repo status as of 2026-03-06:
 - current Go `runCode` transport behavior is intentionally narrow:
   - manual Python/Bash code-section runs only
   - attached-terminal reuse and ensure flow through Go project-state + terminal services
-  - `cliId`, draw snapshot payloads, and HTTP override payloads still fail explicitly
+  - IDE draw snapshot uploads and project-state artifact updates now flow through Go-owned binary + run services
+  - `cliId` and HTTP override payloads still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
