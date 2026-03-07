@@ -12,7 +12,7 @@ terminal allocation, and deployment session semantics.
 
 ## Status
 
-Current repo status as of 2026-03-06:
+Current repo status as of 2026-03-07:
 
 - Go already owns terminal runtime and transport for:
   - websocket attach/read/write/resize
@@ -27,13 +27,15 @@ Current repo status as of 2026-03-06:
     behavior
   - `never`, `ephemeral`, and `always` snapshot modes
   - section-variant overrides applied against a cloned document
+  - `paramOverrides` applied against cloned project state for supported param
+    types
   - snapshot creation from code-file bindings on disk
 - the Go IDE planner currently rejects:
   - explicit plugin-generated entry runs
     - Go classifies them explicitly instead of treating them as generic
       non-runnable sections
-  - `paramOverrides`
-    - Go project state does not yet model params, so the planner fails explicitly instead of guessing
+  - `PasswordParam` overrides
+  - `DropzoneParam` overrides
 - the Go rewrite now includes the first IDE `runCode` HTTP transport under:
   - `internal/httpapi/terminal_routes.go`
   - `internal/runs/service.go`
@@ -50,7 +52,6 @@ Current repo status as of 2026-03-06:
   - `Started command` backend-log notifications through a Go-owned broadcaster under `internal/backendlogs`
 - the current Go IDE `runCode` route still rejects:
   - `cliId`
-  - `paramOverrides`
 - Python still owns `POST /api/runCode` under:
   - `backend/setta/routers/terminals.py`
 - Python run-code behavior is currently split across:
@@ -105,7 +106,11 @@ Current repo status as of 2026-03-06:
   - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
   - focused frontend verification now covers share/app bootstrap, config
     switching, and explicit stale-session recovery against the Go routes
-- Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
+- Go now owns the focused `paramOverrides` slice under:
+  - `docs/plans/go-backend-rewrite/phase-4-run-code-param-overrides.md`
+  - generic section code-object overrides on cloned project state
+  - override-aware generated-entry snapshot rendering
+  - deployment/share param policy enforcement
 
 ## Scope
 
@@ -115,6 +120,14 @@ This focused plan covers:
 - defining the Go-owned service boundary for run-command planning and dispatch
 - identifying the minimum Go project-state capabilities required before route migration
 - sequencing the first implementation slices for `POST /api/runCode`
+
+Status note:
+
+- the original deployment/share groundwork in this doc is complete
+- the focused `paramOverrides` follow-up is also complete
+- the remaining `runCode` gaps are now:
+  - `cliId` output transport
+  - detached-run routes
 
 ## Non-Goals
 

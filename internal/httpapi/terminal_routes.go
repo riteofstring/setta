@@ -179,7 +179,9 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			switch {
 			case errors.Is(err, runs.ErrDeploymentRunDenied),
 				errors.Is(err, runs.ErrDeploymentVariantDenied),
-				errors.Is(err, runs.ErrDeploymentSingleRunOnly):
+				errors.Is(err, runs.ErrDeploymentSingleRunOnly),
+				errors.Is(err, runs.ErrParamOverridesDenied),
+				errors.Is(err, runs.ErrCodeParamOverridesDenied):
 				writeError(w, r, http.StatusForbidden, "deployment_policy_denied", err.Error())
 			case errors.Is(err, deployments.ErrUnknownSession):
 				writeError(w, r, http.StatusNotFound, "unknown_share_session", err.Error())
@@ -190,7 +192,8 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 				errors.Is(err, runs.ErrGeneratedEntryBindingRequired),
 				errors.Is(err, runs.ErrPluginCodegenRunUnsupported),
 				errors.Is(err, runs.ErrInvalidParamOverrideKey),
-				errors.Is(err, runs.ErrParamOverridesUnsupported),
+				errors.Is(err, runs.ErrPasswordParamOverrideUnsupported),
+				errors.Is(err, runs.ErrDropzoneParamOverrideUnsupported),
 				errors.Is(err, binarypayload.ErrContentIDRequired),
 				errors.Is(err, binarypayload.ErrInvalidContentID),
 				errors.Is(err, binarypayload.ErrPayloadNotFound),

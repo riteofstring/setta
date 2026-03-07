@@ -347,7 +347,7 @@ func (p *Project) updateExistingCallableParam(
 }
 
 func (p Project) currentCodeObjectValue(sectionID string, codeObjID string) (string, error) {
-	payload, _, _, _, err := p.resolveCurrentCodeObjectContext(sectionID, codeObjID)
+	payload, _, _, _, err := p.ResolveSectionCodeObject(sectionID, codeObjID)
 	if err != nil {
 		return "", err
 	}
@@ -385,12 +385,7 @@ func (p Project) resolveCurrentCodeObjectContext(
 	sectionID string,
 	codeObjID string,
 ) (map[string]any, CodeObject, CodeObjectVariant, CodeObjectImpl, error) {
-	sectionPayload, err := p.currentCallableSectionPayload(sectionID)
-	if err != nil {
-		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
-	}
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	return effectiveCodeObjectPayload(p, codeObjVariantMap, codeObjID)
+	return p.ResolveSectionCodeObject(sectionID, codeObjID)
 }
 
 func (p *Project) setSectionCodeObjectVariant(sectionID string, codeObjID string, variantID string) error {
@@ -452,7 +447,11 @@ func (p *Project) setCurrentSectionField(sectionID string, fieldName string, fie
 }
 
 func (p *Project) setCurrentCodeObjectField(sectionID string, codeObjID string, fieldName string, fieldValue any) error {
-	_, codeObj, variant, impl, err := p.resolveCurrentCodeObjectContext(sectionID, codeObjID)
+	return p.setSectionCodeObjectField(sectionID, codeObjID, fieldName, fieldValue)
+}
+
+func (p *Project) setSectionCodeObjectField(sectionID string, codeObjID string, fieldName string, fieldValue any) error {
+	_, codeObj, variant, impl, err := p.ResolveSectionCodeObject(sectionID, codeObjID)
 	if err != nil {
 		return err
 	}

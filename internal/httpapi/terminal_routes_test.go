@@ -799,11 +799,6 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"missing":"other"}}`,
 			expectedCode: `"code":"invalid_run_code_request"`,
 		},
-		{
-			name:         "param overrides",
-			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"param-a":"value"}}`,
-			expectedCode: `"code":"invalid_run_code_request"`,
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -822,6 +817,41 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 				t.Fatalf("expected response to contain %s, got %q", testCase.expectedCode, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestRegisterTerminalRoutesAcceptsParamOverridesInIDE(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRunCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"params-section:param-text":"2"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 }
 
@@ -870,6 +900,95 @@ func TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows(t *testin
 	}
 	if sessions := terminalService.List("project-alpha", "share-a"); len(sessions) != 0 {
 		t.Fatalf("did not expect deployment terminal sessions, got %#v", sessions)
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsDeploymentParamOverridesWhenPolicyDisallows(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	policy.AllowParamChanges = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRunCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"params-section:param-text":"2"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  modes.ShareSessionCookieName,
+		Value: "share-a",
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsDeploymentCodeParamOverrides(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteRunCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"code-params-section:param-code":"print('updated')"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  modes.ShareSessionCookieName,
+		Value: "share-a",
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment_policy_denied error, got %q", response.Body.String())
 	}
 }
 
@@ -962,8 +1081,8 @@ func TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay(t *testin
 		t.Fatalf("overlay runtime: %v", err)
 	}
 	overlayProject := overlayRuntime.Snapshot().Document.Projects["project-alpha"]
-	if len(baseProject.Sections) != 1 {
-		t.Fatalf("expected base project to keep one section, got %d", len(baseProject.Sections))
+	if _, ok := baseProject.Sections["terminal-seed-1"]; ok {
+		t.Fatalf("did not expect base project to gain attached terminal section: %#v", baseProject.Sections["terminal-seed-1"])
 	}
 	if len(overlayProject.Sections) <= len(baseProject.Sections) {
 		t.Fatalf("expected overlay project to add an attached terminal section, got base=%d overlay=%d", len(baseProject.Sections), len(overlayProject.Sections))
@@ -1227,9 +1346,13 @@ func newHTTPTestDeploymentRunCodeFixture(
 				EntryCodeBlockID: "code-section",
 				TopLevelSectionIDs: []string{
 					"code-section",
+					"params-section",
+					"code-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section": "code-python-variant",
+					"code-section":        "code-python-variant",
+					"params-section":      "params-variant",
+					"code-params-section": "code-params-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -1237,6 +1360,18 @@ func newHTTPTestDeploymentRunCodeFixture(
 						Name:             "Runner",
 						VariantIDs:       []string{"code-python-variant", "code-bash-variant"},
 						DefaultVariantID: "code-python-variant",
+					},
+					"params-section": {
+						ID:               "params-section",
+						Name:             "Params",
+						VariantIDs:       []string{"params-variant"},
+						DefaultVariantID: "params-variant",
+					},
+					"code-params-section": {
+						ID:               "code-params-section",
+						Name:             "Code Params",
+						VariantIDs:       []string{"code-params-variant"},
+						DefaultVariantID: "code-params-variant",
 					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
@@ -1247,6 +1382,14 @@ func newHTTPTestDeploymentRunCodeFixture(
 					"code-bash-variant": {
 						ID:     "code-bash-variant",
 						ImplID: "code-bash-impl",
+					},
+					"params-variant": {
+						ID:     "params-variant",
+						ImplID: "params-impl",
+					},
+					"code-params-variant": {
+						ID:     "code-params-variant",
+						ImplID: "code-params-impl",
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
@@ -1271,6 +1414,52 @@ func newHTTPTestDeploymentRunCodeFixture(
 								AccessMode: projectstate.CodeFileAccessModeReadWrite,
 							},
 						},
+					},
+					"params-impl": {
+						ID:      "params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"params-impl","type":"Dict","codeObjVariantMap":{"param-text":"param-text-variant"}}`),
+					},
+					"code-params-impl": {
+						ID:      "code-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"code-params-impl","type":"Dict","codeObjVariantMap":{"param-code":"param-code-variant"}}`),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"param-text": {
+						ID:               "param-text",
+						Name:             "text_param",
+						VariantIDs:       []string{"param-text-variant"},
+						DefaultVariantID: "param-text-variant",
+					},
+					"param-code": {
+						ID:               "param-code",
+						Name:             "code_param",
+						VariantIDs:       []string{"param-code-variant"},
+						DefaultVariantID: "param-code-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"param-text-variant": {
+						ID:     "param-text-variant",
+						ImplID: "param-text-impl",
+					},
+					"param-code-variant": {
+						ID:     "param-code-variant",
+						ImplID: "param-code-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"param-text-impl": {
+						ID:      "param-text-impl",
+						Type:    "TextParam",
+						Payload: projectstate.RawJSON(`{"id":"param-text-impl","type":"TextParam","value":"1"}`),
+					},
+					"param-code-impl": {
+						ID:      "param-code-impl",
+						Type:    "CodeParam",
+						Payload: projectstate.RawJSON(`{"id":"param-code-impl","type":"CodeParam","value":"print('base')"}`),
 					},
 				},
 			},
@@ -1391,15 +1580,19 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 					"code-section",
 					"helper-section",
 					"draw-section",
+					"params-section",
 					"gen-python-section",
+					"code-params-section",
 					"gen-plugin-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section":       "code-python-variant",
-					"helper-section":     "helper-variant",
-					"draw-section":       "draw-variant",
-					"gen-python-section": "gen-python-variant",
-					"gen-plugin-section": "gen-plugin-variant",
+					"code-section":        "code-python-variant",
+					"helper-section":      "helper-variant",
+					"draw-section":        "draw-variant",
+					"params-section":      "params-variant",
+					"gen-python-section":  "gen-python-variant",
+					"code-params-section": "code-params-variant",
+					"gen-plugin-section":  "gen-plugin-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -1420,11 +1613,23 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						VariantIDs:       []string{"draw-variant"},
 						DefaultVariantID: "draw-variant",
 					},
+					"params-section": {
+						ID:               "params-section",
+						Name:             "Params",
+						VariantIDs:       []string{"params-variant"},
+						DefaultVariantID: "params-variant",
+					},
 					"gen-python-section": {
 						ID:               "gen-python-section",
 						Name:             "Generated Python",
 						VariantIDs:       []string{"gen-python-variant"},
 						DefaultVariantID: "gen-python-variant",
+					},
+					"code-params-section": {
+						ID:               "code-params-section",
+						Name:             "Code Params",
+						VariantIDs:       []string{"code-params-variant"},
+						DefaultVariantID: "code-params-variant",
 					},
 					"gen-plugin-section": {
 						ID:               "gen-plugin-section",
@@ -1450,9 +1655,17 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						ID:     "draw-variant",
 						ImplID: "draw-impl",
 					},
+					"params-variant": {
+						ID:     "params-variant",
+						ImplID: "params-impl",
+					},
 					"gen-python-variant": {
 						ID:     "gen-python-variant",
 						ImplID: "gen-python-impl",
+					},
+					"code-params-variant": {
+						ID:     "code-params-variant",
+						ImplID: "code-params-impl",
 					},
 					"gen-plugin-variant": {
 						ID:     "gen-plugin-variant",
@@ -1498,6 +1711,11 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 						Kind: projectstate.SectionKindDraw,
 						Draw: &projectstate.DrawSectionImpl{},
 					},
+					"params-impl": {
+						ID:      "params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"params-impl","type":"Dict","codeObjVariantMap":{"param-text":"param-text-variant"}}`),
+					},
 					"gen-python-impl": {
 						ID:   "gen-python-impl",
 						Kind: projectstate.SectionKindGenerated,
@@ -1505,12 +1723,53 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 							Kind: projectstate.GeneratedSectionKindPythonCode,
 						},
 					},
+					"code-params-impl": {
+						ID:      "code-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"code-params-impl","type":"Dict","codeObjVariantMap":{"param-code":"param-code-variant"}}`),
+					},
 					"gen-plugin-impl": {
 						ID:   "gen-plugin-impl",
 						Kind: projectstate.SectionKindGenerated,
 						Generated: &projectstate.GeneratedSectionImpl{
 							Kind: projectstate.GeneratedSectionKindPlugin,
 						},
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"param-text": {
+						ID:               "param-text",
+						Name:             "text_param",
+						VariantIDs:       []string{"param-text-variant"},
+						DefaultVariantID: "param-text-variant",
+					},
+					"param-code": {
+						ID:               "param-code",
+						Name:             "code_param",
+						VariantIDs:       []string{"param-code-variant"},
+						DefaultVariantID: "param-code-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"param-text-variant": {
+						ID:     "param-text-variant",
+						ImplID: "param-text-impl",
+					},
+					"param-code-variant": {
+						ID:     "param-code-variant",
+						ImplID: "param-code-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"param-text-impl": {
+						ID:      "param-text-impl",
+						Type:    "TextParam",
+						Payload: projectstate.RawJSON(`{"id":"param-text-impl","type":"TextParam","value":"1"}`),
+					},
+					"param-code-impl": {
+						ID:      "param-code-impl",
+						Type:    "CodeParam",
+						Payload: projectstate.RawJSON(`{"id":"param-code-impl","type":"CodeParam","value":"print('base')"}`),
 					},
 				},
 			},

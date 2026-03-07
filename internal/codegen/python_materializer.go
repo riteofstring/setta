@@ -32,11 +32,11 @@ type PythonMaterializer struct {
 	runtimeRoot    string
 }
 
-type pythonRenderedProject struct {
-	target        projectstate.PythonCodegenTarget
-	code          string
-	generatedBody string
-	metadataCode  string
+type RenderedPythonProject struct {
+	Target        projectstate.PythonCodegenTarget
+	Code          string
+	GeneratedBody string
+	MetadataCode  string
 }
 
 type pythonGeneratedSectionSpec struct {
@@ -91,7 +91,7 @@ func (m *PythonMaterializer) ReconcileProjectPythonGeneratedSections(ctx context
 		return nil
 	}
 
-	removeUnmanagedPythonGeneratedSections(project, rendered.target.GenerateMetadata)
+	removeUnmanagedPythonGeneratedSections(project, rendered.Target.GenerateMetadata)
 	if err := ensurePythonGeneratedSection(project, pythonGeneratedSectionSpec{
 		sectionID:   projectstate.GeneratedPythonCodeSectionID,
 		variantID:   projectstate.GeneratedPythonCodeVariantID,
@@ -99,12 +99,12 @@ func (m *PythonMaterializer) ReconcileProjectPythonGeneratedSections(ctx context
 		name:        projectstate.GeneratedPythonCodeSectionName,
 		sectionType: "GenPythonCode",
 		kind:        projectstate.GeneratedSectionKindPythonCode,
-		code:        rendered.generatedBody,
+		code:        rendered.GeneratedBody,
 		binding:     project.GeneratedCodeBinding,
 	}); err != nil {
 		return err
 	}
-	if rendered.target.GenerateMetadata {
+	if rendered.Target.GenerateMetadata {
 		if err := ensurePythonGeneratedSection(project, pythonGeneratedSectionSpec{
 			sectionID:   projectstate.GeneratedPythonMetadataSectionID,
 			variantID:   projectstate.GeneratedPythonMetadataVariantID,
@@ -112,7 +112,7 @@ func (m *PythonMaterializer) ReconcileProjectPythonGeneratedSections(ctx context
 			name:        projectstate.GeneratedPythonMetadataSectionName,
 			sectionType: "GenPythonMetadata",
 			kind:        projectstate.GeneratedSectionKindPythonMetadata,
-			code:        rendered.metadataCode,
+			code:        rendered.MetadataCode,
 			binding:     project.GeneratedMetadataBinding,
 		}); err != nil {
 			return err
@@ -199,17 +199,17 @@ func (m *PythonMaterializer) materializeProject(project projectstate.Project) er
 		return pruneEmptyProjectCodeRoot(outputRoot)
 	}
 
-	if rendered.target.GenerateMetadata {
-		if err := statefs.AtomicWriteFile(metadataPath, []byte(rendered.metadataCode), 0o644); err != nil {
+	if rendered.Target.GenerateMetadata {
+		if err := statefs.AtomicWriteFile(metadataPath, []byte(rendered.MetadataCode), 0o644); err != nil {
 			return fmt.Errorf("write generated python metadata: %w", err)
 		}
 	}
 
-	if err := statefs.AtomicWriteFile(codePath, []byte(rendered.code), 0o644); err != nil {
+	if err := statefs.AtomicWriteFile(codePath, []byte(rendered.Code), 0o644); err != nil {
 		return fmt.Errorf("write generated python code: %w", err)
 	}
 
-	if !rendered.target.GenerateMetadata {
+	if !rendered.Target.GenerateMetadata {
 		if err := removePythonGeneratedFile(metadataPath); err != nil {
 			return err
 		}
@@ -217,31 +217,43 @@ func (m *PythonMaterializer) materializeProject(project projectstate.Project) er
 	return nil
 }
 
-func (m *PythonMaterializer) renderProject(project projectstate.Project) (pythonRenderedProject, bool, error) {
+func (m *PythonMaterializer) renderProject(project projectstate.Project) (RenderedPythonProject, bool, error) {
+	return RenderPythonProject(project, m.runtimeRoot)
+}
+
+func RenderPythonProject(project projectstate.Project, runtimeRoot string) (RenderedPythonProject, bool, error) {
+	resolvedRuntimeRoot, err := statefs.NormalizePath(runtimeRoot, "")
+	if err != nil {
+		return RenderedPythonProject{}, false, ErrPythonCodegenRuntimeRootRequired
+	}
+	return renderPythonProject(project, resolvedRuntimeRoot)
+}
+
+func renderPythonProject(project projectstate.Project, runtimeRoot string) (RenderedPythonProject, bool, error) {
 	target, ok, err := project.PythonCodegenTarget()
 	if err != nil {
-		return pythonRenderedProject{}, false, err
+		return RenderedPythonProject{}, false, err
 	}
 	if !ok {
-		return pythonRenderedProject{}, false, nil
+		return RenderedPythonProject{}, false, nil
 	}
 
 	exported, exportOK, err := project.PythonCodegenExport()
 	if err != nil {
-		return pythonRenderedProject{}, false, err
+		return RenderedPythonProject{}, false, err
 	}
 	if !exportOK {
-		return pythonRenderedProject{}, false, fmt.Errorf("codegen: python export missing for project %s", project.ID)
+		return RenderedPythonProject{}, false, fmt.Errorf("codegen: python export missing for project %s", project.ID)
 	}
-	passwordSecrets, err := readPasswordSecrets(filepath.Join(m.runtimeRoot, "secrets", pythonPasswordStoreFileName))
+	passwordSecrets, err := readPasswordSecrets(filepath.Join(runtimeRoot, "secrets", pythonPasswordStoreFileName))
 	if err != nil {
-		return pythonRenderedProject{}, false, err
+		return RenderedPythonProject{}, false, err
 	}
 	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{
 		PasswordSecrets: passwordSecrets,
 	})
 	if err != nil {
-		return pythonRenderedProject{}, false, err
+		return RenderedPythonProject{}, false, err
 	}
 
 	metadataCode := ""
@@ -249,7 +261,7 @@ func (m *PythonMaterializer) renderProject(project projectstate.Project) (python
 		metaRenderer := NewPythonMetadataRenderer(exported, graph)
 		metadataCode, err = metaRenderer.GenerateCode()
 		if err != nil {
-			return pythonRenderedProject{}, false, err
+			return RenderedPythonProject{}, false, err
 		}
 	}
 
@@ -259,11 +271,11 @@ func (m *PythonMaterializer) renderProject(project projectstate.Project) (python
 	})
 	codeRenderer.GenerateCode()
 
-	return pythonRenderedProject{
-		target:        target,
-		code:          codeRenderer.Code,
-		generatedBody: codeRenderer.GeneratedCode,
-		metadataCode:  metadataCode,
+	return RenderedPythonProject{
+		Target:        target,
+		Code:          codeRenderer.Code,
+		GeneratedBody: codeRenderer.GeneratedCode,
+		MetadataCode:  metadataCode,
 	}, true, nil
 }
 

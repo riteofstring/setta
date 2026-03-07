@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/codegen"
 	"setta/internal/projectstate"
 )
 
@@ -275,7 +276,61 @@ func TestPlannerPlanRejectsInvalidParamOverrideKey(t *testing.T) {
 	}
 }
 
-func TestPlannerPlanRejectsParamOverridesUntilParamStateExists(t *testing.T) {
+func TestPlannerPlanAcceptsParamOverridesWithoutMutatingBaseState(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID: "project-alpha",
+		ParamOverrides: map[string]string{
+			"params-section:param-text": "2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("plan run with param overrides: %v", err)
+	}
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
+		t.Fatalf("expected overrides to promote default mode to ephemeral, got %q", plan.RunSnapshotMode)
+	}
+
+	snapshot := fixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, _, impl, err := project.ResolveSectionCodeObject("params-section", "param-text")
+	if err != nil {
+		t.Fatalf("resolve base param: %v", err)
+	}
+	if got := strings.TrimSpace(impl.Type); got != "TextParam" {
+		t.Fatalf("expected TextParam impl type, got %q", got)
+	}
+	if got := payloadValueString(t, project, "params-section", "param-text"); got != "1" {
+		t.Fatalf("expected base param value 1, got %q", got)
+	}
+}
+
+func TestPlannerPlanRejectsCodeParamOverridesWhenDisallowed(t *testing.T) {
+	t.Parallel()
+
+	fixture := newPlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	_, err := planner.Plan(PlanRequest{
+		ProjectID:                  "project-alpha",
+		DisallowCodeParamOverrides: true,
+		ParamOverrides: map[string]string{
+			"code-params-section:param-code": "print('updated')",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected code param override denial")
+	}
+	if err != ErrCodeParamOverridesDenied {
+		t.Fatalf("expected ErrCodeParamOverridesDenied, got %v", err)
+	}
+}
+
+func TestPlannerPlanRejectsPasswordParamOverrides(t *testing.T) {
 	t.Parallel()
 
 	fixture := newPlannerTestFixture(t)
@@ -284,14 +339,57 @@ func TestPlannerPlanRejectsParamOverridesUntilParamStateExists(t *testing.T) {
 	_, err := planner.Plan(PlanRequest{
 		ProjectID: "project-alpha",
 		ParamOverrides: map[string]string{
-			"params-section:param-alpha": "2",
+			"password-params-section:param-secret": "secret",
 		},
 	})
 	if err == nil {
-		t.Fatal("expected param override unsupported error")
+		t.Fatal("expected password param override error")
 	}
-	if err != ErrParamOverridesUnsupported {
-		t.Fatalf("expected ErrParamOverridesUnsupported, got %v", err)
+	if err != ErrPasswordParamOverrideUnsupported {
+		t.Fatalf("expected ErrPasswordParamOverrideUnsupported, got %v", err)
+	}
+}
+
+func TestPlannerPlanSnapshotsGeneratedEntryFromOverrideState(t *testing.T) {
+	t.Parallel()
+
+	fixture := newGeneratedEntryParamOverridePlannerTestFixture(t)
+	planner := newPlannerForTest(t, fixture)
+
+	plan, err := planner.Plan(PlanRequest{
+		ProjectID: "project-alpha",
+		ParamOverrides: map[string]string{
+			"params-section:param-text": "override-value",
+		},
+	})
+	if err != nil {
+		t.Fatalf("plan generated entry override run: %v", err)
+	}
+
+	snapshotGeneratedPath := filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.generatedPath))
+	got, err := os.ReadFile(snapshotGeneratedPath)
+	if err != nil {
+		t.Fatalf("read snapshot generated file: %v", err)
+	}
+	if !strings.Contains(string(got), "override-value") {
+		t.Fatalf("expected snapshot generated code to contain override value, got:\n%s", string(got))
+	}
+
+	diskGenerated, err := os.ReadFile(fixture.generatedPath)
+	if err != nil {
+		t.Fatalf("read disk generated file: %v", err)
+	}
+	if !strings.Contains(string(diskGenerated), "base-value") {
+		t.Fatalf("expected disk generated code to keep base value, got:\n%s", string(diskGenerated))
+	}
+	if strings.Contains(string(diskGenerated), "override-value") {
+		t.Fatalf("did not expect disk generated code to be mutated:\n%s", string(diskGenerated))
+	}
+
+	snapshot := fixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if got := payloadValueString(t, project, "params-section", "param-text"); got != "base-value" {
+		t.Fatalf("expected live project param value to remain base-value, got %q", got)
 	}
 }
 
@@ -397,10 +495,16 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 				TopLevelSectionIDs: []string{
 					"code-section",
 					"helper-section",
+					"params-section",
+					"code-params-section",
+					"password-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"code-section":   "code-python-variant",
-					"helper-section": "helper-variant",
+					"code-section":            "code-python-variant",
+					"helper-section":          "helper-variant",
+					"params-section":          "params-variant",
+					"code-params-section":     "code-params-variant",
+					"password-params-section": "password-params-variant",
 				},
 				Sections: map[string]projectstate.Section{
 					"code-section": {
@@ -415,6 +519,24 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 						VariantIDs:       []string{"helper-variant"},
 						DefaultVariantID: "helper-variant",
 					},
+					"params-section": {
+						ID:               "params-section",
+						Name:             "Globals",
+						VariantIDs:       []string{"params-variant"},
+						DefaultVariantID: "params-variant",
+					},
+					"code-params-section": {
+						ID:               "code-params-section",
+						Name:             "Code Params",
+						VariantIDs:       []string{"code-params-variant"},
+						DefaultVariantID: "code-params-variant",
+					},
+					"password-params-section": {
+						ID:               "password-params-section",
+						Name:             "Password Params",
+						VariantIDs:       []string{"password-params-variant"},
+						DefaultVariantID: "password-params-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
 					"code-python-variant": {
@@ -428,6 +550,18 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 					"helper-variant": {
 						ID:     "helper-variant",
 						ImplID: "helper-impl",
+					},
+					"params-variant": {
+						ID:     "params-variant",
+						ImplID: "params-impl",
+					},
+					"code-params-variant": {
+						ID:     "code-params-variant",
+						ImplID: "code-params-impl",
+					},
+					"password-params-variant": {
+						ID:     "password-params-variant",
+						ImplID: "password-params-impl",
 					},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
@@ -464,6 +598,72 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 							},
 						},
 					},
+					"params-impl": {
+						ID:      "params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"params-impl","type":"Dict","codeObjVariantMap":{"param-text":"param-text-variant"}}`),
+					},
+					"code-params-impl": {
+						ID:      "code-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"code-params-impl","type":"Dict","codeObjVariantMap":{"param-code":"param-code-variant"}}`),
+					},
+					"password-params-impl": {
+						ID:      "password-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{"id":"password-params-impl","type":"Dict","codeObjVariantMap":{"param-secret":"param-secret-variant"}}`),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"param-text": {
+						ID:               "param-text",
+						Name:             "text_param",
+						VariantIDs:       []string{"param-text-variant"},
+						DefaultVariantID: "param-text-variant",
+					},
+					"param-code": {
+						ID:               "param-code",
+						Name:             "code_param",
+						VariantIDs:       []string{"param-code-variant"},
+						DefaultVariantID: "param-code-variant",
+					},
+					"param-secret": {
+						ID:               "param-secret",
+						Name:             "secret_param",
+						VariantIDs:       []string{"param-secret-variant"},
+						DefaultVariantID: "param-secret-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"param-text-variant": {
+						ID:     "param-text-variant",
+						ImplID: "param-text-impl",
+					},
+					"param-code-variant": {
+						ID:     "param-code-variant",
+						ImplID: "param-code-impl",
+					},
+					"param-secret-variant": {
+						ID:     "param-secret-variant",
+						ImplID: "param-secret-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"param-text-impl": {
+						ID:      "param-text-impl",
+						Type:    "TextParam",
+						Payload: projectstate.RawJSON(`{"id":"param-text-impl","type":"TextParam","value":"1"}`),
+					},
+					"param-code-impl": {
+						ID:      "param-code-impl",
+						Type:    "CodeParam",
+						Payload: projectstate.RawJSON(`{"id":"param-code-impl","type":"CodeParam","value":"print('base')"}`),
+					},
+					"param-secret-impl": {
+						ID:      "param-secret-impl",
+						Type:    "PasswordParam",
+						Payload: projectstate.RawJSON(`{"id":"param-secret-impl","type":"PasswordParam","value":"ignored"}`),
+					},
 				},
 			},
 		},
@@ -485,6 +685,229 @@ func newPlannerTestFixture(t *testing.T) plannerTestFixture {
 		bashPath:       bashPath,
 		helperPath:     helperPath,
 	}
+}
+
+func newGeneratedEntryParamOverridePlannerTestFixture(t *testing.T) plannerTestFixture {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	codeRoot := filepath.Join(settaFilesRoot, "code")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+
+	pythonPath := filepath.Join(codeRoot, "run.py")
+	helperPath := filepath.Join(codeRoot, "helper.py")
+	generatedPath := filepath.Join(codeRoot, "generated.py")
+	generatedMetaPath := filepath.Join(codeRoot, "setta_gen_meta.py")
+	if err := os.WriteFile(pythonPath, []byte("print('python')\n"), 0o644); err != nil {
+		t.Fatalf("write python file: %v", err)
+	}
+	if err := os.WriteFile(helperPath, []byte("print('helper')\n"), 0o644); err != nil {
+		t.Fatalf("write helper file: %v", err)
+	}
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{Language: string(projectstate.CodeLanguagePython)},
+				},
+				GeneratedCodeBinding: &projectstate.CodeFileBinding{
+					Path:       "code/generated.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				GeneratedMetadataBinding: &projectstate.CodeFileBinding{
+					Path:       "code/setta_gen_meta.py",
+					AccessMode: projectstate.CodeFileAccessModeReadOnly,
+				},
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+					"helper-section",
+					"params-section",
+					"gen-python-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section":       "code-python-variant",
+					"helper-section":     "helper-variant",
+					"params-section":     "params-variant",
+					"gen-python-section": "gen-python-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Runner",
+						VariantIDs:       []string{"code-python-variant"},
+						DefaultVariantID: "code-python-variant",
+					},
+					"helper-section": {
+						ID:               "helper-section",
+						Name:             "Helper",
+						VariantIDs:       []string{"helper-variant"},
+						DefaultVariantID: "helper-variant",
+					},
+					"params-section": {
+						ID:               "params-section",
+						Name:             "Globals",
+						VariantIDs:       []string{"params-variant"},
+						DefaultVariantID: "params-variant",
+					},
+					"gen-python-section": {
+						ID:               "gen-python-section",
+						Name:             "Generated Python",
+						VariantIDs:       []string{"gen-python-variant"},
+						DefaultVariantID: "gen-python-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"code-python-variant": {
+						ID:     "code-python-variant",
+						ImplID: "code-python-impl",
+					},
+					"helper-variant": {
+						ID:     "helper-variant",
+						ImplID: "helper-impl",
+					},
+					"params-variant": {
+						ID:     "params-variant",
+						ImplID: "params-impl",
+					},
+					"gen-python-variant": {
+						ID:     "gen-python-variant",
+						ImplID: "gen-python-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"code-python-impl": {
+						ID:   "code-python-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"helper-impl": {
+						ID:   "helper-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/helper.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"params-impl": {
+						ID:      "params-impl",
+						Kind:    projectstate.SectionKind("global_variables"),
+						Payload: projectstate.RawJSON(`{"id":"params-impl","type":"GlobalVariables","topLevelParamId":"root-param","codeObjVariantMap":{"root-param":"root-param-variant","param-text":"param-text-variant"}}`),
+					},
+					"gen-python-impl": {
+						ID:   "gen-python-impl",
+						Kind: projectstate.SectionKindGenerated,
+						Generated: &projectstate.GeneratedSectionImpl{
+							Kind: projectstate.GeneratedSectionKindPythonCode,
+						},
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"root-param": {
+						ID:               "root-param",
+						Name:             "root",
+						VariantIDs:       []string{"root-param-variant"},
+						DefaultVariantID: "root-param-variant",
+					},
+					"param-text": {
+						ID:               "param-text",
+						Name:             "text_param",
+						VariantIDs:       []string{"param-text-variant"},
+						DefaultVariantID: "param-text-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"root-param-variant": {
+						ID:     "root-param-variant",
+						ImplID: "root-param-impl",
+					},
+					"param-text-variant": {
+						ID:     "param-text-variant",
+						ImplID: "param-text-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"root-param-impl": {
+						ID:      "root-param-impl",
+						Type:    "NestedParam",
+						Payload: projectstate.RawJSON(`{"id":"root-param-impl","type":"NestedParam","children":["param-text"]}`),
+					},
+					"param-text-impl": {
+						ID:      "param-text-impl",
+						Type:    "TextParam",
+						Payload: projectstate.RawJSON(`{"id":"param-text-impl","type":"TextParam","value":"base-value"}`),
+					},
+				},
+			},
+		},
+	}
+
+	rendered, ok, err := codegen.RenderPythonProject(document.Projects["project-alpha"], runtimeRoot)
+	if err != nil {
+		t.Fatalf("render base generated project: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python codegen render to succeed")
+	}
+	if err := os.WriteFile(generatedPath, []byte(rendered.Code), 0o644); err != nil {
+		t.Fatalf("write generated file: %v", err)
+	}
+	if err := os.WriteFile(generatedMetaPath, []byte(rendered.MetadataCode), 0o644); err != nil {
+		t.Fatalf("write generated metadata file: %v", err)
+	}
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = runtime.Close()
+	})
+
+	return plannerTestFixture{
+		runtime:           runtime,
+		settaFilesRoot:    settaFilesRoot,
+		runtimeRoot:       runtimeRoot,
+		pythonPath:        pythonPath,
+		helperPath:        helperPath,
+		generatedPath:     generatedPath,
+		generatedMetaPath: generatedMetaPath,
+	}
+}
+
+func payloadValueString(t *testing.T, project projectstate.Project, sectionID string, codeObjID string) string {
+	t.Helper()
+
+	payload, _, _, _, err := project.ResolveSectionCodeObject(sectionID, codeObjID)
+	if err != nil {
+		t.Fatalf("resolve section code object %s:%s: %v", sectionID, codeObjID, err)
+	}
+	value, ok := payload["value"].(string)
+	if !ok {
+		t.Fatalf("expected payload value field for %s:%s, got %#v", sectionID, codeObjID, payload["value"])
+	}
+	return value
 }
 
 func newGeneratedEntryPlannerTestFixture(t *testing.T) plannerTestFixture {

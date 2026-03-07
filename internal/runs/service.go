@@ -133,11 +133,13 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	}
 
 	plan, err := execution.planner.Plan(PlanRequest{
-		ProjectID:               request.ProjectID,
-		SectionID:               request.SectionID,
-		RunSnapshotMode:         execution.runSnapshotMode,
-		SectionVariantOverrides: request.SectionVariantOverrides,
-		ParamOverrides:          request.ParamOverrides,
+		ProjectID:                  request.ProjectID,
+		SectionID:                  request.SectionID,
+		RunSnapshotMode:            execution.runSnapshotMode,
+		SectionVariantOverrides:    request.SectionVariantOverrides,
+		ParamOverrides:             request.ParamOverrides,
+		DisallowParamOverrides:     execution.disallowParamOverrides,
+		DisallowCodeParamOverrides: execution.disallowCodeParamOverrides,
 	})
 	if err != nil {
 		return RunCodeResult{}, err
@@ -194,21 +196,25 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 }
 
 type runExecution struct {
-	planner           *Planner
-	projectState      *projectstate.Runtime
-	artifactsRoot     string
-	runSnapshotMode   RunSnapshotMode
-	reservedSingleRun bool
-	deployment        bool
+	planner                    *Planner
+	projectState               *projectstate.Runtime
+	artifactsRoot              string
+	runSnapshotMode            RunSnapshotMode
+	reservedSingleRun          bool
+	deployment                 bool
+	disallowParamOverrides     bool
+	disallowCodeParamOverrides bool
 }
 
 func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error) {
 	if s.deployment == nil {
 		return runExecution{
-			planner:         s.planner,
-			projectState:    s.projectState,
-			artifactsRoot:   s.artifactsRoot,
-			runSnapshotMode: request.RunSnapshotMode,
+			planner:                    s.planner,
+			projectState:               s.projectState,
+			artifactsRoot:              s.artifactsRoot,
+			runSnapshotMode:            request.RunSnapshotMode,
+			disallowParamOverrides:     false,
+			disallowCodeParamOverrides: false,
 		}, nil
 	}
 
@@ -261,12 +267,14 @@ func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error)
 	}
 
 	return runExecution{
-		planner:           planner,
-		projectState:      projectState,
-		artifactsRoot:     s.deployment.Paths().ArtifactsRoot,
-		runSnapshotMode:   RunSnapshotMode(policy.RunSnapshotMode),
-		reservedSingleRun: reservedSingleRun,
-		deployment:        true,
+		planner:                    planner,
+		projectState:               projectState,
+		artifactsRoot:              s.deployment.Paths().ArtifactsRoot,
+		runSnapshotMode:            RunSnapshotMode(policy.RunSnapshotMode),
+		reservedSingleRun:          reservedSingleRun,
+		deployment:                 true,
+		disallowParamOverrides:     !policy.AllowParamChanges,
+		disallowCodeParamOverrides: true,
 	}, nil
 }
 

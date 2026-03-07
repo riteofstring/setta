@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/codegen"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
@@ -22,18 +23,21 @@ const (
 )
 
 var (
-	ErrProjectRuntimeRequired        = fmt.Errorf("runs: project runtime is required")
-	ErrSettaFilesRootRequired        = fmt.Errorf("runs: setta files root is required")
-	ErrRuntimeRootRequired           = fmt.Errorf("runs: runtime root is required")
-	ErrRunTargetRequired             = fmt.Errorf("runs: select a manual code section to run")
-	ErrRunTargetNotRunnable          = fmt.Errorf("runs: run is only available for Python and Bash")
-	ErrRunSnapshotModeInvalid        = fmt.Errorf("runs: unsupported run snapshot mode")
-	ErrCodeBindingRequired           = fmt.Errorf("runs: code section is missing a code file binding")
-	ErrGeneratedEntryBindingRequired = fmt.Errorf("runs: generated-entry run is missing a generated code binding")
-	ErrPluginCodegenRunUnsupported   = fmt.Errorf("runs: plugin-codegen entry runs are not supported in Go yet")
-	ErrInvalidParamOverrideKey       = fmt.Errorf("runs: invalid param override key")
-	ErrParamOverridesUnsupported     = fmt.Errorf("runs: param overrides are not supported until Go owns parameter state")
-	ErrDuplicateSnapshotFileName     = fmt.Errorf("runs: duplicate snapshot file name")
+	ErrProjectRuntimeRequired           = fmt.Errorf("runs: project runtime is required")
+	ErrSettaFilesRootRequired           = fmt.Errorf("runs: setta files root is required")
+	ErrRuntimeRootRequired              = fmt.Errorf("runs: runtime root is required")
+	ErrRunTargetRequired                = fmt.Errorf("runs: select a manual code section to run")
+	ErrRunTargetNotRunnable             = fmt.Errorf("runs: run is only available for Python and Bash")
+	ErrRunSnapshotModeInvalid           = fmt.Errorf("runs: unsupported run snapshot mode")
+	ErrCodeBindingRequired              = fmt.Errorf("runs: code section is missing a code file binding")
+	ErrGeneratedEntryBindingRequired    = fmt.Errorf("runs: generated-entry run is missing a generated code binding")
+	ErrPluginCodegenRunUnsupported      = fmt.Errorf("runs: plugin-codegen entry runs are not supported in Go yet")
+	ErrInvalidParamOverrideKey          = fmt.Errorf("runs: invalid param override key")
+	ErrParamOverridesDenied             = fmt.Errorf("runs: param overrides are not allowed for this run")
+	ErrCodeParamOverridesDenied         = fmt.Errorf("runs: CodeParam overrides are not allowed for this run")
+	ErrPasswordParamOverrideUnsupported = fmt.Errorf("runs: PasswordParam overrides are not supported in Go yet")
+	ErrDropzoneParamOverrideUnsupported = fmt.Errorf("runs: DropzoneParam overrides are not supported in Go yet")
+	ErrDuplicateSnapshotFileName        = fmt.Errorf("runs: duplicate snapshot file name")
 )
 
 type RunSnapshotMode string
@@ -54,11 +58,13 @@ type PlannerOptions struct {
 }
 
 type PlanRequest struct {
-	ProjectID               string
-	SectionID               string
-	RunSnapshotMode         RunSnapshotMode
-	SectionVariantOverrides map[string]string
-	ParamOverrides          map[string]string
+	ProjectID                  string
+	SectionID                  string
+	RunSnapshotMode            RunSnapshotMode
+	SectionVariantOverrides    map[string]string
+	ParamOverrides             map[string]string
+	DisallowParamOverrides     bool
+	DisallowCodeParamOverrides bool
 }
 
 type Plan struct {
@@ -89,6 +95,12 @@ type codeSectionInput struct {
 	language  projectstate.CodeLanguage
 	fileName  string
 	content   []byte
+}
+
+type parsedParamOverride struct {
+	sectionID string
+	codeObjID string
+	value     string
 }
 
 func NewPlanner(options PlannerOptions) (*Planner, error) {
@@ -158,7 +170,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	if err := applySectionVariantOverrides(&document, request.ProjectID, request.SectionVariantOverrides); err != nil {
 		return Plan{}, err
 	}
-	if err := validateParamOverrides(request.ParamOverrides); err != nil {
+	if err := applyParamOverrides(&document, request.ProjectID, request.ParamOverrides, request.DisallowParamOverrides, request.DisallowCodeParamOverrides); err != nil {
 		return Plan{}, err
 	}
 
@@ -171,7 +183,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		return Plan{}, err
 	}
 	if target.Kind == projectstate.RunTargetKindGeneratedEntry {
-		return p.planGeneratedEntry(target, resolvedMode, snapshot.Revision)
+		return p.planGeneratedEntry(target, resolvedMode, snapshot.Revision, hasOverrides(request))
 	}
 	if target.Section.ID == "" {
 		return Plan{}, ErrRunTargetRequired
@@ -243,7 +255,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 	}, nil
 }
 
-func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64) (Plan, error) {
+func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode RunSnapshotMode, revision uint64, overridesApplied bool) (Plan, error) {
 	if target.Generated == nil {
 		return Plan{}, ErrRunTargetRequired
 	}
@@ -292,7 +304,7 @@ func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode
 	if err != nil {
 		return Plan{}, err
 	}
-	generatedInputs, err := p.collectGeneratedEntryInputs(*target.Generated)
+	generatedInputs, err := p.collectGeneratedEntryInputs(target.Project, *target.Generated, overridesApplied)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -375,7 +387,14 @@ func (p *Planner) collectCodeSections(project projectstate.Project) ([]codeSecti
 	return inputs, nil
 }
 
-func (p *Planner) collectGeneratedEntryInputs(target projectstate.ResolvedGeneratedEntry) ([]codeSectionInput, error) {
+func (p *Planner) collectGeneratedEntryInputs(
+	project projectstate.Project,
+	target projectstate.ResolvedGeneratedEntry,
+	overridesApplied bool,
+) ([]codeSectionInput, error) {
+	if overridesApplied {
+		return p.renderGeneratedEntryInputs(project)
+	}
 	if target.CodeBinding == nil {
 		return nil, ErrGeneratedEntryBindingRequired
 	}
@@ -412,6 +431,37 @@ func (p *Planner) collectGeneratedEntryInputs(target projectstate.ResolvedGenera
 		language:  projectstate.CodeLanguagePython,
 		fileName:  filepath.Base(metadataPath),
 		content:   metadataContent,
+	})
+	return inputs, nil
+}
+
+func (p *Planner) renderGeneratedEntryInputs(project projectstate.Project) ([]codeSectionInput, error) {
+	rendered, ok, err := codegen.RenderPythonProject(project, p.runtimeRoot)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || project.GeneratedCodeBinding == nil {
+		return nil, ErrGeneratedEntryBindingRequired
+	}
+
+	inputs := []codeSectionInput{{
+		sectionID: generatedEntryCodeKey,
+		language:  projectstate.CodeLanguagePython,
+		fileName:  filepath.Base(project.GeneratedCodeBinding.Path),
+		content:   []byte(rendered.Code),
+	}}
+	if !rendered.Target.GenerateMetadata {
+		return inputs, nil
+	}
+	if project.GeneratedMetadataBinding == nil {
+		return nil, ErrGeneratedEntryBindingRequired
+	}
+
+	inputs = append(inputs, codeSectionInput{
+		sectionID: generatedEntryMetaKey,
+		language:  projectstate.CodeLanguagePython,
+		fileName:  filepath.Base(project.GeneratedMetadataBinding.Path),
+		content:   []byte(rendered.MetadataCode),
 	})
 	return inputs, nil
 }
@@ -485,17 +535,94 @@ func applySectionVariantOverrides(document *projectstate.Document, projectID str
 	return nil
 }
 
-func validateParamOverrides(paramOverrides map[string]string) error {
-	if len(paramOverrides) == 0 {
+func applyParamOverrides(
+	document *projectstate.Document,
+	projectID string,
+	paramOverrides map[string]string,
+	disallowParamOverrides bool,
+	disallowCodeParamOverrides bool,
+) error {
+	if document == nil || len(paramOverrides) == 0 {
 		return nil
 	}
-	for key := range paramOverrides {
-		parts := strings.SplitN(key, ":", 2)
-		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
-			return fmt.Errorf("%w: %q", ErrInvalidParamOverrideKey, key)
+
+	parsedOverrides, err := parseParamOverrides(paramOverrides)
+	if err != nil {
+		return err
+	}
+	if disallowParamOverrides {
+		return ErrParamOverridesDenied
+	}
+
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+
+	for _, override := range parsedOverrides {
+		_, _, _, impl, err := project.ResolveSectionCodeObject(override.sectionID, override.codeObjID)
+		if err != nil {
+			return err
+		}
+
+		switch strings.TrimSpace(impl.Type) {
+		case "CodeParam":
+			if disallowCodeParamOverrides {
+				return ErrCodeParamOverridesDenied
+			}
+		case "PasswordParam":
+			return ErrPasswordParamOverrideUnsupported
+		case "DropzoneParam":
+			return ErrDropzoneParamOverrideUnsupported
+		}
+
+		if err := project.SetSectionCodeObjectValue(override.sectionID, override.codeObjID, override.value); err != nil {
+			return err
 		}
 	}
-	return ErrParamOverridesUnsupported
+
+	document.Projects[project.ID] = project
+	return nil
+}
+
+func parseParamOverrides(paramOverrides map[string]string) ([]parsedParamOverride, error) {
+	if len(paramOverrides) == 0 {
+		return nil, nil
+	}
+
+	keys := make([]string, 0, len(paramOverrides))
+	for key := range paramOverrides {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	parsed := make([]parsedParamOverride, 0, len(keys))
+	for _, key := range keys {
+		sectionID, codeObjID, err := parseParamOverrideKey(key)
+		if err != nil {
+			return nil, err
+		}
+		parsed = append(parsed, parsedParamOverride{
+			sectionID: sectionID,
+			codeObjID: codeObjID,
+			value:     paramOverrides[key],
+		})
+	}
+	return parsed, nil
+}
+
+func parseParamOverrideKey(key string) (string, string, error) {
+	parts := strings.SplitN(key, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("%w: %q", ErrInvalidParamOverrideKey, key)
+	}
+
+	sectionID := strings.TrimSpace(parts[0])
+	codeObjID := strings.TrimSpace(parts[1])
+	if sectionID == "" || codeObjID == "" {
+		return "", "", fmt.Errorf("%w: %q", ErrInvalidParamOverrideKey, key)
+	}
+	return sectionID, codeObjID, nil
 }
 
 func validateRunSnapshotMode(mode RunSnapshotMode) error {
