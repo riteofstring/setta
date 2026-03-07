@@ -555,3 +555,49 @@
   - opened Project AI Chat on the headed worktree instance,
   - verified the Slash Commands side view still renders correctly,
   - verified return-to-chat composer layout remains intact after the slash-command authority changes.
+
+## 2026-03-06 09:47:11 PST
+
+### Consolidated findings implemented
+- Fixed the custom-skill filesystem integrity gap so failed create/update writes no longer leave `SKILL.md` truncated, partially written, or spuriously created.
+- Fixed the skills viewer raw/rendered split so unsaved markdown edits now preview the same in-memory draft the user is actively editing instead of falling back to the last loaded server copy.
+
+### Proposed fixes applied
+- Refactored backend custom-skill writes in `backend/setta/routers/app_gen_extensions.py` into a temp-file commit flow:
+  - `_write_temp_custom_skill_doc(...)` now writes the full payload into an adjacent temp file, flushes it, and `fsync`s it before any final-path commit.
+  - `_write_new_custom_skill_doc(...)` now creates the parent directory, stages content into the temp file, and commits with `os.link(...)` so late collisions still fail closed without writing through the final `SKILL.md`.
+  - `_write_existing_custom_skill_doc(...)` now stages into a temp file and swaps into place with `os.replace(...)`, preserving the previous `SKILL.md` until the replacement payload is fully durable.
+  - Failed create flows now clean up the just-created skill directory when it would otherwise be left empty after the temp write fails.
+- Added frontend draft/preview parity logic in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`:
+  - `resolveRenderedSkillPreviewContent(...)` now derives rendered markdown from the current per-skill raw draft when the selected skill has loaded successfully.
+  - The rendered `ReactMarkdown` pane now consumes that derived draft-backed content, while loading/error placeholders continue to come from the existing `resolveSkillPreviewContent(...)` pathway.
+  - The raw editor path remains unchanged as the draft authority source, so both tabs now read from the same document state once content is loaded.
+
+### UX/DX before and after
+- Before: A disk-full error, interrupted write, or mid-write `OSError` during custom-skill save could corrupt the existing `SKILL.md`, and a failed create could strand a partial/empty skill directory that made the next retry look like a collision.  
+  After: Custom-skill create/update is transactional from the user's perspective: either the new file fully lands or the prior on-disk state remains untouched, with retries staying safe and predictable.
+- Before: Switching from `Raw text` to `Rendered` after editing an unsaved draft could show stale saved content while the raw editor still held newer text, breaking trust in the preview/save loop.  
+  After: `Raw text` and `Rendered` are now two views over the same current draft, so previewing before save reflects exactly what will be written.
+- Before: Backend debugging required reasoning about destructive in-place writes and post-hoc divergence checks that only ran after the file had already been mutated.  
+  After: The write invariant is visible at the commit boundary itself, making the filesystem semantics much easier to audit and reason about.
+- Before: Frontend debugging had to track two partially authoritative skill documents for the same selection: the raw draft and the last loaded preview payload.  
+  After: The selected skill draft is the single source of truth for loaded editor/preview content, which simplifies both the component logic and the regression surface.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - create failure injection that raises during temp-file durability and verifies no `SKILL.md` or leftover new skill directory remains,
+  - update failure injection that raises during temp-file durability and verifies the preexisting `SKILL.md` remains byte-for-byte unchanged,
+  - route-level `400` responses for both failure modes while the filesystem state stays clean.
+- Frontend Vitest coverage for:
+  - `resolveRenderedSkillPreviewContent(...)` using the unsaved raw draft in loaded state,
+  - preserving loading/error placeholder behavior when preview content should not switch to the draft,
+  - integration-level parity between hydration, unsaved draft mutation, and rendered preview output.
+- Playwright E2E coverage for:
+  - editing a custom skill in raw mode,
+  - switching to rendered mode before save and seeing the unsaved draft immediately,
+  - switching back to raw mode with the draft still present and the save action still enabled.
+- Manual Chrome DevTools MCP verification:
+  - opened Project AI Chat -> Skills in the headed worktree instance,
+  - verified a temporary workspace custom skill loaded into the viewer,
+  - edited the draft in `Raw text`, switched to `Rendered`, and confirmed the unsaved draft rendered immediately,
+  - switched back to `Raw text` and confirmed the save control remained enabled for the dirty draft.

@@ -2800,6 +2800,85 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   );
 });
 
+test("project ai chat renders unsaved raw markdown edits before save", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::custom-one",
+            name: "custom-one",
+            rootLabel: "User ~/.agents/skills",
+            rootPath,
+            relativePath: "custom-one",
+            isEditable: true,
+            editabilityReason: null,
+            description: "Custom skill",
+          },
+        ]),
+      ),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::custom-one",
+        content: "# custom-one\n\nOriginal body",
+        truncated: false,
+        originalSizeBytes: "# custom-one\n\nOriginal body".length,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+
+  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+
+  const markdown = page.getByLabel("Skill Markdown Content");
+  const editorContent = markdown.locator(".cm-content");
+  await editorContent.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type("# custom-one\n\nUpdated draft from raw mode");
+
+  await page.getByTestId("project-chat-skill-markdown-view-rendered").click();
+  await expect(page.getByText("Updated draft from raw mode")).toBeVisible();
+  await expect(page.getByText("Original body")).toHaveCount(0);
+
+  await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-save"),
+  ).toBeEnabled();
+  await expect(markdown).toContainText("Updated draft from raw mode");
+});
+
 test("project ai chat create custom skill rejects collisions without overwriting selected skill content", async ({
   page,
 }) => {

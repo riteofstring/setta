@@ -467,6 +467,27 @@ export function resolveSkillPreviewContent({
   return "Select a skill to preview SKILL.md.";
 }
 
+export function resolveRenderedSkillPreviewContent({
+  skillPreviewContent,
+  skillMarkdownRawDraft,
+  selectedSkillId,
+  skillContentLoadStatus,
+}: {
+  skillPreviewContent: string;
+  skillMarkdownRawDraft: string | null;
+  selectedSkillId: string | null;
+  skillContentLoadStatus: SkillContentLoadStatus;
+}): string {
+  if (
+    selectedSkillId &&
+    skillContentLoadStatus === "loaded" &&
+    skillMarkdownRawDraft !== null
+  ) {
+    return skillMarkdownRawDraft;
+  }
+  return skillPreviewContent;
+}
+
 function attachSkillsListResizeListeners(args: {
   target: ResizeListenerTarget;
   onMove: (event: PointerEvent) => void;
@@ -1217,6 +1238,19 @@ export function ProjectChatSkillsMcpViewer({
     skillContentLoadStatus,
     skillContentLoading,
     skillsLoading,
+  ]);
+  const renderedSkillPreviewContent = useMemo(() => {
+    return resolveRenderedSkillPreviewContent({
+      skillPreviewContent,
+      skillMarkdownRawDraft,
+      selectedSkillId,
+      skillContentLoadStatus,
+    });
+  }, [
+    skillContentLoadStatus,
+    skillMarkdownRawDraft,
+    skillPreviewContent,
+    selectedSkillId,
   ]);
   const skillPreviewTruncationNotice =
     selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
@@ -2065,7 +2099,7 @@ export function ProjectChatSkillsMcpViewer({
                               className={SKILL_MARKDOWN_RENDERED_CLASS}
                               remarkPlugins={[remarkGfm]}
                             >
-                              {skillPreviewContent}
+                              {renderedSkillPreviewContent}
                             </ReactMarkdown>
                           </div>
                         ) : (

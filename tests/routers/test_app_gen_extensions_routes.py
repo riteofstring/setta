@@ -20,6 +20,10 @@ from setta.types.routes import Route
 from setta.utils.paths import clear_setta_paths_cache
 
 
+def _raise_no_space_left_on_device(_fd: int) -> None:
+    raise OSError("No space left on device")
+
+
 class TestAppGenExtensionsRoutes:
     def test_route_handlers_are_sync_for_threadpool_fs_isolation(self) -> None:
         # Route handlers do heavy filesystem scans/reads and should remain sync
@@ -649,6 +653,40 @@ class TestAppGenExtensionsRoutes:
                 == "# existing\n\nOriginal content.\n"
             )
 
+    def test_create_custom_skill_removes_partial_outputs_when_temp_write_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            expected_skill_doc = (
+                fake_home / ".agents" / "skills" / "failed-create" / "SKILL.md"
+            )
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            monkeypatch.setattr(
+                app_gen_extensions.os,
+                "fsync",
+                _raise_no_space_left_on_device,
+            )
+
+            with pytest.raises(ValueError, match="No space left on device"):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="failed-create",
+                    content="# failed-create\n\nBody.\n",
+                )
+
+            assert expected_skill_doc.exists() is False
+            assert expected_skill_doc.parent.exists() is False
+
     def test_create_custom_skill_uses_prioritized_root_even_when_agents_home_aliases_workspace(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -842,6 +880,41 @@ class TestAppGenExtensionsRoutes:
             assert response.skill.skillId == "workspace_agents_skills::editable"
             assert response.skillContent.content == "# editable\n\nUpdated.\n"
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
+    def test_update_custom_skill_preserves_existing_content_when_temp_write_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            original_content = "# editable\n\nInitial.\n"
+            skill_doc.write_text(original_content, encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            monkeypatch.setattr(
+                app_gen_extensions.os,
+                "fsync",
+                _raise_no_space_left_on_device,
+            )
+
+            with pytest.raises(ValueError, match="No space left on device"):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::editable",
+                    relative_path=None,
+                    content="# editable\n\nUpdated.\n",
+                )
+
+            assert skill_doc.read_text(encoding="utf-8") == original_content
+            assert [path.name for path in skill_dir.iterdir()] == ["SKILL.md"]
 
     def test_update_custom_skill_by_skill_id_fails_when_target_disappears_before_open(
         self,
@@ -1374,6 +1447,51 @@ class TestAppGenExtensionsRoutes:
         )
         clear_setta_paths_cache()
 
+    def test_upsert_custom_skill_route_returns_400_and_no_skill_doc_when_create_temp_write_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        expected_skill_doc = (
+            fake_home / ".agents" / "skills" / "route-failed-create" / "SKILL.md"
+        )
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.setattr(
+            app_gen_extensions.os,
+            "fsync",
+            _raise_no_space_left_on_device,
+        )
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "route-failed-create",
+                    "content": "# route-failed-create\n\nBody.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "No space left on device" in response.json()["detail"]
+        assert expected_skill_doc.exists() is False
+        assert expected_skill_doc.parent.exists() is False
+        clear_setta_paths_cache()
+
     def test_upsert_custom_skill_route_rejects_late_create_collisions_without_overwrite(
         self,
         tmp_path: Path,
@@ -1437,6 +1555,52 @@ class TestAppGenExtensionsRoutes:
             in response.json()["detail"]
         )
         assert skill_doc.read_text(encoding="utf-8") == winning_content
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_returns_400_and_preserves_existing_content_when_update_temp_write_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        skill_doc = workspace_root / ".agents" / "skills" / "editable" / "SKILL.md"
+        skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        original_content = "# editable\n\nInitial.\n"
+        skill_doc.write_text(original_content, encoding="utf-8")
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.setattr(
+            app_gen_extensions.os,
+            "fsync",
+            _raise_no_space_left_on_device,
+        )
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::editable",
+                    "relativePath": None,
+                    "content": "# editable\n\nUpdated.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "No space left on device" in response.json()["detail"]
+        assert skill_doc.read_text(encoding="utf-8") == original_content
+        assert [path.name for path in skill_doc.parent.iterdir()] == ["SKILL.md"]
         clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_returns_missing_when_update_target_disappears_before_open(

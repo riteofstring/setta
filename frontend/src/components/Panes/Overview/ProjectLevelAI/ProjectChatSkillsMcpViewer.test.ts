@@ -6,6 +6,7 @@ import {
   isCustomSlashNamespaceAuthorityReady,
   resolveCanAddCustomSlashCommand,
   resolveCustomSlashDraftByProjectConfigIdUpdate,
+  resolveRenderedSkillPreviewContent,
   resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdReplace,
@@ -552,6 +553,30 @@ describe("resolveSkillPreviewContent", () => {
     });
 
     expect(preview).toBe("Select a skill to preview SKILL.md.");
+  });
+});
+
+describe("resolveRenderedSkillPreviewContent", () => {
+  it("uses the current raw draft when the selected skill content is loaded", () => {
+    const preview = resolveRenderedSkillPreviewContent({
+      skillPreviewContent: "# Original",
+      skillMarkdownRawDraft: "# Updated draft",
+      selectedSkillId: "user_agents_skills::editable",
+      skillContentLoadStatus: "loaded",
+    });
+
+    expect(preview).toBe("# Updated draft");
+  });
+
+  it("keeps loading and error placeholders authoritative outside loaded state", () => {
+    const preview = resolveRenderedSkillPreviewContent({
+      skillPreviewContent: "Skill content unavailable.",
+      skillMarkdownRawDraft: "# Updated draft",
+      selectedSkillId: "user_agents_skills::editable",
+      skillContentLoadStatus: "error",
+    });
+
+    expect(preview).toBe("Skill content unavailable.");
   });
 });
 

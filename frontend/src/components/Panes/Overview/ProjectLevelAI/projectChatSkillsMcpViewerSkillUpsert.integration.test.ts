@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  resolveRenderedSkillPreviewContent,
   resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
+  resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdReplace,
+  resolveSkillMarkdownRawDraftBySkillIdUpdate,
+  resolveSkillPreviewContent,
   upsertAppGenSkillEntry,
 } from "./ProjectChatSkillsMcpViewer";
 
@@ -79,5 +83,38 @@ describe("project chat skills viewer upsert response integration", () => {
       loadedContent: "# beta-custom\n\nBeta stable body",
     });
     expect(nextSelectedSkillViewState).toBeNull();
+  });
+
+  it("keeps rendered preview aligned with unsaved raw edits for the active skill", () => {
+    const skillId = "user_agents_skills::alpha-custom";
+    const hydratedDraftState = resolveSkillMarkdownRawDraftBySkillIdHydration({
+      skillMarkdownDraftStateBySkillId: {},
+      skillId,
+      skillContent: "# alpha-custom\n\nOriginal",
+    });
+    const dirtyDraftState = resolveSkillMarkdownRawDraftBySkillIdUpdate({
+      skillMarkdownDraftStateBySkillId: hydratedDraftState ?? {},
+      skillId,
+      nextRawDraft: "# alpha-custom\n\nUpdated draft",
+    });
+    const skillPreviewContent = resolveSkillPreviewContent({
+      skillContentLoading: false,
+      skillsLoading: false,
+      selectedSkillId: skillId,
+      skillContentLoadStatus: "loaded",
+      selectedSkillContent: "# alpha-custom\n\nOriginal",
+    });
+    const renderedPreview = resolveRenderedSkillPreviewContent({
+      skillPreviewContent,
+      skillMarkdownRawDraft: dirtyDraftState?.[skillId]?.draft ?? null,
+      selectedSkillId: skillId,
+      skillContentLoadStatus: "loaded",
+    });
+
+    expect(dirtyDraftState?.[skillId]).toEqual({
+      draft: "# alpha-custom\n\nUpdated draft",
+      loadedContent: "# alpha-custom\n\nOriginal",
+    });
+    expect(renderedPreview).toBe("# alpha-custom\n\nUpdated draft");
   });
 });

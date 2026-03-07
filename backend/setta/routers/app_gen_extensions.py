@@ -1,6 +1,7 @@
 import codecs
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from fastapi import Depends, HTTPException, status
@@ -501,22 +502,74 @@ def _build_written_skill_content(
     )
 
 
+def _unlink_if_exists(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+
+
+def _write_temp_custom_skill_doc(
+    *,
+    skill_doc: Path,
+    content: str,
+) -> Path:
+    try:
+        temp_fd, temp_path_str = tempfile.mkstemp(
+            prefix=".setta-skill-",
+            suffix=".tmp",
+            dir=str(skill_doc.parent),
+        )
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+    temp_path = Path(temp_path_str)
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError as exc:
+        _unlink_if_exists(temp_path)
+        raise ValueError(str(exc)) from exc
+    return temp_path
+
+
 def _write_new_custom_skill_doc(
     *,
     skill_doc: Path,
     relative_path: str,
     content: str,
 ) -> None:
+    skill_dir = skill_doc.parent
     try:
-        skill_doc.parent.mkdir(parents=True, exist_ok=True)
-        with skill_doc.open("x", encoding="utf-8") as handle:
-            handle.write(content)
-    except FileExistsError as exc:
-        raise ValueError(
-            f"Custom skill already exists for relativePath '{relative_path}'."
-        ) from exc
+        skill_dir_exists = skill_dir.exists()
     except OSError as exc:
         raise ValueError(str(exc)) from exc
+    try:
+        skill_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+    temp_path: Path | None = None
+    try:
+        temp_path = _write_temp_custom_skill_doc(skill_doc=skill_doc, content=content)
+        try:
+            os.link(temp_path, skill_doc)
+        except FileExistsError as exc:
+            raise ValueError(
+                f"Custom skill already exists for relativePath '{relative_path}'."
+            ) from exc
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+    finally:
+        if temp_path is not None:
+            _unlink_if_exists(temp_path)
+        if not skill_dir_exists:
+            try:
+                skill_dir.rmdir()
+            except OSError:
+                pass
 
 
 def _write_existing_custom_skill_doc(
@@ -526,24 +579,25 @@ def _write_existing_custom_skill_doc(
     content: str,
 ) -> None:
     try:
-        with skill_doc.open("r+", encoding="utf-8") as handle:
-            handle.seek(0)
-            handle.write(content)
-            handle.truncate()
-    except FileNotFoundError as exc:
-        raise KeyError(f"Missing SKILL.md for {skill_id}") from exc
+        skill_doc_exists = skill_doc.exists()
     except OSError as exc:
         raise ValueError(str(exc)) from exc
-
+    if not skill_doc_exists:
+        raise KeyError(f"Missing SKILL.md for {skill_id}")
+    temp_path = _write_temp_custom_skill_doc(skill_doc=skill_doc, content=content)
     try:
-        written_content = skill_doc.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise KeyError(f"Missing SKILL.md for {skill_id}") from exc
-    except OSError as exc:
-        raise ValueError(str(exc)) from exc
-
-    if written_content != content:
-        raise ValueError("SKILL.md changed during update. Retry the save.")
+        try:
+            skill_doc_exists = skill_doc.exists()
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+        if not skill_doc_exists:
+            raise KeyError(f"Missing SKILL.md for {skill_id}")
+        try:
+            os.replace(temp_path, skill_doc)
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+    finally:
+        _unlink_if_exists(temp_path)
 
 
 def upsert_app_gen_custom_skill(
