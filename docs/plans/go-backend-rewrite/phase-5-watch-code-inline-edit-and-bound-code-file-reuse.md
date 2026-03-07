@@ -21,6 +21,19 @@ Current repo status as of 2026-03-07:
 - Watch Code state, route transport, parser/diff planning, runtime ownership,
   project-state file apply, Callable section mutation, callable refetch, and
   warning notifications are complete in Go
+- Step 1 in this focused doc is now complete:
+  - Go owns the authoritative `/setCode` route path for Watch Code-bound
+    Python edits through:
+    - `internal/app/code_updates.go`
+    - `internal/httpapi/project_routes.go`
+    - `internal/projectstate/code_updates.go`
+    - `internal/projectstate/watch_code_bound_sections.go`
+  - bound Python inline edits now reuse the same Watch Code scan/apply helpers
+    as watcher-driven file updates
+  - the Go app service syncs the bound workspace path into LSP before applying
+    the Watch Code update
+  - successful bound Python edits now rehydrate authoritative project state on
+    the frontend through `frontend/src/state/actions/codeUpdates.ts`
 - watcher-triggered file updates already reuse the authoritative Go apply path
   in:
   - `internal/watchcode`
@@ -34,9 +47,8 @@ Current repo status as of 2026-03-07:
   - `backend/setta/project_state/code_files.py`
   - `backend/setta/project_state/base_project_manager.py`
 - the active Watch Code gap is now narrowed to:
-  - inline code edits on bound Python code sections
   - bound code-file reload integration
-  - preserving LSP-before-Watch-Code ordering for both paths
+  - focused verification for the bound code-file reload reuse path
 
 ## Scope
 
@@ -96,16 +108,15 @@ Python currently reuses Watch Code for two non-watcher edit paths:
 
 ## Dependency Finding
 
-Three source-of-truth layers are still missing in Go:
+Two source-of-truth layers are still missing in Go:
 
-1. an authoritative bound-code-section Watch Code hook above the completed file
-   apply helpers
-2. inline `setCode` integration that preserves LSP-before-Watch-Code ordering
-3. bound code-file reload integration that reuses the same helper instead of a
+1. bound code-file reload integration that reuses the same helper instead of a
    second diff path
+2. focused verification for the reload path once it lands
 
 Without those layers, Watch Code behavior still differs depending on whether a
-Python edit arrives through the watcher runtime or through a bound code section.
+Python edit arrives through the watcher runtime or through a bound code-file
+reload.
 
 ## Working Decisions
 
@@ -127,6 +138,8 @@ Python edit arrives through the watcher runtime or through a bound code section.
 ## Implementation Steps
 
 ### Step 1: Inline Edit Hook And Ordering
+
+Status: complete
 
 Deliver:
 
@@ -177,6 +190,7 @@ Acceptance:
 ## Verification Expectations
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/lsp ./internal/app -count=1 -timeout 180s`
+- `pnpm -C frontend exec vitest run src/state/actions/codeUpdates.test.ts src/state/actions/formatCode.test.ts`
 - add focused tests mirroring the Python reference behavior for:
   - bound inline edits creating or updating Watch Code callables
   - bound code-file reloads reusing the same Watch Code helper
@@ -184,9 +198,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 1 next:
+Execute Step 2 next:
 
-- inventory the current Go `setCode` owner and bound-code-section save path
-- add the authoritative bound-code-section Watch Code hook with explicit
-  LSP-before-Watch-Code ordering
-- keep the completed watcher/apply/refetch/warning layers unchanged
+- route the bound code-file reload owner through
+  `ApplyWatchCodeBoundSectionUpdate` after section reload
+- keep one shared Watch Code apply path for watcher, inline-edit, and
+  bound-file refresh inputs
+- add the focused reload-path verification before closing this doc

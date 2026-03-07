@@ -99,10 +99,15 @@ The completed migration work is now captured in:
       frontend `Notification` websocket messages from Go
   - the completed section-mutation work remains captured in:
     - `docs/plans/go-backend-rewrite/phase-5-watch-code-callable-section-mutation.md`
-  - the remaining Watch Code backend gap is now narrowed to code-section and
-    bound code-file reuse:
-    - inline code-section updates and bound code-file reloads still reuse the
-      Python-owned `handle_code_section_update` path
+  - the inline code-section reuse boundary is now complete:
+    - Go-owned `/setCode` now routes bound Python edits through the same Watch
+      Code apply path with explicit `sync LSP -> Watch Code update` ordering
+    - successful bound Python edits now rehydrate authoritative frontend
+      project state after the accepted mutation
+  - the remaining Watch Code backend gap is now narrowed to bound code-file
+    reload reuse:
+    - bound code-file reloads still reuse the Python-owned
+      `handle_code_section_update` path
   - the active remaining Watch Code work is now narrowed in:
     - `docs/plans/go-backend-rewrite/phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
 - the completed runtime-owner work remains captured in:
@@ -179,7 +184,8 @@ remaining source-of-truth layer:
    completed Watch Code apply, section-mutation, refetch, and warning helpers
 
 Without that layer, Watch Code behavior still differs depending on whether a
-Python edit arrives through the watcher runtime or through a bound code section.
+Python edit arrives through the watcher runtime or through a bound code-file
+reload.
 
 ## Working Decisions
 
@@ -388,6 +394,5 @@ For later slices, add:
 
 Continue with:
 
-- `phase-5-watch-code-callable-section-mutation.md`
-- execute its Step 3 warning-notification slice before widening Watch Code into
-  later inline-edit or bound-code-file reuse
+- `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
+- execute its Step 2 bound code-file reload reuse slice next
