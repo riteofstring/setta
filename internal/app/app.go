@@ -228,6 +228,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						update.BaselineOnly,
 						update.MovedFrom,
 						cfg.Paths.WorkspaceRoot,
+						lspSignature,
 					)
 					return err
 				},

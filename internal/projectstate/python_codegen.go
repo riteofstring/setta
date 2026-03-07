@@ -28,6 +28,7 @@ var (
 	ErrProjectCodegenPythonTargetObjectRequired   = errors.New("project python codegen target payload must be a JSON object")
 	ErrProjectCodegenPythonTargetFieldUnknown     = errors.New("project python codegen target field is unknown")
 	ErrProjectCodegenPythonTargetFieldInvalid     = errors.New("project python codegen target field is invalid")
+	ErrProjectCodegenPythonTargetMissing          = errors.New("project python codegen target was not found")
 	ErrProjectCodegenPythonTargetLanguageMismatch = errors.New(
 		"project python codegen target language does not match project state",
 	)
@@ -129,6 +130,60 @@ func (p Project) PythonCodegenTarget() (PythonCodegenTarget, bool, error) {
 	return PythonCodegenTarget{}, false, nil
 }
 
+func EncodePythonCodegenTarget(config PythonCodegenTarget) (RawJSON, error) {
+	payload := map[string]any{
+		"language": string(CodeLanguagePython),
+	}
+	if config.GenCodePrefix != "" {
+		payload["genCodePrefix"] = config.GenCodePrefix
+	}
+	if config.GenCodeSuffix != "" && config.GenCodeSuffix != DefaultPythonCodegenSuffix {
+		payload["genCodeSuffix"] = config.GenCodeSuffix
+	}
+	if config.GenerateMetadata {
+		payload["generateMetadata"] = true
+	}
+	if len(config.SectionPolicy) > 0 {
+		decoded, err := decodePythonCodegenTargetObjectValue(config.SectionPolicy, "sectionPolicy")
+		if err != nil {
+			return nil, err
+		}
+		payload["sectionPolicy"] = decoded
+	}
+	if len(config.CodeObjValuePolicy) > 0 {
+		decoded, err := decodePythonCodegenTargetObjectValue(config.CodeObjValuePolicy, "codeObjValuePolicy")
+		if err != nil {
+			return nil, err
+		}
+		payload["codeObjValuePolicy"] = decoded
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("%w: encode target payload: %v", ErrProjectCodegenPythonTargetPayloadInvalid, err)
+	}
+	return normalizeRawJSON(encoded, "project python codegen target payload")
+}
+
+func (p *Project) SetPythonCodegenTarget(config PythonCodegenTarget) error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+	encoded, err := EncodePythonCodegenTarget(config)
+	if err != nil {
+		return err
+	}
+	for index, target := range p.CodegenTargets {
+		if strings.TrimSpace(target.Language) != string(CodeLanguagePython) {
+			continue
+		}
+		updated := target.Clone()
+		updated.Payload = encoded
+		p.CodegenTargets[index] = updated
+		return nil
+	}
+	return ErrProjectCodegenPythonTargetMissing
+}
+
 func (p *Project) ReconcilePythonGeneratedBindings() error {
 	if p == nil {
 		return ErrProjectNotFound
@@ -226,4 +281,19 @@ func normalizePythonCodegenTargetObjectField(raw json.RawMessage, field string) 
 		return nil, fmt.Errorf("%w: %s must be a JSON object", ErrProjectCodegenPythonTargetFieldInvalid, field)
 	}
 	return normalized, nil
+}
+
+func decodePythonCodegenTargetObjectValue(raw json.RawMessage, field string) (map[string]any, error) {
+	normalized, err := normalizePythonCodegenTargetObjectField(raw, field)
+	if err != nil {
+		return nil, err
+	}
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	value, err := rawObjectFromProjectPayload(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode %s: %v", ErrProjectCodegenPythonTargetPayloadInvalid, field, err)
+	}
+	return value, nil
 }

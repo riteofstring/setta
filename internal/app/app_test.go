@@ -387,7 +387,17 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 
 	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
 		entry, ok := project.WatchCodeRegistry["pkg.created.created:function"]
-		return ok && entry.SourcePath == watchFile && len(entry.SectionIDs) == 0 && entry.SectionsCount == 0
+		if !ok || entry.SourcePath != watchFile || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+			return false
+		}
+		_, _, impl, err := project.ResolveSection(entry.SectionIDs[0])
+		if err != nil {
+			return false
+		}
+		if string(impl.Kind) != "callable" {
+			return false
+		}
+		return true
 	})
 
 	if err := os.Remove(watchFile); err != nil {
@@ -1377,7 +1387,7 @@ func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projec
 func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predicate func(projectstate.Project) bool) {
 	t.Helper()
 
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(15 * time.Second)
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 

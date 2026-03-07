@@ -11,12 +11,14 @@ import (
 )
 
 func (d *Document) ApplyWatchCodeFileUpdate(
+	ctx context.Context,
 	projectID string,
 	sourcePath string,
 	raw string,
 	baselineOnly bool,
 	movedFrom string,
 	workspaceRoot string,
+	resolver CallableSignatureResolver,
 ) (bool, error) {
 	if d == nil {
 		return false, ErrProjectNotFound
@@ -31,7 +33,7 @@ func (d *Document) ApplyWatchCodeFileUpdate(
 		return false, nil
 	}
 
-	didUpdate, err := project.ApplyWatchCodeFileUpdate(sourcePath, raw, baselineOnly, movedFrom, workspaceRoot)
+	didUpdate, err := project.ApplyWatchCodeFileUpdate(ctx, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
 	if err != nil {
 		return false, err
 	}
@@ -77,13 +79,14 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 	baselineOnly bool,
 	movedFrom string,
 	workspaceRoot string,
+	resolver CallableSignatureResolver,
 ) (Snapshot, bool, error) {
 	if r == nil {
 		return Snapshot{}, false, ErrRuntimeClosed
 	}
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
-		didUpdate, err := document.ApplyWatchCodeFileUpdate(projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot)
+		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
 		return document, didUpdate, err
 	})
 }
@@ -145,14 +148,19 @@ func (r *Runtime) mutateAndSaveIfUpdated(
 }
 
 func (p *Project) ApplyWatchCodeFileUpdate(
+	ctx context.Context,
 	sourcePath string,
 	raw string,
 	baselineOnly bool,
 	movedFrom string,
 	workspaceRoot string,
+	resolver CallableSignatureResolver,
 ) (bool, error) {
 	if p == nil {
 		return false, ErrProjectNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	normalizedSourcePath, ok, err := resolveWatchCodeActivePath(workspaceRoot, sourcePath, "watch code source path")
@@ -215,7 +223,11 @@ func (p *Project) ApplyWatchCodeFileUpdate(
 		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
 		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	if p.applyWatchCodeScanPlan(scanPlan) {
+	updated, err := p.applyWatchCodeScanPlan(ctx, scanPlan, resolver)
+	if err != nil {
+		return false, err
+	}
+	if updated {
 		didUpdate = true
 	}
 	return didUpdate, nil
@@ -245,7 +257,7 @@ func (p *Project) ApplyWatchCodeFileDelete(
 		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
 		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	return p.applyWatchCodeDeletePlan(deletePlan), nil
+	return p.applyWatchCodeDeletePlan(deletePlan)
 }
 
 func resolveWatchCodeActivePath(workspaceRoot string, raw string, label string) (string, bool, error) {
@@ -345,63 +357,6 @@ func (p *Project) applyWatchCodeMovePlan(plan watchcode.MovePlan) bool {
 	return didUpdate
 }
 
-func (p *Project) applyWatchCodeScanPlan(plan watchcode.ScanPlan) bool {
-	didUpdate := false
-
-	if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
-		if p.setWatchCodeBaseline(plan.SourcePath, plan.PrunedBaseline) {
-			didUpdate = true
-		}
-	}
-	for _, rename := range plan.Renames {
-		entry, ok := p.WatchCodeRegistry[rename.OldIdentity]
-		if !ok {
-			continue
-		}
-		delete(p.WatchCodeRegistry, rename.OldIdentity)
-		entry.Kind = fromWatchcodeCallableKind(rename.NewCallable.Kind)
-		entry.SignatureHash = rename.NewCallable.SignatureHash
-		entry.BodyHash = rename.NewCallable.BodyHash
-		entry.SourcePath = plan.SourcePath
-		p.WatchCodeRegistry[rename.NewCallable.Identity] = entry
-		didUpdate = true
-	}
-	for _, identity := range plan.RemovedIdentities {
-		if _, ok := p.WatchCodeRegistry[identity]; !ok {
-			continue
-		}
-		delete(p.WatchCodeRegistry, identity)
-		didUpdate = true
-	}
-	for _, metadataChange := range plan.MetadataChanges {
-		if p.applyWatchCodeMetadataChange(metadataChange.Identity, metadataChange.Callable, plan.SourcePath) {
-			didUpdate = true
-		}
-	}
-	for _, signatureChange := range plan.SignatureChanges {
-		if p.applyWatchCodeMetadataChange(signatureChange.Identity, signatureChange.Callable, plan.SourcePath) {
-			didUpdate = true
-		}
-	}
-	for _, addition := range plan.Additions {
-		if _, ok := p.WatchCodeRegistry[addition.Identity]; ok {
-			continue
-		}
-		p.WatchCodeRegistry[addition.Identity] = WatchCodeRegistryEntry{
-			CallableName:  addition.CanonicalName,
-			Kind:          fromWatchcodeCallableKind(addition.Kind),
-			SignatureHash: addition.SignatureHash,
-			BodyHash:      addition.BodyHash,
-			SourcePath:    plan.SourcePath,
-			SectionIDs:    []string{},
-			SectionsCount: 0,
-		}
-		didUpdate = true
-	}
-
-	return didUpdate
-}
-
 func (p *Project) applyWatchCodeMetadataChange(identity string, callable watchcode.CallableInfo, sourcePath string) bool {
 	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
@@ -431,24 +386,6 @@ func (p *Project) applyWatchCodeMetadataChange(identity string, callable watchco
 	}
 	p.WatchCodeRegistry[identity] = entry
 	return true
-}
-
-func (p *Project) applyWatchCodeDeletePlan(plan watchcode.DeletePlan) bool {
-	didUpdate := false
-	for _, identity := range plan.RemovedIdentities {
-		if _, ok := p.WatchCodeRegistry[identity]; !ok {
-			continue
-		}
-		delete(p.WatchCodeRegistry, identity)
-		didUpdate = true
-	}
-	if plan.RemoveBaselinePath {
-		if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
-			delete(p.WatchCodeBaselineByPath, plan.SourcePath)
-			didUpdate = true
-		}
-	}
-	return didUpdate
 }
 
 func (p *Project) setWatchCodeBaseline(sourcePath string, identities []string) bool {
