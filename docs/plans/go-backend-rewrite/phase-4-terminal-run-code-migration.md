@@ -18,6 +18,16 @@ Current repo status as of 2026-03-06:
   - websocket attach/read/write/resize
   - terminal delete
   - terminal interrupt
+- Go now owns the first IDE manual-run planner under:
+  - `internal/runs`
+- the Go IDE planner currently supports:
+  - manual Python/Bash code-section command planning
+  - `never`, `ephemeral`, and `always` snapshot modes
+  - section-variant overrides applied against a cloned document
+  - snapshot creation from code-file bindings on disk
+- the Go IDE planner currently rejects:
+  - `paramOverrides`
+    - Go project state does not yet model params, so the planner fails explicitly instead of guessing
 - Python still owns `POST /api/runCode` under:
   - `backend/setta/routers/terminals.py`
 - Python run-code behavior is currently split across:
@@ -33,10 +43,11 @@ Current repo status as of 2026-03-06:
   - code language metadata and file binding metadata
   - attached-terminal validation
   - attached-terminal and temporary-terminal mutation helpers
-- Go does not yet have run snapshot creation or run-command builders
+- Go now has the first run snapshot creation and run-command builders for IDE manual code-section runs
 - Go does not yet have a backend-log event sink for run start notifications
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
+- Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope
 
@@ -373,6 +384,40 @@ Notes:
 
 - generated Python project-entry runs should stay deferred until Go owns enough
   codegen state to build them robustly
+- `paramOverrides` remain deferred until Go project state owns parameter graphs;
+  the planner should reject them explicitly instead of implementing a heuristic
+  partial port
+
+Status:
+
+- complete for the current IDE caller surface
+
+Completed:
+
+- added `internal/runs/planner.go`
+- added a transport-independent IDE planner that:
+  - resolves the effective manual run target from `internal/projectstate`
+  - applies section-variant overrides against a cloned document
+  - promotes `runSnapshotMode=never` to `ephemeral` when overrides require an isolated snapshot
+  - plans direct-file Python and Bash commands without depending on HTTP transport
+- added snapshot creation for manual code-section runs:
+  - `ephemeral` snapshots land under the runtime root
+  - `always` snapshots land under `setta_files/code`
+  - snapshot contents come from code-file bindings on disk
+- made the first Go override boundary explicit:
+  - unknown sections and unknown/mismatched variants fail explicitly
+  - malformed param override keys fail explicitly
+  - well-formed `paramOverrides` are rejected until Go owns parameter state
+
+Tests:
+
+- `internal/runs/planner_test.go`
+  - direct-file planning for `runSnapshotMode=never`
+  - snapshot creation for `ephemeral`
+  - non-mutating section-variant overrides
+  - explicit invalid override failures
+  - explicit `paramOverrides` rejection
+- `./scripts/go.sh test ./internal/runs`
 
 ### Slice 3: IDE Terminal Run Transport
 
@@ -433,8 +478,8 @@ Rationale:
 
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- add `internal/runs` for IDE-mode run planning
-- start with manual Python/Bash code-section command planning and override application
-- keep generated project-entry runs and deployment/share policy work deferred until the planner boundary is stable
+- add `POST /api/runCode` in Go for the first supported IDE path
+- use `internal/runs` plus `internal/terminals` to pick the terminal target and dispatch the planned command
+- keep generated project-entry runs, `cliId`, and deployment/share policy work deferred until the IDE transport path is stable

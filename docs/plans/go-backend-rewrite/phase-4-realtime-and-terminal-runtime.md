@@ -54,7 +54,14 @@ Current repo status as of 2026-03-06:
   - `internal/app/app.go`
 - run-code migration groundwork now exists in Go under:
   - `internal/projectstate`
+  - `internal/runs`
   - `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`
+- the Go rewrite now includes the first IDE manual-run planner under:
+  - `internal/runs/planner.go`
+  - manual Python/Bash code-section command planning
+  - direct-file run commands plus snapshot planning for `never`, `ephemeral`, and `always`
+  - section-variant overrides applied against cloned project-state documents
+  - explicit rejection of `paramOverrides` until Go owns parameter state
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
