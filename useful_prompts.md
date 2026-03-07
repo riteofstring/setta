@@ -6,6 +6,13 @@ Review this branch for merge into `main`.
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status main...HEAD`
       - `git diff $(git merge-base main HEAD)..HEAD`
+
+    Branch intent guardrails
+    - Read `branch_intent.md` before reviewing the diff.
+    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch, except for any guidance about backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior.
+    - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
+    - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
+    - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
  
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
@@ -41,6 +48,7 @@ Review this branch for merge into `main`.
     3. Dead code inventory
     4. Backward-compatibility shim inventory (must remove)
     5. Regression test plan
+    6. `branch_intent.md` alignment check (items respected vs any true regressions with evidence)
 
 
 Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
@@ -55,7 +63,7 @@ Merge the main branch into our current branch. If there are merge conflicts, res
 
 Merge <> into main. In the commit message, include a detailed summary of what the <> branch does.
 
-Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes. Exclude fixes that involve adding backward compatibility.
+Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 
 Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.
 
@@ -93,3 +101,26 @@ Working rules:
 - At the end of any substantial chunk of work, update the relevant phase/spike doc with what was completed, decisions made, open questions, and the next recommended step.
 - If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
 - Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+
+Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
+
+  Scope and method:
+  - Analyze only what this branch introduces vs merge base:
+    - `git diff --name-status main...HEAD`
+    - `git diff $(git merge-base main HEAD)..HEAD`
+  - Capture both feature work and bug fixes.
+  - Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
+
+  For each item, include:
+  - What changed (before vs after behavior)
+  - Why the change appears intentional
+  - Files/endpoints/components involved (with paths)
+  - Any default-value changes, moved/renamed UX flows, or relocated logic
+  - Reviewer guardrail: what should not be reverted in later reviews unless a new decision is made
+
+  Output requirements:
+  - Overwrite `branch_intent.md` with this branch's current summary.
+  - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
+  - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.

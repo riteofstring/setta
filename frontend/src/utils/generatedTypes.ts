@@ -708,6 +708,7 @@ export const RouteEnum = {
   STREAM_APP_SPEC: "/streamAppSpec",
   GET_APP_GEN_SKILLS: "/getAppGenSkills",
   GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
+  UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -8770,6 +8771,8 @@ const AppGenSkillEntrySchema = z.object({
   rootLabel: z.string(),
   rootPath: z.string(),
   relativePath: z.string(),
+  isEditable: z.boolean(),
+  editabilityReason: z.union([z.string(), z.null()]).default(null),
   description: z.string().default("" as const),
 });
 
@@ -8781,6 +8784,39 @@ const GetAppGenSkillContentRequestSchema = z.object({
 
 export type GetAppGenSkillContentRequestInput = z.input<
   typeof GetAppGenSkillContentRequestSchema
+>;
+
+const GetAppGenSkillsResponseSchema = z.object({
+  skills: z.array(AppGenSkillEntrySchema),
+  customSkillCreateRootPath: z.union([z.string(), z.null()]).default(null),
+  customSkillCreateRootActionable: z.boolean().default(false),
+});
+
+export type GetAppGenSkillsResponse = z.infer<
+  typeof GetAppGenSkillsResponseSchema
+>;
+
+const UpsertAppGenCustomSkillRequestSchema = z.object({
+  skillId: z.union([z.string(), z.null()]).default(null),
+  relativePath: z.union([z.string(), z.null()]).default(null),
+  content: z.string(),
+});
+
+export type UpsertAppGenCustomSkillRequestInput = z.input<
+  typeof UpsertAppGenCustomSkillRequestSchema
+>;
+
+const UpsertAppGenCustomSkillResponseSchema = z.object({
+  skillId: z.string(),
+  created: z.boolean(),
+  rootPath: z.string(),
+  skillDocPath: z.string(),
+  skill: AppGenSkillEntrySchema,
+  skillContent: AppGenSkillContentSchema,
+});
+
+export type UpsertAppGenCustomSkillResponse = z.infer<
+  typeof UpsertAppGenCustomSkillResponseSchema
 >;
 
 const StreamAppSpecRequestSchema = z.object({
